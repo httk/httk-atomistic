@@ -1,6 +1,9 @@
 # *httk-atomistic*
 
-*httk-atomistic* is a *httk v2* module providing crystal structure representations under the namespace `httk.atomistic`.
+This site documents specifically the *httk-atomistic* module. For the full
+documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org).
+
+*httk-atomistic* is a *httk₂* module providing crystal structure representations under the namespace `httk.atomistic`.
 
 ```{admonition} Quick links
 :class: tip
