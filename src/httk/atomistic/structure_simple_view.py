@@ -29,7 +29,7 @@ class StructureSimpleView(StructureView, Structure):
         instance = super().__new__(cls)
         # Structure is mutable, so its state is initialized here in __new__ (keeping __init__ a no-op),
         # so that rewrapping an existing view via cls(view) does not re-initialize it.
-        Structure.__init__(instance, backend.basis, backend.sites, backend.species, backend.species_at_sites)
+        Structure.__init__(instance, backend.cell, backend.sites, backend.species, backend.species_at_sites)
         instance._backend = backend
         return instance
 

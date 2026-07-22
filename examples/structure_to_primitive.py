@@ -5,7 +5,7 @@ from httk.atomistic import Structure, StructurePrimitiveView
 
 def main() -> None:
     structure = Structure(
-        basis=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
+        cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         species=[
             {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]},

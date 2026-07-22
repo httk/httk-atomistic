@@ -4,7 +4,9 @@ Backend wrapping an spglib-like (lattice, positions, numbers) triple.
 
 from typing import Any
 
+from .cell import Cell
 from .elements import symbol_of
+from .sites import Sites
 from .species import Species
 from .structure_backend import StructureBackend
 
@@ -44,16 +46,17 @@ class StructurePrimitive(StructureBackend):
     The native representation is a length-3 ``(lattice, positions, numbers)`` list
     or tuple, where ``lattice`` is 3x3, ``positions`` is Nx3 reduced coordinates,
     and ``numbers`` is the length-N sequence of atomic numbers. The quartet is
-    derived lazily and cached: ``species`` is one single-element ``Species`` per
-    distinct atomic number, and ``unwrap`` returns the original triple.
+    derived lazily and cached: ``cell`` is a ``Cell``, ``sites`` a ``Sites``,
+    ``species`` one single-element ``Species`` per distinct atomic number, and
+    ``unwrap`` returns the original triple.
     """
 
     _raw: Any
     _lattice: Any
     _positions: Any
     _numbers: tuple[int, ...]
-    _basis_cache: tuple[tuple[float, ...], ...] | None
-    _sites_cache: tuple[tuple[float, ...], ...] | None
+    _cell_cache: Cell | None
+    _sites_cache: Sites | None
     _species_cache: tuple[Species, ...] | None
     _species_at_sites_cache: tuple[str, ...] | None
 
@@ -71,21 +74,21 @@ class StructurePrimitive(StructureBackend):
         self._lattice = lattice
         self._positions = positions
         self._numbers = tuple(int(z) for z in numbers)
-        self._basis_cache = None
+        self._cell_cache = None
         self._sites_cache = None
         self._species_cache = None
         self._species_at_sites_cache = None
 
     @property
-    def basis(self) -> tuple[tuple[float, ...], ...]:
-        if self._basis_cache is None:
-            self._basis_cache = tuple(tuple(float(x) for x in row) for row in self._lattice)
-        return self._basis_cache
+    def cell(self) -> Cell:
+        if self._cell_cache is None:
+            self._cell_cache = Cell(self._lattice)
+        return self._cell_cache
 
     @property
-    def sites(self) -> tuple[tuple[float, ...], ...]:
+    def sites(self) -> Sites:
         if self._sites_cache is None:
-            self._sites_cache = tuple(tuple(float(x) for x in row) for row in self._positions)
+            self._sites_cache = Sites(self._positions)
         return self._sites_cache
 
     @property

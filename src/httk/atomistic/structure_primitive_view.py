@@ -38,7 +38,7 @@ class StructurePrimitiveView(StructureView, tuple):
                     f"(species {name!r} is not a single, unattached chemical element)"
                 )
             numbers.append(atomic_number(species.chemical_symbols[0]))
-        payload = (backend.basis, backend.sites, tuple(numbers))
+        payload = (backend.cell.matrix, backend.sites.reduced_coords, tuple(numbers))
         instance = super().__new__(cls, payload)
         instance._backend = backend
         return instance

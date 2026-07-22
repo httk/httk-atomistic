@@ -1,6 +1,8 @@
 import pytest
 
 from httk.atomistic import (
+    Cell,
+    Sites,
     Species,
     Structure,
     StructureBackend,
@@ -18,7 +20,7 @@ CUBIC = [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
 
 def nacl_structure() -> Structure:
     return Structure(
-        basis=CUBIC,
+        cell=CUBIC,
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         species=[
             {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]},
@@ -115,37 +117,41 @@ def test_species_is_single_element_cases() -> None:
 
 def test_structure_normalizes_and_exposes_quartet() -> None:
     structure = nacl_structure()
-    assert structure.basis == ((4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0))
-    assert structure.sites == ((0.0, 0.0, 0.0), (0.5, 0.5, 0.5))
+    assert isinstance(structure.cell, Cell)
+    assert structure.cell.matrix == ((4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0))
+    assert isinstance(structure.sites, Sites)
+    assert structure.sites.reduced_coords == ((0.0, 0.0, 0.0), (0.5, 0.5, 0.5))
+    assert len(structure.sites) == 2
     assert all(isinstance(s, Species) for s in structure.species)
     assert structure.species_at_sites == ("Na", "Cl")
 
 
 def test_structure_shape_and_name_validation() -> None:
-    with pytest.raises(ValueError):
+    # A malformed cell is rejected by the Cell family (a 2x2 cannot be represented).
+    with pytest.raises((ValueError, TypeError)):
         Structure(
-            basis=[[1.0, 0.0], [0.0, 1.0]],
+            cell=[[1.0, 0.0], [0.0, 1.0]],
             sites=[[0.0, 0.0, 0.0]],
             species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
             species_at_sites=["Na"],
         )
     with pytest.raises(ValueError):
         Structure(
-            basis=CUBIC,
+            cell=CUBIC,
             sites=[[0.0, 0.0, 0.0]],
             species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
             species_at_sites=["Na", "Cl"],
         )
     with pytest.raises(ValueError):
         Structure(
-            basis=CUBIC,
+            cell=CUBIC,
             sites=[[0.0, 0.0, 0.0]],
             species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
             species_at_sites=["Cl"],
         )
     with pytest.raises(ValueError):
         Structure(
-            basis=CUBIC,
+            cell=CUBIC,
             sites=[[0.0, 0.0, 0.0]],
             species=[
                 {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]},
@@ -158,7 +164,7 @@ def test_structure_shape_and_name_validation() -> None:
 def test_structure_equality() -> None:
     assert nacl_structure() == nacl_structure()
     other = Structure(
-        basis=CUBIC,
+        cell=CUBIC,
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         species=[
             {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]},
@@ -200,7 +206,7 @@ def test_backend_create_raises_for_malformed_triple() -> None:
 def test_simple_view_from_primitive_derives_species() -> None:
     view = StructureSimpleView(nacl_triple())
     assert isinstance(view, Structure)
-    assert view.basis == ((4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0))
+    assert view.cell.matrix == ((4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0))
     assert view.species_at_sites == ("Na", "Cl")
     assert {s.name for s in view.species} == {"Na", "Cl"}
     assert all(s.is_single_element for s in view.species)
@@ -223,7 +229,7 @@ def test_primitive_view_from_structure_has_correct_numbers() -> None:
 
 def test_primitive_view_raises_for_non_single_element_species() -> None:
     alloy = Structure(
-        basis=CUBIC,
+        cell=CUBIC,
         sites=[[0.0, 0.0, 0.0]],
         species=[{"name": "Ti", "chemical_symbols": ["Ti", "vacancy"], "concentration": [0.9, 0.1]}],
         species_at_sites=["Ti"],
@@ -264,7 +270,7 @@ def test_unwrap_returns_native_raw_object() -> None:
 
 def test_optimade_vacancy_and_attached_examples_survive_simple_but_not_primitive() -> None:
     structure = Structure(
-        basis=CUBIC,
+        cell=CUBIC,
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         species=[
             {"name": "Ti", "chemical_symbols": ["Ti", "vacancy"], "concentration": [0.9, 0.1]},
