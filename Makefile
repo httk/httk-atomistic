@@ -1,12 +1,16 @@
 PYTHON ?= python3
 
+# Base URL of the published httk documentation site, used for cross-linking docs
+# between httk repositories (read by docs/conf.py via HTTK_DOCS_BASE_URL).
+DOCS_BASE_URL ?= https://docs.httk.org
+
 .PHONY: docs docs-live docs-clean clean format format-check typecheck typecheck_pyright lint test test_fastfail audit
 
 docs: docs-clean
-	$(PYTHON) -m sphinx -E -a -b html -W --keep-going docs docs/_build/html
+	HTTK_DOCS_BASE_URL=$(DOCS_BASE_URL) $(PYTHON) -m sphinx -E -a -b html -W --keep-going docs docs/_build/html
 
 docs-live:
-	sphinx-autobuild docs docs/_build/html
+	HTTK_DOCS_BASE_URL=$(DOCS_BASE_URL) sphinx-autobuild docs docs/_build/html
 
 docs-clean:
 	rm -rf docs/_build docs/reference/autoapi
