@@ -4,6 +4,8 @@ Backend wrapping a Structure in the Simple representation.
 
 from typing import Any
 
+from .cell import Cell
+from .sites import Sites
 from .species import Species
 from .structure import Structure
 from .structure_backend import StructureBackend
@@ -31,11 +33,11 @@ class StructureSimple(StructureBackend):
         self._structure = obj
 
     @property
-    def basis(self) -> tuple[tuple[float, ...], ...]:
-        return self._structure.basis
+    def cell(self) -> Cell:
+        return self._structure.cell
 
     @property
-    def sites(self) -> tuple[tuple[float, ...], ...]:
+    def sites(self) -> Sites:
         return self._structure.sites
 
     @property

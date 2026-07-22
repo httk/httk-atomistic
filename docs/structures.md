@@ -12,9 +12,10 @@ A crystal structure is available through one family of backends and views:
 - accepted union: `StructureLike`
 
 Every backend produces the same canonical Simple quartet declared by `StructureAPI`:
-`basis` (3x3 cell vectors), `sites` (Nx3 reduced coordinates), `species` (a tuple of
-`Species`), and `species_at_sites` (the species name at each site). Views build their
-presentation from that quartet; there is no pairwise conversion between representations.
+`cell` (a `Cell` of 3x3 cell vectors), `sites` (a `Sites` of Nx3 reduced coordinates),
+`species` (a tuple of `Species`), and `species_at_sites` (the species name at each site).
+Views build their presentation from that quartet; there is no pairwise conversion between
+representations.
 
 In normal user code, you usually accept `StructureLike` and normalize immediately to one view.
 
@@ -25,7 +26,7 @@ from httk.atomistic import Structure, StructureSimpleView, StructurePrimitiveVie
 
 # A Structure (the Simple representation)
 structure = Structure(
-    basis=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
+    cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
     sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
     species=[
         {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]},
@@ -46,23 +47,57 @@ triple = (
 as_structure = StructureSimpleView(triple)
 ```
 
+## Component families
+
+The `cell`, `sites`, and `species` components each get the same view/backend treatment as
+`Structure` itself, mirroring the Structure family with `Class` in place of `Simple` (there
+the word describes the representation, which still applies):
+
+- `Cell`: backends `CellClass` / `CellPrimitive`, views `CellClassView` / `CellPrimitiveView`,
+  union `CellLike`. `Cell` exposes `matrix` plus the derived `lengths`, `angles` (the
+  crystallographic `alpha`/`beta`/`gamma` in degrees), and `volume`.
+- `Sites`: backends `SitesClass` / `SitesPrimitive`, views `SitesClassView` /
+  `SitesPrimitiveView`, union `SitesLike`. `Sites` exposes `reduced_coords` and is iterable,
+  indexable, and sized over its rows.
+- `Species` (one species; the OPTIMADE `species` object): backends `SpeciesClass` /
+  `SpeciesPrimitive`, views `SpeciesClassView` / `SpeciesPrimitiveView`, union `SpeciesLike`.
+  The class representation is the frozen `Species`; the primitive representation is an
+  OPTIMADE species dict.
+
+```python
+from httk.atomistic import Cell, CellPrimitiveView, SpeciesPrimitiveView
+
+cell = structure.cell            # a Cell
+cell.lengths, cell.angles, cell.volume
+raw_matrix = tuple(CellPrimitiveView(cell))          # back to a raw 3x3 tuple
+optimade = dict(SpeciesPrimitiveView(structure.species[0]))  # a species as an OPTIMADE dict
+```
+
+The kinds dispatch by type: a `Cell`/`Sites`/`Species` goes to its `*Class` backend and a raw
+matrix / dict to its `*Primitive` backend. Pass `kind="class"` or `kind="primitive"` to force
+an interpretation.
+
 ## Notes
 
 - A `Structure` is dispatched to `StructureSimple` and a length-3 triple to
   `StructurePrimitive`. A malformed triple raises `TypeError` from `create`.
   Pass `kind="simple"` or `kind="primitive"` to force an interpretation.
 - `StructureSimpleView` and `StructurePrimitiveView` are eager: they build their
-  full presentation when constructed.
+  full presentation when constructed. The same holds for the component views. The
+  `*ClassView` and `*PrimitiveView` immutable-subclass views are genuine instances of their
+  class (a `Cell`, a tuple, ...); `SpeciesPrimitiveView` is a genuine — but detached and
+  mutable — OPTIMADE `dict`.
 - `StructurePrimitiveView` requires every site's species to be a single, unattached
   chemical element; alloy, vacancy, and attached species cannot be represented as a
   bare atomic number and raise `TypeError`. Such species survive in the Simple
   representation.
 - Rewrapping a view returns the same object, and views built from the same backend
-  share it. `unwrap(view)` returns the native raw object (a `Structure` or a triple).
-- The numeric values are currently interim nested tuples of floats. They are planned
-  to be replaced by the httk exact vector representation; keep numeric access behind
-  the quartet accessors. An ASU (asymmetric-unit) representation is also an upcoming
-  addition.
+  share it. `unwrap(view)` returns the native raw object (a `Structure` or a triple, a
+  `Cell` or a raw matrix, a `Species` or a dict).
+- The numeric values are currently interim nested tuples of floats, and the derived cell
+  quantities use plain float arithmetic. They are planned to be replaced by the httk exact
+  vector representation; keep numeric access behind the quartet accessors. An ASU
+  (asymmetric-unit) representation is also an upcoming addition.
 
 ## Shared Behavior and `unwrap`
 
