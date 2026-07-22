@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "httk-placeholder"
+version = "0.1.0"
+description = "httk module providing placeholder functionality."
+readme = "README.md"
+license = "AGPL-3.0+"
+requires-python = ">=3.12"
+authors = [{ name = "Rickard Armiento", email = "gitcommits@armiento.net" }]
+dependencies = [
+  "httk-core @ git+https://github.com/httk/httk-core",
+]
+keywords = [
+  "Materials Discovery",
+  "Materials Informatics",
+  "Materials Science",
+  "Machine Learning",
+]
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "black",
+  "ruff",
+  "isort",
+  "pyright",
+  "mypy"
+]
+docs = [
+  "sphinx",
+  "furo",
+  "myst-parser",
+  "myst-nb",
+  "sphinx-autodoc-typehints",
+  "sphinx-copybutton",
+  "sphinx-autoapi"
+]
+
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"httk.placeholder" = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+target-version = "py312"
+src = ["src", "examples"]
+
+[tool.black]
+target-version = ["py312"]
+line-length = 120
+skip-string-normalization = true
+
+[tool.pyright]
+pythonVersion = "3.12"
+include = ["src", "examples"]
+extraPaths = ["src"]  
+reportMissingImports = true
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "examples"]
+mypy_path = ["src"]
+namespace_packages = true
+explicit_package_bases = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["yaml", "markdown", "docutils", "docutils.*"]
+ignore_missing_imports = true
