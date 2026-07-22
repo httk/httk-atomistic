@@ -1,11 +1,12 @@
-# *httk-[placeholder]*
+# *httk-atomistic*
 
-*httk-[placeholder]* is a *httk v2* module providing [placeholder functionality].
+*httk-atomistic* is a *httk v2* module providing crystal structure representations under the namespace `httk.atomistic`.
 
 ```{admonition} Quick links
 :class: tip
 
 - **API reference**: {doc}`reference/index`
+- **Structure guide**: {doc}`structures`
 - **Examples notebook**: {doc}`notebooks/examples`
 ````
 
@@ -13,17 +14,28 @@
 
 Preferably work in a Python virtual environment, then do:
 ```bash
-git clone https://github.com/httk/httk-[placeholder]
-cd httk-[placeholder]
+git clone https://github.com/httk/httk-atomistic
+cd httk-atomistic
 python -m pip install -e .
 ```
 
 ## Usage example
 
 ```python
-from httk.[placeholder] import hello_world
+from httk.atomistic import Structure, StructurePrimitiveView
 
-hello_world()
+structure = Structure(
+    basis=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
+    sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+    species=[
+        {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]},
+        {"name": "Cl", "chemical_symbols": ["Cl"], "concentration": [1.0]},
+    ],
+    species_at_sites=["Na", "Cl"],
+)
+
+# Present the same structure as an spglib-like (lattice, positions, numbers) tuple.
+lattice, positions, numbers = StructurePrimitiveView(structure)
 ```
 
 ```{toctree}
@@ -31,5 +43,6 @@ hello_world()
 :caption: Documentation
 
 reference/index
+structures
 notebooks/examples
 ```

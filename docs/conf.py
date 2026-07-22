@@ -1,11 +1,12 @@
+import os
 import warnings
 from datetime import date
 
 from sphinx.deprecation import RemovedInSphinx10Warning
 warnings.filterwarnings("ignore", category=RemovedInSphinx10Warning)
 
-project = "httk-placeholder"
-author = "The httk-placeholder AUTHORS"
+project = "httk-atomistic"
+author = "The httk-atomistic AUTHORS"
 copyright = f"{date.today().year}, {author}"
 
 extensions = [
@@ -69,8 +70,15 @@ html_theme_options = {
 }
 
 # Optional: helpful external linking (edit as needed)
+# httk-atomistic subclasses public httk-core classes (Backend, View), so their
+# Cross-project references resolve against the published httk documentation site.
+# The base URL comes from the DOCS_BASE_URL Makefile variable (exported as
+# HTTK_DOCS_BASE_URL); the default below keeps bare sphinx invocations working.
+_docs_base_url = os.environ.get("HTTK_DOCS_BASE_URL", "https://docs.httk.org")
+
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
+    "httk-core": (f"{_docs_base_url}/httk-core/", None),
 }
 
 autoapi_options = [
@@ -102,7 +110,15 @@ nitpick_ignore = [
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True
 
-suppress_warnings = ["myst.xref_missing"]
+# The real cross-project references to httk-core objects (e.g. httk.core.Backend,
+# httk.core.View used as base classes) are resolved structurally via the httk-core
+# intersphinx inventory above. The remaining "autoapi.python_import_resolution"
+# notice is only AutoAPI's static parser being unable to follow the httk.core
+# import: httk.core lives in a separate distribution that shares the PEP 420 "httk"
+# namespace, so it is not among the source trees AutoAPI parses here. There is no
+# source-level remedy (subclassing the httk-core classes is the intended design),
+# so this specific subtype is suppressed while all reference checking stays strict.
+suppress_warnings = ["myst.xref_missing", "autoapi.python_import_resolution"]
 
 def skip_member(app, what, name, obj, skip, options):
     # Skip private members (those starting with _)
