@@ -1,17 +1,18 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "httk-atomistic"
 version = "0.1.0"
-description = "httk module for atomistic structures and their representations."
+description = "httk₂ module for atomistic structures and their representations."
 readme = "README.md"
-license = "AGPL-3.0+"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
-authors = [{ name = "Rickard Armiento", email = "gitcommits@armiento.net" }]
+authors = [{ name = "Rickard Armiento", email = "rickard-gpg@armiento.net" }]
 dependencies = [
-  "httk-core @ git+https://github.com/httk/httk-core",
+  "httk-core>=2.0.0,<3",
 ]
 keywords = [
   "Materials Discovery",
@@ -20,9 +21,12 @@ keywords = [
   "Machine Learning",
 ]
 classifiers = [
+  "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
   "Operating System :: OS Independent",
-  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering :: Chemistry",
   "Topic :: Scientific/Engineering :: Physics",
 ]
@@ -44,7 +48,16 @@ docs = [
   "sphinx-copybutton",
   "sphinx-autoapi"
 ]
+release = [
+  "build>=1.2",
+  "twine>=6.0",
+]
 
+[project.urls]
+Homepage = "https://httk.org"
+Documentation = "https://docs.httk.org/httk-atomistic/"
+Repository = "https://github.com/httk/httk-atomistic"
+Issues = "https://github.com/httk/httk-atomistic/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
