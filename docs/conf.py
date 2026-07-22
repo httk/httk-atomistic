@@ -74,11 +74,14 @@ html_theme_options = {
 # Cross-project references resolve against the published httk documentation site.
 # The base URL comes from the DOCS_BASE_URL Makefile variable (exported as
 # HTTK_DOCS_BASE_URL); the default below keeps bare sphinx invocations working.
+# Inventories are vendored in docs/_inventories/ so docs builds need no network
+# access; link targets still point at the live sites. Refresh the committed
+# inventories with `make docs-inventories`.
 _docs_base_url = os.environ.get("HTTK_DOCS_BASE_URL", "https://docs.httk.org")
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None),
-    "httk-core": (f"{_docs_base_url}/httk-core/", None),
+    "python": ("https://docs.python.org/3", "_inventories/python.inv"),
+    "httk-core": (f"{_docs_base_url}/httk-core/", "_inventories/httk-core.inv"),
 }
 
 autoapi_options = [
