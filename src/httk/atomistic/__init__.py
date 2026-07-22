@@ -14,6 +14,8 @@ from .cell_backend import CellBackend
 from .cell_class import CellClass
 from .cell_class_view import CellClassView
 from .cell_like import CellLike
+from .cell_params import CellParams
+from .cell_params_view import CellParamsView
 from .cell_primitive import CellPrimitive
 from .cell_primitive_view import CellPrimitiveView
 from .cell_view import CellView
@@ -47,7 +49,7 @@ from .structure_simple_view import StructureSimpleView
 from .structure_view import StructureView
 
 StructureBackend.backend_classes = [StructureSimple, StructurePrimitive]
-CellBackend.backend_classes = [CellClass, CellPrimitive]
+CellBackend.backend_classes = [CellClass, CellPrimitive, CellParams]
 SitesBackend.backend_classes = [SitesClass, SitesPrimitive]
 SpeciesBackend.backend_classes = [SpeciesClass, SpeciesPrimitive]
 
@@ -68,8 +70,10 @@ __all__ = [
     "CellView",
     "CellClass",
     "CellPrimitive",
+    "CellParams",
     "CellClassView",
     "CellPrimitiveView",
+    "CellParamsView",
     "Sites",
     "SitesLike",
     "SitesAPI",

@@ -7,8 +7,11 @@ from httk.atomistic import (
     CellBackend,
     CellClass,
     CellClassView,
+    CellParams,
+    CellParamsView,
     CellPrimitive,
     CellPrimitiveView,
+    Structure,
     Sites,
     SitesBackend,
     SitesClass,
@@ -235,3 +238,70 @@ def test_species_class_view_applies_full_validation() -> None:
     assert isinstance(SpeciesBackend.create(bad), SpeciesPrimitive)  # conservative check passes
     with pytest.raises(ValueError):
         SpeciesClassView(bad)  # full validation rejects the unknown symbol
+
+
+def test_cell_params_backend_constructs_standard_matrix() -> None:
+    cubic = CellBackend.create((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))
+    assert isinstance(cubic, CellParams)
+    for i, row in enumerate(cubic.matrix):
+        for j, x in enumerate(row):
+            assert x == pytest.approx(4.0 if i == j else 0.0, abs=1e-12)
+
+    hexagonal = CellBackend.create((3.0, 3.0, 5.0, 90.0, 90.0, 120.0))
+    matrix = hexagonal.matrix
+    assert matrix[0] == pytest.approx((3.0, 0.0, 0.0), abs=1e-12)
+    assert matrix[1][0] == pytest.approx(-1.5)
+    assert matrix[1][1] == pytest.approx(3.0 * math.sqrt(3.0) / 2.0)
+    assert matrix[2] == pytest.approx((0.0, 0.0, 5.0), abs=1e-12)
+
+
+def test_cell_params_dispatch_and_kind_overrides() -> None:
+    assert isinstance(CellBackend.create([1.0, 2.0, 3.0, 80.0, 85.0, 95.0]), CellParams)
+    assert isinstance(CellBackend.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), CellPrimitive)
+    with pytest.raises(TypeError):
+        CellBackend.create((1.0, 2.0, 3.0, 80.0, 85.0, 95.0), kind="primitive")
+    with pytest.raises(TypeError):
+        CellBackend.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]], kind="params")
+
+
+def test_cell_params_validation_errors() -> None:
+    with pytest.raises(ValueError):
+        CellBackend.create((0.0, 1.0, 1.0, 90.0, 90.0, 90.0))
+    with pytest.raises(ValueError):
+        CellBackend.create((1.0, 1.0, 1.0, 190.0, 90.0, 90.0))
+    # Angles that cannot close into a parallelepiped.
+    with pytest.raises(ValueError):
+        CellBackend.create((1.0, 1.0, 1.0, 10.0, 10.0, 170.0))
+
+
+def test_cell_params_view_from_params_backend_is_verbatim() -> None:
+    raw = (2.0, 3.0, 4.0, 90.0, 90.0, 90.0)
+    view = CellParamsView(raw)
+    assert tuple(view) == raw
+    assert (view.a, view.b, view.c) == (2.0, 3.0, 4.0)
+    assert (view.alpha, view.beta, view.gamma) == (90.0, 90.0, 90.0)
+    assert unwrap(view) is raw
+
+
+def test_cell_params_view_of_rotated_matrix_is_lossy_but_faithful() -> None:
+    # The same cubic cell rotated 90 degrees around z: different matrix, same parameters.
+    rotated = Cell([[0.0, 4.0, 0.0], [-4.0, 0.0, 0.0], [0.0, 0.0, 4.0]])
+    params = CellParamsView(rotated)
+    assert tuple(params) == pytest.approx((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))
+    reconstructed = Cell(CellParams(tuple(params)).matrix)
+    assert reconstructed.matrix != rotated.matrix
+    assert reconstructed.volume == pytest.approx(rotated.volume)
+    assert reconstructed.lengths == pytest.approx(rotated.lengths)
+    assert reconstructed.angles == pytest.approx(rotated.angles)
+
+
+def test_structure_from_cell_params() -> None:
+    structure = Structure(
+        cell=(4.0, 4.0, 4.0, 90.0, 90.0, 90.0),
+        sites=[[0.0, 0.0, 0.0]],
+        species=[{"name": "Fe", "chemical_symbols": ["Fe"], "concentration": [1.0]}],
+        species_at_sites=["Fe"],
+    )
+    assert isinstance(structure.cell, Cell)
+    assert structure.cell.volume == pytest.approx(64.0)
+    assert tuple(CellParamsView(structure.cell)) == pytest.approx((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))

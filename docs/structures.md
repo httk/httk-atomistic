@@ -53,9 +53,16 @@ The `cell`, `sites`, and `species` components each get the same view/backend tre
 `Structure` itself, mirroring the Structure family with `Class` in place of `Simple` (there
 the word describes the representation, which still applies):
 
-- `Cell`: backends `CellClass` / `CellPrimitive`, views `CellClassView` / `CellPrimitiveView`,
-  union `CellLike`. `Cell` exposes `matrix` plus the derived `lengths`, `angles` (the
-  crystallographic `alpha`/`beta`/`gamma` in degrees), and `volume`.
+- `Cell`: backends `CellClass` / `CellPrimitive` / `CellParams`, views `CellClassView` /
+  `CellPrimitiveView` / `CellParamsView`, union `CellLike`. `Cell` exposes `matrix` plus the
+  derived `lengths`, `angles` (the crystallographic `alpha`/`beta`/`gamma` in degrees), and
+  `volume`. The params representation is a flat `(a, b, c, alpha, beta, gamma)` 6-tuple
+  (angles in degrees): a cell can be constructed from parameters anywhere a `CellLike` is
+  accepted (the matrix is built with the standard orientation convention — first vector
+  along x, second in the xy-plane), and `CellParamsView` presents any cell as its
+  parameters, with the elements also available as the named properties `a`/`b`/`c`/
+  `alpha`/`beta`/`gamma`. Note that parameters carry no orientation, so cell → params →
+  cell reproduces lengths, angles, and volume but not the original orientation.
 - `Sites`: backends `SitesClass` / `SitesPrimitive`, views `SitesClassView` /
   `SitesPrimitiveView`, union `SitesLike`. `Sites` exposes `reduced_coords` and is iterable,
   indexable, and sized over its rows.
@@ -65,16 +72,24 @@ the word describes the representation, which still applies):
   OPTIMADE species dict.
 
 ```python
-from httk.atomistic import Cell, CellPrimitiveView, SpeciesPrimitiveView
+from httk.atomistic import Cell, CellParamsView, CellPrimitiveView, SpeciesPrimitiveView
 
 cell = structure.cell            # a Cell
 cell.lengths, cell.angles, cell.volume
 raw_matrix = tuple(CellPrimitiveView(cell))          # back to a raw 3x3 tuple
+params = CellParamsView(cell)                        # (a, b, c, alpha, beta, gamma)
+params.a, params.gamma
 optimade = dict(SpeciesPrimitiveView(structure.species[0]))  # a species as an OPTIMADE dict
+
+# Construct from parameters (standard orientation convention):
+structure_from_params = Structure(cell=(4.0, 4.0, 4.0, 90.0, 90.0, 90.0),
+                                  sites=sites, species=species,
+                                  species_at_sites=species_at_sites)
 ```
 
-The kinds dispatch by type: a `Cell`/`Sites`/`Species` goes to its `*Class` backend and a raw
-matrix / dict to its `*Primitive` backend. Pass `kind="class"` or `kind="primitive"` to force
+The kinds dispatch by type and shape: a `Cell`/`Sites`/`Species` goes to its `*Class`
+backend, a raw matrix / dict to its `*Primitive` backend, and a flat 6-sequence to the
+`CellParams` backend. Pass `kind="class"`, `kind="primitive"`, or `kind="params"` to force
 an interpretation.
 
 ## Notes
