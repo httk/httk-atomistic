@@ -214,7 +214,6 @@ class StructureEntryProvider(EntryProvider):
                 features.append('disorder')
             if any(species.get('attached') for species in species_dicts):
                 features.append('site_attachments')
-            cartesian = structure.cartesian_sites_floats()
             records.append(
                 {
                     '__id': entry_id,
@@ -222,8 +221,8 @@ class StructureEntryProvider(EntryProvider):
                     'elements': elements,
                     'nelements': len(elements),
                     'nsites': len(structure.species_at_sites),
-                    'lattice_vectors': [list(row) for row in structure.cell.basis_floats()],
-                    'cartesian_site_positions': [list(row) for row in cartesian],
+                    'lattice_vectors': structure.cell.basis.to_floats(),
+                    'cartesian_site_positions': structure.cartesian_sites().to_floats(),
                     'species_at_sites': list(structure.species_at_sites),
                     'species': species_dicts,
                     'structure_features': features,

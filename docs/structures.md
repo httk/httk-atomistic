@@ -118,12 +118,11 @@ an interpretation.
   (the squarefree-radical field) factored as a positive `SurdScalar` `scale` times an
   `unscaled_basis`, and its `lengths`/`volume` are exact `SurdScalar`s and `angles` exact
   `Fraction` degrees. A `Sites` stores its reduced coordinates as an exact rational
-  `httk.core.FracVector`. Floats appear only at the presentation and JSON boundaries, of which
-  there are two kinds: the numpy-free `*_floats` accessors (`cell.basis_floats()`,
-  `structure.cartesian_sites_floats()`, `sites.reduced_coords_floats()`, always nested plain float
-  tuples), together with the `*PrimitiveView`s and the OPTIMADE records; and the numpy-backed
-  numeric layer (`.numeric()`, see below). An ASU (asymmetric-unit) representation is an upcoming
-  addition.
+  `httk.core.FracVector`. The rule for leaving the exact model is uniform: **exact accessors
+  return vector objects; render them** — `.to_floats()` on any of them gives nested plain-float
+  lists (numpy-free, JSON-ready), `float(...)` works on every exact scalar, the `*PrimitiveView`s
+  give immutable float tuples, and the numpy-backed numeric layer (`.numeric()`, see below) gives
+  true numpy arrays. An ASU (asymmetric-unit) representation is an upcoming addition.
 
 ## Exact geometry: scale, surd matrices, and Cartesian positions
 
@@ -171,20 +170,22 @@ bond_sqr_metric = (SurdVector.create(diff) * cell.metric()).dot(SurdVector.creat
 assert bond_sqr_cartesian == bond_sqr_metric
 assert bond_sqr_cartesian.is_rational
 
-# Two plain-float boundaries: the numpy-free *_floats accessors (nested float tuples)...
-assert cell.basis_floats()[0] == (3.0, 0.0, 0.0)
-assert structure.cartesian_sites_floats()[0] == (0.0, 0.0, 0.0)
-assert structure.sites.reduced_coords_floats()[1] == (1.0 / 3.0, 1.0 / 3.0, 0.0)
+# Rendering is compositional: every exact vector object renders itself (numpy-free)...
+assert cell.basis.to_floats()[0] == [3.0, 0.0, 0.0]
+assert structure.cartesian_sites().to_floats()[0] == [0.0, 0.0, 0.0]
+assert structure.sites.reduced_coords.to_floats()[1] == [1.0 / 3.0, 1.0 / 3.0, 0.0]
+assert float(cell.volume) == cell.volume.to_float()    # scalars support float(...)
 ```
 
 ## The numeric layer: plain floats and numpy
 
 There are two ways to leave the exact model for plain floats, and they serve different needs:
 
-- The **`*_floats` accessors** — `Cell.basis_floats()`, `Structure.cartesian_sites_floats()`,
-  `Sites.reduced_coords_floats()` — return nested plain `float` tuples, rendered through the exact
-  library. They need **no numpy**, work everywhere, and (with the `*PrimitiveView`s and the OPTIMADE
-  records) are the numpy-free JSON/presentation boundary.
+- The **compositional rendering** — `cell.basis.to_floats()`, `structure.cartesian_sites().to_floats()`,
+  `sites.reduced_coords.to_floats()`, `float(cell.volume)` — every exact vector object renders
+  itself as nested plain-`float` lists (a family-level guarantee: `to_floats()`/`to_float()` are part
+  of the vector contract). It needs **no numpy**, works everywhere, and (with the `*PrimitiveView`s
+  and the OPTIMADE records) is the numpy-free JSON/presentation boundary.
 - The **numeric layer** — `Cell.numeric()`, `Sites.numeric()`, `Structure.numeric()` — returns a
   `NumericCell`, `NumericSites`, or `NumericStructure` that mirrors the exact interface but returns
   true numpy: a `float64` `numpy.ndarray` for every vector, a plain `float` for every scalar
@@ -192,8 +193,8 @@ There are two ways to leave the exact model for plain floats, and they serve dif
   inspection. The exact object is always one hop back via `.exact`.
 
 The numeric layer is numpy-backed, so it **requires the `httk-atomistic[numpy]` extra** and raises
-`ImportError` eagerly at construction when numpy is not installed. (The `*_floats` accessors, the
-`*PrimitiveView`s, and the OPTIMADE records stay numpy-free, so numpy is optional for everything
+`ImportError` eagerly at construction when numpy is not installed. (The `.to_floats()` renderings,
+the `*PrimitiveView`s, and the OPTIMADE records stay numpy-free, so numpy is optional for everything
 except this numpy presentation.)
 
 ```python

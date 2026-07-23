@@ -67,8 +67,9 @@ class Cell:
     from the exact reverse-Niven :meth:`~httk.core.SurdScalar.acos_degrees` where possible,
     ``volume`` from the exact determinant, and ``metric`` is the exact rational Gram matrix. When a
     squared length happens to be irrational, ``lengths``/``angles`` fall back to a deterministic
-    rational approximation (documented per accessor). Plain float tuples are available (numpy-free)
-    via :meth:`basis_floats`, and true numpy arrays via :meth:`numeric`.
+    rational approximation (documented per accessor). Exact accessors return vector objects —
+    render them with ``.to_floats()`` (nested plain-float lists, numpy-free), ``float(...)`` on
+    scalars, :meth:`numeric` (true numpy arrays), or a view of your choice.
     """
 
     _scale: SurdScalar
@@ -110,10 +111,6 @@ class Cell:
         if self._basis_cache is None:
             self._basis_cache = self._scale * self._unscaled_basis
         return self._basis_cache
-
-    def basis_floats(self) -> tuple[tuple[float, ...], ...]:
-        """The lattice vectors as nested float tuples (numpy-free presentation boundary)."""
-        return tuple(tuple(row) for row in self.basis.to_floats())
 
     def numeric(self) -> "NumericCell":
         """A plain-numpy presentation of this cell (requires the ``httk-atomistic[numpy]`` extra)."""

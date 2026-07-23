@@ -44,7 +44,7 @@ def test_cell_construction_and_validation() -> None:
     cell = Cell(ORTHO)
     # The exact matrix is a SurdVector; rational floats embed exactly and render back identically.
     assert cell.basis == SurdVector.create(ORTHO)
-    assert cell.basis_floats() == ((2.0, 0.0, 0.0), (0.0, 3.0, 0.0), (0.0, 0.0, 4.0))
+    assert cell.basis.to_floats() == [[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 4.0]]
     with pytest.raises(ValueError):
         Cell([[1.0, 0.0], [0.0, 1.0]])
     with pytest.raises(ValueError):
@@ -101,7 +101,7 @@ def test_cell_views_class_and_primitive() -> None:
     # Class view from a raw matrix (primitive backend).
     class_view = CellClassView(ORTHO)
     assert isinstance(class_view, Cell)
-    assert class_view.basis_floats() == ((2.0, 0.0, 0.0), (0.0, 3.0, 0.0), (0.0, 0.0, 4.0))
+    assert class_view.basis.to_floats() == [[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 4.0]]
     assert class_view.volume == SurdVector.create(24)
 
     # Primitive view from a Cell (class backend).
@@ -132,7 +132,7 @@ def test_sites_construction_and_sequence_behavior() -> None:
     assert sites[1] == (0.5, 0.5, 0.5)
     assert list(sites) == [(0.0, 0.0, 0.0), (0.5, 0.5, 0.5), (0.25, 0.25, 0.25)]
     assert sites.reduced_coords[0] == (0.0, 0.0, 0.0)
-    assert sites.reduced_coords_floats() == ((0.0, 0.0, 0.0), (0.5, 0.5, 0.5), (0.25, 0.25, 0.25))
+    assert sites.reduced_coords.to_floats() == [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [0.25, 0.25, 0.25]]
     with pytest.raises(ValueError):
         Sites([[0.0, 0.0]])
 

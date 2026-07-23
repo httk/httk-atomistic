@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from httk.core import FracVector, VectorLike
 
-from ._vector_guards import to_float_tuples, to_fracvector
+from ._vector_guards import to_fracvector
 
 if TYPE_CHECKING:
     from .numeric_sites import NumericSites
@@ -51,10 +51,6 @@ class Sites:
 
     def __getitem__(self, index: int) -> FracVector:
         return self._reduced_coords[index]
-
-    def reduced_coords_floats(self) -> tuple[tuple[float, ...], ...]:
-        """The reduced coordinates as nested float tuples (numpy-free presentation boundary)."""
-        return to_float_tuples(self._reduced_coords)
 
     def numeric(self) -> "NumericSites":
         """A plain-numpy presentation of these sites (requires the ``httk-atomistic[numpy]`` extra)."""
