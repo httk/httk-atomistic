@@ -6,6 +6,7 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
+from ._vector_guards import to_float_tuples
 from .elements import atomic_number
 from .structure_backend import StructureBackend
 from .structure_like import StructureLike
@@ -38,7 +39,11 @@ class StructurePrimitiveView(StructureView, tuple):
                     f"(species {name!r} is not a single, unattached chemical element)"
                 )
             numbers.append(atomic_number(species.chemical_symbols[0]))
-        payload = (backend.cell.matrix, backend.sites.reduced_coords, tuple(numbers))
+        payload = (
+            to_float_tuples(backend.cell.matrix),
+            to_float_tuples(backend.sites.reduced_coords),
+            tuple(numbers),
+        )
         instance = super().__new__(cls, payload)
         instance._backend = backend
         return instance

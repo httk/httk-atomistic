@@ -4,6 +4,8 @@ Backend wrapping a Sites object in the class representation.
 
 from typing import Any
 
+from httk.core import FracVector
+
 from .sites import Sites
 from .sites_backend import SitesBackend
 
@@ -30,7 +32,7 @@ class SitesClass(SitesBackend):
         self._sites = obj
 
     @property
-    def reduced_coords(self) -> tuple[tuple[float, ...], ...]:
+    def reduced_coords(self) -> FracVector:
         return self._sites.reduced_coords
 
     def unwrap(self) -> Any:

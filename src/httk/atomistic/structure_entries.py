@@ -170,20 +170,9 @@ _STRUCTURES_COLUMNS: dict[str, str] = {
 def _as_structure(obj: StructureLike) -> Any:
     """Return something exposing the ``cell``/``sites``/``species``/``species_at_sites`` quartet."""
     if isinstance(obj, (tuple, list)):
-        return Structure(*obj)  # a (cell, sites, species, species_at_sites) tuple/list
+        args: tuple[Any, ...] = tuple(obj)
+        return Structure(*args)  # a (cell, sites, species, species_at_sites) tuple/list
     return obj
-
-
-def _cartesian_site_positions(cell_matrix: Any, reduced_coords: Any) -> list[list[float]]:
-    """Cartesian site positions under the row-vector convention.
-
-    ``cartesian = sum_k reduced[k] * cell.matrix[k]`` for each site, i.e. the
-    lattice vectors are the rows of the cell matrix.
-    """
-    positions: list[list[float]] = []
-    for reduced in reduced_coords:
-        positions.append([sum(reduced[k] * cell_matrix[k][j] for k in range(3)) for j in range(3)])
-    return positions
 
 
 class StructureEntryProvider(EntryProvider):
@@ -225,7 +214,7 @@ class StructureEntryProvider(EntryProvider):
                 features.append('disorder')
             if any(species.get('attached') for species in species_dicts):
                 features.append('site_attachments')
-            cell_matrix = structure.cell.matrix
+            cartesian = structure.cartesian_sites_floats()
             records.append(
                 {
                     '__id': entry_id,
@@ -233,8 +222,8 @@ class StructureEntryProvider(EntryProvider):
                     'elements': elements,
                     'nelements': len(elements),
                     'nsites': len(structure.species_at_sites),
-                    'lattice_vectors': [list(row) for row in cell_matrix],
-                    'cartesian_site_positions': _cartesian_site_positions(cell_matrix, structure.sites.reduced_coords),
+                    'lattice_vectors': [list(row) for row in structure.cell.matrix_floats()],
+                    'cartesian_site_positions': [list(row) for row in cartesian],
                     'species_at_sites': list(structure.species_at_sites),
                     'species': species_dicts,
                     'structure_features': features,

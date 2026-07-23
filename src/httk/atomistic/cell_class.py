@@ -4,6 +4,8 @@ Backend wrapping a Cell in the class representation.
 
 from typing import Any
 
+from httk.core import SurdScalar, SurdVector
+
 from .cell import Cell
 from .cell_backend import CellBackend
 
@@ -12,8 +14,8 @@ class CellClass(CellBackend):
     """
     Backend for a cell backed by an actual ``Cell`` object.
 
-    Its ``matrix`` accessor delegates to the wrapped Cell, and ``unwrap`` returns that
-    Cell.
+    Its exact accessors delegate to the wrapped Cell (preserving its ``scale``/``unscaled_matrix``
+    split), and ``unwrap`` returns that Cell.
     """
 
     _cell: Cell
@@ -30,8 +32,16 @@ class CellClass(CellBackend):
         self._cell = obj
 
     @property
-    def matrix(self) -> tuple[tuple[float, ...], ...]:
+    def matrix(self) -> SurdVector:
         return self._cell.matrix
+
+    @property
+    def scale(self) -> SurdScalar:
+        return self._cell.scale
+
+    @property
+    def unscaled_matrix(self) -> SurdVector:
+        return self._cell.unscaled_matrix
 
     def unwrap(self) -> Any:
         return self._cell

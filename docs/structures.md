@@ -72,19 +72,24 @@ the word describes the representation, which still applies):
   OPTIMADE species dict.
 
 ```python
-from httk.atomistic import Cell, CellParamsView, CellPrimitiveView, SpeciesPrimitiveView
+from httk.atomistic import CellParamsView, CellPrimitiveView, SpeciesPrimitiveView, Structure
 
 cell = structure.cell            # a Cell
-cell.lengths, cell.angles, cell.volume
-raw_matrix = tuple(CellPrimitiveView(cell))          # back to a raw 3x3 tuple
-params = CellParamsView(cell)                        # (a, b, c, alpha, beta, gamma)
+cell.lengths                     # a triple of exact SurdScalar norms
+cell.angles                      # (alpha, beta, gamma) as exact Fraction degrees
+cell.volume                      # an exact SurdScalar
+raw_matrix = tuple(CellPrimitiveView(cell))          # back to a raw 3x3 tuple of floats
+params = CellParamsView(cell)                        # (a, b, c, alpha, beta, gamma) as floats
 params.a, params.gamma
 optimade = dict(SpeciesPrimitiveView(structure.species[0]))  # a species as an OPTIMADE dict
 
 # Construct from parameters (standard orientation convention):
-structure_from_params = Structure(cell=(4.0, 4.0, 4.0, 90.0, 90.0, 90.0),
-                                  sites=sites, species=species,
-                                  species_at_sites=species_at_sites)
+structure_from_params = Structure(
+    cell=(4.0, 4.0, 4.0, 90.0, 90.0, 90.0),
+    sites=[[0.0, 0.0, 0.0]],
+    species=[{"name": "Fe", "chemical_symbols": ["Fe"], "concentration": [1.0]}],
+    species_at_sites=["Fe"],
+)
 ```
 
 The kinds dispatch by type and shape: a `Cell`/`Sites`/`Species` goes to its `*Class`
@@ -109,10 +114,64 @@ an interpretation.
 - Rewrapping a view returns the same object, and views built from the same backend
   share it. `unwrap(view)` returns the native raw object (a `Structure` or a triple, a
   `Cell` or a raw matrix, a `Species` or a dict).
-- The numeric values are currently interim nested tuples of floats, and the derived cell
-  quantities use plain float arithmetic. They are planned to be replaced by the httk exact
-  vector representation; keep numeric access behind the quartet accessors. An ASU
-  (asymmetric-unit) representation is also an upcoming addition.
+- The numeric model is **exact**. A `Cell` stores its lattice vectors as a `httk.core.SurdVector`
+  (the squarefree-radical field) factored as a positive `SurdScalar` `scale` times an
+  `unscaled_matrix`, and its `lengths`/`volume` are exact `SurdScalar`s and `angles` exact
+  `Fraction` degrees. A `Sites` stores its reduced coordinates as an exact rational
+  `httk.core.FracVector`. Floats appear only at the presentation and JSON boundaries
+  (`cell.matrix_floats()`, the `*PrimitiveView`s, and the OPTIMADE records). An ASU
+  (asymmetric-unit) representation is an upcoming addition.
+
+## Exact geometry: scale, surd matrices, and Cartesian positions
+
+The numeric layer is exact and split by purpose. The **fractional** frame (reduced coordinates,
+symmetry) is rational and lives in `Sites` as a `httk.core.FracVector`; the **Cartesian** frame —
+where radicals such as the hexagonal $\sqrt3$ appear — is exact in the squarefree-radical field
+(`httk.core.SurdVector`). Magnitudes (bond-length comparisons) stay rational-exact via the metric.
+
+```python
+import fractions
+
+from httk.core import FracVector, SurdVector
+from httk.atomistic import Cell, CellParams, Structure
+
+F = fractions.Fraction
+
+# Cell parameters -> an EXACT matrix: hexagonal a=b=3, c=5, gamma=120 carries a real sqrt(3).
+cell = Cell(CellParams((3, 3, 5, 90, 90, 120)).matrix)
+assert 3 in cell.matrix.radicands                       # the sqrt(3) is exact, not a float
+
+# Angles come back exactly through the reverse-Niven table; volume is (45/2)*sqrt(3):
+assert cell.angles == (F(90), F(90), F(120))
+assert cell.volume == SurdVector.from_radicand_map({3: F(45, 2)})
+
+# The scale carries an overall length factor: unscaled rows scaled by 4 == the absolute matrix,
+# and the volume scales as scale**3. Angles are scale-independent.
+scaled = Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]], scale=4)
+assert scaled.matrix == Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]).matrix
+assert scaled.volume == SurdVector.create(64)
+
+# Exact Cartesian positions: reduced (rational) coordinates times the surd cell matrix.
+structure = Structure(
+    cell=cell,
+    sites=[[F(0), F(0), F(0)], [F(1, 3), F(1, 3), F(0)]],
+    species=[{"name": "Mg", "chemical_symbols": ["Mg"], "concentration": [1.0]}],
+    species_at_sites=["Mg", "Mg"],
+)
+cartesian = structure.cartesian_sites()                 # an exact (N, 3) SurdVector
+assert 3 in cartesian.radicands                         # the sqrt(3) survives into Cartesian space
+
+# A bond squared-length is rational-exact; the exact-Cartesian and rational-metric routes agree.
+diff = FracVector.create([F(1, 3), F(1, 3), F(0)])
+bond_sqr_cartesian = (SurdVector.create(diff) * cell.matrix).lengthsqr()
+bond_sqr_metric = (SurdVector.create(diff) * cell.metric()).dot(SurdVector.create(diff))
+assert bond_sqr_cartesian == bond_sqr_metric
+assert bond_sqr_cartesian.is_rational
+
+# Floats appear only at the presentation boundary:
+cell.matrix_floats()
+structure.cartesian_sites_floats()
+```
 
 ## Shared Behavior and `unwrap`
 

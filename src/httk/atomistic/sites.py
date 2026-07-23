@@ -2,42 +2,50 @@
 The Sites class for httk-atomistic.
 """
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator
+
+from httk.core import FracVector, VectorLike
+
+from ._vector_guards import to_fracvector
 
 
 class Sites:
     """
-    The sites of a crystal structure: the Nx3 matrix of reduced coordinates.
+    The sites of a crystal structure: the Nx3 matrix of reduced coordinates, held **exactly**.
 
-    A Sites object holds N sites as the rows of ``reduced_coords`` and is iterable and
-    indexable over those length-3 coordinate rows (with ``len`` giving the number of
-    sites).
+    Reduced (fractional) coordinates are the symmetry-native frame: point-group operations are
+    integer matrices and translations are rationals, so no radicals ever appear. They are therefore
+    stored as an exact rational :class:`~httk.core.FracVector` of shape ``(N, 3)``. A Sites object
+    is iterable and indexable over its length-3 coordinate rows (each a ``FracVector``), with
+    ``len`` giving the number of sites.
 
-    Note: the numeric values are stored as interim nested tuples of floats. They are
-    intended to be replaced by the httk exact vector representation fairly soon; keep
-    numeric access behind the ``reduced_coords`` accessor so that change stays contained.
+    Inputs embed exactly: rationals (and rational-valued floats), rational strings, and numpy arrays
+    all land on their exact rational value. An irrational :class:`~httk.core.SurdVector` input is
+    reduced deterministically through the vector family's ``fractions`` hub (never raising on data);
+    the exact Cartesian frame — where radicals belong — is obtained instead via
+    :meth:`~httk.atomistic.Structure.cartesian_sites`.
     """
 
-    _reduced_coords: tuple[tuple[float, ...], ...]
+    _reduced_coords: FracVector
 
-    def __init__(self, reduced_coords: Sequence[Sequence[float]]) -> None:
-        norm = tuple(tuple(float(x) for x in row) for row in reduced_coords)
-        if any(len(row) != 3 for row in norm):
-            raise ValueError("Sites reduced_coords must be a sequence of length-3 coordinates")
-        self._reduced_coords = norm
+    def __init__(self, reduced_coords: VectorLike) -> None:
+        coords = to_fracvector(reduced_coords)
+        if coords.dim != () and not (len(coords.dim) == 2 and coords.dim[1] == 3):
+            raise ValueError("Sites reduced_coords must be an Nx3 vector-like")
+        self._reduced_coords = coords
 
     @property
-    def reduced_coords(self) -> tuple[tuple[float, ...], ...]:
-        """The Nx3 reduced site coordinates as nested float tuples (one site per row)."""
+    def reduced_coords(self) -> FracVector:
+        """The Nx3 reduced site coordinates as an exact ``FracVector`` (one site per row)."""
         return self._reduced_coords
 
     def __len__(self) -> int:
         return len(self._reduced_coords)
 
-    def __iter__(self) -> Iterator[tuple[float, ...]]:
+    def __iter__(self) -> Iterator[FracVector]:
         return iter(self._reduced_coords)
 
-    def __getitem__(self, index: int) -> tuple[float, ...]:
+    def __getitem__(self, index: int) -> FracVector:
         return self._reduced_coords[index]
 
     def __eq__(self, other: object) -> bool:

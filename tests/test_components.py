@@ -1,7 +1,10 @@
+import fractions
 import math
 
 import pytest
-from httk.core import unwrap
+from httk.core import SurdVector, unwrap
+
+F = fractions.Fraction
 
 from httk.atomistic import (
     Cell,
@@ -39,7 +42,9 @@ TOL = 1e-9
 
 def test_cell_construction_and_validation() -> None:
     cell = Cell(ORTHO)
-    assert cell.matrix == ((2.0, 0.0, 0.0), (0.0, 3.0, 0.0), (0.0, 0.0, 4.0))
+    # The exact matrix is a SurdVector; rational floats embed exactly and render back identically.
+    assert cell.matrix == SurdVector.create(ORTHO)
+    assert cell.matrix_floats() == ((2.0, 0.0, 0.0), (0.0, 3.0, 0.0), (0.0, 0.0, 4.0))
     with pytest.raises(ValueError):
         Cell([[1.0, 0.0], [0.0, 1.0]])
     with pytest.raises(ValueError):
@@ -48,23 +53,22 @@ def test_cell_construction_and_validation() -> None:
 
 def test_cell_derived_quantities_orthorhombic() -> None:
     cell = Cell(ORTHO)
-    lengths = cell.lengths
-    angles = cell.angles
-    assert lengths == pytest.approx((2.0, 3.0, 4.0), abs=TOL)
-    assert angles == pytest.approx((90.0, 90.0, 90.0), abs=TOL)
-    assert cell.volume == pytest.approx(24.0, abs=TOL)
+    # Orthorhombic from exact (rational) data: lengths, angles and volume are all exact.
+    assert cell.lengths == (SurdVector.create(2), SurdVector.create(3), SurdVector.create(4))
+    assert cell.angles == (F(90), F(90), F(90))
+    assert cell.volume == SurdVector.create(24)
 
 
 def test_cell_derived_quantities_hexagonal() -> None:
     cell = Cell(HEX)
-    lengths = cell.lengths
     alpha, beta, gamma = cell.angles
-    assert lengths == pytest.approx((1.0, 1.0, 2.0), abs=TOL)
-    # alpha between b,c; beta between a,c; gamma between a,b (120 for hexagonal).
-    assert alpha == pytest.approx(90.0, abs=TOL)
-    assert beta == pytest.approx(90.0, abs=TOL)
-    assert gamma == pytest.approx(120.0, abs=TOL)
-    assert cell.volume == pytest.approx(math.sqrt(3.0), abs=TOL)
+    assert tuple(length.to_float() for length in cell.lengths) == pytest.approx((1.0, 1.0, 2.0), abs=TOL)
+    # alpha between b,c; beta between a,c; gamma between a,b (120 for hexagonal). The HEX cell is
+    # built from an irrational float (sqrt(3)/2), so gamma/volume are deterministic approximations.
+    assert float(alpha) == pytest.approx(90.0, abs=TOL)
+    assert float(beta) == pytest.approx(90.0, abs=TOL)
+    assert float(gamma) == pytest.approx(120.0, abs=1e-6)
+    assert cell.volume.to_float() == pytest.approx(math.sqrt(3.0), abs=TOL)
 
 
 def test_cell_equality_and_repr() -> None:
@@ -97,8 +101,8 @@ def test_cell_views_class_and_primitive() -> None:
     # Class view from a raw matrix (primitive backend).
     class_view = CellClassView(ORTHO)
     assert isinstance(class_view, Cell)
-    assert class_view.matrix == ((2.0, 0.0, 0.0), (0.0, 3.0, 0.0), (0.0, 0.0, 4.0))
-    assert class_view.volume == pytest.approx(24.0, abs=TOL)
+    assert class_view.matrix_floats() == ((2.0, 0.0, 0.0), (0.0, 3.0, 0.0), (0.0, 0.0, 4.0))
+    assert class_view.volume == SurdVector.create(24)
 
     # Primitive view from a Cell (class backend).
     primitive_view = CellPrimitiveView(Cell(ORTHO))
@@ -243,16 +247,16 @@ def test_species_class_view_applies_full_validation() -> None:
 def test_cell_params_backend_constructs_standard_matrix() -> None:
     cubic = CellBackend.create((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))
     assert isinstance(cubic, CellParams)
-    for i, row in enumerate(cubic.matrix):
+    for i, row in enumerate(cubic.matrix.to_floats()):
         for j, x in enumerate(row):
             assert x == pytest.approx(4.0 if i == j else 0.0, abs=1e-12)
 
     hexagonal = CellBackend.create((3.0, 3.0, 5.0, 90.0, 90.0, 120.0))
-    matrix = hexagonal.matrix
-    assert matrix[0] == pytest.approx((3.0, 0.0, 0.0), abs=1e-12)
+    matrix = hexagonal.matrix.to_floats()
+    assert tuple(matrix[0]) == pytest.approx((3.0, 0.0, 0.0), abs=1e-12)
     assert matrix[1][0] == pytest.approx(-1.5)
     assert matrix[1][1] == pytest.approx(3.0 * math.sqrt(3.0) / 2.0)
-    assert matrix[2] == pytest.approx((0.0, 0.0, 5.0), abs=1e-12)
+    assert tuple(matrix[2]) == pytest.approx((0.0, 0.0, 5.0), abs=1e-12)
 
 
 def test_cell_params_dispatch_and_kind_overrides() -> None:
@@ -290,9 +294,11 @@ def test_cell_params_view_of_rotated_matrix_is_lossy_but_faithful() -> None:
     assert tuple(params) == pytest.approx((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))
     reconstructed = Cell(CellParams(tuple(params)).matrix)
     assert reconstructed.matrix != rotated.matrix
-    assert reconstructed.volume == pytest.approx(rotated.volume)
-    assert reconstructed.lengths == pytest.approx(rotated.lengths)
-    assert reconstructed.angles == pytest.approx(rotated.angles)
+    assert reconstructed.volume.to_float() == pytest.approx(rotated.volume.to_float())
+    assert [length.to_float() for length in reconstructed.lengths] == pytest.approx(
+        [length.to_float() for length in rotated.lengths]
+    )
+    assert [float(angle) for angle in reconstructed.angles] == pytest.approx([float(angle) for angle in rotated.angles])
 
 
 def test_structure_from_cell_params() -> None:
@@ -303,5 +309,5 @@ def test_structure_from_cell_params() -> None:
         species_at_sites=["Fe"],
     )
     assert isinstance(structure.cell, Cell)
-    assert structure.cell.volume == pytest.approx(64.0)
+    assert structure.cell.volume == SurdVector.create(64)
     assert tuple(CellParamsView(structure.cell)) == pytest.approx((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))

@@ -28,8 +28,9 @@ class CellClassView(CellView, Cell):
         backend = cls._prepare_backend(obj, hints)
         instance = super().__new__(cls)
         # Cell is mutable, so its state is initialized here in __new__ (keeping __init__ a no-op),
-        # so that rewrapping an existing view via cls(view) does not re-initialize it.
-        Cell.__init__(instance, backend.matrix)
+        # so that rewrapping an existing view via cls(view) does not re-initialize it. The
+        # scale/unscaled split is preserved so a scaled cell stays exactly factored.
+        Cell.__init__(instance, backend.unscaled_matrix, backend.scale)
         instance._backend = backend
         return instance
 

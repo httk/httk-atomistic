@@ -4,6 +4,7 @@ Backend wrapping an spglib-like (lattice, positions, numbers) triple.
 
 from typing import Any
 
+from ._vector_guards import is_coords_nx3, is_matrix_3x3, try_surdvector
 from .cell import Cell
 from .elements import symbol_of
 from .sites import Sites
@@ -15,28 +16,17 @@ def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def _is_matrix(matrix: Any, ncols: int) -> bool:
-    if not isinstance(matrix, (list, tuple)):
-        return False
-    for row in matrix:
-        if not isinstance(row, (list, tuple)) or len(row) != ncols:
-            return False
-        if not all(_is_number(x) for x in row):
-            return False
-    return True
-
-
 def _is_primitive_triple(obj: Any) -> bool:
     if not isinstance(obj, (list, tuple)) or len(obj) != 3:
         return False
     lattice, positions, numbers = obj
-    if not _is_matrix(lattice, 3) or len(lattice) != 3:
-        return False
-    if not _is_matrix(positions, 3):
+    if not is_matrix_3x3(lattice) or not is_coords_nx3(positions):
         return False
     if not isinstance(numbers, (list, tuple)) or not all(_is_number(z) for z in numbers):
         return False
-    return len(numbers) == len(positions)
+    positions_vector = try_surdvector(positions)
+    nsites = positions_vector.dim[0] if positions_vector is not None and len(positions_vector.dim) == 2 else 0
+    return len(numbers) == nsites
 
 
 class StructurePrimitive(StructureBackend):
