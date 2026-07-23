@@ -106,10 +106,6 @@ class Structure:
         """
         return SurdVector.create(self._sites.reduced_coords) * self._cell.basis
 
-    def cartesian_sites_floats(self) -> tuple[tuple[float, ...], ...]:
-        """The Cartesian site positions as nested float tuples (numpy-free presentation boundary)."""
-        return tuple(tuple(row) for row in self.cartesian_sites().to_floats())
-
     def numeric(self) -> "NumericStructure":
         """A plain-numpy presentation of this structure (requires the ``httk-atomistic[numpy]`` extra)."""
         from .numeric_structure import NumericStructure
