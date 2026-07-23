@@ -1,4 +1,5 @@
 import pytest
+from httk.core import unwrap
 
 from httk.atomistic import (
     Cell,
@@ -13,7 +14,6 @@ from httk.atomistic import (
     atomic_number,
     symbol_of,
 )
-from httk.core import unwrap
 
 CUBIC = [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
 

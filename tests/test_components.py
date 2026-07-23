@@ -1,6 +1,7 @@
 import math
 
 import pytest
+from httk.core import unwrap
 
 from httk.atomistic import (
     Cell,
@@ -11,7 +12,6 @@ from httk.atomistic import (
     CellParamsView,
     CellPrimitive,
     CellPrimitiveView,
-    Structure,
     Sites,
     SitesBackend,
     SitesClass,
@@ -24,8 +24,8 @@ from httk.atomistic import (
     SpeciesClassView,
     SpeciesPrimitive,
     SpeciesPrimitiveView,
+    Structure,
 )
-from httk.core import unwrap
 
 ORTHO = [[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 4.0]]
 # Hexagonal-ish cell: a = b in length, gamma = 120 degrees.
