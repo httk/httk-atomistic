@@ -47,45 +47,45 @@ def _scalar_length(lsq: SurdScalar) -> SurdScalar:
 
 class Cell:
     """
-    A crystallographic cell: the 3x3 matrix of cell (basis) vectors, held **exactly**.
+    A crystallographic cell: its basis, the 3x3 matrix of cell vectors, held **exactly**.
 
-    The lattice vectors are the rows of ``matrix``. Internally a Cell factors that matrix into a
-    positive :class:`~httk.core.SurdScalar` ``scale`` times an ``unscaled_matrix``
-    (a :class:`~httk.core.SurdVector` of shape ``(3, 3)``), with ``matrix == scale * unscaled_matrix``.
+    The lattice vectors are the rows of ``basis``. Internally a Cell factors that basis into a
+    positive :class:`~httk.core.SurdScalar` ``scale`` times an ``unscaled_basis``
+    (a :class:`~httk.core.SurdVector` of shape ``(3, 3)``), with ``basis == scale * unscaled_basis``.
     The split lets an overall length factor be carried symbolically: a hexagonal cell of lattice
     parameter ``a`` and ratio ``c/a`` is the exact ``unscaled`` rows ``(1, 0, 0)``,
     ``(-1/2, sqrt(3)/2, 0)``, ``(0, 0, c/a)`` scaled by ``a`` — so the ``sqrt(3)`` stays exact
-    regardless of ``a``. A cell built from an absolute matrix simply has ``scale == 1``.
+    regardless of ``a``. A cell built from an absolute basis simply has ``scale == 1``.
 
     Numbers embed exactly: rationals (and rational-valued floats) stay rational, and a
-    :class:`~httk.core.SurdVector` matrix keeps its radicals. Derived quantities are exact whenever
+    :class:`~httk.core.SurdVector` basis keeps its radicals. Derived quantities are exact whenever
     the geometry is metric-rational (the crystallographic case): ``lengths`` come from
     :meth:`~httk.core.SurdVector.sqrt_of` of the rational squared row lengths, ``angles`` (degrees)
     from the exact reverse-Niven :meth:`~httk.core.SurdScalar.acos_degrees` where possible,
     ``volume`` from the exact determinant, and ``metric`` is the exact rational Gram matrix. When a
     squared length happens to be irrational, ``lengths``/``angles`` fall back to a deterministic
     rational approximation (documented per accessor). Floats appear only at the presentation
-    boundary via :meth:`matrix_floats`.
+    boundary via :meth:`basis_floats`.
     """
 
     _scale: SurdScalar
-    _unscaled_matrix: SurdVector
-    _matrix_cache: SurdVector | None
+    _unscaled_basis: SurdVector
+    _basis_cache: SurdVector | None
     _metric_cache: SurdVector | None
     _lengths_cache: tuple[SurdScalar, ...] | None
     _angles_cache: tuple[fractions.Fraction, ...] | None
     _volume_cache: SurdScalar | None
 
-    def __init__(self, matrix: VectorLike, scale: Any = 1) -> None:
-        unscaled = to_surdvector(matrix)
+    def __init__(self, basis: VectorLike, scale: Any = 1) -> None:
+        unscaled = to_surdvector(basis)
         if unscaled.dim != (3, 3):
-            raise ValueError("Cell matrix must be a 3x3 vector-like")
+            raise ValueError("Cell basis must be a 3x3 vector-like")
         scale_scalar = to_surdscalar(scale)
         if scale_scalar.sign() <= 0:
             raise ValueError("Cell scale must be strictly positive")
-        self._unscaled_matrix = unscaled
+        self._unscaled_basis = unscaled
         self._scale = scale_scalar
-        self._matrix_cache = None
+        self._basis_cache = None
         self._metric_cache = None
         self._lengths_cache = None
         self._angles_cache = None
@@ -97,25 +97,25 @@ class Cell:
         return self._scale
 
     @property
-    def unscaled_matrix(self) -> SurdVector:
+    def unscaled_basis(self) -> SurdVector:
         """The 3x3 cell vectors before applying ``scale``, as an exact ``SurdVector``."""
-        return self._unscaled_matrix
+        return self._unscaled_basis
 
     @property
-    def matrix(self) -> SurdVector:
-        """The 3x3 lattice vectors ``scale * unscaled_matrix`` (one vector per row), exact."""
-        if self._matrix_cache is None:
-            self._matrix_cache = self._scale * self._unscaled_matrix
-        return self._matrix_cache
+    def basis(self) -> SurdVector:
+        """The 3x3 lattice vectors ``scale * unscaled_basis`` (one vector per row), exact."""
+        if self._basis_cache is None:
+            self._basis_cache = self._scale * self._unscaled_basis
+        return self._basis_cache
 
-    def matrix_floats(self) -> tuple[tuple[float, ...], ...]:
+    def basis_floats(self) -> tuple[tuple[float, ...], ...]:
         """The lattice vectors as nested float tuples (presentation boundary)."""
-        return tuple(tuple(row) for row in self.matrix.to_floats())
+        return tuple(tuple(row) for row in self.basis.to_floats())
 
     def metric(self) -> SurdVector:
         """The exact Gram matrix ``matrix * matrix^T`` (rational for a metric-rational cell)."""
         if self._metric_cache is None:
-            m = self.matrix
+            m = self.basis
             self._metric_cache = m * m.T()
         return self._metric_cache
 
@@ -141,13 +141,13 @@ class Cell:
 
         Following the crystallographic convention, ``alpha`` is the angle between rows ``b`` and
         ``c``, ``beta`` between ``a`` and ``c``, and ``gamma`` between ``a`` and ``b``. Angles are
-        scale-independent, so they are computed from the unscaled matrix. The cosine is formed
+        scale-independent, so they are computed from the unscaled basis. The cosine is formed
         exactly in the surd field and reversed through the Niven table
         (:meth:`~httk.core.SurdScalar.acos_degrees`) for an exact answer; a non-Niven angle falls
         back to a deterministic :func:`~httk.core.vectors.exactmath.acos` at ``_FALLBACK_PREC``.
         """
         if self._angles_cache is None:
-            u = self._unscaled_matrix
+            u = self._unscaled_basis
             gram = u * u.T()
             self._angles_cache = (
                 self._angle_from_gram(gram, 1, 2),
@@ -173,16 +173,16 @@ class Cell:
 
     @property
     def volume(self) -> SurdScalar:
-        """The cell volume, the exact absolute determinant of ``matrix``."""
+        """The cell volume, the exact absolute determinant of ``basis``."""
         if self._volume_cache is None:
-            det = self.matrix.det()
+            det = self.basis.det()
             self._volume_cache = (-det)._as_scalar() if det.sign() < 0 else det
         return self._volume_cache
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Cell):
             return NotImplemented
-        return self.matrix == other.matrix
+        return self.basis == other.basis
 
     def __repr__(self) -> str:
-        return f"Cell(matrix={self.matrix!r}, scale={self._scale!r})"
+        return f"Cell(basis={self.basis!r}, scale={self._scale!r})"

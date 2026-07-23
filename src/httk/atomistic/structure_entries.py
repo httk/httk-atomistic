@@ -183,8 +183,8 @@ class StructureEntryProvider(EntryProvider):
     ``species_at_sites`` quartet, or a ``(cell, sites, species,
     species_at_sites)`` tuple). The derived fields are ``id``, ``type``,
     ``nsites``, ``elements``, ``nelements``, ``species`` (as OPTIMADE species
-    dicts), ``species_at_sites``, ``lattice_vectors`` (the cell matrix rows),
-    ``cartesian_site_positions`` (reduced coordinates times the cell matrix),
+    dicts), ``species_at_sites``, ``lattice_vectors`` (the cell basis rows),
+    ``cartesian_site_positions`` (reduced coordinates times the cell basis),
     and ``structure_features`` (``disorder`` when any species mixes several
     chemical symbols; ``site_attachments`` when any species has attached atoms).
     """
@@ -222,7 +222,7 @@ class StructureEntryProvider(EntryProvider):
                     'elements': elements,
                     'nelements': len(elements),
                     'nsites': len(structure.species_at_sites),
-                    'lattice_vectors': [list(row) for row in structure.cell.matrix_floats()],
+                    'lattice_vectors': [list(row) for row in structure.cell.basis_floats()],
                     'cartesian_site_positions': [list(row) for row in cartesian],
                     'species_at_sites': list(structure.species_at_sites),
                     'species': species_dicts,

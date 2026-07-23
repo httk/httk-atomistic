@@ -14,10 +14,10 @@ from .cell_view import CellView
 
 class CellPrimitiveView(CellView, tuple):
     """
-    A view presenting an underlying cell backend as a raw 3x3 matrix of floats.
+    A view presenting an underlying cell backend as the raw 3x3 basis matrix of floats.
 
     This view is a genuine tuple of three cell-vector rows (the scaled lattice vectors rendered to
-    floats from the exact ``matrix``), built eagerly and immutable.
+    floats from the exact ``basis``), built eagerly and immutable.
     """
 
     _backend: CellBackend
@@ -26,7 +26,7 @@ class CellPrimitiveView(CellView, tuple):
         if isinstance(obj, cls):
             return obj
         backend = cls._prepare_backend(obj, hints)
-        instance = super().__new__(cls, to_float_tuples(backend.matrix))
+        instance = super().__new__(cls, to_float_tuples(backend.basis))
         instance._backend = backend
         return instance
 

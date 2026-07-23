@@ -15,7 +15,7 @@ F = fractions.Fraction
 
 
 def _hexagonal(a: int, c: int, alpha: int = 90, beta: int = 90, gamma: int = 120) -> Cell:
-    return Cell(CellParams((a, a, c, alpha, beta, gamma)).matrix)
+    return Cell(CellParams((a, a, c, alpha, beta, gamma)).basis)
 
 
 # --------------------------------------------------------------- exact params -> matrix -> params
@@ -23,7 +23,7 @@ def _hexagonal(a: int, c: int, alpha: int = 90, beta: int = 90, gamma: int = 120
 
 def test_hexagonal_end_to_end_is_exact() -> None:
     params = CellParams((3, 3, 5, 90, 90, 120))
-    matrix = params.matrix
+    matrix = params.basis
     # The hexagonal matrix carries a genuine sqrt(3).
     assert 3 in matrix.radicands
     cell = Cell(matrix)
@@ -36,7 +36,7 @@ def test_hexagonal_end_to_end_is_exact() -> None:
 
 
 def test_rhombohedral_60_exact_reconstruction() -> None:
-    cell = Cell(CellParams((1, 1, 1, 60, 60, 60)).matrix)
+    cell = Cell(CellParams((1, 1, 1, 60, 60, 60)).basis)
     assert cell.angles == (F(60), F(60), F(60))
     assert cell.lengths == (SurdVector.create(1), SurdVector.create(1), SurdVector.create(1))
     # Rhombohedral volume with a=1: sqrt(1 - 3/4 + 2/8) = sqrt(1/2).
@@ -44,8 +44,8 @@ def test_rhombohedral_60_exact_reconstruction() -> None:
 
 
 def test_non_niven_angle_falls_back_deterministically() -> None:
-    first = CellParams((1, 1, 1, 73, 73, 73)).matrix
-    second = CellParams((1, 1, 1, 73, 73, 73)).matrix
+    first = CellParams((1, 1, 1, 73, 73, 73)).basis
+    second = CellParams((1, 1, 1, 73, 73, 73)).basis
     # The deterministic rational fallback is byte-identical across calls.
     assert first == second
     # ...and matches the float reference reconstruction to a tight tolerance.
@@ -74,8 +74,8 @@ def test_scale_factors_out_exactly() -> None:
         (3, 3),
     )
     scaled = Cell(unscaled, scale=3)
-    absolute = Cell(scaled.matrix)  # a plain matrix, scale == 1
-    assert scaled.matrix == absolute.matrix
+    absolute = Cell(scaled.basis)  # a plain matrix, scale == 1
+    assert scaled.basis == absolute.basis
     assert scaled.scale == SurdVector.create(3)
     # Volume scales as scale**3; angles are scale-independent.
     unit = Cell(unscaled)
@@ -101,7 +101,7 @@ def test_exact_cartesian_and_metric_bond_length() -> None:
 
     # Bond squared length two ways: via the exact Cartesian difference, and via the rational metric.
     diff = FracVector.create([F(1, 3), F(1, 3), F(0)])
-    cart_diff = SurdVector.create(diff) * cell.matrix
+    cart_diff = SurdVector.create(diff) * cell.basis
     lsq_cartesian = cart_diff.lengthsqr()
     metric = cell.metric()
     lsq_metric = (SurdVector.create(diff) * metric).dot(SurdVector.create(diff))
@@ -116,13 +116,13 @@ def test_vectorlike_inputs_fraction_string_fracvector() -> None:
     identity = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
     # Fraction leaves.
     frac_cell = Cell([[F(1, 2), 0, 0], [0, F(3, 2), 0], [0, 0, 1]])
-    assert frac_cell.matrix == SurdVector.create([[F(1, 2), 0, 0], [0, F(3, 2), 0], [0, 0, 1]])
+    assert frac_cell.basis == SurdVector.create([[F(1, 2), 0, 0], [0, F(3, 2), 0], [0, 0, 1]])
     # Rational strings.
     str_sites = Sites([["1/3", "1/3", "1/3"]])
     assert str_sites.reduced_coords == FracVector.create([[F(1, 3), F(1, 3), F(1, 3)]])
     # FracVector directly.
     fv_cell = Cell(FracVector.create(identity))
-    assert fv_cell.matrix == SurdVector.create(identity)
+    assert fv_cell.basis == SurdVector.create(identity)
     # A Structure accepts these forms.
     structure = Structure(
         cell=[["1/3", 0, 0], [0, 1, 0], [0, 0, 1]],
@@ -130,13 +130,13 @@ def test_vectorlike_inputs_fraction_string_fracvector() -> None:
         species=[{"name": "Si", "chemical_symbols": ["Si"], "concentration": [1.0]}],
         species_at_sites=["Si"],
     )
-    assert structure.cell.matrix.coefficient(1)[0][0] == FracVector.create(F(1, 3))
+    assert structure.cell.basis.coefficient(1)[0][0] == FracVector.create(F(1, 3))
     assert structure.sites.reduced_coords == FracVector.create([[F(1, 4), F(1, 4), F(1, 4)]])
 
 
 def test_vectorlike_numpy_input() -> None:
     numpy = pytest.importorskip("numpy")
     cell = Cell(numpy.array([[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]]))
-    assert cell.matrix == SurdVector.create([[2, 0, 0], [0, 2, 0], [0, 0, 2]])
+    assert cell.basis == SurdVector.create([[2, 0, 0], [0, 2, 0], [0, 0, 2]])
     sites = Sites(numpy.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]))
     assert sites.reduced_coords == FracVector.create([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]])
