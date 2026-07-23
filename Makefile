@@ -5,7 +5,7 @@ DIST_DIR ?= dist
 # between httk repositories (read by docs/conf.py via HTTK_DOCS_BASE_URL).
 DOCS_BASE_URL ?= https://docs.httk.org
 
-.PHONY: docs docs-live docs-clean docs-inventories clean dist-clean dist dist-check release-check format format-check typecheck typecheck_pyright lint test test_fastfail audit
+.PHONY: docs docs-live docs-clean docs-inventories optimade-defs clean dist-clean dist dist-check release-check format format-check typecheck typecheck_pyright lint test test_fastfail audit
 
 docs: docs-clean
 	HTTK_DOCS_BASE_URL=$(DOCS_BASE_URL) $(PYTHON) -m sphinx -E -a -b html -W --keep-going docs docs/_build/html
@@ -21,6 +21,13 @@ docs-clean:
 docs-inventories:
 	curl -fsSL https://docs.python.org/3/objects.inv -o docs/_inventories/python.inv
 	curl -fsSL $(DOCS_BASE_URL)/httk-core/objects.inv -o docs/_inventories/httk-core.inv
+
+# Refresh the vendored OPTIMADE standard structures entry-type definition (the one
+# source task that uses the network); the checked-in copy under
+# src/httk/atomistic/optimade_defs/ is the authoritative supported version.
+optimade-defs:
+	curl -fsSL https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures.json -o src/httk/atomistic/optimade_defs/structures.json
+	curl -fsSL https://raw.githubusercontent.com/Materials-Consortia/schemas/master/LICENSE -o src/httk/atomistic/optimade_defs/LICENSE
 
 clean: docs-clean dist-clean
 	find . -name "*.pyc" -print0 | xargs -0 rm -f

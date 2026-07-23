@@ -68,7 +68,7 @@ where = ["src"]
 namespaces = true
 
 [tool.setuptools.package-data]
-"httk.atomistic" = ["py.typed"]
+"httk.atomistic" = ["py.typed", "optimade_defs/*"]
 "httk.handlers.atomistic" = ["py.typed"]
 
 [tool.pytest.ini_options]

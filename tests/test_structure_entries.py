@@ -18,12 +18,26 @@ def _provider() -> StructureEntryProvider:
 
 
 def test_entry_types_describe_structures() -> None:
+    from httk.core import EntryTypeDefinition
+
     entry_types = _provider().entry_types()
     assert set(entry_types) == {"structures"}
-    properties = entry_types["structures"]["properties"]
+    definition = entry_types["structures"]
+    assert isinstance(definition, EntryTypeDefinition)
+    properties = definition.properties
+    # The vendored standard describes the full v1.3 property set (30), a superset
+    # of the subset the provider serves:
+    assert len(properties) == 30
     for name in ("id", "type", "elements", "nelements", "nsites", "species", "structure_features"):
         assert name in properties
-        assert "fulltype" in properties[name]
+    # Includes v1.3-native properties the provider does not serve:
+    assert "wyckoff_positions" in properties
+    assert "fractional_site_positions" in properties
+    # nelements keeps its canonical v1.2 $id:
+    assert (
+        properties["nelements"].definition_id
+        == "https://schemas.optimade.org/defs/v1.2/properties/optimade/structures/nelements"
+    )
 
 
 def test_columns_cover_id_and_type() -> None:
