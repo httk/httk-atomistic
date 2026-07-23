@@ -132,6 +132,7 @@ def test_sites_construction_and_sequence_behavior() -> None:
     assert sites[1] == (0.5, 0.5, 0.5)
     assert list(sites) == [(0.0, 0.0, 0.0), (0.5, 0.5, 0.5), (0.25, 0.25, 0.25)]
     assert sites.reduced_coords[0] == (0.0, 0.0, 0.0)
+    assert sites.reduced_coords_floats() == ((0.0, 0.0, 0.0), (0.5, 0.5, 0.5), (0.25, 0.25, 0.25))
     with pytest.raises(ValueError):
         Sites([[0.0, 0.0]])
 

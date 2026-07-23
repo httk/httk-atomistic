@@ -3,6 +3,7 @@ The Simple structure representation for httk-atomistic.
 """
 
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from httk.core import SurdVector
 
@@ -15,6 +16,9 @@ from .sites_like import SitesLike
 from .species import Species
 from .species_class_view import SpeciesClassView
 from .species_like import SpeciesLike
+
+if TYPE_CHECKING:
+    from .numeric_structure import NumericStructure
 
 
 class Structure:
@@ -103,8 +107,14 @@ class Structure:
         return SurdVector.create(self._sites.reduced_coords) * self._cell.basis
 
     def cartesian_sites_floats(self) -> tuple[tuple[float, ...], ...]:
-        """The Cartesian site positions as nested float tuples (presentation boundary)."""
+        """The Cartesian site positions as nested float tuples (numpy-free presentation boundary)."""
         return tuple(tuple(row) for row in self.cartesian_sites().to_floats())
+
+    def numeric(self) -> "NumericStructure":
+        """A plain-numpy presentation of this structure (requires the ``httk-atomistic[numpy]`` extra)."""
+        from .numeric_structure import NumericStructure
+
+        return NumericStructure(self)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Structure):
