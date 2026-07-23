@@ -3,13 +3,16 @@ The Cell class for httk-atomistic.
 """
 
 import fractions
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from httk.core import SurdScalar, SurdVector, VectorLike
 from httk.core.vectors import exactmath
 from httk.core.vectors.exactmath import integer_sqrt
 
 from ._vector_guards import to_surdscalar, to_surdvector
+
+if TYPE_CHECKING:
+    from .numeric_cell import NumericCell
 
 # Deterministic precision for the fallbacks where a length or angle is not exact in the surd field
 # (a non-Niven angle, or an irrational squared length outside the crystallographic metric-rational
@@ -64,8 +67,8 @@ class Cell:
     from the exact reverse-Niven :meth:`~httk.core.SurdScalar.acos_degrees` where possible,
     ``volume`` from the exact determinant, and ``metric`` is the exact rational Gram matrix. When a
     squared length happens to be irrational, ``lengths``/``angles`` fall back to a deterministic
-    rational approximation (documented per accessor). Floats appear only at the presentation
-    boundary via :meth:`basis_floats`.
+    rational approximation (documented per accessor). Plain float tuples are available (numpy-free)
+    via :meth:`basis_floats`, and true numpy arrays via :meth:`numeric`.
     """
 
     _scale: SurdScalar
@@ -109,8 +112,14 @@ class Cell:
         return self._basis_cache
 
     def basis_floats(self) -> tuple[tuple[float, ...], ...]:
-        """The lattice vectors as nested float tuples (presentation boundary)."""
+        """The lattice vectors as nested float tuples (numpy-free presentation boundary)."""
         return tuple(tuple(row) for row in self.basis.to_floats())
+
+    def numeric(self) -> "NumericCell":
+        """A plain-numpy presentation of this cell (requires the ``httk-atomistic[numpy]`` extra)."""
+        from .numeric_cell import NumericCell
+
+        return NumericCell(self)
 
     def metric(self) -> SurdVector:
         """The exact Gram matrix ``matrix * matrix^T`` (rational for a metric-rational cell)."""

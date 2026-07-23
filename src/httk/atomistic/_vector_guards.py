@@ -11,7 +11,19 @@ uniformly admits :class:`~fractions.Fraction`, rational strings (``"1/3"``), ``F
 
 from typing import Any
 
-from httk.core import FracVector, SurdScalar, SurdVector, VectorFracView
+from httk.core import (
+    FracVector,
+    SurdScalar,
+    SurdVector,
+    VectorFracView,
+    numpy_available,
+)
+
+
+def require_numpy() -> None:
+    """Raise :class:`ImportError` (naming the ``httk-atomistic[numpy]`` extra) if numpy is unavailable."""
+    if not numpy_available():
+        raise ImportError("the numeric layer requires numpy; install the httk-atomistic[numpy] extra")
 
 
 def to_surdvector(obj: Any) -> SurdVector:

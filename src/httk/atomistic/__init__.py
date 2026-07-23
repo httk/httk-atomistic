@@ -14,18 +14,23 @@ from .cell_backend import CellBackend
 from .cell_class import CellClass
 from .cell_class_view import CellClassView
 from .cell_like import CellLike
+from .cell_numeric_view import CellNumericView
 from .cell_params import CellParams
 from .cell_params_view import CellParamsView
 from .cell_primitive import CellPrimitive
 from .cell_primitive_view import CellPrimitiveView
 from .cell_view import CellView
 from .elements import SYMBOLS, atomic_number, symbol_of
+from .numeric_cell import NumericCell
+from .numeric_sites import NumericSites
+from .numeric_structure import NumericStructure
 from .sites import Sites
 from .sites_api import SitesAPI
 from .sites_backend import SitesBackend
 from .sites_class import SitesClass
 from .sites_class_view import SitesClassView
 from .sites_like import SitesLike
+from .sites_numeric_view import SitesNumericView
 from .sites_primitive import SitesPrimitive
 from .sites_primitive_view import SitesPrimitiveView
 from .sites_view import SitesView
@@ -43,6 +48,7 @@ from .structure_api import StructureAPI
 from .structure_backend import StructureBackend
 from .structure_entries import StructureEntryProvider
 from .structure_like import StructureLike
+from .structure_numeric_view import StructureNumericView
 from .structure_primitive import StructurePrimitive
 from .structure_primitive_view import StructurePrimitiveView
 from .structure_simple import StructureSimple
@@ -65,6 +71,12 @@ __all__ = [
     "StructurePrimitive",
     "StructureSimpleView",
     "StructurePrimitiveView",
+    "StructureNumericView",
+    "NumericStructure",
+    "NumericCell",
+    "NumericSites",
+    "CellNumericView",
+    "SitesNumericView",
     "Cell",
     "CellLike",
     "CellAPI",

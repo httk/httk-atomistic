@@ -109,6 +109,9 @@ nitpick_ignore = [
     ("py:class", "typing.Optional"),
     ("py:class", "typing.Union"),
     ("py:class", "Ellipsis"),
+    # numpy is an optional dependency surfaced by the numeric layer; this is the sanctioned
+    # targeted entry for that external type (mirroring httk-core's conf.py).
+    ("py:class", "numpy.ndarray"),
 ]
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True

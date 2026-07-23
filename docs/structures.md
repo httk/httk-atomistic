@@ -118,9 +118,12 @@ an interpretation.
   (the squarefree-radical field) factored as a positive `SurdScalar` `scale` times an
   `unscaled_basis`, and its `lengths`/`volume` are exact `SurdScalar`s and `angles` exact
   `Fraction` degrees. A `Sites` stores its reduced coordinates as an exact rational
-  `httk.core.FracVector`. Floats appear only at the presentation and JSON boundaries
-  (`cell.basis_floats()`, the `*PrimitiveView`s, and the OPTIMADE records). An ASU
-  (asymmetric-unit) representation is an upcoming addition.
+  `httk.core.FracVector`. Floats appear only at the presentation and JSON boundaries, of which
+  there are two kinds: the numpy-free `*_floats` accessors (`cell.basis_floats()`,
+  `structure.cartesian_sites_floats()`, `sites.reduced_coords_floats()`, always nested plain float
+  tuples), together with the `*PrimitiveView`s and the OPTIMADE records; and the numpy-backed
+  numeric layer (`.numeric()`, see below). An ASU (asymmetric-unit) representation is an upcoming
+  addition.
 
 ## Exact geometry: scale, surd matrices, and Cartesian positions
 
@@ -168,10 +171,69 @@ bond_sqr_metric = (SurdVector.create(diff) * cell.metric()).dot(SurdVector.creat
 assert bond_sqr_cartesian == bond_sqr_metric
 assert bond_sqr_cartesian.is_rational
 
-# Floats appear only at the presentation boundary:
-cell.basis_floats()
-structure.cartesian_sites_floats()
+# Two plain-float boundaries: the numpy-free *_floats accessors (nested float tuples)...
+assert cell.basis_floats()[0] == (3.0, 0.0, 0.0)
+assert structure.cartesian_sites_floats()[0] == (0.0, 0.0, 0.0)
+assert structure.sites.reduced_coords_floats()[1] == (1.0 / 3.0, 1.0 / 3.0, 0.0)
 ```
+
+## The numeric layer: plain floats and numpy
+
+There are two ways to leave the exact model for plain floats, and they serve different needs:
+
+- The **`*_floats` accessors** — `Cell.basis_floats()`, `Structure.cartesian_sites_floats()`,
+  `Sites.reduced_coords_floats()` — return nested plain `float` tuples, rendered through the exact
+  library. They need **no numpy**, work everywhere, and (with the `*PrimitiveView`s and the OPTIMADE
+  records) are the numpy-free JSON/presentation boundary.
+- The **numeric layer** — `Cell.numeric()`, `Sites.numeric()`, `Structure.numeric()` — returns a
+  `NumericCell`, `NumericSites`, or `NumericStructure` that mirrors the exact interface but returns
+  true numpy: a `float64` `numpy.ndarray` for every vector, a plain `float` for every scalar
+  (`scale`, `volume`). Reach for it when you want numpy arrays — plotting, a numerical routine, quick
+  inspection. The exact object is always one hop back via `.exact`.
+
+The numeric layer is numpy-backed, so it **requires the `httk-atomistic[numpy]` extra** and raises
+`ImportError` eagerly at construction when numpy is not installed. (The `*_floats` accessors, the
+`*PrimitiveView`s, and the OPTIMADE records stay numpy-free, so numpy is optional for everything
+except this numpy presentation.)
+
+```python
+import numpy
+import fractions
+
+from httk.atomistic import Cell, CellParams, Structure
+
+F = fractions.Fraction
+
+cell = Cell(CellParams((3, 3, 5, 90, 90, 120)).basis)   # hexagonal: a real sqrt(3)
+structure = Structure(
+    cell=cell,
+    sites=[[F(0), F(0), F(0)], [F(1, 3), F(1, 3), F(0)]],
+    species=[{"name": "Mg", "chemical_symbols": ["Mg"], "concentration": [1.0]}],
+    species_at_sites=["Mg", "Mg"],
+)
+
+numeric = structure.numeric()
+
+# Vectors are plain float64 ndarrays; the sqrt(3)/2 entry appears as a float:
+basis = numeric.cell.basis
+assert isinstance(basis, numpy.ndarray) and basis.dtype == numpy.float64
+assert basis[1].tolist() == [-1.5, 3.0 * numpy.sqrt(3.0) / 2.0, 0.0]
+
+# Angles are a (3,) float64 ndarray in degrees; scalars are plain floats:
+assert numeric.cell.angles.tolist() == [90.0, 90.0, 120.0]
+assert isinstance(numeric.cell.volume, float)
+
+# Cartesian positions as a plain (N, 3) ndarray:
+cartesian = numeric.cartesian_sites()
+assert isinstance(cartesian, numpy.ndarray) and cartesian.shape == (2, 3)
+
+# .exact is the escape hatch back to the exact object:
+assert numeric.exact is structure
+```
+
+The same presentation is also available as eager views over any backend — `CellNumericView`,
+`SitesNumericView`, `StructureNumericView` — mirroring the `*ClassView` pattern (rewrap-idempotent,
+`unwrap` returns the raw original), and likewise requiring numpy.
 
 ## Shared Behavior and `unwrap`
 
