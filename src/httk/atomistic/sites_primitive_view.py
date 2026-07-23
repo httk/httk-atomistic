@@ -6,6 +6,7 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
+from ._vector_guards import to_float_tuples
 from .sites_backend import SitesBackend
 from .sites_like import SitesLike
 from .sites_view import SitesView
@@ -13,9 +14,10 @@ from .sites_view import SitesView
 
 class SitesPrimitiveView(SitesView, tuple):
     """
-    A view presenting an underlying sites backend as a raw Nx3 matrix.
+    A view presenting an underlying sites backend as a raw Nx3 matrix of floats.
 
-    This view is a genuine tuple of reduced-coordinate rows, built eagerly and immutable.
+    This view is a genuine tuple of reduced-coordinate rows (rendered to floats from the exact
+    ``reduced_coords``), built eagerly and immutable.
     """
 
     _backend: SitesBackend
@@ -24,7 +26,7 @@ class SitesPrimitiveView(SitesView, tuple):
         if isinstance(obj, cls):
             return obj
         backend = cls._prepare_backend(obj, hints)
-        instance = super().__new__(cls, backend.reduced_coords)
+        instance = super().__new__(cls, to_float_tuples(backend.reduced_coords))
         instance._backend = backend
         return instance
 

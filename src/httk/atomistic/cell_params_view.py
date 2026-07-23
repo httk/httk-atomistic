@@ -31,10 +31,14 @@ class CellParamsView(CellView, tuple):
             return obj
         backend = cls._prepare_backend(obj, hints)
         params = getattr(backend, "params", None)
-        if params is None:
-            reference = Cell(backend.matrix)
-            params = reference.lengths + reference.angles
-        instance = super().__new__(cls, params)
+        if params is not None:
+            float_params = tuple(float(x) for x in params)
+        else:
+            reference = Cell(backend.unscaled_matrix, backend.scale)
+            float_params = tuple(length.to_float() for length in reference.lengths) + tuple(
+                float(angle) for angle in reference.angles
+            )
+        instance = super().__new__(cls, float_params)
         instance._backend = backend
         return instance
 

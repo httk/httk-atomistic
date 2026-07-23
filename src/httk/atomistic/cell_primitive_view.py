@@ -6,6 +6,7 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
+from ._vector_guards import to_float_tuples
 from .cell_backend import CellBackend
 from .cell_like import CellLike
 from .cell_view import CellView
@@ -13,9 +14,10 @@ from .cell_view import CellView
 
 class CellPrimitiveView(CellView, tuple):
     """
-    A view presenting an underlying cell backend as a raw 3x3 matrix.
+    A view presenting an underlying cell backend as a raw 3x3 matrix of floats.
 
-    This view is a genuine tuple of three cell-vector rows, built eagerly and immutable.
+    This view is a genuine tuple of three cell-vector rows (the scaled lattice vectors rendered to
+    floats from the exact ``matrix``), built eagerly and immutable.
     """
 
     _backend: CellBackend
@@ -24,7 +26,7 @@ class CellPrimitiveView(CellView, tuple):
         if isinstance(obj, cls):
             return obj
         backend = cls._prepare_backend(obj, hints)
-        instance = super().__new__(cls, backend.matrix)
+        instance = super().__new__(cls, to_float_tuples(backend.matrix))
         instance._backend = backend
         return instance
 

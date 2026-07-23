@@ -2,8 +2,10 @@
 The accepted-input union for sites functions in httk-atomistic.
 """
 
-from typing import Any
+import httk.core
 
 from . import sites, sites_backend, sites_view
 
-type SitesLike = (sites_backend.SitesBackend | sites_view.SitesView | sites.Sites | tuple[Any, ...] | list[Any])
+# Sites are any sites backend/view, a Sites, or any Nx3 vector-like (nested numbers, FracVector,
+# SurdVector, numpy array, ...).
+type SitesLike = sites_backend.SitesBackend | sites_view.SitesView | sites.Sites | httk.core.VectorLike

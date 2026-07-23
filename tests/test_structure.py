@@ -118,9 +118,9 @@ def test_species_is_single_element_cases() -> None:
 def test_structure_normalizes_and_exposes_quartet() -> None:
     structure = nacl_structure()
     assert isinstance(structure.cell, Cell)
-    assert structure.cell.matrix == ((4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0))
+    assert structure.cell.matrix_floats() == ((4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0))
     assert isinstance(structure.sites, Sites)
-    assert structure.sites.reduced_coords == ((0.0, 0.0, 0.0), (0.5, 0.5, 0.5))
+    assert structure.sites.reduced_coords.to_floats() == [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
     assert len(structure.sites) == 2
     assert all(isinstance(s, Species) for s in structure.species)
     assert structure.species_at_sites == ("Na", "Cl")
@@ -206,7 +206,7 @@ def test_backend_create_raises_for_malformed_triple() -> None:
 def test_simple_view_from_primitive_derives_species() -> None:
     view = StructureSimpleView(nacl_triple())
     assert isinstance(view, Structure)
-    assert view.cell.matrix == ((4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0))
+    assert view.cell.matrix_floats() == ((4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0))
     assert view.species_at_sites == ("Na", "Cl")
     assert {s.name for s in view.species} == {"Na", "Cl"}
     assert all(s.is_single_element for s in view.species)

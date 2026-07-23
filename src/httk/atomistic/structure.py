@@ -4,6 +4,8 @@ The Simple structure representation for httk-atomistic.
 
 from collections.abc import Sequence
 
+from httk.core import SurdVector
+
 from .cell import Cell
 from .cell_class_view import CellClassView
 from .cell_like import CellLike
@@ -26,10 +28,13 @@ class Structure:
     species are passed through their ``*Like`` unions, and every ``species_at_sites`` name
     must match one of the (uniquely named) species.
 
-    Note: the numeric values (cell, sites) are stored behind the ``Cell`` and ``Sites``
-    component objects, whose interim numerics are nested tuples of floats. They are
-    intended to be replaced by the httk exact vector representation fairly soon; keep
-    numeric access behind the quartet accessors so that change stays contained.
+    The numeric model is exact and split by purpose. The fractional frame — reduced coordinates
+    and symmetry — is rational and lives in ``sites`` as a :class:`~httk.core.FracVector`. The
+    Cartesian frame — where radicals such as the hexagonal ``sqrt(3)`` appear — is exact in the
+    squarefree-radical field: ``cell.matrix`` is a :class:`~httk.core.SurdVector` and
+    :meth:`cartesian_sites` returns the exact Cartesian positions. Pure magnitudes (bond-length
+    comparisons) stay rational-exact via ``cell.metric()``. Floats appear only at the presentation
+    and JSON boundaries.
     """
 
     _cell: Cell
@@ -84,6 +89,22 @@ class Structure:
     def species_at_sites(self) -> tuple[str, ...]:
         """The species name occupying each site, in site order."""
         return self._species_at_sites
+
+    def cartesian_sites(self) -> SurdVector:
+        """
+        The exact Cartesian site positions as an ``(N, 3)`` :class:`~httk.core.SurdVector`.
+
+        Under the row-vector convention this is ``reduced_coords * cell.matrix`` (each Cartesian
+        position is the sum over lattice vectors ``sum_k reduced[k] * matrix[k]``). The reduced
+        coordinates are rational (a ``FracVector``), the cell matrix carries the radicals (a
+        ``SurdVector``), so the product is exact in the surd field — the hexagonal ``sqrt(3)``
+        survives into the Cartesian positions.
+        """
+        return SurdVector.create(self._sites.reduced_coords) * self._cell.matrix
+
+    def cartesian_sites_floats(self) -> tuple[tuple[float, ...], ...]:
+        """The Cartesian site positions as nested float tuples (presentation boundary)."""
+        return tuple(tuple(row) for row in self.cartesian_sites().to_floats())
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Structure):
