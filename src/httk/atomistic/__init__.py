@@ -41,6 +41,7 @@ from .species_view import SpeciesView
 from .structure import Structure
 from .structure_api import StructureAPI
 from .structure_backend import StructureBackend
+from .structure_entries import StructureEntryProvider
 from .structure_like import StructureLike
 from .structure_primitive import StructurePrimitive
 from .structure_primitive_view import StructurePrimitiveView
@@ -57,6 +58,7 @@ __all__ = [
     "Structure",
     "StructureLike",
     "StructureAPI",
+    "StructureEntryProvider",
     "StructureBackend",
     "StructureView",
     "StructureSimple",
