@@ -26,13 +26,13 @@ def _rsin(deg: fractions.Fraction) -> fractions.Fraction:
     return fractions.Fraction(exactmath.sin(deg, degrees=True, prec=_PARAMS_PREC, limit=False))
 
 
-def _params_to_matrix(params: tuple[fractions.Fraction, ...]) -> SurdVector:
+def _params_to_basis(params: tuple[fractions.Fraction, ...]) -> SurdVector:
     """
-    Build the standard-orientation cell matrix from ``(a, b, c, alpha, beta, gamma)``.
+    Build the standard-orientation cell basis from ``(a, b, c, alpha, beta, gamma)``.
 
     First cell vector along x, second in the xy-plane. When all of ``cos(alpha)``, ``cos(beta)``,
     ``cos(gamma)``, ``sin(gamma)`` are exact in the surd field (Niven angles) AND the resulting
-    ``cz**2`` is rational, the matrix is exact (radicals intact). Otherwise it falls back
+    ``cz**2`` is rational, the basis is exact (radicals intact). Otherwise it falls back
     **completely** to a deterministic rational matrix at ``_PARAMS_PREC`` — never mixing exact
     and approximate entries.
     """
@@ -77,18 +77,18 @@ class CellParams(CellBackend):
     The native representation is a flat length-6 vector-like of the cell-vector lengths
     ``a``/``b``/``c`` and the angles ``alpha``/``beta``/``gamma`` in degrees, stored as exact
     :class:`~fractions.Fraction` values (parsed via
-    :func:`~httk.core.vectors.exactmath.any_to_fraction`). The exact ``matrix`` is derived lazily and
+    :func:`~httk.core.vectors.exactmath.any_to_fraction`). The exact ``basis`` is derived lazily and
     cached using the standard crystallographic orientation convention (first cell vector along x,
     second in the xy-plane); for the common Niven angles it is exact (radicals intact). Since
     parameters carry no separate length factor, ``scale`` is the exact ``1`` and
-    ``unscaled_matrix == matrix``. Parameters carry no orientation, so a cell → parameters → cell
+    ``unscaled_basis == basis``. Parameters carry no orientation, so a cell → parameters → cell
     round-trip reproduces lengths, angles, and volume, but not the original orientation.
     ``unwrap`` returns the original raw object.
     """
 
     _raw: Any
     _params: tuple[fractions.Fraction, ...]
-    _matrix_cache: SurdVector | None
+    _basis_cache: SurdVector | None
 
     # Cannot type annotate __new__ as `Self | None` for some reason
     def __new__(cls, obj: Any, **hints: Any) -> Any:
@@ -109,7 +109,7 @@ class CellParams(CellBackend):
             raise ValueError("Cell parameter angles do not describe a valid (non-degenerate) cell")
         self._raw = obj
         self._params = params
-        self._matrix_cache = None
+        self._basis_cache = None
 
     @staticmethod
     def _describes_valid_cell(alpha: fractions.Fraction, beta: fractions.Fraction, gamma: fractions.Fraction) -> bool:
@@ -126,18 +126,18 @@ class CellParams(CellBackend):
         return (1 - ca * ca - cb * cb - cg * cg + 2 * ca * cb * cg) > 0
 
     @property
-    def matrix(self) -> SurdVector:
-        if self._matrix_cache is None:
-            self._matrix_cache = _params_to_matrix(self._params)
-        return self._matrix_cache
+    def basis(self) -> SurdVector:
+        if self._basis_cache is None:
+            self._basis_cache = _params_to_basis(self._params)
+        return self._basis_cache
 
     @property
     def scale(self) -> SurdScalar:
         return SurdVector.one()
 
     @property
-    def unscaled_matrix(self) -> SurdVector:
-        return self.matrix
+    def unscaled_basis(self) -> SurdVector:
+        return self.basis
 
     @property
     def params(self) -> tuple[fractions.Fraction, ...]:

@@ -31,7 +31,7 @@ class Structure:
     The numeric model is exact and split by purpose. The fractional frame — reduced coordinates
     and symmetry — is rational and lives in ``sites`` as a :class:`~httk.core.FracVector`. The
     Cartesian frame — where radicals such as the hexagonal ``sqrt(3)`` appear — is exact in the
-    squarefree-radical field: ``cell.matrix`` is a :class:`~httk.core.SurdVector` and
+    squarefree-radical field: ``cell.basis`` is a :class:`~httk.core.SurdVector` and
     :meth:`cartesian_sites` returns the exact Cartesian positions. Pure magnitudes (bond-length
     comparisons) stay rational-exact via ``cell.metric()``. Floats appear only at the presentation
     and JSON boundaries.
@@ -94,13 +94,13 @@ class Structure:
         """
         The exact Cartesian site positions as an ``(N, 3)`` :class:`~httk.core.SurdVector`.
 
-        Under the row-vector convention this is ``reduced_coords * cell.matrix`` (each Cartesian
-        position is the sum over lattice vectors ``sum_k reduced[k] * matrix[k]``). The reduced
-        coordinates are rational (a ``FracVector``), the cell matrix carries the radicals (a
+        Under the row-vector convention this is ``reduced_coords * cell.basis`` (each Cartesian
+        position is the sum over lattice vectors ``sum_k reduced[k] * basis[k]``). The reduced
+        coordinates are rational (a ``FracVector``), the cell basis carries the radicals (a
         ``SurdVector``), so the product is exact in the surd field — the hexagonal ``sqrt(3)``
         survives into the Cartesian positions.
         """
-        return SurdVector.create(self._sites.reduced_coords) * self._cell.matrix
+        return SurdVector.create(self._sites.reduced_coords) * self._cell.basis
 
     def cartesian_sites_floats(self) -> tuple[tuple[float, ...], ...]:
         """The Cartesian site positions as nested float tuples (presentation boundary)."""

@@ -61,8 +61,8 @@ def _is_empty_sequence(obj: Any) -> bool:
     return isinstance(obj, (list, tuple)) and len(obj) == 0
 
 
-def is_matrix_3x3(obj: Any) -> bool:
-    """True iff ``obj`` builds a vector of shape ``(3, 3)`` (a cell matrix)."""
+def is_basis_3x3(obj: Any) -> bool:
+    """True iff ``obj`` builds a vector of shape ``(3, 3)`` (a cell basis)."""
     value = try_surdvector(obj)
     return value is not None and value.dim == (3, 3)
 

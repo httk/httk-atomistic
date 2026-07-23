@@ -68,7 +68,7 @@ def test_filtered_query_returns_expected_served_fields() -> None:
     assert entry["id"] == "nacl"
     assert entry["species_at_sites"] == ["Na", "Cl"]
     assert entry["lattice_vectors"] == [[3.0, 0.0, 0.0], [1.0, 3.0, 0.0], [0.0, 0.0, 3.0]]
-    # cartesian = sum_k reduced[k] * cell.matrix[k]; second site [0.5,0.5,0.5]:
+    # cartesian = sum_k reduced[k] * cell.basis[k]; second site [0.5,0.5,0.5]:
     assert entry["cartesian_site_positions"] == [[0.0, 0.0, 0.0], [2.0, 1.5, 1.5]]
     assert {s["name"] for s in entry["species"]} == {"Na", "Cl"}
 

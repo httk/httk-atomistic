@@ -48,7 +48,7 @@ def test_records_keyed_by_columns() -> None:
 
 
 def test_cartesian_positions_nonorthogonal_hand_computed() -> None:
-    # cartesian = sum_k reduced[k] * cell.matrix[k] (row-vector convention).
+    # cartesian = sum_k reduced[k] * cell.basis[k] (row-vector convention).
     # For reduced [0.5, 0.5, 0.5] against
     #   a=[2,0,0], b=[1,2,0], c=[0,0,3]:
     #   x = 0.5*2 + 0.5*1 + 0.5*0 = 1.5

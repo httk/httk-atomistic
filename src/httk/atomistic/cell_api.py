@@ -12,15 +12,15 @@ class CellAPI(ABC):
     Abstract base class for the canonical cell interface.
 
     It declares the exact accessors that every cell backend produces from its own native
-    representation and every cell view builds its presentation from: the ``matrix`` of 3x3 lattice
-    vectors (``scale * unscaled_matrix``), the positive ``scale``, and the ``unscaled_matrix``. All
+    representation and every cell view builds its presentation from: the ``basis`` of 3x3 lattice
+    vectors (``scale * unscaled_basis``), the positive ``scale``, and the ``unscaled_basis``. All
     three are exact httk-core vectors; this is the single interchange format, with no pairwise
     conversion between backends.
     """
 
     @property
     @abstractmethod
-    def matrix(self) -> SurdVector:
+    def basis(self) -> SurdVector:
         raise NotImplementedError
 
     @property
@@ -30,5 +30,5 @@ class CellAPI(ABC):
 
     @property
     @abstractmethod
-    def unscaled_matrix(self) -> SurdVector:
+    def unscaled_basis(self) -> SurdVector:
         raise NotImplementedError

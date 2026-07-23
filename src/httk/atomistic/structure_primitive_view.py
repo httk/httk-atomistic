@@ -40,7 +40,7 @@ class StructurePrimitiveView(StructureView, tuple):
                 )
             numbers.append(atomic_number(species.chemical_symbols[0]))
         payload = (
-            to_float_tuples(backend.cell.matrix),
+            to_float_tuples(backend.cell.basis),
             to_float_tuples(backend.sites.reduced_coords),
             tuple(numbers),
         )

@@ -54,11 +54,11 @@ The `cell`, `sites`, and `species` components each get the same view/backend tre
 the word describes the representation, which still applies):
 
 - `Cell`: backends `CellClass` / `CellPrimitive` / `CellParams`, views `CellClassView` /
-  `CellPrimitiveView` / `CellParamsView`, union `CellLike`. `Cell` exposes `matrix` plus the
+  `CellPrimitiveView` / `CellParamsView`, union `CellLike`. `Cell` exposes `basis` plus the
   derived `lengths`, `angles` (the crystallographic `alpha`/`beta`/`gamma` in degrees), and
   `volume`. The params representation is a flat `(a, b, c, alpha, beta, gamma)` 6-tuple
   (angles in degrees): a cell can be constructed from parameters anywhere a `CellLike` is
-  accepted (the matrix is built with the standard orientation convention — first vector
+  accepted (the basis is built with the standard orientation convention — first vector
   along x, second in the xy-plane), and `CellParamsView` presents any cell as its
   parameters, with the elements also available as the named properties `a`/`b`/`c`/
   `alpha`/`beta`/`gamma`. Note that parameters carry no orientation, so cell → params →
@@ -78,7 +78,7 @@ cell = structure.cell            # a Cell
 cell.lengths                     # a triple of exact SurdScalar norms
 cell.angles                      # (alpha, beta, gamma) as exact Fraction degrees
 cell.volume                      # an exact SurdScalar
-raw_matrix = tuple(CellPrimitiveView(cell))          # back to a raw 3x3 tuple of floats
+raw_basis = tuple(CellPrimitiveView(cell))           # back to a raw 3x3 tuple of floats
 params = CellParamsView(cell)                        # (a, b, c, alpha, beta, gamma) as floats
 params.a, params.gamma
 optimade = dict(SpeciesPrimitiveView(structure.species[0]))  # a species as an OPTIMADE dict
@@ -93,7 +93,7 @@ structure_from_params = Structure(
 ```
 
 The kinds dispatch by type and shape: a `Cell`/`Sites`/`Species` goes to its `*Class`
-backend, a raw matrix / dict to its `*Primitive` backend, and a flat 6-sequence to the
+backend, a raw basis matrix / dict to its `*Primitive` backend, and a flat 6-sequence to the
 `CellParams` backend. Pass `kind="class"`, `kind="primitive"`, or `kind="params"` to force
 an interpretation.
 
@@ -113,13 +113,13 @@ an interpretation.
   representation.
 - Rewrapping a view returns the same object, and views built from the same backend
   share it. `unwrap(view)` returns the native raw object (a `Structure` or a triple, a
-  `Cell` or a raw matrix, a `Species` or a dict).
+  `Cell` or a raw basis matrix, a `Species` or a dict).
 - The numeric model is **exact**. A `Cell` stores its lattice vectors as a `httk.core.SurdVector`
   (the squarefree-radical field) factored as a positive `SurdScalar` `scale` times an
-  `unscaled_matrix`, and its `lengths`/`volume` are exact `SurdScalar`s and `angles` exact
+  `unscaled_basis`, and its `lengths`/`volume` are exact `SurdScalar`s and `angles` exact
   `Fraction` degrees. A `Sites` stores its reduced coordinates as an exact rational
   `httk.core.FracVector`. Floats appear only at the presentation and JSON boundaries
-  (`cell.matrix_floats()`, the `*PrimitiveView`s, and the OPTIMADE records). An ASU
+  (`cell.basis_floats()`, the `*PrimitiveView`s, and the OPTIMADE records). An ASU
   (asymmetric-unit) representation is an upcoming addition.
 
 ## Exact geometry: scale, surd matrices, and Cartesian positions
@@ -137,21 +137,21 @@ from httk.atomistic import Cell, CellParams, Structure
 
 F = fractions.Fraction
 
-# Cell parameters -> an EXACT matrix: hexagonal a=b=3, c=5, gamma=120 carries a real sqrt(3).
-cell = Cell(CellParams((3, 3, 5, 90, 90, 120)).matrix)
-assert 3 in cell.matrix.radicands                       # the sqrt(3) is exact, not a float
+# Cell parameters -> an EXACT basis: hexagonal a=b=3, c=5, gamma=120 carries a real sqrt(3).
+cell = Cell(CellParams((3, 3, 5, 90, 90, 120)).basis)
+assert 3 in cell.basis.radicands                       # the sqrt(3) is exact, not a float
 
 # Angles come back exactly through the reverse-Niven table; volume is (45/2)*sqrt(3):
 assert cell.angles == (F(90), F(90), F(120))
 assert cell.volume == SurdVector.from_radicand_map({3: F(45, 2)})
 
-# The scale carries an overall length factor: unscaled rows scaled by 4 == the absolute matrix,
+# The scale carries an overall length factor: unscaled rows scaled by 4 == the absolute basis,
 # and the volume scales as scale**3. Angles are scale-independent.
 scaled = Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]], scale=4)
-assert scaled.matrix == Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]).matrix
+assert scaled.basis == Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]).basis
 assert scaled.volume == SurdVector.create(64)
 
-# Exact Cartesian positions: reduced (rational) coordinates times the surd cell matrix.
+# Exact Cartesian positions: reduced (rational) coordinates times the surd cell basis.
 structure = Structure(
     cell=cell,
     sites=[[F(0), F(0), F(0)], [F(1, 3), F(1, 3), F(0)]],
@@ -163,13 +163,13 @@ assert 3 in cartesian.radicands                         # the sqrt(3) survives i
 
 # A bond squared-length is rational-exact; the exact-Cartesian and rational-metric routes agree.
 diff = FracVector.create([F(1, 3), F(1, 3), F(0)])
-bond_sqr_cartesian = (SurdVector.create(diff) * cell.matrix).lengthsqr()
+bond_sqr_cartesian = (SurdVector.create(diff) * cell.basis).lengthsqr()
 bond_sqr_metric = (SurdVector.create(diff) * cell.metric()).dot(SurdVector.create(diff))
 assert bond_sqr_cartesian == bond_sqr_metric
 assert bond_sqr_cartesian.is_rational
 
 # Floats appear only at the presentation boundary:
-cell.matrix_floats()
+cell.basis_floats()
 structure.cartesian_sites_floats()
 ```
 

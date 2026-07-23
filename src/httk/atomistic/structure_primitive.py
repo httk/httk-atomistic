@@ -4,7 +4,7 @@ Backend wrapping an spglib-like (lattice, positions, numbers) triple.
 
 from typing import Any
 
-from ._vector_guards import is_coords_nx3, is_matrix_3x3, try_surdvector
+from ._vector_guards import is_basis_3x3, is_coords_nx3, try_surdvector
 from .cell import Cell
 from .elements import symbol_of
 from .sites import Sites
@@ -20,7 +20,7 @@ def _is_primitive_triple(obj: Any) -> bool:
     if not isinstance(obj, (list, tuple)) or len(obj) != 3:
         return False
     lattice, positions, numbers = obj
-    if not is_matrix_3x3(lattice) or not is_coords_nx3(positions):
+    if not is_basis_3x3(lattice) or not is_coords_nx3(positions):
         return False
     if not isinstance(numbers, (list, tuple)) or not all(_is_number(z) for z in numbers):
         return False

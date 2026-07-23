@@ -34,7 +34,7 @@ class CellParamsView(CellView, tuple):
         if params is not None:
             float_params = tuple(float(x) for x in params)
         else:
-            reference = Cell(backend.unscaled_matrix, backend.scale)
+            reference = Cell(backend.unscaled_basis, backend.scale)
             float_params = tuple(length.to_float() for length in reference.lengths) + tuple(
                 float(angle) for angle in reference.angles
             )

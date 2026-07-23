@@ -43,8 +43,8 @@ TOL = 1e-9
 def test_cell_construction_and_validation() -> None:
     cell = Cell(ORTHO)
     # The exact matrix is a SurdVector; rational floats embed exactly and render back identically.
-    assert cell.matrix == SurdVector.create(ORTHO)
-    assert cell.matrix_floats() == ((2.0, 0.0, 0.0), (0.0, 3.0, 0.0), (0.0, 0.0, 4.0))
+    assert cell.basis == SurdVector.create(ORTHO)
+    assert cell.basis_floats() == ((2.0, 0.0, 0.0), (0.0, 3.0, 0.0), (0.0, 0.0, 4.0))
     with pytest.raises(ValueError):
         Cell([[1.0, 0.0], [0.0, 1.0]])
     with pytest.raises(ValueError):
@@ -75,7 +75,7 @@ def test_cell_equality_and_repr() -> None:
     assert Cell(ORTHO) == Cell(ORTHO)
     assert Cell(ORTHO) != Cell(HEX)
     assert Cell(ORTHO) != object()
-    assert "Cell(matrix=" in repr(Cell(ORTHO))
+    assert "Cell(basis=" in repr(Cell(ORTHO))
 
 
 # --- Cell dispatch and views ---
@@ -101,7 +101,7 @@ def test_cell_views_class_and_primitive() -> None:
     # Class view from a raw matrix (primitive backend).
     class_view = CellClassView(ORTHO)
     assert isinstance(class_view, Cell)
-    assert class_view.matrix_floats() == ((2.0, 0.0, 0.0), (0.0, 3.0, 0.0), (0.0, 0.0, 4.0))
+    assert class_view.basis_floats() == ((2.0, 0.0, 0.0), (0.0, 3.0, 0.0), (0.0, 0.0, 4.0))
     assert class_view.volume == SurdVector.create(24)
 
     # Primitive view from a Cell (class backend).
@@ -247,12 +247,12 @@ def test_species_class_view_applies_full_validation() -> None:
 def test_cell_params_backend_constructs_standard_matrix() -> None:
     cubic = CellBackend.create((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))
     assert isinstance(cubic, CellParams)
-    for i, row in enumerate(cubic.matrix.to_floats()):
+    for i, row in enumerate(cubic.basis.to_floats()):
         for j, x in enumerate(row):
             assert x == pytest.approx(4.0 if i == j else 0.0, abs=1e-12)
 
     hexagonal = CellBackend.create((3.0, 3.0, 5.0, 90.0, 90.0, 120.0))
-    matrix = hexagonal.matrix.to_floats()
+    matrix = hexagonal.basis.to_floats()
     assert tuple(matrix[0]) == pytest.approx((3.0, 0.0, 0.0), abs=1e-12)
     assert matrix[1][0] == pytest.approx(-1.5)
     assert matrix[1][1] == pytest.approx(3.0 * math.sqrt(3.0) / 2.0)
@@ -292,8 +292,8 @@ def test_cell_params_view_of_rotated_matrix_is_lossy_but_faithful() -> None:
     rotated = Cell([[0.0, 4.0, 0.0], [-4.0, 0.0, 0.0], [0.0, 0.0, 4.0]])
     params = CellParamsView(rotated)
     assert tuple(params) == pytest.approx((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))
-    reconstructed = Cell(CellParams(tuple(params)).matrix)
-    assert reconstructed.matrix != rotated.matrix
+    reconstructed = Cell(CellParams(tuple(params)).basis)
+    assert reconstructed.basis != rotated.basis
     assert reconstructed.volume.to_float() == pytest.approx(rotated.volume.to_float())
     assert [length.to_float() for length in reconstructed.lengths] == pytest.approx(
         [length.to_float() for length in rotated.lengths]

@@ -14,7 +14,7 @@ class CellClass(CellBackend):
     """
     Backend for a cell backed by an actual ``Cell`` object.
 
-    Its exact accessors delegate to the wrapped Cell (preserving its ``scale``/``unscaled_matrix``
+    Its exact accessors delegate to the wrapped Cell (preserving its ``scale``/``unscaled_basis``
     split), and ``unwrap`` returns that Cell.
     """
 
@@ -32,16 +32,16 @@ class CellClass(CellBackend):
         self._cell = obj
 
     @property
-    def matrix(self) -> SurdVector:
-        return self._cell.matrix
+    def basis(self) -> SurdVector:
+        return self._cell.basis
 
     @property
     def scale(self) -> SurdScalar:
         return self._cell.scale
 
     @property
-    def unscaled_matrix(self) -> SurdVector:
-        return self._cell.unscaled_matrix
+    def unscaled_basis(self) -> SurdVector:
+        return self._cell.unscaled_basis
 
     def unwrap(self) -> Any:
         return self._cell
