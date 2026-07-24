@@ -13,7 +13,7 @@ composition fields (``nperiodic_dimensions``, ``dimension_types``,
 ``_descriptive``) for ordered structures, may serve custom database-specific
 properties layered on via an
 :meth:`~httk.core.EntryTypeDefinition.extended` definition, and may map an entry
-id to ``None`` (a known entry with no structure — structural columns serve
+id to ``None`` (a known entry with no structure — structural properties serve
 null).
 """
 
@@ -43,9 +43,9 @@ def _structures_definition() -> EntryTypeDefinition:
     return load_entry_type_definition("httk.atomistic", "structures")
 
 
-# Served property name -> record column key. simple_property_handlers on the
+# Served property name -> record key. simple_property_handlers on the
 # consumer side treats 'id' (against '__id') and 'type' (constant) specially.
-_STRUCTURES_COLUMNS: dict[str, str] = {
+_STRUCTURES_PROPERTY_KEYS: dict[str, str] = {
     'id': '__id',
     'type': 'type',
     'elements': 'elements',
@@ -58,8 +58,8 @@ _STRUCTURES_COLUMNS: dict[str, str] = {
     'structure_features': 'structure_features',
 }
 
-# Structural columns that serve null for a None (structure-less) entry.
-_STRUCTURAL_NULL_COLUMNS: tuple[str, ...] = (
+# Structural record keys that serve null for a None (structure-less) entry.
+_STRUCTURAL_NULL_KEYS: tuple[str, ...] = (
     'elements',
     'nelements',
     'nsites',
@@ -71,7 +71,7 @@ _STRUCTURAL_NULL_COLUMNS: tuple[str, ...] = (
 )
 
 # Standard composition properties auto-derived from each Structure (None-safe).
-_AUTO_DERIVED_COLUMNS: tuple[str, ...] = (
+_AUTO_DERIVED_KEYS: tuple[str, ...] = (
     'nperiodic_dimensions',
     'dimension_types',
     'elements_ratios',
@@ -111,7 +111,7 @@ def _derived_properties(structure: Any) -> dict[str, Any]:
     """The auto-derived composition properties for ``structure`` (all ``None`` when not well-defined)."""
     counts = _element_counts(structure)
     if counts is None:
-        return {name: None for name in _AUTO_DERIVED_COLUMNS}
+        return {name: None for name in _AUTO_DERIVED_KEYS}
     total = sum(counts.values())
     elements_sorted = sorted(counts)
     common = reduce(gcd, counts.values())
@@ -139,7 +139,7 @@ class StructureEntryProvider(EntryProvider):
     any structure exposing the ``cell``/``sites``/``species``/
     ``species_at_sites`` quartet, or a ``(cell, sites, species,
     species_at_sites)`` tuple), or to ``None`` for a known entry that has no
-    structure (its structural columns then serve null).
+    structure (its structural properties then serve null).
 
     The always-served structural fields are ``id``, ``type``, ``nsites``,
     ``elements``, ``nelements``, ``species`` (as OPTIMADE species dicts),
@@ -195,15 +195,15 @@ class StructureEntryProvider(EntryProvider):
     def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
         return {'structures': self._definition()}
 
-    def columns(self, entry_type: str) -> Mapping[str, str]:
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
         if entry_type != 'structures':
             raise KeyError("StructureEntryProvider serves only the 'structures' entry type.")
-        columns = dict(_STRUCTURES_COLUMNS)
-        for name in _AUTO_DERIVED_COLUMNS:
-            columns[name] = name
+        property_keys = dict(_STRUCTURES_PROPERTY_KEYS)
+        for name in _AUTO_DERIVED_KEYS:
+            property_keys[name] = name
         for name in self._property_names:
-            columns[name] = name
-        return columns
+            property_keys[name] = name
+        return property_keys
 
     def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
         if entry_type != 'structures':
@@ -212,9 +212,9 @@ class StructureEntryProvider(EntryProvider):
         for entry_id, structure in self._structures.items():
             record: dict[str, Any] = {'__id': entry_id, 'type': 'structures'}
             if structure is None:
-                for column in _STRUCTURAL_NULL_COLUMNS:
-                    record[column] = None
-                for name in _AUTO_DERIVED_COLUMNS:
+                for key in _STRUCTURAL_NULL_KEYS:
+                    record[key] = None
+                for name in _AUTO_DERIVED_KEYS:
                     record[name] = None
             else:
                 species_dicts = [dict(SpeciesPrimitiveView(species)) for species in structure.species]
