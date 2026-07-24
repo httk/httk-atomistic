@@ -54,6 +54,7 @@ from .structure_primitive_view import StructurePrimitiveView
 from .structure_simple import StructureSimple
 from .structure_simple_view import StructureSimpleView
 from .structure_view import StructureView
+from .vasp_structures import load_structure, structure_from_poscar
 
 StructureBackend.backend_classes = [StructureSimple, StructurePrimitive]
 CellBackend.backend_classes = [CellClass, CellPrimitive, CellParams]
@@ -109,4 +110,6 @@ __all__ = [
     "SYMBOLS",
     "atomic_number",
     "symbol_of",
+    "structure_from_poscar",
+    "load_structure",
 ]

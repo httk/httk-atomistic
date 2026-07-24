@@ -236,6 +236,90 @@ The same presentation is also available as eager views over any backend — `Cel
 `SitesNumericView`, `StructureNumericView` — mirroring the `*ClassView` pattern (rewrap-idempotent,
 `unwrap` returns the raw original), and likewise requiring numpy.
 
+## Building a Structure from a POSCAR mapping
+
+`structure_from_poscar` bridges *httk-io*'s neutral, string-preserving POSCAR
+mapping (the output of `httk.io.read_poscar`, format tag `"vasp-poscar"`) into an
+exact `Structure`. It imports nothing from *httk-io* — it only understands the
+mapping shape — so parsing and the domain model stay decoupled. The cell rows are
+taken exactly; Direct coordinates become reduced coordinates verbatim, while
+Cartesian coordinates are converted exactly as `cart * basis.inv()` (the VASP
+universal scale factor cancels, since it scales lattice vectors and Cartesian
+positions alike):
+
+```python
+from httk.atomistic import structure_from_poscar
+
+poscar = {
+    "format": "vasp-poscar",
+    "comment": "rocksalt-ish",
+    "scale": "1.0",
+    "volume": None,
+    "cell": [["4.0", "0.0", "0.0"], ["0.0", "4.0", "0.0"], ["0.0", "0.0", "4.0"]],
+    "symbols": ["Na", "Cl"],
+    "counts": [1, 1],
+    "cartesian": False,
+    "coords": [["0.0", "0.0", "0.0"], ["0.5", "0.5", "0.5"]],
+    "selective_dynamics": None,
+}
+
+structure = structure_from_poscar(poscar)
+assert [species.name for species in structure.species] == ["Na", "Cl"]
+assert structure.cell.basis.to_floats() == [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
+assert structure.species_at_sites == ("Na", "Cl")
+```
+
+A negative scale line encodes a target cell **volume**; the resulting overall
+scale is the cube root of `V / |det(basis)|`, which leaves the exact surd field,
+so it is a deterministic rational approximation (the basis rows stay exact). The
+end-to-end `load_structure(path)` combines `httk.core.load` (which selects the
+reader by file type and decompresses `.bz2`/`.gz` transparently) with this
+bridge; it requires *httk-io* to be importable so its POSCAR loader is
+registered.
+
+## Serving structures as OPTIMADE
+
+`StructureEntryProvider` maps `{id: Structure}` onto the neutral
+`httk.core.EntryProvider` contract for a serving module such as *httk-optimade*.
+Besides the core structural fields it auto-derives the standard composition
+fields for a fully ordered structure (every species a single, unattached
+element): `nperiodic_dimensions`, `dimension_types`, `elements_ratios`, and the
+`chemical_formula_reduced` / `_anonymous` / `_descriptive` strings. It also
+accepts `None` for a known entry that has no structure (structural columns then
+serve null), and can serve custom database-specific properties via an extended
+definition:
+
+```python
+from httk.atomistic import Structure, StructureEntryProvider
+from httk.atomistic.species import Species
+from httk.core import PropertyDefinition
+
+cell = [[5.6, 0.0, 0.0], [0.0, 7.6, 0.0], [0.0, 0.0, 5.3]]
+sites = [[0.01 * i, 0.0, 0.0] for i in range(20)]
+species = [
+    Species(name="Fe", chemical_symbols=("Fe",), concentration=(1.0,)),
+    Species(name="O", chemical_symbols=("O",), concentration=(1.0,)),
+    Species(name="Sm", chemical_symbols=("Sm",), concentration=(1.0,)),
+]
+smfeo3 = Structure(cell, sites, species, ["Fe"] * 4 + ["O"] * 12 + ["Sm"] * 4)
+
+energy = PropertyDefinition.from_simple("_httk_total_energy", description="Total energy.", fulltype="float")
+provider = StructureEntryProvider(
+    {"smfeo3": smfeo3, "known-but-empty": None},
+    extra_definitions={"_httk_total_energy": energy},
+    properties={"smfeo3": {"_httk_total_energy": -12.5}},
+)
+
+records = {record["__id"]: record for record in provider.records("structures")}
+# gcd(4, 12, 4) = 4 -> Fe O3 Sm (alphabetical); anonymous orders amounts descending.
+assert records["smfeo3"]["chemical_formula_reduced"] == "FeO3Sm"
+assert records["smfeo3"]["chemical_formula_anonymous"] == "A3BC"
+assert records["smfeo3"]["_httk_total_energy"] == -12.5
+# The structure-less entry serves null for structural and derived fields:
+assert records["known-but-empty"]["lattice_vectors"] is None
+assert records["known-but-empty"]["chemical_formula_reduced"] is None
+```
+
 ## Shared Behavior and `unwrap`
 
 `unwrap(obj)` returns the most raw representation available:
