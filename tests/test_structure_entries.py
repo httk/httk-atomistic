@@ -43,19 +43,19 @@ def test_entry_types_describe_structures() -> None:
     )
 
 
-def test_columns_cover_id_and_type() -> None:
-    columns = _provider().columns("structures")
-    assert "id" in columns and "type" in columns
-    # id is normalized under the '__id' record column:
-    assert columns["id"] == "__id"
+def test_property_keys_cover_id_and_type() -> None:
+    property_keys = _provider().property_keys("structures")
+    assert "id" in property_keys and "type" in property_keys
+    # id is normalized under the '__id' record key:
+    assert property_keys["id"] == "__id"
 
 
-def test_records_keyed_by_columns() -> None:
+def test_records_keyed_by_property_keys() -> None:
     provider = _provider()
-    columns = provider.columns("structures")
+    property_keys = provider.property_keys("structures")
     (record,) = list(provider.records("structures"))
-    for column in columns.values():
-        assert column in record
+    for key in property_keys.values():
+        assert key in record
     assert record["__id"] == "s-1"
     assert record["type"] == "structures"
     assert record["elements"] == ["Cl", "Na"]
@@ -134,10 +134,10 @@ def test_chemical_formula_and_ratios() -> None:
 
 def test_null_structure_serves_null() -> None:
     provider = StructureEntryProvider({"empty": None})
-    columns = provider.columns("structures")
+    property_keys = provider.property_keys("structures")
     (record,) = list(provider.records("structures"))
-    for column in columns.values():
-        assert column in record
+    for key in property_keys.values():
+        assert key in record
     assert record["__id"] == "empty"
     assert record["type"] == "structures"
     assert record["lattice_vectors"] is None
@@ -165,7 +165,7 @@ def test_extra_definitions_and_properties_merged() -> None:
     )
     definition = provider.entry_types()["structures"]
     assert "_httk_total_energy" in definition.properties
-    assert "_httk_total_energy" in provider.columns("structures")
+    assert "_httk_total_energy" in provider.property_keys("structures")
     records = {record["__id"]: record for record in provider.records("structures")}
     assert records["a"]["_httk_total_energy"] == -1.5
     assert records["b"]["_httk_total_energy"] is None  # absent for this entry -> null

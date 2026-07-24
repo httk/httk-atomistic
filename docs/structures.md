@@ -285,7 +285,7 @@ Besides the core structural fields it auto-derives the standard composition
 fields for a fully ordered structure (every species a single, unattached
 element): `nperiodic_dimensions`, `dimension_types`, `elements_ratios`, and the
 `chemical_formula_reduced` / `_anonymous` / `_descriptive` strings. It also
-accepts `None` for a known entry that has no structure (structural columns then
+accepts `None` for a known entry that has no structure (structural properties then
 serve null), and can serve custom database-specific properties via an extended
 definition:
 
