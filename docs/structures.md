@@ -280,6 +280,34 @@ reader by file type and decompresses `.bz2`/`.gz` transparently) with this
 bridge; it requires *httk-io* to be importable so its POSCAR loader is
 registered.
 
+## Building supercells
+
+`Structure.supercell(A)` applies an exact integer transformation to the cell
+rows. If `A` has determinant $d$, the result contains exactly $|d|$ periodic
+copies and has basis `A * structure.cell.basis`. Coordinates and translation
+cosets stay rational-exact; no geometric tolerance is used.
+
+```python
+result = structure.supercell([[2, 0, 0], [0, 2, 0], [0, 0, 1]])
+supercell = result.structure
+
+assert result.multiplier == 4
+assert len(supercell.sites) == 4 * len(structure.sites)
+```
+
+When the transformation is not known, `orthogonal_supercell(multiplier=N)` and
+`cubic_supercell(multiplier=N)` search a deterministic bounded set of integer
+matrices with determinant `N`. The multiplier is explicit, so atom count and
+memory use are predictable before materialization. Their exact,
+dimensionless `orthogonality_score` and `cubicity_score` are zero precisely
+when the target shape is achieved.
+
+The default `max_sites=100_000` guard fails before allocation; pass a larger
+value, or `None`, deliberately when constructing a larger result. See the
+complete {doc}`examples/build_a_supercell` example for the skewed cell from the
+httk v1 Step 2 tutorial and the reason its old `tolerance` search knob became
+an exact multiplier in v2.
+
 ## Serving structures as OPTIMADE
 
 `StructureEntryProvider` maps `{id: Structure}` onto the neutral

@@ -10,7 +10,7 @@ uniformly admits :class:`~fractions.Fraction`, rational strings (``"1/3"``), ``F
 """
 
 import fractions
-from typing import Any
+from typing import Any, Iterable
 
 from httk.core import (
     FracVector,
@@ -91,6 +91,27 @@ def to_precision(obj: Any) -> fractions.Fraction | None:
     if exact <= 0:
         raise ValueError(f"a precision must be strictly positive, got {exact}; use None for unknown")
     return exact
+
+
+def to_periodicity(obj: Any) -> tuple[bool, bool, bool]:
+    """Normalize a periodicity specification into exactly three booleans.
+
+    One flag per basis row, saying whether that row is a genuine lattice translation.
+    ``None`` means fully periodic — the overwhelmingly common case, and the one every
+    cell built before periodicity existed meant. Unlike a stated precision there is no
+    "unknown" state: a cell you constructed has a periodicity you know.
+
+    Anything three-element and truthy-testable works, so ``(True, True, False)``,
+    ``[1, 1, 0]`` and OPTIMADE's own ``dimension_types`` spelling all land the same way.
+    """
+    if obj is None:
+        return (True, True, True)
+    if isinstance(obj, (str, bytes)) or not isinstance(obj, Iterable):
+        raise ValueError(f"periodicity must be three flags, one per basis row, got {obj!r}")
+    flags = tuple(bool(flag) for flag in obj)
+    if len(flags) != 3:
+        raise ValueError(f"periodicity must be three flags, one per basis row, got {len(flags)}")
+    return (flags[0], flags[1], flags[2])
 
 
 def to_float_tuples(vector: FracVector | SurdVector) -> tuple[tuple[float, ...], ...]:
