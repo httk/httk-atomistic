@@ -45,6 +45,10 @@ class CellClass(CellBackend):
         return self._cell.precision
 
     @property
+    def periodicity(self) -> tuple[bool, bool, bool]:
+        return self._cell.periodicity
+
+    @property
     def unscaled_basis(self) -> SurdVector:
         return self._cell.unscaled_basis
 

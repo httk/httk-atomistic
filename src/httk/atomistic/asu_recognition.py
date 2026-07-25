@@ -29,6 +29,7 @@ from typing import Any, Sequence
 
 from httk.core import FracVector, SurdVector
 
+from ._periodic_wrap import wrap_periodic_half
 from .asu_structure import ASUSite, ASUStructure
 from .setting_transform import SettingTransform
 from .spacegroup import Spacegroup
@@ -99,17 +100,23 @@ def _half_minimum_separation(view: Any) -> float | None:
     reduction is per component, which is exact for a cell with orthogonal axes and can
     overestimate for a strongly oblique one — erring towards a looser cap rather than a
     tighter one.
+
+    Only the periodic directions are reduced. Along a non-periodic one there is no other
+    image to be nearer, and folding it would report two well-separated atoms as close
+    neighbours — tightening the cap, and so the derived tolerance, below what the data
+    justifies.
     """
     coords = view.sites.reduced_coords
     count = len(coords)
     if count < 2:
         return None
 
+    periodicity = view.cell.periodicity
     basis = view.cell.basis.to_floats()
     shortest: float | None = None
     for first in range(count):
         for second in range(first + 1, count):
-            difference = (coords[first] - coords[second]).normalize_half().to_floats()
+            difference = wrap_periodic_half(coords[first] - coords[second], periodicity).to_floats()
             cartesian = [sum(difference[axis] * basis[axis][component] for axis in range(3)) for component in range(3)]
             distance = math.sqrt(sum(value * value for value in cartesian))
             if distance > 0 and (shortest is None or distance < shortest):

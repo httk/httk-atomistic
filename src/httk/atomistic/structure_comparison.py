@@ -15,6 +15,7 @@ input. :func:`same_crystal` is the predicate that guarantee is stated in.
 from collections import Counter
 from typing import Any
 
+from ._periodic_wrap import wrap_periodic
 from .structure_like import StructureLike
 
 __all__ = ["same_crystal"]
@@ -33,6 +34,14 @@ def same_crystal(first: StructureLike, second: StructureLike) -> bool:
     with the recognition step that snaps a measured structure onto an idealised one, not
     here.
 
+    Periodicity takes part in two ways. Cells must agree on it, so a slab is never the same
+    crystal as the bulk with the same lattice vectors. And only the periodic directions are
+    wrapped, since along the others there is no lattice translate to be indifferent about —
+    an atom at ``1.05`` really is somewhere else than one at ``0.05``. The comparison stays
+    exact in the frame as written: two descriptions of the same slab that differ in their
+    non-periodic frame vector compare unequal, because reconciling them would need an origin
+    convention this function deliberately does not have.
+
     Accepts anything structure-like on either side, so a
     :class:`~httk.atomistic.Structure` may be compared directly against an
     :class:`~httk.atomistic.ASUStructure` without expanding it by hand.
@@ -41,6 +50,9 @@ def same_crystal(first: StructureLike, second: StructureLike) -> bool:
 
     left = StructureSimpleView(first)
     right = StructureSimpleView(second)
+
+    if left.cell.periodicity != right.cell.periodicity:
+        return False
 
     if left.cell.basis != right.cell.basis:
         return False
@@ -56,7 +68,7 @@ def _site_multiset(structure: Any) -> Counter[tuple[Any, ...]]:
     exactly the sort of expansion bug this predicate exists to catch.
     """
     by_name = {item.name: item for item in structure.species}
-    wrapped = structure.sites.reduced_coords.normalize()
+    wrapped = wrap_periodic(structure.sites.reduced_coords, structure.cell.periodicity)
     return Counter(
         (by_name[name], tuple(coordinate))
         for name, coordinate in zip(structure.species_at_sites, wrapped.to_fractions())

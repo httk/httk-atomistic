@@ -70,6 +70,11 @@ class Cell:
     rational approximation (documented per accessor). Exact accessors return vector objects —
     render them with ``.to_floats()`` (nested plain-float lists, numpy-free), ``float(...)`` on
     scalars, :meth:`numeric` (true numpy arrays), or a view of your choice.
+
+    A cell also records its :attr:`periodicity`, which defaults to periodic in all three
+    directions. Where it is not, the basis stops being purely a lattice and becomes partly a
+    *coordinate frame*: see :attr:`periodicity` for what that means and
+    :attr:`periodic_measure` for the quantity that replaces :attr:`volume`.
     """
 
     _scale: SurdScalar
@@ -80,15 +85,35 @@ class Cell:
     _angles_cache: tuple[fractions.Fraction, ...] | None
     _volume_cache: SurdScalar | None
     _precision: fractions.Fraction | None
+    _periodicity: tuple[bool, bool, bool]
 
-    def __init__(self, basis: VectorLike, scale: Any = 1, precision: Any = None) -> None:
+    def __init__(
+        self,
+        basis: VectorLike,
+        scale: Any = 1,
+        precision: Any = None,
+        periodicity: Any = None,
+    ) -> None:
         unscaled = to_surdvector(basis)
         if unscaled.dim != (3, 3):
             raise ValueError("Cell basis must be a 3x3 vector-like")
         scale_scalar = to_surdscalar(scale)
         if scale_scalar.sign() <= 0:
             raise ValueError("Cell scale must be strictly positive")
+        if unscaled.det().sign() == 0:
+            # A degenerate basis is not a cell in any sense: it spans less than three
+            # dimensions, so it cannot be inverted and Cartesian coordinates cannot be
+            # turned back into fractional ones. Rejecting it here rather than letting
+            # `volume` quietly return 0 and `angles` raise a bare ZeroDivisionError far
+            # downstream also makes this route agree with CellParams, which has always
+            # rejected the same geometry.
+            raise ValueError(
+                "Cell basis must be non-degenerate (its three vectors must span three "
+                "dimensions); a zero or linearly dependent row cannot be a cell, and for a "
+                "non-periodic direction it should be a unit vector rather than a zero one"
+            )
         self._precision = to_precision(precision)
+        self._periodicity = to_periodicity(periodicity)
         self._unscaled_basis = unscaled
         self._scale = scale_scalar
         self._basis_cache = None
@@ -127,6 +152,29 @@ class Cell:
         hand or from a bare matrix reports.
         """
         return self._precision
+
+    @property
+    def periodicity(self) -> tuple[bool, bool, bool]:
+        """Which of the three basis rows is a genuine lattice translation.
+
+        ``(True, True, True)`` — the default, and what every ordinary crystal is. A slab is
+        ``(True, True, False)``, a nanowire has one ``True``, and an isolated molecule is
+        ``(False, False, False)``.
+
+        A row flagged ``False`` is **not** a lattice vector. It is only a frame: it says
+        what a fractional coordinate means along that direction, and nothing more.
+        Coordinates there are unbounded — freely below 0 or above 1 — and are never wrapped
+        into ``[0, 1)``. There is no vacuum and no padding involved, so making that row a
+        unit vector simply means the coordinate along it *is* a length in the basis's units.
+
+        This is the same notion, in the same order, as OPTIMADE's ``dimension_types``.
+        """
+        return self._periodicity
+
+    @property
+    def nperiodic_dimensions(self) -> int:
+        """How many of the three directions are periodic, from 0 to 3."""
+        return sum(self._periodicity)
 
     def numeric(self) -> "NumericCell":
         """A plain-numpy presentation of this cell (requires the ``httk-atomistic[numpy]`` extra)."""
@@ -195,23 +243,78 @@ class Cell:
 
     @property
     def volume(self) -> SurdScalar:
-        """The cell volume, the exact absolute determinant of ``basis``."""
+        """The cell volume, the exact absolute determinant of ``basis``.
+
+        Defined only for a fully periodic cell, and raises :class:`ValueError` otherwise.
+        For anything less, the determinant mixes real lattice vectors with frame vectors,
+        so it is not a volume: it changes when a frame vector is rescaled, even though
+        nothing about the material did. Any density or packing fraction derived from it
+        would inherit that. See :attr:`periodic_measure` for the quantity that *is* defined.
+        """
+        if self._periodicity != (True, True, True):
+            raise ValueError(
+                "volume is defined only for a fully 3D-periodic cell; this one is periodic in "
+                f"{self.nperiodic_dimensions} of 3 directions ({self._periodicity}). "
+                "Use periodic_measure for the area, length or volume of the periodic sublattice."
+            )
+        return self._unchecked_volume
+
+    @property
+    def _unchecked_volume(self) -> SurdScalar:
+        """``|det(basis)|``, without the periodicity check. Internal."""
         if self._volume_cache is None:
             det = self.basis.det()
             self._volume_cache = (-det)._as_scalar() if det.sign() < 0 else det
         return self._volume_cache
 
+    @property
+    def periodic_measure(self) -> SurdScalar:
+        """The measure of the periodic sublattice: a volume, an area, a length, or one.
+
+        The size of the repeating unit, whatever its dimension — volume for a crystal, area
+        for a slab, length for a nanowire. For a fully non-periodic cell there is no
+        repeating unit and this is the empty product, ``1``, which is dimensionless rather
+        than a length of any kind.
+
+        Exact in the crystallographic case. The 3D case is the determinant and needs no
+        square root at all; the 2D and 1D cases go through the same
+        :func:`_scalar_length` that :attr:`lengths` uses, so they are exact whenever the
+        squared measure is a rational with a small radicand and fall back to a deterministic
+        rational approximation otherwise.
+        """
+        rows = [index for index, periodic in enumerate(self._periodicity) if periodic]
+        if len(rows) == 3:
+            return self._unchecked_volume
+        if not rows:
+            return SurdVector.create(1)._as_scalar()
+        if len(rows) == 1:
+            return self.lengths[rows[0]]
+        # The k-dimensional measure of the sublattice is sqrt(det(G)) over the Gram matrix of
+        # its rows -- for k=2 the familiar |a x b|, formed here without leaving the surd field.
+        metric = self.metric()
+        first, second = rows
+        gram_det = (
+            metric._element((first, first)) * metric._element((second, second))
+            - metric._element((first, second)) * metric._element((second, first))
+        )._as_scalar()
+        return _scalar_length(gram_det)
+
     def __eq__(self, other: object) -> bool:
-        """Equality of the basis, and of nothing else.
+        """Equality of the basis and the periodicity, and of nothing else.
 
         Neither the ``scale``/``unscaled_basis`` factoring nor the stated ``precision``
-        takes part. Two cells with the same lattice vectors *are* the same cell; how the
-        scale was factored out and how precisely the source wrote the numbers are both
-        metadata about its provenance, not part of its geometry.
+        takes part: how the scale was factored out and how precisely the source wrote the
+        numbers are both metadata about the cell's provenance, not part of its geometry.
+
+        ``periodicity`` does take part, because it is not provenance — it says which rows
+        are lattice vectors at all. A slab and a bulk crystal that happen to share a basis
+        are different cells, and one of them has a volume while the other does not.
         """
         if not isinstance(other, Cell):
             return NotImplemented
-        return self.basis == other.basis
+        return self.basis == other.basis and self._periodicity == other._periodicity
 
     def __repr__(self) -> str:
-        return f"Cell(basis={self.basis!r}, scale={self._scale!r})"
+        if self._periodicity == (True, True, True):
+            return f"Cell(basis={self.basis!r}, scale={self._scale!r})"
+        return f"Cell(basis={self.basis!r}, scale={self._scale!r}, periodicity={self._periodicity!r})"
