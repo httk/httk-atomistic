@@ -104,10 +104,7 @@ def _basis_precision_factor(matrix: FracVector) -> fractions.Fraction:
 
 def _coordinate_precision_factor(inverse: FracVector) -> fractions.Fraction:
     rows = inverse.to_fractions()
-    return max(
-        sum((abs(rows[i][j]) for i in range(3)), start=fractions.Fraction(0))
-        for j in range(3)
-    )
+    return max(sum((abs(rows[i][j]) for i in range(3)), start=fractions.Fraction(0)) for j in range(3))
 
 
 def _metric_element(metric: SurdVector, i: int, j: int) -> SurdScalar:
@@ -261,15 +258,10 @@ def _candidate_values(
     multiplier: int,
     search_radius: int,
 ) -> itertools.chain[tuple[int, ...]]:
-    center = tuple(
-        int(value.to_integral_value(rounding=decimal.ROUND_HALF_EVEN))
-        for row in ideal
-        for value in row
-    )
+    center = tuple(int(value.to_integral_value(rounding=decimal.ROUND_HALF_EVEN)) for row in ideal for value in row)
     offsets = range(-search_radius, search_radius + 1)
     local = (
-        tuple(center[index] + delta[index] for index in range(9))
-        for delta in itertools.product(offsets, repeat=9)
+        tuple(center[index] + delta[index] for index in range(9)) for delta in itertools.product(offsets, repeat=9)
     )
     return itertools.chain(local, _diagonal_fallbacks(multiplier))
 
@@ -300,8 +292,7 @@ def _search_transformation(
         transformed_metric = SurdVector.create(matrix) * cell.metric() * SurdVector.create(matrix.T())
         orthogonality, cubicity = _shape_scores(transformed_metric)
         ideal_distance = sum(
-            (decimal.Decimal(value) - target_value) ** 2
-            for value, target_value in zip(values, ideal_flat, strict=True)
+            (decimal.Decimal(value) - target_value) ** 2 for value, target_value in zip(values, ideal_flat, strict=True)
         )
         coefficient_norm = sum(value * value for value in values)
         if target == "orthogonal":
