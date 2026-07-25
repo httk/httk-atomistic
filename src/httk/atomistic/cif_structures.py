@@ -21,7 +21,6 @@ from httk.core import FracVector
 
 from . import data as symmetry_data
 from .affine_operation import AffineOperation
-from .asu_recognition import DEFAULT_TOLERANCE
 from .asu_structure import ASUSite, ASUStructure
 from .cell import Cell
 from .cell_params import CellParams
@@ -58,7 +57,7 @@ def asu_structures_from_cif(payload: Mapping[str, Any], **options: Any) -> list[
 def asu_structure_from_cif(
     data: Mapping[str, Any],
     *,
-    tolerance: float = DEFAULT_TOLERANCE,
+    tolerance: float | None = None,
     limit_denominator: int | None = None,
 ) -> ASUStructure:
     """Build an exact :class:`~httk.atomistic.ASUStructure` from a neutral CIF mapping.
@@ -75,6 +74,10 @@ def asu_structure_from_cif(
     the Wyckoff position they lie within ``tolerance`` of. That snapping is the only
     tolerant step; see :mod:`~httk.atomistic.asu_recognition` for the full contract.
 
+    ``tolerance`` left unspecified is derived from the precision the file's own digits
+    imply, so a coarsely written file is matched loosely and a carefully written one
+    tightly, without anybody choosing a constant.
+
     Site occupancies become the composition of the corresponding
     :class:`~httk.atomistic.Species`, so a half-occupied site survives into the structure
     instead of being dropped.
@@ -87,6 +90,12 @@ def asu_structure_from_cif(
     standard = setting.standard_setting()
     transform = setting.transform_from_standard
     cell = _cell_from_cif(data)
+
+    if tolerance is None:
+        # Derived from the digits the file itself wrote, rather than a constant. The sites
+        # are the asymmetric unit rather than a full cell, which is all this needs: the
+        # tolerance depends on the precision and the cell, not on how many atoms there are.
+        tolerance = _tolerance_from_cif(data, cell)
 
     coordinates = _exact_positions(data)
     symbols = list(data["symbols"])
@@ -129,6 +138,30 @@ def asu_structure_from_cif(
         transform,
         data.get("coordinate_precision"),
     )
+
+
+def _tolerance_from_cif(data: Mapping[str, Any], cell: Cell) -> float:
+    """A matching tolerance from the precision this CIF block states.
+
+    Built directly rather than via :func:`~httk.atomistic.structure_tolerance`, which needs
+    an assembled structure; here the sites are still an asymmetric unit and the cell has
+    only just been made. The arithmetic is the same one: the coordinate precision is a
+    fraction of a cell edge, so it becomes a length against the longest one, floored by the
+    cell's own precision, and doubled because two independently rounded values can differ by
+    twice their precision.
+    """
+    from .asu_recognition import _SAFETY_FACTOR, DEFAULT_TOLERANCE
+
+    coordinate_precision = data.get("coordinate_precision")
+    basis_precision = data.get("basis_precision")
+    if coordinate_precision is None and basis_precision is None:
+        return DEFAULT_TOLERANCE
+
+    longest = max(length.to_float() for length in cell.lengths)
+    cartesian = 0.0 if coordinate_precision is None else float(coordinate_precision) * longest
+    if basis_precision is not None:
+        cartesian = max(cartesian, float(basis_precision))
+    return cartesian * _SAFETY_FACTOR
 
 
 def cif_setting(data: Mapping[str, Any]) -> Spacegroup:
