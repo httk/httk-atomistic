@@ -30,6 +30,7 @@ from typing import Any, Sequence
 from httk.core import FracVector, SurdVector
 
 from ._periodic_wrap import wrap_periodic_half
+from ._periodicity_guard import require_full_periodicity
 from .asu_structure import ASUSite, ASUStructure
 from .setting_transform import SettingTransform
 from .spacegroup import Spacegroup
@@ -157,6 +158,7 @@ def recognize_asu(
     from .structure_simple_view import StructureSimpleView
 
     view = StructureSimpleView(structure)
+    require_full_periodicity(view.cell, "recognize_asu")
     if tolerance is None:
         tolerance = structure_tolerance(view)
 

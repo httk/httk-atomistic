@@ -28,6 +28,7 @@ from typing import Any, Sequence
 from httk.core import FracVector
 
 from . import data
+from ._periodicity_guard import require_full_periodicity
 from ._vector_guards import to_precision
 from .cell import Cell
 from .cell_class_view import CellClassView
@@ -99,6 +100,7 @@ class ASUStructure:
         coordinate_precision: Any = None,
     ) -> None:
         self._cell = cell if isinstance(cell, Cell) else CellClassView(cell)
+        require_full_periodicity(self._cell, "ASUStructure")
         self._spacegroup = spacegroup if isinstance(spacegroup, Spacegroup) else Spacegroup.standard(spacegroup)
         if not self._spacegroup.is_standard_setting:
             raise ValueError(
