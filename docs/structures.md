@@ -122,7 +122,8 @@ an interpretation.
   return vector objects; render them** — `.to_floats()` on any of them gives nested plain-float
   lists (numpy-free, JSON-ready), `float(...)` works on every exact scalar, the `*PrimitiveView`s
   give immutable float tuples, and the numpy-backed numeric layer (`.numeric()`, see below) gives
-  true numpy arrays. An ASU (asymmetric-unit) representation is an upcoming addition.
+  true numpy arrays. An `ASUStructure` holds a structure as its asymmetric unit — a space
+  group plus one site per orbit — and expands to a `Structure` on demand; see {doc}`asu`.
 
 ## Exact geometry: scale, surd matrices, and Cartesian positions
 
