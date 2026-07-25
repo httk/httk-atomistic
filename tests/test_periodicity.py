@@ -445,3 +445,44 @@ def test_lattice_vectors_are_always_three_whatever_the_periodicity() -> None:
     """OPTIMADE requires all three regardless; the non-periodic ones are frame vectors."""
     record = _record((0, 0, 0))
     assert record["lattice_vectors"] == [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 5.0]]
+
+
+# --- marking a loaded structure as a slab ---
+
+
+def test_the_documented_remarking_recipe_preserves_everything_else() -> None:
+    """Neither CIF nor POSCAR can state periodicity, so this is the only way to build a slab.
+
+    There is deliberately no `with_periodicity()` helper, which makes it worth pinning that
+    the by-hand recipe in `docs/periodicity.md` really does keep the exact scale factoring
+    and both recorded precisions.
+    """
+    from httk.atomistic import Sites
+
+    loaded = Structure(
+        Cell([[2, 0, 0], [0, 2, 0], [0, 0, 20]], scale=3, precision="1/10000"),
+        Sites([[0, 0, "2/5"]], precision="1/100000"),
+        [NA],
+        ["Na"],
+    )
+    assert loaded.periodicity == (True, True, True)
+
+    slab = Structure(
+        Cell(
+            loaded.cell.unscaled_basis,
+            loaded.cell.scale,
+            loaded.cell.precision,
+            (True, True, False),
+        ),
+        loaded.sites,
+        loaded.species,
+        loaded.species_at_sites,
+    )
+
+    assert slab.periodicity == (True, True, False)
+    assert slab.cell.basis == loaded.cell.basis
+    assert slab.cell.scale == loaded.cell.scale  # the exact factoring survives
+    assert slab.basis_precision == loaded.basis_precision
+    assert slab.coordinate_precision == loaded.coordinate_precision
+    # 2D area of the 6 x 6 periodic plane (2 x 2 scaled by 3).
+    assert slab.cell.periodic_measure.to_float() == pytest.approx(36.0)

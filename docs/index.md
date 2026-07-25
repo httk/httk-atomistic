@@ -12,6 +12,7 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 - **Structure guide**: {doc}`structures`
 - **Asymmetric units**: {doc}`asu`
 - **Data precision**: {doc}`precision`
+- **Periodicity (slabs, wires, molecules)**: {doc}`periodicity`
 - **Runnable examples**: {doc}`examples/index`
 - **Examples notebook**: {doc}`notebooks/examples`
 - **Disorder walkthrough**: {doc}`notebooks/disorder`
@@ -53,6 +54,7 @@ reference/index
 structures
 asu
 precision
+periodicity
 examples/index
 notebooks/examples
 notebooks/disorder
