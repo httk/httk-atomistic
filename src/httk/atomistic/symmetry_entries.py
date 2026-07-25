@@ -89,7 +89,13 @@ def symmetry_properties(structure: Any) -> dict[str, Any]:
         return values
 
     values["fractional_site_positions"] = structure.sites.reduced_coords.to_floats()
-    values["site_coordinate_span"] = "unit_cell"
+    # ``unit_cell`` promises that translating the given sites by the lattice vectors
+    # reconstructs the whole periodic system, which holds as long as *something* is
+    # periodic. With nothing periodic there is no periodic system to reconstruct, and none
+    # of the ``molecular_*`` values fit either: each of them additionally requires bonded
+    # atoms to be placed at a bond distance, which httk does not know. ``other`` is the
+    # honest remainder.
+    values["site_coordinate_span"] = "unit_cell" if structure.cell.nperiodic_dimensions else "other"
 
     # A structure built from an asymmetric unit unwraps back to it, so the symmetry is
     # recovered rather than re-derived; anything else genuinely has none to report.
