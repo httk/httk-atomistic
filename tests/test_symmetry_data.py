@@ -214,3 +214,18 @@ def test_standard_setting_differs_from_spglib_default_exactly_for_two_origin_gro
         != data.spglib_default_spacegroup_setting(it_number)["hall_entry"]
     ]
     assert differing == sorted(TWO_ORIGIN_IT_NUMBERS)
+
+
+def test_the_conventional_hall_spelling_normalizes_to_the_indexed_one() -> None:
+    """``hall`` lower-cased with spaces as underscores is exactly ``hall_entry``.
+
+    A CIF writes the conventional spelling (``-C 2yc``) while the tables are indexed by the
+    normalized one (``-c_2yc``), so reading a declared Hall symbol depends on this holding.
+    Both spellings are also unique across the settings, so neither can name two of them.
+    """
+    settings = data.spacegroup_settings()
+    for record in settings:
+        assert record["hall"].lower().replace(" ", "_") == record["hall_entry"], record["setting_it_nc"]
+
+    assert len({record["hall"] for record in settings}) == len(settings)
+    assert len({record["hall_entry"] for record in settings}) == len(settings)

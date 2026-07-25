@@ -59,6 +59,7 @@ def asu_structure_from_cif(
     *,
     tolerance: float | None = None,
     limit_denominator: int | None = None,
+    trust_declared_symmetry: bool = True,
 ) -> ASUStructure:
     """Build an exact :class:`~httk.atomistic.ASUStructure` from a neutral CIF mapping.
 
@@ -81,12 +82,16 @@ def asu_structure_from_cif(
     Site occupancies become the composition of the corresponding
     :class:`~httk.atomistic.Species`, so a half-occupied site survives into the structure
     instead of being dropped.
+
+    ``trust_declared_symmetry=False`` ignores the file's declared Hall symbol or space-group
+    number and identifies the setting from its symmetry operations alone; see
+    :func:`cif_setting` for when that is the right thing to do.
     """
     fmt = data.get("format")
     if fmt != "cif":
         raise ValueError(f"asu_structure_from_cif expected a 'cif' mapping, got format={fmt!r}.")
 
-    setting = cif_setting(data)
+    setting = cif_setting(data, trust_declared_symmetry=trust_declared_symmetry)
     standard = setting.standard_setting()
     transform = setting.transform_from_standard
     cell = _cell_from_cif(data)
@@ -164,60 +169,114 @@ def _tolerance_from_cif(data: Mapping[str, Any], cell: Cell) -> float:
     return cartesian * _SAFETY_FACTOR
 
 
-def cif_setting(data: Mapping[str, Any]) -> Spacegroup:
+def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True) -> Spacegroup:
     """The space-group setting a CIF block is written in.
 
-    Identified from the file's symmetry operations by exact set comparison against the
-    tabulated settings, which is what makes a non-standard setting come out as itself. The
-    declared Hall symbol, Hermann-Mauguin symbol, or IT number only narrows the search;
-    where a symbol and the operations disagree, the operations win, because they are what
-    the file's coordinates were actually generated with.
+    The setting is identified from the file's symmetry **operations**, by exact set
+    comparison against the tabulated settings. That is what makes a file written in a
+    non-standard setting come out as itself rather than being silently reinterpreted.
 
-    Raises :class:`ValueError` for a setting that matches no tabulated one. That is a real
-    limitation and is deliberate: the transform to the standard setting cannot be *derived*
-    without choosing arbitrarily among an infinite family of equally valid ones, so such a
-    file must be handled by supplying the transform explicitly.
+    What the file *declares* — a Hall symbol, or an International Tables number — is treated
+    as a claim to be checked, not a hint to be taken or dropped. A declaration that names no
+    known setting, or that names one whose operations are not the file's, is a genuine
+    inconsistency in the file and raises rather than being worked around: the two halves of
+    the file disagree, and quietly believing one of them is how a wrong structure gets built.
+
+    Pass ``trust_declared_symmetry=False`` to ignore the declaration entirely and identify
+    the setting from the operations alone. That is the escape hatch for a file whose symbols
+    are known to be wrong but whose operations are good.
+
+    The Hermann-Mauguin symbol is deliberately **not** checked. It has too many legitimate
+    spellings, and OPTIMADE itself notes that it does not unambiguously communicate the axis,
+    cell, or origin choice, so treating a mismatch there as an error would reject good files.
+
+    Raises :class:`ValueError` when the block states no operations, when a declaration is
+    inconsistent with them, or when the operations match no tabulated setting at all. In the
+    last case the transform to the standard setting genuinely cannot be *derived* — infinitely
+    many are equally valid and they describe different crystals — so such a file has to be
+    built with an explicit :class:`~httk.atomistic.SettingTransform`.
     """
     operations = data.get("symops")
     if not operations:
         raise ValueError("this CIF block states no symmetry operations, so its setting cannot be determined")
     target = frozenset(AffineOperation(rotation, translation).wrapped() for rotation, translation in operations)
 
-    for record in _candidate_settings(data):
+    candidates: list[dict[str, Any]] | None = None
+    declared = None
+    if trust_declared_symmetry:
+        candidates, declared = _declared_settings(data)
+    if candidates is None:
+        candidates = symmetry_data.spacegroup_settings()
+
+    for record in candidates:
         candidate = Spacegroup(record)
         if frozenset(operation.wrapped() for operation in candidate.symmetry_operations) == target:
             return candidate
 
-    declared = data.get("space_group_name_hm") or data.get("space_group_name_hall") or data.get("space_group_nbr")
+    if declared is not None:
+        raise ValueError(
+            f"this CIF declares {declared}, but its {len(target)} symmetry operations are not that "
+            f"setting's. The file contradicts itself. If the operations are the trustworthy half, "
+            f"pass trust_declared_symmetry=False to identify the setting from them alone."
+        )
     raise ValueError(
-        f"the {len(target)} symmetry operations in this CIF match no tabulated space-group setting "
-        f"(the file declares {declared!r}). If this is a genuinely non-standard setting, build the "
-        f"structure with an explicit SettingTransform instead; a transform cannot be derived, since "
-        f"infinitely many are equally valid and they describe different crystals."
+        f"the {len(target)} symmetry operations in this CIF match no tabulated space-group setting. "
+        f"If this is a genuinely non-standard setting, build the structure with an explicit "
+        f"SettingTransform instead; a transform cannot be derived, since infinitely many are "
+        f"equally valid and they describe different crystals."
     )
 
 
-def _candidate_settings(data: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Settings worth comparing against, narrowed by whatever the file declares."""
+def _declared_settings(data: Mapping[str, Any]) -> tuple[list[dict[str, Any]] | None, str | None]:
+    """The settings the file's own declaration allows, and how it was described.
+
+    ``(None, None)`` when the file declares nothing, in which case every tabulated setting is
+    a candidate. A declaration that cannot name a real setting raises here rather than being
+    ignored, because silently ignoring it is indistinguishable from the file being right.
+    """
     hall = data.get("space_group_name_hall")
     if hall:
+        written = str(hall).strip()
         try:
-            return [symmetry_data.spacegroup_setting(hall_entry=str(hall).strip())]
+            record = symmetry_data.spacegroup_setting(hall_entry=_normalized_hall(written))
         except KeyError:
-            pass
+            raise ValueError(
+                f"this CIF declares the Hall symbol {written!r}, which names no known space-group "
+                f"setting. Pass trust_declared_symmetry=False to ignore the declaration and identify "
+                f"the setting from the symmetry operations alone."
+            ) from None
+        return [record], f"the Hall symbol {written!r}"
 
     number = data.get("space_group_nbr")
     if number is not None:
+        written = str(number).strip()
         try:
-            it_number = int(str(number).strip())
+            it_number = int(written)
         except ValueError:
-            it_number = 0
-        if 1 <= it_number <= 230:
-            narrowed = [record for record in symmetry_data.spacegroup_settings() if record["it_number"] == it_number]
-            if narrowed:
-                return narrowed
+            raise ValueError(
+                f"this CIF declares the International Tables number {written!r}, which is not a "
+                f"number. Pass trust_declared_symmetry=False to ignore the declaration."
+            ) from None
+        if not 1 <= it_number <= 230:
+            raise ValueError(
+                f"this CIF declares the International Tables number {it_number}, which is outside the "
+                f"range 1-230. Pass trust_declared_symmetry=False to ignore the declaration."
+            )
+        narrowed = [record for record in symmetry_data.spacegroup_settings() if record["it_number"] == it_number]
+        return narrowed, f"International Tables number {it_number}"
 
-    return list(symmetry_data.spacegroup_settings())
+    return None, None
+
+
+def _normalized_hall(symbol: str) -> str:
+    """A Hall symbol in the spelling the tables index it under.
+
+    A CIF writes Hall symbols conventionally — ``-C 2yc`` — while the tables key them as
+    ``-c_2yc``. Lower-casing and turning spaces into underscores reproduces the tabulated
+    spelling for all 527 settings, which ``tests/test_symmetry_data.py`` checks. Without this
+    step every correctly declared Hall symbol looks unknown.
+    """
+    return symbol.lower().replace(" ", "_")
 
 
 def _cell_from_cif(data: Mapping[str, Any]) -> Cell:
