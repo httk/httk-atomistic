@@ -191,7 +191,7 @@ class WyckoffPosition:
 
     @property
     def free_count(self) -> int:
-        """The number of degrees of freedom: 0 for a fixed position, 3 for the general one."""
+        """How many degrees of freedom the position has, from 0 for a fixed position to 3."""
         return len(self._free)
 
     @property

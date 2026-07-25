@@ -29,6 +29,7 @@ from .cell_params_view import CellParamsView
 from .cell_primitive import CellPrimitive
 from .cell_primitive_view import CellPrimitiveView
 from .cell_view import CellView
+from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
 from .elements import SYMBOLS, atomic_number, symbol_of
 from .numeric_cell import NumericCell
 from .numeric_sites import NumericSites
@@ -67,7 +68,7 @@ from .structure_primitive_view import StructurePrimitiveView
 from .structure_simple import StructureSimple
 from .structure_simple_view import StructureSimpleView
 from .structure_view import StructureView
-from .vasp_structures import load_structure, structure_from_poscar
+from .vasp_structures import load_asu_structure, load_structure, structure_from_poscar
 from .wyckoff import WyckoffBranch, WyckoffPosition, wyckoff_positions
 
 StructureBackend.backend_classes = [StructureSimple, StructureASU, StructurePrimitive]
@@ -140,4 +141,8 @@ __all__ = [
     "symbol_of",
     "structure_from_poscar",
     "load_structure",
+    "load_asu_structure",
+    "asu_structure_from_cif",
+    "asu_structures_from_cif",
+    "cif_setting",
 ]
