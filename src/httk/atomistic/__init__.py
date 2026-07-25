@@ -68,6 +68,7 @@ from .structure_primitive_view import StructurePrimitiveView
 from .structure_simple import StructureSimple
 from .structure_simple_view import StructureSimpleView
 from .structure_view import StructureView
+from .symmetry_entries import anyterial_definitions, symmetry_properties
 from .vasp_structures import load_asu_structure, load_structure, structure_from_poscar
 from .wyckoff import WyckoffBranch, WyckoffPosition, wyckoff_positions
 
@@ -129,6 +130,8 @@ __all__ = [
     "DEFAULT_TOLERANCE",
     "StructureASU",
     "same_crystal",
+    "symmetry_properties",
+    "anyterial_definitions",
     "AffineOperation",
     "SettingTransform",
     "Spacegroup",

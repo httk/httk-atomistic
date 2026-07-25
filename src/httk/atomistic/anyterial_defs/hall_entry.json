@@ -1,0 +1,23 @@
+{
+    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/spacegroups/hall_entry",
+    "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
+    "title": "Hall entry",
+    "x-optimade-type": "string",
+    "x-optimade-definition": {
+        "kind": "property",
+        "version": "0.1.0",
+        "format": "1.3",
+        "name": "hall_entry",
+        "label": "hall_entry_spacegroups"
+    },
+    "type": [
+        "string",
+        "null"
+    ],
+    "description": "Normalized Hall-table entry key used internally by the generated datasets.\n\nThe value is derived from the Hall symbol by using lowercase letters and underscores in place of spaces. It is stable for lookup within these data files, while the display Hall symbol is provided separately by `hall` and its formatted variants.\n\n**Requirements/Conventions**:\n\n- This field identifies a concrete Hall setting, not only an IT space-group type.\n- The same value is normally used as the key of the containing `spacegroups` map.",
+    "x-optimade-unit": "inapplicable",
+    "examples": [
+        "p_1",
+        "-p_1"
+    ]
+}

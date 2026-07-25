@@ -209,6 +209,40 @@ bibliographic entries or an incomplete draft — so `httk.core.load` never fails
 on their account; it records why each was skipped under `unparsed`, and asking
 for structures raises with those reasons rather than returning an empty list.
 
+## Serving symmetry over OPTIMADE
+
+`StructureEntryProvider` serves an `ASUStructure`'s symmetry automatically. The standard
+OPTIMADE properties — `space_group_it_number`, the Hall and Hermann-Mauguin symbols,
+`space_group_symmetry_operations_xyz`, `wyckoff_positions`, `fractional_site_positions`,
+and `site_coordinate_span` — come straight from the ASU. A plain `Structure` carries no
+symmetry, so they serve `null`; inferring a space group there would mean running a
+symmetry search behind the caller's back, with a tolerance nobody chose, on every record.
+
+The symbols and Wyckoff letters describe **the setting the structure is written in**, as
+OPTIMADE requires, not the standard setting the ASU stores them against. That distinction
+is not cosmetic: setting `224:1` permutes Wyckoff letters `i` and `j`, and the rhombohedral
+settings change multiplicities, so a 3a of the standard hexagonal cell is served as the 1a
+it is in the smaller cell.
+
+For what OPTIMADE does not standardise — which setting, and the change of basis to it —
+httk serves six provider-specific properties whose definitions are taken verbatim from
+[schemas.anyterial.se](https://schemas.anyterial.se) rather than paraphrased locally:
+
+| Property | Describes |
+| --- | --- |
+| `_httk_setting_it_nc` | the setting code, e.g. `15:c1` |
+| `_httk_hall_entry` | the normalized Hall symbol naming the setting |
+| `_httk_is_reference_setting` | whether it is the IT standard setting |
+| `_httk_crystal_system` | the crystal system |
+| `_httk_centring_type` | the lattice centring letter |
+| `_httk_setting_transform` | the standard-to-own change of basis, as exact rationals |
+
+The `_httk_` prefix is what OPTIMADE requires of a database-specific property *name*; the
+definition keeps its own `$id`, so a client that follows it reaches the published schema.
+A structure in an untabulated setting serves its space-group number and its transform —
+enough to reconstruct it — but `null` for the symbols and Wyckoff letters, which name a
+setting that in that case has no name.
+
 ## The symmetry tables
 
 The Wyckoff positions, symmetry operations, and setting transforms come from two

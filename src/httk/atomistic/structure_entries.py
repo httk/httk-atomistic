@@ -30,10 +30,17 @@ from httk.core import (
     load_entry_type_definition,
 )
 
+from .asu_structure import ASUStructure
 from .elements import SYMBOLS
 from .species_primitive_view import SpeciesPrimitiveView
 from .structure import Structure
 from .structure_like import StructureLike
+from .symmetry_entries import (
+    ANYTERIAL_PROPERTY_KEYS,
+    SYMMETRY_PROPERTY_KEYS,
+    anyterial_definitions,
+    symmetry_properties,
+)
 
 _ELEMENTS: frozenset[str] = frozenset(SYMBOLS)
 
@@ -82,10 +89,19 @@ _AUTO_DERIVED_KEYS: tuple[str, ...] = (
 
 
 def _as_structure(obj: StructureLike) -> Any:
-    """Return something exposing the ``cell``/``sites``/``species``/``species_at_sites`` quartet."""
+    """Return something exposing the ``cell``/``sites``/``species``/``species_at_sites`` quartet.
+
+    An :class:`~httk.atomistic.ASUStructure` holds only its asymmetric unit, so it is
+    viewed as a full structure here. The view keeps the asymmetric unit reachable through
+    ``unwrap``, which is how the symmetry properties are served without expanding twice.
+    """
     if isinstance(obj, (tuple, list)):
         args: tuple[Any, ...] = tuple(obj)
         return Structure(*args)  # a (cell, sites, species, species_at_sites) tuple/list
+    if isinstance(obj, ASUStructure):
+        from .structure_simple_view import StructureSimpleView
+
+        return StructureSimpleView(obj)
     return obj
 
 
@@ -187,7 +203,10 @@ class StructureEntryProvider(EntryProvider):
         self._property_names: list[str] = used_names
 
     def _definition(self) -> EntryTypeDefinition:
-        definition = _structures_definition()
+        # The symmetry properties from schemas.anyterial.se are always described, even
+        # when no entry is an asymmetric unit, so that the served definition does not
+        # change shape with the contents of the database.
+        definition = _structures_definition().extended(anyterial_definitions())
         if self._extra_definitions:
             definition = definition.extended(self._extra_definitions)
         return definition
@@ -201,6 +220,10 @@ class StructureEntryProvider(EntryProvider):
         property_keys = dict(_STRUCTURES_PROPERTY_KEYS)
         for name in _AUTO_DERIVED_KEYS:
             property_keys[name] = name
+        for name in SYMMETRY_PROPERTY_KEYS:
+            property_keys[name] = name
+        for name in ANYTERIAL_PROPERTY_KEYS:
+            property_keys[name] = name
         for name in self._property_names:
             property_keys[name] = name
         return property_keys
@@ -211,6 +234,7 @@ class StructureEntryProvider(EntryProvider):
         records: list[dict[str, Any]] = []
         for entry_id, structure in self._structures.items():
             record: dict[str, Any] = {'__id': entry_id, 'type': 'structures'}
+            record.update(symmetry_properties(structure))
             if structure is None:
                 for key in _STRUCTURAL_NULL_KEYS:
                     record[key] = None
