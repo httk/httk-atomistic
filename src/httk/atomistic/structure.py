@@ -6,7 +6,7 @@ import fractions
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from httk.core import SurdVector
+from httk.core import SurdVector, VectorLike
 
 from .cell import Cell
 from .cell_class_view import CellClassView
@@ -152,6 +152,51 @@ class Structure:
 
         return NumericStructure(self)
 
+    def supercell(
+        self,
+        transformation: VectorLike,
+        *,
+        max_sites: int | None = 100_000,
+    ) -> "SupercellResult":
+        """Build an exact supercell from an integer 3x3 transformation."""
+        from .supercell import build_supercell
+
+        return build_supercell(self, transformation, max_sites=max_sites)
+
+    def orthogonal_supercell(
+        self,
+        multiplier: int,
+        *,
+        search_radius: int = 1,
+        max_sites: int | None = 100_000,
+    ) -> "SupercellResult":
+        """Build a deterministically selected orthogonal supercell."""
+        from .supercell import orthogonal_supercell
+
+        return orthogonal_supercell(
+            self,
+            multiplier,
+            search_radius=search_radius,
+            max_sites=max_sites,
+        )
+
+    def cubic_supercell(
+        self,
+        multiplier: int,
+        *,
+        search_radius: int = 1,
+        max_sites: int | None = 100_000,
+    ) -> "SupercellResult":
+        """Build a deterministically selected cubic supercell."""
+        from .supercell import cubic_supercell
+
+        return cubic_supercell(
+            self,
+            multiplier,
+            search_radius=search_radius,
+            max_sites=max_sites,
+        )
+
     def __eq__(self, other: object) -> bool:
         """Equality of the quartet. Stated precision does not take part.
 
@@ -173,3 +218,7 @@ class Structure:
             f"Structure(cell={self._cell!r}, sites={self._sites!r}, "
             f"species={self._species!r}, species_at_sites={self._species_at_sites!r})"
         )
+
+
+if TYPE_CHECKING:
+    from .supercell import SupercellResult

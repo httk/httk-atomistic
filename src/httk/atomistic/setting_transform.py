@@ -32,6 +32,7 @@ from typing import Any, Self
 from httk.core import FracVector, SurdVector
 
 from . import data
+from ._lattice import finite_translation_cosets
 from .affine_operation import AffineOperation
 
 __all__ = ["SettingTransform"]
@@ -169,26 +170,8 @@ class SettingTransform:
         return self._cosets_cache
 
     def _compute_cosets(self) -> tuple[FracVector, ...]:
-        zero = FracVector.create((0, 0, 0))
         columns = [self.matrix.T()[index].normalize() for index in range(3)]
-        generators = [column for column in columns if column != zero]
-        if not generators:
-            return (zero,)
-
-        # Closure under addition mod 1. The group is finite because every entry is
-        # rational, so this terminates; it is tiny in every case that arises. Termination
-        # does depend on the set recognizing a repeat that arrived with a different
-        # denominator, which is exactly what FracVector's canonical hashing provides.
-        found = {zero}
-        frontier = [zero]
-        while frontier:
-            current = frontier.pop()
-            for generator in generators:
-                candidate = (current + generator).normalize()
-                if candidate not in found:
-                    found.add(candidate)
-                    frontier.append(candidate)
-        return tuple(sorted(found, key=lambda vector: tuple(vector.to_fractions())))
+        return finite_translation_cosets(columns)
 
     # --- algebra ---
 

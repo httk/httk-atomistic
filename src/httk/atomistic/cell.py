@@ -9,7 +9,7 @@ from httk.core import SurdScalar, SurdVector, VectorLike
 from httk.core.vectors import exactmath
 from httk.core.vectors.exactmath import integer_sqrt
 
-from ._vector_guards import to_precision, to_surdscalar, to_surdvector
+from ._vector_guards import to_periodicity, to_precision, to_surdscalar, to_surdvector
 
 if TYPE_CHECKING:
     from .numeric_cell import NumericCell
