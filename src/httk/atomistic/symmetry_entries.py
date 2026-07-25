@@ -22,13 +22,12 @@ carries no symmetry — with the sole exception of ``fractional_site_positions``
 just the reduced coordinates and is always available.
 """
 
-import json
 from functools import cache
-from importlib.resources import files
 from typing import Any
 
 from httk.core import PropertyDefinition, unwrap
 
+from .anyterial_properties import load_anyterial_definitions
 from .asu_structure import ASUStructure
 from .spacegroup import wyckoff_letter_map
 
@@ -68,16 +67,12 @@ ANYTERIAL_PROPERTY_KEYS: dict[str, str] = {
 
 @cache
 def anyterial_definitions() -> dict[str, PropertyDefinition]:
-    """The vendored anyterial property definitions, keyed by their served name.
+    """The vendored symmetry definitions, keyed by their served name.
 
     Loaded verbatim, so each keeps the ``$id`` under ``schemas.anyterial.se`` that makes it
     resolvable. Cached, since the documents are immutable.
     """
-    definitions: dict[str, PropertyDefinition] = {}
-    for served_name, file_name in ANYTERIAL_PROPERTY_KEYS.items():
-        text = files("httk.atomistic").joinpath(f"anyterial_defs/{file_name}.json").read_text(encoding="utf-8")
-        definitions[served_name] = PropertyDefinition.from_optimade(served_name, json.loads(text))
-    return definitions
+    return load_anyterial_definitions(ANYTERIAL_PROPERTY_KEYS)
 
 
 def symmetry_properties(structure: Any) -> dict[str, Any]:

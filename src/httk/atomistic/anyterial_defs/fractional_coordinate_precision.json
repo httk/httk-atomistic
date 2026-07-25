@@ -1,0 +1,23 @@
+{
+    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/core/fractional_coordinate_precision",
+    "$schema": "https://schemas.optimade.org/meta/v1.2/optimade/property_definition.json",
+    "title": "Fractional coordinate precision",
+    "x-optimade-type": "float",
+    "x-optimade-definition": {
+        "label": "fractional_coordinate_precision_core",
+        "kind": "property",
+        "version": "0.1.0",
+        "format": "1.3",
+        "name": "fractional_coordinate_precision"
+    },
+    "type": [
+        "number",
+        "null"
+    ],
+    "description": "The absolute precision of a set of fractional coordinates, in fractional units.\n\nThis describes how precisely the coordinates were *stated* by the source they came from,\nwhich is generally coarser than the precision of the numbers as stored. A source that\nwrites a coordinate as `0.3333` claims it to about `0.0001` of a cell edge, however many\nbinary digits the value later occupies. It is the natural basis for choosing a matching\ntolerance, a symmetry-detection parameter, or a grid spacing, in place of an arbitrary\nconstant.\n\n**Requirements/Conventions**:\n\n- The value is an **absolute** bound on the deviation from the intended value, not a\n  relative precision and not a count of significant figures. A coordinate near `0.0001`\n  and one near `0.9999` written to the same number of decimals have the same precision.\n- The value is **dimensionless**, being a fraction of a cell edge. Multiplying by a cell\n  length gives the corresponding precision as a distance; see\n  [`length_precision`](https://schemas.anyterial.se/defs/v0.1/properties/core/length_precision).\n- Where a set of coordinates is described by a single value, it SHOULD be the **coarsest**\n  precision among them, since the set as a whole is only as precisely stated as its least\n  precisely stated member.\n- Where a source states both a number of digits and an explicit standard uncertainty, the\n  value SHOULD be the larger of the two, that being the weaker and therefore the safer\n  claim.\n- The value MUST be strictly positive. A value of zero would assert exactness, which is a\n  different claim; `null` MUST be used where the precision is unknown or where the source\n  states an exact value rather than a measured one.",
+    "examples": [
+        0.0001,
+        0.001
+    ],
+    "x-optimade-unit": "inapplicable"
+}

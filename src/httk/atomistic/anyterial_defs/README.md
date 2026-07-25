@@ -1,9 +1,10 @@
 # Vendored anyterial property definitions
 
 This directory holds the authoritative, supported copies of the **non-OPTIMADE-standard**
-property definitions that *httk-atomistic* serves. They describe the things OPTIMADE does
-not standardise about crystal symmetry — chiefly *which setting* a structure is written in,
-and the change of basis from the International Tables standard setting to it.
+property definitions that *httk-atomistic* serves. They describe two things OPTIMADE does
+not standardise: *which setting* a crystal structure is written in, together with the change
+of basis from the International Tables standard setting to it; and how precisely the
+structure's numbers were stated by whatever source they came from.
 
 They are not written here. They are published definitions taken verbatim from
 [schemas.anyterial.se](https://schemas.anyterial.se), and vendoring them rather than
@@ -18,6 +19,8 @@ authoritative schema instead of a local restatement that could drift from it.
 | `_httk_crystal_system` | `crystal_system.json` | `…/properties/pointgroups/crystal_system` |
 | `_httk_centring_type` | `centring_type.json` | `…/properties/spacegroups/centring_type` |
 | `_httk_setting_transform` | `affine_transformation.json` | `…/properties/symmetry/affine_transformation` |
+| `_httk_coordinate_precision` | `fractional_coordinate_precision.json` | `…/properties/core/fractional_coordinate_precision` |
+| `_httk_basis_precision` | `length_precision.json` | `…/properties/core/length_precision` |
 
 all under `https://schemas.anyterial.se/defs/v0.1/properties/`.
 
@@ -47,6 +50,10 @@ symbols, `space_group_symmetry_operations_xyz`, `wyckoff_positions`,
 part of the OPTIMADE standard and are already described by the vendored
 `../optimade_defs/structures.json`; they were simply never served before.
 
+Nor is there anything standard about precision: the only `standard_uncertainty` anywhere
+in that file is CODATA metadata inside a unit definition, describing a physical constant
+rather than a queryable property.
+
 ## Provenance
 
 Source repository: <https://github.com/httk/anyterial-schemas> (the
@@ -54,6 +61,10 @@ Source repository: <https://github.com/httk/anyterial-schemas> (the
 `optimade-property-tools`. Definitions are the `v0.1` set.
 
 Copied from `output/defs/v0.1/properties/` without modification.
+
+The two precision definitions were authored for this purpose; their source YAML lives at
+`src/defs/v0.1/properties/core/{fractional_coordinate_precision,length_precision}.yaml`
+in that repository and is built with `make schemas`.
 
 ## License
 

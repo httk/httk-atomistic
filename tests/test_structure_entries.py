@@ -1,10 +1,10 @@
 """Unit tests for StructureEntryProvider and its registration."""
 
 import pytest
+from httk.core import PropertyDefinition
 
 from httk.atomistic import Structure, StructureEntryProvider
 from httk.atomistic.species import Species
-from httk.core import PropertyDefinition
 
 
 def _nacl_like() -> Structure:
@@ -30,9 +30,10 @@ def test_entry_types_describe_structures() -> None:
     properties = definition.properties
     # The vendored standard describes the full v1.3 property set (30), a superset
     # of the subset the provider serves:
-    # 30 standard OPTIMADE properties plus the six symmetry properties httk serves
-    # under the _httk_ prefix, described by the vendored schemas.anyterial.se definitions.
-    assert len(properties) == 36
+    # 30 standard OPTIMADE properties, plus the six symmetry properties and two precision
+    # properties httk serves under the _httk_ prefix, each described by a vendored
+    # schemas.anyterial.se definition.
+    assert len(properties) == 38
     for name in ("id", "type", "elements", "nelements", "nsites", "species", "structure_features"):
         assert name in properties
     # Includes v1.3-native properties the provider does not serve:

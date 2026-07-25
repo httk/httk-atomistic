@@ -248,3 +248,46 @@ def test_a_collision_with_a_served_symmetry_property_is_rejected() -> None:
     clashing = PropertyDefinition.from_simple("_httk_setting_it_nc", description="x", fulltype="string")
     with pytest.raises(ValueError, match="already defined"):
         StructureEntryProvider({"x": _rocksalt()}, extra_definitions={"_httk_setting_it_nc": clashing})
+
+
+# --- precision ---
+
+
+def test_precision_is_served_from_the_structure() -> None:
+    """So a client can derive its own tolerance instead of guessing one."""
+    from httk.atomistic import Cell
+
+    asu = ASUStructure(
+        Cell(CUBIC, 1, F(1, 1000)),
+        225,
+        [ASUSite("a", NO_PARAMETERS, "Na")],
+        _species("Na"),
+        coordinate_precision=F(1, 10000),
+    )
+    record = _record(asu)
+    assert record["_httk_coordinate_precision"] == pytest.approx(1e-4)
+    assert record["_httk_basis_precision"] == pytest.approx(1e-3)
+
+
+def test_a_structure_that_states_no_precision_serves_null() -> None:
+    """Distinguishable from a claim of exactness, which is the point of using null."""
+    record = _record(Structure(CUBIC, [[0, 0, 0]], _species("Na"), ["Na"]))
+    assert record["_httk_coordinate_precision"] is None
+    assert record["_httk_basis_precision"] is None
+
+
+def test_the_precision_definitions_are_the_published_ones() -> None:
+    from httk.atomistic import precision_definitions
+
+    definitions = precision_definitions()
+    assert set(definitions) == {"_httk_coordinate_precision", "_httk_basis_precision"}
+
+    coordinate = definitions["_httk_coordinate_precision"].as_optimade()
+    basis = definitions["_httk_basis_precision"].as_optimade()
+    assert coordinate["$id"].endswith("/core/fractional_coordinate_precision")
+    assert basis["$id"].endswith("/core/length_precision")
+
+    # A fractional coordinate is dimensionless; a cell edge is a length. That is why these
+    # are two definitions rather than one.
+    assert coordinate["x-optimade-unit"] == "inapplicable"
+    assert basis["x-optimade-unit"] == "angstrom"

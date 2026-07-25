@@ -34,6 +34,7 @@ from .elements import SYMBOLS, atomic_number, symbol_of
 from .numeric_cell import NumericCell
 from .numeric_sites import NumericSites
 from .numeric_structure import NumericStructure
+from .precision_entries import precision_definitions, precision_properties
 from .setting_transform import SettingTransform
 from .sites import Sites
 from .sites_api import SitesAPI
@@ -132,6 +133,8 @@ __all__ = [
     "StructureASU",
     "same_crystal",
     "symmetry_properties",
+    "precision_properties",
+    "precision_definitions",
     "anyterial_definitions",
     "AffineOperation",
     "SettingTransform",
