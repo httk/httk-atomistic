@@ -14,7 +14,7 @@ The underlying tables ship in :mod:`httk.atomistic.data`.
 """
 
 from .affine_operation import AffineOperation
-from .asu_recognition import DEFAULT_TOLERANCE, recognize_asu
+from .asu_recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
 from .asu_structure import ASUSite, ASUStructure
 from .asu_structure_view import ASUStructureView
 from .cell import Cell
@@ -127,6 +127,7 @@ __all__ = [
     "ASUSite",
     "ASUStructureView",
     "recognize_asu",
+    "structure_tolerance",
     "DEFAULT_TOLERANCE",
     "StructureASU",
     "same_crystal",

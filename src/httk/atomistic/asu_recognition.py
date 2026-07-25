@@ -24,6 +24,7 @@ caller can make.
 """
 
 import fractions
+import math
 from typing import Any, Sequence
 
 from httk.core import FracVector, SurdVector
@@ -34,12 +35,86 @@ from .spacegroup import Spacegroup
 from .structure_like import StructureLike
 from .wyckoff import WyckoffBranch, WyckoffPosition
 
-__all__ = ["DEFAULT_TOLERANCE", "recognize_asu"]
+__all__ = ["DEFAULT_TOLERANCE", "recognize_asu", "structure_tolerance"]
 
-#: Default matching tolerance, as a Cartesian distance in the cell's own length units
-#: (angstrom for ordinary crystallographic data). Comfortably larger than the rounding in
-#: a CIF written to four decimals, and far smaller than any real interatomic distance.
+#: Fallback matching tolerance, as a Cartesian distance in the cell's own length units
+#: (angstrom for ordinary crystallographic data), used only when the structure does not say
+#: how precisely it was stated. Comfortably larger than the rounding in a CIF written to
+#: four decimals, and far smaller than any real interatomic distance.
 DEFAULT_TOLERANCE = 1e-3
+
+#: How much room a tolerance is given beyond the stated precision. Two coordinates that
+#: should be equal are each rounded independently, so they can differ by twice the
+#: precision; a tolerance below that would reject data that is in fact consistent.
+_SAFETY_FACTOR = 2
+
+#: A derived tolerance is only checked against the interatomic distances when it is large
+#: enough relative to the cell for merging to be a real risk. That check is quadratic in the
+#: number of sites, and for ordinary well-written data the tolerance is thousands of times
+#: smaller than any bond, so paying for it every time would be waste.
+_CAP_TRIGGER = 0.05
+
+
+def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_TOLERANCE) -> float:
+    """A matching tolerance derived from how precisely the structure was stated.
+
+    This is the point of recording precision at all: instead of a constant somebody
+    guessed, the tolerance follows the data. Coordinates written to four decimals in a 5 A
+    cell are good to about ``5e-4``, and the tolerance comes out near ``1e-3``; the same
+    coordinates in a 30 A cell justify a tolerance six times larger, and coordinates written
+    to two decimals justify one a hundred times larger.
+
+    Returns ``fallback`` when the structure does not state a precision — a structure built
+    by hand, or read from a format that does not write its numbers to a definite number of
+    digits. A caller that needs to know whether that happened can compare the result against
+    the structure's own ``cartesian_precision()``.
+
+    The value is capped so that it can never reach half the smallest distance between two
+    sites, which is what would let genuinely distinct atoms be merged. That is the honest
+    role for the minimum separation: bounding a tolerance from above, not — as the code this
+    replaces did — being folded into the precision itself, where two accidentally-close
+    atoms would make a structure look far more precisely stated than it is.
+    """
+    from .structure_simple_view import StructureSimpleView
+
+    view = StructureSimpleView(structure)
+    precision = view.cartesian_precision()
+    if precision is None:
+        return fallback
+
+    tolerance = float(precision) * _SAFETY_FACTOR
+    shortest_edge = min(length.to_float() for length in view.cell.lengths)
+    if tolerance <= _CAP_TRIGGER * shortest_edge:
+        return tolerance
+
+    cap = _half_minimum_separation(view)
+    return tolerance if cap is None or tolerance < cap else cap
+
+
+def _half_minimum_separation(view: Any) -> float | None:
+    """Half the shortest distance between two distinct sites, or ``None`` if there is one site.
+
+    Computed in floating point over the nearest-image difference of each pair: this bounds a
+    tolerance, so a fast approximate answer is the right kind of answer. The nearest-image
+    reduction is per component, which is exact for a cell with orthogonal axes and can
+    overestimate for a strongly oblique one — erring towards a looser cap rather than a
+    tighter one.
+    """
+    coords = view.sites.reduced_coords
+    count = len(coords)
+    if count < 2:
+        return None
+
+    basis = view.cell.basis.to_floats()
+    shortest: float | None = None
+    for first in range(count):
+        for second in range(first + 1, count):
+            difference = (coords[first] - coords[second]).normalize_half().to_floats()
+            cartesian = [sum(difference[axis] * basis[axis][component] for axis in range(3)) for component in range(3)]
+            distance = math.sqrt(sum(value * value for value in cartesian))
+            if distance > 0 and (shortest is None or distance < shortest):
+                shortest = distance
+    return None if shortest is None else shortest / 2
 
 
 def recognize_asu(
@@ -48,7 +123,7 @@ def recognize_asu(
     setting: Spacegroup | None = None,
     standard: Spacegroup | None = None,
     transform: SettingTransform | None = None,
-    tolerance: float = DEFAULT_TOLERANCE,
+    tolerance: float | None = None,
     limit_denominator: int | None = None,
 ) -> ASUStructure:
     """Build an :class:`~httk.atomistic.ASUStructure` from a full structure.
@@ -63,7 +138,10 @@ def recognize_asu(
       (``pip install httk-atomistic[default]``).
 
     ``tolerance`` is a Cartesian distance, measured in the real cell, so it means the same
-    thing along a short axis and a long one; a fractional tolerance would not.
+    thing along a short axis and a long one; a fractional tolerance would not. Left
+    unspecified it is **derived from how precisely the structure was stated** — see
+    :func:`structure_tolerance` — falling back to :data:`DEFAULT_TOLERANCE` for a structure
+    that does not say. Pass a value to override that.
 
     Raises :class:`ValueError` if a site cannot be placed on any Wyckoff position within
     the tolerance, or if the sites do not group into complete orbits — both of which mean
@@ -72,6 +150,8 @@ def recognize_asu(
     from .structure_simple_view import StructureSimpleView
 
     view = StructureSimpleView(structure)
+    if tolerance is None:
+        tolerance = structure_tolerance(view)
 
     if setting is not None:
         if standard is not None or transform is not None:

@@ -4,7 +4,7 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
-from .asu_recognition import DEFAULT_TOLERANCE, recognize_asu
+from .asu_recognition import recognize_asu
 from .asu_structure import ASUStructure
 from .setting_transform import SettingTransform
 from .spacegroup import Spacegroup
@@ -24,6 +24,8 @@ class ASUStructureView(StructureView, ASUStructure):
     tolerant where everything else in this package is exact — see
     :mod:`~httk.atomistic.asu_recognition` — and needs spglib unless the space group is
     supplied through ``setting`` or ``standard``/``transform``.
+
+    ``tolerance`` left unspecified is derived from how precisely the structure was stated.
     """
 
     _backend: StructureBackend
@@ -35,7 +37,7 @@ class ASUStructureView(StructureView, ASUStructure):
         setting: Spacegroup | None = None,
         standard: Spacegroup | None = None,
         transform: SettingTransform | None = None,
-        tolerance: float = DEFAULT_TOLERANCE,
+        tolerance: float | None = None,
         **hints: Any,
     ) -> Self:
         if isinstance(obj, cls):

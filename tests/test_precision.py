@@ -7,6 +7,7 @@ than one representative test standing in for the rest.
 """
 
 import fractions
+from pathlib import Path
 
 import pytest
 from httk.core import FracVector
@@ -29,15 +30,19 @@ pytest.importorskip("httk.io", reason="the readers live in httk-io")
 
 import io  # noqa: E402
 
+from httk.core import load  # noqa: E402
 from httk.io.vasp import read_poscar  # noqa: E402
 
 from httk.atomistic import (  # noqa: E402
+    DEFAULT_TOLERANCE,
     ASUSite,
     ASUStructure,
     Spacegroup,
     recognize_asu,
     structure_from_poscar,
+    structure_tolerance,
 )
+from httk.atomistic.cif_structures import asu_structure_from_cif  # noqa: E402
 
 F = fractions.Fraction
 
@@ -280,3 +285,92 @@ def test_recognition_carries_the_precision_onto_the_asu() -> None:
     recovered = recognize_asu(structure, setting=Spacegroup.standard(221))
     assert recovered.coordinate_precision == COORD_PRECISION
     assert recovered.cell.precision == BASIS_PRECISION
+
+
+# --- deriving a tolerance from the precision ---
+
+
+def _two_site(cell: object, precision: object) -> Structure:
+    chlorine = Species(name="Cl", chemical_symbols=("Cl",), concentration=(1.0,))
+    sites = Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]], precision)
+    return Structure(Cell(cell), sites, _species() + [chlorine], ["Na", "Cl"])
+
+
+def test_the_tolerance_follows_the_stated_precision() -> None:
+    """Four decimals in a 5 A cell reproduces the constant this replaces, which is a good sign."""
+    assert structure_tolerance(_two_site(CUBIC, F(1, 10000))) == pytest.approx(1e-3)
+    assert structure_tolerance(_two_site(CUBIC, F(1, 100))) == pytest.approx(1e-1)
+
+
+def test_the_tolerance_scales_with_the_cell() -> None:
+    big = [[30, 0, 0], [0, 30, 0], [0, 0, 30]]
+    assert structure_tolerance(_two_site(big, F(1, 10000))) == pytest.approx(6e-3)
+
+
+def test_an_unknown_precision_falls_back_to_the_constant() -> None:
+    assert structure_tolerance(_two_site(CUBIC, None)) == DEFAULT_TOLERANCE
+    assert structure_tolerance(_two_site(CUBIC, None), fallback=0.05) == 0.05
+
+
+def test_the_tolerance_is_capped_below_half_the_closest_approach() -> None:
+    """Otherwise coarse data could give a tolerance that merges genuinely distinct atoms."""
+    chlorine = Species(name="Cl", chemical_symbols=("Cl",), concentration=(1.0,))
+    close = Structure(
+        Cell(CUBIC),
+        Sites([[0, 0, 0], [F(1, 10), 0, 0]], F(1, 10)),  # 0.5 A apart
+        _species() + [chlorine],
+        ["Na", "Cl"],
+    )
+    # Uncapped this would be 0.1 * 5 * 2 = 1.0 A, far enough to merge the two sites.
+    assert structure_tolerance(close) == pytest.approx(0.25)
+
+
+def test_the_cap_does_not_engage_for_well_separated_atoms() -> None:
+    assert structure_tolerance(_two_site(CUBIC, F(1, 10))) == pytest.approx(1.0)
+
+
+def test_a_single_site_structure_has_no_separation_to_cap_against() -> None:
+    lone = Structure(Cell(CUBIC), Sites([[0, 0, 0]], F(1, 10)), _species(), ["Na"])
+    assert structure_tolerance(lone) == pytest.approx(1.0)
+
+
+def test_recognition_uses_the_derived_tolerance_by_default() -> None:
+    """And an explicit value still overrides it."""
+    structure = _two_site(CUBIC, F(1, 10000))
+    assert recognize_asu(structure, setting=Spacegroup.standard(221)).coordinate_precision == F(1, 10000)
+    assert recognize_asu(structure, setting=Spacegroup.standard(221), tolerance=1e-6) is not None
+
+
+def test_a_coarsely_written_file_is_matched_at_the_precision_it_claims(tmp_path: Path) -> None:
+    """The measured payoff, not a claimed one.
+
+    This site is meant to sit on Wyckoff ``4e`` of SG 15 (``0, y, 1/4``) but the file rounds
+    it to three decimals, putting it 0.005 A off in x and 0.007 A off in z. Judged against a
+    fixed 1e-3 tolerance it misses the special position entirely, lands on the general
+    position, and generates eight atoms where the structure has four — a materially wrong
+    answer, silently. The precision the file itself states justifies 0.014 A, at which it is
+    recognized correctly.
+    """
+    spacegroup = Spacegroup.for_setting("15:b1")
+    operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
+    path = tmp_path / "coarse.cif"
+    path.write_text(
+        "data_x\n_cell_length_a 5.000\n_cell_length_b 6.000\n_cell_length_c 7.000\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 90\n"
+        "_space_group_IT_number 15\n"
+        f"loop_\n_space_group_symop_operation_xyz\n{operations}\n"
+        "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
+        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        "Si1 Si 0.001 0.333 0.251\n",
+        encoding="utf-8",
+    )
+    block = load(str(path))["blocks"][0]
+    assert block["coordinate_precision"] == F(1, 1000)
+
+    with_fixed = asu_structure_from_cif(block, tolerance=1e-3)
+    assert with_fixed.asu_sites[0].wyckoff == "f"
+    assert len(StructureSimpleView(with_fixed).sites) == 8
+
+    derived = asu_structure_from_cif(block)
+    assert derived.asu_sites[0].wyckoff == "e"
+    assert len(StructureSimpleView(derived).sites) == 4
