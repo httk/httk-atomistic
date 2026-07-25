@@ -198,11 +198,14 @@ def test_registration_discovered_via_httk_core() -> None:
 def test_periodicity_is_served_whatever_the_composition() -> None:
     """It is not a composition property, and must not null out with the formula.
 
-    A `Structure` carries no notion of periodicity, so every one of them is served as a
-    fully periodic crystal. The bug was that these two travelled with the composition
-    block, which serves null for any structure that is not fully ordered — so a disordered
-    alloy, or a structure with attached atoms, reported its periodicity as *unknown* purely
-    because a whole-atom formula could not be written for it.
+    The bug was that these two travelled with the composition block, which serves null for
+    any structure that is not fully ordered — so a disordered alloy, or a structure with
+    attached atoms, reported its periodicity as *unknown* purely because a whole-atom
+    formula could not be written for it. The two are independent: a disordered alloy has a
+    periodicity all the same.
+
+    These structures are all built without saying otherwise, so all three are crystals.
+    Serving a reduced periodicity is covered in `test_periodicity.py`.
     """
     cell = [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
     ordered = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))

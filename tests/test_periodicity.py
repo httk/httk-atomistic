@@ -367,3 +367,81 @@ def test_a_molecule_is_the_identity_frame_with_nothing_periodic() -> None:
     assert molecule.sites.reduced_coords.to_floats() == molecule.cartesian_sites().to_floats()
     assert molecule.cartesian_sites().to_floats()[2][0] == pytest.approx(-0.75)
     assert molecule.cell.periodic_measure.to_float() == pytest.approx(1.0)
+
+
+# --- serving it over OPTIMADE ---
+
+
+def _record(periodicity):
+    from httk.atomistic import StructureEntryProvider
+
+    (record,) = list(StructureEntryProvider({"x": _structure(periodicity)}).records("structures"))
+    return record
+
+
+@pytest.mark.parametrize(
+    "periodicity, nperiodic, dimension_types",
+    [
+        ((1, 1, 1), 3, [1, 1, 1]),
+        ((1, 1, 0), 2, [1, 1, 0]),
+        ((1, 0, 1), 2, [1, 0, 1]),
+        ((0, 0, 1), 1, [0, 0, 1]),
+        ((0, 0, 0), 0, [0, 0, 0]),
+    ],
+)
+def test_the_served_periodicity_is_the_real_one(periodicity, nperiodic, dimension_types) -> None:
+    """It used to be a hardcoded [1, 1, 1] with a comment admitting the lie."""
+    record = _record(periodicity)
+    assert record["nperiodic_dimensions"] == nperiodic
+    assert record["dimension_types"] == dimension_types
+
+
+def test_dimension_types_is_ordered_by_lattice_vector_not_by_cartesian_axis() -> None:
+    """OPTIMADE is explicit that entry i refers to lattice vector i, as Cell.periodicity is."""
+    assert _record((0, 1, 0))["dimension_types"] == [0, 1, 0]
+
+
+def test_a_reduced_periodicity_structure_serves_no_space_group() -> None:
+    """OPTIMADE requires this, and it falls out rather than being enforced separately.
+
+    `space_group_symbol_hall` and `space_group_it_number` MUST be null unless
+    `nperiodic_dimensions` is 3, and `space_group_symmetry_operations_xyz` MUST be null when
+    it is 0. Symmetry is only ever served for an `ASUStructure`, and one of those cannot
+    hold a reduced-periodicity cell, so there is no combination that could violate it.
+    """
+    for periodicity in ((1, 1, 0), (0, 0, 1), (0, 0, 0)):
+        record = _record(periodicity)
+        for name, value in record.items():
+            if name.startswith("space_group") or name == "wyckoff_positions":
+                assert value is None, f"{name} served for {periodicity}"
+
+
+def test_a_crystal_still_serves_its_space_group() -> None:
+    from httk.atomistic import StructureEntryProvider, recognize_asu
+
+    cell = Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]])
+    structure = Structure(cell, [[0, 0, 0], ["1/2", "1/2", "1/2"]], [NA], ["Na", "Na"])
+    asu = recognize_asu(structure)
+    (record,) = list(StructureEntryProvider({"x": asu}).records("structures"))
+    assert record["nperiodic_dimensions"] == 3
+    assert record["space_group_it_number"] == 229
+    assert record["site_coordinate_span"] == "unit_cell"
+
+
+def test_site_coordinate_span_admits_there_is_no_periodic_system_for_a_molecule() -> None:
+    """`unit_cell` promises the sites reconstruct a periodic system under lattice translations.
+
+    That holds while anything is periodic. With nothing periodic it is simply untrue, and
+    the `molecular_*` values do not fit either — each additionally requires bonded atoms to
+    be placed at a bond distance, which httk does not know.
+    """
+    assert _record((1, 1, 1))["site_coordinate_span"] == "unit_cell"
+    assert _record((1, 1, 0))["site_coordinate_span"] == "unit_cell"
+    assert _record((0, 0, 1))["site_coordinate_span"] == "unit_cell"
+    assert _record((0, 0, 0))["site_coordinate_span"] == "other"
+
+
+def test_lattice_vectors_are_always_three_whatever_the_periodicity() -> None:
+    """OPTIMADE requires all three regardless; the non-periodic ones are frame vectors."""
+    record = _record((0, 0, 0))
+    assert record["lattice_vectors"] == [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 5.0]]

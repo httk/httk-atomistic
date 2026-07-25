@@ -87,3 +87,63 @@ def test_elements_filter_selects_structure() -> None:
         )
     )
     assert [r.values["id"] for r in results] == ["si"]
+
+
+def _periodicity_provider() -> StructureEntryProvider:
+    from httk.atomistic import Cell
+
+    si = Species(name="Si", chemical_symbols=("Si",), concentration=(1.0,))
+    basis = [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 5.0]]
+
+    def structure(periodicity: tuple[int, int, int]) -> Structure:
+        return Structure(Cell(basis, periodicity=periodicity), [[0.0, 0.0, 0.0]], [si], ["Si"])
+
+    return StructureEntryProvider(
+        {
+            "bulk": structure((1, 1, 1)),
+            "slab": structure((1, 1, 0)),
+            "wire": structure((0, 0, 1)),
+            "molecule": structure((0, 0, 0)),
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "expression, expected",
+    [
+        ("nperiodic_dimensions = 3", {"bulk"}),
+        ("nperiodic_dimensions <= 2", {"slab", "wire", "molecule"}),
+        ("nperiodic_dimensions = 0", {"molecule"}),
+    ],
+)
+def test_periodicity_is_queryable(expression: str, expected: set[str]) -> None:
+    """`nperiodic_dimensions` carries query-support 'all mandatory' in the standard.
+
+    The middle case is OPTIMADE's own documented query example, and it used to return
+    nothing at all because every structure claimed to be a 3D crystal.
+    """
+    adapter = adapter_from_providers([_periodicity_provider()])
+    results = list(
+        execute_query(adapter, ["structures"], ["id"], [], 100, 0, parse_optimade_filter(expression))
+    )
+    assert {r.values["id"] for r in results} == expected
+
+
+def test_dimension_types_is_served_through_the_full_path() -> None:
+    adapter = adapter_from_providers([_periodicity_provider()])
+    results = list(
+        execute_query(
+            adapter,
+            ["structures"],
+            ["id", "dimension_types", "nperiodic_dimensions", "site_coordinate_span"],
+            [],
+            100,
+            0,
+        )
+    )
+    served = {r.values["id"]: r.values for r in results}
+    assert served["slab"]["dimension_types"] == [1, 1, 0]
+    assert served["slab"]["nperiodic_dimensions"] == 2
+    assert served["slab"]["site_coordinate_span"] == "unit_cell"
+    assert served["molecule"]["dimension_types"] == [0, 0, 0]
+    assert served["molecule"]["site_coordinate_span"] == "other"

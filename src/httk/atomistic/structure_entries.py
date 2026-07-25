@@ -277,14 +277,15 @@ class StructureEntryProvider(EntryProvider):
                         'species_at_sites': list(structure.species_at_sites),
                         'species': species_dicts,
                         'structure_features': features,
-                        # A Structure carries no notion of periodicity, so every one of them
-                        # is a fully periodic crystal. That is a limitation of the model
-                        # rather than a fact about the entry, and it is stated here, with the
-                        # other always-served structural facts, rather than among the
-                        # composition-derived properties where a disordered structure would
-                        # have nulled it.
-                        'nperiodic_dimensions': 3,
-                        'dimension_types': [1, 1, 1],
+                        # Served with the other always-known structural facts, not among the
+                        # composition-derived ones: a disordered alloy has a periodicity even
+                        # though no whole-atom formula can be written for it.
+                        #
+                        # OPTIMADE orders dimension_types by lattice vector, exactly as
+                        # Cell.periodicity does, so this is a spelling change and not a
+                        # reordering.
+                        'nperiodic_dimensions': structure.nperiodic_dimensions,
+                        'dimension_types': [1 if periodic else 0 for periodic in structure.periodicity],
                     }
                 )
                 record.update(_derived_properties(structure))
