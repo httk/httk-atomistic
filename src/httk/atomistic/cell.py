@@ -269,18 +269,17 @@ class Cell:
 
     @property
     def periodic_measure(self) -> SurdScalar:
-        """The measure of the periodic sublattice: a volume, an area, a length, or one.
+        """The size of the repeating unit, whatever its dimension.
 
-        The size of the repeating unit, whatever its dimension — volume for a crystal, area
-        for a slab, length for a nanowire. For a fully non-periodic cell there is no
-        repeating unit and this is the empty product, ``1``, which is dimensionless rather
-        than a length of any kind.
+        A volume for a crystal, an area for a slab, a length for a nanowire. For a fully
+        non-periodic cell there is no repeating unit and this is the empty product, ``1``,
+        which is dimensionless rather than a length of any kind.
 
         Exact in the crystallographic case. The 3D case is the determinant and needs no
-        square root at all; the 2D and 1D cases go through the same
-        :func:`_scalar_length` that :attr:`lengths` uses, so they are exact whenever the
-        squared measure is a rational with a small radicand and fall back to a deterministic
-        rational approximation otherwise.
+        square root at all; the 2D and 1D cases take the same square root that
+        :attr:`lengths` does, so they are exact whenever the squared measure is a rational
+        with a small radicand and fall back to a deterministic rational approximation
+        otherwise.
         """
         rows = [index for index, periodic in enumerate(self._periodicity) if periodic]
         if len(rows) == 3:
