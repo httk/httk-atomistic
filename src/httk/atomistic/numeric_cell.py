@@ -41,6 +41,11 @@ class NumericCell:
         return to_numeric_scalar(self._cell.scale)
 
     @property
+    def precision(self) -> float | None:
+        """The exact cell precision as a plain float, or ``None`` if unknown."""
+        return None if self._cell.precision is None else float(self._cell.precision)
+
+    @property
     def unscaled_basis(self) -> NumericVector:
         """The 3x3 cell vectors before applying ``scale`` as a ``float64`` numpy array."""
         return to_numeric(self._cell.unscaled_basis)

@@ -33,6 +33,11 @@ class NumericSites:
         self._sites = sites if isinstance(sites, Sites) else SitesClassView(sites)
 
     @property
+    def precision(self) -> float | None:
+        """The exact fractional coordinate precision as a plain float, or ``None``."""
+        return None if self._sites.precision is None else float(self._sites.precision)
+
+    @property
     def reduced_coords(self) -> NumericVector:
         """The Nx3 reduced site coordinates as a ``float64`` numpy array."""
         return to_numeric(self._sites.reduced_coords)

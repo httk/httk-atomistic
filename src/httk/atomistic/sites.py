@@ -2,12 +2,13 @@
 The Sites class for httk-atomistic.
 """
 
+import fractions
 from collections.abc import Iterator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from httk.core import FracVector, VectorLike
 
-from ._vector_guards import to_fracvector
+from ._vector_guards import to_fracvector, to_precision
 
 if TYPE_CHECKING:
     from .numeric_sites import NumericSites
@@ -31,12 +32,14 @@ class Sites:
     """
 
     _reduced_coords: FracVector
+    _precision: fractions.Fraction | None
 
-    def __init__(self, reduced_coords: VectorLike) -> None:
+    def __init__(self, reduced_coords: VectorLike, precision: Any = None) -> None:
         coords = to_fracvector(reduced_coords)
         if coords.dim != () and not (len(coords.dim) == 2 and coords.dim[1] == 3):
             raise ValueError("Sites reduced_coords must be an Nx3 vector-like")
         self._reduced_coords = coords
+        self._precision = to_precision(precision)
 
     @property
     def reduced_coords(self) -> FracVector:
@@ -52,6 +55,21 @@ class Sites:
     def __getitem__(self, index: int) -> FracVector:
         return self._reduced_coords[index]
 
+    @property
+    def precision(self) -> fractions.Fraction | None:
+        """How precisely these coordinates were stated, in fractional units, or ``None``.
+
+        Fractional and therefore dimensionless: reduced coordinates are fractions of a cell
+        edge, and a ``Sites`` carries no cell to convert with. Use
+        :meth:`~httk.atomistic.Structure.cartesian_precision` for the corresponding length,
+        which is the number an interatomic tolerance or an spglib ``symprec`` actually
+        wants.
+
+        It is the *coarsest* precision among the coordinates, since a structure is only as
+        precisely stated as its least precisely stated number. ``None`` means unknown.
+        """
+        return self._precision
+
     def numeric(self) -> "NumericSites":
         """A plain-numpy presentation of these sites (requires the ``httk-atomistic[numpy]`` extra)."""
         from .numeric_sites import NumericSites
@@ -59,6 +77,11 @@ class Sites:
         return NumericSites(self)
 
     def __eq__(self, other: object) -> bool:
+        """Equality of the coordinates, and of nothing else.
+
+        The stated ``precision`` does not take part: the same coordinates recorded from a
+        more carefully written file are still the same coordinates.
+        """
         if not isinstance(other, Sites):
             return NotImplemented
         return self._reduced_coords == other._reduced_coords

@@ -2,6 +2,7 @@
 The minimal canonical sites interface for httk-atomistic.
 """
 
+import fractions
 from abc import ABC, abstractmethod
 
 from httk.core import FracVector
@@ -21,3 +22,16 @@ class SitesAPI(ABC):
     @abstractmethod
     def reduced_coords(self) -> FracVector:
         raise NotImplementedError
+
+    @property
+    def precision(self) -> fractions.Fraction | None:
+        """How precisely the coordinates were stated, in fractional units, or ``None``.
+
+        Fractional, not a length: reduced coordinates are dimensionless and a ``Sites`` has
+        no cell to convert with. :meth:`~httk.atomistic.Structure.cartesian_precision`
+        does the conversion, where the cell is known.
+
+        Concrete rather than abstract, so a backend with no source of precision inherits
+        ``None`` instead of breaking.
+        """
+        return None

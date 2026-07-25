@@ -9,7 +9,7 @@ from httk.core import SurdScalar, SurdVector, VectorLike
 from httk.core.vectors import exactmath
 from httk.core.vectors.exactmath import integer_sqrt
 
-from ._vector_guards import to_surdscalar, to_surdvector
+from ._vector_guards import to_precision, to_surdscalar, to_surdvector
 
 if TYPE_CHECKING:
     from .numeric_cell import NumericCell
@@ -79,14 +79,16 @@ class Cell:
     _lengths_cache: tuple[SurdScalar, ...] | None
     _angles_cache: tuple[fractions.Fraction, ...] | None
     _volume_cache: SurdScalar | None
+    _precision: fractions.Fraction | None
 
-    def __init__(self, basis: VectorLike, scale: Any = 1) -> None:
+    def __init__(self, basis: VectorLike, scale: Any = 1, precision: Any = None) -> None:
         unscaled = to_surdvector(basis)
         if unscaled.dim != (3, 3):
             raise ValueError("Cell basis must be a 3x3 vector-like")
         scale_scalar = to_surdscalar(scale)
         if scale_scalar.sign() <= 0:
             raise ValueError("Cell scale must be strictly positive")
+        self._precision = to_precision(precision)
         self._unscaled_basis = unscaled
         self._scale = scale_scalar
         self._basis_cache = None
@@ -111,6 +113,20 @@ class Cell:
         if self._basis_cache is None:
             self._basis_cache = self._scale * self._unscaled_basis
         return self._basis_cache
+
+    @property
+    def precision(self) -> fractions.Fraction | None:
+        """How precisely this basis was stated, as an absolute length, or ``None`` if unknown.
+
+        In the same units as the basis itself, so for ordinary crystallographic data it is
+        an ångström. Derived from the source's written digits and any stated uncertainty —
+        a CIF cell edge of ``5.6402(3)`` is precise to ``3e-4``, not to the ``1e-4`` its
+        four decimals alone would suggest.
+
+        ``None`` means unknown, which is not the same as exact. It is what a cell built by
+        hand or from a bare matrix reports.
+        """
+        return self._precision
 
     def numeric(self) -> "NumericCell":
         """A plain-numpy presentation of this cell (requires the ``httk-atomistic[numpy]`` extra)."""
@@ -186,6 +202,13 @@ class Cell:
         return self._volume_cache
 
     def __eq__(self, other: object) -> bool:
+        """Equality of the basis, and of nothing else.
+
+        Neither the ``scale``/``unscaled_basis`` factoring nor the stated ``precision``
+        takes part. Two cells with the same lattice vectors *are* the same cell; how the
+        scale was factored out and how precisely the source wrote the numbers are both
+        metadata about its provenance, not part of its geometry.
+        """
         if not isinstance(other, Cell):
             return NotImplemented
         return self.basis == other.basis

@@ -2,6 +2,7 @@
 Backend wrapping a Sites object in the class representation.
 """
 
+import fractions
 from typing import Any
 
 from httk.core import FracVector
@@ -34,6 +35,10 @@ class SitesClass(SitesBackend):
     @property
     def reduced_coords(self) -> FracVector:
         return self._sites.reduced_coords
+
+    @property
+    def precision(self) -> fractions.Fraction | None:
+        return self._sites.precision
 
     def unwrap(self) -> Any:
         return self._sites

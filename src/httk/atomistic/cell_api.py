@@ -2,6 +2,7 @@
 The minimal canonical cell interface for httk-atomistic.
 """
 
+import fractions
 from abc import ABC, abstractmethod
 
 from httk.core import SurdScalar, SurdVector
@@ -32,3 +33,14 @@ class CellAPI(ABC):
     @abstractmethod
     def unscaled_basis(self) -> SurdVector:
         raise NotImplementedError
+
+    @property
+    def precision(self) -> fractions.Fraction | None:
+        """How precisely the basis was stated, as an absolute length, or ``None`` if unknown.
+
+        Deliberately concrete rather than abstract. A backend that knows its source's
+        precision overrides this; one that does not — a bare matrix of numbers with no
+        provenance — inherits ``None``, which is the honest answer and keeps every existing
+        backend, in this package or outside it, working unchanged.
+        """
+        return None
