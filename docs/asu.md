@@ -136,6 +136,13 @@ neither
 the same thing along a short axis and a long one; a fractional tolerance would
 not.
 
+Left unspecified it is **derived from how precisely the structure was stated** —
+see {doc}`precision`. A file written to four decimals in a 5 Å cell derives
+`1e-3`; the same file written to three decimals derives ten times that, and is
+matched correctly where a fixed value would silently put its atoms on the wrong
+Wyckoff position. A structure that states no precision falls back to
+{py:data}`~httk.atomistic.DEFAULT_TOLERANCE`.
+
 ### The exactness contract
 
 1. A file's decimals embed as the rational the file literally wrote. `0.3333` is
@@ -226,7 +233,7 @@ it is in the smaller cell.
 
 For what OPTIMADE does not standardise — which setting, and the change of basis to it —
 httk serves six provider-specific properties whose definitions are taken verbatim from
-[schemas.anyterial.se](https://schemas.anyterial.se) rather than paraphrased locally:
+[schemas.httk.org](https://schemas.httk.org) rather than paraphrased locally:
 
 | Property | Describes |
 | --- | --- |
@@ -254,4 +261,5 @@ actually used. See the package's `README.md` for provenance and attribution.
 ## See also
 
 - {doc}`structures` — the `Structure` model these expand into
+- {doc}`precision` — where the default tolerance comes from
 - {doc}`examples/asu_from_cif` — a runnable walkthrough of everything above

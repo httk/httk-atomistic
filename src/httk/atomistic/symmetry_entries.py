@@ -11,8 +11,7 @@ were simply never served.
 **Provider-specific properties**, for the things OPTIMADE does not standardise — chiefly
 *which setting* a structure is written in, and the change of basis to the standard one.
 Rather than inventing descriptions, these reuse the published property definitions from
-`schemas.anyterial.se <https://schemas.anyterial.se>`_, vendored verbatim in
-``anyterial_defs/``. The served *name* carries the ``_httk_`` prefix that OPTIMADE requires
+`schemas.httk.org <https://schemas.httk.org>`_, vendored verbatim in ``httk_defs/``. The served *name* carries the ``_httk_`` prefix that OPTIMADE requires
 of a database-specific property, but the definition keeps its own ``$id``, so a client
 following the link reaches the authoritative published schema instead of a local
 paraphrase.
@@ -27,14 +26,14 @@ from typing import Any
 
 from httk.core import PropertyDefinition, unwrap
 
-from .anyterial_properties import load_anyterial_definitions
 from .asu_structure import ASUStructure
+from .httk_definitions import load_httk_definitions
 from .spacegroup import wyckoff_letter_map
 
 __all__ = [
-    "ANYTERIAL_PROPERTY_KEYS",
+    "SETTING_PROPERTY_KEYS",
     "SYMMETRY_PROPERTY_KEYS",
-    "anyterial_definitions",
+    "setting_definitions",
     "symmetry_properties",
 ]
 
@@ -52,10 +51,10 @@ SYMMETRY_PROPERTY_KEYS: tuple[str, ...] = (
     "site_coordinate_span_description",
 )
 
-#: Provider-specific properties, mapped to the vendored anyterial definition file that
-#: describes each. The served name carries the ``_httk_`` prefix; the definition keeps its
-#: ``schemas.anyterial.se`` identity.
-ANYTERIAL_PROPERTY_KEYS: dict[str, str] = {
+#: Provider-specific properties describing *which setting* a structure is written in,
+#: mapped to the vendored definition file that describes each. The served name carries the
+#: ``_httk_`` prefix; the definition keeps its ``schemas.httk.org`` identity.
+SETTING_PROPERTY_KEYS: dict[str, str] = {
     "_httk_setting_it_nc": "setting_it_nc",
     "_httk_hall_entry": "hall_entry",
     "_httk_is_reference_setting": "is_reference_setting",
@@ -66,13 +65,13 @@ ANYTERIAL_PROPERTY_KEYS: dict[str, str] = {
 
 
 @cache
-def anyterial_definitions() -> dict[str, PropertyDefinition]:
-    """The vendored symmetry definitions, keyed by their served name.
+def setting_definitions() -> dict[str, PropertyDefinition]:
+    """The vendored setting definitions, keyed by their served name.
 
-    Loaded verbatim, so each keeps the ``$id`` under ``schemas.anyterial.se`` that makes it
+    Loaded verbatim, so each keeps the ``$id`` under ``schemas.httk.org`` that makes it
     resolvable. Cached, since the documents are immutable.
     """
-    return load_anyterial_definitions(ANYTERIAL_PROPERTY_KEYS)
+    return load_httk_definitions(SETTING_PROPERTY_KEYS)
 
 
 def symmetry_properties(structure: Any) -> dict[str, Any]:
@@ -84,7 +83,7 @@ def symmetry_properties(structure: Any) -> dict[str, Any]:
     back, with a tolerance nobody chose, on every record served.
     """
     values: dict[str, Any] = {name: None for name in SYMMETRY_PROPERTY_KEYS}
-    values.update({name: None for name in ANYTERIAL_PROPERTY_KEYS})
+    values.update({name: None for name in SETTING_PROPERTY_KEYS})
 
     if structure is None:
         return values

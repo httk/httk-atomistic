@@ -41,9 +41,9 @@ from .species_primitive_view import SpeciesPrimitiveView
 from .structure import Structure
 from .structure_like import StructureLike
 from .symmetry_entries import (
-    ANYTERIAL_PROPERTY_KEYS,
+    SETTING_PROPERTY_KEYS,
     SYMMETRY_PROPERTY_KEYS,
-    anyterial_definitions,
+    setting_definitions,
     symmetry_properties,
 )
 
@@ -208,10 +208,10 @@ class StructureEntryProvider(EntryProvider):
         self._property_names: list[str] = used_names
 
     def _definition(self) -> EntryTypeDefinition:
-        # The symmetry properties from schemas.anyterial.se are always described, even
+        # The symmetry properties from schemas.httk.org are always described, even
         # when no entry is an asymmetric unit, so that the served definition does not
         # change shape with the contents of the database.
-        definition = _structures_definition().extended(anyterial_definitions()).extended(precision_definitions())
+        definition = _structures_definition().extended(setting_definitions()).extended(precision_definitions())
         if self._extra_definitions:
             definition = definition.extended(self._extra_definitions)
         return definition
@@ -227,7 +227,7 @@ class StructureEntryProvider(EntryProvider):
             property_keys[name] = name
         for name in SYMMETRY_PROPERTY_KEYS:
             property_keys[name] = name
-        for name in ANYTERIAL_PROPERTY_KEYS:
+        for name in SETTING_PROPERTY_KEYS:
             property_keys[name] = name
         for name in PRECISION_PROPERTY_KEYS:
             property_keys[name] = name
