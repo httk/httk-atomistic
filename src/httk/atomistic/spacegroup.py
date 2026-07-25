@@ -82,7 +82,7 @@ class Spacegroup:
 
     @property
     def setting(self) -> str:
-        """The setting name: IT number plus coordinate-system code, e.g. ``"15:c1"``."""
+        """The setting name — IT number plus coordinate-system code, e.g. ``"15:c1"``."""
         return self._record["setting_it_nc"]
 
     @property

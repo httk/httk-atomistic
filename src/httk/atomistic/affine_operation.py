@@ -13,8 +13,8 @@ ASU machinery needs no tolerance.
 
 **Convention.** The stored ``matrix`` is written for column vectors, matching how
 crystallographic tables print an operation (``x' = W x + w``, i.e. ``-x+1/2,y,-z``).
-httk holds coordinates as *rows*, so :meth:`apply` evaluates ``coords * matrix.T() +
-vector``. Both spellings describe the same map; only one of them is ever written out in
+httk holds coordinates as *rows*, so :meth:`AffineOperation.apply` evaluates
+``coords * matrix.T() + vector``. Both spellings describe the same map; only one of them is ever written out in
 code here.
 """
 

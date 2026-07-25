@@ -108,9 +108,24 @@ def structure_from_poscar(data: Mapping[str, Any]) -> Structure:
     return Structure(cell, reduced, species, species_at_sites)
 
 
+def _structure_from_cif(data: Mapping[str, Any]) -> Structure:
+    """The full unit cell of a loaded CIF, expanded from its asymmetric unit."""
+    from .cif_structures import asu_structures_from_cif
+    from .structure_simple_view import StructureSimpleView
+
+    structures = asu_structures_from_cif(data)
+    if len(structures) != 1:
+        raise ValueError(
+            f"this CIF holds {len(structures)} structures; load_structure() builds one, so use "
+            f"httk.atomistic.asu_structures_from_cif(httk.core.load(path)) to get them all"
+        )
+    return StructureSimpleView(structures[0])
+
+
 #: Maps a loaded payload's ``"format"`` tag to the structure builder for it.
 _STRUCTURE_ADAPTERS: dict[str, Callable[[Mapping[str, Any]], Structure]] = {
     "vasp-poscar": structure_from_poscar,
+    "cif": _structure_from_cif,
 }
 
 
@@ -120,8 +135,12 @@ def load_structure(path: str) -> Structure:
     ``httk.core.load(path)`` selects the reader by file type (transparently
     decompressing ``.bz2`` / ``.gz`` files); the payload's ``"format"`` tag then
     selects the matching structure builder. A payload without a recognized
-    ``"format"`` tag (for example a CIF, which returns a different shape) raises a
-    clear :class:`ValueError`.
+    ``"format"`` tag raises a clear :class:`ValueError`.
+
+    For a CIF this expands the asymmetric unit into the full cell. Use
+    :func:`load_asu_structure` instead to keep the asymmetric-unit form, which is both
+    smaller and richer — it carries the space group, the Wyckoff assignment of every
+    site, and the setting the file was written in.
     """
     payload = load(path)
     fmt = payload.get("format") if isinstance(payload, Mapping) else None
@@ -132,3 +151,29 @@ def load_structure(path: str) -> Structure:
             f"Known structure formats: {', '.join(sorted(_STRUCTURE_ADAPTERS))}."
         )
     return adapter(payload)
+
+
+def load_asu_structure(path: str) -> Any:
+    """Load a file and build an :class:`~httk.atomistic.ASUStructure` from it.
+
+    Currently CIF only, since it is the format that states its own symmetry. Unlike
+    :func:`load_structure` this keeps the asymmetric-unit form rather than expanding it,
+    so the space group, the Wyckoff position of each site, and the file's setting all
+    survive. Expand it at any time with ``StructureSimpleView(asu)``.
+    """
+    from .cif_structures import asu_structures_from_cif
+
+    payload = load(path)
+    fmt = payload.get("format") if isinstance(payload, Mapping) else None
+    if fmt != "cif":
+        raise ValueError(
+            f"Cannot build an ASUStructure from {path!r}: only CIF files state the symmetry an "
+            f"asymmetric unit needs, but this payload has format tag {fmt!r}."
+        )
+    structures = asu_structures_from_cif(payload)
+    if len(structures) != 1:
+        raise ValueError(
+            f"this CIF holds {len(structures)} structures; use "
+            f"httk.atomistic.asu_structures_from_cif(httk.core.load(path)) to get them all"
+        )
+    return structures[0]
