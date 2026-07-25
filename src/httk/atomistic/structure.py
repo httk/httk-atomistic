@@ -112,6 +112,20 @@ class Structure:
         """
         return self._cell.precision
 
+    @property
+    def periodicity(self) -> tuple[bool, bool, bool]:
+        """Which of the three basis rows is a genuine lattice translation.
+
+        Read through from :attr:`cell`, where the full account lives. ``(True, True, True)``
+        for an ordinary crystal, which is what a structure built without saying otherwise is.
+        """
+        return self._cell.periodicity
+
+    @property
+    def nperiodic_dimensions(self) -> int:
+        """How many of the three directions are periodic, from 0 to 3."""
+        return self._cell.nperiodic_dimensions
+
     def cartesian_precision(self) -> fractions.Fraction | None:
         """The coordinate precision as a length, or ``None`` if it is unknown.
 

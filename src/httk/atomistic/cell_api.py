@@ -44,3 +44,15 @@ class CellAPI(ABC):
         backend, in this package or outside it, working unchanged.
         """
         return None
+
+    @property
+    def periodicity(self) -> tuple[bool, bool, bool]:
+        """Which of the three basis rows is a genuine lattice translation.
+
+        Concrete rather than abstract, for the same reason as :attr:`precision`: a backend
+        that knows its periodicity overrides this, and one that does not inherits
+        ``(True, True, True)``. That default is not a guess — a cell described by six
+        lattice parameters, or by a bare matrix with no further provenance, is a crystal,
+        which is what every cell in httk was before periodicity was recorded at all.
+        """
+        return (True, True, True)

@@ -92,9 +92,16 @@ def test_invalid_transformations_are_rejected(transformation: object, message: s
 
 
 def test_a_singular_source_cell_is_rejected_clearly() -> None:
-    singular = _single_site([[1, 0, 0], [0, 1, 0], [1, 1, 0]])
-    with pytest.raises(ValueError, match="nonsingular cell basis"):
-        build_supercell(singular, [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    """Rejected at construction, so it can never reach a supercell in the first place.
+
+    `Cell` requires a non-degenerate basis, and `Structure` funnels every cell through
+    `Cell`, so the rejection happens at the point the bad geometry is written down rather
+    than at the operation that later trips over it. `build_supercell` keeps its own
+    nonsingular check as defence in depth for any future backend that does not go through
+    `Cell`.
+    """
+    with pytest.raises(ValueError, match="non-degenerate"):
+        _single_site([[1, 0, 0], [0, 1, 0], [1, 1, 0]])
 
 
 def test_site_limit_is_checked_before_materialization() -> None:

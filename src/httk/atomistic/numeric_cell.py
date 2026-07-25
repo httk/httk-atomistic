@@ -46,6 +46,16 @@ class NumericCell:
         return None if self._cell.precision is None else float(self._cell.precision)
 
     @property
+    def periodicity(self) -> tuple[bool, bool, bool]:
+        """Which of the three basis rows is a genuine lattice translation."""
+        return self._cell.periodicity
+
+    @property
+    def nperiodic_dimensions(self) -> int:
+        """How many of the three directions are periodic, from 0 to 3."""
+        return self._cell.nperiodic_dimensions
+
+    @property
     def unscaled_basis(self) -> NumericVector:
         """The 3x3 cell vectors before applying ``scale`` as a ``float64`` numpy array."""
         return to_numeric(self._cell.unscaled_basis)
