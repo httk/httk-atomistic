@@ -208,13 +208,18 @@ def load_structure(path: str) -> Structure:
     return adapter(payload)
 
 
-def load_asu_structure(path: str) -> Any:
+def load_asu_structure(path: str, **options: Any) -> Any:
     """Load a file and build an :class:`~httk.atomistic.ASUStructure` from it.
 
     Currently CIF only, since it is the format that states its own symmetry. Unlike
     :func:`load_structure` this keeps the asymmetric-unit form rather than expanding it,
     so the space group, the Wyckoff position of each site, and the file's setting all
     survive. Expand it at any time with ``StructureSimpleView(asu)``.
+
+    ``options`` are passed to :func:`~httk.atomistic.asu_structure_from_cif` — notably
+    ``tolerance`` and ``trust_declared_symmetry``, the latter being the way to load a file
+    whose declared Hall symbol or space-group number contradicts its own symmetry
+    operations.
     """
     from .cif_structures import asu_structures_from_cif
 
@@ -225,7 +230,7 @@ def load_asu_structure(path: str) -> Any:
             f"Cannot build an ASUStructure from {path!r}: only CIF files state the symmetry an "
             f"asymmetric unit needs, but this payload has format tag {fmt!r}."
         )
-    structures = asu_structures_from_cif(payload)
+    structures = asu_structures_from_cif(payload, **options)
     if len(structures) != 1:
         raise ValueError(
             f"this CIF holds {len(structures)} structures; use "

@@ -201,11 +201,29 @@ structure = load_structure("structure.cif")        # expands to the full cell
 everything = asu_structures_from_cif(load("multi.cif"))   # one per data block
 ```
 
-The setting is identified by comparing the file's symmetry operations against
-the tabulated ones **exactly**, so a file written in a non-standard setting is
-recognized as such rather than reinterpreted. Where a declared symbol and the
-operations disagree, the operations win: they are what the file's coordinates
-were actually generated with.
+The setting is identified by comparing the file's symmetry **operations**
+against the tabulated ones **exactly**, so a file written in a non-standard
+setting is recognized as such rather than reinterpreted.
+
+What the file *declares* — a Hall symbol, or an International Tables number — is
+treated as a claim to be checked, not a hint. A declaration naming no known
+setting, or naming one whose operations are not the file's, is a genuine
+inconsistency and raises: the two halves of the file disagree, and quietly
+believing one of them is how a wrong structure gets built. Hall symbols are
+matched in the conventional spelling a CIF writes (`-C 2yc`), normalized to the
+spelling the tables index.
+
+When the operations are the trustworthy half — a file whose symbols are known to
+be wrong — pass `trust_declared_symmetry=False` to ignore the declaration and
+identify the setting from the operations alone:
+
+```python
+asu = load_asu_structure("misdeclared.cif", trust_declared_symmetry=False)
+```
+
+The Hermann-Mauguin symbol is deliberately not checked: it has too many
+legitimate spellings, and OPTIMADE itself notes that it does not unambiguously
+communicate the axis, cell, or origin choice.
 
 The cell is built exactly from `a, b, c, α, β, γ` rather than from a
 pre-multiplied floating-point basis, so a cubic cell keeps exact right angles.
