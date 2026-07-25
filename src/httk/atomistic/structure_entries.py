@@ -68,6 +68,8 @@ _STRUCTURES_PROPERTY_KEYS: dict[str, str] = {
     'species_at_sites': 'species_at_sites',
     'species': 'species',
     'structure_features': 'structure_features',
+    'nperiodic_dimensions': 'nperiodic_dimensions',
+    'dimension_types': 'dimension_types',
 }
 
 # Structural record keys that serve null for a None (structure-less) entry.
@@ -80,12 +82,16 @@ _STRUCTURAL_NULL_KEYS: tuple[str, ...] = (
     'species_at_sites',
     'species',
     'structure_features',
-)
-
-# Standard composition properties auto-derived from each Structure (None-safe).
-_AUTO_DERIVED_KEYS: tuple[str, ...] = (
     'nperiodic_dimensions',
     'dimension_types',
+)
+
+# Standard *composition* properties auto-derived from each Structure. They serve null
+# together for a structure that is not fully ordered, because a formula in whole atoms is
+# not well defined for one. Periodicity is deliberately not among them: it has nothing to
+# do with composition, and bundling it here made a disordered alloy report its periodicity
+# as unknown.
+_AUTO_DERIVED_KEYS: tuple[str, ...] = (
     'elements_ratios',
     'chemical_formula_reduced',
     'chemical_formula_anonymous',
@@ -144,8 +150,6 @@ def _derived_properties(structure: Any) -> dict[str, Any]:
         for position, amount in enumerate(anonymous_amounts)
     )
     return {
-        'nperiodic_dimensions': 3,
-        'dimension_types': [1, 1, 1],
         'elements_ratios': [counts[element] / total for element in elements_sorted],
         'chemical_formula_reduced': reduced_formula,
         'chemical_formula_anonymous': anonymous_formula,
@@ -273,6 +277,14 @@ class StructureEntryProvider(EntryProvider):
                         'species_at_sites': list(structure.species_at_sites),
                         'species': species_dicts,
                         'structure_features': features,
+                        # A Structure carries no notion of periodicity, so every one of them
+                        # is a fully periodic crystal. That is a limitation of the model
+                        # rather than a fact about the entry, and it is stated here, with the
+                        # other always-served structural facts, rather than among the
+                        # composition-derived properties where a disordered structure would
+                        # have nulled it.
+                        'nperiodic_dimensions': 3,
+                        'dimension_types': [1, 1, 1],
                     }
                 )
                 record.update(_derived_properties(structure))

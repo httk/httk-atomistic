@@ -131,8 +131,6 @@ def test_chemical_formula_and_ratios() -> None:
     assert record["chemical_formula_anonymous"] == "A3BC"
     assert record["chemical_formula_descriptive"] == "FeO3Sm"
     assert record["elements_ratios"] == [0.2, 0.6, 0.2]
-    assert record["nperiodic_dimensions"] == 3
-    assert record["dimension_types"] == [1, 1, 1]
 
 
 def test_null_structure_serves_null() -> None:
@@ -192,3 +190,41 @@ def test_registration_discovered_via_httk_core() -> None:
     provider = factory({"s-1": _nacl_like()})
     assert isinstance(provider, StructureEntryProvider)
     assert set(provider.entry_types()) == {"structures"}
+
+
+# --- periodicity ---
+
+
+def test_periodicity_is_served_whatever_the_composition() -> None:
+    """It is not a composition property, and must not null out with the formula.
+
+    A `Structure` carries no notion of periodicity, so every one of them is served as a
+    fully periodic crystal. The bug was that these two travelled with the composition
+    block, which serves null for any structure that is not fully ordered — so a disordered
+    alloy, or a structure with attached atoms, reported its periodicity as *unknown* purely
+    because a whole-atom formula could not be written for it.
+    """
+    cell = [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
+    ordered = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))
+    disordered = Species(name="X", chemical_symbols=("Na", "K"), concentration=(0.5, 0.5))
+    attached = Species(name="C", chemical_symbols=("C",), concentration=(1.0,), attached=("H",), nattached=(1,))
+
+    for label, species in (("ordered", ordered), ("disordered", disordered), ("attached", attached)):
+        structure = Structure(cell, [[0, 0, 0]], [species], [species.name])
+        (record,) = list(StructureEntryProvider({"x": structure}).records("structures"))
+        assert record["nperiodic_dimensions"] == 3, label
+        assert record["dimension_types"] == [1, 1, 1], label
+
+    # The composition properties still null out for those, which is correct.
+    (record,) = list(
+        StructureEntryProvider({"x": Structure(cell, [[0, 0, 0]], [disordered], ["X"])}).records("structures")
+    )
+    assert record["chemical_formula_reduced"] is None
+    assert record["elements_ratios"] is None
+
+
+def test_an_entry_with_no_structure_still_serves_null_periodicity() -> None:
+    """There is no structure to describe, so unknown is the honest answer there."""
+    (record,) = list(StructureEntryProvider({"empty": None}).records("structures"))
+    assert record["nperiodic_dimensions"] is None
+    assert record["dimension_types"] is None
