@@ -28,6 +28,7 @@ from typing import Any, Sequence
 from httk.core import FracVector
 
 from . import data
+from ._vector_guards import to_precision
 from .cell import Cell
 from .cell_class_view import CellClassView
 from .cell_like import CellLike
@@ -86,6 +87,7 @@ class ASUStructure:
     _transform: SettingTransform
     _asu_sites: tuple[ASUSite, ...]
     _species: tuple[Species, ...]
+    _coordinate_precision: fractions.Fraction | None
 
     def __init__(
         self,
@@ -94,6 +96,7 @@ class ASUStructure:
         asu_sites: Sequence[ASUSite],
         species: Sequence[SpeciesLike],
         transform: SettingTransform | None = None,
+        coordinate_precision: Any = None,
     ) -> None:
         self._cell = cell if isinstance(cell, Cell) else CellClassView(cell)
         self._spacegroup = spacegroup if isinstance(spacegroup, Spacegroup) else Spacegroup.standard(spacegroup)
@@ -104,6 +107,7 @@ class ASUStructure:
                 f"express the difference as the transform instead"
             )
         self._transform = SettingTransform.identity() if transform is None else transform
+        self._coordinate_precision = to_precision(coordinate_precision)
         self._asu_sites = tuple(asu_sites)
         self._species = tuple(item if isinstance(item, Species) else SpeciesClassView(item) for item in species)
 
@@ -148,6 +152,20 @@ class ASUStructure:
     def species(self) -> tuple[Species, ...]:
         """The species referenced by the sites."""
         return self._species
+
+    @property
+    def coordinate_precision(self) -> fractions.Fraction | None:
+        """How precisely the coordinates behind this structure were stated, or ``None``.
+
+        Fractional, and expressed in **this structure's own setting** — the frame the data
+        arrived in — so it needs no transforming on the way to the expanded sites. Recording
+        it here is what lets an asymmetric unit say how good the data behind it was, rather
+        than leaving that to be guessed again downstream.
+
+        It is provenance, never an operating parameter: expansion remains exact and uses no
+        tolerance at all.
+        """
+        return self._coordinate_precision
 
     @property
     def asu(self) -> "ASUStructure":
@@ -239,7 +257,7 @@ class ASUStructure:
         The opposite case, a transform onto a larger cell, is covered by
         :meth:`~httk.atomistic.SettingTransform.lattice_cosets`.
         """
-        return Sites(self._expansion[0])
+        return Sites(self._expansion[0], self._coordinate_precision)
 
     def expand_species_at_sites(self) -> tuple[str, ...]:
         """The species name occupying each site produced by :meth:`expand_sites`, in order."""

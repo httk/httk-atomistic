@@ -12,13 +12,16 @@ the payload's ``"format"`` tag to the matching structure builder.
 """
 
 import fractions
+import math
 from collections.abc import Mapping
 from typing import Any, Callable
 
 from httk.core import SurdScalar, SurdVector, load
 from httk.core.vectors import exactmath
 
+from ._vector_guards import to_surdscalar
 from .cell import Cell
+from .sites import Sites
 from .species import Species
 from .structure import Structure
 
@@ -72,21 +75,24 @@ def structure_from_poscar(data: Mapping[str, Any]) -> Structure:
     scale_str = data.get("scale")
     volume_str = data.get("volume")
     if scale_str is not None:
-        cell = Cell(cell_rows, scale_str)
+        scale: Any = scale_str
     elif volume_str is not None:
         abs_det = abs(_to_fraction(raw_basis.det()))
         if abs_det == 0:
             raise ValueError("Cannot volume-scale a degenerate cell (zero determinant).")
         target_volume = _to_fraction(SurdVector.create(volume_str)._as_scalar())
-        cell = Cell(cell_rows, _cube_root(target_volume / abs_det))
+        scale = _cube_root(target_volume / abs_det)
     else:
-        cell = Cell(cell_rows)
+        scale = 1
+
+    cell = Cell(cell_rows, scale, _basis_precision(data, raw_basis, scale))
 
     if data["cartesian"]:
         # reduced = cart * basis^-1 (row-vector convention); the universal scale cancels.
         reduced: Any = SurdVector.create(data["coords"]) * raw_basis.inv()
     else:
         reduced = data["coords"]
+    sites = Sites(reduced, _coordinate_precision(data, raw_basis))
 
     symbols = data.get("symbols")
     if symbols is None:
@@ -105,7 +111,7 @@ def structure_from_poscar(data: Mapping[str, Any]) -> Structure:
             seen.add(symbol)
             species.append(Species(name=symbol, chemical_symbols=(symbol,), concentration=(1.0,)))
 
-    return Structure(cell, reduced, species, species_at_sites)
+    return Structure(cell, sites, species, species_at_sites)
 
 
 def _structure_from_cif(data: Mapping[str, Any]) -> Structure:
@@ -120,6 +126,55 @@ def _structure_from_cif(data: Mapping[str, Any]) -> Structure:
             f"httk.atomistic.asu_structures_from_cif(httk.core.load(path)) to get them all"
         )
     return StructureSimpleView(structures[0])
+
+
+def _basis_precision(data: Mapping[str, Any], raw_basis: SurdVector, scale: Any) -> fractions.Fraction | None:
+    """How precisely the POSCAR states its cell, as an absolute length.
+
+    The reader reports the precision of the cell-vector tokens *as written*, before the
+    universal scaling factor multiplies them, so the conversion happens here where the
+    scale is known: ``scale * cell_precision``.
+
+    The scale's **own** written precision is deliberately not folded in, even though the
+    reader reports it. The scaling factor is a definition of units — a choice about whether
+    to carry the lattice constant in the factor or in the rows — and not a quantity measured
+    independently of them. Charging its digits as well would double-count the same
+    measurement, and would give a nonsensical answer in the ordinary case: a POSCAR that
+    writes ``1.0`` would be charged 0.1 of an uncertainty it plainly does not have, and the
+    cell of a 5.64 A structure would be declared good to only half an angstrom.
+
+    For the negative, volume-scaling form the scale is derived from a target volume rather
+    than written; the volume's precision is likewise not propagated through the cube root.
+    """
+    cell_precision = data.get("cell_precision")
+    if cell_precision is None:
+        return None
+    scale_value = abs(_to_fraction(to_surdscalar(scale)))
+    return scale_value * fractions.Fraction(cell_precision)
+
+
+def _coordinate_precision(data: Mapping[str, Any], raw_basis: SurdVector) -> fractions.Fraction | None:
+    """How precisely the POSCAR states its coordinates, in fractional units.
+
+    Direct coordinates are already fractional and pass straight through — and the universal
+    scaling factor cancels for them, exactly as it does for the coordinates themselves.
+
+    Cartesian coordinates are a length, so they are divided by the *shortest* cell edge to
+    become fractional. Shortest because that yields the largest fractional uncertainty,
+    which is the conservative choice; it is an approximation for a strongly oblique cell,
+    where a rigorous bound would need the norm of the inverse basis. The scale cancels here
+    too, since it multiplies the coordinates and the edge lengths alike.
+    """
+    precision = data.get("coordinate_precision")
+    if precision is None:
+        return None
+    if not data["cartesian"]:
+        return fractions.Fraction(precision)
+
+    shortest = min(math.dist((0.0, 0.0, 0.0), row) for row in raw_basis.to_floats())
+    if shortest <= 0:
+        return None
+    return fractions.Fraction(precision) / fractions.Fraction(str(shortest)).limit_denominator(10**12)
 
 
 #: Maps a loaded payload's ``"format"`` tag to the structure builder for it.
