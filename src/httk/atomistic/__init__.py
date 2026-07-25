@@ -69,7 +69,12 @@ from .structure_primitive_view import StructurePrimitiveView
 from .structure_simple import StructureSimple
 from .structure_simple_view import StructureSimpleView
 from .structure_view import StructureView
-from .supercell import SupercellResult, build_supercell, cubic_supercell, orthogonal_supercell
+from .supercell import (
+    SupercellResult,
+    build_supercell,
+    cubic_supercell,
+    orthogonal_supercell,
+)
 from .symmetry_entries import setting_definitions, symmetry_properties
 from .vasp_structures import load_asu_structure, load_structure, structure_from_poscar
 from .wyckoff import WyckoffBranch, WyckoffPosition, wyckoff_positions
