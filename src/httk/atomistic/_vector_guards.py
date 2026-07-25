@@ -9,6 +9,7 @@ uniformly admits :class:`~fractions.Fraction`, rational strings (``"1/3"``), ``F
 ``SurdVector``, and numpy arrays alongside the plain nested lists/tuples of numbers.
 """
 
+import fractions
 from typing import Any
 
 from httk.core import (
@@ -62,6 +63,34 @@ def to_surdscalar(obj: Any) -> SurdScalar:
     if value.dim != ():
         raise ValueError(f"expected a scalar value, got shape {value.dim}")
     return value._as_scalar()
+
+
+def to_precision(obj: Any) -> fractions.Fraction | None:
+    """Normalize a stated data precision into an exact positive rational, or ``None``.
+
+    ``None`` means the precision is unknown, which is a real answer and not the same as
+    claiming perfect precision. Anything the vector family accepts as a scalar works —
+    ``1e-4``, ``"1/10000"``, a :class:`~fractions.Fraction` — and lands exactly, so a
+    precision survives storage and comparison without picking up binary noise.
+
+    A non-positive precision is rejected rather than silently treated as unknown: zero
+    would claim exactness that no measured value has, and a negative one is meaningless.
+    """
+    if obj is None:
+        return None
+    if isinstance(obj, float):
+        # Through the decimal spelling, so 1e-4 lands on 1/10000 rather than on the binary
+        # value a float literally holds. A precision is a written claim about digits, and
+        # embedding it binary-exactly would record a number nobody stated.
+        exact = fractions.Fraction(str(obj))
+    else:
+        value = to_fracvector(obj)
+        if value.dim != ():
+            raise ValueError(f"a precision must be a single value, got shape {value.dim}")
+        exact = value.to_fraction()
+    if exact <= 0:
+        raise ValueError(f"a precision must be strictly positive, got {exact}; use None for unknown")
+    return exact
 
 
 def to_float_tuples(vector: FracVector | SurdVector) -> tuple[tuple[float, ...], ...]:

@@ -29,7 +29,7 @@ class SitesClassView(SitesView, Sites):
         instance = super().__new__(cls)
         # Sites is mutable, so its state is initialized here in __new__ (keeping __init__ a no-op),
         # so that rewrapping an existing view via cls(view) does not re-initialize it.
-        Sites.__init__(instance, backend.reduced_coords)
+        Sites.__init__(instance, backend.reduced_coords, backend.precision)
         instance._backend = backend
         return instance
 

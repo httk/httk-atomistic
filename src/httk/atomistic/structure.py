@@ -2,6 +2,7 @@
 The Simple structure representation for httk-atomistic.
 """
 
+import fractions
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
@@ -94,6 +95,45 @@ class Structure:
         """The species name occupying each site, in site order."""
         return self._species_at_sites
 
+    @property
+    def coordinate_precision(self) -> fractions.Fraction | None:
+        """How precisely the reduced coordinates were stated, in fractional units, or ``None``.
+
+        Read through from :attr:`sites`. Dimensionless — see :meth:`cartesian_precision`
+        for the corresponding length.
+        """
+        return self._sites.precision
+
+    @property
+    def basis_precision(self) -> fractions.Fraction | None:
+        """How precisely the cell basis was stated, as an absolute length, or ``None``.
+
+        Read through from :attr:`cell`.
+        """
+        return self._cell.precision
+
+    def cartesian_precision(self) -> fractions.Fraction | None:
+        """The coordinate precision as a length, or ``None`` if it is unknown.
+
+        This is the number a real tolerance wants — an interatomic matching tolerance or an
+        spglib ``symprec`` is a distance, and a fractional precision is not. A coordinate
+        good to ``1e-4`` of a cell edge means something quite different in a 3 Å cell and a
+        30 Å one.
+
+        Computed as the fractional precision times the *longest* cell edge, which is the
+        conservative choice: it is the largest displacement that fractional uncertainty can
+        produce along any axis. The cell's own precision is folded in as well, since a cell
+        stated to ``1e-3`` cannot place an atom better than that however many digits the
+        coordinates carry.
+        """
+        fractional = self._sites.precision
+        if fractional is None:
+            return None
+        longest = max(length.to_float() for length in self._cell.lengths)
+        cartesian = fractional * fractions.Fraction(str(longest))
+        basis = self._cell.precision
+        return cartesian if basis is None or basis < cartesian else basis
+
     def cartesian_sites(self) -> SurdVector:
         """
         The exact Cartesian site positions as an ``(N, 3)`` :class:`~httk.core.SurdVector`.
@@ -113,6 +153,12 @@ class Structure:
         return NumericStructure(self)
 
     def __eq__(self, other: object) -> bool:
+        """Equality of the quartet. Stated precision does not take part.
+
+        Precision describes how the structure was *recorded*, not what it is, so the same
+        atoms read from a more carefully written file are still the same structure. The
+        component classes take the same view.
+        """
         if not isinstance(other, Structure):
             return NotImplemented
         return (

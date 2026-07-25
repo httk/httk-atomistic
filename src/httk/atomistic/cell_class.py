@@ -2,6 +2,7 @@
 Backend wrapping a Cell in the class representation.
 """
 
+import fractions
 from typing import Any
 
 from httk.core import SurdScalar, SurdVector
@@ -38,6 +39,10 @@ class CellClass(CellBackend):
     @property
     def scale(self) -> SurdScalar:
         return self._cell.scale
+
+    @property
+    def precision(self) -> fractions.Fraction | None:
+        return self._cell.precision
 
     @property
     def unscaled_basis(self) -> SurdVector:

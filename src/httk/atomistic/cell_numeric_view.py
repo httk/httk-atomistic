@@ -32,7 +32,7 @@ class CellNumericView(CellView, NumericCell):
         # NumericCell is mutable, so its state is initialized here in __new__ (keeping __init__ a
         # no-op), so that rewrapping an existing view via cls(view) does not re-initialize it. The
         # exact Cell is rebuilt from the backend's scale/unscaled_basis to preserve the factoring.
-        NumericCell.__init__(instance, Cell(backend.unscaled_basis, backend.scale))
+        NumericCell.__init__(instance, Cell(backend.unscaled_basis, backend.scale, backend.precision))
         instance._backend = backend
         return instance
 
