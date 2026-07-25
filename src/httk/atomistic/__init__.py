@@ -14,6 +14,7 @@ The underlying tables ship in :mod:`httk.atomistic.data`.
 """
 
 from .affine_operation import AffineOperation
+from .asu_structure import ASUSite, ASUStructure
 from .cell import Cell
 from .cell_api import CellAPI
 from .cell_backend import CellBackend
@@ -53,7 +54,9 @@ from .species_primitive_view import SpeciesPrimitiveView
 from .species_view import SpeciesView
 from .structure import Structure
 from .structure_api import StructureAPI
+from .structure_asu import StructureASU
 from .structure_backend import StructureBackend
+from .structure_comparison import same_crystal
 from .structure_entries import StructureEntryProvider
 from .structure_like import StructureLike
 from .structure_numeric_view import StructureNumericView
@@ -65,7 +68,7 @@ from .structure_view import StructureView
 from .vasp_structures import load_structure, structure_from_poscar
 from .wyckoff import WyckoffBranch, WyckoffPosition, wyckoff_positions
 
-StructureBackend.backend_classes = [StructureSimple, StructurePrimitive]
+StructureBackend.backend_classes = [StructureSimple, StructureASU, StructurePrimitive]
 CellBackend.backend_classes = [CellClass, CellPrimitive, CellParams]
 SitesBackend.backend_classes = [SitesClass, SitesPrimitive]
 SpeciesBackend.backend_classes = [SpeciesClass, SpeciesPrimitive]
@@ -116,6 +119,10 @@ __all__ = [
     "SpeciesPrimitive",
     "SpeciesClassView",
     "SpeciesPrimitiveView",
+    "ASUStructure",
+    "ASUSite",
+    "StructureASU",
+    "same_crystal",
     "AffineOperation",
     "SettingTransform",
     "Spacegroup",

@@ -41,19 +41,18 @@ SAMPLE_SETTINGS = (
 RHOMBOHEDRAL_SETTINGS = ("146:R", "148:R", "155:R", "160:R", "161:R", "166:R", "167:R")
 
 
-def _wrapped_symops(spacegroup: Spacegroup) -> frozenset[tuple[object, ...]]:
-    """The group's operations as a set of canonical keys, translations reduced into ``[0, 1)``."""
-    return frozenset(operation.wrapped().key() for operation in spacegroup.symmetry_operations)
+def _wrapped_symops(spacegroup: Spacegroup) -> frozenset[AffineOperation]:
+    """The group's operations as a set, translations reduced into ``[0, 1)``."""
+    return frozenset(operation.wrapped() for operation in spacegroup.symmetry_operations)
 
 
-def _point_set(coordinates: FracVector) -> frozenset[tuple[fractions.Fraction, ...]]:
-    """An unordered set of wrapped coordinates, keyed on plain ``Fraction``s.
+def _point_set(coordinates: FracVector) -> frozenset[FracVector]:
+    """An unordered set of wrapped coordinates.
 
-    Keyed that way rather than on the vectors themselves because ``FracVector`` hashes its
-    raw representation while comparing numerically, so a set of them can hold what are
-    really duplicates.
+    Relies on ``FracVector`` hashing consistently with its numerical equality, so that a
+    coordinate reached by different arithmetic counts as the same point.
     """
-    return frozenset(tuple(row) for row in coordinates.normalize().to_fractions())
+    return frozenset(coordinates.normalize())
 
 
 # --- AffineOperation ---
@@ -123,7 +122,7 @@ def test_setting_transform_maps_the_standard_symop_set_onto_each_setting(setting
     transform = target.transform_from_standard
 
     mapped = frozenset(
-        transform.symop_to_setting(operation).wrapped().key() for operation in standard.symmetry_operations
+        transform.symop_to_setting(operation).wrapped() for operation in standard.symmetry_operations
     )
     assert mapped == _wrapped_symops(target)
 
