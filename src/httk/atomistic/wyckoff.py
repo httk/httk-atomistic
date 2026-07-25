@@ -103,24 +103,45 @@ class WyckoffBranch:
         """
         point = FracVector.create(coordinate)
         rank = len(self._free)
-        difference = point - self._operation.vector
-        mapped = difference * self._unimodular.T()
+        mapped = (point - self._operation.vector) * self._unimodular.T()
 
         # Rows below the rank carry no free parameter, so they must already be lattice
-        # translations for the coordinate to lie on this branch at all.
+        # translations for the coordinate to lie on this branch at all. Checking that first
+        # is a cheap rejection for the common case of a coordinate that is simply elsewhere.
         for row in range(rank, 3):
             if mapped[row].to_fraction().denominator != 1:
                 return None
 
-        if rank == 0:
-            parameters = FracVector.create(())
-        else:
-            head = FracVector.create([mapped[row].to_fraction() for row in range(rank)])
-            parameters = (head * self._pivot_inverse.T()).normalize()
-
+        parameters = self._parameters_from_mapped(mapped)
         if self.coordinate(parameters).normalize() != point.normalize():
             return None
         return parameters
+
+    def nearest_parameters(self, coordinate: Any) -> FracVector:
+        """The free-parameter values putting this branch as close to ``coordinate`` as it goes.
+
+        Unlike :meth:`parameters_of` this always returns a value: the free directions are
+        solved exactly and any discrepancy is left in the *fixed* directions, where the
+        branch's own coordinates win. It is the projection used when recognizing a measured
+        structure, whose coordinates carry rounding and do not lie exactly on any position.
+
+        The projection is taken along the branch's own lattice basis rather than being
+        minimised in the cell metric, so for a strongly oblique cell it is a near-optimal
+        rather than provably optimal choice. That is safe because the caller measures the
+        resulting Cartesian displacement and rejects anything beyond its tolerance — the
+        method can cost a match, never grant a wrong one.
+        """
+        point = FracVector.create(coordinate)
+        mapped = (point - self._operation.vector) * self._unimodular.T()
+        return self._parameters_from_mapped(mapped)
+
+    def _parameters_from_mapped(self, mapped: FracVector) -> FracVector:
+        """Back-substitute the free parameters out of ``U * (point - b)``."""
+        rank = len(self._free)
+        if rank == 0:
+            return FracVector.create(())
+        head = FracVector.create([mapped[row].to_fraction() for row in range(rank)])
+        return (head * self._pivot_inverse.T()).normalize()
 
 
 class WyckoffPosition:
