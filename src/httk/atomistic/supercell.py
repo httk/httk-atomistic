@@ -22,6 +22,7 @@ from typing import Any
 from httk.core import FracVector, SurdScalar, SurdVector, VectorLike
 
 from ._lattice import finite_translation_cosets
+from ._periodicity_guard import require_full_periodicity
 from .cell import Cell
 from .sites import Sites
 from .structure import Structure
@@ -143,9 +144,16 @@ def build_supercell(
     Reduced coordinates are transformed by the inverse matrix and wrapped into
     ``[0, 1)``. Any input representation is first presented as a full
     :class:`~httk.atomistic.structure.Structure`.
+
+    Requires a fully 3D-periodic structure. Repeating a slab within its own plane is a
+    perfectly sensible operation, but it is not this one: the transformation matrix here
+    mixes all three rows and the coordinates are wrapped in all three directions, so applied
+    to a reduced-periodicity cell it would generate images along a direction that has no
+    lattice translation. Refused rather than half-supported.
     """
     matrix, multiplier = _integer_transformation(transformation)
     view = StructureSimpleView(structure)
+    require_full_periodicity(view.cell, "supercell construction")
     if view.cell.volume.is_zero():
         raise ValueError("supercell construction requires a nonsingular cell basis")
     _validate_site_count(len(view.sites), multiplier, max_sites)

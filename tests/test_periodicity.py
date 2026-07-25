@@ -269,3 +269,101 @@ def test_lengths_and_angles_stay_available_whatever_the_periodicity() -> None:
     assert [length.to_float() for length in slab.lengths] == pytest.approx([3.0, 3.0, 5.0])
     assert slab.angles == Cell(CUBE).angles
     assert slab.metric() == Cell(CUBE).metric()
+
+
+# --- symmetry is refused ---
+#
+# Without these the failures would be silent rather than loud: an orbit generated across a
+# non-periodic direction quietly deletes atoms, and a distance folded across one makes an
+# unsymmetric structure pass as symmetric.
+
+
+def _slab() -> Structure:
+    return _structure((1, 1, 0))
+
+
+def test_asu_structure_refuses_a_reduced_periodicity_cell() -> None:
+    from httk.atomistic import ASUSite, ASUStructure
+
+    site = ASUSite(wyckoff="a", free_params=(), species="Na")
+    with pytest.raises(ValueError, match="fully 3D-periodic"):
+        ASUStructure(_slab().cell, 221, [site], [NA])
+
+
+def test_recognize_asu_refuses_before_it_searches() -> None:
+    from httk.atomistic import recognize_asu
+
+    with pytest.raises(ValueError, match="fully 3D-periodic"):
+        recognize_asu(_slab())
+
+
+def test_recognize_asu_refuses_even_when_the_setting_is_supplied() -> None:
+    from httk.atomistic import Spacegroup, recognize_asu
+
+    with pytest.raises(ValueError, match="fully 3D-periodic"):
+        recognize_asu(_slab(), setting=Spacegroup.standard(221))
+
+
+def test_the_asu_view_refuses_too() -> None:
+    """It has no guard of its own; it delegates to `recognize_asu`, which does."""
+    from httk.atomistic.asu_structure_view import ASUStructureView
+
+    with pytest.raises(ValueError, match="fully 3D-periodic"):
+        ASUStructureView(_slab())
+
+
+def test_supercell_construction_refuses_a_slab() -> None:
+    """Repeating a slab in its own plane is sensible; this operation is not that one.
+
+    The transformation mixes all three rows and the coordinates are wrapped in all three
+    directions, so it would generate images along a direction with no lattice translation.
+    """
+    from httk.atomistic import build_supercell
+
+    with pytest.raises(ValueError, match="fully 3D-periodic"):
+        build_supercell(_slab(), [[2, 0, 0], [0, 1, 0], [0, 0, 1]])
+
+
+def test_the_refusal_says_why_and_what_still_works() -> None:
+    from httk.atomistic import recognize_asu
+
+    with pytest.raises(ValueError) as excinfo:
+        recognize_asu(_structure((0, 0, 0)))
+    message = str(excinfo.value)
+    assert "0 of 3 directions" in message
+    assert "layer or rod group" in message
+
+
+def test_a_crystal_is_still_recognised_normally() -> None:
+    """The guards must not disturb the overwhelmingly common case."""
+    from httk.atomistic import recognize_asu, same_crystal
+
+    cell = Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]])
+    structure = Structure(cell, [[0, 0, 0], ["1/2", "1/2", "1/2"]], [NA], ["Na", "Na"])
+    asu = recognize_asu(structure)
+    assert same_crystal(asu, structure)
+
+
+# --- representing a molecule ---
+
+
+def test_a_molecule_is_the_identity_frame_with_nothing_periodic() -> None:
+    """The whole point of the frame model: no box, no padding, no wrapping.
+
+    With a unit frame the fractional coordinates simply *are* the angstrom coordinates, and
+    a negative one stays negative instead of being folded to the far side of a cell.
+    """
+    hydrogen = Species(name="H", chemical_symbols=("H",), concentration=(1.0,))
+    oxygen = Species(name="O", chemical_symbols=("O",), concentration=(1.0,))
+    water = [[0, 0, 0], ["3/4", "3/5", 0], ["-3/4", "3/5", 0]]
+    molecule = Structure(
+        Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]], periodicity=(0, 0, 0)),
+        water,
+        [oxygen, hydrogen],
+        ["O", "H", "H"],
+    )
+
+    assert molecule.nperiodic_dimensions == 0
+    assert molecule.sites.reduced_coords.to_floats() == molecule.cartesian_sites().to_floats()
+    assert molecule.cartesian_sites().to_floats()[2][0] == pytest.approx(-0.75)
+    assert molecule.cell.periodic_measure.to_float() == pytest.approx(1.0)
