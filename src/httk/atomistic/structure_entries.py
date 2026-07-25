@@ -32,6 +32,11 @@ from httk.core import (
 
 from .asu_structure import ASUStructure
 from .elements import SYMBOLS
+from .precision_entries import (
+    PRECISION_PROPERTY_KEYS,
+    precision_definitions,
+    precision_properties,
+)
 from .species_primitive_view import SpeciesPrimitiveView
 from .structure import Structure
 from .structure_like import StructureLike
@@ -206,7 +211,7 @@ class StructureEntryProvider(EntryProvider):
         # The symmetry properties from schemas.anyterial.se are always described, even
         # when no entry is an asymmetric unit, so that the served definition does not
         # change shape with the contents of the database.
-        definition = _structures_definition().extended(anyterial_definitions())
+        definition = _structures_definition().extended(anyterial_definitions()).extended(precision_definitions())
         if self._extra_definitions:
             definition = definition.extended(self._extra_definitions)
         return definition
@@ -224,6 +229,8 @@ class StructureEntryProvider(EntryProvider):
             property_keys[name] = name
         for name in ANYTERIAL_PROPERTY_KEYS:
             property_keys[name] = name
+        for name in PRECISION_PROPERTY_KEYS:
+            property_keys[name] = name
         for name in self._property_names:
             property_keys[name] = name
         return property_keys
@@ -235,6 +242,7 @@ class StructureEntryProvider(EntryProvider):
         for entry_id, structure in self._structures.items():
             record: dict[str, Any] = {'__id': entry_id, 'type': 'structures'}
             record.update(symmetry_properties(structure))
+            record.update(precision_properties(structure))
             if structure is None:
                 for key in _STRUCTURAL_NULL_KEYS:
                     record[key] = None
