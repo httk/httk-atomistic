@@ -10,7 +10,9 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 
 - **API reference**: {doc}`reference/index`
 - **Structure guide**: {doc}`structures`
+- **Runnable examples**: {doc}`examples/index`
 - **Examples notebook**: {doc}`notebooks/examples`
+- **Disorder walkthrough**: {doc}`notebooks/disorder`
 ````
 
 ## Install
@@ -47,5 +49,7 @@ lattice, positions, numbers = StructurePrimitiveView(structure)
 
 reference/index
 structures
+examples/index
 notebooks/examples
+notebooks/disorder
 ```
