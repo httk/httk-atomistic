@@ -1,0 +1,35 @@
+{
+    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/pointgroups/crystal_system",
+    "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
+    "title": "Crystal system",
+    "x-optimade-type": "string",
+    "x-compatibility": [
+        "https://www.iucr.org/__data/iucr/cifdic_html/2/cif_sym.dic/Ispace_group.crystal_system.html"
+    ],
+    "x-optimade-definition": {
+        "kind": "property",
+        "version": "0.1.0",
+        "format": "1.3",
+        "name": "crystal_system",
+        "label": "crystal_system_pointgroups"
+    },
+    "type": [
+        "string",
+        "null"
+    ],
+    "description": "The crystal system of the space group or point group.\n\nValues use the conventional crystallographic system names.",
+    "x-optimade-unit": "inapplicable",
+    "enum": [
+        "triclinic",
+        "monoclinic",
+        "orthorhombic",
+        "tetragonal",
+        "trigonal",
+        "hexagonal",
+        "cubic"
+    ],
+    "examples": [
+        "triclinic",
+        "monoclinic"
+    ]
+}

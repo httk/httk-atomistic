@@ -76,7 +76,7 @@ where = ["src"]
 namespaces = true
 
 [tool.setuptools.package-data]
-"httk.atomistic" = ["py.typed", "optimade_defs/*"]
+"httk.atomistic" = ["py.typed", "optimade_defs/*", "anyterial_defs/*"]
 # httk.atomistic.data is itself a package, so its data files are declared against it
 # rather than through a "data/*" glob on the parent.
 "httk.atomistic.data" = ["*.json.gz", "LICENSE", "README.md"]

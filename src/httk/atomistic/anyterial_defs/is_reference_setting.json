@@ -1,0 +1,23 @@
+{
+    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/spacegroups/is_reference_setting",
+    "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
+    "title": "is reference setting",
+    "x-optimade-type": "boolean",
+    "x-optimade-definition": {
+        "kind": "property",
+        "version": "0.1.0",
+        "format": "1.3",
+        "name": "is_reference_setting",
+        "label": "is_reference_setting_spacegroups"
+    },
+    "type": [
+        "boolean",
+        "null"
+    ],
+    "description": "Boolean flag indicating whether this Hall setting is the selected reference setting for its International Tables space-group number.",
+    "x-optimade-unit": "inapplicable",
+    "examples": [
+        true,
+        false
+    ]
+}

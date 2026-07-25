@@ -1,0 +1,23 @@
+{
+    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/spacegroups/setting_it_nc",
+    "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
+    "title": "International Tables setting code n:c",
+    "x-optimade-type": "string",
+    "x-optimade-definition": {
+        "kind": "property",
+        "version": "0.1.0",
+        "format": "1.3",
+        "name": "setting_it_nc",
+        "label": "setting_it_nc_spacegroups"
+    },
+    "type": [
+        "string",
+        "null"
+    ],
+    "description": "International Tables setting identifier in `n:c` notation.\n\nThe part before the colon is the International Tables space-group number.\nThe part after the colon is the coordinate-system or origin-choice qualifier used to distinguish settings that share the same IT number.\n\n**Requirements/Conventions**:\n\n- Triclinic, hexagonal, and many unique settings use only the IT number, for example `1`.\n- Monoclinic settings use qualifiers such as `b1`, `-b1`, `c2`, or `a3`.\n- Orthorhombic settings use qualifiers such as `abc`, `cab`, `1abc`, or `2bca` when needed.\n- Tetragonal and cubic origin choices use qualifiers such as `1` and `2`; trigonal axis choices use qualifiers such as `h` and `r`.",
+    "x-optimade-unit": "inapplicable",
+    "examples": [
+        "1",
+        "2"
+    ]
+}

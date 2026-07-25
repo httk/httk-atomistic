@@ -27,6 +27,7 @@ from typing import Any, Sequence
 
 from httk.core import FracVector
 
+from . import data
 from .cell import Cell
 from .cell_class_view import CellClassView
 from .cell_like import CellLike
@@ -163,9 +164,27 @@ class ASUStructure:
 
         A structure in an arbitrary setting is perfectly representable but has no tabulated
         name; that is the point of storing the transform rather than a setting label.
+
+        A transform looked up from the tables remembers which setting it came from, but one
+        that was constructed directly does not, so an equal transform is also matched
+        against the group's tabulated settings. An identity transform means the structure is
+        in the standard setting, which is of course tabulated — reporting it as nameless
+        would be simply wrong.
         """
+        if self._transform.is_identity():
+            return self._spacegroup
+
         hall_entry = self._transform.hall_entry
-        return None if hall_entry is None else Spacegroup.for_hall_entry(hall_entry)
+        if hall_entry is not None:
+            return Spacegroup.for_hall_entry(hall_entry)
+
+        for record in data.spacegroup_settings():
+            if record["it_number"] != self._spacegroup.it_number:
+                continue
+            candidate = Spacegroup(record)
+            if candidate.transform_from_standard == self._transform:
+                return candidate
+        return None
 
     # --- expansion ---
 

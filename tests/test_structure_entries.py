@@ -30,7 +30,9 @@ def test_entry_types_describe_structures() -> None:
     properties = definition.properties
     # The vendored standard describes the full v1.3 property set (30), a superset
     # of the subset the provider serves:
-    assert len(properties) == 30
+    # 30 standard OPTIMADE properties plus the six symmetry properties httk serves
+    # under the _httk_ prefix, described by the vendored schemas.anyterial.se definitions.
+    assert len(properties) == 36
     for name in ("id", "type", "elements", "nelements", "nsites", "species", "structure_features"):
         assert name in properties
     # Includes v1.3-native properties the provider does not serve:
