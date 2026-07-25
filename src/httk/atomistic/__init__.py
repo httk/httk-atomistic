@@ -4,10 +4,16 @@ httk-atomistic: crystal structure representations for httk v2.
 Provides the Structure domain and its component families (Cell, Sites, Species),
 each following the httk-core view/backend pattern. A Structure holds a ``cell``, a
 ``sites``, a tuple of ``species``, and a ``species_at_sites``; each component has a
-class representation and a primitive representation convertible through views. ASU and
-exact-vector numerics are planned follow-ups.
+class representation and a primitive representation convertible through views.
+
+Crystal symmetry is modelled exactly over the rationals: :class:`Spacegroup` carries a
+space-group *setting* with its symmetry operations and Wyckoff table, and
+:class:`SettingTransform` relates any setting to the International Tables standard one,
+so a structure in an arbitrary non-standard setting can be represented without loss.
+The underlying tables ship in :mod:`httk.atomistic.data`.
 """
 
+from .affine_operation import AffineOperation
 from .cell import Cell
 from .cell_api import CellAPI
 from .cell_backend import CellBackend
@@ -24,6 +30,7 @@ from .elements import SYMBOLS, atomic_number, symbol_of
 from .numeric_cell import NumericCell
 from .numeric_sites import NumericSites
 from .numeric_structure import NumericStructure
+from .setting_transform import SettingTransform
 from .sites import Sites
 from .sites_api import SitesAPI
 from .sites_backend import SitesBackend
@@ -34,6 +41,7 @@ from .sites_numeric_view import SitesNumericView
 from .sites_primitive import SitesPrimitive
 from .sites_primitive_view import SitesPrimitiveView
 from .sites_view import SitesView
+from .spacegroup import Spacegroup, wyckoff_letter_map
 from .species import Species
 from .species_api import SpeciesAPI
 from .species_backend import SpeciesBackend
@@ -55,6 +63,7 @@ from .structure_simple import StructureSimple
 from .structure_simple_view import StructureSimpleView
 from .structure_view import StructureView
 from .vasp_structures import load_structure, structure_from_poscar
+from .wyckoff import WyckoffBranch, WyckoffPosition, wyckoff_positions
 
 StructureBackend.backend_classes = [StructureSimple, StructurePrimitive]
 CellBackend.backend_classes = [CellClass, CellPrimitive, CellParams]
@@ -107,6 +116,13 @@ __all__ = [
     "SpeciesPrimitive",
     "SpeciesClassView",
     "SpeciesPrimitiveView",
+    "AffineOperation",
+    "SettingTransform",
+    "Spacegroup",
+    "WyckoffPosition",
+    "WyckoffBranch",
+    "wyckoff_positions",
+    "wyckoff_letter_map",
     "SYMBOLS",
     "atomic_number",
     "symbol_of",
