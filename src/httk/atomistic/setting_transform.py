@@ -176,25 +176,19 @@ class SettingTransform:
             return (zero,)
 
         # Closure under addition mod 1. The group is finite because every entry is
-        # rational, so this terminates; it is tiny in every case that arises.
-        #
-        # Membership is keyed on plain Fractions, never on the FracVector itself:
-        # FracVector compares numerically but hashes its raw (denominator, numerators)
-        # pair, so a set of them would not recognize a repeat that arrived with a
-        # different denominator and this loop would never terminate.
-        def key(vector: FracVector) -> tuple[fractions.Fraction, ...]:
-            return tuple(vector.to_fractions())
-
-        found = {key(zero): zero}
+        # rational, so this terminates; it is tiny in every case that arises. Termination
+        # does depend on the set recognizing a repeat that arrived with a different
+        # denominator, which is exactly what FracVector's canonical hashing provides.
+        found = {zero}
         frontier = [zero]
         while frontier:
             current = frontier.pop()
             for generator in generators:
                 candidate = (current + generator).normalize()
-                if key(candidate) not in found:
-                    found[key(candidate)] = candidate
+                if candidate not in found:
+                    found.add(candidate)
                     frontier.append(candidate)
-        return tuple(found[name] for name in sorted(found))
+        return tuple(sorted(found, key=lambda vector: tuple(vector.to_fractions())))
 
     # --- algebra ---
 

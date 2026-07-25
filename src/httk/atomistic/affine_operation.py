@@ -169,22 +169,15 @@ class AffineOperation:
         return self._matrix == other._matrix and self._vector == other._vector
 
     def __hash__(self) -> int:
-        return hash(self.key())
+        """Hash consistent with :meth:`__eq__`, so operations deduplicate in a set.
 
-    def key(self) -> tuple[Any, ...]:
-        """A canonical hashable key: the matrix and translation as plain ``Fraction``s.
-
-        Deliberately *not* ``hash((matrix, vector))``. :class:`~httk.core.FracVector`
-        compares numerically but hashes its raw ``(denominator, numerators)`` pair, so two
-        numerically equal vectors reached by different arithmetic can hash differently —
-        which would let equal operations sit in a set as distinct members, and would break
-        the exact deduplication that ASU expansion depends on. ``Fraction`` normalizes on
-        construction, so a key built from it is canonical.
+        Relies on :class:`~httk.core.FracVector` hashing its canonical form, which is what
+        makes ``(1, 0, 0)/2`` and ``(2, 0, 0)/4`` land in the same bucket. Arithmetic here
+        does not reduce as it goes, so equal operations routinely arrive with different
+        denominators, and the exact deduplication in ASU expansion depends on them being
+        recognized as one.
         """
-        return (
-            tuple(tuple(row) for row in self._matrix.to_fractions()),
-            tuple(self._vector.to_fractions()),
-        )
+        return hash((self._matrix, self._vector))
 
     def __repr__(self) -> str:
         return f"AffineOperation({self.to_xyz()!r})"
