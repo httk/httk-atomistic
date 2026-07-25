@@ -1,5 +1,5 @@
 {
-    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/symmetry/affine_transformation",
+    "$id": "https://schemas.httk.org/defs/v0.1/properties/symmetry/affine_transformation",
     "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
     "title": "Affine transformation",
     "x-optimade-type": "dictionary",
@@ -51,7 +51,7 @@
                 ],
                 "description": "One row of the exact 3 by 3 matrix.",
                 "items": {
-                    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/core/fraction",
+                    "$id": "https://schemas.httk.org/defs/v0.1/properties/core/fraction",
                     "title": "Fraction",
                     "x-optimade-type": "string",
                     "x-optimade-definition": {
@@ -93,7 +93,7 @@
             ],
             "description": "Exact fractional-coordinate vector part of the affine transformation.",
             "items": {
-                "$id": "https://schemas.anyterial.se/defs/v0.1/properties/core/fraction",
+                "$id": "https://schemas.httk.org/defs/v0.1/properties/core/fraction",
                 "title": "Fraction",
                 "x-optimade-type": "string",
                 "x-optimade-definition": {
@@ -118,7 +118,7 @@
             }
         },
         "xyz": {
-            "$id": "https://schemas.anyterial.se/defs/v0.1/properties/symmetry/op_xyz",
+            "$id": "https://schemas.httk.org/defs/v0.1/properties/symmetry/op_xyz",
             "title": "Operation xyz",
             "x-optimade-type": "string",
             "x-compatibility": [

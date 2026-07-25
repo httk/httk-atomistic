@@ -1,10 +1,10 @@
-"""Loading the vendored property definitions published by schemas.anyterial.se.
+"""Loading the vendored property definitions published by schemas.httk.org.
 
 OPTIMADE standardises a good deal about a structure but nothing about *which setting* it is
 written in, nor about how precisely its numbers were stated. Both are served here as
 database-specific properties, and rather than describing them locally the descriptions are
-taken from the published definitions at `schemas.anyterial.se
-<https://schemas.anyterial.se>`_, vendored verbatim in ``anyterial_defs/``.
+taken from the published definitions at `schemas.httk.org <https://schemas.httk.org>`_,
+vendored verbatim in ``httk_defs/``.
 
 The served *name* carries the ``_httk_`` prefix that OPTIMADE requires of a
 database-specific property; the definition keeps its own ``$id``, so a client following the
@@ -17,10 +17,10 @@ from typing import Mapping
 
 from httk.core import PropertyDefinition
 
-__all__ = ["load_anyterial_definitions"]
+__all__ = ["load_httk_definitions"]
 
 
-def load_anyterial_definitions(names: Mapping[str, str]) -> dict[str, PropertyDefinition]:
+def load_httk_definitions(names: Mapping[str, str]) -> dict[str, PropertyDefinition]:
     """Load vendored definitions, given a map of served name to definition file stem.
 
     Each document is loaded verbatim, ``$id`` included. Note that a definition's own
@@ -31,6 +31,6 @@ def load_anyterial_definitions(names: Mapping[str, str]) -> dict[str, PropertyDe
     """
     definitions: dict[str, PropertyDefinition] = {}
     for served_name, file_name in names.items():
-        text = files("httk.atomistic").joinpath(f"anyterial_defs/{file_name}.json").read_text(encoding="utf-8")
+        text = files("httk.atomistic").joinpath(f"httk_defs/{file_name}.json").read_text(encoding="utf-8")
         definitions[served_name] = PropertyDefinition.from_optimade(served_name, json.loads(text))
     return definitions

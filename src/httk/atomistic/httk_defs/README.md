@@ -1,4 +1,4 @@
-# Vendored anyterial property definitions
+# Vendored httk property definitions
 
 This directory holds the authoritative, supported copies of the **non-OPTIMADE-standard**
 property definitions that *httk-atomistic* serves. They describe two things OPTIMADE does
@@ -7,9 +7,9 @@ of basis from the International Tables standard setting to it; and how precisely
 structure's numbers were stated by whatever source they came from.
 
 They are not written here. They are published definitions taken verbatim from
-[schemas.anyterial.se](https://schemas.anyterial.se), and vendoring them rather than
-paraphrasing them is deliberate: a client that follows a property's `$id` reaches the
-authoritative schema instead of a local restatement that could drift from it.
+[schemas.httk.org](https://schemas.httk.org), and vendoring them rather than paraphrasing
+them is deliberate: a client that follows a property's `$id` reaches the authoritative
+schema instead of a local restatement that could drift from it.
 
 | Served as | Definition | `$id` |
 | --- | --- | --- |
@@ -22,13 +22,13 @@ authoritative schema instead of a local restatement that could drift from it.
 | `_httk_coordinate_precision` | `fractional_coordinate_precision.json` | `…/properties/core/fractional_coordinate_precision` |
 | `_httk_basis_precision` | `length_precision.json` | `…/properties/core/length_precision` |
 
-all under `https://schemas.anyterial.se/defs/v0.1/properties/`.
+all under `https://schemas.httk.org/defs/v0.1/properties/`.
 
 ## The name and the definition are two different things
 
 OPTIMADE requires a database-specific property to carry a registered prefix in its **name**,
 which is why these are served as `_httk_…`. It does not require the *definition* to be
-locally authored, and these are not: each document is byte-identical to the published one,
+restated locally, and these are not: each document is byte-identical to the published one,
 `$id` included. So the prefix says "this database chose to serve this", while the `$id` says
 "and this is what it means, as defined elsewhere".
 
@@ -37,8 +37,9 @@ name it was published under (`setting_it_nc`), not the prefixed name httk serves
 That is correct and is left alone — rewriting a published document to match a local naming
 choice would defeat the point of pointing at it.
 
-They are loaded at runtime by `httk.atomistic.anyterial_definitions()` (packaged through
-`pyproject.toml`'s package-data entry `"httk.atomistic" = [..., "anyterial_defs/*"]`) and
+They are loaded at runtime by `httk.atomistic.setting_definitions()` and
+`httk.atomistic.precision_definitions()` (packaged through `pyproject.toml`'s package-data
+entry `"httk.atomistic" = [..., "httk_defs/*"]`) and
 merged into the served entry-type definition by
 `httk.atomistic.StructureEntryProvider`.
 
@@ -56,15 +57,16 @@ rather than a queryable property.
 
 ## Provenance
 
-Source repository: <https://github.com/httk/anyterial-schemas> (the
-`anyterial-schemas-source` checkout), generated with the Materials-Consortia
-`optimade-property-tools`. Definitions are the `v0.1` set.
+Published schemas: <https://github.com/httk/schemas>, served from
+<https://schemas.httk.org>. Their sources: <https://github.com/httk/schemas-sources>,
+built with the Materials-Consortia `optimade-property-tools`. Definitions are the `v0.1`
+set.
 
-Copied from `output/defs/v0.1/properties/` without modification.
+Copied from the published `defs/v0.1/properties/` without modification.
 
 The two precision definitions were authored for this purpose; their source YAML lives at
 `src/defs/v0.1/properties/core/{fractional_coordinate_precision,length_precision}.yaml`
-in that repository and is built with `make schemas`.
+in the sources repository and is built with `make schemas`.
 
 ## License
 
@@ -74,7 +76,8 @@ repository root — and from the CC BY 4.0 symmetry *datasets* under `../data/`.
 
 ## Refreshing
 
-Copy the wanted files from a checkout's `output/defs/v0.1/properties/<section>/<name>.json`
-into this directory, keeping the basename. After a refresh, review the diff, re-run
-`make test` (`tests/test_symmetry_entries.py` asserts each definition still carries an
-`schemas.anyterial.se` `$id`), and re-commit only intended version changes.
+Copy the wanted files from a checkout of the published schemas repository,
+`defs/v0.1/properties/<section>/<name>.json`, into this directory, keeping the basename.
+After a refresh, review the diff, re-run `make test` (`tests/test_symmetry_entries.py`
+asserts each definition still carries a `schemas.httk.org` `$id`), and re-commit only
+intended version changes.

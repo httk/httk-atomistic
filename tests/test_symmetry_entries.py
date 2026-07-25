@@ -3,7 +3,7 @@
 Two things are being checked. That the standard OPTIMADE symmetry properties carry the
 right values — which for the symbols and Wyckoff letters means the values *for the setting
 the structure is written in*, not for the standard setting the ASU stores them against.
-And that the provider-specific properties keep the published `schemas.anyterial.se`
+And that the provider-specific properties keep the published `schemas.httk.org`
 definitions they were taken from, rather than a local paraphrase.
 """
 
@@ -20,10 +20,10 @@ from httk.atomistic import (
     Species,
     Structure,
     StructureEntryProvider,
-    anyterial_definitions,
+    setting_definitions,
 )
 from httk.atomistic.symmetry_entries import (
-    ANYTERIAL_PROPERTY_KEYS,
+    SETTING_PROPERTY_KEYS,
     SYMMETRY_PROPERTY_KEYS,
 )
 
@@ -80,7 +80,7 @@ def test_a_plain_structure_serves_null_symmetry() -> None:
         if name in ("fractional_site_positions", "site_coordinate_span"):
             continue
         assert record[name] is None, name
-    for name in ANYTERIAL_PROPERTY_KEYS:
+    for name in SETTING_PROPERTY_KEYS:
         assert record[name] is None, name
 
     # These two need no symmetry, so they are served regardless.
@@ -90,7 +90,7 @@ def test_a_plain_structure_serves_null_symmetry() -> None:
 
 def test_an_entry_without_a_structure_serves_null_symmetry() -> None:
     record = _record(None)
-    for name in (*SYMMETRY_PROPERTY_KEYS, *ANYTERIAL_PROPERTY_KEYS):
+    for name in (*SYMMETRY_PROPERTY_KEYS, *SETTING_PROPERTY_KEYS):
         assert record[name] is None, name
 
 
@@ -195,13 +195,13 @@ def test_the_setting_transform_is_served_as_exact_rationals() -> None:
 
 
 def test_provider_specific_properties_keep_their_published_definitions() -> None:
-    """The whole point of reusing schemas.anyterial.se rather than paraphrasing it."""
-    definitions = anyterial_definitions()
-    assert set(definitions) == set(ANYTERIAL_PROPERTY_KEYS)
+    """The whole point of reusing schemas.httk.org rather than paraphrasing it."""
+    definitions = setting_definitions()
+    assert set(definitions) == set(SETTING_PROPERTY_KEYS)
 
     for name, definition in definitions.items():
         document = definition.as_optimade()
-        assert document["$id"].startswith("https://schemas.anyterial.se/defs/v0.1/properties/")
+        assert document["$id"].startswith("https://schemas.httk.org/defs/v0.1/properties/")
         assert document["description"]
         # The served name carries the prefix OPTIMADE requires of a database-specific
         # property; the definition it points at is the published one.
@@ -214,7 +214,7 @@ def test_the_served_definition_describes_every_served_property() -> None:
     described = provider.entry_types()["structures"].properties
     record = next(iter(provider.records("structures")))
 
-    for name in (*SYMMETRY_PROPERTY_KEYS, *ANYTERIAL_PROPERTY_KEYS):
+    for name in (*SYMMETRY_PROPERTY_KEYS, *SETTING_PROPERTY_KEYS):
         assert name in described, name
         assert name in provider.property_keys("structures")
         assert name in record

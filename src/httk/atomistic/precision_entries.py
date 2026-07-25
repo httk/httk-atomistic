@@ -3,7 +3,7 @@
 OPTIMADE standardises nothing about data precision — the only ``standard_uncertainty`` in
 its structures definition is CODATA metadata inside a unit definition — so these are
 database-specific properties described by the published definitions in
-:mod:`~httk.atomistic.anyterial_properties`.
+:mod:`~httk.atomistic.httk_definitions`.
 
 Serving them matters because a consumer choosing a matching tolerance or a symmetry
 ``symprec`` otherwise has to guess. With these two values it can derive one, exactly as
@@ -15,11 +15,11 @@ from typing import Any
 
 from httk.core import PropertyDefinition
 
-from .anyterial_properties import load_anyterial_definitions
+from .httk_definitions import load_httk_definitions
 
 __all__ = ["PRECISION_PROPERTY_KEYS", "precision_definitions", "precision_properties"]
 
-#: Served name to vendored anyterial definition. The coordinate precision is dimensionless
+#: Served name to vendored definition file stem. The coordinate precision is dimensionless
 #: (a fraction of a cell edge) and the basis precision is a length, which is why they are
 #: two definitions rather than one.
 PRECISION_PROPERTY_KEYS: dict[str, str] = {
@@ -31,7 +31,7 @@ PRECISION_PROPERTY_KEYS: dict[str, str] = {
 @cache
 def precision_definitions() -> dict[str, PropertyDefinition]:
     """The vendored precision definitions, keyed by their served name."""
-    return load_anyterial_definitions(PRECISION_PROPERTY_KEYS)
+    return load_httk_definitions(PRECISION_PROPERTY_KEYS)
 
 
 def precision_properties(structure: Any) -> dict[str, Any]:

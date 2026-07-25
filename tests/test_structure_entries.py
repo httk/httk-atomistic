@@ -32,7 +32,7 @@ def test_entry_types_describe_structures() -> None:
     # of the subset the provider serves:
     # 30 standard OPTIMADE properties, plus the six symmetry properties and two precision
     # properties httk serves under the _httk_ prefix, each described by a vendored
-    # schemas.anyterial.se definition.
+    # schemas.httk.org definition.
     assert len(properties) == 38
     for name in ("id", "type", "elements", "nelements", "nsites", "species", "structure_features"):
         assert name in properties

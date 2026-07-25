@@ -1,5 +1,5 @@
 {
-    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/core/length_precision",
+    "$id": "https://schemas.httk.org/defs/v0.1/properties/core/length_precision",
     "$schema": "https://schemas.optimade.org/meta/v1.2/optimade/property_definition.json",
     "title": "Length precision",
     "x-optimade-type": "float",

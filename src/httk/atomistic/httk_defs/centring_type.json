@@ -1,5 +1,5 @@
 {
-    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/spacegroups/centring_type",
+    "$id": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/centring_type",
     "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
     "title": "Centring type",
     "x-optimade-type": "string",

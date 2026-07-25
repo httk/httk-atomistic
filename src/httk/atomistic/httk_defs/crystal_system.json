@@ -1,5 +1,5 @@
 {
-    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/pointgroups/crystal_system",
+    "$id": "https://schemas.httk.org/defs/v0.1/properties/pointgroups/crystal_system",
     "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
     "title": "Crystal system",
     "x-optimade-type": "string",

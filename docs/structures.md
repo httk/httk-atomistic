@@ -124,6 +124,8 @@ an interpretation.
   give immutable float tuples, and the numpy-backed numeric layer (`.numeric()`, see below) gives
   true numpy arrays. An `ASUStructure` holds a structure as its asymmetric unit — a space
   group plus one site per orbit — and expands to a `Structure` on demand; see {doc}`asu`.
+  A `Cell` and a `Sites` each also carry an optional `precision` recording how precisely
+  their numbers were stated by the source they came from; see {doc}`precision`.
 
 ## Exact geometry: scale, surd matrices, and Cartesian positions
 

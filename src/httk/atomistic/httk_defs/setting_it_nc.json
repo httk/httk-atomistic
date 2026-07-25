@@ -1,5 +1,5 @@
 {
-    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/spacegroups/setting_it_nc",
+    "$id": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/setting_it_nc",
     "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
     "title": "International Tables setting code n:c",
     "x-optimade-type": "string",

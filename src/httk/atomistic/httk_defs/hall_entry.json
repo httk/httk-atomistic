@@ -1,5 +1,5 @@
 {
-    "$id": "https://schemas.anyterial.se/defs/v0.1/properties/spacegroups/hall_entry",
+    "$id": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/hall_entry",
     "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
     "title": "Hall entry",
     "x-optimade-type": "string",

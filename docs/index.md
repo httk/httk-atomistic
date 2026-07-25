@@ -11,6 +11,7 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 - **API reference**: {doc}`reference/index`
 - **Structure guide**: {doc}`structures`
 - **Asymmetric units**: {doc}`asu`
+- **Data precision**: {doc}`precision`
 - **Runnable examples**: {doc}`examples/index`
 - **Examples notebook**: {doc}`notebooks/examples`
 - **Disorder walkthrough**: {doc}`notebooks/disorder`
@@ -51,6 +52,7 @@ lattice, positions, numbers = StructurePrimitiveView(structure)
 reference/index
 structures
 asu
+precision
 examples/index
 notebooks/examples
 notebooks/disorder
