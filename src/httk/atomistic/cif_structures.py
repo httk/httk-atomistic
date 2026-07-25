@@ -121,7 +121,14 @@ def asu_structure_from_cif(
             )
         asu_sites.append(ASUSite(letter, parameters, name))
 
-    return ASUStructure(cell, standard, asu_sites, list(species_by_name.values()), transform)
+    return ASUStructure(
+        cell,
+        standard,
+        asu_sites,
+        list(species_by_name.values()),
+        transform,
+        data.get("coordinate_precision"),
+    )
 
 
 def cif_setting(data: Mapping[str, Any]) -> Spacegroup:
@@ -182,10 +189,16 @@ def _candidate_settings(data: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 def _cell_from_cif(data: Mapping[str, Any]) -> Cell:
     """The cell, built exactly from the lattice parameters where the file gives them."""
+    precision = data.get("basis_precision")
+    exact = data.get("cell_parameters_exact")
+    if exact is not None and all(value is not None for value in exact):
+        # The text the file wrote, so 5.6402 becomes 56402/10000 rather than the binary
+        # value of float("5.6402").
+        return Cell(CellParams([fractions.Fraction(value) for value in exact]).basis, 1, precision)
     parameters = data.get("cell_parameters")
     if parameters is not None:
-        return Cell(CellParams([fractions.Fraction(str(value)) for value in parameters]).basis)
-    return Cell(data["basis"])
+        return Cell(CellParams([fractions.Fraction(str(value)) for value in parameters]).basis, 1, precision)
+    return Cell(data["basis"], 1, precision)
 
 
 def _exact_positions(data: Mapping[str, Any]) -> list[FracVector]:

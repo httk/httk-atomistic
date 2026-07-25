@@ -65,6 +65,7 @@ class ASUStructureView(StructureView, ASUStructure):
             asu.asu_sites,
             asu.species,
             asu.transform,
+            asu.coordinate_precision,
         )
         instance._backend = backend
         return instance

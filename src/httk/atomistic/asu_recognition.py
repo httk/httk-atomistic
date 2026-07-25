@@ -243,7 +243,10 @@ def _group_into_orbits(
             consumed[other] = True
         asu_sites.append(ASUSite(position.letter, parameters, species))
 
-    return ASUStructure(cell, standard, asu_sites, view.species, transform)
+    # The recognized ASU inherits the precision of the structure it came from: nothing
+    # about recognition sharpens the data, and dropping it here would mean the value had
+    # to be guessed again by everything downstream.
+    return ASUStructure(cell, standard, asu_sites, view.species, transform, view.sites.precision)
 
 
 def _lies_in_orbit(point: FracVector, orbit: Sequence[FracVector], cell: Any, tolerance: float) -> bool:

@@ -9,6 +9,7 @@ than one representative test standing in for the rest.
 import fractions
 
 import pytest
+from httk.core import FracVector
 
 from httk.atomistic import (
     Cell,
@@ -22,6 +23,20 @@ from httk.atomistic import (
     Structure,
     StructureSimpleView,
     same_crystal,
+)
+
+pytest.importorskip("httk.io", reason="the readers live in httk-io")
+
+import io  # noqa: E402
+
+from httk.io.vasp import read_poscar  # noqa: E402
+
+from httk.atomistic import (  # noqa: E402
+    ASUSite,
+    ASUStructure,
+    Spacegroup,
+    recognize_asu,
+    structure_from_poscar,
 )
 
 F = fractions.Fraction
@@ -191,3 +206,77 @@ def test_precision_does_not_affect_equality() -> None:
     vague = Structure(Cell(CUBIC), Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]]), _species(), ["Na", "Na"])
     assert precise == vague
     assert same_crystal(precise, vague)
+
+
+# --- precision arriving from a file ---
+
+
+def _poscar(*, scale: str = "1.0", mode: str = "Direct", coords: str = "0.0000 0.0000 0.0000") -> str:
+    return (
+        "NaCl\n"
+        f"{scale}\n"
+        "5.6400 0.0000 0.0000\n0.0000 5.6400 0.0000\n0.0000 0.0000 5.6400\n"
+        "Na\n1\n"
+        f"{mode}\n{coords}\n"
+    )
+
+
+def test_poscar_direct_coordinates_pass_their_precision_through() -> None:
+    """Direct coordinates are already fractional, and the scale cancels for them."""
+    structure = structure_from_poscar(read_poscar(io.StringIO(_poscar(coords="0.5000 0.5000 0.5000"))))
+    assert structure.coordinate_precision == F(1, 10000)
+    assert structure.basis_precision == F(1, 10000)
+
+
+def test_poscar_cartesian_coordinates_are_converted_to_fractional() -> None:
+    """A Cartesian precision is a length; dividing by the shortest edge makes it fractional."""
+    structure = structure_from_poscar(
+        read_poscar(io.StringIO(_poscar(mode="Cartesian", coords="2.8200 2.8200 2.8200")))
+    )
+    assert float(structure.coordinate_precision) == pytest.approx(1e-4 / 5.64)
+
+
+def test_the_poscar_scale_multiplies_the_basis_precision() -> None:
+    """The cell entries are scaled, so their absolute precision scales with them."""
+    assert structure_from_poscar(read_poscar(io.StringIO(_poscar(scale="1.0")))).basis_precision == F(1, 10000)
+    assert structure_from_poscar(read_poscar(io.StringIO(_poscar(scale="2.0")))).basis_precision == F(1, 5000)
+
+
+def test_the_scales_own_digits_are_not_charged_as_uncertainty() -> None:
+    """The scaling factor defines units; it is not measured apart from the rows it scales.
+
+    Charging its digits would double-count the same measurement, and would declare the cell
+    of a 5.64 A structure good to only half an angstrom because the file wrote ``1.0``.
+    """
+    structure = structure_from_poscar(read_poscar(io.StringIO(_poscar(scale="1.0"))))
+    assert float(structure.basis_precision) == pytest.approx(1e-4)
+
+
+def test_an_asu_structure_carries_and_propagates_its_precision() -> None:
+    """Recorded in the structure's own setting, so it needs no transforming on the way out."""
+    asu = ASUStructure(
+        Cell(CUBIC, 1, BASIS_PRECISION),
+        225,
+        [ASUSite("a", FracVector.create(()), "Na")],
+        _species(),
+        coordinate_precision=COORD_PRECISION,
+    )
+    assert asu.coordinate_precision == COORD_PRECISION
+    assert asu.expand_sites().precision == COORD_PRECISION
+
+    expanded = StructureSimpleView(asu)
+    assert expanded.coordinate_precision == COORD_PRECISION
+    assert expanded.basis_precision == BASIS_PRECISION
+
+
+def test_recognition_carries_the_precision_onto_the_asu() -> None:
+    """Nothing about recognizing symmetry sharpens the data, so the claim is inherited."""
+    structure = Structure(
+        Cell(CUBIC, 1, BASIS_PRECISION),
+        Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]], COORD_PRECISION),
+        _species() + [Species(name="Cl", chemical_symbols=("Cl",), concentration=(1.0,))],
+        ["Na", "Cl"],
+    )
+    recovered = recognize_asu(structure, setting=Spacegroup.standard(221))
+    assert recovered.coordinate_precision == COORD_PRECISION
+    assert recovered.cell.precision == BASIS_PRECISION
