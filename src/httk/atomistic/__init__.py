@@ -58,6 +58,7 @@ from .species_like import SpeciesLike
 from .species_primitive import SpeciesPrimitive
 from .species_primitive_view import SpeciesPrimitiveView
 from .species_view import SpeciesView
+from .standardization import ConventionalCellResult, conventional_cell
 from .structure import Structure
 from .structure_api import StructureAPI
 from .structure_asu import StructureASU
@@ -115,6 +116,8 @@ __all__ = [
     "build_supercell",
     "orthogonal_supercell",
     "cubic_supercell",
+    "ConventionalCellResult",
+    "conventional_cell",
     "NumericCell",
     "NumericSites",
     "CellNumericView",
