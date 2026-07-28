@@ -5,9 +5,8 @@ The Cell class for httk-atomistic.
 import fractions
 from typing import TYPE_CHECKING, Any
 
-from httk.core import SurdScalar, SurdVector, VectorLike
-from httk.core.vectors import exactmath
-from httk.core.vectors.exactmath import integer_sqrt
+from httk.core import SurdScalar, SurdVector, VectorLike, exactmath
+from httk.core.exactmath import integer_sqrt
 
 from ._vector_guards import to_periodicity, to_precision, to_surdscalar, to_surdvector
 
@@ -214,7 +213,7 @@ class Cell:
         scale-independent, so they are computed from the unscaled basis. The cosine is formed
         exactly in the surd field and reversed through the Niven table
         (:meth:`~httk.core.SurdScalar.acos_degrees`) for an exact answer; a non-Niven angle falls
-        back to a deterministic :func:`~httk.core.vectors.exactmath.acos` at ``_FALLBACK_PREC``.
+        back to a deterministic :func:`~httk.core.exactmath.acos` at ``_FALLBACK_PREC``.
         """
         if self._angles_cache is None:
             u = self._unscaled_basis
@@ -238,7 +237,10 @@ class Cell:
             exact = None
         if exact is not None:
             return exact
-        cos_value = max(fractions.Fraction(-1), min(fractions.Fraction(1), cosine.to_fractions_approx(_FALLBACK_PREC)))
+        cos_value = max(
+            fractions.Fraction(-1),
+            min(fractions.Fraction(1), cosine.to_fractions_approx(_FALLBACK_PREC)),
+        )
         return fractions.Fraction(exactmath.acos(cos_value, degrees=True, prec=_FALLBACK_PREC, limit=False))
 
     @property
