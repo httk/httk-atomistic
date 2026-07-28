@@ -1,16 +1,15 @@
-name: Deploy development docs
+name: Deploy release docs
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    tags: ["v*"]
 
 permissions:
   contents: write
 
 concurrency:
-  # Superseding queued development builds is fine: the latest main wins.
-  group: docs-build-dev
+  # Each tag has its own build lease: a release build must never be superseded.
+  group: docs-build-release-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -23,42 +22,44 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.ref }}
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install locked development docs environment
+      - name: Preflight release inputs
         run: |
-          # Clone first so the shared stdlib-only docs CLI is available before
-          # any pip command, and so bootstrap resolution can see local core.
-          git clone --depth 1 --branch main https://github.com/httk/httk-core "$RUNNER_TEMP/dep-httk-core"
-          if [ -f docs/requirements.lock ]; then
-            PYTHONPATH="$RUNNER_TEMP/dep-httk-core/src" python -m httk.core.docs filter-lock \
-              --lock docs/requirements.lock \
-              --out "$RUNNER_TEMP/dev-requirements.txt" \
-              --self-distribution httk-atomistic
-            pip install -r "$RUNNER_TEMP/dev-requirements.txt"
-          else
-            # Bootstrap is intentionally dev-only: releases remain hard-gated
-            # on a committed lock while internal releases are unpublished.
-            echo "::warning::docs/requirements.lock not yet generatable (internal dependencies unpublished); dev build using fresh resolution"
-          fi
-          # Install local internal checkouts before the project so bootstrap
-          # resolution sees the checkout satisfying its dependency floor.
-          pip install -e "$RUNNER_TEMP/dep-httk-core" --no-deps
-          if [ -f docs/requirements.lock ]; then
-            pip install -e . --no-deps
-          else
-            pip install -e ".[docs]"
-          fi
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          with Path("pyproject.toml").open("rb") as stream:
+              version = tomllib.load(stream)["project"]["version"]
+          tag = os.environ["GITHUB_REF_NAME"]
+          if tag != f"v{version}":
+              raise SystemExit(f"tag {tag!r} does not match project.version {version!r}")
+          lock = Path("docs/requirements.lock")
+          if not lock.is_file():
+              raise SystemExit(f"documentation lock is missing: {lock}")
+          lines = lock.read_text(encoding="utf-8").splitlines()
+          if not lines or lines[0] != "# httk-docs-lock-schema: 1":
+              raise SystemExit(f"documentation lock schema header is invalid: {lock}")
+          PY
+
+      # Defense-in-depth; full check-release still runs after the locked install.
+      - name: Install the locked documentation environment and validate the tag
+        run: |
+          pip install -r docs/requirements.lock
           pip check
-          python -c "import httk.core, pathlib, sys; p = pathlib.Path(httk.core.__file__).resolve(); sys.exit(0 if str(p).startswith('$RUNNER_TEMP/dep-httk-core') else 1)"
+          PYTHONPATH=src python -m httk.core.docs check-release --tag "${GITHUB_REF_NAME}"
+          pip install . --no-deps --no-build-isolation
 
-      - name: Build development docs
-        run: HTTK_DOCS_VERSION=dev:main HTTK_DOCS_BASE_URL=https://docs.httk.org make docs
+      - name: Build release docs
+        run: HTTK_DOCS_VERSION="${GITHUB_REF_NAME}" HTTK_DOCS_BASE_URL=https://docs.httk.org make docs
 
-      - name: Compose and publish development docs-site
+      - name: Compose and publish release docs-site
         env:
           SOURCE_COMMIT: ${{ github.sha }}
         run: |
@@ -85,12 +86,12 @@ jobs:
               git archive origin/docs-site | tar -x -C "$SITE_DIR"
             fi
             python -m httk.core.docs compose \
-              --site "$SITE_DIR" --build docs/_build/html --dev \
+              --site "$SITE_DIR" --build docs/_build/html --release "${GITHUB_REF_NAME}" \
               --slug httk-atomistic --url https://docs.httk.org/httk-atomistic \
               --source-commit "$SOURCE_COMMIT"
             python -m httk.core.docs commit-site \
               --site "$SITE_DIR" --repo "$GITHUB_WORKSPACE" \
-              --branch docs-site --message "dev: $SOURCE_COMMIT"
+              --branch docs-site --message "release: ${GITHUB_REF_NAME}"
             if git push --force-with-lease=refs/heads/docs-site:${LEASE_SHA} origin docs-site; then
               break
             fi
