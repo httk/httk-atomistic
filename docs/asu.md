@@ -6,10 +6,10 @@ parameters. Expanding it produces the full unit cell; recognizing a full cell
 produces it back.
 
 ```python
-from httk.atomistic import StructureSimpleView, load_asu_structure
+from httk.atomistic import UnitcellStructureView, load_asu_structure
 
 asu = load_asu_structure("nacl.cif")
-structure = StructureSimpleView(asu)     # the full cell, exactly
+structure = UnitcellStructureView(asu)     # the full cell, exactly
 ```
 
 `ASUStructure` is part of `StructureLike`, so it can be passed anywhere a
@@ -99,7 +99,7 @@ rationals, and the vendored orbit tables are complete and pre-deduplicated, so
 expansion is affine arithmetic over ℚ followed by an exact equality test.
 
 ```python
-structure = StructureSimpleView(asu)
+structure = UnitcellStructureView(asu)
 structure.sites.reduced_coords.to_fractions()
 # [[Fraction(0, 1), Fraction(0, 1), Fraction(0, 1)], ...]
 ```
@@ -175,7 +175,7 @@ back *identical*:
 ```python
 from httk.atomistic import same_crystal
 
-rebuilt = StructureSimpleView(recognize_asu(structure, setting=setting))
+rebuilt = UnitcellStructureView(recognize_asu(structure, setting=setting))
 assert same_crystal(structure, rebuilt)
 ```
 

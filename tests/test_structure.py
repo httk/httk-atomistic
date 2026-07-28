@@ -9,8 +9,8 @@ from httk.atomistic import (
     StructureBackend,
     StructurePrimitive,
     StructurePrimitiveView,
-    StructureSimple,
-    StructureSimpleView,
+    UnitcellStructureBackend,
+    UnitcellStructureView,
     atomic_number,
     symbol_of,
 )
@@ -180,12 +180,12 @@ def test_structure_equality() -> None:
 
 def test_backend_create_dispatches_and_kind_overrides() -> None:
     simple = StructureBackend.create(nacl_structure())
-    assert isinstance(simple, StructureSimple)
+    assert isinstance(simple, UnitcellStructureBackend)
 
     primitive = StructureBackend.create(nacl_triple())
     assert isinstance(primitive, StructurePrimitive)
 
-    assert isinstance(StructureBackend.create(nacl_structure(), kind="simple"), StructureSimple)
+    assert isinstance(StructureBackend.create(nacl_structure(), kind="unitcell"), UnitcellStructureBackend)
     assert isinstance(StructureBackend.create(nacl_triple(), kind="primitive"), StructurePrimitive)
 
 
@@ -204,7 +204,7 @@ def test_backend_create_raises_for_malformed_triple() -> None:
 
 
 def test_simple_view_from_primitive_derives_species() -> None:
-    view = StructureSimpleView(nacl_triple())
+    view = UnitcellStructureView(nacl_triple())
     assert isinstance(view, Structure)
     assert view.cell.basis.to_floats() == [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
     assert view.species_at_sites == ("Na", "Cl")
@@ -214,7 +214,7 @@ def test_simple_view_from_primitive_derives_species() -> None:
 
 def test_simple_view_species_is_one_per_distinct_number() -> None:
     triple = (CUBIC, [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], [11, 11])
-    view = StructureSimpleView(triple)
+    view = UnitcellStructureView(triple)
     assert len(view.species) == 1
     assert view.species[0].name == "Na"
     assert view.species_at_sites == ("Na", "Na")
@@ -240,10 +240,10 @@ def test_primitive_view_raises_for_non_single_element_species() -> None:
 
 def test_view_rewrap_identity_and_shared_backend() -> None:
     backend = StructureBackend.create(nacl_triple())
-    v1 = StructureSimpleView(backend)
-    assert StructureSimpleView(v1) is v1
+    v1 = UnitcellStructureView(backend)
+    assert UnitcellStructureView(v1) is v1
 
-    v2 = StructureSimpleView(backend)
+    v2 = UnitcellStructureView(backend)
     assert v1._backend is backend
     assert v2._backend is backend
 
@@ -253,7 +253,7 @@ def test_view_rewrap_identity_and_shared_backend() -> None:
 
 def test_unwrap_returns_native_raw_object() -> None:
     structure = nacl_structure()
-    simple_view = StructureSimpleView(structure)
+    simple_view = UnitcellStructureView(structure)
     # Simple view built from a Structure -> unwrap gives back a Structure
     assert isinstance(unwrap(simple_view), Structure)
 
@@ -284,7 +284,7 @@ def test_optimade_vacancy_and_attached_examples_survive_simple_but_not_primitive
         ],
         species_at_sites=["Ti", "CH3"],
     )
-    # Attached / vacancy species survive in the Simple representation.
+    # Attached / vacancy species survive in the Unitcell representation.
     by_name = {s.name: s for s in structure.species}
     assert by_name["Ti"].chemical_symbols == ("Ti", "vacancy")
     assert by_name["CH3"].attached == ("H",)

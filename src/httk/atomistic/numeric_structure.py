@@ -10,7 +10,7 @@ from .numeric_sites import NumericSites
 from .species import Species
 from .structure import Structure
 from .structure_like import StructureLike
-from .structure_simple_view import StructureSimpleView
+from .unitcell_structure_view import UnitcellStructureView
 
 
 class NumericStructure:
@@ -33,7 +33,7 @@ class NumericStructure:
 
     def __init__(self, structure: StructureLike) -> None:
         require_numpy()
-        self._structure = structure if isinstance(structure, Structure) else StructureSimpleView(structure)
+        self._structure = structure if isinstance(structure, Structure) else UnitcellStructureView(structure)
 
     @property
     def cell(self) -> NumericCell:

@@ -110,9 +110,9 @@ def _as_structure(obj: StructureLike) -> Any:
         args: tuple[Any, ...] = tuple(obj)
         return Structure(*args)  # a (cell, sites, species, species_at_sites) tuple/list
     if isinstance(obj, ASUStructure):
-        from .structure_simple_view import StructureSimpleView
+        from .unitcell_structure_view import UnitcellStructureView
 
-        return StructureSimpleView(obj)
+        return UnitcellStructureView(obj)
     return obj
 
 

@@ -15,7 +15,7 @@ object and are inspected with exactly the same code:
    `CellParams`. A basis is built for you using the standard orientation
    convention: $\\mathbf{a}$ along $x$, $\\mathbf{b}$ in the $xy$-plane.
 3. **An spglib-style triple** — `(lattice, positions, numbers)`, the shape
-   symmetry libraries speak. `StructureSimpleView` presents it as a `Structure`,
+   symmetry libraries speak. `UnitcellStructureView` presents it as a `Structure`,
    inventing one species per distinct atomic number.
 
 The second half of this script is about the one thing that most often surprises
@@ -50,7 +50,7 @@ from httk.atomistic import (
     CellParamsView,
     Structure,
     StructurePrimitiveView,
-    StructureSimpleView,
+    UnitcellStructureView,
 )
 
 F = fractions.Fraction
@@ -91,7 +91,7 @@ def from_primitive_triple() -> Structure:
         [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         [11, 17],  # Na, Cl
     )
-    return StructureSimpleView(triple)
+    return UnitcellStructureView(triple)
 
 
 def describe(label: str, structure: Structure) -> None:

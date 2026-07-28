@@ -17,7 +17,7 @@ from httk.core import load
 
 from httk.atomistic import (
     Spacegroup,
-    StructureSimpleView,
+    UnitcellStructureView,
     asu_structure_from_cif,
     asu_structures_from_cif,
     cif_setting,
@@ -90,7 +90,7 @@ def test_cif_expands_to_the_full_cell(tmp_path: Path) -> None:
     assert asu.spacegroup.it_number == 225
     assert [(site.wyckoff, site.species) for site in asu.asu_sites] == [("a", "Na"), ("b", "Cl")]
 
-    structure = StructureSimpleView(asu)
+    structure = UnitcellStructureView(asu)
     assert len(structure.sites) == 8
     assert sorted(structure.species_at_sites) == ["Cl"] * 4 + ["Na"] * 4
     # Exact, not approximate: expansion never leaves the rationals.
@@ -108,7 +108,7 @@ def test_cif_expands_to_the_full_cell(tmp_path: Path) -> None:
 
 def test_load_structure_and_load_asu_structure_agree(tmp_path: Path) -> None:
     path = str(_rocksalt_cif(tmp_path))
-    assert same_crystal(load_structure(path), StructureSimpleView(load_asu_structure(path)))
+    assert same_crystal(load_structure(path), UnitcellStructureView(load_asu_structure(path)))
 
 
 def test_the_cell_is_exact_not_the_files_rounded_basis(tmp_path: Path) -> None:
@@ -246,7 +246,7 @@ def test_a_site_on_no_special_position_falls_back_to_the_general_one(tmp_path: P
     general = Spacegroup.standard(225).wyckoff[-1]
     assert general.free_count == 3
     assert asu.asu_sites[0].wyckoff == general.letter
-    assert len(StructureSimpleView(asu).sites) == general.multiplicity
+    assert len(UnitcellStructureView(asu).sites) == general.multiplicity
 
 
 # --- payload handling ---

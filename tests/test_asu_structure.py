@@ -20,7 +20,7 @@ from httk.atomistic import (
     Structure,
     StructureASU,
     StructureBackend,
-    StructureSimpleView,
+    UnitcellStructureView,
     same_crystal,
 )
 
@@ -46,7 +46,7 @@ def _rocksalt() -> ASUStructure:
 
 
 def _fractions_of(structure: object) -> list[tuple[F, ...]]:
-    view = StructureSimpleView(structure)
+    view = UnitcellStructureView(structure)
     return [tuple(row) for row in view.sites.reduced_coords.to_fractions()]
 
 
@@ -54,7 +54,7 @@ def _fractions_of(structure: object) -> list[tuple[F, ...]]:
 
 
 def test_rocksalt_expands_to_the_exact_face_centred_cell() -> None:
-    structure = StructureSimpleView(_rocksalt())
+    structure = UnitcellStructureView(_rocksalt())
     assert len(structure.sites) == 8
     assert structure.species_at_sites == ("Na", "Na", "Na", "Na", "Cl", "Cl", "Cl", "Cl")
     assert structure.sites.reduced_coords == FracVector.create(
@@ -109,7 +109,7 @@ def test_partial_occupancy_survives_expansion() -> None:
     """Occupancy lives in the Species, so every generated site carries it."""
     half_sodium = Species(name="Na_half", chemical_symbols=("Na",), concentration=(0.5,))
     asu = ASUStructure(CUBIC, 225, [ASUSite("a", NO_PARAMETERS, "Na_half")], [half_sodium])
-    structure = StructureSimpleView(asu)
+    structure = UnitcellStructureView(asu)
     assert len(structure.sites) == 4
     assert structure.species[0].concentration == (0.5,)
 
@@ -232,9 +232,9 @@ def test_backend_dispatch_and_kind_override() -> None:
 def test_view_rewrap_identity_shared_backend_and_unwrap() -> None:
     asu = _rocksalt()
     backend = StructureBackend.create(asu)
-    first = StructureSimpleView(backend)
-    assert StructureSimpleView(first) is first
-    second = StructureSimpleView(backend)
+    first = UnitcellStructureView(backend)
+    assert UnitcellStructureView(first) is first
+    second = UnitcellStructureView(backend)
     assert first._backend is backend
     assert second._backend is backend
     assert unwrap(backend) is asu
@@ -243,7 +243,7 @@ def test_view_rewrap_identity_shared_backend_and_unwrap() -> None:
 
 def test_an_asu_structure_is_a_structure_everywhere() -> None:
     """Being in StructureLike is what lets it flow through the rest of the package."""
-    view = StructureSimpleView(_rocksalt())
+    view = UnitcellStructureView(_rocksalt())
     assert isinstance(view, Structure)
     assert isinstance(view.cell, Cell)
     assert view.cartesian_sites().to_floats()[0] == [0.0, 0.0, 0.0]
@@ -254,7 +254,7 @@ def test_an_asu_structure_is_a_structure_everywhere() -> None:
 
 
 def test_same_crystal_ignores_order_and_lattice_translation() -> None:
-    reference = StructureSimpleView(_rocksalt())
+    reference = UnitcellStructureView(_rocksalt())
     reordered = Structure(
         reference.cell,
         list(reversed(reference.sites.reduced_coords.to_fractions())),
@@ -271,7 +271,7 @@ def test_same_crystal_ignores_order_and_lattice_translation() -> None:
 
 
 def test_same_crystal_detects_real_differences() -> None:
-    reference = StructureSimpleView(_rocksalt())
+    reference = UnitcellStructureView(_rocksalt())
 
     different_cell = Structure(
         [[5.65, 0, 0], [0, 5.64, 0], [0, 0, 5.64]],

@@ -76,7 +76,7 @@ from httk.atomistic import (
     Spacegroup,
     Species,
     Structure,
-    StructureSimpleView,
+    UnitcellStructureView,
     load_asu_structure,
     recognize_asu,
     same_crystal,
@@ -140,9 +140,9 @@ def read_the_asymmetric_unit(path: Path) -> ASUStructure:
 
 
 def expand_to_the_full_cell(asu: ASUStructure) -> None:
-    """`StructureSimpleView` turns an ASU into an ordinary Structure, exactly."""
+    """`UnitcellStructureView` turns an ASU into an ordinary Structure, exactly."""
     print("== Expanding to the full unit cell ==")
-    structure = StructureSimpleView(asu)
+    structure = UnitcellStructureView(asu)
 
     print(f"sites: {len(structure.sites)}")
     for name, coordinate in zip(structure.species_at_sites, structure.sites.reduced_coords.to_fractions()):
@@ -155,9 +155,9 @@ def expand_to_the_full_cell(asu: ASUStructure) -> None:
 def go_back_to_the_asymmetric_unit(asu: ASUStructure) -> None:
     """The round trip, and the guarantee that comes with it."""
     print("== Round trip: ASU -> cell -> ASU -> cell ==")
-    expanded = StructureSimpleView(asu)
+    expanded = UnitcellStructureView(asu)
     recovered = recognize_asu(expanded, setting=asu.setting())
-    rebuilt = StructureSimpleView(recovered)
+    rebuilt = UnitcellStructureView(recovered)
 
     print("recovered:", ", ".join(f"{site.species} on {site.wyckoff}" for site in recovered.asu_sites))
     print("same crystal:               ", same_crystal(expanded, rebuilt))
@@ -184,7 +184,7 @@ def show_a_non_standard_setting() -> None:
     in_other = ASUStructure(cell, 15, site, silicon, transform=other.transform_from_standard)
 
     for label, structure in (("standard", in_standard), ("15:c1", in_other)):
-        coordinates = StructureSimpleView(structure).sites.reduced_coords.to_fractions()
+        coordinates = UnitcellStructureView(structure).sites.reduced_coords.to_fractions()
         rendered = "  ".join("(" + ", ".join(str(v) for v in row) + ")" for row in coordinates)
         print(f"   {label:<9} {rendered}")
 
@@ -205,7 +205,7 @@ def show_that_recognition_is_the_lossy_direction() -> None:
         [ASUSite("e", FracVector.create(["1/3"]), "Si")],
         silicon,
     )
-    expanded = StructureSimpleView(exact)
+    expanded = UnitcellStructureView(exact)
 
     # Nudge every coordinate, as a refinement would.
     nudged = [
@@ -215,7 +215,7 @@ def show_that_recognition_is_the_lossy_direction() -> None:
     measured = Structure(expanded.cell, nudged, expanded.species, expanded.species_at_sites)
 
     recovered = recognize_asu(measured, setting=Spacegroup.standard(15))
-    idealised = StructureSimpleView(recovered)
+    idealised = UnitcellStructureView(recovered)
 
     print(f"measured x of first site:  {measured.sites.reduced_coords.to_fractions()[0][0]}")
     print(f"idealised x of first site: {idealised.sites.reduced_coords.to_fractions()[0][0]}")
@@ -224,7 +224,7 @@ def show_that_recognition_is_the_lossy_direction() -> None:
     print(f"   same crystal as the measured input? {same_crystal(measured, idealised)}")
     print(
         f"   recognizing the idealised one again changes nothing? "
-        f"{StructureSimpleView(recognize_asu(idealised, setting=Spacegroup.standard(15))).sites.reduced_coords == idealised.sites.reduced_coords}"
+        f"{UnitcellStructureView(recognize_asu(idealised, setting=Spacegroup.standard(15))).sites.reduced_coords == idealised.sites.reduced_coords}"
     )
     print()
 

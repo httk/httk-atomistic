@@ -116,7 +116,7 @@ def structure_from_poscar(data: Mapping[str, Any]) -> Structure:
 def _structure_from_cif(data: Mapping[str, Any]) -> Structure:
     """The full unit cell of a loaded CIF, expanded from its asymmetric unit."""
     from .cif_structures import asu_structures_from_cif
-    from .structure_simple_view import StructureSimpleView
+    from .unitcell_structure_view import UnitcellStructureView
 
     structures = asu_structures_from_cif(data)
     if len(structures) != 1:
@@ -124,7 +124,7 @@ def _structure_from_cif(data: Mapping[str, Any]) -> Structure:
             f"this CIF holds {len(structures)} structures; load_structure() builds one, so use "
             f"httk.atomistic.asu_structures_from_cif(httk.core.load(path)) to get them all"
         )
-    return StructureSimpleView(structures[0])
+    return UnitcellStructureView(structures[0])
 
 
 def _basis_precision(data: Mapping[str, Any], raw_basis: SurdVector, scale: Any) -> fractions.Fraction | None:
@@ -213,7 +213,7 @@ def load_asu_structure(path: str, **options: Any) -> Any:
     Currently CIF only, since it is the format that states its own symmetry. Unlike
     :func:`load_structure` this keeps the asymmetric-unit form rather than expanding it,
     so the space group, the Wyckoff position of each site, and the file's setting all
-    survive. Expand it at any time with ``StructureSimpleView(asu)``.
+    survive. Expand it at any time with ``UnitcellStructureView(asu)``.
 
     ``options`` are passed to :func:`~httk.atomistic.asu_structure_from_cif` — notably
     ``tolerance`` and ``trust_declared_symmetry``, the latter being the way to load a file

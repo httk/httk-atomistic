@@ -46,10 +46,10 @@ def same_crystal(first: StructureLike, second: StructureLike) -> bool:
     :class:`~httk.atomistic.Structure` may be compared directly against an
     :class:`~httk.atomistic.ASUStructure` without expanding it by hand.
     """
-    from .structure_simple_view import StructureSimpleView
+    from .unitcell_structure_view import UnitcellStructureView
 
-    left = StructureSimpleView(first)
-    right = StructureSimpleView(second)
+    left = UnitcellStructureView(first)
+    right = UnitcellStructureView(second)
 
     if left.cell.periodicity != right.cell.periodicity:
         return False

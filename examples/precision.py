@@ -56,7 +56,7 @@ from httk.atomistic import (
     Spacegroup,
     Species,
     Structure,
-    StructureSimpleView,
+    UnitcellStructureView,
     structure_tolerance,
 )
 from httk.atomistic.cif_structures import asu_structure_from_cif
@@ -143,7 +143,7 @@ def show_the_payoff(directory: Path) -> None:
     for label, tolerance in (("a fixed 1e-3 tolerance", 1e-3), ("the derived tolerance", None)):
         asu = asu_structure_from_cif(block, tolerance=tolerance)
         position = asu.spacegroup.wyckoff_position(asu.asu_sites[0].wyckoff)
-        atoms = len(StructureSimpleView(asu).sites)
+        atoms = len(UnitcellStructureView(asu).sites)
         print(f"   {label:<24} -> Wyckoff {position.multiplicity}{position.letter}, {atoms} atoms")
 
     print()

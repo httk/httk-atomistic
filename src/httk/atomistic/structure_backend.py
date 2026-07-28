@@ -14,7 +14,7 @@ class StructureBackend(Backend["StructureBackend"], StructureAPI):
     Abstract base class for all backends of crystal structure data.
 
     Concrete backends carry a native representation and produce the canonical
-    Simple quartet declared by ``StructureAPI`` from it.
+    Unitcell quartet declared by ``StructureAPI`` from it.
     """
 
     backend_classes: ClassVar[list[type[Backend[Any]]]]
