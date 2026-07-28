@@ -111,6 +111,14 @@ def test_load_structure_and_load_asu_structure_agree(tmp_path: Path) -> None:
     assert same_crystal(load_structure(path), UnitcellStructureView(load_asu_structure(path)))
 
 
+def test_core_load_adapts_single_cif_and_raw_keeps_payload(tmp_path: Path) -> None:
+    path = _rocksalt_cif(tmp_path)
+    structure = load(str(path))
+    assert isinstance(structure, UnitcellStructureView)
+    payload = load(str(path), raw=True)
+    assert payload["format"] == "cif"
+
+
 def test_the_cell_is_exact_not_the_files_rounded_basis(tmp_path: Path) -> None:
     """Built from a, b, c and the angles, so a cubic cell keeps exact right angles.
 
@@ -152,13 +160,13 @@ def test_the_setting_is_found_even_when_the_file_declares_nothing(tmp_path: Path
         [("Si1", "Si", ("0.25", "0.0", "0.3333"), "1.0")],
         declare_number=False,
     )
-    assert cif_setting(load(str(path))["blocks"][0]).setting == "15:c1"
+    assert cif_setting(load(str(path), raw=True)["blocks"][0]).setting == "15:c1"
 
 
 def test_an_unidentifiable_setting_is_refused_rather_than_guessed(tmp_path: Path) -> None:
     """A transform cannot be derived; infinitely many are valid and they differ."""
     path = _rocksalt_cif(tmp_path)
-    block = dict(load(str(path))["blocks"][0])
+    block = dict(load(str(path), raw=True)["blocks"][0])
     # Drop most of the operations, so the set matches no tabulated group, and drop the
     # declaration too so the failure is about the operations rather than a contradiction.
     block["symops"] = block["symops"][:3]
@@ -174,7 +182,7 @@ def test_an_unidentifiable_setting_is_refused_rather_than_guessed(tmp_path: Path
 
 def test_a_block_with_no_symmetry_operations_is_refused(tmp_path: Path) -> None:
     path = _rocksalt_cif(tmp_path)
-    block = dict(load(str(path))["blocks"][0])
+    block = dict(load(str(path), raw=True)["blocks"][0])
     block["symops"] = []
     with pytest.raises(ValueError, match="no symmetry operations"):
         asu_structure_from_cif(block)
@@ -242,7 +250,7 @@ def test_a_site_on_no_special_position_falls_back_to_the_general_one(tmp_path: P
         (5.64, 5.64, 5.64, 90, 90, 90),
         [("Na1", "Na", ("0.3", "0.11", "0.07"), "1.0")],
     )
-    asu = asu_structure_from_cif(load(str(path))["blocks"][0], tolerance=0.0)
+    asu = asu_structure_from_cif(load(str(path), raw=True)["blocks"][0], tolerance=0.0)
     general = Spacegroup.standard(225).wyckoff[-1]
     assert general.free_count == 3
     assert asu.asu_sites[0].wyckoff == general.letter
@@ -260,7 +268,7 @@ def test_asu_structures_from_cif_reports_why_a_file_yielded_nothing(tmp_path: Pa
         "_atom_site_fract_y\n_atom_site_fract_z\nNa 0.0 0.0 0.0\n",
         encoding="utf-8",
     )
-    payload = load(str(path))
+    payload = load(str(path), raw=True)
     assert payload["blocks"] == []
     with pytest.raises(ValueError, match="no structure that could be interpreted"):
         asu_structures_from_cif(payload)
@@ -280,8 +288,11 @@ def test_a_multi_block_cif_yields_one_structure_per_block(tmp_path: Path) -> Non
     combined = tmp_path / "both.cif"
     combined.write_text(first + second, encoding="utf-8")
 
-    structures = asu_structures_from_cif(load(str(combined)))
+    structures = asu_structures_from_cif(load(str(combined), raw=True))
     assert [structure.spacegroup.it_number for structure in structures] == [225, 15]
+
+    with pytest.raises(ValueError, match="holds 2 structures"):
+        load(str(combined))
 
     with pytest.raises(ValueError, match="holds 2 structures"):
         load_asu_structure(str(combined))
@@ -319,25 +330,33 @@ def test_a_conventionally_spelled_hall_symbol_is_recognized(tmp_path: Path) -> N
     Without normalizing, every correctly declared Hall symbol looks unknown — which used to
     be survivable only because the miss was silent, and would now be an error.
     """
-    block = load(str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall '-C 2yc'\n")))["blocks"][0]
+    block = load(
+        str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall '-C 2yc'\n")), raw=True
+    )["blocks"][0]
     assert cif_setting(block).setting == "15:b1"
 
 
 def test_a_hall_symbol_naming_no_setting_is_an_error(tmp_path: Path) -> None:
-    block = load(str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall 'Not A Symbol'\n")))["blocks"][0]
+    block = load(
+        str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall 'Not A Symbol'\n")), raw=True
+    )["blocks"][0]
     with pytest.raises(ValueError, match="names no known space-group setting"):
         cif_setting(block)
 
 
 def test_a_hall_symbol_naming_the_wrong_group_is_an_error(tmp_path: Path) -> None:
     """SG 14's Hall symbol on a file whose operations are SG 15's: the file contradicts itself."""
-    block = load(str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall '-P 2ybc'\n")))["blocks"][0]
+    block = load(
+        str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall '-P 2ybc'\n")), raw=True
+    )["blocks"][0]
     with pytest.raises(ValueError, match="contradicts itself"):
         cif_setting(block)
 
 
 def test_a_wrong_it_number_is_an_error(tmp_path: Path) -> None:
-    block = load(str(_sg15_cif(tmp_path, declaration="_space_group_IT_number 14\n")))["blocks"][0]
+    block = load(
+        str(_sg15_cif(tmp_path, declaration="_space_group_IT_number 14\n")), raw=True
+    )["blocks"][0]
     with pytest.raises(ValueError, match="contradicts itself"):
         cif_setting(block)
 
@@ -348,7 +367,7 @@ def test_a_wrong_it_number_is_an_error(tmp_path: Path) -> None:
     ids=["out-of-range", "not-a-number"],
 )
 def test_an_unusable_it_number_is_an_error(tmp_path: Path, declaration: str, message: str) -> None:
-    block = load(str(_sg15_cif(tmp_path, declaration=declaration)))["blocks"][0]
+    block = load(str(_sg15_cif(tmp_path, declaration=declaration)), raw=True)["blocks"][0]
     with pytest.raises(ValueError, match=message.replace("\n", " ")):
         cif_setting(block)
 
@@ -365,7 +384,7 @@ def test_an_unusable_it_number_is_an_error(tmp_path: Path, declaration: str, mes
 )
 def test_the_declaration_can_be_ignored_on_request(tmp_path: Path, declaration: str) -> None:
     """The escape hatch: when the operations are the trustworthy half of the file."""
-    block = load(str(_sg15_cif(tmp_path, declaration=declaration)))["blocks"][0]
+    block = load(str(_sg15_cif(tmp_path, declaration=declaration)), raw=True)["blocks"][0]
     assert cif_setting(block, trust_declared_symmetry=False).setting == "15:b1"
 
     asu = asu_structure_from_cif(block, trust_declared_symmetry=False)
@@ -381,5 +400,5 @@ def test_the_escape_hatch_reaches_through_load_asu_structure(tmp_path: Path) -> 
 
 
 def test_a_file_with_no_declaration_searches_every_setting(tmp_path: Path) -> None:
-    block = load(str(_sg15_cif(tmp_path, declaration="")))["blocks"][0]
+    block = load(str(_sg15_cif(tmp_path, declaration="")), raw=True)["blocks"][0]
     assert cif_setting(block).setting == "15:b1"

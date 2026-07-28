@@ -364,7 +364,7 @@ def test_a_coarsely_written_file_is_matched_at_the_precision_it_claims(tmp_path:
         "Si1 Si 0.001 0.333 0.251\n",
         encoding="utf-8",
     )
-    block = load(str(path))["blocks"][0]
+    block = load(str(path), raw=True)["blocks"][0]
     assert block["coordinate_precision"] == F(1, 1000)
 
     with_fixed = asu_structure_from_cif(block, tolerance=1e-3)

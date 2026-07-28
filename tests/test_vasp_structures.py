@@ -1,11 +1,21 @@
 """Tests for the neutral-POSCAR-mapping -> Structure bridge."""
 
 import bz2
+import importlib
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
+from httk.core import load
 
-from httk.atomistic import load_structure, structure_from_poscar
+from httk.atomistic import (
+    Structure,
+    load_structure,
+    structure_from_payload,
+    structure_from_poscar,
+)
 
 DIRECT = {
     "format": "vasp-poscar",
@@ -57,6 +67,24 @@ def test_wrong_format_rejected() -> None:
         structure_from_poscar({"format": "not-vasp"})
 
 
+def test_structure_from_payload_rejects_unknown_format_and_non_mapping() -> None:
+    with pytest.raises(ValueError, match="unknown-format"):
+        structure_from_payload({"format": "unknown-format"})
+    with pytest.raises(ValueError, match="expected a mapping"):
+        structure_from_payload(["not", "a", "mapping"])
+
+
+def test_load_structure_unknown_payload_error_mentions_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    vasp_structures = importlib.import_module("httk.atomistic.vasp_structures")
+    monkeypatch.setattr(vasp_structures, "load", lambda path, *, raw=False: {"format": "unknown-format"})
+    path = tmp_path / "unknown.input"
+    with pytest.raises(ValueError) as excinfo:
+        load_structure(str(path))
+    message = str(excinfo.value)
+    assert "unknown-format" in message
+    assert str(path) in message
+
+
 CONTCAR_TEXT = """He cell
 1.0
 2.0 0.0 0.0
@@ -76,6 +104,46 @@ def test_load_structure_end_to_end(tmp_path: Path) -> None:
     structure = load_structure(str(contcar))
     assert [species.name for species in structure.species] == ["He"]
     assert structure.cell.basis.to_floats() == [[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]]
+
+
+def test_core_load_adapts_poscar_and_raw_keeps_payload(tmp_path: Path) -> None:
+    pytest.importorskip("httk.io")
+    contcar = tmp_path / "POSCAR"
+    contcar.write_text(CONTCAR_TEXT, encoding="utf-8")
+
+    structure = load(str(contcar))
+    assert isinstance(structure, Structure)
+    payload = load(str(contcar), raw=True)
+    assert payload["format"] == "vasp-poscar"
+
+
+def test_atomistic_handler_reload_is_idempotent() -> None:
+    handler = importlib.import_module("httk.handlers.atomistic")
+    importlib.reload(handler)
+
+
+def test_core_load_discovers_atomistic_lazily() -> None:
+    code = textwrap.dedent(
+        f"""
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        import httk.core
+
+        assert "httk.atomistic" not in sys.modules
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "POSCAR"
+            path.write_text({CONTCAR_TEXT!r}, encoding="utf-8")
+            result = httk.core.load(str(path))
+
+        from httk.atomistic import Structure
+
+        assert isinstance(result, Structure)
+        assert "httk.atomistic" in sys.modules
+        """
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 def test_load_structure_unknown_format(tmp_path: Path) -> None:

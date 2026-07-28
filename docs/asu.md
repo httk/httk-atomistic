@@ -198,7 +198,7 @@ from httk.core import load
 
 asu = load_asu_structure("structure.cif")          # keeps the ASU form
 structure = load_structure("structure.cif")        # expands to the full cell
-everything = asu_structures_from_cif(load("multi.cif"))   # one per data block
+everything = asu_structures_from_cif(load("multi.cif", raw=True))   # one per data block
 ```
 
 The setting is identified by comparing the file's symmetry **operations**

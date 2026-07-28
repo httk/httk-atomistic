@@ -133,7 +133,7 @@ def show_the_payoff(directory: Path) -> None:
     print("== Why it matters ==")
     # Rounded to three decimals: 0.005 A off in x, 0.007 A off in z.
     path = write_cif(directory, "0.001 0.333 0.251")
-    block = load(str(path))["blocks"][0]
+    block = load(str(path), raw=True)["blocks"][0]
 
     print(f"the file states its coordinates to {block['coordinate_precision']}")
     print("the site is meant to be on Wyckoff 4e of SG 15 (0, y, 1/4), but rounding")
