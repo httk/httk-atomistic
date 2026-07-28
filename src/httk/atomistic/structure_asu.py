@@ -1,7 +1,7 @@
 """Backend presenting an ASUStructure through the common structure interface.
 
 Registering this makes an :class:`~httk.atomistic.ASUStructure` usable anywhere a
-structure is accepted: ``StructureSimpleView(asu)`` is the full unit cell, and the
+structure is accepted: ``UnitcellStructureView(asu)`` is the full unit cell, and the
 OPTIMADE provider, the numeric layer, and everything else follow without changes.
 
 The expansion is lazy. Building an ASUStructure, inspecting its space group, or writing it

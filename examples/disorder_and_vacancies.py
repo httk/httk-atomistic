@@ -33,8 +33,8 @@ chemical symbol), a tuple of `chemical_symbols`, and a matching tuple of
   without inventing coordinates you do not have.
 
 **Which representations can carry this?** This is the practical point, and the
-answer is sharp. The Simple representation — a `Structure`, and the
-`StructureSimpleView` over any backend — carries all of it, because it stores
+answer is sharp. The Unitcell representation — a `Structure`, and the
+`UnitcellStructureView` over any backend — carries all of it, because it stores
 the `Species` objects themselves. The OPTIMADE species dict (via
 `SpeciesPrimitiveView`) carries all of it too, because that is where the model
 came from. But the **primitive** representation is the spglib-style
@@ -50,7 +50,7 @@ element symbol (so not `"X"` and not `"vacancy"`) with nothing attached. Test it
 before you reach for a symmetry library, a force field, or anything else that
 speaks in atomic numbers.
 
-The rule of thumb: **keep disordered structures in the Simple representation,
+The rule of thumb: **keep disordered structures in the Unitcell representation,
 and convert to primitive only at the boundary of a tool that genuinely cannot
 represent disorder** — where the `TypeError` is exactly the error you want.
 """
@@ -62,7 +62,7 @@ from httk.atomistic import (
     SpeciesPrimitiveView,
     Structure,
     StructurePrimitiveView,
-    StructureSimpleView,
+    UnitcellStructureView,
 )
 
 CUBIC = [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
@@ -98,7 +98,7 @@ def species_are_richer_than_elements() -> None:
 
 
 def disorder_survives_the_simple_representation() -> None:
-    """The Structure, and any StructureSimpleView, keep every field intact."""
+    """The Structure, and any UnitcellStructureView, keep every field intact."""
     structure = Structure(
         cell=CUBIC,
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
@@ -107,7 +107,7 @@ def disorder_survives_the_simple_representation() -> None:
     )
 
     by_name = {species.name: species for species in structure.species}
-    print("Simple representation (a Structure):")
+    print("Unitcell representation (a Structure):")
     print("  Ti  chemical_symbols ", by_name["Ti"].chemical_symbols)
     print("  Ti  concentration    ", by_name["Ti"].concentration)
     print("  CH3 attached         ", by_name["CH3"].attached)
@@ -115,8 +115,8 @@ def disorder_survives_the_simple_representation() -> None:
 
     # A view over the same structure is the same data seen again, not a lossy copy:
     # unwrap() hands back the original object.
-    view = StructureSimpleView(structure)
-    print("  round-trips through StructureSimpleView:", unwrap(view) is structure)
+    view = UnitcellStructureView(structure)
+    print("  round-trips through UnitcellStructureView:", unwrap(view) is structure)
 
     # ...and so does the OPTIMADE species dict, which is where this model comes from.
     print("  as OPTIMADE dicts:")

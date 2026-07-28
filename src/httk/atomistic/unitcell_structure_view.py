@@ -1,5 +1,5 @@
 """
-A view presenting any structure backend as a Structure (the Simple representation).
+A view presenting any structure backend as a Structure (the Unitcell representation).
 """
 
 from typing import Any, Self
@@ -12,7 +12,7 @@ from .structure_like import StructureLike
 from .structure_view import StructureView
 
 
-class StructureSimpleView(StructureView, Structure):
+class UnitcellStructureView(StructureView, Structure):
     """
     A view presenting an underlying structure backend as a ``Structure``.
 

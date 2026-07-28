@@ -77,9 +77,9 @@ def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_T
     replaces did — being folded into the precision itself, where two accidentally-close
     atoms would make a structure look far more precisely stated than it is.
     """
-    from .structure_simple_view import StructureSimpleView
+    from .unitcell_structure_view import UnitcellStructureView
 
-    view = StructureSimpleView(structure)
+    view = UnitcellStructureView(structure)
     precision = view.cartesian_precision()
     if precision is None:
         return fallback
@@ -155,9 +155,9 @@ def recognize_asu(
     the tolerance, or if the sites do not group into complete orbits — both of which mean
     the structure does not actually have the symmetry it was said to have.
     """
-    from .structure_simple_view import StructureSimpleView
+    from .unitcell_structure_view import UnitcellStructureView
 
-    view = StructureSimpleView(structure)
+    view = UnitcellStructureView(structure)
     require_full_periodicity(view.cell, "recognize_asu")
     if tolerance is None:
         tolerance = structure_tolerance(view)

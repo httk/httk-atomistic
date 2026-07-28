@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 class Structure:
     """
-    A crystal structure in the Simple representation.
+    A crystal structure in the Unitcell representation.
 
     A Structure holds a ``cell`` (a ``Cell`` of 3x3 cell vectors), ``sites`` (a ``Sites``
     of Nx3 reduced coordinates), a list of ``species`` (each a ``Species``), and a

@@ -277,12 +277,12 @@ class ASUStructure:
     def to_structure(self) -> Any:
         """The equivalent full-cell :class:`~httk.atomistic.Structure`.
 
-        Equivalent to ``StructureSimpleView(asu_structure)``; provided as a plain method so
+        Equivalent to ``UnitcellStructureView(asu_structure)``; provided as a plain method so
         the common case needs no knowledge of the view machinery.
         """
-        from .structure_simple_view import StructureSimpleView
+        from .unitcell_structure_view import UnitcellStructureView
 
-        return StructureSimpleView(self)
+        return UnitcellStructureView(self)
 
     # --- identity ---
 

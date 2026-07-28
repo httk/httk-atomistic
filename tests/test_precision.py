@@ -22,7 +22,7 @@ from httk.atomistic import (
     SitesNumericView,
     Species,
     Structure,
-    StructureSimpleView,
+    UnitcellStructureView,
     same_crystal,
 )
 
@@ -127,7 +127,7 @@ def test_sites_numeric_view_carries_precision_as_a_float() -> None:
 
 
 def test_structure_view_carries_both_precisions() -> None:
-    view = StructureSimpleView(_structure())
+    view = UnitcellStructureView(_structure())
     assert view.coordinate_precision == COORD_PRECISION
     assert view.basis_precision == BASIS_PRECISION
 
@@ -269,7 +269,7 @@ def test_an_asu_structure_carries_and_propagates_its_precision() -> None:
     assert asu.coordinate_precision == COORD_PRECISION
     assert asu.expand_sites().precision == COORD_PRECISION
 
-    expanded = StructureSimpleView(asu)
+    expanded = UnitcellStructureView(asu)
     assert expanded.coordinate_precision == COORD_PRECISION
     assert expanded.basis_precision == BASIS_PRECISION
 
@@ -369,8 +369,8 @@ def test_a_coarsely_written_file_is_matched_at_the_precision_it_claims(tmp_path:
 
     with_fixed = asu_structure_from_cif(block, tolerance=1e-3)
     assert with_fixed.asu_sites[0].wyckoff == "f"
-    assert len(StructureSimpleView(with_fixed).sites) == 8
+    assert len(UnitcellStructureView(with_fixed).sites) == 8
 
     derived = asu_structure_from_cif(block)
     assert derived.asu_sites[0].wyckoff == "e"
-    assert len(StructureSimpleView(derived).sites) == 4
+    assert len(UnitcellStructureView(derived).sites) == 4

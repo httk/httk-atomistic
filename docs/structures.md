@@ -7,11 +7,11 @@ It follows the same view/backend pattern as the datastream classes in `httk.core
 
 A crystal structure is available through one family of backends and views:
 
-- backends: `StructureSimple` (wraps a `Structure`), `StructurePrimitive` (wraps an spglib-like triple)
-- views: `StructureSimpleView` (presents any backend as a `Structure`), `StructurePrimitiveView` (presents any backend as a `(lattice, positions, numbers)` tuple)
+- backends: `UnitcellStructureBackend` (wraps a `Structure`), `StructurePrimitive` (wraps an spglib-like triple)
+- views: `UnitcellStructureView` (presents any backend as a `Structure`), `StructurePrimitiveView` (presents any backend as a `(lattice, positions, numbers)` tuple)
 - accepted union: `StructureLike`
 
-Every backend produces the same canonical Simple quartet declared by `StructureAPI`:
+Every backend produces the same canonical Unitcell quartet declared by `StructureAPI`:
 `cell` (a `Cell` of 3x3 cell vectors), `sites` (a `Sites` of Nx3 reduced coordinates),
 `species` (a tuple of `Species`), and `species_at_sites` (the species name at each site).
 Views build their presentation from that quartet; there is no pairwise conversion between
@@ -22,9 +22,9 @@ In normal user code, you usually accept `StructureLike` and normalize immediatel
 ## Common Calling Patterns
 
 ```python
-from httk.atomistic import Structure, StructureSimpleView, StructurePrimitiveView
+from httk.atomistic import Structure, UnitcellStructureView, StructurePrimitiveView
 
-# A Structure (the Simple representation)
+# A Structure (the Unitcell representation)
 structure = Structure(
     cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
     sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
@@ -44,13 +44,13 @@ triple = (
     [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
     [11, 17],
 )
-as_structure = StructureSimpleView(triple)
+as_structure = UnitcellStructureView(triple)
 ```
 
 ## Component families
 
 The `cell`, `sites`, and `species` components each get the same view/backend treatment as
-`Structure` itself, mirroring the Structure family with `Class` in place of `Simple` (there
+`Structure` itself, mirroring the Structure family with `Class` where it uses `Unitcell` (there
 the word describes the representation, which still applies):
 
 - `Cell`: backends `CellClass` / `CellPrimitive` / `CellParams`, views `CellClassView` /
@@ -99,17 +99,17 @@ an interpretation.
 
 ## Notes
 
-- A `Structure` is dispatched to `StructureSimple` and a length-3 triple to
+- A `Structure` is dispatched to `UnitcellStructureBackend` and a length-3 triple to
   `StructurePrimitive`. A malformed triple raises `TypeError` from `create`.
-  Pass `kind="simple"` or `kind="primitive"` to force an interpretation.
-- `StructureSimpleView` and `StructurePrimitiveView` are eager: they build their
+  Pass `kind="unitcell"` or `kind="primitive"` to force an interpretation.
+- `UnitcellStructureView` and `StructurePrimitiveView` are eager: they build their
   full presentation when constructed. The same holds for the component views. The
   `*ClassView` and `*PrimitiveView` immutable-subclass views are genuine instances of their
   class (a `Cell`, a tuple, ...); `SpeciesPrimitiveView` is a genuine — but detached and
   mutable — OPTIMADE `dict`.
 - `StructurePrimitiveView` requires every site's species to be a single, unattached
   chemical element; alloy, vacancy, and attached species cannot be represented as a
-  bare atomic number and raise `TypeError`. Such species survive in the Simple
+  bare atomic number and raise `TypeError`. Such species survive in the Unitcell
   representation.
 - Rewrapping a view returns the same object, and views built from the same backend
   share it. `unwrap(view)` returns the native raw object (a `Structure` or a triple, a
@@ -355,6 +355,6 @@ assert records["known-but-empty"]["chemical_formula_reduced"] is None
 
 `unwrap(obj)` returns the most raw representation available:
 
-- for `StructureSimple` / `StructureSimpleView` this is the wrapped `Structure`
+- for `UnitcellStructureBackend` / `UnitcellStructureView` this is the wrapped `Structure`
 - for `StructurePrimitive` / `StructurePrimitiveView` this is the `(lattice, positions, numbers)` triple
 - for non-view/backend objects it returns the object unchanged

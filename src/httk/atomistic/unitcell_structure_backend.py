@@ -1,5 +1,5 @@
 """
-Backend wrapping a Structure in the Simple representation.
+Backend wrapping a Structure in the Unitcell representation.
 """
 
 from typing import Any
@@ -11,7 +11,7 @@ from .structure import Structure
 from .structure_backend import StructureBackend
 
 
-class StructureSimple(StructureBackend):
+class UnitcellStructureBackend(StructureBackend):
     """
     Backend for a crystal structure backed by an actual ``Structure`` object.
 
@@ -25,7 +25,7 @@ class StructureSimple(StructureBackend):
     def __new__(cls, obj: Any, **hints: Any) -> Any:
         if not isinstance(obj, Structure):
             return None
-        if hints and hints.get("kind", "simple") != "simple":
+        if hints and hints.get("kind", "unitcell") != "unitcell":
             return None
         return super().__new__(cls)
 

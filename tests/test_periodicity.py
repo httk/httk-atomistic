@@ -69,9 +69,9 @@ def test_periodicity_survives_the_class_view() -> None:
 
 
 def test_periodicity_survives_the_structure_view() -> None:
-    from httk.atomistic.structure_simple_view import StructureSimpleView
+    from httk.atomistic.unitcell_structure_view import UnitcellStructureView
 
-    assert StructureSimpleView(_structure((1, 1, 0))).cell.periodicity == (True, True, False)
+    assert UnitcellStructureView(_structure((1, 1, 0))).cell.periodicity == (True, True, False)
 
 
 def test_periodicity_survives_the_numeric_view() -> None:
@@ -166,7 +166,7 @@ def test_the_tolerance_cap_does_not_fold_a_non_periodic_direction() -> None:
     below what the data justifies.
     """
     from httk.atomistic.asu_recognition import _half_minimum_separation
-    from httk.atomistic.structure_simple_view import StructureSimpleView
+    from httk.atomistic.unitcell_structure_view import UnitcellStructureView
 
     pair = ((0, 0, "1/20"), (0, 0, "19/20"))
     tall = [[3, 0, 0], [0, 3, 0], [0, 0, 10]]
@@ -174,7 +174,7 @@ def test_the_tolerance_cap_does_not_fold_a_non_periodic_direction() -> None:
     def half_separation(periodicity):
         cell = Cell(tall, periodicity=periodicity)
         structure = Structure(cell, list(pair), [NA], ["Na", "Na"])
-        return _half_minimum_separation(StructureSimpleView(structure))
+        return _half_minimum_separation(UnitcellStructureView(structure))
 
     assert half_separation((1, 1, 1)) == pytest.approx(0.5)  # folded: 1 A apart
     assert half_separation((1, 1, 0)) == pytest.approx(4.5)  # as written: 9 A apart

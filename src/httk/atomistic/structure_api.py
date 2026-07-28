@@ -13,7 +13,7 @@ class StructureAPI(ABC):
     """
     Abstract base class for the canonical structure interface.
 
-    It declares the Simple quartet that every structure backend produces from its
+    It declares the Unitcell quartet that every structure backend produces from its
     own native representation and every structure view builds its presentation
     from: ``cell``, ``sites``, ``species``, and ``species_at_sites``. This is the
     single interchange format; there is no pairwise conversion between backends.
