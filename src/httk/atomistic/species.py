@@ -11,7 +11,7 @@ _ELEMENTS: frozenset[str] = frozenset(SYMBOLS)
 _SPECIAL_SYMBOLS: frozenset[str] = frozenset({"X", "vacancy"})
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Species:
     """
     A chemical species occupying one or more sites, mirroring the OPTIMADE ``species`` object.
@@ -54,6 +54,42 @@ class Species:
             raise ValueError("Species attached and nattached must be given together or not at all")
         if self.attached is not None and self.nattached is not None and len(self.attached) != len(self.nattached):
             raise ValueError("Species attached and nattached must have the same length")
+
+    def __eq__(self, other: object) -> bool:
+        """Compare species values across the Species subclass/view family."""
+        if not isinstance(other, Species):
+            return NotImplemented
+        return (
+            self.name,
+            self.chemical_symbols,
+            self.concentration,
+            self.mass,
+            self.original_name,
+            self.attached,
+            self.nattached,
+        ) == (
+            other.name,
+            other.chemical_symbols,
+            other.concentration,
+            other.mass,
+            other.original_name,
+            other.attached,
+            other.nattached,
+        )
+
+    def __hash__(self) -> int:
+        """Hash the same seven value fields used by :meth:`__eq__`."""
+        return hash(
+            (
+                self.name,
+                self.chemical_symbols,
+                self.concentration,
+                self.mass,
+                self.original_name,
+                self.attached,
+                self.nattached,
+            )
+        )
 
     @property
     def is_single_element(self) -> bool:
