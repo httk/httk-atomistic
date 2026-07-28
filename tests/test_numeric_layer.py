@@ -1,6 +1,6 @@
 """
-Tests for the numpy-backed numeric presentation layer: NumericCell/NumericSites/NumericStructure,
-the *NumericView classes, and the ``.numeric()`` convenience methods.
+Tests for the numpy-backed numeric presentation layer: NumericCell/NumericSites,
+the numeric backend/view pair, and the ``.numeric()`` convenience methods.
 """
 
 import fractions
@@ -18,11 +18,13 @@ from httk.atomistic import (  # noqa: E402
     CellParams,
     NumericCell,
     NumericSites,
-    NumericStructure,
+    NumericUnitcellStructureBackend,
+    NumericUnitcellStructureView,
     Sites,
     SitesNumericView,
     Structure,
-    StructureNumericView,
+    StructureBackend,
+    UnitcellStructureView,
 )
 
 F = fractions.Fraction
@@ -41,10 +43,11 @@ def _hexagonal_structure() -> Structure:
 # ------------------------------------------------------------------ end-to-end numeric values
 
 
-def test_numeric_structure_values_are_plain_numpy() -> None:
+def test_numeric_unitcell_structure_values_are_plain_numpy() -> None:
     structure = _hexagonal_structure()
     numeric = structure.numeric()
-    assert isinstance(numeric, NumericStructure)
+    assert isinstance(numeric, NumericUnitcellStructureView)
+    assert not isinstance(numeric, Structure)
 
     exact_cell = structure.cell
     # Vectors are exactly-typed float64 ndarrays (not a subclass) matching the exact to_floats().
@@ -61,7 +64,9 @@ def test_numeric_structure_values_are_plain_numpy() -> None:
 
     # lengths are a (3,) float64 ndarray; angles a (3,) float64 ndarray in degrees.
     assert type(numeric.cell.lengths) is numpy.ndarray
-    assert numeric.cell.lengths.tolist() == [length.to_float() for length in exact_cell.lengths]
+    assert numeric.cell.lengths.tolist() == [
+        length.to_float() for length in exact_cell.lengths
+    ]
     assert type(numeric.cell.angles) is numpy.ndarray
     assert numeric.cell.angles.tolist() == pytest.approx([90.0, 90.0, 120.0])
 
@@ -87,22 +92,36 @@ def test_numeric_sites_is_iterable_and_indexable() -> None:
 # ------------------------------------------------------------------ views
 
 
-def test_structure_numeric_view_of_structure_and_triple() -> None:
+def test_numeric_unitcell_structure_view_of_structure_and_triple() -> None:
     structure = _hexagonal_structure()
-    view = StructureNumericView(structure)
-    assert isinstance(view, NumericStructure)
+    view = NumericUnitcellStructureView(structure)
+    assert isinstance(view, NumericUnitcellStructureView)
     assert unwrap(view) is structure  # unwrap returns the raw original
-    assert StructureNumericView(view) is view  # rewrap idempotence
+    assert NumericUnitcellStructureView(view) is view  # rewrap idempotence
+    assert view.exact == structure
+    assert UnitcellStructureView(view) == structure
+
+    backend = StructureBackend.create(view)
+    assert isinstance(backend, NumericUnitcellStructureBackend)
+    assert backend.cell is structure.cell
+    assert backend.sites is structure.sites
+    assert StructureBackend.create(view, kind="numeric") is not None
+    with pytest.raises(TypeError):
+        StructureBackend.create(view, kind="unitcell")
 
     triple = (
         [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
         [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         [11, 17],
     )
-    from_triple = StructureNumericView(triple)
-    assert isinstance(from_triple, NumericStructure)
+    from_triple = NumericUnitcellStructureView(triple)
+    assert isinstance(from_triple, NumericUnitcellStructureView)
     assert unwrap(from_triple) is triple
-    assert from_triple.cell.basis.tolist() == [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
+    assert from_triple.cell.basis.tolist() == [
+        [4.0, 0.0, 0.0],
+        [0.0, 4.0, 0.0],
+        [0.0, 0.0, 4.0],
+    ]
 
 
 def test_cell_numeric_view_of_params_and_cell() -> None:
@@ -139,7 +158,7 @@ def test_numeric_convenience_methods_roundtrip_exact() -> None:
     assert sites.numeric().exact is sites
 
     structure = _hexagonal_structure()
-    assert structure.numeric().exact is structure
+    assert structure.numeric().exact == structure
 
 
 # ------------------------------------------------------------------ numpy requirement
@@ -149,8 +168,8 @@ def test_construction_requires_numpy(monkeypatch: pytest.MonkeyPatch) -> None:
     # Report numpy unavailable via the core flag the helpers read; construction must fail fast.
     monkeypatch.setattr(vectors_pkg, "_numpy_available", False)
     structure = _hexagonal_structure()
-    with pytest.raises(ImportError, match=r"numpy"):
-        NumericStructure(structure)
+    with pytest.raises(ImportError, match=r"httk-atomistic\[numpy\]"):
+        NumericUnitcellStructureView(structure)
     with pytest.raises(ImportError, match=r"numpy"):
         NumericCell(structure.cell)
     with pytest.raises(ImportError, match=r"numpy"):

@@ -190,7 +190,7 @@ There are two ways to leave the exact model for plain floats, and they serve dif
   of the vector contract). It needs **no numpy**, works everywhere, and (with the `*PrimitiveView`s
   and the OPTIMADE records) is the numpy-free JSON/presentation boundary.
 - The **numeric layer** — `Cell.numeric()`, `Sites.numeric()`, `Structure.numeric()` — returns a
-  `NumericCell`, `NumericSites`, or `NumericStructure` that mirrors the exact interface but returns
+  `NumericCell`, `NumericSites`, or `NumericUnitcellStructureView` that mirrors the exact interface but returns
   true numpy: a `float64` `numpy.ndarray` for every vector, a plain `float` for every scalar
   (`scale`, `volume`). Reach for it when you want numpy arrays — plotting, a numerical routine, quick
   inspection. The exact object is always one hop back via `.exact`.
@@ -232,11 +232,11 @@ cartesian = numeric.cartesian_sites()
 assert isinstance(cartesian, numpy.ndarray) and cartesian.shape == (2, 3)
 
 # .exact is the escape hatch back to the exact object:
-assert numeric.exact is structure
+assert numeric.exact == structure
 ```
 
 The same presentation is also available as eager views over any backend — `CellNumericView`,
-`SitesNumericView`, `StructureNumericView` — mirroring the `*ClassView` pattern (rewrap-idempotent,
+`SitesNumericView`, `NumericUnitcellStructureView` — mirroring the `*ClassView` pattern (rewrap-idempotent,
 `unwrap` returns the raw original), and likewise requiring numpy.
 
 ## Building a Structure from a POSCAR mapping

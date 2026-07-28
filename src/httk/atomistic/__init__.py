@@ -33,7 +33,8 @@ from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif
 from .elements import SYMBOLS, atomic_number, symbol_of
 from .numeric_cell import NumericCell
 from .numeric_sites import NumericSites
-from .numeric_structure import NumericStructure
+from .numeric_unitcell_structure_backend import NumericUnitcellStructureBackend
+from .numeric_unitcell_structure_view import NumericUnitcellStructureView
 from .precision_entries import precision_definitions, precision_properties
 from .setting_transform import SettingTransform
 from .sites import Sites
@@ -63,7 +64,6 @@ from .structure_backend import StructureBackend
 from .structure_comparison import same_crystal
 from .structure_entries import StructureEntryProvider
 from .structure_like import StructureLike
-from .structure_numeric_view import StructureNumericView
 from .structure_primitive import StructurePrimitive
 from .structure_primitive_view import StructurePrimitiveView
 from .structure_view import StructureView
@@ -79,7 +79,12 @@ from .unitcell_structure_view import UnitcellStructureView
 from .vasp_structures import load_asu_structure, load_structure, structure_from_poscar
 from .wyckoff import WyckoffBranch, WyckoffPosition, wyckoff_positions
 
-StructureBackend.backend_classes = [UnitcellStructureBackend, StructureASU, StructurePrimitive]
+StructureBackend.backend_classes = [
+    UnitcellStructureBackend,
+    StructureASU,
+    StructurePrimitive,
+    NumericUnitcellStructureBackend,
+]
 CellBackend.backend_classes = [CellClass, CellPrimitive, CellParams]
 SitesBackend.backend_classes = [SitesClass, SitesPrimitive]
 SpeciesBackend.backend_classes = [SpeciesClass, SpeciesPrimitive]
@@ -95,12 +100,12 @@ __all__ = [
     "StructurePrimitive",
     "UnitcellStructureView",
     "StructurePrimitiveView",
-    "StructureNumericView",
+    "NumericUnitcellStructureBackend",
+    "NumericUnitcellStructureView",
     "SupercellResult",
     "build_supercell",
     "orthogonal_supercell",
     "cubic_supercell",
-    "NumericStructure",
     "NumericCell",
     "NumericSites",
     "CellNumericView",
