@@ -36,6 +36,7 @@ from .numeric_cell import NumericCell
 from .numeric_sites import NumericSites
 from .numeric_unitcell_structure_backend import NumericUnitcellStructureBackend
 from .numeric_unitcell_structure_view import NumericUnitcellStructureView
+from .phase_diagram import PhaseDiagram
 from .precision_entries import precision_definitions, precision_properties
 from .setting_transform import SettingTransform
 from .sites import Sites
@@ -118,6 +119,7 @@ __all__ = [
     "StructurePrimitiveView",
     "NumericUnitcellStructureBackend",
     "NumericUnitcellStructureView",
+    "PhaseDiagram",
     "SupercellResult",
     "build_supercell",
     "orthogonal_supercell",
