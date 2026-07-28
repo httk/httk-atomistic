@@ -218,7 +218,7 @@ def wyckoff_letter_map(standard: Spacegroup, target: Spacegroup) -> dict[str, st
     """
     if standard.it_number != target.it_number:
         raise ValueError(
-            f"cannot map Wyckoff letters between different space groups: " f"{standard.setting} and {target.setting}"
+            f"cannot map Wyckoff letters between different space groups: {standard.setting} and {target.setting}"
         )
     transform = target.transform_from_standard
     mapping: dict[str, str] = {}
