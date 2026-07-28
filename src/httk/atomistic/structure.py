@@ -19,7 +19,7 @@ from .species_class_view import SpeciesClassView
 from .species_like import SpeciesLike
 
 if TYPE_CHECKING:
-    from .numeric_structure import NumericStructure
+    from .numeric_unitcell_structure_view import NumericUnitcellStructureView
 
 
 class Structure:
@@ -160,11 +160,11 @@ class Structure:
         """
         return SurdVector.create(self._sites.reduced_coords) * self._cell.basis
 
-    def numeric(self) -> "NumericStructure":
+    def numeric(self) -> "NumericUnitcellStructureView":
         """A plain-numpy presentation of this structure (requires the ``httk-atomistic[numpy]`` extra)."""
-        from .numeric_structure import NumericStructure
+        from .numeric_unitcell_structure_view import NumericUnitcellStructureView
 
-        return NumericStructure(self)
+        return NumericUnitcellStructureView(self)
 
     def supercell(
         self,
