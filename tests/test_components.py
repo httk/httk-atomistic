@@ -202,6 +202,18 @@ def test_species_bare_symbol_and_atomic_number_inputs() -> None:
         assert view.concentration == (1.0,)
 
 
+def test_species_equality_and_hash_are_subclass_tolerant() -> None:
+    plain = Species("Fe", ("Fe",), (1.0,))
+    view = SpeciesClassView("Fe")
+
+    assert view == plain
+    assert plain == view
+    assert hash(view) == hash(plain)
+    assert view != Species("Fe", ("Fe",), (0.5,))
+    assert view.__eq__(object()) is NotImplemented
+    assert (view == object()) is False
+
+
 def test_species_bare_input_validation() -> None:
     with pytest.raises(ValueError, match="chemical symbol"):
         Species.create("Zz")

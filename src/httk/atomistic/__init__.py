@@ -68,6 +68,8 @@ from .structure_entries import StructureEntryProvider
 from .structure_like import StructureLike
 from .structure_primitive import StructurePrimitive
 from .structure_primitive_view import StructurePrimitiveView
+from .structure_record import SpeciesRecord, StructureRecord
+from .structure_record_backend import StructureRecordBackend
 from .structure_view import StructureView
 from .supercell import (
     SupercellResult,
@@ -92,6 +94,7 @@ StructureBackend.backend_classes = [
     StructurePrimitive,
     NumericUnitcellStructureBackend,
     ASEAtomsBackend,
+    StructureRecordBackend,
 ]
 CellBackend.backend_classes = [CellClass, CellPrimitive, CellParams]
 SitesBackend.backend_classes = [SitesClass, SitesPrimitive]
@@ -108,6 +111,9 @@ __all__ = [
     "StructureView",
     "UnitcellStructureBackend",
     "StructurePrimitive",
+    "StructureRecord",
+    "SpeciesRecord",
+    "StructureRecordBackend",
     "UnitcellStructureView",
     "StructurePrimitiveView",
     "NumericUnitcellStructureBackend",
