@@ -76,6 +76,20 @@ def _positive_integer(value: Any, name: str) -> int:
     return value
 
 
+def _tolerance_fraction(
+    value: int | fractions.Fraction | str | float,
+) -> fractions.Fraction:
+    if isinstance(value, bool):
+        raise ValueError("tolerance must be a non-negative number")
+    try:
+        exact = fractions.Fraction(str(value) if isinstance(value, float) else value)
+    except (TypeError, ValueError, ZeroDivisionError) as error:
+        raise ValueError("tolerance must be a non-negative number") from error
+    if exact < 0:
+        raise ValueError("tolerance must be non-negative")
+    return exact
+
+
 def _validate_max_sites(max_sites: int | None) -> None:
     if max_sites is not None:
         _positive_integer(max_sites, "max_sites")
@@ -316,54 +330,120 @@ def _search_transformation(
     return FracVector.create((best_values[0:3], best_values[3:6], best_values[6:9]))
 
 
+def _transformation_scores(cell: Cell, transformation: FracVector) -> tuple[SurdScalar, SurdScalar]:
+    transformed_metric = SurdVector.create(transformation) * cell.metric() * SurdVector.create(transformation.T())
+    return _shape_scores(transformed_metric)
+
+
+def _tolerance_supercell(
+    view: UnitcellStructureView,
+    tolerance: fractions.Fraction,
+    max_multiplier: int,
+    search_radius: int,
+    max_sites: int | None,
+    *,
+    target: str,
+) -> SupercellResult:
+    _validate_max_sites(max_sites)
+    nsites = len(view.sites)
+    if max_sites is not None and nsites > max_sites:
+        _validate_site_count(nsites, 1, max_sites)
+
+    score_name = "orthogonality_score" if target == "orthogonal" else "cubicity_score"
+    best_multiplier: int | None = None
+    best_score: SurdScalar | None = None
+    last_multiplier = 0
+    for multiplier in range(1, max_multiplier + 1):
+        if max_sites is not None and nsites * multiplier > max_sites:
+            break
+        last_multiplier = multiplier
+        transformation = _search_transformation(
+            view.cell,
+            multiplier,
+            search_radius,
+            target=target,
+        )
+        orthogonality, cubicity = _transformation_scores(view.cell, transformation)
+        score = orthogonality if target == "orthogonal" else cubicity
+        if best_score is None or score < best_score:
+            best_multiplier = multiplier
+            best_score = score
+        if score <= tolerance:
+            return build_supercell(view, transformation, max_sites=max_sites)
+
+    if best_score is None or best_multiplier is None:
+        raise ValueError(f"no {target} supercell multipliers could be tried within max_sites={max_sites}")
+    raise ValueError(
+        f"no {target} supercell met tolerance {tolerance} for multipliers 1..{last_multiplier} "
+        f"(max_multiplier={max_multiplier}, max_sites={max_sites}); "
+        f"best was (multiplier={best_multiplier}, {score_name}={float(best_score)})"
+    )
+
+
 def orthogonal_supercell(
     structure: StructureLike,
-    multiplier: int,
+    multiplier: int | None = None,
     *,
+    tolerance: int | fractions.Fraction | str | float | None = None,
+    max_multiplier: int | None = None,
     search_radius: int = 1,
     max_sites: int | None = DEFAULT_MAX_SITES,
 ) -> SupercellResult:
     """Build the most orthogonal supercell in the bounded candidate set.
 
-    ``multiplier`` is the exact number of source cells in the result. Candidate
-    matrices are centered on the ideal cubic real-valued transform and vary
-    each integer entry by at most ``search_radius`` (0--2); diagonal
+    Exactly one of ``multiplier`` and ``tolerance`` must be provided. With
+    ``multiplier``, it is the exact number of source cells in the result.
+    With ``tolerance``, the multiplier is increased from one until the exact
+    orthogonality score is at most the given bound, up to ``max_multiplier``.
+    Candidate matrices are centered on the ideal cubic real-valued transform
+    and vary each integer entry by at most ``search_radius`` (0--2); diagonal
     factorizations provide guaranteed determinant-matching fallbacks. Exact
     orthogonality is ranked first and cubicity breaks equal-shape ties.
     """
+    if (multiplier is None) == (tolerance is None):
+        raise ValueError("provide exactly one of multiplier or tolerance")
+    if tolerance is not None:
+        view = UnitcellStructureView(structure)
+        bound = _tolerance_fraction(tolerance)
+        limit = 32 if max_multiplier is None else _positive_integer(max_multiplier, "max_multiplier")
+        return _tolerance_supercell(view, bound, limit, search_radius, max_sites, target="orthogonal")
+    assert multiplier is not None
     multiplier = _positive_integer(multiplier, "multiplier")
     view = UnitcellStructureView(structure)
     _validate_site_count(len(view.sites), multiplier, max_sites)
-    transformation = _search_transformation(
-        view.cell,
-        multiplier,
-        search_radius,
-        target="orthogonal",
-    )
+    transformation = _search_transformation(view.cell, multiplier, search_radius, target="orthogonal")
     return build_supercell(view, transformation, max_sites=max_sites)
 
 
 def cubic_supercell(
     structure: StructureLike,
-    multiplier: int,
+    multiplier: int | None = None,
     *,
+    tolerance: int | fractions.Fraction | str | float | None = None,
+    max_multiplier: int | None = None,
     search_radius: int = 1,
     max_sites: int | None = DEFAULT_MAX_SITES,
 ) -> SupercellResult:
     """Build the most cubic supercell in the bounded candidate set.
 
-    ``multiplier`` is the exact number of source cells in the result. Candidate
-    matrices are centered on the ideal cubic real-valued transform and vary
-    each integer entry by at most ``search_radius`` (0--2); diagonal
+    Exactly one of ``multiplier`` and ``tolerance`` must be provided. With
+    ``multiplier``, it is the exact number of source cells in the result.
+    With ``tolerance``, the multiplier is increased from one until the exact
+    cubicity score is at most the given bound, up to ``max_multiplier``.
+    Candidate matrices are centered on the ideal cubic real-valued transform
+    and vary each integer entry by at most ``search_radius`` (0--2); diagonal
     factorizations provide guaranteed determinant-matching fallbacks.
     """
+    if (multiplier is None) == (tolerance is None):
+        raise ValueError("provide exactly one of multiplier or tolerance")
+    if tolerance is not None:
+        view = UnitcellStructureView(structure)
+        bound = _tolerance_fraction(tolerance)
+        limit = 32 if max_multiplier is None else _positive_integer(max_multiplier, "max_multiplier")
+        return _tolerance_supercell(view, bound, limit, search_radius, max_sites, target="cubic")
+    assert multiplier is not None
     multiplier = _positive_integer(multiplier, "multiplier")
     view = UnitcellStructureView(structure)
     _validate_site_count(len(view.sites), multiplier, max_sites)
-    transformation = _search_transformation(
-        view.cell,
-        multiplier,
-        search_radius,
-        target="cubic",
-    )
+    transformation = _search_transformation(view.cell, multiplier, search_radius, target="cubic")
     return build_supercell(view, transformation, max_sites=max_sites)
