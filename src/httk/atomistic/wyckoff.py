@@ -22,7 +22,8 @@ Everything is expressed in the coordinates of whichever setting the record came 
 """
 
 import fractions
-from typing import Any, Self, Sequence
+from collections.abc import Sequence
+from typing import Any, Self
 
 from httk.core import FracVector
 

@@ -77,7 +77,7 @@ def show_what_a_literal_claims() -> None:
     for literal in ("0.3333", "0.33", "5.6402", "10", "1.2e-3", "-0.5", "1/3"):
         precision = decimal_precision(literal)
         note = "exact, not measured" if precision is None else f"= {float(precision):g}"
-        print(f"   {literal:>8}  ->  {str(precision):>10}   {note}")
+        print(f"   {literal:>8}  ->  {precision!s:>10}   {note}")
     print()
     print("Across a set, the coarsest wins — one sloppy value really does mean")
     print("the whole table is only that good:")

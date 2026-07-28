@@ -47,8 +47,8 @@ __all__ = [
     "spacegroup_setting",
     "spacegroup_settings",
     "spglib_default_spacegroup_setting",
-    "standard_spacegroup_setting",
     "standard_setting_it_numbers",
+    "standard_spacegroup_setting",
 ]
 
 _RESOURCES = ExitStack()

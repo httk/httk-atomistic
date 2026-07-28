@@ -22,9 +22,7 @@ def _is_optimade_species_dict(obj: Any) -> bool:
         return False
     if not isinstance(obj["chemical_symbols"], (list, tuple)):
         return False
-    if not isinstance(obj["concentration"], (list, tuple)):
-        return False
-    return True
+    return isinstance(obj["concentration"], (list, tuple))
 
 
 class SpeciesPrimitive(SpeciesBackend):

@@ -19,7 +19,8 @@ code here.
 """
 
 import fractions
-from typing import Any, Iterable, Self
+from collections.abc import Iterable
+from typing import Any, Self
 
 from httk.core import FracVector
 
@@ -212,4 +213,4 @@ def _component_to_xyz(row: Iterable[fractions.Fraction], translation: fractions.
     if not parts:
         return "0"
     text = "".join(parts)
-    return text[1:] if text.startswith("+") else text
+    return text.removeprefix("+")

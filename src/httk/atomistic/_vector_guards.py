@@ -10,7 +10,8 @@ uniformly admits :class:`~fractions.Fraction`, rational strings (``"1/3"``), ``F
 """
 
 import fractions
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from httk.core import (
     FracVector,

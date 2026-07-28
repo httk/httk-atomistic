@@ -33,8 +33,8 @@ class NumericUnitcellStructureBackend(StructureBackend):
         try:
             cell = obj.cell
             sites = obj.sites
-            obj.species
-            obj.species_at_sites
+            obj.species  # noqa: B018 - deliberate attribute access validates the required field
+            obj.species_at_sites  # noqa: B018 - deliberate attribute access validates the required field
         except AttributeError:
             return None
         if not isinstance(cell, NumericCell) or not isinstance(sites, NumericSites):

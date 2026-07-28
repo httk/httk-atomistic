@@ -12,8 +12,8 @@ link reaches the authoritative schema rather than a local paraphrase.
 """
 
 import json
+from collections.abc import Mapping
 from importlib.resources import files
-from typing import Mapping
 
 from httk.core import PropertyDefinition
 

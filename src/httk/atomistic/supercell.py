@@ -32,8 +32,8 @@ from .unitcell_structure_view import UnitcellStructureView
 __all__ = [
     "SupercellResult",
     "build_supercell",
-    "orthogonal_supercell",
     "cubic_supercell",
+    "orthogonal_supercell",
 ]
 
 DEFAULT_MAX_SITES = 100_000
@@ -77,7 +77,7 @@ def _positive_integer(value: Any, name: str) -> int:
 
 
 def _tolerance_fraction(
-    value: int | fractions.Fraction | str | float,
+    value: fractions.Fraction | str | float,
 ) -> fractions.Fraction:
     if isinstance(value, bool):
         raise ValueError("tolerance must be a non-negative number")
@@ -384,7 +384,7 @@ def orthogonal_supercell(
     structure: StructureLike,
     multiplier: int | None = None,
     *,
-    tolerance: int | fractions.Fraction | str | float | None = None,
+    tolerance: fractions.Fraction | str | float | None = None,
     max_multiplier: int | None = None,
     search_radius: int = 1,
     max_sites: int | None = DEFAULT_MAX_SITES,
@@ -419,7 +419,7 @@ def cubic_supercell(
     structure: StructureLike,
     multiplier: int | None = None,
     *,
-    tolerance: int | fractions.Fraction | str | float | None = None,
+    tolerance: fractions.Fraction | str | float | None = None,
     max_multiplier: int | None = None,
     search_radius: int = 1,
     max_sites: int | None = DEFAULT_MAX_SITES,

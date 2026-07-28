@@ -21,9 +21,10 @@ structure is first recognized as symmetric, never in expansion.
 """
 
 import fractions
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Sequence
+from typing import Any
 
 from httk.core import FracVector
 

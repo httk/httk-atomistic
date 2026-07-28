@@ -13,8 +13,8 @@ entry point for callers that want to name the domain operation themselves.
 
 import fractions
 import math
-from collections.abc import Mapping
-from typing import Any, Callable
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from httk.core import SurdScalar, SurdVector, exactmath, load
 
