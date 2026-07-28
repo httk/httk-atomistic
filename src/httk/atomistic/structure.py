@@ -20,6 +20,7 @@ from .species_like import SpeciesLike
 
 if TYPE_CHECKING:
     from .numeric_unitcell_structure_view import NumericUnitcellStructureView
+    from .standardization import ConventionalCellResult
 
 
 class Structure:
@@ -209,6 +210,21 @@ class Structure:
             multiplier,
             search_radius=search_radius,
             max_sites=max_sites,
+        )
+
+    def conventional_cell(
+        self,
+        *,
+        tolerance: float | None = None,
+        limit_denominator: int | None = None,
+    ) -> "ConventionalCellResult":
+        """Express this structure in its space group's IT standard-setting conventional cell."""
+        from .standardization import conventional_cell
+
+        return conventional_cell(
+            self,
+            tolerance=tolerance,
+            limit_denominator=limit_denominator,
         )
 
     def __eq__(self, other: object) -> bool:

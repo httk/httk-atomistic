@@ -106,6 +106,17 @@ structure.sites.reduced_coords.to_fractions()
 
 The cell survives untouched, so a hexagonal cell keeps its exact `sqrt(3)`.
 
+For an existing ASU — including a full-cell view that is still backed by one —
+`conventional_cell()` returns the same crystal re-expressed in the space group's IT
+standard-setting conventional cell. It keeps the ASU's standard-to-own transform in the
+result for provenance, while the result ASU has an identity transform; the basis change and
+expansion remain exact. For a plain `Structure`, the operation first runs tolerant
+`recognize_asu()`: measured coordinates may be snapped, and the result records the transform
+chosen by recognition rather than an unstated transform from the input. Consequently a noisy
+plain structure need not be `same_crystal()`-equal to the result. The returned `multiplier`
+records the conventional/original site-count ratio, including the factor of three for a
+rhombohedral setting.
+
 ## Recognition is where tolerance lives
 
 Going the other way — from a full cell to an asymmetric unit — means deciding
