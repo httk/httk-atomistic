@@ -6,7 +6,7 @@ from typing import Any
 
 import httk.core
 
-from . import asu_structure, structure, structure_backend, structure_view
+from . import asu_structure, compat, structure, structure_backend, structure_view
 
 # A structure is any structure backend/view, a Structure, an ASUStructure (a structure
 # held as its asymmetric unit, expanded on demand), or an spglib-like
@@ -16,6 +16,7 @@ type StructureLike = (
     | structure_view.StructureView
     | structure.Structure
     | asu_structure.ASUStructure
+    | compat.ASEAtomsProtocol
     | tuple[httk.core.VectorLike, httk.core.VectorLike, Any]
     | list[Any]
 )
