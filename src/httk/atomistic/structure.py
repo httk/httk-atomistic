@@ -180,8 +180,10 @@ class Structure:
 
     def orthogonal_supercell(
         self,
-        multiplier: int,
+        multiplier: int | None = None,
         *,
+        tolerance: int | fractions.Fraction | str | float | None = None,
+        max_multiplier: int | None = None,
         search_radius: int = 1,
         max_sites: int | None = 100_000,
     ) -> "SupercellResult":
@@ -191,14 +193,18 @@ class Structure:
         return orthogonal_supercell(
             self,
             multiplier,
+            tolerance=tolerance,
+            max_multiplier=max_multiplier,
             search_radius=search_radius,
             max_sites=max_sites,
         )
 
     def cubic_supercell(
         self,
-        multiplier: int,
+        multiplier: int | None = None,
         *,
+        tolerance: int | fractions.Fraction | str | float | None = None,
+        max_multiplier: int | None = None,
         search_radius: int = 1,
         max_sites: int | None = 100_000,
     ) -> "SupercellResult":
@@ -208,6 +214,8 @@ class Structure:
         return cubic_supercell(
             self,
             multiplier,
+            tolerance=tolerance,
+            max_multiplier=max_multiplier,
             search_radius=search_radius,
             max_sites=max_sites,
         )

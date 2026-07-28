@@ -9,6 +9,7 @@ from httk.atomistic import (
     ASUSite,
     ASUStructure,
     Cell,
+    CellParams,
     Sites,
     Species,
     Structure,
@@ -22,7 +23,10 @@ F = fractions.Fraction
 
 
 def _species(*names: str) -> list[Species]:
-    return [Species(name=name, chemical_symbols=(name,), concentration=(1.0,)) for name in names]
+    return [
+        Species(name=name, chemical_symbols=(name,), concentration=(1.0,))
+        for name in names
+    ]
 
 
 def _binary_structure() -> Structure:
@@ -44,7 +48,9 @@ def test_a_diagonal_supercell_is_built_exactly_in_cell_major_order() -> None:
     assert isinstance(result, SupercellResult)
     assert result.multiplier == 6
     assert result.transformation == FracVector.create([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
-    assert result.structure.cell.basis == FracVector.create([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
+    assert result.structure.cell.basis == FracVector.create(
+        [[1, 0, 0], [0, 2, 0], [0, 0, 3]]
+    )
     assert len(result.structure.sites) == 12
     assert result.structure.species_at_sites == ("Na", "Cl") * 6
     assert result.structure.sites.reduced_coords == FracVector.create(
@@ -72,10 +78,17 @@ def test_shears_and_negative_determinants_are_supported() -> None:
 
     assert sheared.multiplier == 2
     assert len(sheared.structure.sites) == 4
-    assert sheared.structure.cell.basis == FracVector.create([[2, 1, 0], [0, 1, 0], [0, 0, 1]])
+    assert sheared.structure.cell.basis == FracVector.create(
+        [[2, 1, 0], [0, 1, 0], [0, 0, 1]]
+    )
     assert reflected.multiplier == 1
-    assert reflected.structure.cell.basis == FracVector.create([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])
-    assert reflected.structure.sites.reduced_coords == _binary_structure().sites.reduced_coords
+    assert reflected.structure.cell.basis == FracVector.create(
+        [[-1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    )
+    assert (
+        reflected.structure.sites.reduced_coords
+        == _binary_structure().sites.reduced_coords
+    )
 
 
 @pytest.mark.parametrize(
@@ -86,7 +99,9 @@ def test_shears_and_negative_determinants_are_supported() -> None:
         ([[1, 0, 0], [1, 0, 0], [0, 0, 1]], "nonsingular"),
     ],
 )
-def test_invalid_transformations_are_rejected(transformation: object, message: str) -> None:
+def test_invalid_transformations_are_rejected(
+    transformation: object, message: str
+) -> None:
     with pytest.raises(ValueError, match=message):
         build_supercell(_binary_structure(), transformation)
 
@@ -112,13 +127,16 @@ def test_site_limit_is_checked_before_materialization() -> None:
             max_sites=10,
         )
 
-    assert len(
-        build_supercell(
-            _binary_structure(),
-            [[1, 0, 0], [0, 2, 0], [0, 0, 3]],
-            max_sites=None,
-        ).structure.sites
-    ) == 12
+    assert (
+        len(
+            build_supercell(
+                _binary_structure(),
+                [[1, 0, 0], [0, 2, 0], [0, 0, 3]],
+                max_sites=None,
+            ).structure.sites
+        )
+        == 12
+    )
 
 
 def test_precision_bounds_are_transformed_conservatively() -> None:
@@ -171,7 +189,10 @@ def test_shape_search_uses_the_metric_not_the_cartesian_orientation() -> None:
     identity = _single_site([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
     rotated = _single_site([[F(3, 5), F(-4, 5), 0], [F(4, 5), F(3, 5), 0], [0, 0, 1]])
 
-    assert cubic_supercell(identity, 8).transformation == cubic_supercell(rotated, 8).transformation
+    assert (
+        cubic_supercell(identity, 8).transformation
+        == cubic_supercell(rotated, 8).transformation
+    )
 
 
 def test_orthogonal_search_recovers_the_tutorial_cells_exact_rectangle() -> None:
@@ -184,8 +205,83 @@ def test_orthogonal_search_recovers_the_tutorial_cells_exact_rectangle() -> None
     )
 
     result = orthogonal_supercell(structure, 2)
-    assert result.transformation == FracVector.create([[1, 0, 0], [0, 1, 0], [-1, -1, 2]])
+    assert result.transformation == FracVector.create(
+        [[1, 0, 0], [0, 1, 0], [-1, -1, 2]]
+    )
     assert result.orthogonality_score == 0
+
+
+def test_orthogonal_tolerance_finds_the_smallest_exact_hexagonal_supercell() -> None:
+    structure = _single_site(CellParams((1, 1, 3, 90, 90, 120)).basis)
+
+    result = orthogonal_supercell(structure, tolerance=0)
+
+    # The in-plane (1, 0), (1, 2) transform makes the 120-degree pair orthogonal.
+    assert result.multiplier == 2
+    assert result.transformation == FracVector.create([[1, 0, 0], [1, 2, 0], [0, 0, 1]])
+    assert result.orthogonality_score.is_zero()
+
+
+def test_orthogonal_tolerance_stops_at_an_already_orthogonal_cell() -> None:
+    structure = _single_site(CellParams((2, 2, 3, 90, 90, 90)).basis)
+
+    result = structure.orthogonal_supercell(tolerance=0.01)
+
+    assert result.multiplier == 1
+    assert result.transformation == FracVector.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    assert result.orthogonality_score.is_zero()
+
+
+def test_cubic_tolerance_finds_the_smallest_exact_tetragonal_supercell() -> None:
+    structure = _single_site(CellParams((2, 2, 1, 90, 90, 90)).basis)
+
+    result = cubic_supercell(structure, tolerance=0, max_multiplier=2)
+
+    # Two cells stacked along c turn c=1 into the same length as a=b=2.
+    assert result.multiplier == 2
+    assert result.transformation == FracVector.create([[1, 0, 0], [0, 1, 0], [0, 0, 2]])
+    assert result.cubicity_score.is_zero()
+
+
+def test_tolerance_failure_reports_the_best_exact_score() -> None:
+    structure = _single_site(CellParams((2, 2, 1, 90, 90, 90)).basis)
+
+    with pytest.raises(ValueError, match=r"best was \(multiplier=1, cubicity_score="):
+        cubic_supercell(structure, tolerance=0, max_multiplier=1)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"multiplier": 1, "tolerance": 0},
+    ],
+)
+def test_tolerance_and_multiplier_are_mutually_exclusive(
+    kwargs: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match="exactly one of multiplier or tolerance"):
+        orthogonal_supercell(_binary_structure(), **kwargs)
+
+
+def test_negative_tolerance_is_rejected() -> None:
+    with pytest.raises(ValueError, match="tolerance"):
+        orthogonal_supercell(_binary_structure(), tolerance=-1)
+
+
+def test_tolerance_float_uses_its_decimal_spelling() -> None:
+    structure = _single_site(CellParams((2, 2, 3, 90, 90, 90)).basis)
+
+    result = orthogonal_supercell(structure, tolerance=0.01, max_multiplier=1)
+
+    assert result.multiplier == 1
+
+
+def test_tolerance_mode_respects_max_sites() -> None:
+    structure = _single_site(CellParams((2, 2, 1, 90, 90, 90)).basis)
+
+    with pytest.raises(ValueError, match="max_sites=1"):
+        cubic_supercell(structure, tolerance=0, max_multiplier=2, max_sites=1)
 
 
 def test_radius_zero_still_has_a_determinant_matching_fallback() -> None:
