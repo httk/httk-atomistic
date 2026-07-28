@@ -5,8 +5,7 @@ Backend wrapping cell parameters (a, b, c, alpha, beta, gamma).
 import fractions
 from typing import Any
 
-from httk.core import SurdScalar, SurdVector
-from httk.core.vectors import exactmath
+from httk.core import SurdScalar, SurdVector, exactmath
 
 from ._vector_guards import is_params6, to_fracvector
 from .cell_backend import CellBackend
@@ -77,7 +76,7 @@ class CellParams(CellBackend):
     The native representation is a flat length-6 vector-like of the cell-vector lengths
     ``a``/``b``/``c`` and the angles ``alpha``/``beta``/``gamma`` in degrees, stored as exact
     :class:`~fractions.Fraction` values (parsed via
-    :func:`~httk.core.vectors.exactmath.any_to_fraction`). The exact ``basis`` is derived lazily and
+    :func:`~httk.core.exactmath.any_to_fraction`). The exact ``basis`` is derived lazily and
     cached using the standard crystallographic orientation convention (first cell vector along x,
     second in the xy-plane); for the common Niven angles it is exact (radicals intact). Since
     parameters carry no separate length factor, ``scale`` is the exact ``1`` and

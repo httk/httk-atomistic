@@ -16,8 +16,7 @@ import math
 from collections.abc import Mapping
 from typing import Any, Callable
 
-from httk.core import SurdScalar, SurdVector, load
-from httk.core.vectors import exactmath
+from httk.core import SurdScalar, SurdVector, exactmath, load
 
 from ._vector_guards import to_surdscalar
 from .cell import Cell
