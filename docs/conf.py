@@ -68,6 +68,10 @@ myst_heading_anchors = 3
 # myst-nb, so the "docs" extra needs nothing added. The cache lives under
 # docs/_build, which `make docs-clean` removes.
 nb_execution_mode = "cache"
+# Cells default to myst-nb's 30 s timeout, which sits too close to the legitimate
+# runtime of the heavier example notebooks under machine load; the timeout's job
+# is to catch hangs, not to benchmark, so give it generous headroom.
+nb_execution_timeout = 300
 nb_execution_raise_on_error = True
 
 html_theme = "furo"
