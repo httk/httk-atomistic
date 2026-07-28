@@ -119,6 +119,10 @@ nitpick_ignore = [
     # numpy is an optional dependency surfaced by the numeric layer; this is the sanctioned
     # targeted entry for that external type (mirroring httk-core's conf.py).
     ("py:class", "numpy.ndarray"),
+    # ase is an optional dependency surfaced by the compat layer; the same sanctioned
+    # targeted-entry treatment applies to its Atoms type.
+    ("py:class", "ase.Atoms"),
+    ("py:obj", "ase.Atoms"),
 ]
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True

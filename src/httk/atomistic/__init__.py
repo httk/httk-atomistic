@@ -30,6 +30,7 @@ from .cell_primitive import CellPrimitive
 from .cell_primitive_view import CellPrimitiveView
 from .cell_view import CellView
 from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
+from .compat import ASEAtomsBackend, ASEAtomsProtocol
 from .elements import SYMBOLS, atomic_number, symbol_of
 from .numeric_cell import NumericCell
 from .numeric_sites import NumericSites
@@ -89,6 +90,7 @@ StructureBackend.backend_classes = [
     StructureASU,
     StructurePrimitive,
     NumericUnitcellStructureBackend,
+    ASEAtomsBackend,
 ]
 CellBackend.backend_classes = [CellClass, CellPrimitive, CellParams]
 SitesBackend.backend_classes = [SitesClass, SitesPrimitive]
@@ -97,6 +99,8 @@ SpeciesBackend.backend_classes = [SpeciesClass, SpeciesPrimitive]
 __all__ = [
     "Structure",
     "StructureLike",
+    "ASEAtomsProtocol",
+    "ASEAtomsBackend",
     "StructureAPI",
     "StructureEntryProvider",
     "StructureBackend",
@@ -174,3 +178,12 @@ __all__ = [
     "asu_structures_from_cif",
     "cif_setting",
 ]
+
+# ASE is optional. The view module subclasses ase.Atoms at class-definition time, so it
+# cannot be imported without ASE; guard it exactly like the optional numpy vector view.
+try:
+    from .ase_atoms_view import ASEAtomsView  # noqa: F401
+except ImportError:
+    pass
+else:
+    __all__.append("ASEAtomsView")
