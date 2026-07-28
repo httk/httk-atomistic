@@ -6,4 +6,6 @@ from typing import Any
 
 from . import species, species_backend, species_view
 
-type SpeciesLike = (species_backend.SpeciesBackend | species_view.SpeciesView | species.Species | dict[str, Any])
+type SpeciesLike = (
+    species_backend.SpeciesBackend | species_view.SpeciesView | species.Species | dict[str, Any] | str | int
+)
