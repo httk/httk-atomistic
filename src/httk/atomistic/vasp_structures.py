@@ -6,9 +6,9 @@ into an exact :class:`~httk.atomistic.Structure`. It imports nothing from
 *httk-io* — it only understands the neutral mapping shape — keeping the parsing
 capability (*httk-io*) and the domain model (*httk-atomistic*) decoupled.
 
-:func:`load_structure` is the convenience end-to-end entry point:
-``httk.core.load`` picks the reader by file type, and a small adapter table maps
-the payload's ``"format"`` tag to the matching structure builder.
+:func:`structure_from_payload` exposes the payload-to-domain conversion used by
+the format-adapter registry. :func:`load_structure` is the explicit convenience
+entry point for callers that want to name the domain operation themselves.
 """
 
 import fractions
@@ -122,7 +122,7 @@ def _structure_from_cif(data: Mapping[str, Any]) -> Structure:
     if len(structures) != 1:
         raise ValueError(
             f"this CIF holds {len(structures)} structures; load_structure() builds one, so use "
-            f"httk.atomistic.asu_structures_from_cif(httk.core.load(path)) to get them all"
+            f"httk.atomistic.asu_structures_from_cif(httk.core.load(path, raw=True)) to get them all"
         )
     return UnitcellStructureView(structures[0])
 
@@ -183,28 +183,44 @@ _STRUCTURE_ADAPTERS: dict[str, Callable[[Mapping[str, Any]], Structure]] = {
 }
 
 
+def structure_from_payload(data: Mapping[str, Any]) -> Structure:
+    """Build a :class:`~httk.atomistic.Structure` from a tagged neutral payload.
+
+    The ``"format"`` tag selects the structure builder. Currently supported
+    payloads are ``"vasp-poscar"`` and single-block ``"cif"`` mappings. A
+    multi-block CIF retains the same :class:`ValueError` as
+    :func:`load_structure`; use :func:`~httk.atomistic.cif_structures.asu_structures_from_cif` for all blocks.
+    """
+    if not isinstance(data, Mapping):
+        raise ValueError(f"structure_from_payload expected a mapping, got {type(data).__name__}.")
+    fmt = data.get("format")
+    adapter = _STRUCTURE_ADAPTERS.get(fmt) if isinstance(fmt, str) else None
+    if adapter is None:
+        raise ValueError(
+            f"unrecognized payload format tag {fmt!r}. "
+            f"Known structure formats: {', '.join(sorted(_STRUCTURE_ADAPTERS))}."
+        )
+    return adapter(data)
+
+
 def load_structure(path: str) -> Structure:
     """Load a file and build a :class:`~httk.atomistic.Structure` from it.
 
-    ``httk.core.load(path)`` selects the reader by file type (transparently
-    decompressing ``.bz2`` / ``.gz`` files); the payload's ``"format"`` tag then
-    selects the matching structure builder. A payload without a recognized
-    ``"format"`` tag raises a clear :class:`ValueError`.
+    ``httk.core.load(path, raw=True)`` selects the reader by file type
+    (transparently decompressing ``.bz2`` / ``.gz`` files); the payload's
+    ``"format"`` tag then selects the matching structure builder. A payload
+    without a recognized ``"format"`` tag raises a clear :class:`ValueError`.
 
     For a CIF this expands the asymmetric unit into the full cell. Use
     :func:`load_asu_structure` instead to keep the asymmetric-unit form, which is both
     smaller and richer — it carries the space group, the Wyckoff assignment of every
     site, and the setting the file was written in.
     """
-    payload = load(path)
-    fmt = payload.get("format") if isinstance(payload, Mapping) else None
-    adapter = _STRUCTURE_ADAPTERS.get(fmt) if isinstance(fmt, str) else None
-    if adapter is None:
-        raise ValueError(
-            f"Cannot build a Structure from {path!r}: unrecognized payload format tag {fmt!r}. "
-            f"Known structure formats: {', '.join(sorted(_STRUCTURE_ADAPTERS))}."
-        )
-    return adapter(payload)
+    payload = load(path, raw=True)
+    try:
+        return structure_from_payload(payload)
+    except ValueError as exc:
+        raise ValueError(f"Cannot build a Structure from {path!r}: {exc}") from exc
 
 
 def load_asu_structure(path: str, **options: Any) -> Any:
@@ -222,7 +238,7 @@ def load_asu_structure(path: str, **options: Any) -> Any:
     """
     from .cif_structures import asu_structures_from_cif
 
-    payload = load(path)
+    payload = load(path, raw=True)
     fmt = payload.get("format") if isinstance(payload, Mapping) else None
     if fmt != "cif":
         raise ValueError(
@@ -233,6 +249,6 @@ def load_asu_structure(path: str, **options: Any) -> Any:
     if len(structures) != 1:
         raise ValueError(
             f"this CIF holds {len(structures)} structures; use "
-            f"httk.atomistic.asu_structures_from_cif(httk.core.load(path)) to get them all"
+            f"httk.atomistic.asu_structures_from_cif(httk.core.load(path, raw=True)) to get them all"
         )
     return structures[0]

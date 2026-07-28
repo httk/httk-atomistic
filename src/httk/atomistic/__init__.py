@@ -76,7 +76,12 @@ from .supercell import (
 from .symmetry_entries import setting_definitions, symmetry_properties
 from .unitcell_structure_backend import UnitcellStructureBackend
 from .unitcell_structure_view import UnitcellStructureView
-from .vasp_structures import load_asu_structure, load_structure, structure_from_poscar
+from .vasp_structures import (
+    load_asu_structure,
+    load_structure,
+    structure_from_payload,
+    structure_from_poscar,
+)
 from .wyckoff import WyckoffBranch, WyckoffPosition, wyckoff_positions
 
 StructureBackend.backend_classes = [
@@ -162,6 +167,7 @@ __all__ = [
     "atomic_number",
     "symbol_of",
     "structure_from_poscar",
+    "structure_from_payload",
     "load_structure",
     "load_asu_structure",
     "asu_structure_from_cif",
