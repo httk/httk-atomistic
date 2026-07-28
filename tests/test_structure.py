@@ -67,7 +67,9 @@ def test_species_valid_and_create_from_dict() -> None:
     assert species.is_single_element
     assert Species.create(species) is species
 
-    from_dict = Species.create({"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]})
+    from_dict = Species.create(
+        {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}
+    )
     assert from_dict == species
     assert from_dict.chemical_symbols == ("Na",)
     assert from_dict.concentration == (1.0,)
@@ -79,7 +81,9 @@ def test_species_validation_errors() -> None:
     with pytest.raises(ValueError):
         Species(name="bad", chemical_symbols=("Zz",), concentration=(1.0,))
     with pytest.raises(ValueError):
-        Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,), attached=("H",))
+        Species(
+            name="Na", chemical_symbols=("Na",), concentration=(1.0,), attached=("H",)
+        )
     with pytest.raises(ValueError):
         Species(
             name="Na",
@@ -89,14 +93,18 @@ def test_species_validation_errors() -> None:
             nattached=(1,),
         )
     with pytest.raises(ValueError):
-        Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,), mass=(1.0, 2.0))
+        Species(
+            name="Na", chemical_symbols=("Na",), concentration=(1.0,), mass=(1.0, 2.0)
+        )
 
 
 def test_species_is_single_element_cases() -> None:
     pure = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))
     assert pure.is_single_element
 
-    alloy = Species(name="Ti", chemical_symbols=("Ti", "vacancy"), concentration=(0.9, 0.1))
+    alloy = Species(
+        name="Ti", chemical_symbols=("Ti", "vacancy"), concentration=(0.9, 0.1)
+    )
     assert not alloy.is_single_element
 
     vacancy = Species(name="vac", chemical_symbols=("vacancy",), concentration=(1.0,))
@@ -118,12 +126,69 @@ def test_species_is_single_element_cases() -> None:
 def test_structure_normalizes_and_exposes_quartet() -> None:
     structure = nacl_structure()
     assert isinstance(structure.cell, Cell)
-    assert structure.cell.basis.to_floats() == [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
+    assert structure.cell.basis.to_floats() == [
+        [4.0, 0.0, 0.0],
+        [0.0, 4.0, 0.0],
+        [0.0, 0.0, 4.0],
+    ]
     assert isinstance(structure.sites, Sites)
-    assert structure.sites.reduced_coords.to_floats() == [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
+    assert structure.sites.reduced_coords.to_floats() == [
+        [0.0, 0.0, 0.0],
+        [0.5, 0.5, 0.5],
+    ]
     assert len(structure.sites) == 2
     assert all(isinstance(s, Species) for s in structure.species)
     assert structure.species_at_sites == ("Na", "Cl")
+
+
+def test_structure_accepts_mixed_bare_and_species_inputs() -> None:
+    structure = Structure(
+        cell=CUBIC,
+        sites=[
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.5],
+            [0.25, 0.25, 0.25],
+            [0.75, 0.75, 0.75],
+        ],
+        species=[Species("Pb", ("Pb",), (1.0,)), "Ti", 8],
+        species_at_sites=["Pb", "Ti", "O", "O"],
+    )
+    assert tuple(species.name for species in structure.species) == ("Pb", "Ti", "O")
+    assert structure.species_at_sites == ("Pb", "Ti", "O", "O")
+
+
+def test_structure_accepts_bare_symbol_species_inputs() -> None:
+    structure = Structure(
+        cell=CUBIC,
+        sites=[
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.5],
+            [0.25, 0.25, 0.25],
+            [0.75, 0.75, 0.75],
+            [0.1, 0.1, 0.1],
+        ],
+        species=["Pb", "Ti", "O"],
+        species_at_sites=["Pb", "Ti", "O", "O", "O"],
+    )
+    assert tuple(species.name for species in structure.species) == ("Pb", "Ti", "O")
+    assert structure.species_at_sites == ("Pb", "Ti", "O", "O", "O")
+
+
+def test_structure_accepts_atomic_number_species_inputs() -> None:
+    structure = Structure(
+        cell=CUBIC,
+        sites=[
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.5],
+            [0.25, 0.25, 0.25],
+            [0.75, 0.75, 0.75],
+            [0.1, 0.1, 0.1],
+        ],
+        species=[82, 22, 8],
+        species_at_sites=["Pb", "Ti", "O", "O", "O"],
+    )
+    assert tuple(species.name for species in structure.species) == ("Pb", "Ti", "O")
+    assert structure.species_at_sites == ("Pb", "Ti", "O", "O", "O")
 
 
 def test_structure_shape_and_name_validation() -> None:
@@ -132,21 +197,27 @@ def test_structure_shape_and_name_validation() -> None:
         Structure(
             cell=[[1.0, 0.0], [0.0, 1.0]],
             sites=[[0.0, 0.0, 0.0]],
-            species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
+            species=[
+                {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}
+            ],
             species_at_sites=["Na"],
         )
     with pytest.raises(ValueError):
         Structure(
             cell=CUBIC,
             sites=[[0.0, 0.0, 0.0]],
-            species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
+            species=[
+                {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}
+            ],
             species_at_sites=["Na", "Cl"],
         )
     with pytest.raises(ValueError):
         Structure(
             cell=CUBIC,
             sites=[[0.0, 0.0, 0.0]],
-            species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
+            species=[
+                {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}
+            ],
             species_at_sites=["Cl"],
         )
     with pytest.raises(ValueError):
@@ -185,15 +256,24 @@ def test_backend_create_dispatches_and_kind_overrides() -> None:
     primitive = StructureBackend.create(nacl_triple())
     assert isinstance(primitive, StructurePrimitive)
 
-    assert isinstance(StructureBackend.create(nacl_structure(), kind="unitcell"), UnitcellStructureBackend)
-    assert isinstance(StructureBackend.create(nacl_triple(), kind="primitive"), StructurePrimitive)
+    assert isinstance(
+        StructureBackend.create(nacl_structure(), kind="unitcell"),
+        UnitcellStructureBackend,
+    )
+    assert isinstance(
+        StructureBackend.create(nacl_triple(), kind="primitive"), StructurePrimitive
+    )
 
 
 def test_backend_create_raises_for_malformed_triple() -> None:
     with pytest.raises(TypeError):
-        StructureBackend.create([CUBIC, [[0.0, 0.0, 0.0]], [11, 17]])  # numbers/positions length mismatch
+        StructureBackend.create(
+            [CUBIC, [[0.0, 0.0, 0.0]], [11, 17]]
+        )  # numbers/positions length mismatch
     with pytest.raises(TypeError):
-        StructureBackend.create([[[1.0, 2.0]], [[0.0, 0.0, 0.0]], [1]])  # lattice not 3x3
+        StructureBackend.create(
+            [[[1.0, 2.0]], [[0.0, 0.0, 0.0]], [1]]
+        )  # lattice not 3x3
     with pytest.raises(TypeError):
         StructureBackend.create(12345)
     with pytest.raises(TypeError):
@@ -206,7 +286,11 @@ def test_backend_create_raises_for_malformed_triple() -> None:
 def test_simple_view_from_primitive_derives_species() -> None:
     view = UnitcellStructureView(nacl_triple())
     assert isinstance(view, Structure)
-    assert view.cell.basis.to_floats() == [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
+    assert view.cell.basis.to_floats() == [
+        [4.0, 0.0, 0.0],
+        [0.0, 4.0, 0.0],
+        [0.0, 0.0, 4.0],
+    ]
     assert view.species_at_sites == ("Na", "Cl")
     assert {s.name for s in view.species} == {"Na", "Cl"}
     assert all(s.is_single_element for s in view.species)
@@ -231,7 +315,13 @@ def test_primitive_view_raises_for_non_single_element_species() -> None:
     alloy = Structure(
         cell=CUBIC,
         sites=[[0.0, 0.0, 0.0]],
-        species=[{"name": "Ti", "chemical_symbols": ["Ti", "vacancy"], "concentration": [0.9, 0.1]}],
+        species=[
+            {
+                "name": "Ti",
+                "chemical_symbols": ["Ti", "vacancy"],
+                "concentration": [0.9, 0.1],
+            }
+        ],
         species_at_sites=["Ti"],
     )
     with pytest.raises(TypeError):
@@ -268,12 +358,18 @@ def test_unwrap_returns_native_raw_object() -> None:
 # --- OPTIMADE example fidelity ---
 
 
-def test_optimade_vacancy_and_attached_examples_survive_simple_but_not_primitive() -> None:
+def test_optimade_vacancy_and_attached_examples_survive_simple_but_not_primitive() -> (
+    None
+):
     structure = Structure(
         cell=CUBIC,
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         species=[
-            {"name": "Ti", "chemical_symbols": ["Ti", "vacancy"], "concentration": [0.9, 0.1]},
+            {
+                "name": "Ti",
+                "chemical_symbols": ["Ti", "vacancy"],
+                "concentration": [0.9, 0.1],
+            },
             {
                 "name": "CH3",
                 "chemical_symbols": ["C"],

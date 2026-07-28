@@ -19,14 +19,16 @@ class SpeciesClass(SpeciesBackend):
 
     # Cannot type annotate __new__ as `Self | None` for some reason
     def __new__(cls, obj: Any, **hints: Any) -> Any:
-        if not isinstance(obj, Species):
+        if isinstance(obj, bool):
+            raise ValueError(f"Species atomic number cannot be a bool: {obj!r}")
+        if not isinstance(obj, (Species, str, int)):
             return None
         if hints and hints.get("kind", "class") != "class":
             return None
         return super().__new__(cls)
 
-    def __init__(self, obj: Species, **hints: Any) -> None:
-        self._species = obj
+    def __init__(self, obj: Species | str | int, **hints: Any) -> None:
+        self._species = Species.create(obj)
 
     @property
     def name(self) -> str:

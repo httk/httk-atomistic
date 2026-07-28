@@ -5,7 +5,7 @@ Species definition for httk-atomistic, mirroring the OPTIMADE ``species`` entry.
 from dataclasses import dataclass
 from typing import Any
 
-from .elements import SYMBOLS
+from .elements import SYMBOLS, symbol_of
 
 _ELEMENTS: frozenset[str] = frozenset(SYMBOLS)
 _SPECIAL_SYMBOLS: frozenset[str] = frozenset({"X", "vacancy"})
@@ -67,12 +67,22 @@ class Species:
         return len(self.chemical_symbols) == 1 and self.chemical_symbols[0] in _ELEMENTS and self.attached is None
 
     @classmethod
-    def create(cls, obj: "Species | dict[str, Any]") -> "Species":
+    def create(cls, obj: "Species | dict[str, Any] | str | int") -> "Species":
         """
-        Return a Species from either an existing Species (returned unchanged) or an OPTIMADE species dict.
+        Return a Species from an existing Species, bare symbol or atomic number, or
+        OPTIMADE species dict.
+
+        A bare element symbol, ``"X"``, or ``"vacancy"`` denotes a fully occupied
+        single-symbol species. A bare atomic number denotes the corresponding element.
         """
         if isinstance(obj, Species):
             return obj
+        if isinstance(obj, bool):
+            raise ValueError(f"Species atomic number cannot be a bool: {obj!r}")
+        if isinstance(obj, int):
+            obj = symbol_of(obj)
+        if isinstance(obj, str):
+            return cls(name=obj, chemical_symbols=(obj,), concentration=(1.0,))
         attached = obj.get("attached")
         nattached = obj.get("nattached")
         mass = obj.get("mass")

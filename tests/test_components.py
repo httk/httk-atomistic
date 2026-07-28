@@ -4,8 +4,6 @@ import math
 import pytest
 from httk.core import SurdVector, unwrap
 
-F = fractions.Fraction
-
 from httk.atomistic import (
     Cell,
     CellBackend,
@@ -29,6 +27,8 @@ from httk.atomistic import (
     SpeciesPrimitiveView,
     Structure,
 )
+
+F = fractions.Fraction
 
 ORTHO = [[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 4.0]]
 # Hexagonal-ish cell: a = b in length, gamma = 120 degrees.
@@ -54,7 +54,11 @@ def test_cell_construction_and_validation() -> None:
 def test_cell_derived_quantities_orthorhombic() -> None:
     cell = Cell(ORTHO)
     # Orthorhombic from exact (rational) data: lengths, angles and volume are all exact.
-    assert cell.lengths == (SurdVector.create(2), SurdVector.create(3), SurdVector.create(4))
+    assert cell.lengths == (
+        SurdVector.create(2),
+        SurdVector.create(3),
+        SurdVector.create(4),
+    )
     assert cell.angles == (F(90), F(90), F(90))
     assert cell.volume == SurdVector.create(24)
 
@@ -62,7 +66,9 @@ def test_cell_derived_quantities_orthorhombic() -> None:
 def test_cell_derived_quantities_hexagonal() -> None:
     cell = Cell(HEX)
     alpha, beta, gamma = cell.angles
-    assert tuple(length.to_float() for length in cell.lengths) == pytest.approx((1.0, 1.0, 2.0), abs=TOL)
+    assert tuple(length.to_float() for length in cell.lengths) == pytest.approx(
+        (1.0, 1.0, 2.0), abs=TOL
+    )
     # alpha between b,c; beta between a,c; gamma between a,b (120 for hexagonal). The HEX cell is
     # built from an irrational float (sqrt(3)/2), so gamma/volume are deterministic approximations.
     assert float(alpha) == pytest.approx(90.0, abs=TOL)
@@ -101,7 +107,11 @@ def test_cell_views_class_and_primitive() -> None:
     # Class view from a raw matrix (primitive backend).
     class_view = CellClassView(ORTHO)
     assert isinstance(class_view, Cell)
-    assert class_view.basis.to_floats() == [[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 4.0]]
+    assert class_view.basis.to_floats() == [
+        [2.0, 0.0, 0.0],
+        [0.0, 3.0, 0.0],
+        [0.0, 0.0, 4.0],
+    ]
     assert class_view.volume == SurdVector.create(24)
 
     # Primitive view from a Cell (class backend).
@@ -132,7 +142,11 @@ def test_sites_construction_and_sequence_behavior() -> None:
     assert sites[1] == (0.5, 0.5, 0.5)
     assert list(sites) == [(0.0, 0.0, 0.0), (0.5, 0.5, 0.5), (0.25, 0.25, 0.25)]
     assert sites.reduced_coords[0] == (0.0, 0.0, 0.0)
-    assert sites.reduced_coords.to_floats() == [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [0.25, 0.25, 0.25]]
+    assert sites.reduced_coords.to_floats() == [
+        [0.0, 0.0, 0.0],
+        [0.5, 0.5, 0.5],
+        [0.25, 0.25, 0.25],
+    ]
     with pytest.raises(ValueError):
         Sites([[0.0, 0.0]])
 
@@ -166,16 +180,50 @@ def test_species_class_construction_and_dispatch() -> None:
     assert isinstance(SpeciesBackend.create(species), SpeciesClass)
     assert isinstance(SpeciesBackend.create(optimade), SpeciesPrimitive)
     assert isinstance(SpeciesBackend.create(species, kind="class"), SpeciesClass)
-    assert isinstance(SpeciesBackend.create(optimade, kind="primitive"), SpeciesPrimitive)
+    assert isinstance(
+        SpeciesBackend.create(optimade, kind="primitive"), SpeciesPrimitive
+    )
+    with pytest.raises(TypeError):
+        SpeciesBackend.create("Fe", kind="primitive")
+    with pytest.raises(TypeError):
+        SpeciesBackend.create(26, kind="primitive")
+
+
+def test_species_bare_symbol_and_atomic_number_inputs() -> None:
+    for value in ("Fe", "X", "vacancy", 1, 118):
+        symbol = value if isinstance(value, str) else ("H" if value == 1 else "Og")
+        expected = Species(
+            name=symbol, chemical_symbols=(symbol,), concentration=(1.0,)
+        )
+        assert Species.create(value) == expected
+        view = SpeciesClassView(value)
+        assert view.name == symbol
+        assert view.chemical_symbols == (symbol,)
+        assert view.concentration == (1.0,)
+
+
+def test_species_bare_input_validation() -> None:
+    with pytest.raises(ValueError, match="chemical symbol"):
+        Species.create("Zz")
+    with pytest.raises(ValueError, match="atomic number"):
+        Species.create(0)
+    with pytest.raises(ValueError, match="atomic number"):
+        Species.create(119)
+    with pytest.raises(ValueError, match="bool"):
+        Species.create(True)
+    with pytest.raises(ValueError, match="bool"):
+        SpeciesClassView(False)
 
 
 def test_species_backend_raises_for_malformed() -> None:
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         SpeciesBackend.create(12345)
     with pytest.raises(TypeError):
         SpeciesBackend.create({"name": "Na"})  # missing required keys
     with pytest.raises(TypeError):
-        SpeciesBackend.create({"name": 5, "chemical_symbols": ["Na"], "concentration": [1.0]})
+        SpeciesBackend.create(
+            {"name": 5, "chemical_symbols": ["Na"], "concentration": [1.0]}
+        )
 
 
 def test_species_dict_to_class_roundtrip_with_optional_fields() -> None:
@@ -240,7 +288,9 @@ def test_species_view_rewrap_and_unwrap() -> None:
 def test_species_class_view_applies_full_validation() -> None:
     # A dict that passes the conservative primitive check but is not a valid Species.
     bad = {"name": "bad", "chemical_symbols": ["Zz"], "concentration": [1.0]}
-    assert isinstance(SpeciesBackend.create(bad), SpeciesPrimitive)  # conservative check passes
+    assert isinstance(
+        SpeciesBackend.create(bad), SpeciesPrimitive
+    )  # conservative check passes
     with pytest.raises(ValueError):
         SpeciesClassView(bad)  # full validation rejects the unknown symbol
 
@@ -262,7 +312,9 @@ def test_cell_params_backend_constructs_standard_matrix() -> None:
 
 def test_cell_params_dispatch_and_kind_overrides() -> None:
     assert isinstance(CellBackend.create([1.0, 2.0, 3.0, 80.0, 85.0, 95.0]), CellParams)
-    assert isinstance(CellBackend.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), CellPrimitive)
+    assert isinstance(
+        CellBackend.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), CellPrimitive
+    )
     with pytest.raises(TypeError):
         CellBackend.create((1.0, 2.0, 3.0, 80.0, 85.0, 95.0), kind="primitive")
     with pytest.raises(TypeError):
@@ -299,7 +351,9 @@ def test_cell_params_view_of_rotated_matrix_is_lossy_but_faithful() -> None:
     assert [length.to_float() for length in reconstructed.lengths] == pytest.approx(
         [length.to_float() for length in rotated.lengths]
     )
-    assert [float(angle) for angle in reconstructed.angles] == pytest.approx([float(angle) for angle in rotated.angles])
+    assert [float(angle) for angle in reconstructed.angles] == pytest.approx(
+        [float(angle) for angle in rotated.angles]
+    )
 
 
 def test_structure_from_cell_params() -> None:
@@ -311,4 +365,6 @@ def test_structure_from_cell_params() -> None:
     )
     assert isinstance(structure.cell, Cell)
     assert structure.cell.volume == SurdVector.create(64)
-    assert tuple(CellParamsView(structure.cell)) == pytest.approx((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))
+    assert tuple(CellParamsView(structure.cell)) == pytest.approx(
+        (4.0, 4.0, 4.0, 90.0, 90.0, 90.0)
+    )
