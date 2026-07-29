@@ -163,6 +163,7 @@ def test_the_setting_is_found_even_when_the_file_declares_nothing(tmp_path: Path
     assert cif_setting(load(str(path), raw=True)["blocks"][0]).setting == "15:c1"
 
 
+@pytest.mark.extended
 def test_an_unidentifiable_setting_is_refused_rather_than_guessed(tmp_path: Path) -> None:
     """A transform cannot be derived; infinitely many are valid and they differ."""
     path = _rocksalt_cif(tmp_path)

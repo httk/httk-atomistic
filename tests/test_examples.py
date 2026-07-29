@@ -37,6 +37,7 @@ EXAMPLE_TIMEOUT_SECONDS = 120
 
 NO_AUTORUN_SENTINEL = "HTTK_EXAMPLE_NO_AUTORUN"
 REQUIRES_SENTINEL = "HTTK_EXAMPLE_REQUIRES"
+_EXTENDED_EXAMPLES = {"build_a_supercell.py"}
 
 
 def discover_examples() -> list[Path]:
@@ -70,12 +71,21 @@ def _example_id(path: Path) -> str:
     return path.relative_to(EXAMPLES_DIR).as_posix()
 
 
+def _example_params() -> list[object]:
+    return [
+        pytest.param(example, marks=pytest.mark.extended)
+        if _example_id(example) in _EXTENDED_EXAMPLES
+        else example
+        for example in discover_examples()
+    ]
+
+
 def test_examples_are_discovered() -> None:
     """Guard against a silently empty parametrization (drop in a repo with no examples)."""
     assert discover_examples(), f"no example scripts found under {EXAMPLES_DIR}"
 
 
-@pytest.mark.parametrize("example", discover_examples(), ids=_example_id)
+@pytest.mark.parametrize("example", _example_params(), ids=_example_id)
 def test_example_runs_cleanly(example: Path, tmp_path: Path) -> None:
     constants = _module_constants(example.read_text(encoding="utf-8"))
 

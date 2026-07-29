@@ -185,6 +185,7 @@ def test_cubic_search_finds_the_exact_two_by_two_by_two_cell() -> None:
     assert isinstance(result.cubicity_score, SurdScalar)
 
 
+@pytest.mark.extended
 def test_shape_search_uses_the_metric_not_the_cartesian_orientation() -> None:
     identity = _single_site([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
     rotated = _single_site([[F(3, 5), F(-4, 5), 0], [F(4, 5), F(3, 5), 0], [0, 0, 1]])
@@ -195,6 +196,7 @@ def test_shape_search_uses_the_metric_not_the_cartesian_orientation() -> None:
     )
 
 
+@pytest.mark.extended
 def test_orthogonal_search_recovers_the_tutorial_cells_exact_rectangle() -> None:
     structure = _single_site(
         [
@@ -211,6 +213,7 @@ def test_orthogonal_search_recovers_the_tutorial_cells_exact_rectangle() -> None
     assert result.orthogonality_score == 0
 
 
+@pytest.mark.extended
 def test_orthogonal_tolerance_finds_the_smallest_exact_hexagonal_supercell() -> None:
     structure = _single_site(CellParams((1, 1, 3, 90, 90, 120)).basis)
 
@@ -222,6 +225,7 @@ def test_orthogonal_tolerance_finds_the_smallest_exact_hexagonal_supercell() -> 
     assert result.orthogonality_score.is_zero()
 
 
+@pytest.mark.extended
 def test_orthogonal_tolerance_stops_at_an_already_orthogonal_cell() -> None:
     structure = _single_site(CellParams((2, 2, 3, 90, 90, 90)).basis)
 
@@ -232,6 +236,7 @@ def test_orthogonal_tolerance_stops_at_an_already_orthogonal_cell() -> None:
     assert result.orthogonality_score.is_zero()
 
 
+@pytest.mark.extended
 def test_cubic_tolerance_finds_the_smallest_exact_tetragonal_supercell() -> None:
     structure = _single_site(CellParams((2, 2, 1, 90, 90, 90)).basis)
 
@@ -243,6 +248,7 @@ def test_cubic_tolerance_finds_the_smallest_exact_tetragonal_supercell() -> None
     assert result.cubicity_score.is_zero()
 
 
+@pytest.mark.extended
 def test_tolerance_failure_reports_the_best_exact_score() -> None:
     structure = _single_site(CellParams((2, 2, 1, 90, 90, 90)).basis)
 
@@ -269,6 +275,7 @@ def test_negative_tolerance_is_rejected() -> None:
         orthogonal_supercell(_binary_structure(), tolerance=-1)
 
 
+@pytest.mark.extended
 def test_tolerance_float_uses_its_decimal_spelling() -> None:
     structure = _single_site(CellParams((2, 2, 3, 90, 90, 90)).basis)
 
@@ -277,6 +284,7 @@ def test_tolerance_float_uses_its_decimal_spelling() -> None:
     assert result.multiplier == 1
 
 
+@pytest.mark.extended
 def test_tolerance_mode_respects_max_sites() -> None:
     structure = _single_site(CellParams((2, 2, 1, 90, 90, 90)).basis)
 
