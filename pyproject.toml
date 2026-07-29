@@ -80,6 +80,7 @@ namespaces = true
 # rather than through a "data/*" glob on the parent.
 "httk.atomistic.data" = ["*.json.gz", "LICENSE", "README.md"]
 "httk.registry.atomistic" = ["py.typed"]
+"httk.registry.entries.atomistic" = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

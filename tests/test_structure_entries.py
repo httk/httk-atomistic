@@ -5,6 +5,7 @@ from httk.core import PropertyDefinition
 
 from httk.atomistic import Structure, StructureEntryProvider
 from httk.atomistic.species import Species
+from httk.atomistic.structure_record import StructureRecord
 
 
 def _nacl_like() -> Structure:
@@ -179,13 +180,14 @@ def test_unknown_property_name_rejected() -> None:
 
 
 def test_registration_discovered_via_httk_core() -> None:
-    # Importing httk.core discovers httk.registry.* packages, registering the
-    # provider factory (httk.registry.atomistic).
+    # Importing httk.core discovers the adapter and entry registration tiers.
     import httk.core
     from httk.core._plugins import resolve_callable
-    from httk.core.register import entry_providers
+    from httk.core.register import entry_providers, known_format_adapters, resolve_entry_record
 
     assert "atomistic-structures" in httk.core.known_entry_providers()
+    assert known_format_adapters()["cif"] == "atomistic-structures"
+    assert resolve_entry_record("atomistic-structure-record") is StructureRecord
     factory = resolve_callable(entry_providers.require("atomistic-structures").handler)
     provider = factory({"s-1": _nacl_like()})
     assert isinstance(provider, StructureEntryProvider)

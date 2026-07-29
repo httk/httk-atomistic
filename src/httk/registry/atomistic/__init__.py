@@ -1,9 +1,6 @@
-from httk.core.register import register_entry_provider, register_format_adapter
+"""Register format adapters implemented by :mod:`httk.atomistic`."""
 
-register_entry_provider(
-    name="atomistic-structures",
-    factory="httk.atomistic.structure_entries:StructureEntryProvider",
-)
+from httk.core import register_format_adapter
 
 register_format_adapter(
     name="atomistic-structures",
