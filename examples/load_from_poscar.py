@@ -23,7 +23,7 @@ understands the shape of the mapping. That is what keeps parsing (*httk-io*) and
 the domain model (*httk-atomistic*) decoupled: neither distribution depends on
 the other, and the neutral mapping is the whole contract between them.
 `load_structure` does need *httk-io* installed at run time, though — not to
-import it, but because importing `httk.core` walks the `httk.handlers` namespace
+import it, but because importing `httk.core` walks the `httk.registry` namespace
 package, and that is where *httk-io* registers the POSCAR reader for the
 `POSCAR`/`CONTCAR` filenames.
 

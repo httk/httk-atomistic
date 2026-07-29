@@ -179,8 +179,8 @@ def test_unknown_property_name_rejected() -> None:
 
 
 def test_registration_discovered_via_httk_core() -> None:
-    # Importing httk.core discovers httk.handlers.* packages, registering the
-    # provider factory (httk.handlers.atomistic).
+    # Importing httk.core discovers httk.registry.* packages, registering the
+    # provider factory (httk.registry.atomistic).
     import httk.core
     from httk.core._plugins import resolve_callable
     from httk.core.register import entry_providers

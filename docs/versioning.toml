@@ -2,7 +2,7 @@
 slug = "httk-atomistic"
 repository-url = "https://github.com/httk/httk-atomistic"
 main-branch = "main"
-import-roots = ["httk/atomistic", "httk/handlers"]
+import-roots = ["httk/atomistic", "httk/registry"]
 
 [[internal-dependency]]
 distribution = "httk-core"

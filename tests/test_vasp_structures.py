@@ -118,7 +118,7 @@ def test_core_load_adapts_poscar_and_raw_keeps_payload(tmp_path: Path) -> None:
 
 
 def test_atomistic_handler_reload_is_idempotent() -> None:
-    handler = importlib.import_module("httk.handlers.atomistic")
+    handler = importlib.import_module("httk.registry.atomistic")
     importlib.reload(handler)
 
 
