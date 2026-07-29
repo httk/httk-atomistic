@@ -6,6 +6,8 @@ OPTIMADE provider, the numeric layer, and everything else follow without changes
 
 The expansion is lazy. Building an ASUStructure, inspecting its space group, or writing it
 back out never generates the cell.
+For ``UnitcellStructureView(asu)``, expansion is deferred until the sites or per-site species
+assignment are read; cell, species, and space-group access never expands it.
 """
 
 from typing import Any

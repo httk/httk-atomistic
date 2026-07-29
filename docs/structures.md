@@ -102,8 +102,10 @@ an interpretation.
 - A `Structure` is dispatched to `UnitcellStructureBackend` and a length-3 triple to
   `StructurePrimitive`. A malformed triple raises `TypeError` from `create`.
   Pass `kind="unitcell"` or `kind="primitive"` to force an interpretation.
-- `UnitcellStructureView` and `StructurePrimitiveView` are eager: they build their
-  full presentation when constructed. The same holds for the component views. The
+- `UnitcellStructureView` and the `*ClassView` views are lazy per component: each backend
+  accessor is normalized on first access. `StructurePrimitiveView`, `CellParamsView`, and
+  the `*PrimitiveView` payload views remain eager because they build tuple/dict payloads;
+  `SpeciesClassView` remains eager so `Species` validation happens at construction. The
   `*ClassView` and `*PrimitiveView` immutable-subclass views are genuine instances of their
   class (a `Cell`, a tuple, ...); `SpeciesPrimitiveView` is a genuine — but detached and
   mutable — OPTIMADE `dict`.
@@ -235,7 +237,7 @@ assert isinstance(cartesian, numpy.ndarray) and cartesian.shape == (2, 3)
 assert numeric.exact == structure
 ```
 
-The same presentation is also available as eager views over any backend — `CellNumericView`,
+The same presentation is also available as views over any backend — `CellNumericView`,
 `SitesNumericView`, `NumericUnitcellStructureView` — mirroring the `*ClassView` pattern (rewrap-idempotent,
 `unwrap` returns the raw original), and likewise requiring numpy.
 

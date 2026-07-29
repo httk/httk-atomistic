@@ -23,6 +23,40 @@ if TYPE_CHECKING:
     from .standardization import ConventionalCellResult
 
 
+def _norm_cell(cell: CellLike) -> Cell:
+    return cell if isinstance(cell, Cell) else CellClassView(cell)
+
+
+def _norm_sites(sites: SitesLike) -> Sites:
+    return sites if isinstance(sites, Sites) else SitesClassView(sites)
+
+
+def _norm_species(species: Sequence[SpeciesLike]) -> tuple[Species, ...]:
+    return tuple(s if isinstance(s, Species) else SpeciesClassView(s) for s in species)
+
+
+def _norm_species_at_sites(species_at_sites: Sequence[str]) -> tuple[str, ...]:
+    return tuple(str(name) for name in species_at_sites)
+
+
+def _check_species_names(species: Sequence[Species]) -> None:
+    names = [s.name for s in species]
+    if len(names) != len(set(names)):
+        raise ValueError("Structure species names must be unique")
+
+
+def _check_species_at_sites(species_at_sites: Sequence[str], species: Sequence[Species]) -> None:
+    known = {s.name for s in species}
+    for name in species_at_sites:
+        if name not in known:
+            raise ValueError(f"Structure species_at_sites references unknown species name: {name!r}")
+
+
+def _check_sites_length(sites: Sites, species_at_sites: Sequence[str]) -> None:
+    if len(species_at_sites) != len(sites):
+        raise ValueError("Structure species_at_sites must have the same length as sites")
+
+
 class Structure:
     """
     A crystal structure in the Unitcell representation.
@@ -55,21 +89,13 @@ class Structure:
         species: Sequence[SpeciesLike],
         species_at_sites: Sequence[str],
     ) -> None:
-        norm_cell = cell if isinstance(cell, Cell) else CellClassView(cell)
-        norm_sites = sites if isinstance(sites, Sites) else SitesClassView(sites)
-        norm_species = tuple(s if isinstance(s, Species) else SpeciesClassView(s) for s in species)
-        norm_species_at_sites = tuple(str(name) for name in species_at_sites)
-
-        if len(norm_species_at_sites) != len(norm_sites):
-            raise ValueError("Structure species_at_sites must have the same length as sites")
-
-        names = [s.name for s in norm_species]
-        if len(names) != len(set(names)):
-            raise ValueError("Structure species names must be unique")
-        known = set(names)
-        for name in norm_species_at_sites:
-            if name not in known:
-                raise ValueError(f"Structure species_at_sites references unknown species name: {name!r}")
+        norm_cell = _norm_cell(cell)
+        norm_sites = _norm_sites(sites)
+        norm_species = _norm_species(species)
+        norm_species_at_sites = _norm_species_at_sites(species_at_sites)
+        _check_sites_length(norm_sites, norm_species_at_sites)
+        _check_species_names(norm_species)
+        _check_species_at_sites(norm_species_at_sites, norm_species)
 
         self._cell = norm_cell
         self._sites = norm_sites

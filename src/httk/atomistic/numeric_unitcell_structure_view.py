@@ -1,5 +1,6 @@
 """A plain-numpy presentation of a structure backend."""
 
+from functools import cached_property
 from typing import Any, Self
 
 from httk.core import NumericVector, to_numeric, unwrap
@@ -28,12 +29,11 @@ class NumericUnitcellStructureView(StructureView):
     ``httk-atomistic[numpy]`` extra) and raises :class:`ImportError` eagerly when it is unavailable.
     The exact object is always one hop away via :attr:`exact`.
 
-    This is a view, not a ``Structure`` subclass. Its exact ``Structure`` is built eagerly from
-    the backend quartet during construction.
+    This is a view, not a ``Structure`` subclass. Its exact ``Structure`` is built lazily on
+    first access to exact geometry.
     """
 
     _backend: StructureBackend
-    _exact: Structure
 
     def __new__(cls, obj: StructureLike, **hints: Any) -> Self:
         require_numpy()
@@ -41,12 +41,15 @@ class NumericUnitcellStructureView(StructureView):
             return obj
         backend = cls._prepare_backend(obj, hints)
         instance = super().__new__(cls)
-        instance._exact = Structure(backend.cell, backend.sites, backend.species, backend.species_at_sites)
         instance._backend = backend
         return instance
 
     def __init__(self, obj: StructureLike, **hints: Any) -> None:
         pass
+
+    @cached_property
+    def _exact(self) -> Structure:
+        return Structure(self._backend.cell, self._backend.sites, self._backend.species, self._backend.species_at_sites)
 
     @property
     def cell(self) -> NumericCell:

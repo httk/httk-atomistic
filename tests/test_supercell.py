@@ -107,16 +107,18 @@ def test_invalid_transformations_are_rejected(
 
 
 def test_a_singular_source_cell_is_rejected_clearly() -> None:
-    """Rejected at construction, so it can never reach a supercell in the first place.
+    """Lazy views accept bad geometry until an operation needs the basis.
 
-    `Cell` requires a non-degenerate basis, and `Structure` funnels every cell through
-    `Cell`, so the rejection happens at the point the bad geometry is written down rather
-    than at the operation that later trips over it. `build_supercell` keeps its own
-    nonsingular check as defence in depth for any future backend that does not go through
-    `Cell`.
+    The geometry is accepted when written down, then rejected at the first geometric access.
+    ``build_supercell`` keeps its own nonsingular check as defence in depth, although this
+    deferred cell validation runs first for this source.
     """
+    structure = _single_site([[1, 0, 0], [0, 1, 0], [1, 1, 0]])
+
     with pytest.raises(ValueError, match="non-degenerate"):
-        _single_site([[1, 0, 0], [0, 1, 0], [1, 1, 0]])
+        _ = structure.cell.basis
+    with pytest.raises(ValueError, match="non-degenerate"):
+        build_supercell(structure, [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
 
 def test_site_limit_is_checked_before_materialization() -> None:
