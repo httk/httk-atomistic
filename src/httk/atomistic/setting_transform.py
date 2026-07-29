@@ -14,8 +14,7 @@ structure's *own* setting::
 
 with the reverse ``f_std = (f_own - v) * inv(M).T()`` and cell basis rows transforming as
 ``B_own = inv(M).T() * B_std``. Applying it backwards produces a structurally valid but
-systematically wrong crystal, which is why :meth:`SettingTransform.for_hall_entry` is checked against
-the tabulated symmetry operations in the test suite rather than trusted.
+systematically wrong crystal.
 
 **Never solve for a transform.** A transform is *stored*, never re-derived by searching
 for one that maps one group onto another. Such a search is massively underdetermined — for

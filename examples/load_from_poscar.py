@@ -2,7 +2,7 @@
 
 Getting a structure off disk is the first thing most workflows do, and VASP's
 POSCAR/CONTCAR is the format a great many of them meet first. *httk-atomistic*
-gives you two entry points, and the split between them is deliberate:
+gives you two entry points:
 
 `load_structure(path)`
 : **The end-to-end convenience.** It calls `httk.core.load`, which picks a
@@ -25,9 +25,7 @@ the other, and the neutral mapping is the whole contract between them.
 `load_structure` does need *httk-io* installed at run time, though — not to
 import it, but because importing `httk.core` walks the `httk.handlers` namespace
 package, and that is where *httk-io* registers the POSCAR reader for the
-`POSCAR`/`CONTCAR` filenames. Hence the `HTTK_EXAMPLE_REQUIRES` declaration
-below, which tells this repository's example smoke test to skip this script when
-*httk-io* is not on the path.
+`POSCAR`/`CONTCAR` filenames.
 
 **The values stay exact.** The file's numbers are read as *strings* and turned
 into exact rationals, never into floats first, so a lattice row written as

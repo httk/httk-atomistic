@@ -38,10 +38,8 @@ class CellAPI(ABC):
     def precision(self) -> fractions.Fraction | None:
         """How precisely the basis was stated, as an absolute length, or ``None`` if unknown.
 
-        Deliberately concrete rather than abstract. A backend that knows its source's
-        precision overrides this; one that does not — a bare matrix of numbers with no
-        provenance — inherits ``None``, which is the honest answer and keeps every existing
-        backend, in this package or outside it, working unchanged.
+        A backend that knows its source's precision overrides this; one that does not — a
+        bare matrix of numbers with no provenance — inherits ``None``.
         """
         return None
 
@@ -49,10 +47,8 @@ class CellAPI(ABC):
     def periodicity(self) -> tuple[bool, bool, bool]:
         """Which of the three basis rows is a genuine lattice translation.
 
-        Concrete rather than abstract, for the same reason as :attr:`precision`: a backend
-        that knows its periodicity overrides this, and one that does not inherits
-        ``(True, True, True)``. That default is not a guess — a cell described by six
-        lattice parameters, or by a bare matrix with no further provenance, is a crystal,
-        which is what every cell in httk was before periodicity was recorded at all.
+        A backend that knows its periodicity overrides this; one that does not inherit
+        ``(True, True, True)``. A cell described only by six lattice parameters or a bare
+        matrix is interpreted as a fully periodic crystal.
         """
         return (True, True, True)

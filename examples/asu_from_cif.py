@@ -57,7 +57,7 @@ everything is exact again.
 So the two directions are not symmetric, and the example prints both:
 
 - **expansion is lossless**, and
-- **recognition is lossy by design** — it snaps a measured structure onto an
+- **recognition is lossy at the tolerance level** — it snaps a measured structure onto an
   idealised one.
 
 Run this file to see every step printed.

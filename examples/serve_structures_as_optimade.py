@@ -25,7 +25,7 @@ the standard OPTIMADE composition fields:
   makes this `["disorder"]`; a species with attached particles adds
   `"site_attachments"`; a fully ordered structure gets `[]`.
 
-**Where the derivation stops, on purpose.** The composition fields are only
+**Limits of derivation.** The composition fields are only
 meaningful when every species is a single, unattached element — there is no
 sensible integer count of Fe in a site that is half Fe and half Ni. So for a
 disordered structure the provider serves `null` for those derived fields rather
@@ -49,8 +49,7 @@ missing field at query time.
 The last section runs an actual query: `adapter_from_providers` wraps the
 provider for *httk-optimade*'s backend, and `execute_query` runs a parsed
 OPTIMADE filter against it. *httk-optimade* is an optional peer distribution,
-not a dependency, so this script declares `HTTK_EXAMPLE_REQUIRES` and is skipped
-by the example smoke test when it is not installed.
+not a dependency.
 """
 
 from httk.core import PropertyDefinition

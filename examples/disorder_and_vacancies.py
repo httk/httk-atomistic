@@ -32,8 +32,7 @@ chemical symbol), a tuple of `chemical_symbols`, and a matching tuple of
   length. This is how you record a methyl group, a hydroxyl, or bound water
   without inventing coordinates you do not have.
 
-**Which representations can carry this?** This is the practical point, and the
-answer is sharp. The Unitcell representation — a `Structure`, and the
+**Which representations can carry this?** The Unitcell representation — a `Structure`, and the
 `UnitcellStructureView` over any backend — carries all of it, because it stores
 the `Species` objects themselves. The OPTIMADE species dict (via
 `SpeciesPrimitiveView`) carries all of it too, because that is where the model
@@ -50,9 +49,9 @@ element symbol (so not `"X"` and not `"vacancy"`) with nothing attached. Test it
 before you reach for a symmetry library, a force field, or anything else that
 speaks in atomic numbers.
 
-The rule of thumb: **keep disordered structures in the Unitcell representation,
-and convert to primitive only at the boundary of a tool that genuinely cannot
-represent disorder** — where the `TypeError` is exactly the error you want.
+Keep disordered structures in the Unitcell representation, and convert to
+primitive only at the boundary of a tool that cannot represent disorder; a
+`TypeError` reports unsupported species at that boundary.
 """
 
 from httk.core import unwrap
@@ -125,7 +124,7 @@ def disorder_survives_the_simple_representation() -> None:
 
 
 def the_primitive_representation_refuses() -> None:
-    """A bare atomic number cannot mean '90% Ti', so the conversion fails loudly."""
+    """A bare atomic number cannot mean '90% Ti', so conversion raises TypeError."""
     print("Primitive representation (an spglib-style triple):")
     for label, species in (("partial vacancy", TI_WITH_VACANCY), ("attached particles", METHYL), ("alloy", FE_NI)):
         structure = Structure(

@@ -81,8 +81,7 @@ B_own = inv(M).T() * B_std          # cell basis rows
 ```
 
 Applying it backwards yields a structurally valid but systematically *wrong*
-crystal, so it is pinned in the test suite by exact set equality of symmetry
-operations across all 527 tabulated settings rather than trusted.
+crystal.
 
 `det M` is 1 for 520 of those settings and **3** for the seven
 rhombohedral-axes ones (IT numbers 146, 148, 155, 160, 161, 166, 167), where the

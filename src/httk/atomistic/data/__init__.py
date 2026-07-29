@@ -192,8 +192,7 @@ def setting_transform(hall_entry: str) -> dict[str, Any]:
     Under httk's row-vector convention that is ``f_own = f_std @ M.T + v``, with the
     reverse ``f_std = (f_own - v) @ inv(M).T`` and cell basis rows transforming as
     ``B_own = inv(M).T @ B_std``. Applying it backwards yields a structurally valid but
-    systematically wrong crystal, so it is verified against the tabulated symmetry
-    operations in the test suite rather than trusted.
+    systematically wrong crystal.
 
     ``M`` is unimodular for 520 of the 527 settings. The exceptions are the seven
     rhombohedral-axes settings (IT numbers 146, 148, 155, 160, 161, 166, 167), where

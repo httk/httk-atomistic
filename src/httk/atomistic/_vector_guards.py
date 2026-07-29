@@ -3,10 +3,10 @@ Shared vector-family acceptance guards and normalizers for the atomistic backend
 
 The cell/sites/structure backends accept an input if it can be built through the httk-core
 exact-vector family (:class:`~httk.core.FracVector` / :class:`~httk.core.SurdVector`) at the
-required shape. Acceptance is therefore "does ``SurdVector.create`` succeed and land on the right
-``dim``", replacing the ad-hoc ``_is_number``/``_is_3x3``/``_is_nx3``/``_is_params`` predicates. This
-uniformly admits :class:`~fractions.Fraction`, rational strings (``"1/3"``), ``FracVector``,
-``SurdVector``, and numpy arrays alongside the plain nested lists/tuples of numbers.
+required shape. Acceptance uses ``SurdVector.create`` and validates the resulting ``dim``.
+This uniformly admits :class:`~fractions.Fraction`, rational strings (``"1/3"``),
+``FracVector``, ``SurdVector``, and numpy arrays alongside plain nested lists or tuples of
+numbers.
 """
 
 import fractions
@@ -98,9 +98,9 @@ def to_periodicity(obj: Any) -> tuple[bool, bool, bool]:
     """Normalize a periodicity specification into exactly three booleans.
 
     One flag per basis row, saying whether that row is a genuine lattice translation.
-    ``None`` means fully periodic — the overwhelmingly common case, and the one every
-    cell built before periodicity existed meant. Unlike a stated precision there is no
-    "unknown" state: a cell you constructed has a periodicity you know.
+    ``None`` means fully periodic, the overwhelmingly common case. Unlike a stated
+    precision there is no "unknown" state: a cell you constructed has a periodicity you
+    know.
 
     Anything three-element and truthy-testable works, so ``(True, True, False)``,
     ``[1, 1, 0]`` and OPTIMADE's own ``dimension_types`` spelling all land the same way.

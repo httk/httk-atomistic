@@ -9,7 +9,7 @@ everything downstream — expansion, comparison, round-tripping — is exact aga
 The contract, stated once so the asymmetry is not a surprise:
 
 * Expansion (:meth:`~httk.atomistic.ASUStructure.expand_sites`) is **lossless**.
-* Recognition is **lossy at the tolerance level, by design**: it snaps a measured structure
+* Recognition is **lossy at the tolerance level**: it snaps a measured structure
   onto an idealised symmetric one.
 * Therefore ``expand -> recognize -> expand`` is idempotent, while
   ``recognize -> expand`` is not the identity on the input coordinates and must not be
@@ -73,10 +73,9 @@ def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_T
     the structure's own ``cartesian_precision()``.
 
     The value is capped so that it can never reach half the smallest distance between two
-    sites, which is what would let genuinely distinct atoms be merged. That is the honest
-    role for the minimum separation: bounding a tolerance from above, not — as the code this
-    replaces did — being folded into the precision itself, where two accidentally-close
-    atoms would make a structure look far more precisely stated than it is.
+    sites, which is what would let genuinely distinct atoms be merged. Minimum separation
+    bounds a tolerance from above; treating it as precision could make a structure with
+    accidentally close atoms look far more precisely stated than it is.
     """
     from .unitcell_structure_view import UnitcellStructureView
 

@@ -2,8 +2,8 @@
 
 Not everything worth describing is a crystal. A slab is periodic in two directions, a
 nanowire in one, a molecule in none. A {py:class}`~httk.atomistic.Cell` records which of its
-three directions actually repeat, so httk can represent all of them — and can refuse, loudly,
-the operations that only make sense for a crystal.
+three directions actually repeat, so httk can represent all of them and reject operations
+that only make sense for a crystal.
 
 ```python
 from httk.atomistic import Cell, Structure
@@ -16,8 +16,7 @@ slab.periodicity            # (True, True, False)
 slab.nperiodic_dimensions   # 2
 ```
 
-The default is `(True, True, True)`. Every structure written before this existed is a crystal,
-and still is.
+The default is `(True, True, True)`, representing a fully periodic crystal.
 
 ## The basis is a frame, not a box
 
@@ -125,8 +124,8 @@ ValueError: recognize_asu requires a fully 3D-periodic structure, but this one i
 in 2 of 3 directions ((True, True, False)). ...
 ```
 
-The refusal is the feature. Without it the failures are silent: an orbit generated across a
-non-periodic direction quietly *deletes* atoms, and a distance folded across one makes an
+Rejecting these operations prevents silent failures: an orbit generated across a
+non-periodic direction could *delete* atoms, and a distance folded across one could make an
 unsymmetric structure pass as symmetric.
 
 Everything else keeps working. `lengths`, `angles`, `metric()` and `cartesian_sites()` are
@@ -177,8 +176,7 @@ structure's own periodicity. `dimension_types` is ordered by lattice vector, exa
 /v1/structures?filter=nperiodic_dimensions<=2
 ```
 
-which is OPTIMADE's own documented example, and which used to return nothing at all because
-every httk structure claimed to be a 3D crystal.
+which is OPTIMADE's own documented example.
 
 The space-group properties come out `null` for anything that is not a 3D crystal, which is
 what OPTIMADE requires. That is not enforced separately — it falls out, because symmetry is

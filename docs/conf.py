@@ -121,25 +121,18 @@ nitpick_ignore = [
     ("py:class", "typing.Optional"),
     ("py:class", "typing.Union"),
     ("py:class", "Ellipsis"),
-    # numpy is an optional dependency surfaced by the numeric layer; this is the sanctioned
-    # targeted entry for that external type (mirroring httk-core's conf.py).
+    # numpy is an optional dependency surfaced by the numeric layer.
     ("py:class", "numpy.ndarray"),
-    # ase is an optional dependency surfaced by the compat layer; the same sanctioned
-    # targeted-entry treatment applies to its Atoms type.
+    # ase is an optional dependency surfaced by the compat layer.
     ("py:class", "ase.Atoms"),
     ("py:obj", "ase.Atoms"),
 ]
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True
 
-# The real cross-project references to httk-core objects (e.g. httk.core.Backend,
-# httk.core.View used as base classes) are resolved structurally via the httk-core
-# intersphinx inventory above. The remaining "autoapi.python_import_resolution"
-# notice is only AutoAPI's static parser being unable to follow the httk.core
-# import: httk.core lives in a separate distribution that shares the PEP 420 "httk"
-# namespace, so it is not among the source trees AutoAPI parses here. There is no
-# source-level remedy (subclassing the httk-core classes is the intended design),
-# so this specific subtype is suppressed while all reference checking stays strict.
+# Cross-project references to httk-core objects resolve through intersphinx.
+# AutoAPI cannot statically follow httk.core because it is a separate distribution
+# sharing the PEP 420 "httk" namespace, so suppress that warning subtype.
 suppress_warnings = ["myst.xref_missing", "autoapi.python_import_resolution"]
 
 def skip_member(app, what, name, obj, skip, options):

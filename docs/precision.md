@@ -104,9 +104,9 @@ differ by twice their precision, so anything tighter would reject data that is i
 consistent — capped so that it can never reach half the closest approach between two sites,
 which is what would let genuinely distinct atoms merge.
 
-As a calibration: coordinates written to four decimals in a 5 Å cell derive exactly `1e-3`,
-which is the constant this replaced. The old default was a reasonable guess for typical
-data; it simply could not adapt to data that was not typical.
+As a calibration, coordinates written to four decimals in a 5 Å cell derive exactly `1e-3`,
+matching the fallback used when precision is unknown. Recorded precision lets other data
+derive an appropriate value.
 
 ### Why it matters
 
@@ -119,17 +119,15 @@ space group 15 (`0, y, 1/4`), rounded to `0.001 0.333 0.251` — 0.005 Å off in
 | fixed `1e-3` | misses the special position, lands on the general position `8f`, generates **8 atoms** |
 | derived `0.014 Å` | recognised as `4e`, generates **4 atoms** |
 
-A structure with twice the correct number of atoms, produced silently. The file said how
-good it was; nothing was listening.
+Using the recorded precision avoids silently producing a structure with twice the correct
+number of atoms in this case.
 
 ```{admonition} Minimum separation is a cap, not a precision
 :class: important
 
-An earlier implementation folded half the smallest interatomic separation *into* the
-precision, taking whichever of the two was finer. That is right for choosing a grid
-spacing, which is what it was for, and wrong as a statement about data: two accidentally
-close atoms made a structure look far more precisely stated than it was. It now bounds a
-derived tolerance from above, which is the role it is actually right for.
+The minimum separation bounds a derived tolerance from above. Treating it as part of the
+recorded precision would be incorrect: two accidentally close atoms would make a structure
+look far more precisely stated than it is.
 ```
 
 ## Serving it
