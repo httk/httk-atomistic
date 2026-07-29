@@ -3,11 +3,12 @@
 import fractions
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated, Any, NoReturn, cast
+from typing import TYPE_CHECKING, Annotated, cast
 
 import httk.core.storage_markers
 from httk.core import FracVector, SurdScalar, SurdVector
 
+from ._vector_guards import to_precision
 from .species import Species
 
 if TYPE_CHECKING:
@@ -15,53 +16,22 @@ if TYPE_CHECKING:
     from .structure_like import StructureLike
 
 
-class _FrozenList(list[bool]):
-    """A list-shaped storage value that rejects every mutation."""
-
-    def _reject(self, *args: Any, **kwargs: Any) -> NoReturn:
-        raise TypeError("StructureRecord.periodicity is immutable")
-
-    def __setitem__(self, key: Any, value: Any) -> NoReturn:
-        self._reject()
-
-    def __delitem__(self, key: Any) -> NoReturn:
-        self._reject()
-
-    def append(self, value: bool) -> NoReturn:
-        self._reject()
-
-    def clear(self) -> NoReturn:
-        self._reject()
-
-    def extend(self, values: Any) -> NoReturn:
-        self._reject()
-
-    def insert(self, index: Any, value: bool) -> NoReturn:
-        self._reject()
-
-    def pop(self, index: Any = -1) -> NoReturn:
-        self._reject()
-
-    def remove(self, value: bool) -> NoReturn:
-        self._reject()
-
-    def reverse(self) -> NoReturn:
-        self._reject()
-
-    def sort(self, *args: Any, **kwargs: Any) -> NoReturn:
-        self._reject()
-
-    def __iadd__(self, values: Any) -> NoReturn:  # type: ignore[misc]
-        self._reject()
-
-    def __imul__(self, value: Any) -> NoReturn:  # type: ignore[misc]
-        self._reject()
-
-
 def _extract_surd_scalar(vector: SurdVector, index: tuple[int, int]) -> SurdScalar:
     """Extract one exact scalar through SurdVector's public coefficient API."""
     components = {radicand: vector.coefficient(radicand)[index].to_fraction() for radicand in vector.radicands}
     return cast(SurdScalar, SurdVector.from_radicand_map(components))
+
+
+def _basis_vector(basis: tuple[SurdScalar, ...]) -> SurdVector:
+    """Reconstruct the 3x3 basis from the record's row-major scalar values."""
+    radicands = sorted({radicand for value in basis for radicand in value.radicands})
+    components = {
+        radicand: [
+            [basis[3 * row + column].coefficient(radicand).to_fraction() for column in range(3)] for row in range(3)
+        ]
+        for radicand in radicands
+    }
+    return SurdVector.from_radicand_map(components)
 
 
 @dataclass(frozen=True)
@@ -169,17 +139,15 @@ class StructureRecord:
     round-trip at IEEE-double fidelity, with the SQL layer's documented caveat that ``-0.0``
     may return as ``+0.0``.
 
-    ``periodicity`` is annotated as a list because the storage schema supports homogeneous
-    variable-length sequences, not fixed-length tuples. It is copied and validated here so
-    callers cannot mutate the input list through the record. Construction also builds and
-    discards the domain ``Structure`` once, so invalid domain combinations cannot exist.
+    Construction validates the component and cross-component invariants directly without
+    building and discarding a domain ``Structure``.
     """
 
     basis: tuple[SurdScalar, ...]
     reduced_coords: Annotated[FracVector, httk.core.storage_markers.Shape(0, 3)]
     species: tuple[SpeciesRecord, ...]
     species_at_sites: tuple[str, ...]
-    periodicity: list[bool]
+    periodicity: tuple[bool, ...]
     basis_precision: fractions.Fraction | None
     coordinate_precision: fractions.Fraction | None
 
@@ -187,21 +155,47 @@ class StructureRecord:
         basis = tuple(self.basis)
         if len(basis) != 9 or not all(isinstance(value, SurdScalar) for value in basis):
             raise ValueError("StructureRecord basis must contain exactly 9 SurdScalar values")
+        basis_vector = _basis_vector(basis)
+        if basis_vector.dim != (3, 3):
+            raise ValueError("StructureRecord basis must be a 3x3 vector-like")
         if not isinstance(self.reduced_coords, FracVector):
             raise TypeError("StructureRecord reduced_coords must be a FracVector")
+        if self.reduced_coords.dim != () and not (
+            len(self.reduced_coords.dim) == 2 and self.reduced_coords.dim[1] == 3
+        ):
+            raise ValueError("Sites reduced_coords must be an Nx3 vector-like")
         species = tuple(self.species)
         if not all(isinstance(value, SpeciesRecord) for value in species):
             raise TypeError("StructureRecord species must contain SpeciesRecord values")
         species_at_sites = tuple(self.species_at_sites)
-        periodicity = list(self.periodicity)
+        if not all(isinstance(value, str) for value in species_at_sites):
+            raise TypeError("StructureRecord species_at_sites must contain string values")
+        periodicity = tuple(self.periodicity)
         if len(periodicity) != 3 or not all(isinstance(value, bool) for value in periodicity):
             raise ValueError("StructureRecord periodicity must contain exactly 3 bool values")
+        basis_precision = to_precision(self.basis_precision)
+        coordinate_precision = to_precision(self.coordinate_precision)
+        from .cell import Cell
+        from .sites import Sites
+
+        Cell(basis_vector, precision=basis_precision, periodicity=periodicity)
+        sites = Sites(self.reduced_coords, precision=coordinate_precision)
+        if len(species_at_sites) != len(sites):
+            raise ValueError("Structure species_at_sites must have the same length as sites")
+        names = [value.name for value in species]
+        if len(names) != len(set(names)):
+            raise ValueError("Structure species names must be unique")
+        known = set(names)
+        for name in species_at_sites:
+            if name not in known:
+                raise ValueError(f"Structure species_at_sites references unknown species name: {name!r}")
         object.__setattr__(self, "basis", basis)
         object.__setattr__(self, "reduced_coords", FracVector.use(self.reduced_coords))
         object.__setattr__(self, "species", species)
         object.__setattr__(self, "species_at_sites", species_at_sites)
-        object.__setattr__(self, "periodicity", _FrozenList(periodicity))
-        self.to_structure()
+        object.__setattr__(self, "periodicity", periodicity)
+        object.__setattr__(self, "basis_precision", basis_precision)
+        object.__setattr__(self, "coordinate_precision", coordinate_precision)
 
     @classmethod
     def from_structure(cls, structure: "StructureLike") -> "StructureRecord":
@@ -216,7 +210,7 @@ class StructureRecord:
             reduced_coords=canonical.sites.reduced_coords,
             species=tuple(SpeciesRecord.from_species(value) for value in canonical.species),
             species_at_sites=canonical.species_at_sites,
-            periodicity=list(canonical.periodicity),
+            periodicity=canonical.periodicity,
             basis_precision=canonical.basis_precision,
             coordinate_precision=canonical.coordinate_precision,
         )
@@ -227,15 +221,7 @@ class StructureRecord:
         from .sites import Sites
         from .structure import Structure
 
-        radicands = sorted({radicand for value in self.basis for radicand in value.radicands})
-        components = {
-            radicand: [
-                [self.basis[3 * row + column].coefficient(radicand).to_fraction() for column in range(3)]
-                for row in range(3)
-            ]
-            for radicand in radicands
-        }
-        basis = SurdVector.from_radicand_map(components)
+        basis = _basis_vector(self.basis)
         return Structure(
             cell=Cell(basis, precision=self.basis_precision, periodicity=self.periodicity),
             sites=Sites(self.reduced_coords, precision=self.coordinate_precision),

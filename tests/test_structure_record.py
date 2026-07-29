@@ -105,24 +105,22 @@ def test_hexagonal_record_roundtrip_keeps_surd_basis() -> None:
 
 
 def test_slab_record_roundtrip_preserves_periodicity() -> None:
-    original = _structure(
-        Cell([[4, 0, 0], [0, 5, 0], [0, 0, 20]], periodicity=(True, True, False))
-    )
+    original = _structure(Cell([[4, 0, 0], [0, 5, 0], [0, 0, 20]], periodicity=(True, True, False)))
     record = StructureRecord.from_structure(original)
 
-    assert record.periodicity == [True, True, False]
+    assert record.periodicity == (True, True, False)
     assert record.to_structure().periodicity == (True, True, False)
     assert record.to_structure() == original
 
 
-def test_periodicity_is_a_mutation_rejecting_list() -> None:
+def test_record_is_hashable_and_immutable() -> None:
     record = _literal_record()
-    assert isinstance(record.periodicity, list)
-    with pytest.raises(TypeError, match="immutable"):
+    equal = replace(record)
+    assert isinstance(record.periodicity, tuple)
+    assert hash(record) == hash(equal)
+    assert record == equal
+    with pytest.raises(TypeError):
         record.periodicity[1] = False
-    with pytest.raises(TypeError, match="immutable"):
-        record.periodicity.append(False)
-    assert record.periodicity == [True, True, True]
 
 
 def test_literal_record_roundtrips_with_explicit_row_major_surds() -> None:
@@ -169,17 +167,11 @@ def test_species_record_presence_states_and_contradictions() -> None:
     assert empty_mass_species.to_species().mass == ()
 
     attached_absent = SpeciesRecord("C", ("C",), (1.0,))
-    encoded_attached_absent = SpeciesRecord(
-        "C", ("C",), (1.0,), attached=(), nattached=(), attached_present=False
-    )
+    encoded_attached_absent = SpeciesRecord("C", ("C",), (1.0,), attached=(), nattached=(), attached_present=False)
     assert encoded_attached_absent.attached is None
-    attached_present = SpeciesRecord(
-        "C", ("C",), (1.0,), attached=("H",), nattached=(3,), attached_present=True
-    )
+    attached_present = SpeciesRecord("C", ("C",), (1.0,), attached=("H",), nattached=(3,), attached_present=True)
     assert attached_present.to_species().attached == ("H",)
-    empty_attached = SpeciesRecord(
-        "C", ("C",), (1.0,), attached=(), nattached=(), attached_present=True
-    )
+    empty_attached = SpeciesRecord("C", ("C",), (1.0,), attached=(), nattached=(), attached_present=True)
     assert empty_attached.to_species().attached == ()
     assert attached_absent == absent
     with pytest.raises(ValueError):
@@ -212,13 +204,19 @@ def test_structure_record_rejects_invalid_domain_combinations() -> None:
         replace(record, coordinate_precision=Fraction(-1))
 
 
+def test_record_construction_does_not_build_structure(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(*args: object, **kwargs: object) -> None:
+        raise AssertionError("Structure construction is not part of StructureRecord validation")
+
+    monkeypatch.setattr(Structure, "__init__", fail)
+    _literal_record()
+
+
 @pytest.mark.parametrize(
     ("species", "species_at_sites"),
     [(["C"], ["C"]), ([26], ["Fe"])],
 )
-def test_shorthand_species_record_roundtrip(
-    species: list[object], species_at_sites: list[str]
-) -> None:
+def test_shorthand_species_record_roundtrip(species: list[object], species_at_sites: list[str]) -> None:
     original = Structure(
         cell=(1, 1, 3, 90, 90, 120),
         sites=[["1/3", "2/3", 0]],
@@ -226,9 +224,7 @@ def test_shorthand_species_record_roundtrip(
         species_at_sites=species_at_sites,
     )
     for source in (original, UnitcellStructureView(original)):
-        assert StructureRecord.from_structure(
-            source
-        ).to_structure() == UnitcellStructureView(source)
+        assert StructureRecord.from_structure(source).to_structure() == UnitcellStructureView(source)
 
 
 def test_record_is_a_structure_like_backend() -> None:
@@ -255,11 +251,9 @@ def test_record_schema_and_sql_roundtrip() -> None:
     assert species_schema.field("mass").optional
     assert species_schema.field("attached").optional
     assert record_schema.field("basis").codec_name == "surdscalar"
-    assert record_schema.field("periodicity").python_type == list[bool]
+    assert record_schema.field("periodicity").python_type == tuple[bool, ...]
 
-    original = _structure(
-        Cell(CellParams((1, 1, 3, 90, 90, 120)).basis, periodicity=(True, True, False))
-    )
+    original = _structure(Cell(CellParams((1, 1, 3, 90, 90, 120)).basis, periodicity=(True, True, False)))
     record = StructureRecord.from_structure(original)
     database = Database.sqlite()
     sid = SqlStore(database).save(record)
@@ -270,4 +264,56 @@ def test_record_schema_and_sql_roundtrip() -> None:
     assert fetched.basis == record.basis
     assert fetched.species == record.species
     assert fetched.species[1].to_species() == original.species[1]
-    assert isinstance(fetched.periodicity, list)
+    assert isinstance(fetched.periodicity, tuple)
+
+
+def test_lazy_record_backend_decodes_components_independently() -> None:
+    pytest.importorskip("httk.data")
+    pytest.importorskip("sqlalchemy")
+    import sqlalchemy
+    from httk.data.db import Database, SqlStore
+
+    record = _literal_record()
+    with Database.sqlite() as database:
+        store = SqlStore(database)
+        store.save(record)
+        searcher = store.searcher()
+        variable = searcher.variable(StructureRecord)
+        searcher.output(variable, "record")
+        row = next(iter(searcher))[0][0]
+        statements: list[str] = []
+
+        def count_select(
+            _connection: object,
+            _cursor: object,
+            statement: str,
+            _parameters: object,
+            _context: object,
+            _executemany: bool,
+        ) -> None:
+            if statement.lstrip().upper().startswith("SELECT"):
+                statements.append(statement)
+
+        sqlalchemy.event.listen(database.engine, "before_cursor_execute", count_select)
+        try:
+            view = UnitcellStructureView(row)
+            assert "basis" not in row.__dict__
+            assert "reduced_coords" not in row.__dict__
+            assert "species" not in row.__dict__
+
+            _ = view.cell
+            cell_statements = statements[:]
+            assert any("structure_record_basis" in statement for statement in cell_statements)
+            assert any("structure_record_periodicity" in statement for statement in cell_statements)
+            assert not any("structure_record_reduced_coords" in statement for statement in cell_statements)
+            assert not any("structure_record_species" in statement for statement in cell_statements)
+            assert "basis" in row.__dict__
+            assert "periodicity" in row.__dict__
+            assert "reduced_coords" not in row.__dict__
+            assert "species" not in row.__dict__
+
+            _ = view.sites
+            assert any("structure_record_reduced_coords" in statement for statement in statements)
+            assert "reduced_coords" in row.__dict__
+        finally:
+            sqlalchemy.event.remove(database.engine, "before_cursor_execute", count_select)
