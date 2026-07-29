@@ -5,13 +5,13 @@ Two families, kept apart on purpose:
 **Standard OPTIMADE properties.** ``space_group_it_number``, the three space-group
 symbols, ``space_group_symmetry_operations_xyz``, ``wyckoff_positions``,
 ``fractional_site_positions``, and ``site_coordinate_span`` are all part of the OPTIMADE
-standard and are already described in the vendored ``optimade_defs/structures.json``. They
+standard and are already described in the vendored ``structures.json``. They
 were simply never served.
 
 **Provider-specific properties**, for the things OPTIMADE does not standardise — chiefly
 *which setting* a structure is written in, and the change of basis to the standard one.
 Rather than inventing descriptions, these reuse the published property definitions from
-`schemas.httk.org <https://schemas.httk.org>`_, vendored verbatim in ``httk_defs/``. The served *name* carries the ``_httk_`` prefix that OPTIMADE requires
+`schemas.httk.org <https://schemas.httk.org>`_, vendored verbatim in the registry schema package. The served *name* carries the ``_httk_`` prefix that OPTIMADE requires
 of a database-specific property, but the definition keeps its own ``$id``, so a client
 following the link reaches the authoritative published schema instead of a local
 paraphrase.

@@ -43,10 +43,10 @@ docs-lock-check: docs-clean
 
 # Refresh the vendored OPTIMADE standard structures entry-type definition (the one
 # source task that uses the network); the checked-in copy under
-# src/httk/atomistic/optimade_defs/ is the authoritative supported version.
+# src/httk/registry/schemas/atomistic/ is the authoritative supported version.
 optimade-defs:
-	curl -fsSL https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures.json -o src/httk/atomistic/optimade_defs/structures.json
-	curl -fsSL https://raw.githubusercontent.com/Materials-Consortia/schemas/master/LICENSE -o src/httk/atomistic/optimade_defs/LICENSE
+	curl -fsSL https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures.json -o src/httk/registry/schemas/atomistic/structures.json
+	curl -fsSL https://raw.githubusercontent.com/Materials-Consortia/schemas/master/LICENSE -o src/httk/registry/schemas/atomistic/LICENSE
 
 # Refresh the vendored CC BY 4.0 symmetry datasets under src/httk/atomistic/data/ from a
 # local data-generators checkout. Offline, unlike optimade-defs. The transforms file is a

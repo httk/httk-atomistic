@@ -4,8 +4,7 @@
 the neutral httk-core entry-provider contract, so a serving module (such as
 *httk-optimade*) can expose them as an OPTIMADE ``structures`` endpoint without
 this module depending on the serving module. The served entry type is described
-by the vendored OPTIMADE standard ``structures`` definition (loaded via
-:func:`httk.core.load_entry_type_definition`).
+by the vendored OPTIMADE standard ``structures`` definition.
 
 Beyond the core structural fields, the provider auto-derives the standard
 composition fields (``nperiodic_dimensions``, ``dimension_types``,
@@ -27,7 +26,7 @@ from httk.core import (
     EntryProvider,
     EntryTypeDefinition,
     PropertyDefinition,
-    load_entry_type_definition,
+    load_entry_type_schema,
 )
 
 from .asu_structure import ASUStructure
@@ -52,7 +51,7 @@ _ELEMENTS: frozenset[str] = frozenset(SYMBOLS)
 
 def _structures_definition() -> EntryTypeDefinition:
     """The vendored OPTIMADE ``structures`` entry-type definition (cached)."""
-    return load_entry_type_definition("httk.atomistic", "structures")
+    return load_entry_type_schema("https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures")
 
 
 # Served property name -> record key. simple_property_handlers on the

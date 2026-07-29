@@ -4,20 +4,29 @@ OPTIMADE standardises a good deal about a structure but nothing about *which set
 written in, nor about how precisely its numbers were stated. Both are served here as
 database-specific properties, and rather than describing them locally the descriptions are
 taken from the published definitions at `schemas.httk.org <https://schemas.httk.org>`_,
-vendored verbatim in ``httk_defs/``.
+vendored verbatim in ``httk.registry.schemas.atomistic``.
 
 The served *name* carries the ``_httk_`` prefix that OPTIMADE requires of a
 database-specific property; the definition keeps its own ``$id``, so a client following the
 link reaches the authoritative schema rather than a local paraphrase.
 """
 
-import json
 from collections.abc import Mapping
-from importlib.resources import files
 
-from httk.core import PropertyDefinition
+from httk.core import PropertyDefinition, load_property_definition
 
 __all__ = ["load_httk_definitions"]
+
+_DEFINITION_IDS = {
+    "affine_transformation": "https://schemas.httk.org/defs/v0.1/properties/symmetry/affine_transformation",
+    "centring_type": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/centring_type",
+    "crystal_system": "https://schemas.httk.org/defs/v0.1/properties/pointgroups/crystal_system",
+    "fractional_coordinate_precision": "https://schemas.httk.org/defs/v0.1/properties/core/fractional_coordinate_precision",
+    "hall_entry": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/hall_entry",
+    "is_reference_setting": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/is_reference_setting",
+    "length_precision": "https://schemas.httk.org/defs/v0.1/properties/core/length_precision",
+    "setting_it_nc": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/setting_it_nc",
+}
 
 
 def load_httk_definitions(names: Mapping[str, str]) -> dict[str, PropertyDefinition]:
@@ -29,8 +38,9 @@ def load_httk_definitions(names: Mapping[str, str]) -> dict[str, PropertyDefinit
     published document to match a local naming choice would defeat the point of pointing at
     it.
     """
-    definitions: dict[str, PropertyDefinition] = {}
-    for served_name, file_name in names.items():
-        text = files("httk.atomistic").joinpath(f"httk_defs/{file_name}.json").read_text(encoding="utf-8")
-        definitions[served_name] = PropertyDefinition.from_optimade(served_name, json.loads(text))
-    return definitions
+    return {
+        served_name: PropertyDefinition.from_optimade(
+            served_name, load_property_definition(_DEFINITION_IDS[definition_name]).as_optimade()
+        )
+        for served_name, definition_name in names.items()
+    }
