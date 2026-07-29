@@ -155,17 +155,16 @@ def _wyckoff_symbols(asu: ASUStructure, setting: Any) -> list[str]:
     """One Wyckoff symbol per expanded site, in the order the sites are served.
 
     The symbols name positions of the setting the structure is *written in*, as OPTIMADE
-    requires, not of the standard setting the ASU stores them against. Those differ in two
-    ways that both bite silently: the letters themselves are permuted for setting ``224:1``
-    (standard ``j`` is that setting's ``i`` and vice versa), and the multiplicity changes
-    for the rhombohedral settings, where a 3a of the standard hexagonal cell is a 1a of the
-    smaller rhombohedral one.
+    requires, not of the standard setting the ASU stores them against. One difference bites
+    silently: the letters themselves are permuted for setting ``224:1``
+    (standard ``j`` is that setting's ``i`` and vice versa). The multiplicity is used only
+    to repeat each letter for the expanded sites; OPTIMADE receives the bare letter.
     """
     letters = wyckoff_letter_map(asu.spacegroup, setting)
     symbols: list[str] = []
     for site, count in zip(asu.asu_sites, asu.multiplicities()):
         position = setting.wyckoff_position(letters[site.wyckoff])
-        symbols.extend([f"{position.multiplicity}{position.letter}"] * count)
+        symbols.extend([position.letter] * count)
     return symbols
 
 

@@ -20,6 +20,7 @@
     "description": "The lattice centring symbol for the crystallographic setting.\n\nThis setting-dependent symbol identifies primitive, face-centred, body-centred, rhombohedral, or hexagonal centring as represented in the setting record.\nThe value `Rrev` denotes the reverse rhombohedral setting.",
     "x-optimade-unit": "inapplicable",
     "enum": [
+        null,
         "P",
         "A",
         "B",

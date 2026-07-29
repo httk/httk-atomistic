@@ -60,7 +60,7 @@ def test_standard_symmetry_properties_are_served_from_an_asu() -> None:
     assert record["space_group_symbol_hermann_mauguin_extended"].startswith("F 4/m -3 2/m")
     assert len(record["space_group_symmetry_operations_xyz"]) == 192
     assert record["space_group_symmetry_operations_xyz"][0].count(",") == 2
-    assert record["wyckoff_positions"] == ["4a"] * 4 + ["4b"] * 4
+    assert record["wyckoff_positions"] == ["a"] * 4 + ["b"] * 4
     assert record["site_coordinate_span"] == "unit_cell"
     assert len(record["fractional_site_positions"]) == 8
 
@@ -152,7 +152,7 @@ def test_wyckoff_multiplicity_follows_the_setting_too() -> None:
     record = _record(asu)
 
     assert Spacegroup.standard(166).wyckoff_position("a").multiplicity == 3
-    assert record["wyckoff_positions"] == ["1a"]
+    assert record["wyckoff_positions"] == ["a"]
     assert len(record["fractional_site_positions"]) == 1
 
 
