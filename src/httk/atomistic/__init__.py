@@ -36,6 +36,7 @@ from .numeric_cell import NumericCell
 from .numeric_sites import NumericSites
 from .numeric_unitcell_structure_backend import NumericUnitcellStructureBackend
 from .numeric_unitcell_structure_view import NumericUnitcellStructureView
+from .optimade_structure import OptimadeStructure
 from .phase_diagram import PhaseDiagram
 from .precision_entries import precision_definitions, precision_properties
 from .setting_transform import SettingTransform
@@ -90,6 +91,7 @@ from .vasp_structures import (
 from .wyckoff import WyckoffBranch, WyckoffPosition, wyckoff_positions
 
 StructureBackend.backend_classes = [
+    OptimadeStructure,
     UnitcellStructureBackend,
     StructureASU,
     StructurePrimitive,
@@ -127,6 +129,7 @@ __all__ = [
     "NumericSites",
     "NumericUnitcellStructureBackend",
     "NumericUnitcellStructureView",
+    "OptimadeStructure",
     "PhaseDiagram",
     "SettingTransform",
     "Sites",

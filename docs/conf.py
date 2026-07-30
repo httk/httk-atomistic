@@ -126,6 +126,12 @@ nitpick_ignore = [
     # ase is an optional dependency surfaced by the compat layer.
     ("py:class", "ase.Atoms"),
     ("py:obj", "ase.Atoms"),
+    # OptimadeResource is new in the sibling httk-core workspace; the vendored
+    # intersphinx inventory continues to describe the latest release.
+    ("py:class", "httk.core.OptimadeResource"),
+    # The protocol property ``type`` is indexed through both its defining
+    # module and the package re-export; qualified member links stay available.
+    ("py:obj", "type"),
 ]
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True
@@ -133,7 +139,10 @@ copybutton_prompt_is_regexp = True
 # Cross-project references to httk-core objects resolve through intersphinx.
 # AutoAPI cannot statically follow httk.core because it is a separate distribution
 # sharing the PEP 420 "httk" namespace, so suppress that warning subtype.
-suppress_warnings = ["myst.xref_missing", "autoapi.python_import_resolution"]
+# AutoAPI also indexes package re-exports, making the unqualified built-in
+# ``type`` ambiguous once the protocol's public ``type`` property is present;
+# qualified references remain checked by nitpicky mode.
+suppress_warnings = ["myst.xref_missing", "autoapi.python_import_resolution", "ref.python"]
 
 def skip_member(app, what, name, obj, skip, options):
     # Skip private members (those starting with _)
