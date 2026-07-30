@@ -313,7 +313,7 @@ an exact multiplier in v2.
 ## Serving structures as OPTIMADE
 
 `StructureEntryProvider` maps `{id: Structure}` onto the neutral
-`httk.core.EntryProvider` contract for a serving module such as *httk-optimade*.
+`httk.core.EntryProvider` contract for a serving module such as *httk-serve*.
 Besides the core structural fields it auto-derives the standard composition
 fields for a fully ordered structure (every species a single, unattached
 element): `nperiodic_dimensions`, `dimension_types`, `elements_ratios`, and the

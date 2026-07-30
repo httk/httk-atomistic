@@ -4,7 +4,7 @@
 mapping into something an OPTIMADE server can query. It implements the neutral
 `httk.core.EntryProvider` contract — `entry_types()`, `property_keys()`,
 `records()` — and nothing about it is specific to any particular server. That is
-the point of the seam: *httk-atomistic* has the data, *httk-optimade* serves it,
+the point of the seam: *httk-atomistic* has the data, *httk-serve* serves it,
 and neither imports the other. They meet at the contract.
 
 **What the provider derives for you.** Beyond the structural fields it reads
@@ -47,23 +47,23 @@ definition, so a typo is an error at construction time rather than a silently
 missing field at query time.
 
 The last section runs an actual query: `adapter_from_providers` wraps the
-provider for *httk-optimade*'s backend, and `execute_query` runs a parsed
-OPTIMADE filter against it. *httk-optimade* is an optional peer distribution,
+provider for *httk-serve*'s backend, and `execute_query` runs a parsed
+OPTIMADE filter against it. *httk-serve* is an optional peer distribution,
 not a dependency.
 """
 
 from httk.core import PropertyDefinition
 
 # pyright: reportMissingImports=false
-# httk-optimade is an optional peer distribution, so it is not guaranteed to be
+# httk-serve is an optional peer distribution, so it is not guaranteed to be
 # installed where this repository's type checks run; see HTTK_EXAMPLE_REQUIRES below.
-from httk.optimade import adapter_from_providers, parse_optimade_filter
-from httk.optimade.backend import execute_query
+from httk.serve.optimade import adapter_from_providers, parse_optimade_filter
+from httk.serve.optimade.backend import execute_query
 
 from httk.atomistic import Species, Structure, StructureEntryProvider
 
-#: This example needs the optional peer distribution *httk-optimade* on the path.
-HTTK_EXAMPLE_REQUIRES = ["httk.optimade"]
+#: This example needs the optional peer distribution *httk-serve* on the path.
+HTTK_EXAMPLE_REQUIRES = ["httk.serve.optimade"]
 
 #: An ordered SmFeO3-like cell: 4 Fe, 12 O, 4 Sm on twenty sites.
 FE = Species(name="Fe", chemical_symbols=("Fe",), concentration=(1.0,))
@@ -148,9 +148,9 @@ def show_definition(provider: StructureEntryProvider) -> None:
 
 
 def run_queries(provider: StructureEntryProvider) -> None:
-    """Hand the provider to httk-optimade and run real OPTIMADE filters against it."""
+    """Hand the provider to httk-serve and run real OPTIMADE filters against it."""
     adapter = adapter_from_providers([provider])
-    print("Queries through httk-optimade:")
+    print("Queries through httk-serve:")
     print("  entry types served:", adapter.schema.all_entries)
 
     def query(filter_string: str | None, fields: list[str]) -> list[dict[str, object]]:

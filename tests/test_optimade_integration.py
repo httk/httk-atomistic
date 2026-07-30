@@ -1,22 +1,22 @@
-"""Integration test: serve httk-atomistic structures through httk-optimade.
+"""Integration test: serve httk-atomistic structures through httk-serve.
 
 This exercises the full path from :class:`~httk.atomistic.StructureEntryProvider`
-to an OPTIMADE query, using ``adapter_from_providers`` from *httk-optimade*.
+to an OPTIMADE query, using ``adapter_from_providers`` from *httk-serve*.
 
-*httk-optimade* is an optional peer distribution, not a dependency of
+*httk-serve* is an optional peer distribution, not a dependency of
 *httk-atomistic*, so this test is gated by ``pytest.importorskip``. In the
-workspace it runs when httk-optimade's source is on the path
-(``PYTHONPATH=src:../httk-optimade/src``); in this module's own CI (where
-httk-optimade is not installed) it is skipped.
+workspace it runs when httk-serve's source is on the path
+(``PYTHONPATH=src:../httk-serve/src``); in this module's own CI (where
+httk-serve is not installed) it is skipped.
 """
 
 import pytest
 
-pytest.importorskip("httk.optimade")
+pytest.importorskip("httk.serve.optimade")
 
-from httk.optimade import adapter_from_providers  # noqa: E402
-from httk.optimade.backend import execute_query  # noqa: E402
-from httk.optimade.filter import parse_optimade_filter  # noqa: E402
+from httk.serve.optimade import adapter_from_providers  # noqa: E402
+from httk.serve.optimade.backend import execute_query  # noqa: E402
+from httk.serve.optimade.filter import parse_optimade_filter  # noqa: E402
 
 from httk.atomistic import Structure, StructureEntryProvider  # noqa: E402
 from httk.atomistic.species import Species  # noqa: E402

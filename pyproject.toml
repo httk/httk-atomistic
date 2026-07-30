@@ -127,12 +127,12 @@ warn_unused_ignores = true
 module = ["yaml", "markdown", "docutils", "docutils.*"]
 ignore_missing_imports = true
 
-# httk-optimade is an optional peer distribution, not a dependency: examples/
+# httk-serve is an optional peer distribution, not a dependency: examples/
 # serve_structures_as_optimade.py imports it, but it is absent wherever only
 # httk-atomistic's own dev extras are installed (its CI, for instance). Where it
 # *is* on the path it is type-checked normally; this only stops the import itself
 # from being an error when it is not. The matching pyright suppression is a
 # file-level comment in that example.
 [[tool.mypy.overrides]]
-module = ["httk.optimade", "httk.optimade.*"]
+module = ["httk.serve.optimade", "httk.serve.optimade.*"]
 ignore_missing_imports = true
