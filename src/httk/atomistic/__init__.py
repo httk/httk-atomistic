@@ -47,7 +47,6 @@ from .numeric_sites import NumericSites
 from .numeric_unitcell_structure_backend import NumericUnitcellStructureBackend
 from .numeric_unitcell_structure_view import NumericUnitcellStructureView
 from .optimade_structure import OptimadeStructure
-from .phase_diagram import PhaseDiagram
 from .precision_entries import precision_definitions, precision_properties
 from .setting_transform import SettingTransform
 from .sites import Sites
@@ -166,7 +165,6 @@ __all__ = [
     "NumericUnitcellStructureView",
     "OptimadeStructure",
     "OptimizationType",
-    "PhaseDiagram",
     "SettingTransform",
     "SettingTransformRecord",
     "Sites",
