@@ -15,7 +15,7 @@ The underlying tables ship in :mod:`httk.atomistic.data`.
 
 from .affine_operation import AffineOperation
 from .asu_recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
-from .asu_structure import ASUSite, ASUStructure
+from .asu_structure import ASUSite, ASUStructure, FundamentalDomainStructure
 from .asu_structure_view import ASUStructureView
 from .cell import Cell
 from .cell_api import CellAPI
@@ -76,12 +76,13 @@ from .structure_api import StructureAPI
 from .structure_asu import StructureASU
 from .structure_backend import StructureBackend
 from .structure_comparison import same_crystal
-from .structure_entries import StructureEntryProvider
+from .structure_entries import StructureEntry, StructureEntryProvider
 from .structure_like import StructureLike
 from .structure_primitive import StructurePrimitive
 from .structure_primitive_view import StructurePrimitiveView
 from .structure_record import SpeciesRecord, StructureRecord
 from .structure_record_backend import StructureRecordBackend
+from .structure_semantics import OptimizationType, StructureSymmetry
 from .structure_view import StructureView
 from .supercell import (
     SupercellResult,
@@ -139,11 +140,13 @@ __all__ = [
     "CompositionDiagnostic",
     "CompositionResult",
     "ConventionalCellResult",
+    "FundamentalDomainStructure",
     "NumericCell",
     "NumericSites",
     "NumericUnitcellStructureBackend",
     "NumericUnitcellStructureView",
     "OptimadeStructure",
+    "OptimizationType",
     "PhaseDiagram",
     "SettingTransform",
     "Sites",
@@ -171,12 +174,14 @@ __all__ = [
     "StructureAPI",
     "StructureASU",
     "StructureBackend",
+    "StructureEntry",
     "StructureEntryProvider",
     "StructureLike",
     "StructurePrimitive",
     "StructurePrimitiveView",
     "StructureRecord",
     "StructureRecordBackend",
+    "StructureSymmetry",
     "StructureView",
     "SupercellResult",
     "UnitcellStructureBackend",

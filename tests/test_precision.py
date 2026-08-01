@@ -199,17 +199,16 @@ def test_cartesian_precision_is_unknown_when_the_coordinates_are() -> None:
     assert structure.cartesian_precision() is None
 
 
-# --- precision is not identity ---
+# --- component equality and structure identity ---
 
 
-def test_precision_does_not_affect_equality() -> None:
-    """The same atoms read from a more carefully written file are the same structure."""
+def test_precision_is_structural_metadata_but_not_component_geometry() -> None:
     assert Cell(CUBIC, 1, F(1, 10)) == Cell(CUBIC, 1, F(1, 1000000)) == Cell(CUBIC)
     assert Sites([[0, 0, 0]], F(1, 10)) == Sites([[0, 0, 0]])
 
     precise = _structure()
     vague = Structure(Cell(CUBIC), Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]]), _species(), ["Na", "Na"])
-    assert precise == vague
+    assert precise != vague
     assert same_crystal(precise, vague)
 
 

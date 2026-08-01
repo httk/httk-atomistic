@@ -10,7 +10,13 @@ from httk.core import (
     load_entry_type_schema,
 )
 
-from httk.atomistic import OptimadeStructure, StructureBackend, UnitcellStructureView, precision_definitions
+from httk.atomistic import (
+    OptimadeStructure,
+    StructureBackend,
+    StructureEntryProvider,
+    UnitcellStructureView,
+    precision_definitions,
+)
 
 _STRUCTURES_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 
@@ -60,6 +66,58 @@ def _resource(*, ids: dict[str, object] | None = None, attributes: dict[str, obj
         "https://example.test/v1/structures",
     )
     return OptimadeResource(document, 0, OptimadeSchemaSnapshot("structures", info))
+
+
+def _semantic_resource(attributes: dict[str, object]) -> OptimadeResource:
+    """Build a resource whose deliberately renamed fields cover *attributes*."""
+
+    schema = load_entry_type_schema(_STRUCTURES_ID)
+    properties = {
+        f"transport_{index}": {"$id": schema.properties[name].definition_id} for index, name in enumerate(attributes)
+    }
+    renamed = {transport: attributes[name] for transport, name in zip(properties, attributes)}
+    info = OptimadeDocument.create(
+        json.dumps({"data": {"properties": properties}}), "https://example.test/info/structures"
+    )
+    document = OptimadeDocument.create(
+        json.dumps({"data": [{"id": "semantic", "type": "structures", "attributes": renamed}]}),
+        "https://example.test/v1/structures",
+    )
+    return OptimadeResource(document, 0, OptimadeSchemaSnapshot("structures", info))
+
+
+def _complete_attributes() -> dict[str, object]:
+    return {
+        "elements": ["Cl", "Na"],
+        "nelements": 2,
+        "elements_ratios": [0.5, 0.5],
+        "chemical_formula_descriptive": "NaCl",
+        "chemical_formula_reduced": "ClNa",
+        "chemical_formula_hill": "ClNa",
+        "chemical_formula_anonymous": "AB",
+        "dimension_types": [1, 1, 1],
+        "nperiodic_dimensions": 3,
+        "lattice_vectors": [[2, 0, 0], [0, 3, 0], [0, 0, 4]],
+        "space_group_symmetry_operations_xyz": ["x,y,z"],
+        "space_group_symbol_hall": "P 1",
+        "space_group_symbol_hermann_mauguin": "P 1",
+        "space_group_symbol_hermann_mauguin_extended": "P 1",
+        "space_group_it_number": 1,
+        "cartesian_site_positions": [[0, 0, 0], [1, 1.5, 2]],
+        "fractional_site_positions": [[0, 0, 0], [0.5, 0.5, 0.5]],
+        "site_coordinate_span": "unit_cell",
+        "site_coordinate_span_description": None,
+        "nsites": 2,
+        "species_at_sites": ["Na", "Cl"],
+        "species": [
+            {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1]},
+            {"name": "Cl", "chemical_symbols": ["Cl"], "concentration": [1]},
+        ],
+        "assemblies": None,
+        "wyckoff_positions": ["a", "a"],
+        "structure_features": [],
+        "optimization_type": "experimental",
+    }
 
 
 def test_optimade_structure_uses_definition_ids_not_transport_labels() -> None:
@@ -307,3 +365,239 @@ def test_portable_structure_profile_is_semantic_and_exact() -> None:
     assert backend.nperiodic_dimensions == 3
     assert backend.nsites == 2
     assert backend.structure_features == ()
+
+
+def test_complete_v13_profile_is_decoded_and_cross_checked_by_definition_iri() -> None:
+    backend = OptimadeStructure(_semantic_resource(_complete_attributes()))
+
+    assert backend.elements == ("Cl", "Na")
+    assert backend.nelements == 2
+    assert backend.elements_ratios == (Fraction(1, 2), Fraction(1, 2))
+    assert backend.chemical_formula_descriptive == "NaCl"
+    assert backend.chemical_formula_reduced == "ClNa"
+    assert backend.chemical_formula_hill == "ClNa"
+    assert backend.chemical_formula_anonymous == "AB"
+    assert backend.dimension_types == (1, 1, 1)
+    assert backend.nperiodic_dimensions == 3
+    assert backend.lattice_vectors == (
+        (Fraction(2), Fraction(0), Fraction(0)),
+        (Fraction(0), Fraction(3), Fraction(0)),
+        (Fraction(0), Fraction(0), Fraction(4)),
+    )
+    assert backend.space_group_symmetry_operations_xyz == ("x,y,z",)
+    assert backend.space_group_symbol_hall == "P 1"
+    assert backend.space_group_symbol_hermann_mauguin == "P 1"
+    assert backend.space_group_symbol_hermann_mauguin_extended == "P 1"
+    assert backend.space_group_it_number == 1
+    assert backend.cartesian_site_positions == (
+        (Fraction(0), Fraction(0), Fraction(0)),
+        (Fraction(1), Fraction(3, 2), Fraction(2)),
+    )
+    assert backend.fractional_site_positions == (
+        (Fraction(0), Fraction(0), Fraction(0)),
+        (Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)),
+    )
+    assert backend.site_coordinate_span == "unit_cell"
+    assert backend.molecular is False
+    assert backend.site_coordinate_span_description is None
+    assert backend.nsites == 2
+    assert backend.species_at_sites == ("Na", "Cl")
+    assert tuple(species.name for species in backend.species) == ("Na", "Cl")
+    assert backend.assemblies is None
+    assert backend.wyckoff_positions == ("a", "a")
+    assert backend.structure_features == ()
+    assert backend.optimization_type == "experimental"
+
+
+def test_dual_coordinate_arrays_are_cross_checked_lazily() -> None:
+    attributes = _complete_attributes()
+    attributes["cartesian_site_positions"] = [[0, 0, 0], [99, 99, 99]]
+    backend = OptimadeStructure(_semantic_resource(attributes))
+
+    assert backend.unwrap().id == "semantic"
+    assert backend.species[0].name == "Na"
+    with pytest.raises(IncompleteOptimadeResourceError, match="fractional_site_positions.*cartesian_site_positions"):
+        _ = backend.fractional_site_positions
+
+
+@pytest.mark.parametrize("span", ["molecular_entities", "other"])
+def test_non_unit_cell_spans_remain_raw_but_refuse_native_projection(span: str) -> None:
+    attributes = _complete_attributes()
+    attributes["site_coordinate_span"] = span
+    attributes["site_coordinate_span_description"] = "Two source entities" if span == "other" else None
+    backend = OptimadeStructure(_semantic_resource(attributes))
+
+    assert backend.site_coordinate_span == span
+    assert backend.fractional_site_positions is not None
+    assert backend.species_at_sites == ("Na", "Cl")
+    assert tuple(value.name for value in backend.species) == ("Na", "Cl")
+    assert backend.raw["attributes"] is backend.unwrap().unwrap()["attributes"]
+    for component in ("cell", "sites"):
+        with pytest.raises(IncompleteOptimadeResourceError, match=rf"{component}.*{span}"):
+            _ = getattr(backend, component)
+    with pytest.raises(IncompleteOptimadeResourceError, match=rf"{span}.*unit-cell"):
+        UnitcellStructureView(backend)
+
+
+def test_assemblies_preserve_exact_probabilities_and_present_vs_null() -> None:
+    attributes = _complete_attributes()
+    attributes["assemblies"] = [
+        {"sites_in_groups": [[0], [1]], "group_probabilities": [0.3, 0.7]},
+    ]
+    attributes["structure_features"] = ["assemblies"]
+    backend = OptimadeStructure(_semantic_resource(attributes))
+
+    assert backend.assemblies is not None
+    assert backend.assemblies[0].group_probabilities == (Fraction(3, 10), Fraction(7, 10))
+    assert OptimadeStructure(_semantic_resource(_complete_attributes())).assemblies is None
+
+
+@pytest.mark.parametrize(
+    ("mutation", "property_name", "message"),
+    [
+        ({"nsites": 3}, "nsites", "disagrees"),
+        ({"elements": ["Na", "Cl"]}, "elements", "alphabetical"),
+        ({"chemical_formula_reduced": "ClNa2"}, "chemical_formula_reduced", "site composition"),
+        ({"structure_features": ["disorder"]}, "structure_features", "disorder"),
+        ({"space_group_it_number": 231}, "space_group_it_number", r"\[1, 230\]"),
+    ],
+)
+def test_invalid_supplied_semantics_raise_only_when_accessed(
+    mutation: dict[str, object], property_name: str, message: str
+) -> None:
+    attributes = _complete_attributes()
+    attributes.update(mutation)
+    backend = OptimadeStructure(_semantic_resource(attributes))
+
+    assert backend.id == "semantic"
+    with pytest.raises(IncompleteOptimadeResourceError, match=message):
+        _ = getattr(backend, property_name)
+
+
+def test_reduced_span_requires_symmetry_but_remains_lazy() -> None:
+    attributes = _complete_attributes()
+    attributes["site_coordinate_span"] = "fundamental_domain"
+    attributes["space_group_symmetry_operations_xyz"] = None
+    backend = OptimadeStructure(_semantic_resource(attributes))
+
+    assert backend.id == "semantic"
+    with pytest.raises(IncompleteOptimadeResourceError, match="requires space-group symmetry"):
+        _ = backend.site_coordinate_span
+
+
+def test_molecular_unit_cell_assertion_survives_semantic_projection() -> None:
+    attributes = _complete_attributes()
+    attributes["site_coordinate_span"] = "molecular_unit_cell"
+    backend = OptimadeStructure(_semantic_resource(attributes))
+
+    assert backend.molecular is True
+    assert backend.cell.periodicity == (True, True, True)
+    view = UnitcellStructureView(backend)
+    assert view.site_coordinate_span == "molecular_unit_cell"
+    assert view.space_group_it_number == 1
+    assert view.wyckoff_positions == ("a", "a")
+
+
+def test_source_composition_uses_precision_interval_and_provider_named_projection() -> None:
+    attributes = _complete_attributes()
+    attributes.update(
+        {
+            "elements_ratios": [0.3333, 0.6666],
+            "chemical_formula_reduced": "ClNa2",
+            "chemical_formula_hill": "ClNa2",
+            "chemical_formula_anonymous": "A2B",
+            "structure_features": ["implicit_atoms"],
+        }
+    )
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    assert backend.composition.normalized
+    assert backend.composition.normalization_status == "within_precision"
+    record = next(iter(StructureEntryProvider({"remote": backend}).records("structures")))
+    assert record["elements_ratios"] == pytest.approx([0.3333, 0.6666])
+    assert record["chemical_formula_reduced"] == "ClNa2"
+    assert record["chemical_formula_anonymous"] == "A2B"
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "message"),
+    [
+        ("chemical_formula_reduced", "Cl99Na", "elements_ratios"),
+        ("chemical_formula_hill", "Cl99Na", "elements_ratios"),
+        ("chemical_formula_anonymous", "Z999", "symbol or coefficient order"),
+        ("chemical_formula_descriptive", "rock salt sample", "invalid formula text"),
+    ],
+)
+def test_source_formulas_are_validated_without_complete_sites(name: str, value: str, message: str) -> None:
+    attributes = _complete_attributes()
+    attributes["structure_features"] = ["implicit_atoms"]
+    attributes[name] = value
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    with pytest.raises(IncompleteOptimadeResourceError, match=message):
+        _ = getattr(backend, name)
+
+
+def test_source_symmetry_is_mutually_cross_checked() -> None:
+    attributes = _complete_attributes()
+    attributes["space_group_it_number"] = 2
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    with pytest.raises(IncompleteOptimadeResourceError, match="mutually inconsistent|disagree"):
+        _ = backend.space_group_it_number
+
+    attributes = _complete_attributes()
+    attributes["space_group_symmetry_operations_xyz"] = ["nonsense,a,b"]
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    with pytest.raises(IncompleteOptimadeResourceError, match="three-coordinate strings"):
+        _ = backend.space_group_symmetry_operations_xyz
+
+
+def test_span_description_is_only_valid_for_other() -> None:
+    attributes = _complete_attributes()
+    attributes["site_coordinate_span_description"] = "not applicable"
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    with pytest.raises(IncompleteOptimadeResourceError, match="only valid"):
+        _ = backend.site_coordinate_span_description
+
+
+def test_official_descriptive_formula_group_abbreviation_is_accepted() -> None:
+    attributes = _complete_attributes()
+    attributes["chemical_formula_descriptive"] = "(CH3)3N+ - [CH2]2-OH = Me3N+ - CH2 - CH2OH"
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    assert backend.chemical_formula_descriptive.endswith("CH2OH")
+
+
+def test_remote_symmetry_uses_dimension_types_and_allows_arbitrary_settings() -> None:
+    attributes = _complete_attributes()
+    attributes.pop("nperiodic_dimensions")
+    attributes["dimension_types"] = [0, 0, 0]
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    with pytest.raises(IncompleteOptimadeResourceError, match="must be null"):
+        _ = backend.space_group_it_number
+
+    attributes = _complete_attributes()
+    attributes.pop("space_group_symbol_hall")
+    attributes.pop("space_group_symbol_hermann_mauguin")
+    attributes.pop("space_group_symbol_hermann_mauguin_extended")
+    attributes["space_group_it_number"] = 3
+    attributes["space_group_symmetry_operations_xyz"] = ["x,y,z", "-x+2/7,y,-z"]
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    assert backend.space_group_symmetry_operations_xyz == ("x,y,z", "-x+2/7,y,-z")
+
+    attributes["space_group_symmetry_operations_xyz"] = ["x,y,z", "x+1/7,y,z"]
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    with pytest.raises(IncompleteOptimadeResourceError, match="valid group|closed"):
+        _ = backend.space_group_symmetry_operations_xyz
+
+    attributes["space_group_symmetry_operations_xyz"] = ["x,y,z", "-x,y+1/2,-z"]
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    with pytest.raises(IncompleteOptimadeResourceError, match="disagree"):
+        _ = backend.space_group_symmetry_operations_xyz
+
+
+def test_nullable_geometry_does_not_force_native_precision_projection() -> None:
+    attributes = _complete_attributes()
+    attributes["dimension_types"] = None
+    attributes["nperiodic_dimensions"] = None
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    record = next(iter(StructureEntryProvider({"remote": backend}).records("structures")))
+    assert record["dimension_types"] is None
+    assert record["_httk_coordinate_precision"] == pytest.approx(0.1)

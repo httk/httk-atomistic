@@ -60,9 +60,9 @@ def test_standard_symmetry_properties_are_served_from_an_asu() -> None:
     assert record["space_group_symbol_hermann_mauguin_extended"].startswith("F 4/m -3 2/m")
     assert len(record["space_group_symmetry_operations_xyz"]) == 192
     assert record["space_group_symmetry_operations_xyz"][0].count(",") == 2
-    assert record["wyckoff_positions"] == ["a"] * 4 + ["b"] * 4
-    assert record["site_coordinate_span"] == "unit_cell"
-    assert len(record["fractional_site_positions"]) == 8
+    assert record["wyckoff_positions"] == ["a", "b"]
+    assert record["site_coordinate_span"] == "asymmetric_unit"
+    assert len(record["fractional_site_positions"]) == 2
 
 
 def test_the_extended_symbol_is_a_single_line() -> None:
@@ -77,9 +77,10 @@ def test_a_plain_structure_serves_null_symmetry() -> None:
     record = _record(structure)
 
     for name in SYMMETRY_PROPERTY_KEYS:
-        if name in ("fractional_site_positions", "site_coordinate_span"):
+        if name in ("fractional_site_positions", "site_coordinate_span", "space_group_symmetry_operations_xyz"):
             continue
         assert record[name] is None, name
+    assert record["space_group_symmetry_operations_xyz"] == ["x,y,z"]
     for name in SETTING_PROPERTY_KEYS:
         assert record[name] is None, name
 
@@ -170,6 +171,10 @@ def test_an_untabulated_setting_serves_the_number_but_not_a_symbol() -> None:
     assert record["space_group_symbol_hall"] is None
     assert record["space_group_symbol_hermann_mauguin"] is None
     assert record["wyckoff_positions"] is None
+    assert record["space_group_symmetry_operations_xyz"] == [
+        shifted.symop_to_setting(value).wrapped().to_xyz()
+        for value in Spacegroup.standard(225).symmetry_operations
+    ]
     assert record["_httk_setting_it_nc"] is None
     assert record["_httk_setting_transform"]["vector"] == ["1/8", "1/8", "1/8"]
 

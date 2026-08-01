@@ -145,7 +145,7 @@ def asu_structure_from_cif(
             parameters = FracVector.create(
                 [value.limit_denominator(limit_denominator) for value in parameters.to_fractions()]
             )
-        asu_sites.append(ASUSite(letter, parameters, name))
+        asu_sites.append(ASUSite(letter, parameters, name, coordinate.normalize()))
 
     return ASUStructure(
         cell,

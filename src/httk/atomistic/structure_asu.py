@@ -12,7 +12,7 @@ assignment are read; cell, species, and space-group access never expands it.
 
 from typing import Any
 
-from .asu_structure import ASUStructure
+from .asu_structure import FundamentalDomainStructure
 from .cell import Cell
 from .sites import Sites
 from .species import Species
@@ -26,17 +26,17 @@ class StructureASU(StructureBackend):
     are the expansion, generated on first access and cached by the ASUStructure itself.
     """
 
-    _asu: ASUStructure
+    _asu: FundamentalDomainStructure
 
     # Cannot type annotate __new__ as `Self | None` for some reason
     def __new__(cls, obj: Any, **hints: Any) -> Any:
-        if not isinstance(obj, ASUStructure):
+        if not isinstance(obj, FundamentalDomainStructure):
             return None
         if hints and hints.get("kind", "asu") != "asu":
             return None
         return super().__new__(cls)
 
-    def __init__(self, obj: ASUStructure, **hints: Any) -> None:
+    def __init__(self, obj: FundamentalDomainStructure, **hints: Any) -> None:
         self._asu = obj
 
     @property
@@ -56,7 +56,31 @@ class StructureASU(StructureBackend):
         return self._asu.expand_species_at_sites()
 
     @property
-    def asu(self) -> ASUStructure:
+    def molecular(self) -> bool:
+        return self._asu.molecular
+
+    @property
+    def assemblies(self) -> Any:
+        return self._asu.assemblies
+
+    @property
+    def chemical_composition(self) -> Any:
+        return self._asu.chemical_composition
+
+    @property
+    def chemical_formula_descriptive(self) -> str | None:
+        return self._asu.chemical_formula_descriptive
+
+    @property
+    def chemical_formula_hill(self) -> str | None:
+        return self._asu.chemical_formula_hill
+
+    @property
+    def optimization_type(self) -> str | None:
+        return self._asu.optimization_type
+
+    @property
+    def asu(self) -> FundamentalDomainStructure:
         """The underlying asymmetric unit, so a view can adopt it without re-deriving it."""
         return self._asu
 

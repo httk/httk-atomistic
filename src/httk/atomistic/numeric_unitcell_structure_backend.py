@@ -63,7 +63,19 @@ class NumericUnitcellStructureBackend(StructureBackend):
                 precision=getattr(obj.sites, "precision", None),
             )
 
-        self._structure = Structure(cell, sites, obj.species, obj.species_at_sites)
+        self._structure = Structure(
+            cell,
+            sites,
+            obj.species,
+            obj.species_at_sites,
+            molecular=getattr(obj, "molecular", False),
+            assemblies=getattr(obj, "assemblies", None),
+            symmetry=getattr(obj, "symmetry", None),
+            chemical_composition=getattr(obj, "chemical_composition", None),
+            chemical_formula_descriptive=getattr(obj, "chemical_formula_descriptive", None),
+            chemical_formula_hill=getattr(obj, "chemical_formula_hill", None),
+            optimization_type=getattr(obj, "optimization_type", None),
+        )
 
     @property
     def cell(self) -> Cell:

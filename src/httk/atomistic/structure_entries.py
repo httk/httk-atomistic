@@ -1,41 +1,23 @@
-"""An :class:`~httk.core.EntryProvider` serving OPTIMADE ``structures`` from httk-atomistic.
+"""Project atomistic structures onto the neutral OPTIMADE entry-provider contract."""
 
-:class:`StructureEntryProvider` maps :class:`~httk.atomistic.Structure` objects to
-the neutral httk-core entry-provider contract, so a serving module (such as
-*httk-optimade*) can expose them as an OPTIMADE ``structures`` endpoint without
-this module depending on the serving module. The served entry type is described
-by the vendored OPTIMADE standard ``structures`` definition.
+from __future__ import annotations
 
-Beyond the core structural fields, the provider auto-derives the standard
-composition fields (``nperiodic_dimensions``, ``dimension_types``,
-``elements_ratios``, ``chemical_formula_reduced`` / ``_anonymous`` /
-``_descriptive``) for ordered structures, may serve custom database-specific
-properties layered on via an
-:meth:`~httk.core.EntryTypeDefinition.extended` definition, and may map an entry
-id to ``None`` (a known entry with no structure — structural properties serve
-null).
-"""
-
-from collections import Counter
+import datetime
 from collections.abc import Iterable, Mapping
-from functools import reduce
-from math import gcd
+from dataclasses import dataclass, field
 from typing import Any
 
 from httk.core import (
     EntryProvider,
     EntryTypeDefinition,
+    IncompleteOptimadeResourceError,
     PropertyDefinition,
     load_entry_type_schema,
 )
 
-from .asu_structure import ASUStructure
-from .elements import SYMBOLS
-from .precision_entries import (
-    PRECISION_PROPERTY_KEYS,
-    precision_definitions,
-    precision_properties,
-)
+from .asu_structure import FundamentalDomainStructure
+from .composition import Assembly
+from .precision_entries import PRECISION_PROPERTY_KEYS, precision_definitions, precision_properties
 from .species_primitive_view import SpeciesPrimitiveView
 from .structure import Structure
 from .structure_like import StructureLike
@@ -46,161 +28,210 @@ from .symmetry_entries import (
     symmetry_properties,
 )
 
-_ELEMENTS: frozenset[str] = frozenset(SYMBOLS)
+__all__ = ["StructureEntry", "StructureEntryProvider"]
 
 
 def _structures_definition() -> EntryTypeDefinition:
-    """The vendored OPTIMADE ``structures`` entry-type definition (cached)."""
+    """Return the vendored OPTIMADE v1.3 ``structures`` definition."""
     return load_entry_type_schema("https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures")
 
 
-# Served property name -> record key. simple_property_handlers on the
-# consumer side treats 'id' (against '__id') and 'type' (constant) specially.
-_STRUCTURES_PROPERTY_KEYS: dict[str, str] = {
-    'id': '__id',
-    'type': 'type',
-    'elements': 'elements',
-    'nelements': 'nelements',
-    'nsites': 'nsites',
-    'lattice_vectors': 'lattice_vectors',
-    'cartesian_site_positions': 'cartesian_site_positions',
-    'species_at_sites': 'species_at_sites',
-    'species': 'species',
-    'structure_features': 'structure_features',
-    'nperiodic_dimensions': 'nperiodic_dimensions',
-    'dimension_types': 'dimension_types',
-}
-
-# Structural record keys that serve null for a None (structure-less) entry.
-_STRUCTURAL_NULL_KEYS: tuple[str, ...] = (
-    'elements',
-    'nelements',
-    'nsites',
-    'lattice_vectors',
-    'cartesian_site_positions',
-    'species_at_sites',
-    'species',
-    'structure_features',
-    'nperiodic_dimensions',
-    'dimension_types',
+# All four common entry properties and all 26 structure-specific properties in
+# OPTIMADE v1.3 section 8.2. Keeping this explicit makes omissions at the provider
+# boundary visible in review and tests.
+_STANDARD_PROPERTY_NAMES: tuple[str, ...] = (
+    "id",
+    "type",
+    "immutable_id",
+    "last_modified",
+    "elements",
+    "nelements",
+    "elements_ratios",
+    "chemical_formula_descriptive",
+    "chemical_formula_reduced",
+    "chemical_formula_hill",
+    "chemical_formula_anonymous",
+    "dimension_types",
+    "nperiodic_dimensions",
+    "lattice_vectors",
+    "space_group_symmetry_operations_xyz",
+    "space_group_symbol_hall",
+    "space_group_symbol_hermann_mauguin",
+    "space_group_symbol_hermann_mauguin_extended",
+    "space_group_it_number",
+    "cartesian_site_positions",
+    "fractional_site_positions",
+    "site_coordinate_span",
+    "site_coordinate_span_description",
+    "nsites",
+    "species_at_sites",
+    "species",
+    "assemblies",
+    "wyckoff_positions",
+    "structure_features",
+    "optimization_type",
 )
+_STANDARD_PROPERTY_SET = frozenset(_STANDARD_PROPERTY_NAMES)
+_STANDARD_STRUCTURE_NAMES = _STANDARD_PROPERTY_NAMES[4:]
 
-# Standard *composition* properties auto-derived from each Structure. They serve null
-# together for a structure that is not fully ordered, because a formula in whole atoms is
-# not well defined for one. Periodicity is deliberately not among them: it has nothing to
-# do with composition, and bundling it here made a disordered alloy report its periodicity
-# as unknown.
-_AUTO_DERIVED_KEYS: tuple[str, ...] = (
-    'elements_ratios',
-    'chemical_formula_reduced',
-    'chemical_formula_anonymous',
-    'chemical_formula_descriptive',
-)
+
+@dataclass(frozen=True, slots=True)
+class StructureEntry:
+    """A structure plus OPTIMADE entry metadata that does not affect equality.
+
+    Structural equality is delegated entirely to ``structure``. Resource identity and
+    timestamps describe the database entry, not the represented material, and are
+    therefore deliberately marked ``compare=False``.
+    """
+
+    structure: StructureLike | None
+    id: str = field(compare=False)
+    type: str = field(default="structures", compare=False)
+    immutable_id: str | None = field(default=None, compare=False)
+    last_modified: datetime.datetime | None = field(default=None, compare=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, str) or not self.id:
+            raise ValueError("StructureEntry id must be a non-empty string")
+        if self.type != "structures":
+            raise ValueError("StructureEntry type must be 'structures'")
+        if self.immutable_id is not None and not isinstance(self.immutable_id, str):
+            raise TypeError("StructureEntry immutable_id must be a string or None")
+        modified = self.last_modified
+        if modified is not None:
+            if not isinstance(modified, datetime.datetime):
+                raise TypeError("StructureEntry last_modified must be a datetime or None")
+            if modified.tzinfo is None or modified.utcoffset() is None:
+                raise ValueError("StructureEntry last_modified must include a timezone")
 
 
 def _as_structure(obj: StructureLike) -> Any:
-    """Return something exposing the ``cell``/``sites``/``species``/``species_at_sites`` quartet.
-
-    An :class:`~httk.atomistic.ASUStructure` holds only its asymmetric unit, so it is
-    viewed as a full structure here. The view keeps the asymmetric unit reachable through
-    ``unwrap``, which is how the symmetry properties are served without expanding twice.
-    """
+    """Normalize accepted convenience inputs to the common structure property layer."""
+    if isinstance(obj, FundamentalDomainStructure):
+        # Representation is semantic: do not expand a fundamental domain merely because
+        # it is being served. Its composition already accounts for orbit multiplicities.
+        return obj
     if isinstance(obj, (tuple, list)):
-        args: tuple[Any, ...] = tuple(obj)
-        return Structure(*args)  # a (cell, sites, species, species_at_sites) tuple/list
-    if isinstance(obj, ASUStructure):
-        from .unitcell_structure_view import UnitcellStructureView
-
-        return UnitcellStructureView(obj)
+        return Structure(*tuple(obj))
     return obj
 
 
-def _anonymous_symbol(index: int) -> str:
-    """The OPTIMADE anonymous element symbol for position ``index`` (A, B, ..., Z, Aa, Ba, ...)."""
-    first = chr(ord("A") + index % 26)
-    tail = index // 26
-    return first if tail == 0 else first + chr(ord("a") + tail - 1)
-
-
-def _element_counts(structure: Any) -> Counter[str] | None:
-    """Integer per-element site counts, or ``None`` unless every species is a single unattached element."""
-    species_by_name = {species.name: species for species in structure.species}
-    if not all(species.is_single_element for species in structure.species):
+def _assembly_payload(assemblies: tuple[Assembly, ...] | None) -> list[dict[str, Any]] | None:
+    """Serialize assemblies without losing the distinction between null and present."""
+    if assemblies is None:
         return None
-    counts: Counter[str] = Counter()
-    for site_name in structure.species_at_sites:
-        counts[species_by_name[site_name].chemical_symbols[0]] += 1
-    return counts if counts else None
+    return [
+        {
+            "sites_in_groups": [list(group) for group in assembly.sites_in_groups],
+            "group_probabilities": [float(value) for value in assembly.group_probabilities],
+        }
+        for assembly in assemblies
+    ]
 
 
-def _derived_properties(structure: Any) -> dict[str, Any]:
-    """The auto-derived composition properties for ``structure`` (all ``None`` when not well-defined)."""
-    counts = _element_counts(structure)
-    if counts is None:
-        return {name: None for name in _AUTO_DERIVED_KEYS}
-    total = sum(counts.values())
-    elements_sorted = sorted(counts)
-    common = reduce(gcd, counts.values())
-    reduced = {element: counts[element] // common for element in elements_sorted}
-    reduced_formula = "".join(element + (str(amount) if amount > 1 else "") for element, amount in reduced.items())
-    anonymous_amounts = sorted(reduced.values(), reverse=True)
-    anonymous_formula = "".join(
-        _anonymous_symbol(position) + (str(amount) if amount > 1 else "")
-        for position, amount in enumerate(anonymous_amounts)
-    )
-    return {
-        'elements_ratios': [counts[element] / total for element in elements_sorted],
-        'chemical_formula_reduced': reduced_formula,
-        'chemical_formula_anonymous': anonymous_formula,
-        'chemical_formula_descriptive': reduced_formula,
+def _structure_projection(structure: Any) -> dict[str, Any]:
+    """Return every standard structure property as a JSON-compatible value."""
+
+    def numeric_matrix(value: Any) -> Any:
+        if value is None:
+            return None
+        return [None if row is None else [float(item) for item in row] for row in value]
+
+    values: dict[str, Any] = {
+        "elements": None if structure.elements is None else list(structure.elements),
+        "nelements": structure.nelements,
+        "elements_ratios": (
+            None if structure.elements_ratios is None else [float(value) for value in structure.elements_ratios]
+        ),
+        "chemical_formula_descriptive": structure.chemical_formula_descriptive,
+        "chemical_formula_reduced": structure.chemical_formula_reduced,
+        "chemical_formula_hill": structure.chemical_formula_hill,
+        "chemical_formula_anonymous": structure.chemical_formula_anonymous,
+        "dimension_types": None if structure.dimension_types is None else list(structure.dimension_types),
+        "nperiodic_dimensions": structure.nperiodic_dimensions,
+        "lattice_vectors": numeric_matrix(structure.lattice_vectors),
+        "cartesian_site_positions": numeric_matrix(structure.cartesian_site_positions),
+        "site_coordinate_span": structure.site_coordinate_span,
+        "site_coordinate_span_description": structure.site_coordinate_span_description,
+        "nsites": structure.nsites,
+        "species_at_sites": list(structure.species_at_sites),
+        "species": [dict(SpeciesPrimitiveView(value)) for value in structure.species],
+        "assemblies": _assembly_payload(structure.assemblies),
+        "structure_features": list(structure.structure_features),
+        "optimization_type": structure.optimization_type,
     }
+
+    # Standard symmetry is part of the common property layer. In particular, direct
+    # projection preserves fundamental-domain/ASU site counts, coordinates and Wyckoff
+    # positions instead of silently expanding them to a unit cell.
+    for name in SYMMETRY_PROPERTY_KEYS:
+        value = getattr(structure, name)
+        if name == "fractional_site_positions":
+            value = numeric_matrix(value)
+        values[name] = list(value) if isinstance(value, tuple) else value
+
+    # ``fractional_site_positions`` is included by the symmetry projection above. Assert
+    # completeness here so adding a standard property cannot silently create a sparse row.
+    missing = set(_STANDARD_STRUCTURE_NAMES) - set(values)
+    if missing:  # pragma: no cover - a maintenance assertion
+        raise AssertionError(f"incomplete OPTIMADE structure projection: {sorted(missing)!r}")
+    return values
 
 
 class StructureEntryProvider(EntryProvider):
-    """Serves OPTIMADE ``structures`` from a mapping of id to structure.
+    """Serve complete OPTIMADE v1.3 structure records from atomistic structures.
 
-    ``entries`` maps each entry id to a :class:`~httk.atomistic.Structure` (or
-    any structure exposing the ``cell``/``sites``/``species``/
-    ``species_at_sites`` quartet, or a ``(cell, sites, species,
-    species_at_sites)`` tuple), or to ``None`` for a known entry that has no
-    structure (its structural properties then serve null).
+    A mapping keeps the convenient ``{"example": structure}`` form. Values may instead
+    be explicit :class:`StructureEntry` objects when immutable ids or timestamps are
+    available. An iterable of entries is accepted when no redundant mapping key is useful.
 
-    The always-served structural fields are ``id``, ``type``, ``nsites``,
-    ``elements``, ``nelements``, ``species`` (as OPTIMADE species dicts),
-    ``species_at_sites``, ``lattice_vectors`` (the cell basis rows),
-    ``cartesian_site_positions`` (reduced coordinates times the cell basis), and
-    ``structure_features`` (``disorder`` when any species mixes several chemical
-    symbols; ``site_attachments`` when any species has attached atoms). The
-    standard composition fields ``nperiodic_dimensions``, ``dimension_types``,
-    ``elements_ratios``, ``chemical_formula_reduced`` / ``_anonymous`` /
-    ``_descriptive`` are auto-derived for a fully ordered structure (every
-    species a single, unattached element), else served as null.
-
-    ``extra_definitions`` extends the served entry-type definition with custom
-    database-specific properties (each carrying a registered prefix), and
-    ``properties`` supplies their per-entry values as ``{entry_id: {name:
-    value}}``; every property named there MUST be described by the (extended)
-    definition (a :class:`ValueError` at construction names any offender), and a
-    value absent for an entry is served as null.
+    Custom properties may extend the schema, but standard OPTIMADE fields are a pure
+    projection of the entry and structure and cannot be replaced by custom values.
     """
 
     def __init__(
         self,
-        entries: Mapping[str, StructureLike | None],
+        entries: Mapping[str, StructureLike | StructureEntry | None] | Iterable[StructureEntry],
         *,
         extra_definitions: Mapping[str, PropertyDefinition] | None = None,
         properties: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> None:
-        self._structures: dict[str, Any] = {
-            str(key): (None if value is None else _as_structure(value)) for key, value in entries.items()
-        }
-        self._extra_definitions: dict[str, PropertyDefinition] = dict(extra_definitions or {})
-        self._properties: dict[str, dict[str, Any]] = {
-            str(entry_id): dict(values) for entry_id, values in (properties or {}).items()
-        }
+        normalized: dict[str, StructureEntry] = {}
+        if isinstance(entries, Mapping):
+            for raw_id, value in entries.items():
+                entry_id = str(raw_id)
+                if isinstance(value, StructureEntry):
+                    if value.id != entry_id:
+                        raise ValueError(f"StructureEntry id {value.id!r} does not match its mapping key {entry_id!r}")
+                    entry = value
+                else:
+                    entry = StructureEntry(value, id=entry_id)
+                normalized[entry_id] = entry
+        else:
+            for entry in entries:
+                if not isinstance(entry, StructureEntry):
+                    raise TypeError("iterable StructureEntryProvider input must contain StructureEntry values")
+                if entry.id in normalized:
+                    raise ValueError(f"duplicate StructureEntry id: {entry.id!r}")
+                normalized[entry.id] = entry
+        self._entries = normalized
 
-        described = self._definition().properties
+        self._extra_definitions = dict(extra_definitions or {})
+        definition_clashes = sorted(_STANDARD_PROPERTY_SET.intersection(self._extra_definitions))
+        if definition_clashes:
+            raise ValueError(
+                "custom definitions may not override standard OPTIMADE structure properties: "
+                + ", ".join(definition_clashes)
+            )
+
+        self._properties = {str(entry_id): dict(values) for entry_id, values in (properties or {}).items()}
         used_names = sorted({name for values in self._properties.values() for name in values})
+        value_clashes = sorted(_STANDARD_PROPERTY_SET.intersection(used_names))
+        if value_clashes:
+            raise ValueError(
+                "custom values may not override standard OPTIMADE structure properties: " + ", ".join(value_clashes)
+            )
+        described = self._definition().properties
         offenders = [name for name in used_names if name not in described]
         if offenders:
             raise ValueError(
@@ -208,87 +239,54 @@ class StructureEntryProvider(EntryProvider):
                 + ", ".join(offenders)
                 + ". Add them via extra_definitions (custom names need a registered prefix)."
             )
-        self._property_names: list[str] = used_names
+        self._property_names = used_names
 
     def _definition(self) -> EntryTypeDefinition:
-        # The symmetry properties from schemas.httk.org are always described, even
-        # when no entry is an asymmetric unit, so that the served definition does not
-        # change shape with the contents of the database.
         definition = _structures_definition().extended(setting_definitions()).extended(precision_definitions())
         if self._extra_definitions:
             definition = definition.extended(self._extra_definitions)
         return definition
 
     def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
-        return {'structures': self._definition()}
+        return {"structures": self._definition()}
 
     def property_keys(self, entry_type: str) -> Mapping[str, str]:
-        if entry_type != 'structures':
+        if entry_type != "structures":
             raise KeyError("StructureEntryProvider serves only the 'structures' entry type.")
-        property_keys = dict(_STRUCTURES_PROPERTY_KEYS)
-        for name in _AUTO_DERIVED_KEYS:
-            property_keys[name] = name
-        for name in SYMMETRY_PROPERTY_KEYS:
-            property_keys[name] = name
-        for name in SETTING_PROPERTY_KEYS:
-            property_keys[name] = name
-        for name in PRECISION_PROPERTY_KEYS:
-            property_keys[name] = name
-        for name in self._property_names:
-            property_keys[name] = name
+        property_keys = {name: ("__id" if name == "id" else name) for name in _STANDARD_PROPERTY_NAMES}
+        property_keys.update({name: name for name in SETTING_PROPERTY_KEYS})
+        property_keys.update({name: name for name in PRECISION_PROPERTY_KEYS})
+        property_keys.update({name: name for name in self._property_names})
         return property_keys
 
     def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
-        if entry_type != 'structures':
+        if entry_type != "structures":
             raise KeyError("StructureEntryProvider serves only the 'structures' entry type.")
         records: list[dict[str, Any]] = []
-        for entry_id, structure in self._structures.items():
-            record: dict[str, Any] = {'__id': entry_id, 'type': 'structures'}
-            record.update(symmetry_properties(structure))
-            record.update(precision_properties(structure))
+        for entry in self._entries.values():
+            structure = None if entry.structure is None else _as_structure(entry.structure)
+            record: dict[str, Any] = {
+                "__id": entry.id,
+                "type": entry.type,
+                "immutable_id": entry.immutable_id,
+                "last_modified": None if entry.last_modified is None else entry.last_modified.isoformat(),
+            }
             if structure is None:
-                for key in _STRUCTURAL_NULL_KEYS:
-                    record[key] = None
-                for name in _AUTO_DERIVED_KEYS:
-                    record[name] = None
+                record.update({name: None for name in _STANDARD_STRUCTURE_NAMES})
+                record.update(symmetry_properties(None))
+                record.update(precision_properties(None))
             else:
-                species_dicts = [dict(SpeciesPrimitiveView(species)) for species in structure.species]
-                elements = sorted(
-                    {
-                        symbol
-                        for species in species_dicts
-                        for symbol in species['chemical_symbols']
-                        if symbol in _ELEMENTS
-                    }
-                )
-                features: list[str] = []
-                if any(len(species['chemical_symbols']) > 1 for species in species_dicts):
-                    features.append('disorder')
-                if any(species.get('attached') for species in species_dicts):
-                    features.append('site_attachments')
-                record.update(
-                    {
-                        'elements': elements,
-                        'nelements': len(elements),
-                        'nsites': len(structure.species_at_sites),
-                        'lattice_vectors': structure.cell.basis.to_floats(),
-                        'cartesian_site_positions': structure.cartesian_sites().to_floats(),
-                        'species_at_sites': list(structure.species_at_sites),
-                        'species': species_dicts,
-                        'structure_features': features,
-                        # Served with the other always-known structural facts, not among the
-                        # composition-derived ones: a disordered alloy has a periodicity even
-                        # though no whole-atom formula can be written for it.
-                        #
-                        # OPTIMADE orders dimension_types by lattice vector, exactly as
-                        # Cell.periodicity does, so this is a spelling change and not a
-                        # reordering.
-                        'nperiodic_dimensions': structure.nperiodic_dimensions,
-                        'dimension_types': [1 if periodic else 0 for periodic in structure.periodicity],
-                    }
-                )
-                record.update(_derived_properties(structure))
-            entry_properties = self._properties.get(entry_id, {})
+                record.update(_structure_projection(structure))
+                # Provider-specific setting/precision fields remain extensions to the
+                # standard projection and preserve their existing null behavior.
+                record.update({name: value for name, value in symmetry_properties(structure).items() if name[0] == "_"})
+                try:
+                    record.update(precision_properties(structure))
+                except IncompleteOptimadeResourceError:
+                    if structure.site_coordinate_span in {"unit_cell", "molecular_unit_cell"}:
+                        raise
+                    record.update({name: None for name in PRECISION_PROPERTY_KEYS})
+            entry_properties = self._properties.get(entry.id, {})
             for name in self._property_names:
                 record[name] = entry_properties.get(name)
             records.append(record)

@@ -5,7 +5,7 @@ from typing import Any, Self
 from httk.core import unwrap
 
 from .asu_recognition import recognize_asu
-from .asu_structure import ASUStructure
+from .asu_structure import ASUStructure, FundamentalDomainStructure
 from .setting_transform import SettingTransform
 from .spacegroup import Spacegroup
 from .structure_backend import StructureBackend
@@ -48,6 +48,11 @@ class ASUStructureView(StructureView, ASUStructure):
         # recognition, no tolerance, nothing lost. The precedent is CellParamsView reading
         # a backend's native parameters when it has them.
         asu = getattr(backend, "asu", None)
+        if isinstance(asu, FundamentalDomainStructure) and not isinstance(asu, ASUStructure):
+            raise ValueError(
+                "ASUStructureView cannot promote a fundamental domain to an asymmetric unit; "
+                "construct ASUStructure explicitly to assert the stronger representation"
+            )
         if asu is None:
             asu = recognize_asu(
                 backend,
@@ -68,6 +73,12 @@ class ASUStructureView(StructureView, ASUStructure):
             asu.species,
             asu.transform,
             asu.coordinate_precision,
+            molecular=asu.molecular,
+            assemblies=asu.assemblies,
+            chemical_composition=asu.chemical_composition,
+            chemical_formula_descriptive=asu.chemical_formula_descriptive,
+            chemical_formula_hill=asu.chemical_formula_hill,
+            optimization_type=asu.optimization_type,
         )
         instance._backend = backend
         return instance

@@ -11,7 +11,7 @@ Serving them matters because a consumer choosing a matching tolerance or a symme
 """
 
 from functools import cache
-from typing import Any
+from typing import Any, cast
 
 from httk.core import PropertyDefinition
 
@@ -48,10 +48,15 @@ def precision_properties(structure: Any) -> dict[str, Any]:
     if structure is None:
         return values
 
-    coordinate = structure.sites.precision
-    basis = structure.cell.precision
+    marker = object()
+    coordinate = getattr(structure, "coordinate_precision", marker)
+    basis = getattr(structure, "basis_precision", marker)
+    if coordinate is marker:
+        coordinate = structure.sites.precision
+    if basis is marker:
+        basis = structure.cell.precision
     if coordinate is not None:
-        values["_httk_coordinate_precision"] = float(coordinate)
+        values["_httk_coordinate_precision"] = float(cast(Any, coordinate))
     if basis is not None:
-        values["_httk_basis_precision"] = float(basis)
+        values["_httk_basis_precision"] = float(cast(Any, basis))
     return values

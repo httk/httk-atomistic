@@ -1,10 +1,14 @@
-"""Unit tests for StructureEntryProvider and its registration."""
+"""Unit tests for StructureEntry and its complete OPTIMADE projection."""
+
+import datetime
+from fractions import Fraction
 
 import pytest
-from httk.core import PropertyDefinition
+from httk.core import FracVector, PropertyDefinition
 
-from httk.atomistic import Structure, StructureEntryProvider
+from httk.atomistic import Assembly, ASUSite, ASUStructure, Structure, StructureEntryProvider
 from httk.atomistic.species import Species
+from httk.atomistic.structure_entries import StructureEntry
 from httk.atomistic.structure_record import StructureRecord
 
 
@@ -29,15 +33,15 @@ def test_entry_types_describe_structures() -> None:
     definition = entry_types["structures"]
     assert isinstance(definition, EntryTypeDefinition)
     properties = definition.properties
-    # The vendored standard describes the full v1.3 property set (30), a superset
-    # of the subset the provider serves:
+    # The provider serves all 30 standard v1.3 properties, plus the six symmetry
+    # setting properties and two precision properties under the _httk_ prefix.
     # 30 standard OPTIMADE properties, plus the six symmetry properties and two precision
     # properties httk serves under the _httk_ prefix, each described by a vendored
     # schemas.httk.org definition.
     assert len(properties) == 38
     for name in ("id", "type", "elements", "nelements", "nsites", "species", "structure_features"):
         assert name in properties
-    # Includes v1.3-native properties the provider does not serve:
+    # These formerly omitted v1.3-native properties are now served:
     assert "wyckoff_positions" in properties
     assert "fractional_site_positions" in properties
     # nelements keeps its canonical v1.2 $id:
@@ -49,7 +53,8 @@ def test_entry_types_describe_structures() -> None:
 
 def test_property_keys_cover_id_and_type() -> None:
     property_keys = _provider().property_keys("structures")
-    assert "id" in property_keys and "type" in property_keys
+    assert len({name for name in property_keys if not name.startswith("_httk_")}) == 30
+    assert set(_provider().entry_types()["structures"].properties) <= set(property_keys)
     # id is normalized under the '__id' record key:
     assert property_keys["id"] == "__id"
 
@@ -66,6 +71,8 @@ def test_records_keyed_by_property_keys() -> None:
     assert record["nelements"] == 2
     assert record["nsites"] == 2
     assert record["species_at_sites"] == ["Na", "Cl"]
+    assert record["immutable_id"] is None
+    assert record["last_modified"] is None
 
 
 def test_cartesian_positions_nonorthogonal_hand_computed() -> None:
@@ -130,7 +137,9 @@ def test_chemical_formula_and_ratios() -> None:
     assert record["chemical_formula_reduced"] == "FeO3Sm"
     # reduced amounts [1, 3, 1] ordered descending -> A3, B, C.
     assert record["chemical_formula_anonymous"] == "A3BC"
-    assert record["chemical_formula_descriptive"] == "FeO3Sm"
+    # Descriptive and Hill formulas are source annotations, not invented aliases.
+    assert record["chemical_formula_descriptive"] is None
+    assert record["chemical_formula_hill"] is None
     assert record["elements_ratios"] == [0.2, 0.6, 0.2]
 
 
@@ -148,14 +157,14 @@ def test_null_structure_serves_null() -> None:
     assert record["elements_ratios"] is None
 
 
-def test_disordered_structure_has_null_composition() -> None:
+def test_disordered_structure_uses_exact_expected_composition() -> None:
     cell = [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 3.0]]
     mixed = Species(name="M", chemical_symbols=("Fe", "Ni"), concentration=(0.5, 0.5))
     structure = Structure(cell, [[0.0, 0.0, 0.0]], [mixed], ["M"])
     (record,) = list(StructureEntryProvider({"m": structure}).records("structures"))
-    assert record["chemical_formula_reduced"] is None
-    assert record["chemical_formula_anonymous"] is None
-    assert record["elements_ratios"] is None
+    assert record["chemical_formula_reduced"] == "FeNi"
+    assert record["chemical_formula_anonymous"] == "AB"
+    assert record["elements_ratios"] == [0.5, 0.5]
 
 
 def test_extra_definitions_and_properties_merged() -> None:
@@ -177,6 +186,96 @@ def test_unknown_property_name_rejected() -> None:
     with pytest.raises(ValueError) as excinfo:
         StructureEntryProvider({"a": _nacl_like()}, properties={"a": {"_httk_missing": 1.0}})
     assert "_httk_missing" in str(excinfo.value)
+
+
+@pytest.mark.parametrize("source", ["properties", "extra_definitions"])
+def test_standard_properties_cannot_be_overridden(source: str) -> None:
+    replacement = PropertyDefinition.from_simple("elements", description="not standard", fulltype="string")
+    with pytest.raises(ValueError, match="may not override standard"):
+        if source == "properties":
+            StructureEntryProvider({"a": _nacl_like()}, properties={"a": {"elements": ["H"]}})
+        else:
+            StructureEntryProvider({"a": _nacl_like()}, extra_definitions={"elements": replacement})
+
+
+def test_structure_entry_metadata_is_served_but_not_structural_equality() -> None:
+    structure = _nacl_like()
+    stamp = datetime.datetime(2026, 8, 1, 12, 30, tzinfo=datetime.UTC)
+    left = StructureEntry(
+        structure,
+        id="left",
+        immutable_id="stable-left",
+        last_modified=stamp,
+    )
+    right = StructureEntry(structure, id="right", immutable_id="stable-right")
+    assert left == right
+
+    (record,) = list(StructureEntryProvider([left]).records("structures"))
+    assert record["__id"] == "left"
+    assert record["type"] == "structures"
+    assert record["immutable_id"] == "stable-left"
+    assert record["last_modified"] == "2026-08-01T12:30:00+00:00"
+
+
+def test_structure_entry_validation_and_mapping_identity() -> None:
+    with pytest.raises(ValueError, match="timezone"):
+        naive = datetime.datetime(2026, 8, 1, tzinfo=datetime.UTC).replace(tzinfo=None)
+        StructureEntry(_nacl_like(), id="x", last_modified=naive)
+    with pytest.raises(ValueError, match="does not match"):
+        StructureEntryProvider({"mapping-id": StructureEntry(_nacl_like(), id="entry-id")})
+
+
+def test_complete_standard_projection_and_assembly_null_semantics() -> None:
+    cell = [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 3.0]]
+    na = Species(name="Na", chemical_symbols=("Na",), concentration=(1,))
+    cl = Species(name="Cl", chemical_symbols=("Cl",), concentration=(1,))
+    structure = Structure(
+        cell,
+        [[0, 0, 0], [0.5, 0.5, 0.5]],
+        [na, cl],
+        ["Na", "Cl"],
+        assemblies=(Assembly(((0,), (1,)), (Fraction(1, 3), Fraction(2, 3))),),
+        chemical_formula_descriptive="NaCl",
+        chemical_formula_hill="Cl2Na",
+        optimization_type="experimental",
+    )
+    provider = StructureEntryProvider({"x": structure})
+    (record,) = list(provider.records("structures"))
+    for name, key in provider.property_keys("structures").items():
+        assert key in record, name
+    assert record["assemblies"] == [{"sites_in_groups": [[0], [1]], "group_probabilities": [1 / 3, 2 / 3]}]
+    assert record["chemical_formula_descriptive"] == "NaCl"
+    assert record["chemical_formula_hill"] == "Cl2Na"
+    assert record["optimization_type"] == "experimental"
+    assert record["site_coordinate_span"] == "unit_cell"
+    assert record["fractional_site_positions"] == [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
+
+    (plain,) = list(StructureEntryProvider({"x": _nacl_like()}).records("structures"))
+    assert plain["assemblies"] is None
+    empty_assemblies = Structure(cell, [[0, 0, 0]], [na], ["Na"], assemblies=())
+    (present_empty,) = list(StructureEntryProvider({"x": empty_assemblies}).records("structures"))
+    assert present_empty["assemblies"] == []
+
+
+def test_asymmetric_unit_is_projected_without_unit_cell_expansion() -> None:
+    no_parameters = FracVector.create(())
+    asu = ASUStructure(
+        [[5.64, 0, 0], [0, 5.64, 0], [0, 0, 5.64]],
+        225,
+        [ASUSite("a", no_parameters, "Na"), ASUSite("b", no_parameters, "Cl")],
+        [
+            Species(name="Na", chemical_symbols=("Na",), concentration=(1,)),
+            Species(name="Cl", chemical_symbols=("Cl",), concentration=(1,)),
+        ],
+    )
+    (record,) = list(StructureEntryProvider({"rocksalt": asu}).records("structures"))
+    assert record["site_coordinate_span"] == "asymmetric_unit"
+    assert record["nsites"] == 2
+    assert len(record["fractional_site_positions"]) == 2
+    assert record["species_at_sites"] == ["Na", "Cl"]
+    assert record["wyckoff_positions"] == ["a", "b"]
+    # Composition remains a unit-cell projection (four atoms in each orbit).
+    assert record["chemical_formula_reduced"] == "ClNa"
 
 
 def test_registration_discovered_via_httk_core() -> None:
@@ -220,12 +319,12 @@ def test_periodicity_is_served_whatever_the_composition() -> None:
         assert record["nperiodic_dimensions"] == 3, label
         assert record["dimension_types"] == [1, 1, 1], label
 
-    # The composition properties still null out for those, which is correct.
+    # Exact partial occupations have an exact expected composition as well.
     (record,) = list(
         StructureEntryProvider({"x": Structure(cell, [[0, 0, 0]], [disordered], ["X"])}).records("structures")
     )
-    assert record["chemical_formula_reduced"] is None
-    assert record["elements_ratios"] is None
+    assert record["chemical_formula_reduced"] == "KNa"
+    assert record["elements_ratios"] == [0.5, 0.5]
 
 
 def test_an_entry_with_no_structure_still_serves_null_periodicity() -> None:

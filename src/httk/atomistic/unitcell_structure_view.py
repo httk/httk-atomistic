@@ -5,7 +5,7 @@ A view presenting any structure backend as a Structure (the Unitcell representat
 from functools import cached_property
 from typing import Any, Self
 
-from httk.core import unwrap
+from httk.core import IncompleteOptimadeResourceError, unwrap
 
 from .cell import Cell
 from .sites import Sites
@@ -40,6 +40,18 @@ class UnitcellStructureView(StructureView, Structure):
         if isinstance(obj, cls):
             return obj
         backend = cls._prepare_backend(obj, hints)
+        span = getattr(backend, "site_coordinate_span", None)
+        if span in {
+            "fundamental_domain",
+            "asymmetric_unit",
+            "molecular_fundamental_domain",
+            "molecular_asymmetric_unit",
+            "molecular_entities",
+            "other",
+        }:
+            raise IncompleteOptimadeResourceError(
+                f"site_coordinate_span={span!r} cannot be projected as a native unit-cell Structure view"
+            )
         instance = super().__new__(cls)
         instance._backend = backend
         return instance

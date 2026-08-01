@@ -67,10 +67,10 @@ def _as_existing_asu(structure: StructureLike | ASUStructure) -> ASUStructure | 
     while id(candidate) not in visited:
         visited.add(id(candidate))
         if isinstance(candidate, ASUStructure):
-            return candidate.asu
+            return candidate
         direct = getattr(candidate, "asu", None)
         if isinstance(direct, ASUStructure):
-            return direct.asu
+            return direct
         unwrapped = unwrap(candidate)
         if unwrapped is candidate:
             break

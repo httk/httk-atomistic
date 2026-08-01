@@ -1,7 +1,7 @@
 """A plain-numpy presentation of a structure backend."""
 
 from functools import cached_property
-from typing import Any, Self
+from typing import Any, Self, cast
 
 from httk.core import NumericVector, to_numeric, unwrap
 
@@ -12,10 +12,11 @@ from .species import Species
 from .structure import Structure
 from .structure_backend import StructureBackend
 from .structure_like import StructureLike
+from .structure_semantics import StructureSemanticsMixin
 from .structure_view import StructureView
 
 
-class NumericUnitcellStructureView(StructureView):
+class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
     """A plain-numpy presentation of a :class:`~httk.atomistic.Structure`.
 
     Where a ``Structure`` holds its geometry exactly (a surd ``cell`` basis, rational reduced
@@ -49,7 +50,9 @@ class NumericUnitcellStructureView(StructureView):
 
     @cached_property
     def _exact(self) -> Structure:
-        return Structure(self._backend.cell, self._backend.sites, self._backend.species, self._backend.species_at_sites)
+        from .unitcell_structure_view import UnitcellStructureView
+
+        return UnitcellStructureView(self._backend)
 
     @property
     def cell(self) -> NumericCell:
@@ -74,6 +77,30 @@ class NumericUnitcellStructureView(StructureView):
     def cartesian_sites(self) -> NumericVector:
         """The Cartesian site positions as an ``(N, 3)`` ``float64`` numpy array."""
         return to_numeric(self._exact.cartesian_sites())
+
+    @property
+    def periodicity(self) -> tuple[bool, bool, bool]:
+        return self._exact.periodicity
+
+    @property
+    def nperiodic_dimensions(self) -> int:
+        return self._exact.nperiodic_dimensions
+
+    @property
+    def site_coordinate_span(self) -> str:
+        return self._exact.site_coordinate_span
+
+    @property
+    def lattice_vectors(self) -> list[list[float]]:
+        return cast(list[list[float]], cast(Any, self.cell.basis).tolist())
+
+    @property
+    def fractional_site_positions(self) -> list[list[float]]:
+        return cast(list[list[float]], cast(Any, self.sites.reduced_coords).tolist())
+
+    @property
+    def cartesian_site_positions(self) -> list[list[float]]:
+        return cast(list[list[float]], cast(Any, self.cartesian_sites()).tolist())
 
     @property
     def exact(self) -> Structure:

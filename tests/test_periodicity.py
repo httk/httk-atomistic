@@ -412,8 +412,11 @@ def test_a_reduced_periodicity_structure_serves_no_space_group() -> None:
     for periodicity in ((1, 1, 0), (0, 0, 1), (0, 0, 0)):
         record = _record(periodicity)
         for name, value in record.items():
-            if name.startswith("space_group") or name == "wyckoff_positions":
+            if (
+                name.startswith("space_group") and name != "space_group_symmetry_operations_xyz"
+            ) or name == "wyckoff_positions":
                 assert value is None, f"{name} served for {periodicity}"
+        assert record["space_group_symmetry_operations_xyz"] == (["x,y,z"] if any(periodicity) else None)
 
 
 def test_a_crystal_still_serves_its_space_group() -> None:
@@ -425,20 +428,14 @@ def test_a_crystal_still_serves_its_space_group() -> None:
     (record,) = list(StructureEntryProvider({"x": asu}).records("structures"))
     assert record["nperiodic_dimensions"] == 3
     assert record["space_group_it_number"] == 229
-    assert record["site_coordinate_span"] == "unit_cell"
+    assert record["site_coordinate_span"] == "asymmetric_unit"
 
 
-def test_site_coordinate_span_admits_there_is_no_periodic_system_for_a_molecule() -> None:
-    """`unit_cell` promises the sites reconstruct a periodic system under lattice translations.
-
-    That holds while anything is periodic. With nothing periodic it is simply untrue, and
-    the `molecular_*` values do not fit either — each additionally requires bonded atoms to
-    be placed at a bond distance, which httk does not know.
-    """
+def test_site_coordinate_span_is_selected_by_representation() -> None:
     assert _record((1, 1, 1))["site_coordinate_span"] == "unit_cell"
     assert _record((1, 1, 0))["site_coordinate_span"] == "unit_cell"
     assert _record((0, 0, 1))["site_coordinate_span"] == "unit_cell"
-    assert _record((0, 0, 0))["site_coordinate_span"] == "other"
+    assert _record((0, 0, 0))["site_coordinate_span"] == "unit_cell"
 
 
 def test_lattice_vectors_are_always_three_whatever_the_periodicity() -> None:

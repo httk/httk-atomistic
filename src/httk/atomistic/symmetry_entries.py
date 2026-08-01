@@ -26,7 +26,7 @@ from typing import Any
 
 from httk.core import PropertyDefinition, unwrap
 
-from .asu_structure import ASUStructure
+from .asu_structure import FundamentalDomainStructure
 from .httk_definitions import load_httk_definitions
 from .spacegroup import wyckoff_letter_map
 
@@ -88,19 +88,14 @@ def symmetry_properties(structure: Any) -> dict[str, Any]:
     if structure is None:
         return values
 
-    values["fractional_site_positions"] = structure.sites.reduced_coords.to_floats()
-    # ``unit_cell`` promises that translating the given sites by the lattice vectors
-    # reconstructs the whole periodic system, which holds as long as *something* is
-    # periodic. With nothing periodic there is no periodic system to reconstruct, and none
-    # of the ``molecular_*`` values fit either: each of them additionally requires bonded
-    # atoms to be placed at a bond distance, which httk does not know. ``other`` is the
-    # honest remainder.
-    values["site_coordinate_span"] = "unit_cell" if structure.cell.nperiodic_dimensions else "other"
+    values["fractional_site_positions"] = structure.fractional_site_positions
+    values["site_coordinate_span"] = structure.site_coordinate_span
+    values["site_coordinate_span_description"] = structure.site_coordinate_span_description
 
     # A structure built from an asymmetric unit unwraps back to it, so the symmetry is
     # recovered rather than re-derived; anything else genuinely has none to report.
     asu = unwrap(structure)
-    if not isinstance(asu, ASUStructure):
+    if not isinstance(asu, FundamentalDomainStructure):
         return values
 
     setting = asu.setting()
@@ -151,8 +146,8 @@ def _extended_symbol(setting: Any) -> str | None:
     return " ".join(part.strip() for part in str(extended).split("\n") if part.strip())
 
 
-def _wyckoff_symbols(asu: ASUStructure, setting: Any) -> list[str]:
-    """One Wyckoff symbol per expanded site, in the order the sites are served.
+def _wyckoff_symbols(asu: FundamentalDomainStructure, setting: Any) -> list[str]:
+    """One Wyckoff symbol per directly represented domain site.
 
     The symbols name positions of the setting the structure is *written in*, as OPTIMADE
     requires, not of the standard setting the ASU stores them against. One difference bites
@@ -162,13 +157,13 @@ def _wyckoff_symbols(asu: ASUStructure, setting: Any) -> list[str]:
     """
     letters = wyckoff_letter_map(asu.spacegroup, setting)
     symbols: list[str] = []
-    for site, count in zip(asu.asu_sites, asu.multiplicities()):
+    for site in asu.asu_sites:
         position = setting.wyckoff_position(letters[site.wyckoff])
-        symbols.extend([position.letter] * count)
+        symbols.append(position.letter)
     return symbols
 
 
-def _transform_record(asu: ASUStructure) -> dict[str, Any]:
+def _transform_record(asu: FundamentalDomainStructure) -> dict[str, Any]:
     """The change of basis from the IT standard setting into this structure's own.
 
     Rendered as exact rational strings, matching how the vendored symmetry tables write

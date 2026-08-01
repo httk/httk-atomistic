@@ -17,8 +17,10 @@ from .sites_like import SitesLike
 from .species import Species
 from .species_class_view import SpeciesClassView
 from .species_like import SpeciesLike
+from .structure_semantics import StructureSemanticsMixin, StructureSymmetry, initialize_semantics
 
 if TYPE_CHECKING:
+    from .composition import Assembly, ChemicalComposition
     from .numeric_unitcell_structure_view import NumericUnitcellStructureView
     from .standardization import ConventionalCellResult
 
@@ -57,7 +59,7 @@ def _check_sites_length(sites: Sites, species_at_sites: Sequence[str]) -> None:
         raise ValueError("Structure species_at_sites must have the same length as sites")
 
 
-class Structure:
+class Structure(StructureSemanticsMixin):
     """
     A crystal structure in the Unitcell representation.
 
@@ -88,6 +90,14 @@ class Structure:
         sites: SitesLike,
         species: Sequence[SpeciesLike],
         species_at_sites: Sequence[str],
+        *,
+        molecular: bool = False,
+        assemblies: Sequence["Assembly"] | None = None,
+        symmetry: StructureSymmetry | None = None,
+        chemical_composition: "ChemicalComposition | None" = None,
+        chemical_formula_descriptive: str | None = None,
+        chemical_formula_hill: str | None = None,
+        optimization_type: str | None = None,
     ) -> None:
         norm_cell = _norm_cell(cell)
         norm_sites = _norm_sites(sites)
@@ -101,6 +111,17 @@ class Structure:
         self._sites = norm_sites
         self._species = norm_species
         self._species_at_sites = norm_species_at_sites
+        initialize_semantics(
+            self,
+            nsites=len(norm_sites),
+            molecular=molecular,
+            assemblies=None if assemblies is None else tuple(assemblies),
+            symmetry=symmetry,
+            chemical_composition=chemical_composition,
+            chemical_formula_descriptive=chemical_formula_descriptive,
+            chemical_formula_hill=chemical_formula_hill,
+            optimization_type=optimization_type,
+        )
 
     @property
     def cell(self) -> Cell:
@@ -152,6 +173,20 @@ class Structure:
     def nperiodic_dimensions(self) -> int:
         """How many of the three directions are periodic, from 0 to 3."""
         return self._cell.nperiodic_dimensions
+
+    @property
+    def site_coordinate_span(self) -> str:
+        """The span asserted by this representation, independent of dimensionality."""
+        molecular = self._semantic_value("_molecular", "molecular", False)
+        return "molecular_unit_cell" if molecular else "unit_cell"
+
+    @property
+    def molecular(self) -> bool:
+        return bool(self._semantic_value("_molecular", "molecular", False))
+
+    @property
+    def symmetry(self) -> StructureSymmetry | None:
+        return self._semantic_value("_symmetry", "symmetry")
 
     def cartesian_precision(self) -> fractions.Fraction | None:
         """The coordinate precision as a length, or ``None`` if it is unknown.
@@ -262,19 +297,23 @@ class Structure:
         )
 
     def __eq__(self, other: object) -> bool:
-        """Equality of the quartet. Stated precision does not take part.
-
-        Precision describes how the structure was *recorded*, not what it is, so the same
-        atoms read from a more carefully written file are still the same structure. The
-        component classes take the same view.
-        """
+        """Equality of geometry and all structural semantic assertions, including precision."""
         if not isinstance(other, Structure):
             return NotImplemented
         return (
             self._cell == other._cell
+            and self.basis_precision == other.basis_precision
             and self._sites == other._sites
+            and self.coordinate_precision == other.coordinate_precision
             and self._species == other._species
             and self._species_at_sites == other._species_at_sites
+            and self.molecular == other.molecular
+            and self.assemblies == other.assemblies
+            and self.symmetry == other.symmetry
+            and self.chemical_composition == other.chemical_composition
+            and self.chemical_formula_descriptive == other.chemical_formula_descriptive
+            and self.chemical_formula_hill == other.chemical_formula_hill
+            and self.optimization_type == other.optimization_type
         )
 
     def __repr__(self) -> str:

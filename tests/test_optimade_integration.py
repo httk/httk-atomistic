@@ -123,9 +123,7 @@ def test_periodicity_is_queryable(expression: str, expected: set[str]) -> None:
     nothing at all because every structure claimed to be a 3D crystal.
     """
     adapter = adapter_from_providers([_periodicity_provider()])
-    results = list(
-        execute_query(adapter, ["structures"], ["id"], [], 100, 0, parse_optimade_filter(expression))
-    )
+    results = list(execute_query(adapter, ["structures"], ["id"], [], 100, 0, parse_optimade_filter(expression)))
     assert {r.values["id"] for r in results} == expected
 
 
@@ -146,4 +144,4 @@ def test_dimension_types_is_served_through_the_full_path() -> None:
     assert served["slab"]["nperiodic_dimensions"] == 2
     assert served["slab"]["site_coordinate_span"] == "unit_cell"
     assert served["molecule"]["dimension_types"] == [0, 0, 0]
-    assert served["molecule"]["site_coordinate_span"] == "other"
+    assert served["molecule"]["site_coordinate_span"] == "unit_cell"

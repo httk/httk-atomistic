@@ -390,7 +390,7 @@ def derive_structure_features(structure: Any) -> tuple[str, ...]:
     by_name = {value.name: value for value in species}
     used = tuple(by_name[name] for name in names if name in by_name)
     features: set[str] = set()
-    if getattr(structure, "assemblies", None):
+    if getattr(structure, "assemblies", None) is not None:
         features.add("assemblies")
     if any(len(value.chemical_symbols) > 1 or value.concentration != (Fraction(1),) for value in used):
         features.add("disorder")

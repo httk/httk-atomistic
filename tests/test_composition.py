@@ -21,10 +21,10 @@ from httk.atomistic import (
 
 
 class _Structure:
-    def __init__(self, species, names, *, assemblies=(), chemical_composition=None):
+    def __init__(self, species, names, *, assemblies=None, chemical_composition=None):
         self.species = tuple(species)
         self.species_at_sites = tuple(names)
-        self.assemblies = tuple(assemblies)
+        self.assemblies = None if assemblies is None else tuple(assemblies)
         self.chemical_composition = chemical_composition
 
 
@@ -155,6 +155,7 @@ def test_assembly_and_measured_formula_reconstruction() -> None:
     result = project_composition(_Structure((impossible,), ("impossible",)))
     assert result.chemical_formula_reduced is None
     assert any(item.code == "formula_ratio_unreconstructable" for item in result.diagnostics)
+
 
 def test_assembly_validation_and_asu_multiplicity_projection() -> None:
     exact = Assembly(((0,), (1,)), (F(5, 8), F(3, 8)), (None, None))
