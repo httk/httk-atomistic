@@ -302,7 +302,7 @@ class OptimadeStructure(StructureBackend):
         except (TypeError, ValueError) as exc:
             raise IncompleteOptimadeResourceError(f"OPTIMADE supplied site composition is invalid: {exc}") from exc
 
-    @stored_property
+    @cached_property
     def composition(self) -> CompositionResult:
         """The source-backed composition, retaining implicit/source-only element ratios."""
 
@@ -670,7 +670,7 @@ class OptimadeStructure(StructureBackend):
         return self._formula("chemical_formula_anonymous")
 
     @stored_property
-    def dimension_types(self) -> tuple[int, int, int] | None:
+    def dimension_types(self) -> tuple[int, ...] | None:
         value = self._portable_value("dimension_types")
         if value is None:
             return None
@@ -755,7 +755,7 @@ class OptimadeStructure(StructureBackend):
                 )
         return value
 
-    @stored_property
+    @cached_property
     def lattice_vectors(self) -> tuple[tuple[Fraction, Fraction, Fraction] | None, ...] | None:
         value = self._decoded_optional("lattice_vectors")
         if value is None:
@@ -832,11 +832,11 @@ class OptimadeStructure(StructureBackend):
                 )
         return fractional, cartesian
 
-    @stored_property
+    @cached_property
     def fractional_site_positions(self) -> tuple[tuple[Fraction, Fraction, Fraction], ...] | None:
         return self._coordinate_arrays[0]
 
-    @stored_property
+    @cached_property
     def cartesian_site_positions(self) -> tuple[tuple[Fraction, Fraction, Fraction], ...] | None:
         return self._coordinate_arrays[1]
 
@@ -901,7 +901,7 @@ class OptimadeStructure(StructureBackend):
         lattice = self._raw_optional("lattice_vectors")
         return None if lattice is _MISSING else self._decimal_precision(lattice)
 
-    @stored_property
+    @cached_property
     def symmetry(self) -> StructureSymmetry:
         """Typed source symmetry metadata used by the common unit-cell view layer."""
 
@@ -927,7 +927,7 @@ class OptimadeStructure(StructureBackend):
         # "other".  Keep the source spelling available through ``raw``.
         return "other"
 
-    @stored_property
+    @cached_property
     def assemblies(self) -> tuple[Assembly, ...] | None:
         raw = self._raw_optional("assemblies")
         if raw is _MISSING or raw is None:
