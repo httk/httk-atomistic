@@ -2,8 +2,10 @@
 Backend wrapping a validated OPTIMADE species dict.
 """
 
+from fractions import Fraction
 from typing import Any
 
+from ._composition_values import as_fraction, as_precision
 from .species_backend import SpeciesBackend
 
 
@@ -57,8 +59,15 @@ class SpeciesPrimitive(SpeciesBackend):
         return tuple(self._raw["chemical_symbols"])
 
     @property
-    def concentration(self) -> tuple[float, ...]:
-        return tuple(float(c) for c in self._raw["concentration"])
+    def concentration(self) -> tuple[Fraction, ...]:
+        return tuple(as_fraction(c, field="Species concentration")[0] for c in self._raw["concentration"])
+
+    @property
+    def concentration_precision(self) -> tuple[Fraction | None, ...] | None:
+        raw = self._raw.get("_httk_concentration_precision")
+        if raw is None:
+            return tuple(as_fraction(c, field="Species concentration")[1] for c in self._raw["concentration"])
+        return tuple(as_precision(value, field="Species concentration precision") for value in raw)
 
     @property
     def mass(self) -> tuple[float, ...] | None:

@@ -40,6 +40,7 @@ class SpeciesClassView(SpeciesView, Species):
             original_name=backend.original_name,
             attached=backend.attached,
             nattached=backend.nattached,
+            concentration_precision=backend.concentration_precision,
         )
         instance._backend = backend
         return instance

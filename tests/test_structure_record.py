@@ -163,16 +163,16 @@ def test_species_record_presence_states_and_contradictions() -> None:
         SpeciesRecord("C", ("C",), (1.0,), mass_present=True)
     with pytest.raises(ValueError, match="mass_present=False"):
         SpeciesRecord("C", ("C",), (1.0,), mass=(12.0,))
-    empty_mass_species = SpeciesRecord("empty", (), (), mass=(), mass_present=True)
-    assert empty_mass_species.to_species().mass == ()
+    with pytest.raises(ValueError, match="valid Species"):
+        SpeciesRecord("empty", (), (), mass=(), mass_present=True)
 
     attached_absent = SpeciesRecord("C", ("C",), (1.0,))
     encoded_attached_absent = SpeciesRecord("C", ("C",), (1.0,), attached=(), nattached=(), attached_present=False)
     assert encoded_attached_absent.attached is None
     attached_present = SpeciesRecord("C", ("C",), (1.0,), attached=("H",), nattached=(3,), attached_present=True)
     assert attached_present.to_species().attached == ("H",)
-    empty_attached = SpeciesRecord("C", ("C",), (1.0,), attached=(), nattached=(), attached_present=True)
-    assert empty_attached.to_species().attached == ()
+    with pytest.raises(ValueError, match="valid Species"):
+        SpeciesRecord("C", ("C",), (1.0,), attached=(), nattached=(), attached_present=True)
     assert attached_absent == absent
     with pytest.raises(ValueError):
         SpeciesRecord("C", ("C",), (1.0,), attached=("H",), nattached=None)
@@ -187,6 +187,20 @@ def test_species_record_rejects_non_finite_floats() -> None:
         SpeciesRecord("C", ("C",), (float("nan"),))
     with pytest.raises(ValueError, match="finite"):
         SpeciesRecord("C", ("C",), (1.0,), mass=(float("inf"),), mass_present=True)
+
+
+def test_species_record_preserves_non_dyadic_concentration_and_mixed_precision() -> None:
+    species = Species(
+        "mixed",
+        ("Ge", "Si"),
+        (Fraction(1, 3), "0.6666"),
+        concentration_precision=(None, Fraction(1, 10000)),
+    )
+    record = SpeciesRecord.from_species(species)
+    assert record.concentration == (Fraction(1, 3), Fraction(3333, 5000))
+    assert record.concentration_precision == (Fraction(), Fraction(1, 10000))
+    assert record.concentration_precision_present
+    assert record.to_species() == species
 
 
 def test_structure_record_rejects_invalid_domain_combinations() -> None:

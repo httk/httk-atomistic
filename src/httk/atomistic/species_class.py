@@ -2,6 +2,7 @@
 Backend wrapping a Species in the class representation.
 """
 
+from fractions import Fraction
 from typing import Any
 
 from .species import Species
@@ -39,8 +40,12 @@ class SpeciesClass(SpeciesBackend):
         return self._species.chemical_symbols
 
     @property
-    def concentration(self) -> tuple[float, ...]:
+    def concentration(self) -> tuple[Fraction, ...]:
         return self._species.concentration
+
+    @property
+    def concentration_precision(self) -> tuple[Fraction | None, ...] | None:
+        return self._species.concentration_precision
 
     @property
     def mass(self) -> tuple[float, ...] | None:

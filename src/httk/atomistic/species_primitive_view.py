@@ -30,7 +30,7 @@ class SpeciesPrimitiveView(SpeciesView, dict):
         payload: dict[str, Any] = {
             "name": backend.name,
             "chemical_symbols": list(backend.chemical_symbols),
-            "concentration": list(backend.concentration),
+            "concentration": [float(value) for value in backend.concentration],
         }
         if backend.mass is not None:
             payload["mass"] = list(backend.mass)
@@ -40,6 +40,11 @@ class SpeciesPrimitiveView(SpeciesView, dict):
             payload["attached"] = list(backend.attached)
         if backend.nattached is not None:
             payload["nattached"] = list(backend.nattached)
+        raw = backend.unwrap()
+        if isinstance(raw, dict) and "_httk_concentration_precision" in raw:
+            payload["_httk_concentration_precision"] = [
+                None if value is None else float(value) for value in backend.concentration_precision or ()
+            ]
         instance = super().__new__(cls)
         # dict is mutable, so its contents are initialized here in __new__ (keeping __init__ a no-op),
         # so that rewrapping an existing view via cls(view) does not re-initialize it.

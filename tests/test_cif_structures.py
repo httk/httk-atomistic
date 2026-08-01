@@ -94,7 +94,7 @@ def test_cif_expands_to_the_full_cell(tmp_path: Path) -> None:
     assert len(structure.sites) == 8
     assert sorted(structure.species_at_sites) == ["Cl"] * 4 + ["Na"] * 4
     # Exact, not approximate: expansion never leaves the rationals.
-    assert set(tuple(row) for row in structure.sites.reduced_coords.to_fractions()) == {
+    assert {tuple(row) for row in structure.sites.reduced_coords.to_fractions()} == {
         (F(0), F(0), F(0)),
         (F(0), F(1, 2), F(1, 2)),
         (F(1, 2), F(0), F(1, 2)),
@@ -208,6 +208,36 @@ def test_occupancies_survive_into_the_structure(tmp_path: Path) -> None:
     # A partially occupied site is named for its CIF label, since two sites of one element
     # can carry different occupancies.
     assert [site.species for site in asu.asu_sites] == ["Na1", "Cl"]
+
+
+def test_neutral_exact_occupancies_preserve_central_values_and_precision(tmp_path: Path) -> None:
+    """The atomistic adapter consumes the neutral exact fields without importing httk-io."""
+    payload = dict(load(str(_rocksalt_cif(tmp_path)), raw=True)["blocks"][0])
+    payload["occupancies"] = [0.5, 1 / 3]
+    payload["occupancies_exact"] = ["0.5000", "1/3"]
+    payload["occupancy_precisions"] = [F(7, 10000), None]
+
+    asu = asu_structure_from_cif(payload)
+    concentrations = {species.name: species for species in asu.species}
+    assert concentrations["Na1"].concentration == (F(1, 2),)
+    assert concentrations["Na1"].concentration_precision == (F(7, 10000),)
+    assert concentrations["Cl1"].concentration == (F(1, 3),)
+    assert concentrations["Cl1"].concentration_precision == (None,)
+
+
+def test_neutral_missing_occupancy_is_not_treated_as_full_occupancy(tmp_path: Path) -> None:
+    payload = dict(load(str(_rocksalt_cif(tmp_path)), raw=True)["blocks"][0])
+    payload["occupancies"] = [None, 1.0]
+    payload["occupancies_exact"] = [None, "1"]
+    payload["occupancy_precisions"] = [None, F(1)]
+    with pytest.raises(ValueError, match="occupancy is missing.*Na1"):
+        asu_structure_from_cif(payload)
+
+    payload.pop("occupancies")
+    payload.pop("occupancies_exact")
+    payload.pop("occupancy_precisions")
+    asu = asu_structure_from_cif(payload)
+    assert all(species.concentration == (F(1),) for species in asu.species)
 
 
 def test_coordinates_embed_as_the_decimal_the_file_wrote(tmp_path: Path) -> None:

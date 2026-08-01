@@ -20,6 +20,7 @@ from typing import Any
 from httk.core import FracVector
 
 from . import data as symmetry_data
+from ._composition_values import as_fraction
 from .affine_operation import AffineOperation
 from .asu_structure import ASUSite, ASUStructure
 from .cell import Cell
@@ -106,11 +107,21 @@ def asu_structure_from_cif(
     symbols = list(data["symbols"])
     labels = list(data.get("labels") or symbols)
     occupancies = data.get("occupancies")
+    occupancies_exact = data.get("occupancies_exact")
+    occupancy_precisions = data.get("occupancy_precisions")
 
     species_by_name: dict[str, Species] = {}
     asu_sites: list[ASUSite] = []
     for index, coordinate in enumerate(coordinates):
-        occupancy = 1.0 if occupancies is None or occupancies[index] is None else float(occupancies[index])
+        if occupancies_exact is not None and occupancies_exact[index] is not None:
+            occupancy = occupancies_exact[index]
+        elif occupancies is None:
+            occupancy = 1
+        elif occupancies[index] is None:
+            raise ValueError(f"CIF occupancy is missing for site {labels[index]!r}")
+        else:
+            occupancy = occupancies[index]
+        occupancy_precision = None if occupancy_precisions is None else occupancy_precisions[index]
         name = _species_name(symbols[index], labels[index], occupancy)
         if name not in species_by_name:
             species_by_name[name] = Species(
@@ -118,6 +129,7 @@ def asu_structure_from_cif(
                 chemical_symbols=(symbols[index],),
                 concentration=(occupancy,),
                 original_name=labels[index],
+                concentration_precision=(occupancy_precision,) if occupancy_precisions is not None else None,
             )
 
         standard_point = transform.to_standard(coordinate).normalize()
@@ -306,14 +318,14 @@ def _exact_positions(data: Mapping[str, Any]) -> list[FracVector]:
     return [FracVector.create(list(row)) for row in data["positions"]]
 
 
-def _species_name(symbol: str, label: str, occupancy: float) -> str:
+def _species_name(symbol: str, label: str, occupancy: Any) -> str:
     """A species name: the element where that is unambiguous, else the file's site label.
 
     A fully occupied site is named for its element, which keeps ordinary structures
     readable. A partially occupied one is named for its CIF label instead, since two sites
     of the same element can carry different occupancies and would otherwise collide.
     """
-    return symbol if occupancy == 1.0 else label
+    return symbol if as_fraction(occupancy, field="CIF occupancy")[0] == 1 else label
 
 
 def _snap(

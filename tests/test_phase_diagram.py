@@ -4,8 +4,8 @@ import pytest
 
 numpy = pytest.importorskip("numpy")
 
-from httk.atomistic import PhaseDiagram, Species, Structure  # noqa: E402
-from httk.atomistic.phase_diagram import _solve_equality_lp  # noqa: E402
+from httk.atomistic import PhaseDiagram, Species, Structure
+from httk.atomistic.phase_diagram import _solve_equality_lp
 
 CUBIC = [[4, 0, 0], [0, 4, 0], [0, 0, 4]]
 
@@ -279,17 +279,10 @@ def test_from_structures_rejects_unknown_element() -> None:
 
 
 def test_from_structures_rejects_negative_species_concentration() -> None:
-    structure = Structure(
-        CUBIC,
-        [[0, 0, 0], [0.5, 0.5, 0.5]],
-        [
-            Species("negative", ("Fe",), (-0.5,)),
-            Species("positive", ("Fe",), (1.5,)),
-        ],
-        ["negative", "positive"],
-    )
-    with pytest.raises(ValueError, match="finite and non-negative"):
-        PhaseDiagram.from_structures([structure], [0.0])
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        Species("negative", ("Fe",), (-0.5,))
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        Species("positive", ("Fe",), (1.5,))
 
 
 def test_default_tolerance_counts_tiny_positive_distance_as_stable() -> None:

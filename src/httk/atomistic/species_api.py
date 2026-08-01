@@ -3,6 +3,7 @@ The minimal canonical species interface for httk-atomistic.
 """
 
 from abc import ABC, abstractmethod
+from fractions import Fraction
 
 
 class SpeciesAPI(ABC):
@@ -27,7 +28,12 @@ class SpeciesAPI(ABC):
 
     @property
     @abstractmethod
-    def concentration(self) -> tuple[float, ...]:
+    def concentration(self) -> tuple[Fraction, ...]:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def concentration_precision(self) -> tuple[Fraction | None, ...] | None:
         raise NotImplementedError
 
     @property

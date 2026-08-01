@@ -328,6 +328,18 @@ def test_primitive_view_raises_for_non_single_element_species() -> None:
         StructurePrimitiveView(alloy)
 
 
+def test_primitive_view_refuses_partially_occupied_single_symbol_species() -> None:
+    partial = Structure(
+        cell=CUBIC,
+        sites=[[0.0, 0.0, 0.0]],
+        species=[Species("Na_half", ("Na",), (0.5,))],
+        species_at_sites=["Na_half"],
+    )
+    assert not partial.species[0].is_single_element
+    with pytest.raises(TypeError, match="single, unattached"):
+        StructurePrimitiveView(partial)
+
+
 def test_view_rewrap_identity_and_shared_backend() -> None:
     backend = StructureBackend.create(nacl_triple())
     v1 = UnitcellStructureView(backend)

@@ -31,6 +31,16 @@ from .cell_primitive_view import CellPrimitiveView
 from .cell_view import CellView
 from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
 from .compat import ASEAtomsBackend, ASEAtomsProtocol
+from .composition import (
+    Assembly,
+    ChemicalComposition,
+    CompositionDiagnostic,
+    CompositionResult,
+    anonymous_symbol,
+    derive_structure_features,
+    project_composition,
+    validate_assemblies,
+)
 from .elements import SYMBOLS, atomic_number, symbol_of
 from .numeric_cell import NumericCell
 from .numeric_sites import NumericSites
@@ -112,6 +122,7 @@ __all__ = [
     "ASUStructure",
     "ASUStructureView",
     "AffineOperation",
+    "Assembly",
     "Cell",
     "CellAPI",
     "CellBackend",
@@ -124,6 +135,9 @@ __all__ = [
     "CellPrimitive",
     "CellPrimitiveView",
     "CellView",
+    "ChemicalComposition",
+    "CompositionDiagnostic",
+    "CompositionResult",
     "ConventionalCellResult",
     "NumericCell",
     "NumericSites",
@@ -169,6 +183,7 @@ __all__ = [
     "UnitcellStructureView",
     "WyckoffBranch",
     "WyckoffPosition",
+    "anonymous_symbol",
     "asu_structure_from_cif",
     "asu_structures_from_cif",
     "atomic_number",
@@ -176,11 +191,13 @@ __all__ = [
     "cif_setting",
     "conventional_cell",
     "cubic_supercell",
+    "derive_structure_features",
     "load_asu_structure",
     "load_structure",
     "orthogonal_supercell",
     "precision_definitions",
     "precision_properties",
+    "project_composition",
     "recognize_asu",
     "same_crystal",
     "setting_definitions",
@@ -189,6 +206,7 @@ __all__ = [
     "structure_tolerance",
     "symbol_of",
     "symmetry_properties",
+    "validate_assemblies",
     "wyckoff_letter_map",
     "wyckoff_positions",
 ]

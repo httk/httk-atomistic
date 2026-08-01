@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Annotated, cast
 import httk.core.storage_markers
 from httk.core import FracVector, SurdScalar, SurdVector
 
+from ._composition_values import as_fraction
 from ._vector_guards import to_precision
 from .species import Species
 
@@ -44,23 +45,43 @@ class SpeciesRecord:
 
     name: str
     chemical_symbols: tuple[str, ...]
-    concentration: tuple[float, ...]
+    concentration: tuple[fractions.Fraction, ...]
     mass: tuple[float, ...] | None = None
     original_name: str | None = None
     attached: tuple[str, ...] | None = None
     nattached: tuple[int, ...] | None = None
     mass_present: bool = False
     attached_present: bool = False
+    concentration_precision: tuple[fractions.Fraction, ...] = ()
+    concentration_precision_present: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "chemical_symbols", tuple(self.chemical_symbols))
-        object.__setattr__(self, "concentration", tuple(self.concentration))
+        concentration = tuple(
+            as_fraction(value, field="SpeciesRecord concentration")[0] for value in self.concentration
+        )
+        object.__setattr__(self, "concentration", concentration)
         if self.mass is not None:
             object.__setattr__(self, "mass", tuple(self.mass))
         if self.attached is not None:
             object.__setattr__(self, "attached", tuple(self.attached))
         if self.nattached is not None:
             object.__setattr__(self, "nattached", tuple(self.nattached))
+        raw_precision = tuple(self.concentration_precision)
+        if not isinstance(self.concentration_precision_present, bool):
+            raise TypeError("SpeciesRecord concentration_precision_present must be a bool")
+        if self.concentration_precision_present:
+            if len(raw_precision) != len(concentration):
+                raise ValueError("SpeciesRecord concentration_precision must match concentration")
+            converted_precision: list[fractions.Fraction] = []
+            for value in raw_precision:
+                central, _ = as_fraction(value, field="SpeciesRecord concentration precision")
+                if central < 0:
+                    raise ValueError("SpeciesRecord concentration precision cannot be negative")
+                converted_precision.append(central)
+            object.__setattr__(self, "concentration_precision", tuple(converted_precision))
+        elif raw_precision:
+            raise ValueError("SpeciesRecord concentration_precision requires concentration_precision_present=True")
 
         if not isinstance(self.mass_present, bool) or not isinstance(self.attached_present, bool):
             raise TypeError("SpeciesRecord presence flags must be bool values")
@@ -94,6 +115,11 @@ class SpeciesRecord:
                 original_name=self.original_name,
                 attached=attached,
                 nattached=nattached,
+                concentration_precision=(
+                    None
+                    if not self.concentration_precision_present
+                    else tuple(None if value == 0 else value for value in self.concentration_precision)
+                ),
             )
         except (TypeError, ValueError) as error:
             raise ValueError("SpeciesRecord fields do not describe a valid Species") from error
@@ -114,6 +140,12 @@ class SpeciesRecord:
             nattached=species.nattached,
             mass_present=species.mass is not None,
             attached_present=species.attached is not None,
+            concentration_precision=(
+                ()
+                if all(value is None for value in species.concentration_precision or ())
+                else tuple(value or fractions.Fraction() for value in species.concentration_precision or ())
+            ),
+            concentration_precision_present=not all(value is None for value in species.concentration_precision or ()),
         )
 
     def to_species(self) -> Species:
@@ -126,6 +158,11 @@ class SpeciesRecord:
             original_name=self.original_name,
             attached=self.attached if self.attached_present else None,
             nattached=self.nattached if self.attached_present else None,
+            concentration_precision=(
+                None
+                if not self.concentration_precision_present
+                else tuple(None if value == 0 else value for value in self.concentration_precision)
+            ),
         )
 
 
