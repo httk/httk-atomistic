@@ -26,7 +26,15 @@ class StructureRecordBackend(StructureBackend):
         self._record = obj
 
     @cached_property
+    def _expanded(self) -> Any:
+        from .unitcell_structure_view import UnitcellStructureView
+
+        return UnitcellStructureView(self._record.to_structure())
+
+    @cached_property
     def cell(self) -> Cell:  # pyright: ignore[reportIncompatibleMethodOverride]
+        if self._record.representation != "unit_cell":
+            return self._expanded.cell
         return Cell(
             _basis_vector(self._record.basis),
             precision=self._record.basis_precision,
@@ -35,15 +43,54 @@ class StructureRecordBackend(StructureBackend):
 
     @cached_property
     def sites(self) -> Sites:  # pyright: ignore[reportIncompatibleMethodOverride]
+        if self._record.representation != "unit_cell":
+            return self._expanded.sites
         return Sites(self._record.reduced_coords, precision=self._record.coordinate_precision)
 
     @cached_property
     def species(self) -> tuple[Species, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
+        if self._record.representation != "unit_cell":
+            return self._expanded.species
         return tuple(value.to_species() for value in self._record.species)
 
     @cached_property
     def species_at_sites(self) -> tuple[str, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
+        if self._record.representation != "unit_cell":
+            return self._expanded.species_at_sites
         return self._record.species_at_sites
+
+    @property
+    def molecular(self) -> bool:
+        return self._record.molecular
+
+    @property
+    def assemblies(self) -> Any:
+        if self._record.representation != "unit_cell":
+            return self._expanded.assemblies
+        return (
+            None if self._record.assemblies is None else tuple(value.to_assembly() for value in self._record.assemblies)
+        )
+
+    @property
+    def symmetry(self) -> Any:
+        return None if self._record.symmetry is None else self._record.symmetry.to_symmetry()
+
+    @property
+    def chemical_composition(self) -> Any:
+        value = self._record.chemical_composition
+        return None if value is None else value.to_composition()
+
+    @property
+    def chemical_formula_descriptive(self) -> str | None:
+        return self._record.chemical_formula_descriptive
+
+    @property
+    def chemical_formula_hill(self) -> str | None:
+        return self._record.chemical_formula_hill
+
+    @property
+    def optimization_type(self) -> str | None:
+        return self._record.optimization_type
 
     def unwrap(self) -> StructureRecord:
         """Return the stored snapshot rather than the reconstructed structure."""

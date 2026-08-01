@@ -8,10 +8,12 @@ import pytest
 from httk.core import FracVector, SurdVector
 
 from httk.atomistic import (
+    Assembly,
     ASUSite,
     ASUStructure,
     ASUStructureView,
     Cell,
+    ChemicalComposition,
     SettingTransform,
     Spacegroup,
     Species,
@@ -31,10 +33,7 @@ ORTHO = [[5, 0, 0], [0, 6, 0], [0, 0, 7]]
 
 
 def _species(*names: str) -> list[Species]:
-    return [
-        Species(name=name, chemical_symbols=(name,), concentration=(1.0,))
-        for name in names
-    ]
+    return [Species(name=name, chemical_symbols=(name,), concentration=(1.0,)) for name in names]
 
 
 def _rocksalt() -> ASUStructure:
@@ -98,6 +97,30 @@ def test_a_standard_setting_is_unchanged() -> None:
     assert same_crystal(result.structure, UnitcellStructureView(asu))
 
 
+def test_standardization_preserves_chemical_annotations() -> None:
+    asu = ASUStructure(
+        CUBIC,
+        225,
+        [ASUSite("a", NO_PARAMETERS, "Na"), ASUSite("b", NO_PARAMETERS, "Cl")],
+        _species("Na", "Cl"),
+        chemical_composition=ChemicalComposition({"H": 2}, mode="implicit"),
+        chemical_formula_descriptive="Cl2HNa2",
+        chemical_formula_hill="Cl2HNa2",
+        optimization_type="experimental",
+    )
+
+    transformed = conventional_cell(asu)
+    result = transformed.structure
+
+    assert result.chemical_formula_reduced == asu.chemical_formula_reduced == "Cl2HNa2"
+    assert result.chemical_formula_anonymous == asu.chemical_formula_anonymous
+    assert result.chemical_formula_descriptive == "Cl2HNa2"
+    assert result.chemical_formula_hill == "Cl2HNa2"
+    assert result.optimization_type == "experimental"
+    assert transformed.asu.chemical_formula_reduced == "Cl2HNa2"
+    assert transformed.asu.chemical_formula_hill == "Cl2HNa2"
+
+
 def test_repeating_a_result_uses_its_unwrapped_standard_asu_exactly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -129,10 +152,7 @@ def test_a_nonstandard_setting_is_mapped_back_to_the_standard_cell() -> None:
     result = conventional_cell(asu)
     mapped = Structure(
         result.structure.cell,
-        [
-            transform.to_standard(row).normalize()
-            for row in original.sites.reduced_coords
-        ],
+        [transform.to_standard(row).normalize() for row in original.sites.reduced_coords],
         original.species,
         original.species_at_sites,
     )
@@ -141,9 +161,7 @@ def test_a_nonstandard_setting_is_mapped_back_to_the_standard_cell() -> None:
     assert result.asu.transform.is_identity()
     assert result.structure.cell.basis == transform.basis_to_standard(asu.cell.basis)
     assert len(result.structure.sites) == len(original.sites)
-    assert sorted(result.structure.species_at_sites) == sorted(
-        original.species_at_sites
-    )
+    assert sorted(result.structure.species_at_sites) == sorted(original.species_at_sites)
     assert same_crystal(mapped, result.structure)
     recognized = recognize_asu(result.structure, setting=result.spacegroup)
     assert recognized.spacegroup.it_number == 15
@@ -159,6 +177,8 @@ def test_rhombohedral_setting_expands_to_three_standard_cell_sites() -> None:
         [ASUSite("a", NO_PARAMETERS, "Bi")],
         _species("Bi"),
         transform=transform,
+        chemical_composition=ChemicalComposition({"H": 1}, mode="implicit"),
+        chemical_formula_hill="BiH",
     )
 
     result = conventional_cell(asu)
@@ -166,14 +186,40 @@ def test_rhombohedral_setting_expands_to_three_standard_cell_sites() -> None:
     assert len(UnitcellStructureView(asu).sites) == 1
     assert len(result.structure.sites) == 3
     assert result.structure.cell.basis == expected_basis
-    assert {
-        tuple(row) for row in result.structure.sites.reduced_coords.to_fractions()
-    } == {
+    assert {tuple(row) for row in result.structure.sites.reduced_coords.to_fractions()} == {
         (F(0), F(0), F(0)),
         (F(1, 3), F(2, 3), F(2, 3)),
         (F(2, 3), F(1, 3), F(1, 3)),
     }
     assert result.multiplier == F(3)
+    assert result.structure.chemical_composition is not None
+    assert result.structure.chemical_composition.amount_mapping["H"] == 3
+    assert result.structure.chemical_formula_reduced == "BiH"
+    assert result.structure.chemical_formula_hill == "BiH"
+
+
+def test_standardization_remaps_assemblies_only_for_an_exact_bijection() -> None:
+    carbon = _species("C")
+    exact = Structure(
+        CUBIC,
+        [[0, 0, 0]],
+        carbon,
+        ["C"],
+        assemblies=(Assembly(((0,),), (1,)),),
+    )
+    result = conventional_cell(exact).structure
+    assert result.assemblies is not None
+    assert result.assemblies[0].sites_in_groups == ((0,),)
+
+    noisy = Structure(
+        CUBIC,
+        [[F(1, 100_000), 0, 0]],
+        carbon,
+        ["C"],
+        assemblies=(Assembly(((0,),), (1,)),),
+    )
+    with pytest.raises(ValueError, match="exact site bijection"):
+        conventional_cell(noisy, tolerance=1e-3)
 
 
 def test_precision_is_scaled_by_the_exact_induced_matrix_norms() -> None:
@@ -192,16 +238,12 @@ def test_precision_is_scaled_by_the_exact_induced_matrix_norms() -> None:
 
     result = conventional_cell(asu)
 
-    assert result.structure.cell.basis == SurdVector.create(
-        [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
-    )
+    assert result.structure.cell.basis == SurdVector.create([[5, 0, 0], [0, 5, 0], [0, 0, 5]])
     assert result.structure.cell.precision == F(3, 50)
     assert result.asu.coordinate_precision == F(1, 200)
 
 
-def test_an_untabulated_half_determinant_transform_can_have_a_subunit_multiplier() -> (
-    None
-):
+def test_an_untabulated_half_determinant_transform_can_have_a_subunit_multiplier() -> None:
     transform = SettingTransform([[F(1, 2), 0, 0], [0, 1, 0], [0, 0, 1]])
     asu = ASUStructure(
         [[10, 0, 0], [0, 5, 0], [0, 0, 5]],
@@ -216,9 +258,7 @@ def test_an_untabulated_half_determinant_transform_can_have_a_subunit_multiplier
     assert result.multiplier == F(1, 2)
 
 
-def test_plain_structure_path_matches_recognized_asu_path_and_forwards_tolerance() -> (
-    None
-):
+def test_plain_structure_path_matches_recognized_asu_path_and_forwards_tolerance() -> None:
     expanded = UnitcellStructureView(_rocksalt())
     plain = Structure(
         expanded.cell,
@@ -230,9 +270,7 @@ def test_plain_structure_path_matches_recognized_asu_path_and_forwards_tolerance
     expected = conventional_cell(recognize_asu(plain))
     assert direct.structure == expected.structure
 
-    one_site = UnitcellStructureView(
-        ASUStructure(CUBIC, 221, [ASUSite("a", NO_PARAMETERS, "C")], _species("C"))
-    )
+    one_site = UnitcellStructureView(ASUStructure(CUBIC, 221, [ASUSite("a", NO_PARAMETERS, "C")], _species("C")))
     noisy = Structure(
         one_site.cell,
         [[F(1, 100000), F(0), F(0)]],
@@ -284,7 +322,5 @@ def test_non_three_dimensional_plain_input_is_refused_by_recognition() -> None:
         ("C",),
     )
 
-    with pytest.raises(
-        ValueError, match="recognize_asu requires a fully 3D-periodic structure"
-    ):
+    with pytest.raises(ValueError, match="recognize_asu requires a fully 3D-periodic structure"):
         conventional_cell(structure)

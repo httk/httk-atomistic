@@ -6,6 +6,7 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
+from ._atomic_projection import require_bare_atomic_projection
 from ._vector_guards import to_float_tuples
 from .elements import atomic_number
 from .structure_backend import StructureBackend
@@ -29,6 +30,7 @@ class StructurePrimitiveView(StructureView, tuple):
         if isinstance(obj, cls):
             return obj
         backend = cls._prepare_backend(obj, hints)
+        require_bare_atomic_projection(backend, "a primitive structure")
         species_by_name = {species.name: species for species in backend.species}
         numbers: list[int] = []
         for name in backend.species_at_sites:

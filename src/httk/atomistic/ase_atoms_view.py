@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Self
 import ase
 from httk.core import unwrap
 
+from ._atomic_projection import require_bare_atomic_projection
 from .elements import atomic_number
 from .structure_backend import StructureBackend
 from .structure_view import StructureView
@@ -33,6 +34,7 @@ class ASEAtomsView(StructureView, ase.Atoms):
         if isinstance(obj, cls):
             return obj
         backend = cls._prepare_backend(obj, hints)
+        require_bare_atomic_projection(backend, "ASE Atoms")
         instance = super().__new__(cls)
         species_by_name = {species.name: species for species in backend.species}
         numbers: list[int] = []

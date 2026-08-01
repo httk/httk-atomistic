@@ -1,3 +1,5 @@
+import fractions
+
 import pytest
 from httk.core import unwrap
 
@@ -67,9 +69,7 @@ def test_species_valid_and_create_from_dict() -> None:
     assert species.is_single_element
     assert Species.create(species) is species
 
-    from_dict = Species.create(
-        {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}
-    )
+    from_dict = Species.create({"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]})
     assert from_dict == species
     assert from_dict.chemical_symbols == ("Na",)
     assert from_dict.concentration == (1.0,)
@@ -81,9 +81,7 @@ def test_species_validation_errors() -> None:
     with pytest.raises(ValueError):
         Species(name="bad", chemical_symbols=("Zz",), concentration=(1.0,))
     with pytest.raises(ValueError):
-        Species(
-            name="Na", chemical_symbols=("Na",), concentration=(1.0,), attached=("H",)
-        )
+        Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,), attached=("H",))
     with pytest.raises(ValueError):
         Species(
             name="Na",
@@ -93,18 +91,14 @@ def test_species_validation_errors() -> None:
             nattached=(1,),
         )
     with pytest.raises(ValueError):
-        Species(
-            name="Na", chemical_symbols=("Na",), concentration=(1.0,), mass=(1.0, 2.0)
-        )
+        Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,), mass=(1.0, 2.0))
 
 
 def test_species_is_single_element_cases() -> None:
     pure = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))
     assert pure.is_single_element
 
-    alloy = Species(
-        name="Ti", chemical_symbols=("Ti", "vacancy"), concentration=(0.9, 0.1)
-    )
+    alloy = Species(name="Ti", chemical_symbols=("Ti", "vacancy"), concentration=(0.9, 0.1))
     assert not alloy.is_single_element
 
     vacancy = Species(name="vac", chemical_symbols=("vacancy",), concentration=(1.0,))
@@ -197,27 +191,21 @@ def test_structure_shape_and_name_validation() -> None:
         Structure(
             cell=[[1.0, 0.0], [0.0, 1.0]],
             sites=[[0.0, 0.0, 0.0]],
-            species=[
-                {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}
-            ],
+            species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
             species_at_sites=["Na"],
         )
     with pytest.raises(ValueError):
         Structure(
             cell=CUBIC,
             sites=[[0.0, 0.0, 0.0]],
-            species=[
-                {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}
-            ],
+            species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
             species_at_sites=["Na", "Cl"],
         )
     with pytest.raises(ValueError):
         Structure(
             cell=CUBIC,
             sites=[[0.0, 0.0, 0.0]],
-            species=[
-                {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}
-            ],
+            species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
             species_at_sites=["Cl"],
         )
     with pytest.raises(ValueError):
@@ -260,20 +248,14 @@ def test_backend_create_dispatches_and_kind_overrides() -> None:
         StructureBackend.create(nacl_structure(), kind="unitcell"),
         UnitcellStructureBackend,
     )
-    assert isinstance(
-        StructureBackend.create(nacl_triple(), kind="primitive"), StructurePrimitive
-    )
+    assert isinstance(StructureBackend.create(nacl_triple(), kind="primitive"), StructurePrimitive)
 
 
 def test_backend_create_raises_for_malformed_triple() -> None:
     with pytest.raises(TypeError):
-        StructureBackend.create(
-            [CUBIC, [[0.0, 0.0, 0.0]], [11, 17]]
-        )  # numbers/positions length mismatch
+        StructureBackend.create([CUBIC, [[0.0, 0.0, 0.0]], [11, 17]])  # numbers/positions length mismatch
     with pytest.raises(TypeError):
-        StructureBackend.create(
-            [[[1.0, 2.0]], [[0.0, 0.0, 0.0]], [1]]
-        )  # lattice not 3x3
+        StructureBackend.create([[[1.0, 2.0]], [[0.0, 0.0, 0.0]], [1]])  # lattice not 3x3
     with pytest.raises(TypeError):
         StructureBackend.create(12345)
     with pytest.raises(TypeError):
@@ -328,6 +310,38 @@ def test_primitive_view_raises_for_non_single_element_species() -> None:
         StructurePrimitiveView(alloy)
 
 
+def test_primitive_view_rejects_every_unrepresentable_semantic_feature() -> None:
+    from httk.atomistic import Assembly, ChemicalComposition, Species, StructureRecord
+
+    element = Species("C", ("C",), (1,))
+    partial = Species("C", ("C",), (fractions.Fraction(1, 2),))
+    attached = Species("CH", ("C",), (1,), attached=("H",), nattached=(1,))
+    implicit = Structure(
+        CUBIC,
+        [[0, 0, 0]],
+        [element],
+        ["C"],
+        chemical_composition=ChemicalComposition({"H": 2}, mode="implicit"),
+    )
+    cases = (
+        Structure(CUBIC, [[0, 0, 0]], [partial], ["C"]),
+        Structure(CUBIC, [[0, 0, 0]], [attached], ["CH"]),
+        Structure(CUBIC, [[0, 0, 0]], [element], ["C"], assemblies=(Assembly(((0,),), (1,)),)),
+        implicit,
+        StructureRecord.from_structure(implicit),
+        Structure(
+            CUBIC,
+            [[0, 0, 0]],
+            [element],
+            ["C"],
+            chemical_composition=ChemicalComposition({"O": 1}, mode="full"),
+        ),
+    )
+    for structure in cases:
+        with pytest.raises(TypeError):
+            StructurePrimitiveView(structure)
+
+
 def test_primitive_view_refuses_partially_occupied_single_symbol_species() -> None:
     partial = Structure(
         cell=CUBIC,
@@ -370,9 +384,7 @@ def test_unwrap_returns_native_raw_object() -> None:
 # --- OPTIMADE example fidelity ---
 
 
-def test_optimade_vacancy_and_attached_examples_survive_simple_but_not_primitive() -> (
-    None
-):
+def test_optimade_vacancy_and_attached_examples_survive_simple_but_not_primitive() -> None:
     structure = Structure(
         cell=CUBIC,
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],

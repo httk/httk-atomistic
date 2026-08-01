@@ -9,7 +9,7 @@ from httk.core import FracVector, PropertyDefinition
 from httk.atomistic import Assembly, ASUSite, ASUStructure, Structure, StructureEntryProvider
 from httk.atomistic.species import Species
 from httk.atomistic.structure_entries import StructureEntry
-from httk.atomistic.structure_record import StructureRecord
+from httk.atomistic.structure_record import StructureEntryRecord, StructureRecord
 
 
 def _nacl_like() -> Structure:
@@ -287,6 +287,7 @@ def test_registration_discovered_via_httk_core() -> None:
     assert "atomistic-structures" in httk.core.known_entry_providers()
     assert known_format_adapters()["cif"] == "atomistic-structures"
     assert resolve_entry_record("atomistic-structure-record") is StructureRecord
+    assert resolve_entry_record("atomistic-structure-entry-record") is StructureEntryRecord
     factory = resolve_callable(entry_providers.require("atomistic-structures").handler)
     provider = factory({"s-1": _nacl_like()})
     assert isinstance(provider, StructureEntryProvider)

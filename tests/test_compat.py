@@ -1,5 +1,6 @@
 """Tests for the optional ASE interoperability layer."""
 
+import fractions
 from typing import Any
 
 import pytest
@@ -7,7 +8,12 @@ import pytest
 from httk.atomistic import (
     ASEAtomsBackend,
     ASEAtomsProtocol,
+    Assembly,
+    ChemicalComposition,
+    Species,
+    Structure,
     StructureBackend,
+    StructureRecord,
     UnitcellStructureView,
 )
 
@@ -76,13 +82,47 @@ def test_ase_atoms_round_trip() -> None:
         int(number) for number in slab.get_atomic_numbers()
     )
     for actual, expected in zip(atoms.get_cell(), slab.get_cell()):
-        assert tuple(float(value) for value in actual) == pytest.approx(
-            tuple(float(value) for value in expected)
-        )
-    for actual, expected in zip(
-        atoms.get_scaled_positions(), slab.get_scaled_positions()
-    ):
-        assert tuple(float(value) for value in actual) == pytest.approx(
-            tuple(float(value) for value in expected)
-        )
+        assert tuple(float(value) for value in actual) == pytest.approx(tuple(float(value) for value in expected))
+    for actual, expected in zip(atoms.get_scaled_positions(), slab.get_scaled_positions()):
+        assert tuple(float(value) for value in actual) == pytest.approx(tuple(float(value) for value in expected))
     assert ASEAtomsView(atoms) is atoms
+
+
+def test_ase_atoms_rejects_assemblies_and_implicit_atoms() -> None:
+    pytest.importorskip("ase")
+    from httk.atomistic import ASEAtomsView
+
+    species = Species("C", ("C",), (1,))
+    geometry = ([[4, 0, 0], [0, 4, 0], [0, 0, 4]], [[0, 0, 0]], [species], ["C"])
+    assembled = Structure(*geometry, assemblies=(Assembly(((0,),), (1,)),))
+    implicit = Structure(*geometry, chemical_composition=ChemicalComposition({"H": 2}, mode="implicit"))
+    with pytest.raises(TypeError, match="assemblies"):
+        ASEAtomsView(assembled)
+    with pytest.raises(TypeError, match="declared chemical composition"):
+        ASEAtomsView(implicit)
+    with pytest.raises(TypeError, match="declared chemical composition"):
+        ASEAtomsView(StructureRecord.from_structure(implicit))
+
+    full = Structure(*geometry, chemical_composition=ChemicalComposition({"O": 1}, mode="full"))
+    with pytest.raises(TypeError, match="declared chemical composition"):
+        ASEAtomsView(full)
+
+
+def test_ase_atoms_rejects_disorder_partial_occupancy_and_attachments() -> None:
+    pytest.importorskip("ase")
+    from httk.atomistic import ASEAtomsView
+
+    species_values = (
+        Species("mixed", ("C", "N"), (fractions.Fraction(1, 2), fractions.Fraction(1, 2))),
+        Species("partial", ("C",), (fractions.Fraction(1, 2),)),
+        Species("attached", ("C",), (1,), attached=("H",), nattached=(1,)),
+    )
+    for species in species_values:
+        structure = Structure(
+            [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
+            [[0, 0, 0]],
+            [species],
+            [species.name],
+        )
+        with pytest.raises(TypeError, match="single, unattached"):
+            ASEAtomsView(structure)

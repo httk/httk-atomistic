@@ -80,7 +80,20 @@ from .structure_entries import StructureEntry, StructureEntryProvider
 from .structure_like import StructureLike
 from .structure_primitive import StructurePrimitive
 from .structure_primitive_view import StructurePrimitiveView
-from .structure_record import SpeciesRecord, StructureRecord
+from .structure_record import (
+    AssemblyGroupRecord,
+    AssemblyRecord,
+    ChemicalCompositionRecord,
+    CompositionAmountRecord,
+    DomainSiteRecord,
+    ExactVectorRowsRecord,
+    SettingTransformRecord,
+    SpeciesRecord,
+    StringTupleRecord,
+    StructureEntryRecord,
+    StructureRecord,
+    SymmetryRecord,
+)
 from .structure_record_backend import StructureRecordBackend
 from .structure_semantics import OptimizationType, StructureSymmetry
 from .structure_view import StructureView
@@ -124,6 +137,8 @@ __all__ = [
     "ASUStructureView",
     "AffineOperation",
     "Assembly",
+    "AssemblyGroupRecord",
+    "AssemblyRecord",
     "Cell",
     "CellAPI",
     "CellBackend",
@@ -137,9 +152,13 @@ __all__ = [
     "CellPrimitiveView",
     "CellView",
     "ChemicalComposition",
+    "ChemicalCompositionRecord",
+    "CompositionAmountRecord",
     "CompositionDiagnostic",
     "CompositionResult",
     "ConventionalCellResult",
+    "DomainSiteRecord",
+    "ExactVectorRowsRecord",
     "FundamentalDomainStructure",
     "NumericCell",
     "NumericSites",
@@ -149,6 +168,7 @@ __all__ = [
     "OptimizationType",
     "PhaseDiagram",
     "SettingTransform",
+    "SettingTransformRecord",
     "Sites",
     "SitesAPI",
     "SitesBackend",
@@ -170,12 +190,14 @@ __all__ = [
     "SpeciesPrimitiveView",
     "SpeciesRecord",
     "SpeciesView",
+    "StringTupleRecord",
     "Structure",
     "StructureAPI",
     "StructureASU",
     "StructureBackend",
     "StructureEntry",
     "StructureEntryProvider",
+    "StructureEntryRecord",
     "StructureLike",
     "StructurePrimitive",
     "StructurePrimitiveView",
@@ -184,6 +206,7 @@ __all__ = [
     "StructureSymmetry",
     "StructureView",
     "SupercellResult",
+    "SymmetryRecord",
     "UnitcellStructureBackend",
     "UnitcellStructureView",
     "WyckoffBranch",

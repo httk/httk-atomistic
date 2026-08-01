@@ -250,6 +250,62 @@ def test_an_asu_structure_is_a_structure_everywhere() -> None:
     assert _rocksalt().to_structure() == view
 
 
+def test_symmetry_reduced_expansion_rejects_ambiguous_molecular_placement() -> None:
+    molecular = ASUStructure(
+        CUBIC,
+        225,
+        [ASUSite("a", NO_PARAMETERS, "Na", FracVector.create([0, 0, 0]))],
+        _species("Na"),
+        molecular=True,
+    )
+    with pytest.raises(ValueError, match="molecular expansion"):
+        _ = UnitcellStructureView(molecular).sites
+
+
+def test_symmetry_reduced_expansion_retains_unambiguous_molecular_representative() -> None:
+    point = FracVector.create([F(1, 7), F(2, 7), F(3, 7)])
+    molecular = ASUStructure(
+        CUBIC,
+        1,
+        [ASUSite("a", point, "C", point)],
+        _species("C"),
+        molecular=True,
+    )
+    expanded = UnitcellStructureView(molecular)
+    assert expanded.sites.reduced_coords == FracVector.create([[F(1, 7), F(2, 7), F(3, 7)]])
+    assert expanded.site_coordinate_span == "molecular_unit_cell"
+
+
+def test_symmetry_reduced_expansion_rejects_ambiguous_assembly_correlations() -> None:
+    from httk.atomistic import Assembly
+
+    correlated = ASUStructure(
+        CUBIC,
+        225,
+        [ASUSite("a", NO_PARAMETERS, "Na")],
+        _species("Na"),
+        assemblies=(Assembly(((0,),), (1,)),),
+    )
+    with pytest.raises(ValueError, match="assembly correlations"):
+        _ = UnitcellStructureView(correlated).sites
+
+
+def test_symmetry_reduced_expansion_remaps_one_to_one_assembly_sites() -> None:
+    from httk.atomistic import Assembly
+
+    correlated = ASUStructure(
+        CUBIC,
+        221,
+        [ASUSite("a", NO_PARAMETERS, "Na")],
+        _species("Na"),
+        assemblies=(Assembly(((0,),), (1,)),),
+    )
+    expanded = UnitcellStructureView(correlated)
+    assert len(expanded.sites) == 1
+    assert expanded.assemblies is not None
+    assert expanded.assemblies[0].sites_in_groups == ((0,),)
+
+
 # --- same_crystal ---
 
 

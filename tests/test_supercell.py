@@ -6,10 +6,12 @@ import pytest
 from httk.core import FracVector, SurdScalar
 
 from httk.atomistic import (
+    Assembly,
     ASUSite,
     ASUStructure,
     Cell,
     CellParams,
+    ChemicalComposition,
     Sites,
     Species,
     Structure,
@@ -23,10 +25,7 @@ F = fractions.Fraction
 
 
 def _species(*names: str) -> list[Species]:
-    return [
-        Species(name=name, chemical_symbols=(name,), concentration=(1.0,))
-        for name in names
-    ]
+    return [Species(name=name, chemical_symbols=(name,), concentration=(1.0,)) for name in names]
 
 
 def _binary_structure() -> Structure:
@@ -48,9 +47,7 @@ def test_a_diagonal_supercell_is_built_exactly_in_cell_major_order() -> None:
     assert isinstance(result, SupercellResult)
     assert result.multiplier == 6
     assert result.transformation == FracVector.create([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
-    assert result.structure.cell.basis == FracVector.create(
-        [[1, 0, 0], [0, 2, 0], [0, 0, 3]]
-    )
+    assert result.structure.cell.basis == FracVector.create([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
     assert len(result.structure.sites) == 12
     assert result.structure.species_at_sites == ("Na", "Cl") * 6
     assert result.structure.sites.reduced_coords == FracVector.create(
@@ -78,17 +75,10 @@ def test_shears_and_negative_determinants_are_supported() -> None:
 
     assert sheared.multiplier == 2
     assert len(sheared.structure.sites) == 4
-    assert sheared.structure.cell.basis == FracVector.create(
-        [[2, 1, 0], [0, 1, 0], [0, 0, 1]]
-    )
+    assert sheared.structure.cell.basis == FracVector.create([[2, 1, 0], [0, 1, 0], [0, 0, 1]])
     assert reflected.multiplier == 1
-    assert reflected.structure.cell.basis == FracVector.create(
-        [[-1, 0, 0], [0, 1, 0], [0, 0, 1]]
-    )
-    assert (
-        reflected.structure.sites.reduced_coords
-        == _binary_structure().sites.reduced_coords
-    )
+    assert reflected.structure.cell.basis == FracVector.create([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    assert reflected.structure.sites.reduced_coords == _binary_structure().sites.reduced_coords
 
 
 @pytest.mark.parametrize(
@@ -99,9 +89,7 @@ def test_shears_and_negative_determinants_are_supported() -> None:
         ([[1, 0, 0], [1, 0, 0], [0, 0, 1]], "nonsingular"),
     ],
 )
-def test_invalid_transformations_are_rejected(
-    transformation: object, message: str
-) -> None:
+def test_invalid_transformations_are_rejected(transformation: object, message: str) -> None:
     with pytest.raises(ValueError, match=message):
         build_supercell(_binary_structure(), transformation)
 
@@ -154,6 +142,37 @@ def test_precision_bounds_are_transformed_conservatively() -> None:
     assert result.structure.coordinate_precision == F(3, 20_000)
 
 
+def test_supercell_preserves_formula_annotations_and_remaps_assemblies() -> None:
+    source = Structure(
+        [[2, 0, 0], [0, 2, 0], [0, 0, 2]],
+        [[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]],
+        _species("Na", "Cl"),
+        ["Na", "Cl"],
+        molecular=True,
+        assemblies=(Assembly(((0,), (1,)), (F(1, 2), F(1, 2))),),
+        chemical_composition=ChemicalComposition({"H": 2}, mode="implicit"),
+        chemical_formula_descriptive="ClH4Na",
+        chemical_formula_hill="ClH4Na",
+        optimization_type="local",
+    )
+
+    result = build_supercell(source, [[2, 0, 0], [0, 1, 0], [0, 0, 1]]).structure
+
+    assert result.molecular
+    assert result.assemblies is not None
+    assert tuple(assembly.sites_in_groups for assembly in result.assemblies) == (
+        ((0,), (1,)),
+        ((2,), (3,)),
+    )
+    assert result.chemical_composition is not None
+    assert result.chemical_composition.amount_mapping["H"] == 4
+    assert result.chemical_formula_reduced == source.chemical_formula_reduced == "ClH4Na"
+    assert result.chemical_formula_anonymous == source.chemical_formula_anonymous
+    assert result.chemical_formula_descriptive == "ClH4Na"
+    assert result.chemical_formula_hill == "ClH4Na"
+    assert result.optimization_type == "local"
+
+
 def test_non_simple_inputs_expand_to_a_plain_structure() -> None:
     no_parameters = FracVector.create(())
     asu = ASUStructure(
@@ -192,10 +211,7 @@ def test_shape_search_uses_the_metric_not_the_cartesian_orientation() -> None:
     identity = _single_site([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
     rotated = _single_site([[F(3, 5), F(-4, 5), 0], [F(4, 5), F(3, 5), 0], [0, 0, 1]])
 
-    assert (
-        cubic_supercell(identity, 8).transformation
-        == cubic_supercell(rotated, 8).transformation
-    )
+    assert cubic_supercell(identity, 8).transformation == cubic_supercell(rotated, 8).transformation
 
 
 @pytest.mark.extended
@@ -209,9 +225,7 @@ def test_orthogonal_search_recovers_the_tutorial_cells_exact_rectangle() -> None
     )
 
     result = orthogonal_supercell(structure, 2)
-    assert result.transformation == FracVector.create(
-        [[1, 0, 0], [0, 1, 0], [-1, -1, 2]]
-    )
+    assert result.transformation == FracVector.create([[1, 0, 0], [0, 1, 0], [-1, -1, 2]])
     assert result.orthogonality_score == 0
 
 

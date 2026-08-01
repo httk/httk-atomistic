@@ -19,11 +19,13 @@ import itertools
 from dataclasses import dataclass
 from typing import Any
 
-from httk.core import FracVector, SurdScalar, SurdVector, VectorLike
+from httk.core import FracVector, SurdScalar, SurdVector, VectorLike, unwrap
 
 from ._lattice import finite_translation_cosets
 from ._periodicity_guard import require_full_periodicity
+from .asu_structure import FundamentalDomainStructure
 from .cell import Cell
+from .composition import Assembly, ChemicalComposition
 from .sites import Sites
 from .structure import Structure
 from .structure_like import StructureLike
@@ -146,6 +148,39 @@ def _shape_scores(metric: SurdVector) -> tuple[SurdScalar, SurdScalar]:
     return orthogonality, cubicity
 
 
+def _semantic_source(view: UnitcellStructureView) -> Any:
+    raw = unwrap(view)
+    # A symmetry-reduced source's domain assemblies are not indexed against the expanded
+    # view. StructureASU exposes the checked, remapped unit-cell semantics instead.
+    return view if isinstance(raw, FundamentalDomainStructure) else raw
+
+
+def _scaled_composition(composition: ChemicalComposition | None, multiplier: int) -> ChemicalComposition | None:
+    if composition is None:
+        return None
+    amounts = {element: amount * multiplier for element, amount in composition.amounts}
+    precision = {
+        element: None if width is None else width * multiplier for element, width in composition.amounts_precision
+    }
+    return ChemicalComposition(amounts, mode=composition.mode, amounts_precision=precision)
+
+
+def _replicated_assemblies(
+    assemblies: tuple[Assembly, ...] | None, nsites: int, multiplier: int
+) -> tuple[Assembly, ...] | None:
+    if assemblies is None:
+        return None
+    return tuple(
+        Assembly(
+            tuple(tuple(index + copy * nsites for index in group) for group in assembly.sites_in_groups),
+            assembly.group_probabilities,
+            assembly.group_probabilities_precision,
+        )
+        for copy in range(multiplier)
+        for assembly in assemblies
+    )
+
+
 def build_supercell(
     structure: StructureLike,
     transformation: VectorLike,
@@ -197,11 +232,20 @@ def build_supercell(
     new_unscaled_basis = SurdVector.create(matrix) * view.cell.unscaled_basis
     new_cell = Cell(new_unscaled_basis, view.cell.scale, new_basis_precision)
     new_sites = Sites(transformed_coords, new_coordinate_precision)
+    semantics = _semantic_source(view)
+    assemblies = _replicated_assemblies(getattr(semantics, "assemblies", None), len(view.sites), multiplier)
+    composition = getattr(semantics, "chemical_composition", None)
     result = Structure(
         new_cell,
         new_sites,
         view.species,
         view.species_at_sites * multiplier,
+        molecular=bool(getattr(semantics, "molecular", False)),
+        assemblies=assemblies,
+        chemical_composition=_scaled_composition(composition, multiplier),
+        chemical_formula_descriptive=getattr(semantics, "chemical_formula_descriptive", None),
+        chemical_formula_hill=getattr(semantics, "chemical_formula_hill", None),
+        optimization_type=getattr(semantics, "optimization_type", None),
     )
     orthogonality, cubicity = _shape_scores(new_cell.metric())
     return SupercellResult(result, matrix, multiplier, orthogonality, cubicity)

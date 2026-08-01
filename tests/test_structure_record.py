@@ -1,17 +1,25 @@
+import datetime
 from dataclasses import replace
 from fractions import Fraction
 
 import pytest
-from httk.core import FracVector, SurdScalar
+from httk.core import FracVector, SurdScalar, stored_entry_projection
 
 from httk.atomistic import (
+    Assembly,
+    ASUSite,
+    ASUStructure,
     Cell,
     CellParams,
+    ChemicalComposition,
+    FundamentalDomainStructure,
     Sites,
+    Spacegroup,
     Species,
     SpeciesRecord,
     Structure,
     StructureBackend,
+    StructureEntryRecord,
     StructureRecord,
     StructureRecordBackend,
     UnitcellStructureView,
@@ -317,17 +325,186 @@ def test_lazy_record_backend_decodes_components_independently() -> None:
 
             _ = view.cell
             cell_statements = statements[:]
-            assert any("structure_record_basis" in statement for statement in cell_statements)
-            assert any("structure_record_periodicity" in statement for statement in cell_statements)
-            assert not any("structure_record_reduced_coords" in statement for statement in cell_statements)
-            assert not any("structure_record_species" in statement for statement in cell_statements)
+            assert any("atomistic_structure_v3_basis" in statement for statement in cell_statements)
+            assert any("atomistic_structure_v3_periodicity" in statement for statement in cell_statements)
+            assert not any("atomistic_structure_v3_reduced_coords" in statement for statement in cell_statements)
+            assert not any("atomistic_structure_v3_species" in statement for statement in cell_statements)
             assert "basis" in row.__dict__
             assert "periodicity" in row.__dict__
             assert "reduced_coords" not in row.__dict__
             assert "species" not in row.__dict__
 
             _ = view.sites
-            assert any("structure_record_reduced_coords" in statement for statement in statements)
+            assert any("atomistic_structure_v3_reduced_coords" in statement for statement in statements)
             assert "reduced_coords" in row.__dict__
         finally:
             sqlalchemy.event.remove(database.engine, "before_cursor_execute", count_select)
+
+
+def _domain(*, asu: bool, molecular: bool = False, representative: bool = True):
+    cls = ASUStructure if asu else FundamentalDomainStructure
+    return cls(
+        Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]], precision=Fraction(1, 1000)),
+        Spacegroup.standard(221),
+        (
+            ASUSite(
+                "a",
+                FracVector.create(()),
+                "Cs",
+                FracVector.create((0, 0, 0)) if representative else None,
+            ),
+        ),
+        (Species("Cs", ("Cs",), (1,)),),
+        coordinate_precision=Fraction(1, 10000),
+        molecular=molecular,
+        assemblies=(Assembly(((0,),), (1,)),),
+        chemical_composition=ChemicalComposition({"H": 2}, mode="implicit"),
+        chemical_formula_descriptive="CsH2",
+        optimization_type="experimental",
+    )
+
+
+@pytest.mark.parametrize(("asu", "molecular"), [(False, False), (True, False), (True, True)])
+def test_tagged_domain_record_roundtrip_preserves_representation_and_semantics(asu: bool, molecular: bool) -> None:
+    original = _domain(asu=asu, molecular=molecular)
+    record = StructureRecord.from_structure(original)
+    rebuilt = record.to_structure()
+
+    assert record.representation == ("asymmetric_unit" if asu else "fundamental_domain")
+    assert record.molecular is molecular
+    assert record.domain_sites[0].representative_present
+    assert record.domain_sites[0].representative == (Fraction(0), Fraction(0), Fraction(0))
+    assert type(rebuilt) is type(original)
+    assert rebuilt == original
+    assert StructureRecord.from_structure(UnitcellStructureView(original)) == record
+
+
+def test_domain_record_preserves_absent_representative_and_rejects_coordinate_contradiction() -> None:
+    record = StructureRecord.from_structure(_domain(asu=False, representative=False))
+    assert not record.domain_sites[0].representative_present
+    assert record.domain_sites[0].representative == ()
+    assert record.to_structure().domain_sites[0].representative is None
+
+    with pytest.raises(ValueError, match="reduced_coords disagrees"):
+        replace(record, reduced_coords=FracVector.create([[Fraction(1, 2), 0, 0]]))
+    with pytest.raises(ValueError, match="representative values require"):
+        replace(record.domain_sites[0], representative=(Fraction(0),) * 3)
+
+
+def test_domain_record_accepts_periodically_equivalent_retained_representative() -> None:
+    domain = _domain(asu=True)
+    shifted = ASUStructure(
+        domain.cell,
+        domain.spacegroup,
+        (ASUSite("a", (), "Cs", representative=(1, 0, 0)),),
+        domain.species,
+        coordinate_precision=domain.coordinate_precision,
+    )
+    record = StructureRecord.from_structure(shifted)
+    assert record.domain_sites[0].representative == (Fraction(1), Fraction(0), Fraction(0))
+    assert record.to_structure() == shifted
+
+
+def test_nested_stored_entry_payloads_hide_precision_and_presence_internals() -> None:
+    species = SpeciesRecord.from_species(
+        Species("mixed", ("Ge", "Si"), (Fraction(1, 3), Fraction(2, 3)), concentration_precision=(None, "0.001"))
+    )
+    assembly = StructureRecord.from_structure(_domain(asu=False)).assemblies
+    assert assembly is not None
+
+    species_payload = species.to_stored_entry_value()
+    assembly_payload = assembly[0].to_stored_entry_value()
+    assert set(species_payload) == {"name", "chemical_symbols", "concentration"}
+    assert set(assembly_payload) == {"sites_in_groups", "group_probabilities"}
+    assert "concentration_precision" not in species_payload
+    assert "groups" not in assembly_payload
+
+
+def test_structure_entry_record_projection_and_authoritative_cross_checks() -> None:
+    stamp = datetime.datetime(2026, 8, 1, 12, 30, tzinfo=datetime.UTC)
+    entry = StructureEntryRecord.from_structure(
+        _domain(asu=True), id="cs-domain", immutable_id="cs-domain-v1", last_modified=stamp
+    )
+    projection = stored_entry_projection(StructureEntryRecord)
+
+    assert projection is not None
+    assert projection.entry_type == "structures"
+    assert projection.obsolete_storage_names == ("structure_record",)
+    assert set(projection.property_fields) >= {
+        "id",
+        "chemical_formula_reduced",
+        "lattice_vectors",
+        "species",
+        "assemblies",
+        "site_coordinate_span",
+    }
+    assert {"id", "last_modified", "elements", "nsites", "site_coordinate_span"} <= projection.filterable
+    assert entry.site_coordinate_span == "asymmetric_unit"
+    assert entry.last_modified == stamp
+    assert len(entry.lattice_vectors.to_stored_entry_value()) == 3
+    assert len(entry.cartesian_site_positions.to_stored_entry_value()) == entry.nsites
+    with pytest.raises(ValueError, match="denormalized fields disagree"):
+        replace(entry, chemical_formula_reduced="Cs2")
+
+
+def test_structure_entry_record_supports_implicit_only_zero_site_structure() -> None:
+    structure = Structure(
+        Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]),
+        Sites(()),
+        (),
+        (),
+        chemical_composition=ChemicalComposition({"H": 2}, mode="implicit"),
+    )
+    entry = StructureEntryRecord.from_structure(structure, id="implicit-only")
+    assert entry.nsites == 0
+    assert entry.cartesian_site_positions.to_stored_entry_value() == []
+    assert entry.structure_features == ("implicit_atoms",)
+
+
+def test_stored_entry_provider_serves_standard_nested_values() -> None:
+    pytest.importorskip("httk.data")
+    pytest.importorskip("sqlalchemy")
+    from httk.data.db import Database, SqlStore, StoreEntryProvider
+
+    with Database.sqlite() as database:
+        store = SqlStore(database)
+        store.save(StructureEntryRecord.from_structure(_domain(asu=True), id="stored-domain"))
+        provider = StoreEntryProvider(store, {"structures": StructureEntryRecord})
+        (record,) = tuple(provider.records("structures"))
+
+    assert record["__id"] == "stored-domain"
+    assert record["site_coordinate_span"] == "asymmetric_unit"
+    assert record["lattice_vectors"] == [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
+    assert record["cartesian_site_positions"] == [[0.0, 0.0, 0.0]]
+    assert record["fractional_site_positions"] == [[0.0, 0.0, 0.0]]
+    assert record["species"] == [{"name": "Cs", "chemical_symbols": ["Cs"], "concentration": [1.0]}]
+    assert record["assemblies"] == [{"sites_in_groups": [[0]], "group_probabilities": [1.0]}]
+    assert "concentration_precision_present" not in str(record["species"])
+
+
+@pytest.mark.parametrize("dialect", ["sqlite", "duckdb"])
+def test_exact_tagged_structure_and_entry_sql_roundtrip(dialect: str) -> None:
+    pytest.importorskip("httk.data")
+    pytest.importorskip("sqlalchemy")
+    if dialect == "duckdb":
+        pytest.importorskip("duckdb_engine")
+    from httk.data.db import Database, SqlStore
+    from httk.data.db.schema import resolve_schema
+
+    database = Database.sqlite() if dialect == "sqlite" else Database.duckdb()
+    structure = StructureRecord.from_structure(_domain(asu=True))
+    entry = StructureEntryRecord.from_structure(_domain(asu=True), id="stored-domain")
+    assert resolve_schema(StructureRecord).table_name == "atomistic_structure_v3"
+    assert resolve_schema(StructureEntryRecord).table_name == "atomistic_structure_entry_v3"
+    assert resolve_schema(StructureEntryRecord).field("id").columns[0].unique
+    with database:
+        store = SqlStore(database)
+        structure_sid = store.save(structure)
+        entry_sid = store.save(entry)
+        fetched_structure = store.fetch(StructureRecord, structure_sid)
+        fetched_entry = store.fetch(StructureEntryRecord, entry_sid)
+
+    assert fetched_structure == structure
+    assert fetched_structure.to_structure() == structure.to_structure()
+    assert fetched_entry == entry
+    assert fetched_entry.structure == structure

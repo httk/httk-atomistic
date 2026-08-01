@@ -21,3 +21,9 @@ register_entry_record(
     record="httk.atomistic.structure_record:StructureRecord",
     definition_id=None,
 )
+
+register_entry_record(
+    name="atomistic-structure-entry-record",
+    record="httk.atomistic.structure_record:StructureEntryRecord",
+    definition_id="https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures",
+)

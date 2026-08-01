@@ -14,6 +14,7 @@ from typing import Any
 
 from .asu_structure import FundamentalDomainStructure
 from .cell import Cell
+from .composition import Assembly
 from .sites import Sites
 from .species import Species
 from .structure_backend import StructureBackend
@@ -39,13 +40,61 @@ class StructureASU(StructureBackend):
     def __init__(self, obj: FundamentalDomainStructure, **hints: Any) -> None:
         self._asu = obj
 
+    def _expanded_offsets(self) -> tuple[tuple[int, ...], tuple[int, ...]]:
+        counts = self._asu.multiplicities()
+        offsets: list[int] = []
+        offset = 0
+        for count in counts:
+            offsets.append(offset)
+            offset += count
+        return counts, tuple(offsets)
+
+    def _expanded_assemblies(self) -> tuple[Assembly, ...] | None:
+        assemblies = self._asu.assemblies
+        if assemblies is None or not assemblies:
+            return assemblies
+        counts, offsets = self._expanded_offsets()
+        expanded: list[Assembly] = []
+        for assembly in assemblies:
+            groups: list[tuple[int, ...]] = []
+            for group in assembly.sites_in_groups:
+                if any(counts[index] != 1 for index in group):
+                    raise ValueError(
+                        "symmetry-reduced expansion cannot map assembly correlations "
+                        "when a correlated domain site has multiple unit-cell images"
+                    )
+                groups.append(tuple(offsets[index] for index in group))
+            expanded.append(
+                Assembly(
+                    tuple(groups),
+                    assembly.group_probabilities,
+                    assembly.group_probabilities_precision,
+                )
+            )
+        return tuple(expanded)
+
+    def _validate_expansion_semantics(self) -> None:
+        # Computing the remapped assemblies is itself the exact ambiguity check.
+        self._expanded_assemblies()
+        if not self._asu.molecular:
+            return
+        counts = self._asu.multiplicities()
+        if any(count != 1 for count in counts) or any(site.representative is None for site in self._asu.asu_sites):
+            raise ValueError(
+                "symmetry-reduced molecular expansion requires one retained representative "
+                "for every one-to-one domain site"
+            )
+
     @property
     def cell(self) -> Cell:
         return self._asu.cell
 
     @property
     def sites(self) -> Sites:
-        return self._asu.expand_sites()
+        self._validate_expansion_semantics()
+        # In the only unambiguous molecular case the retained representatives are the
+        # asserted placement; do not replace them by symmetry-snapped coordinates.
+        return self._asu.sites if self._asu.molecular else self._asu.expand_sites()
 
     @property
     def species(self) -> tuple[Species, ...]:
@@ -53,7 +102,8 @@ class StructureASU(StructureBackend):
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
-        return self._asu.expand_species_at_sites()
+        self._validate_expansion_semantics()
+        return self._asu.species_at_sites if self._asu.molecular else self._asu.expand_species_at_sites()
 
     @property
     def molecular(self) -> bool:
@@ -61,7 +111,7 @@ class StructureASU(StructureBackend):
 
     @property
     def assemblies(self) -> Any:
-        return self._asu.assemblies
+        return self._expanded_assemblies()
 
     @property
     def chemical_composition(self) -> Any:
