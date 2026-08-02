@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import ast
+import datetime
 import math
 import re
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Any, Literal, cast
+from typing import Any, ClassVar, Literal, cast
 
 from .composition import (
     Assembly,
@@ -354,12 +355,35 @@ def validate_descriptive_formula(formula: str | None) -> str | None:
 class StructureSemanticsMixin:
     """Properties shared by unit-cell, fundamental-domain, and ASU structures."""
 
+    __httk_storage_binding__: ClassVar[type[Any]]
     _assemblies: tuple[Assembly, ...] | None
     _chemical_composition: ChemicalComposition | None
     _chemical_formula_descriptive: str | None
     _chemical_formula_hill: str | None
     _optimization_type: str | None
     _molecular: bool
+    _immutable_id: str | None
+    _last_modified: datetime.datetime | None
+
+    @property
+    def type(self) -> str:
+        """The logical OPTIMADE entry family."""
+        return "structures"
+
+    @property
+    def id(self) -> str:
+        """The stable content identity of this exact representation."""
+        from httk.core import content_id
+
+        return content_id(self)
+
+    @property
+    def immutable_id(self) -> str | None:
+        return self._semantic_value("_immutable_id", "immutable_id")
+
+    @property
+    def last_modified(self) -> datetime.datetime | None:
+        return self._semantic_value("_last_modified", "last_modified")
 
     def _semantic_value(self, private_name: str, public_name: str, default: Any = None) -> Any:
         namespace = getattr(self, "__dict__", {})
@@ -487,6 +511,54 @@ class StructureSemanticsMixin:
         return None if symmetry is None else symmetry.wyckoff_positions
 
 
+_METADATA_UNSET = object()
+
+
+def _resolve_view_metadata(
+    source: Any,
+    *,
+    immutable_id: str | None | object = _METADATA_UNSET,
+    last_modified: datetime.datetime | None | object = _METADATA_UNSET,
+) -> tuple[str | None, datetime.datetime | None]:
+    """Inherit view metadata, allowing explicit values only when none existed."""
+
+    def inherited(name: str) -> Any:
+        marker = object()
+        value = getattr(source, name, marker)
+        if value is not marker:
+            return value
+        unwrap = getattr(source, "unwrap", None)
+        owner = unwrap() if callable(unwrap) else None
+        return None if owner is None or owner is source else getattr(owner, name, None)
+
+    inherited_immutable_id = inherited("immutable_id")
+    inherited_last_modified = inherited("last_modified")
+    if (
+        inherited_immutable_id is not None
+        and immutable_id is not _METADATA_UNSET
+        and immutable_id != inherited_immutable_id
+    ):
+        raise ValueError("explicit immutable_id conflicts with the wrapped structure")
+    if (
+        inherited_last_modified is not None
+        and last_modified is not _METADATA_UNSET
+        and last_modified != inherited_last_modified
+    ):
+        raise ValueError("explicit last_modified conflicts with the wrapped structure")
+    resolved = (
+        inherited_immutable_id if immutable_id is _METADATA_UNSET else cast(str | None, immutable_id),
+        inherited_last_modified if last_modified is _METADATA_UNSET else cast(datetime.datetime | None, last_modified),
+    )
+    if resolved[0] is not None and not isinstance(resolved[0], str):
+        raise TypeError("immutable_id must be a string or None")
+    if resolved[1] is not None:
+        if not isinstance(resolved[1], datetime.datetime):
+            raise TypeError("last_modified must be a datetime or None")
+        if resolved[1].tzinfo is None or resolved[1].utcoffset() is None:
+            raise ValueError("last_modified must include a timezone")
+    return resolved
+
+
 def initialize_semantics(
     owner: Any,
     *,
@@ -498,6 +570,8 @@ def initialize_semantics(
     chemical_formula_descriptive: str | None,
     chemical_formula_hill: str | None,
     optimization_type: str | None,
+    immutable_id: str | None = None,
+    last_modified: datetime.datetime | None = None,
 ) -> None:
     if not isinstance(molecular, bool):
         raise TypeError("molecular must be a bool")
@@ -505,6 +579,13 @@ def initialize_semantics(
         raise TypeError("symmetry must be a StructureSymmetry or None")
     if chemical_composition is not None and not isinstance(chemical_composition, ChemicalComposition):
         raise TypeError("chemical_composition must be a ChemicalComposition or None")
+    if immutable_id is not None and not isinstance(immutable_id, str):
+        raise TypeError("immutable_id must be a string or None")
+    if last_modified is not None:
+        if not isinstance(last_modified, datetime.datetime):
+            raise TypeError("last_modified must be a datetime or None")
+        if last_modified.tzinfo is None or last_modified.utcoffset() is None:
+            raise ValueError("last_modified must include a timezone")
     chemical_formula_descriptive = validate_descriptive_formula(chemical_formula_descriptive)
     normalized_assemblies = None if assemblies is None else validate_assemblies(assemblies, nsites)
     if symmetry is not None and symmetry.wyckoff_positions is not None and len(symmetry.wyckoff_positions) != nsites:
@@ -536,6 +617,8 @@ def initialize_semantics(
     owner._chemical_composition = chemical_composition
     owner._chemical_formula_descriptive = chemical_formula_descriptive
     owner._optimization_type = validate_optimization_type(optimization_type)
+    owner._immutable_id = immutable_id
+    owner._last_modified = last_modified
     owner._chemical_formula_hill = (
         None
         if chemical_formula_hill is None

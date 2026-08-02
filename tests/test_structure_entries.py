@@ -6,10 +6,18 @@ from fractions import Fraction
 import pytest
 from httk.core import FracVector, PropertyDefinition
 
-from httk.atomistic import Assembly, ASUSite, ASUStructure, Structure, StructureEntryProvider
+from httk.atomistic import (
+    Assembly,
+    ASUSite,
+    ASUStructure,
+    ASUStructureRecord,
+    FundamentalDomainStructureRecord,
+    Structure,
+    StructureEntryProvider,
+    UnitcellStructureRecord,
+)
 from httk.atomistic.species import Species
 from httk.atomistic.structure_entries import StructureEntry
-from httk.atomistic.structure_record import StructureEntryRecord, StructureRecord
 
 
 def _nacl_like() -> Structure:
@@ -199,18 +207,27 @@ def test_standard_properties_cannot_be_overridden(source: str) -> None:
 
 
 def test_structure_entry_metadata_is_served_but_not_structural_equality() -> None:
-    structure = _nacl_like()
     stamp = datetime.datetime(2026, 8, 1, 12, 30, tzinfo=datetime.UTC)
-    left = StructureEntry(
-        structure,
-        id="left",
+    structure = _nacl_like()
+    left = Structure(
+        structure.cell,
+        structure.sites,
+        structure.species,
+        structure.species_at_sites,
         immutable_id="stable-left",
         last_modified=stamp,
     )
-    right = StructureEntry(structure, id="right", immutable_id="stable-right")
+    right = Structure(
+        structure.cell,
+        structure.sites,
+        structure.species,
+        structure.species_at_sites,
+        immutable_id="stable-right",
+    )
     assert left == right
+    assert left.id == right.id
 
-    (record,) = list(StructureEntryProvider([left]).records("structures"))
+    (record,) = list(StructureEntryProvider({"left": left}).records("structures"))
     assert record["__id"] == "left"
     assert record["type"] == "structures"
     assert record["immutable_id"] == "stable-left"
@@ -220,9 +237,10 @@ def test_structure_entry_metadata_is_served_but_not_structural_equality() -> Non
 def test_structure_entry_validation_and_mapping_identity() -> None:
     with pytest.raises(ValueError, match="timezone"):
         naive = datetime.datetime(2026, 8, 1, tzinfo=datetime.UTC).replace(tzinfo=None)
-        StructureEntry(_nacl_like(), id="x", last_modified=naive)
-    with pytest.raises(ValueError, match="does not match"):
-        StructureEntryProvider({"mapping-id": StructureEntry(_nacl_like(), id="entry-id")})
+        structure = _nacl_like()
+        Structure(structure.cell, structure.sites, structure.species, structure.species_at_sites, last_modified=naive)
+    with pytest.raises(TypeError, match="logical entry family"):
+        StructureEntry()
 
 
 def test_complete_standard_projection_and_assembly_null_semantics() -> None:
@@ -282,12 +300,19 @@ def test_registration_discovered_via_httk_core() -> None:
     # Importing httk.core discovers the adapter and entry registration tiers.
     import httk.core
     from httk.core._plugins import resolve_callable
-    from httk.core.register import entry_providers, known_format_adapters, resolve_entry_record
+    from httk.core.register import (
+        entry_providers,
+        known_format_adapters,
+        resolve_entry_backing,
+        resolve_entry_family,
+    )
 
     assert "atomistic-structures" in httk.core.known_entry_providers()
     assert known_format_adapters()["cif"] == "atomistic-structures"
-    assert resolve_entry_record("atomistic-structure-record") is StructureRecord
-    assert resolve_entry_record("atomistic-structure-entry-record") is StructureEntryRecord
+    assert resolve_entry_family("structures") is StructureEntry
+    assert resolve_entry_backing("atomistic-unitcell-structure") is UnitcellStructureRecord
+    assert resolve_entry_backing("atomistic-fundamental-domain-structure") is FundamentalDomainStructureRecord
+    assert resolve_entry_backing("atomistic-asu-structure") is ASUStructureRecord
     factory = resolve_callable(entry_providers.require("atomistic-structures").handler)
     provider = factory({"s-1": _nacl_like()})
     assert isinstance(provider, StructureEntryProvider)

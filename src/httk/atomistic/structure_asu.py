@@ -130,6 +130,14 @@ class StructureASU(StructureBackend):
         return self._asu.optimization_type
 
     @property
+    def immutable_id(self) -> str | None:
+        return self._asu.immutable_id
+
+    @property
+    def last_modified(self) -> Any:
+        return self._asu.last_modified
+
+    @property
     def asu(self) -> FundamentalDomainStructure:
         """The underlying asymmetric unit, so a view can adopt it without re-deriving it."""
         return self._asu

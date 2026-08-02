@@ -8,7 +8,7 @@ everything downstream — expansion, comparison, round-tripping — is exact aga
 
 The contract, stated once so the asymmetry is not a surprise:
 
-* Expansion (:meth:`~httk.atomistic.ASUStructure.expand_sites`) is **lossless**.
+* Expansion (:meth:`~httk.atomistic.FundamentalDomainStructure.expand_sites`) is **lossless**.
 * Recognition is **lossy at the tolerance level**: it snaps a measured structure
   onto an idealised symmetric one.
 * Therefore ``expand -> recognize -> expand`` is idempotent, while

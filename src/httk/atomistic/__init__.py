@@ -82,16 +82,17 @@ from .structure_primitive_view import StructurePrimitiveView
 from .structure_record import (
     AssemblyGroupRecord,
     AssemblyRecord,
+    ASUStructureRecord,
+    CellRecord,
     ChemicalCompositionRecord,
     CompositionAmountRecord,
     DomainSiteRecord,
-    ExactVectorRowsRecord,
+    FundamentalDomainStructureRecord,
     SettingTransformRecord,
+    SitesRecord,
     SpeciesRecord,
-    StringTupleRecord,
-    StructureEntryRecord,
-    StructureRecord,
     SymmetryRecord,
+    UnitcellStructureRecord,
 )
 from .structure_record_backend import StructureRecordBackend
 from .structure_semantics import OptimizationType, StructureSymmetry
@@ -126,6 +127,14 @@ CellBackend.backend_classes = [CellClass, CellPrimitive, CellParams]
 SitesBackend.backend_classes = [SitesClass, SitesPrimitive]
 SpeciesBackend.backend_classes = [SpeciesClass, SpeciesPrimitive]
 
+# Storage opt-in is exact-source-class scoped: core intentionally resolves this
+# attribute through vars(type(source)), never by inheritance.
+Structure.__httk_storage_binding__ = UnitcellStructureRecord
+UnitcellStructureView.__httk_storage_binding__ = UnitcellStructureRecord
+FundamentalDomainStructure.__httk_storage_binding__ = FundamentalDomainStructureRecord
+ASUStructure.__httk_storage_binding__ = ASUStructureRecord
+ASUStructureView.__httk_storage_binding__ = ASUStructureRecord
+
 __all__ = [
     "DEFAULT_TOLERANCE",
     "SYMBOLS",
@@ -133,6 +142,7 @@ __all__ = [
     "ASEAtomsProtocol",
     "ASUSite",
     "ASUStructure",
+    "ASUStructureRecord",
     "ASUStructureView",
     "AffineOperation",
     "Assembly",
@@ -149,6 +159,7 @@ __all__ = [
     "CellParamsView",
     "CellPrimitive",
     "CellPrimitiveView",
+    "CellRecord",
     "CellView",
     "ChemicalComposition",
     "ChemicalCompositionRecord",
@@ -157,8 +168,8 @@ __all__ = [
     "CompositionResult",
     "ConventionalCellResult",
     "DomainSiteRecord",
-    "ExactVectorRowsRecord",
     "FundamentalDomainStructure",
+    "FundamentalDomainStructureRecord",
     "NumericCell",
     "NumericSites",
     "NumericUnitcellStructureBackend",
@@ -176,6 +187,7 @@ __all__ = [
     "SitesNumericView",
     "SitesPrimitive",
     "SitesPrimitiveView",
+    "SitesRecord",
     "SitesView",
     "Spacegroup",
     "Species",
@@ -188,24 +200,22 @@ __all__ = [
     "SpeciesPrimitiveView",
     "SpeciesRecord",
     "SpeciesView",
-    "StringTupleRecord",
     "Structure",
     "StructureAPI",
     "StructureASU",
     "StructureBackend",
     "StructureEntry",
     "StructureEntryProvider",
-    "StructureEntryRecord",
     "StructureLike",
     "StructurePrimitive",
     "StructurePrimitiveView",
-    "StructureRecord",
     "StructureRecordBackend",
     "StructureSymmetry",
     "StructureView",
     "SupercellResult",
     "SymmetryRecord",
     "UnitcellStructureBackend",
+    "UnitcellStructureRecord",
     "UnitcellStructureView",
     "WyckoffBranch",
     "WyckoffPosition",

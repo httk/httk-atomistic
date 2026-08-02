@@ -2,11 +2,11 @@
 Species definition for httk-atomistic, mirroring the OPTIMADE ``species`` entry.
 """
 
+import decimal
+import fractions
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from decimal import Decimal
-from fractions import Fraction
 from typing import Any
 
 from ._composition_values import as_fraction, as_precision, normalization
@@ -15,7 +15,7 @@ from .elements import SYMBOLS, symbol_of
 _ELEMENTS: frozenset[str] = frozenset(SYMBOLS)
 _SPECIAL_SYMBOLS: frozenset[str] = frozenset({"X", "vacancy"})
 
-type ExactInput = Fraction | int | float | Decimal | str
+type ExactInput = fractions.Fraction | int | float | decimal.Decimal | str
 type PrecisionInput = ExactInput | None
 
 
@@ -35,12 +35,12 @@ class Species:
 
     name: str
     chemical_symbols: tuple[str, ...]
-    concentration: tuple[Fraction, ...]
+    concentration: tuple[fractions.Fraction, ...]
     mass: tuple[float, ...] | None = None
     original_name: str | None = None
     attached: tuple[str, ...] | None = None
     nattached: tuple[int, ...] | None = None
-    concentration_precision: tuple[Fraction | None, ...] | None = None
+    concentration_precision: tuple[fractions.Fraction | None, ...] | None = None
 
     def __init__(
         self,
@@ -86,8 +86,8 @@ class Species:
         if len(symbols) != len(set(symbols)):
             raise ValueError("Species chemical_symbols must be unique")
         object.__setattr__(self, "chemical_symbols", symbols)
-        concentration: list[Fraction] = []
-        inferred_precision: list[Fraction | None] = []
+        concentration: list[fractions.Fraction] = []
+        inferred_precision: list[fractions.Fraction | None] = []
         for value in self.concentration:
             central, width = as_fraction(value, field="Species concentration")
             if not 0 <= central <= 1:
@@ -213,7 +213,7 @@ class Species:
         return (
             len(self.chemical_symbols) == 1
             and self.chemical_symbols[0] in _ELEMENTS
-            and self.concentration == (Fraction(1),)
+            and self.concentration == (fractions.Fraction(1),)
             and self.attached is None
         )
 

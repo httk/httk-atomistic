@@ -2,6 +2,7 @@
 The Simple structure representation for httk-atomistic.
 """
 
+import datetime
 import fractions
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
@@ -98,6 +99,8 @@ class Structure(StructureSemanticsMixin):
         chemical_formula_descriptive: str | None = None,
         chemical_formula_hill: str | None = None,
         optimization_type: str | None = None,
+        immutable_id: str | None = None,
+        last_modified: datetime.datetime | None = None,
     ) -> None:
         norm_cell = _norm_cell(cell)
         norm_sites = _norm_sites(sites)
@@ -121,6 +124,8 @@ class Structure(StructureSemanticsMixin):
             chemical_formula_descriptive=chemical_formula_descriptive,
             chemical_formula_hill=chemical_formula_hill,
             optimization_type=optimization_type,
+            immutable_id=immutable_id,
+            last_modified=last_modified,
         )
 
     @property

@@ -311,7 +311,7 @@ def test_primitive_view_raises_for_non_single_element_species() -> None:
 
 
 def test_primitive_view_rejects_every_unrepresentable_semantic_feature() -> None:
-    from httk.atomistic import Assembly, ChemicalComposition, Species, StructureRecord
+    from httk.atomistic import Assembly, ChemicalComposition, Species
 
     element = Species("C", ("C",), (1,))
     partial = Species("C", ("C",), (fractions.Fraction(1, 2),))
@@ -328,7 +328,6 @@ def test_primitive_view_rejects_every_unrepresentable_semantic_feature() -> None
         Structure(CUBIC, [[0, 0, 0]], [attached], ["CH"]),
         Structure(CUBIC, [[0, 0, 0]], [element], ["C"], assemblies=(Assembly(((0,),), (1,)),)),
         implicit,
-        StructureRecord.from_structure(implicit),
         Structure(
             CUBIC,
             [[0, 0, 0]],

@@ -22,6 +22,7 @@ from .structure import (
 )
 from .structure_backend import StructureBackend
 from .structure_like import StructureLike
+from .structure_semantics import _METADATA_UNSET, _resolve_view_metadata
 from .structure_view import StructureView
 
 
@@ -36,10 +37,32 @@ class UnitcellStructureView(StructureView, Structure):
 
     _backend: StructureBackend
 
-    def __new__(cls, obj: StructureLike, **hints: Any) -> Self:
+    def __new__(
+        cls,
+        obj: StructureLike,
+        *,
+        immutable_id: str | None | object = _METADATA_UNSET,
+        last_modified: Any = _METADATA_UNSET,
+        **hints: Any,
+    ) -> Self:
         if isinstance(obj, cls):
-            return obj
-        backend = cls._prepare_backend(obj, hints)
+            if immutable_id is _METADATA_UNSET and last_modified is _METADATA_UNSET:
+                return obj
+            resolved_immutable_id, resolved_last_modified = _resolve_view_metadata(
+                obj,
+                immutable_id=immutable_id,
+                last_modified=last_modified,
+            )
+            if (resolved_immutable_id, resolved_last_modified) == (obj.immutable_id, obj.last_modified):
+                return obj
+            backend = obj._backend
+        else:
+            backend = cls._prepare_backend(obj, hints)
+            resolved_immutable_id, resolved_last_modified = _resolve_view_metadata(
+                obj,
+                immutable_id=immutable_id,
+                last_modified=last_modified,
+            )
         span = getattr(backend, "site_coordinate_span", None)
         if span in {
             "fundamental_domain",
@@ -54,6 +77,8 @@ class UnitcellStructureView(StructureView, Structure):
             )
         instance = super().__new__(cls)
         instance._backend = backend
+        instance._immutable_id = resolved_immutable_id
+        instance._last_modified = resolved_last_modified
         return instance
 
     def __init__(self, obj: StructureLike, **hints: Any) -> None:

@@ -13,7 +13,6 @@ from httk.atomistic import (
     Species,
     Structure,
     StructureBackend,
-    StructureRecord,
     UnitcellStructureView,
 )
 
@@ -100,9 +99,6 @@ def test_ase_atoms_rejects_assemblies_and_implicit_atoms() -> None:
         ASEAtomsView(assembled)
     with pytest.raises(TypeError, match="declared chemical composition"):
         ASEAtomsView(implicit)
-    with pytest.raises(TypeError, match="declared chemical composition"):
-        ASEAtomsView(StructureRecord.from_structure(implicit))
-
     full = Structure(*geometry, chemical_composition=ChemicalComposition({"O": 1}, mode="full"))
     with pytest.raises(TypeError, match="declared chemical composition"):
         ASEAtomsView(full)

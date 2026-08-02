@@ -20,6 +20,7 @@ snapping, no neighbour search. Tolerance enters this class only where a *measure
 structure is first recognized as symmetric, never in expansion.
 """
 
+import datetime
 import fractions
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -113,6 +114,8 @@ class FundamentalDomainStructure(StructureSemanticsMixin):
         chemical_formula_descriptive: str | None = None,
         chemical_formula_hill: str | None = None,
         optimization_type: str | None = None,
+        immutable_id: str | None = None,
+        last_modified: datetime.datetime | None = None,
     ) -> None:
         self._cell = cell if isinstance(cell, Cell) else CellClassView(cell)
         require_full_periodicity(self._cell, "ASUStructure")
@@ -156,6 +159,8 @@ class FundamentalDomainStructure(StructureSemanticsMixin):
             chemical_formula_descriptive=chemical_formula_descriptive,
             chemical_formula_hill=chemical_formula_hill,
             optimization_type=optimization_type,
+            immutable_id=immutable_id,
+            last_modified=last_modified,
         )
 
     # --- accessors ---
@@ -426,7 +431,9 @@ class FundamentalDomainStructure(StructureSemanticsMixin):
     # --- identity ---
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, FundamentalDomainStructure) or type(self) is not type(other):
+        if not isinstance(other, FundamentalDomainStructure) or (
+            type(self) is not type(other) and not (isinstance(self, ASUStructure) and isinstance(other, ASUStructure))
+        ):
             return NotImplemented
         return (
             self._cell == other._cell

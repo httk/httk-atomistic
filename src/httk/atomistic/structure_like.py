@@ -22,7 +22,9 @@ type StructureLike = (
     structure_backend.StructureBackend
     | structure_view.StructureView
     | structure.Structure
-    | structure_record.StructureRecord
+    | structure_record.UnitcellStructureRecord
+    | structure_record.FundamentalDomainStructureRecord
+    | structure_record.ASUStructureRecord
     | asu_structure.FundamentalDomainStructure
     | compat.ASEAtomsProtocol
     | tuple[httk.core.VectorLike, httk.core.VectorLike, Any]

@@ -1,11 +1,7 @@
 """Project atomistic structures onto the neutral OPTIMADE entry-provider contract."""
 
-from __future__ import annotations
-
-import datetime
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Self
 
 from httk.core import (
     EntryProvider,
@@ -75,38 +71,22 @@ _STANDARD_PROPERTY_SET = frozenset(_STANDARD_PROPERTY_NAMES)
 _STANDARD_STRUCTURE_NAMES = _STANDARD_PROPERTY_NAMES[4:]
 
 
-@dataclass(frozen=True, slots=True)
 class StructureEntry:
-    """A structure plus OPTIMADE entry metadata that does not affect equality.
+    """Non-instantiable logical family for OPTIMADE structure entries."""
 
-    Structural equality is delegated entirely to ``structure``. Resource identity and
-    timestamps describe the database entry, not the represented material, and are
-    therefore deliberately marked ``compare=False``.
-    """
+    type = "structures"
+    definition_id = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 
-    structure: StructureLike | None
-    id: str = field(compare=False)
-    type: str = field(default="structures", compare=False)
-    immutable_id: str | None = field(default=None, compare=False)
-    last_modified: datetime.datetime | None = field(default=None, compare=False)
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.id, str) or not self.id:
-            raise ValueError("StructureEntry id must be a non-empty string")
-        if self.type != "structures":
-            raise ValueError("StructureEntry type must be 'structures'")
-        if self.immutable_id is not None and not isinstance(self.immutable_id, str):
-            raise TypeError("StructureEntry immutable_id must be a string or None")
-        modified = self.last_modified
-        if modified is not None:
-            if not isinstance(modified, datetime.datetime):
-                raise TypeError("StructureEntry last_modified must be a datetime or None")
-            if modified.tzinfo is None or modified.utcoffset() is None:
-                raise ValueError("StructureEntry last_modified must include a timezone")
+    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
+        raise TypeError("StructureEntry is a logical entry family; store a structure representation directly")
 
 
 def _as_structure(obj: StructureLike) -> Any:
     """Normalize accepted convenience inputs to the common structure property layer."""
+    from .structure_record import ASUStructureRecord, FundamentalDomainStructureRecord, UnitcellStructureRecord
+
+    if isinstance(obj, (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord)):
+        return obj.to_structure()
     if isinstance(obj, FundamentalDomainStructure):
         # Representation is semantic: do not expand a fundamental domain merely because
         # it is being served. Its composition already accounts for orbit multiplicities.
@@ -181,9 +161,9 @@ def _structure_projection(structure: Any) -> dict[str, Any]:
 class StructureEntryProvider(EntryProvider):
     """Serve complete OPTIMADE v1.3 structure records from atomistic structures.
 
-    A mapping keeps the convenient ``{"example": structure}`` form. Values may instead
-    be explicit :class:`StructureEntry` objects when immutable ids or timestamps are
-    available. An iterable of entries is accepted when no redundant mapping key is useful.
+    A mapping keeps the convenient ``{"example": structure}`` form and its explicit
+    served ids. An iterable of natural structures uses each representation's structural
+    content id. Entry metadata lives on the structures themselves.
 
     Custom properties may extend the schema, but standard OPTIMADE fields are a pure
     projection of the entry and structure and cannot be replaced by custom values.
@@ -191,29 +171,27 @@ class StructureEntryProvider(EntryProvider):
 
     def __init__(
         self,
-        entries: Mapping[str, StructureLike | StructureEntry | None] | Iterable[StructureEntry],
+        entries: Mapping[str, StructureLike | None] | Iterable[StructureLike],
         *,
         extra_definitions: Mapping[str, PropertyDefinition] | None = None,
         properties: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> None:
-        normalized: dict[str, StructureEntry] = {}
+        normalized: dict[str, StructureLike | None] = {}
         if isinstance(entries, Mapping):
             for raw_id, value in entries.items():
                 entry_id = str(raw_id)
-                if isinstance(value, StructureEntry):
-                    if value.id != entry_id:
-                        raise ValueError(f"StructureEntry id {value.id!r} does not match its mapping key {entry_id!r}")
-                    entry = value
-                else:
-                    entry = StructureEntry(value, id=entry_id)
-                normalized[entry_id] = entry
+                if not entry_id:
+                    raise ValueError("StructureEntryProvider ids must be non-empty strings")
+                normalized[entry_id] = value
         else:
-            for entry in entries:
-                if not isinstance(entry, StructureEntry):
-                    raise TypeError("iterable StructureEntryProvider input must contain StructureEntry values")
-                if entry.id in normalized:
-                    raise ValueError(f"duplicate StructureEntry id: {entry.id!r}")
-                normalized[entry.id] = entry
+            for structure in entries:
+                candidate_id = getattr(structure, "id", None)
+                if not isinstance(candidate_id, str) or not candidate_id:
+                    raise TypeError("iterable StructureEntryProvider input must contain structures with an id")
+                entry_id = candidate_id
+                if entry_id in normalized:
+                    raise ValueError(f"duplicate structure id: {entry_id!r}")
+                normalized[entry_id] = structure
         self._entries = normalized
 
         self._extra_definitions = dict(extra_definitions or {})
@@ -263,13 +241,17 @@ class StructureEntryProvider(EntryProvider):
         if entry_type != "structures":
             raise KeyError("StructureEntryProvider serves only the 'structures' entry type.")
         records: list[dict[str, Any]] = []
-        for entry in self._entries.values():
-            structure = None if entry.structure is None else _as_structure(entry.structure)
+        for entry_id, value in self._entries.items():
+            structure = None if value is None else _as_structure(value)
             record: dict[str, Any] = {
-                "__id": entry.id,
-                "type": entry.type,
-                "immutable_id": entry.immutable_id,
-                "last_modified": None if entry.last_modified is None else entry.last_modified.isoformat(),
+                "__id": entry_id,
+                "type": StructureEntry.type,
+                "immutable_id": None if structure is None else structure.immutable_id,
+                "last_modified": (
+                    None
+                    if structure is None or structure.last_modified is None
+                    else structure.last_modified.isoformat()
+                ),
             }
             if structure is None:
                 record.update({name: None for name in _STANDARD_STRUCTURE_NAMES})
@@ -286,7 +268,7 @@ class StructureEntryProvider(EntryProvider):
                     if structure.site_coordinate_span in {"unit_cell", "molecular_unit_cell"}:
                         raise
                     record.update({name: None for name in PRECISION_PROPERTY_KEYS})
-            entry_properties = self._properties.get(entry.id, {})
+            entry_properties = self._properties.get(entry_id, {})
             for name in self._property_names:
                 record[name] = entry_properties.get(name)
             records.append(record)

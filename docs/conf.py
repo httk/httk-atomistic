@@ -129,6 +129,9 @@ nitpick_ignore = [
     # OptimadeResource is new in the sibling httk-core workspace; the vendored
     # intersphinx inventory continues to describe the latest release.
     ("py:class", "httk.core.OptimadeResource"),
+    # IdentitySkip is likewise new in the sibling core workspace and is rendered
+    # unqualified when AutoAPI displays Annotated record fields.
+    ("py:class", "IdentitySkip"),
     # The protocol property ``type`` is indexed through both its defining
     # module and the package re-export; qualified member links stay available.
     ("py:obj", "type"),
