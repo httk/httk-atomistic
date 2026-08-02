@@ -38,8 +38,25 @@ def _norm_species(species: Sequence[SpeciesLike]) -> tuple[Species, ...]:
     return tuple(s if isinstance(s, Species) else SpeciesClassView(s) for s in species)
 
 
-def _norm_species_at_sites(species_at_sites: Sequence[str]) -> tuple[str, ...]:
+def _norm_species_at_sites(species_at_sites: Sequence[object]) -> tuple[str, ...]:
     return tuple(str(name) for name in species_at_sites)
+
+
+def _infer_species(species_at_sites: Sequence[SpeciesLike]) -> tuple[tuple[Species, ...], tuple[str, ...]]:
+    """Build the distinct species table and site names from convenient values."""
+    distinct: list[Species] = []
+    by_name: dict[str, Species] = {}
+    names: list[str] = []
+    for source in species_at_sites:
+        value = source if isinstance(source, Species) else SpeciesClassView(source)
+        existing = by_name.get(value.name)
+        if existing is None:
+            by_name[value.name] = value
+            distinct.append(value)
+        elif existing != value:
+            raise ValueError(f"Structure species_at_sites gives conflicting definitions for species {value.name!r}")
+        names.append(value.name)
+    return tuple(distinct), tuple(names)
 
 
 def _check_species_names(species: Sequence[Species]) -> None:
@@ -69,7 +86,9 @@ class Structure(StructureSemanticsMixin):
     length-N ``species_at_sites`` giving the species name occupying each site. Inputs are
     normalized on construction through the component families: the cell, sites, and each
     species are passed through their ``*Like`` unions, and every ``species_at_sites`` name
-    must match one of the (uniquely named) species.
+    must match one of the (uniquely named) species. When ``species`` is omitted,
+    ``species_at_sites`` may itself contain species-like values; the distinct species table
+    is then inferred in first-occurrence order.
 
     The numeric model is exact and split by purpose. The fractional frame — reduced coordinates
     and symmetry — is rational and lives in ``sites`` as a :class:`~httk.core.FracVector`. The
@@ -89,8 +108,8 @@ class Structure(StructureSemanticsMixin):
         self,
         cell: CellLike,
         sites: SitesLike,
-        species: Sequence[SpeciesLike],
-        species_at_sites: Sequence[str],
+        species: Sequence[SpeciesLike] | None = None,
+        species_at_sites: Sequence[SpeciesLike] | None = None,
         *,
         molecular: bool = False,
         assemblies: Sequence["Assembly"] | None = None,
@@ -102,10 +121,15 @@ class Structure(StructureSemanticsMixin):
         immutable_id: str | None = None,
         last_modified: datetime.datetime | None = None,
     ) -> None:
+        if species_at_sites is None:
+            raise TypeError("Structure species_at_sites is required")
         norm_cell = _norm_cell(cell)
         norm_sites = _norm_sites(sites)
-        norm_species = _norm_species(species)
-        norm_species_at_sites = _norm_species_at_sites(species_at_sites)
+        if species is None:
+            norm_species, norm_species_at_sites = _infer_species(species_at_sites)
+        else:
+            norm_species = _norm_species(species)
+            norm_species_at_sites = _norm_species_at_sites(species_at_sites)
         _check_sites_length(norm_sites, norm_species_at_sites)
         _check_species_names(norm_species)
         _check_species_at_sites(norm_species_at_sites, norm_species)

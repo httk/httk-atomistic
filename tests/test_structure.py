@@ -185,6 +185,31 @@ def test_structure_accepts_atomic_number_species_inputs() -> None:
     assert structure.species_at_sites == ("Pb", "Ti", "O", "O", "O")
 
 
+def test_structure_infers_species_from_site_values_in_first_occurrence_order() -> None:
+    oxygen = Species("O", ("O",), (1,))
+    chlorine = {"name": "Cl", "chemical_symbols": ["Cl"], "concentration": [1]}
+    structure = Structure(
+        cell=CUBIC,
+        sites=[[0, 0, 0], ["1/2", 0, 0], [0, "1/2", 0], [0, 0, "1/2"], ["1/2", "1/2", "1/2"]],
+        species_at_sites=[oxygen, 22, chlorine, 22, oxygen],
+    )
+
+    assert tuple(value.name for value in structure.species) == ("O", "Ti", "Cl")
+    assert structure.species_at_sites == ("O", "Ti", "Cl", "Ti", "O")
+
+
+def test_structure_rejects_conflicting_inferred_species_definitions() -> None:
+    with pytest.raises(ValueError, match="conflicting definitions"):
+        Structure(
+            cell=CUBIC,
+            sites=[[0, 0, 0], ["1/2", "1/2", "1/2"]],
+            species_at_sites=[
+                Species("mixed", ("Na",), (1,)),
+                Species("mixed", ("Cl",), (1,)),
+            ],
+        )
+
+
 def test_structure_shape_and_name_validation() -> None:
     # A malformed cell is rejected by the Cell family (a 2x2 cannot be represented).
     with pytest.raises((ValueError, TypeError)):
