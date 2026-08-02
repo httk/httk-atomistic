@@ -136,7 +136,7 @@ def test_projection_ignores_unused_species_and_handles_empty_elemental_results()
     assert unknown.elements == ()
 
 
-def test_assembly_and_measured_formula_reconstruction() -> None:
+def test_assembly_and_measured_formula_reconstruction_uses_central_values() -> None:
     ge = Species("Ge", ("Ge",), (1,))
     si = Species("Si", ("Si",), (1,))
     assembly = Assembly(((0,), (1,)), (F(5, 8), F(3, 8)))
@@ -153,8 +153,8 @@ def test_assembly_and_measured_formula_reconstruction() -> None:
         concentration_precision=(F(1, 10**12), F(1, 10**12)),
     )
     result = project_composition(_Structure((impossible,), ("impossible",)))
-    assert result.chemical_formula_reduced is None
-    assert any(item.code == "formula_ratio_unreconstructable" for item in result.diagnostics)
+    assert result.chemical_formula_reduced == "GeSi1000"
+    assert result.chemical_formula_anonymous == "A1000B"
 
 
 def test_assembly_validation_and_asu_multiplicity_projection() -> None:

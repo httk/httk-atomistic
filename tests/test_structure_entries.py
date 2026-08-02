@@ -128,6 +128,17 @@ def test_structure_features_empty_for_ordered() -> None:
     assert record["structure_features"] == []
 
 
+def test_unused_species_do_not_mark_structure_features() -> None:
+    """Only species referenced by represented sites contribute OPTIMADE features."""
+    cell = [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 3.0]]
+    na = Species(name="Na", chemical_symbols=("Na",), concentration=(1,))
+    unused_disordered = Species(name="X", chemical_symbols=("Fe", "Ni"), concentration=(0.5, 0.5))
+    unused_attached = Species(name="CH3", chemical_symbols=("C",), concentration=(1,), attached=("H",), nattached=(3,))
+    structure = Structure(cell, [[0, 0, 0]], [na, unused_disordered, unused_attached], ["Na"])
+    (record,) = list(StructureEntryProvider({"only-na": structure}).records("structures"))
+    assert record["structure_features"] == []
+
+
 def _smfeo3() -> Structure:
     # 4 Fe, 12 O, 4 Sm ordered sites (a fully ordered composition).
     cell = [[5.6, 0.0, 0.0], [0.0, 7.6, 0.0], [0.0, 0.0, 5.3]]

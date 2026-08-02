@@ -19,6 +19,8 @@ from httk.atomistic import (
     DomainSiteRecord,
     FundamentalDomainStructure,
     FundamentalDomainStructureRecord,
+    NormalizedCompositionAmountRecord,
+    NormalizedCompositionRecord,
     SettingTransform,
     SettingTransformRecord,
     SitesRecord,
@@ -71,6 +73,7 @@ def _common(source: object) -> dict[str, object]:
     return {
         "cell": _cell_record(value.cell),  # type: ignore[attr-defined]
         "species": tuple(SpeciesRecord.from_species(item) for item in value.species),  # type: ignore[attr-defined]
+        "normalized_composition": NormalizedCompositionRecord.from_result(value.composition),  # type: ignore[attr-defined]
         "molecular": value.molecular,  # type: ignore[attr-defined]
         "assemblies": (
             None
@@ -308,6 +311,58 @@ def test_record_rejects_naive_last_modified() -> None:
             species_at_sites=source.species_at_sites,
             symmetry=None,
         )
+
+
+def test_record_rejects_normalized_composition_that_contradicts_native_structure() -> None:
+    source = _unitcell()
+    values = _common(source)
+    values["normalized_composition"] = NormalizedCompositionRecord(
+        (
+            NormalizedCompositionAmountRecord("Cl", Fraction(1, 3), Fraction(1), None),
+            NormalizedCompositionAmountRecord("Na", Fraction(2, 3), Fraction(2), None),
+        ),
+        True,
+    )
+    with pytest.raises(ValueError, match="normalized_composition contradicts"):
+        UnitcellStructureRecord(
+            **values,
+            sites=SitesRecord(**project_storage_record(SitesRecord, source.sites)),
+            species_at_sites=source.species_at_sites,
+            symmetry=None,
+        )
+
+
+def test_asu_record_preserves_cross_orbit_deduplicated_composition() -> None:
+    """The normalized relation must follow ASU expansion's exact global deduplication."""
+    source = ASUStructure(
+        [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
+        225,
+        (ASUSite("a", FracVector.create(()), "Na"), ASUSite("a", FracVector.create(()), "Na")),
+        (Species("Na", ("Na",), (1,)),),
+    )
+    assert source.multiplicities() == (4, 0)
+    record = _domain_record(source)
+
+    assert isinstance(record, ASUStructureRecord)
+    assert tuple((value.element, value.amount) for value in record.normalized_composition.amounts) == (
+        ("Na", Fraction(4)),
+    )
+    assert record.to_structure().composition.amounts == (("Na", Fraction(4)),)
+
+
+def test_normalized_composition_record_requires_ratios_to_normalize_amounts() -> None:
+    with pytest.raises(ValueError, match="normalize"):
+        NormalizedCompositionRecord(
+            (
+                NormalizedCompositionAmountRecord("Cl", Fraction(1, 2), Fraction(2)),
+                NormalizedCompositionAmountRecord("Na", Fraction(1, 2), Fraction(1)),
+            ),
+            True,
+        )
+    # Both a complete vacancy-only structure and an incomplete unknown-element
+    # structure can have no stored real-element amounts.
+    assert NormalizedCompositionRecord((), True).amounts == ()
+    assert NormalizedCompositionRecord((), False).amounts == ()
 
 
 @pytest.mark.parametrize(

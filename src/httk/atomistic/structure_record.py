@@ -22,7 +22,7 @@ from ._composition_values import as_fraction
 from ._vector_guards import to_precision
 from .asu_structure import ASUSite, ASUStructure, FundamentalDomainStructure
 from .cell import Cell
-from .composition import Assembly, ChemicalComposition, validate_assemblies
+from .composition import Assembly, ChemicalComposition, CompositionResult, validate_assemblies
 from .setting_transform import SettingTransform
 from .sites import Sites
 from .species import Species
@@ -38,6 +38,8 @@ __all__ = [
     "CompositionAmountRecord",
     "DomainSiteRecord",
     "FundamentalDomainStructureRecord",
+    "NormalizedCompositionAmountRecord",
+    "NormalizedCompositionRecord",
     "SettingTransformRecord",
     "SitesRecord",
     "SpeciesRecord",
@@ -217,22 +219,6 @@ class SpeciesRecord:
             ),
         )
 
-    def to_stored_entry_value(self) -> dict[str, object]:
-        """Return exactly the standard OPTIMADE species dictionary shape."""
-        value: dict[str, object] = {
-            "name": self.name,
-            "chemical_symbols": self.chemical_symbols,
-            "concentration": self.concentration,
-        }
-        if self.mass_present:
-            value["mass"] = self.mass
-        if self.original_name is not None:
-            value["original_name"] = self.original_name
-        if self.attached_present:
-            value["attached"] = self.attached
-            value["nattached"] = self.nattached
-        return value
-
 
 @dataclass(frozen=True)
 class AssemblyGroupRecord:
@@ -331,13 +317,6 @@ class AssemblyRecord:
             if not self.group_probabilities_precision_present
             else tuple(None if value == 0 else value for value in self.group_probabilities_precision),
         )
-
-    def to_stored_entry_value(self) -> dict[str, object]:
-        """Return exactly the standard OPTIMADE assembly dictionary shape."""
-        return {
-            "sites_in_groups": tuple(group.sites for group in self.groups),
-            "group_probabilities": self.group_probabilities,
-        }
 
 
 @dataclass(frozen=True)
@@ -504,6 +483,21 @@ class CompositionAmountRecord:
     amount: fractions.Fraction
     precision: fractions.Fraction | None = None
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.element, str) or not self.element:
+            raise TypeError("CompositionAmountRecord element must be a non-empty string")
+        amount, _ = as_fraction(self.amount, field="CompositionAmountRecord amount")
+        if amount <= 0:
+            raise ValueError("CompositionAmountRecord amount must be positive")
+        precision = None
+        if self.precision is not None:
+            precision, _ = as_fraction(self.precision, field="CompositionAmountRecord precision")
+            if precision <= 0:
+                raise ValueError("CompositionAmountRecord precision must be positive or None")
+        ChemicalComposition({self.element: amount})
+        object.__setattr__(self, "amount", amount)
+        object.__setattr__(self, "precision", precision)
+
     @classmethod
     def __httk_project__(cls, amount: tuple[Any, ...]) -> Mapping[str, object]:
         if len(amount) != 3:
@@ -556,6 +550,120 @@ class ChemicalCompositionRecord:
             cast(Any, self.mode),
             {value.element: value.precision for value in self.amounts if value.precision is not None},
         )
+
+
+@dataclass(frozen=True)
+class NormalizedCompositionRecord:
+    """Authoritative exact elemental composition projected from one structure.
+
+    This relation is semantic normalized data, not a rendered-formula cache. It
+    retains each exact central element amount together with its source precision,
+    and makes the same complete-composition facts available to every durable
+    structure backing for response construction and exact filtering.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_v3_normalized_composition_record",
+        identity_name="httk.atomistic.NormalizedCompositionRecord",
+    )
+    __httk_canonical_source__: ClassVar[type[CompositionResult]] = CompositionResult
+
+    amounts: tuple["NormalizedCompositionAmountRecord", ...]
+    complete: bool
+
+    @classmethod
+    def __httk_project__(cls, result: CompositionResult) -> Mapping[str, object]:
+        precision = dict(result.uncertainties)
+        total = sum((amount for _, amount in result.amounts), fractions.Fraction())
+        return {
+            "amounts": tuple(
+                (element, amount / total, amount, precision[element]) for element, amount in result.amounts
+            ),
+            "complete": result.complete,
+        }
+
+    def __post_init__(self) -> None:
+        amounts = tuple(self.amounts)
+        if not all(isinstance(value, NormalizedCompositionAmountRecord) for value in amounts):
+            raise TypeError("NormalizedCompositionRecord amounts must contain NormalizedCompositionAmountRecord values")
+        if not isinstance(self.complete, bool):
+            raise TypeError("NormalizedCompositionRecord complete must be a bool")
+        elements = tuple(value.element for value in amounts)
+        if elements != tuple(sorted(elements)) or len(elements) != len(set(elements)):
+            raise ValueError("NormalizedCompositionRecord amounts must be uniquely ordered by element")
+        if amounts:
+            total = sum((value.amount for value in amounts), fractions.Fraction())
+            if sum((value.ratio for value in amounts), fractions.Fraction()) != 1:
+                raise ValueError("NormalizedCompositionRecord ratios must sum exactly to one")
+            if any(value.ratio != value.amount / total for value in amounts):
+                raise ValueError("NormalizedCompositionRecord ratios must exactly normalize their amounts")
+        object.__setattr__(self, "amounts", amounts)
+
+    @classmethod
+    def from_result(cls, result: CompositionResult) -> "NormalizedCompositionRecord":
+        precision = dict(result.uncertainties)
+        total = sum((amount for _, amount in result.amounts), fractions.Fraction())
+        return cls(
+            tuple(
+                NormalizedCompositionAmountRecord(element, amount / total, amount, precision[element])
+                for element, amount in result.amounts
+            ),
+            result.complete,
+        )
+
+    def to_result(self) -> CompositionResult:
+        amounts = tuple((value.element, value.amount) for value in self.amounts)
+        uncertainties = tuple((value.element, value.precision) for value in self.amounts)
+        exact = all(value.precision is None for value in self.amounts)
+        return CompositionResult(
+            amounts,
+            uncertainties,
+            self.complete,
+            exact,
+            True,
+            "exact" if exact else "within_precision",
+        )
+
+
+@dataclass(frozen=True)
+class NormalizedCompositionAmountRecord:
+    """One exact normalized central ratio with the source amount and precision retained."""
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_v3_normalized_composition_amount_record",
+        identity_name="httk.atomistic.NormalizedCompositionAmountRecord",
+    )
+    __httk_canonical_source__: ClassVar[type[tuple]] = tuple
+
+    element: str
+    ratio: fractions.Fraction
+    amount: fractions.Fraction
+    precision: fractions.Fraction | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.element, str) or not self.element:
+            raise TypeError("NormalizedCompositionAmountRecord element must be a non-empty string")
+        ratio, _ = as_fraction(self.ratio, field="NormalizedCompositionAmountRecord ratio")
+        amount, _ = as_fraction(self.amount, field="NormalizedCompositionAmountRecord amount")
+        if not 0 < ratio <= 1:
+            raise ValueError("NormalizedCompositionAmountRecord ratio must be in (0, 1]")
+        if amount <= 0:
+            raise ValueError("NormalizedCompositionAmountRecord amount must be positive")
+        precision = None
+        if self.precision is not None:
+            precision, _ = as_fraction(self.precision, field="NormalizedCompositionAmountRecord precision")
+            if precision <= 0:
+                raise ValueError("NormalizedCompositionAmountRecord precision must be positive or None")
+        ChemicalComposition({self.element: amount})
+        object.__setattr__(self, "ratio", ratio)
+        object.__setattr__(self, "amount", amount)
+        object.__setattr__(self, "precision", precision)
+
+    @classmethod
+    def __httk_project__(cls, amount: tuple[Any, ...]) -> Mapping[str, object]:
+        if len(amount) != 4:
+            raise ValueError("normalized composition amount projection requires element, ratio, amount, and precision")
+        return {"element": amount[0], "ratio": amount[1], "amount": amount[2], "precision": amount[3]}
 
 
 # These concrete records retain each representation's native fields; recursive
@@ -628,6 +736,7 @@ def _project_common(structure: Any) -> dict[str, object]:
     return {
         "cell": structure.cell,
         "species": structure.species,
+        "normalized_composition": structure.composition,
         "molecular": structure.molecular,
         "assemblies": structure.assemblies,
         "assemblies_present": structure.assemblies is not None,
@@ -646,6 +755,8 @@ def _normalize_common(record: Any, *, nsites: int) -> None:
     species = tuple(record.species)
     if not all(isinstance(value, SpeciesRecord) for value in species):
         raise TypeError(f"{type(record).__name__} species must contain SpeciesRecord values")
+    if not isinstance(record.normalized_composition, NormalizedCompositionRecord):
+        raise TypeError(f"{type(record).__name__} normalized_composition must be a NormalizedCompositionRecord")
     names = tuple(value.name for value in species)
     if len(names) != len(set(names)):
         raise ValueError(f"{type(record).__name__} species names must be unique")
@@ -680,6 +791,20 @@ def _normalize_common(record: Any, *, nsites: int) -> None:
             raise ValueError(f"{type(record).__name__} last_modified must include a timezone")
     object.__setattr__(record, "species", species)
     object.__setattr__(record, "assemblies", assemblies)
+
+
+def _validate_normalized_composition(record: Any) -> None:
+    """Reject a root record whose central relation contradicts its native fields.
+
+    The structure's exact composition is authoritative because it deduplicates
+    overlap across distinct stored domain sites. A per-orbit multiplicity
+    shortcut would overcount a valid duplicate orbit.
+    """
+    expected = NormalizedCompositionRecord.from_result(record.to_structure().composition)
+    if record.normalized_composition != expected:
+        raise ValueError(
+            f"{type(record).__name__} normalized_composition contradicts the composition reconstructed from native fields"
+        )
 
 
 class _CommonConstructorValues(TypedDict):
@@ -723,6 +848,7 @@ class UnitcellStructureRecord:
     sites: SitesRecord
     species: tuple[SpeciesRecord, ...]
     species_at_sites: tuple[str, ...]
+    normalized_composition: NormalizedCompositionRecord
     molecular: bool = False
     assemblies: tuple[AssemblyRecord, ...] | None = None
     assemblies_present: bool = False
@@ -757,7 +883,7 @@ class UnitcellStructureRecord:
         if self.symmetry is not None and not isinstance(self.symmetry, SymmetryRecord):
             raise TypeError("UnitcellStructureRecord symmetry must be a SymmetryRecord or None")
         object.__setattr__(self, "species_at_sites", species_at_sites)
-        self.to_structure()
+        _validate_normalized_composition(self)
 
     @classmethod
     def __httk_project__(cls, structure: Structure) -> Mapping[str, object]:
@@ -804,6 +930,7 @@ class FundamentalDomainStructureRecord:
     spacegroup_it_number: int
     setting_transform: SettingTransformRecord
     coordinate_precision: fractions.Fraction | None
+    normalized_composition: NormalizedCompositionRecord
     molecular: bool = False
     assemblies: tuple[AssemblyRecord, ...] | None = None
     assemblies_present: bool = False
@@ -839,7 +966,7 @@ class FundamentalDomainStructureRecord:
         known = {value.name for value in self.species}
         if unknown := {value.species for value in domain_sites} - known:
             raise ValueError(f"FundamentalDomainStructureRecord references unknown species: {sorted(unknown)!r}")
-        self.to_structure()
+        _validate_normalized_composition(self)
 
     @classmethod
     def __httk_project__(cls, structure: FundamentalDomainStructure) -> Mapping[str, object]:
@@ -907,3 +1034,12 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
 
     def to_structure(self) -> ASUStructure:
         return cast(ASUStructure, self._to_structure_type(ASUStructure))
+
+
+from .stored_structure_properties import attach_structure_property_projections
+
+attach_structure_property_projections(
+    UnitcellStructureRecord,
+    FundamentalDomainStructureRecord,
+    ASUStructureRecord,
+)

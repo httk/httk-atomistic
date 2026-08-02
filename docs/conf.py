@@ -132,6 +132,9 @@ nitpick_ignore = [
     # IdentitySkip is likewise new in the sibling core workspace and is rendered
     # unqualified when AutoAPI displays Annotated record fields.
     ("py:class", "IdentitySkip"),
+    # StoredPropertyProjection is new in the sibling core workspace; the
+    # committed release inventory cannot name it until core is released.
+    ("py:class", "httk.core.StoredPropertyProjection"),
     # The protocol property ``type`` is indexed through both its defining
     # module and the package re-export; qualified member links stay available.
     ("py:obj", "type"),

@@ -254,22 +254,13 @@ class CompositionResult:
         return () if not total else tuple(amount / total for _, amount in self.amounts)
 
     def _formula_coefficients(self) -> tuple[tuple[str, int], ...] | None:
-        if not self.amounts:
+        if not self.complete or not self.amounts:
             return None
         ratios = self.elements_ratios
-        widths = dict(self.uncertainties)
-        total = sum((amount for _, amount in self.amounts), Fraction())
-        if self.exact:
-            central = _integer_ratio(ratios)
-            return (
-                None
-                if central is None
-                else tuple((element, amount) for (element, _), amount in zip(self.amounts, central))
-            )
         central = _integer_ratio(ratios)
-        if central is not None and sum(central) <= 1000:
-            return tuple((element, amount) for (element, _), amount in zip(self.amounts, central))
-        return _measured_ratio(self.amounts, widths, total)
+        return (
+            None if central is None else tuple((element, amount) for (element, _), amount in zip(self.amounts, central))
+        )
 
     @property
     def chemical_formula_reduced(self) -> str | None:
@@ -298,79 +289,6 @@ def _integer_ratio(ratios: Sequence[Fraction]) -> tuple[int, ...] | None:
     values = tuple(int(ratio * denominator) for ratio in ratios)
     common = reduce(gcd, values)
     return tuple(value // common for value in values)
-
-
-def _ratio_intervals(
-    amounts: Sequence[tuple[str, Fraction]], widths: Mapping[str, Fraction | None], total: Fraction
-) -> tuple[tuple[Fraction, Fraction], ...]:
-    total_width = sum((width or 0 for width in widths.values()), Fraction())
-    lower_total = total - total_width
-    intervals: list[tuple[Fraction, Fraction]] = []
-    for element, amount in amounts:
-        width = widths[element] or 0
-        low = max(Fraction(), (amount - width) / (total + total_width))
-        high = Fraction(1) if lower_total <= 0 else (amount + width) / lower_total
-        intervals.append((low, min(Fraction(1), high)))
-    return tuple(intervals)
-
-
-def _ceil(value: Fraction) -> int:
-    return -(-value.numerator // value.denominator)
-
-
-def _measured_ratio(
-    amounts: Sequence[tuple[str, Fraction]], widths: Mapping[str, Fraction | None], total: Fraction
-) -> tuple[tuple[str, int], ...] | None:
-    """Find the unique nearest bounded integer ratio consistent with all intervals."""
-    intervals = _ratio_intervals(amounts, widths, total)
-    centres = tuple(amount / total for _, amount in amounts)
-    best: tuple[int, ...] | None = None
-    best_score: Fraction | None = None
-    ambiguous = False
-    examined = 0
-    max_candidates = 250_000
-    count = len(amounts)
-
-    def visit(index: int, remaining: int, values: list[int]) -> None:
-        nonlocal best, best_score, ambiguous, examined
-        if ambiguous and examined >= max_candidates:
-            return
-        if index == count - 1:
-            candidate = remaining
-            low, high = intervals[index]
-            if candidate < 1 or not low <= Fraction(candidate, sum(values) + candidate) <= high:
-                return
-            vector = tuple(values + [candidate])
-            common = reduce(gcd, vector)
-            if common != 1:
-                return
-            examined += 1
-            if examined > max_candidates:
-                ambiguous = True
-                return
-            denominator = sum(vector)
-            score = sum((Fraction(value, denominator) - centre) ** 2 for value, centre in zip(vector, centres))
-            if best_score is None or score < best_score:
-                best, best_score, ambiguous = vector, Fraction(score), False
-            elif score == best_score and vector != best:
-                ambiguous = True
-            return
-        denominator = sum(values) + remaining
-        low, high = intervals[index]
-        minimum = max(1, _ceil(low * denominator))
-        maximum = min(
-            remaining - (count - index - 1), (high * denominator).numerator // (high * denominator).denominator
-        )
-        for candidate in range(minimum, maximum + 1):
-            visit(index + 1, remaining - candidate, values + [candidate])
-
-    for denominator in range(count, 1001):
-        visit(0, denominator, [])
-        if examined > max_candidates:
-            return None
-    if best is None or ambiguous:
-        return None
-    return tuple((element, coefficient) for (element, _), coefficient in zip(amounts, best))
 
 
 def _site_data(structure: Any) -> tuple[tuple[str, ...], tuple[Fraction, ...], tuple[Species, ...]]:
@@ -488,14 +406,6 @@ def project_composition(structure: Any) -> CompositionResult:
         "outside_precision" if not normalized else ("within_precision" if "within_precision" in statuses else "exact")
     )
     exact = all(width is None for _, width in uncertainty)
-    provisional = CompositionResult(ordered, uncertainty, complete, exact, normalized, status, tuple(diagnostics))
-    if ordered and not exact and provisional._formula_coefficients() is None:
-        diagnostics.append(
-            CompositionDiagnostic(
-                "formula_ratio_unreconstructable",
-                "no unique bounded integer ratio is consistent with the stated composition intervals",
-            )
-        )
     return CompositionResult(
         ordered,
         uncertainty,

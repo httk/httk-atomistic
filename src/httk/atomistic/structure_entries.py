@@ -80,6 +80,11 @@ class StructureEntry:
     def __new__(cls, *args: Any, **kwargs: Any) -> Self:
         raise TypeError("StructureEntry is a logical entry family; store a structure representation directly")
 
+    @classmethod
+    def entry_type_definition(cls) -> EntryTypeDefinition:
+        """Return the standard structure definition extended by atomistic properties."""
+        return _structures_definition().extended(setting_definitions()).extended(precision_definitions())
+
 
 def _as_structure(obj: StructureLike) -> Any:
     """Normalize accepted convenience inputs to the common structure property layer."""
@@ -117,16 +122,33 @@ def _structure_projection(structure: Any) -> dict[str, Any]:
             return None
         return [None if row is None else [float(item) for item in row] for row in value]
 
+    composition = structure.composition
+    composition_values = (
+        {
+            "elements": list(composition.elements),
+            "nelements": composition.nelements,
+            # Preserve a source backend's accepted central values at the response
+            # boundary.  ``composition.elements_ratios`` is normalized for formula
+            # derivation and exact query comparison, but normalizing an imprecise
+            # remote OPTIMADE value here would silently rewrite its measurement.
+            "elements_ratios": [float(value) for value in structure.elements_ratios],
+            "chemical_formula_reduced": composition.chemical_formula_reduced,
+            "chemical_formula_anonymous": composition.chemical_formula_anonymous,
+        }
+        if composition.complete
+        else {
+            "elements": None,
+            "nelements": None,
+            "elements_ratios": None,
+            "chemical_formula_reduced": None,
+            "chemical_formula_anonymous": None,
+        }
+    )
+
     values: dict[str, Any] = {
-        "elements": None if structure.elements is None else list(structure.elements),
-        "nelements": structure.nelements,
-        "elements_ratios": (
-            None if structure.elements_ratios is None else [float(value) for value in structure.elements_ratios]
-        ),
+        **composition_values,
         "chemical_formula_descriptive": structure.chemical_formula_descriptive,
-        "chemical_formula_reduced": structure.chemical_formula_reduced,
         "chemical_formula_hill": structure.chemical_formula_hill,
-        "chemical_formula_anonymous": structure.chemical_formula_anonymous,
         "dimension_types": None if structure.dimension_types is None else list(structure.dimension_types),
         "nperiodic_dimensions": structure.nperiodic_dimensions,
         "lattice_vectors": numeric_matrix(structure.lattice_vectors),
@@ -221,7 +243,7 @@ class StructureEntryProvider(EntryProvider):
         self._property_names = used_names
 
     def _definition(self) -> EntryTypeDefinition:
-        definition = _structures_definition().extended(setting_definitions()).extended(precision_definitions())
+        definition = StructureEntry.entry_type_definition()
         if self._extra_definitions:
             definition = definition.extended(self._extra_definitions)
         return definition
