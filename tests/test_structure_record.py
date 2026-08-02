@@ -25,6 +25,7 @@ from httk.atomistic import (
     Species,
     SpeciesRecord,
     Structure,
+    StructureEntry,
     StructureView,
     SymmetryRecord,
     UnitcellStructureRecord,
@@ -330,7 +331,16 @@ def test_sql_fetched_root_records_keep_identity_and_metadata(
     from httk.data.db import Database, SqlStore
 
     with Database.sqlite() as database:
-        store = SqlStore(database)
+        store = SqlStore(
+            database,
+            entry_backings={
+                StructureEntry: (
+                    UnitcellStructureRecord,
+                    FundamentalDomainStructureRecord,
+                    ASUStructureRecord,
+                )
+            },
+        )
         sid = store.save(source)
         fetched = store.fetch(record_type, sid)
 
@@ -346,7 +356,7 @@ def test_unitcell_record_view_keeps_unread_cursor_fields_lazy() -> None:
     from httk.data.db import Database, ExpiredCursorRowError, SqlStore
 
     with Database.sqlite() as database:
-        store = SqlStore(database)
+        store = SqlStore(database, entry_backings={StructureEntry: UnitcellStructureRecord})
         store.save(_unitcell(optimization_type="local"))
         store.save(_unitcell(optimization_type="global"))
         searcher = store.searcher()
