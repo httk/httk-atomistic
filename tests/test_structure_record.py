@@ -120,12 +120,12 @@ def _domain_record(
 
 
 def test_exact_source_bindings_are_representation_local() -> None:
-    assert vars(Structure)["__httk_storage_binding__"] is UnitcellStructureRecord
-    assert vars(UnitcellStructureView)["__httk_storage_binding__"] is UnitcellStructureRecord
-    assert vars(FundamentalDomainStructure)["__httk_storage_binding__"] is FundamentalDomainStructureRecord
-    assert vars(ASUStructure)["__httk_storage_binding__"] is ASUStructureRecord
-    assert vars(ASUStructureView)["__httk_storage_binding__"] is ASUStructureRecord
-    assert "__httk_storage_binding__" not in vars(StructureView)
+    assert vars(Structure)["__httk_storage_record__"] is UnitcellStructureRecord
+    assert vars(UnitcellStructureView)["__httk_storage_record__"] is UnitcellStructureRecord
+    assert vars(FundamentalDomainStructure)["__httk_storage_record__"] is FundamentalDomainStructureRecord
+    assert vars(ASUStructure)["__httk_storage_record__"] is ASUStructureRecord
+    assert vars(ASUStructureView)["__httk_storage_record__"] is ASUStructureRecord
+    assert "__httk_storage_record__" not in vars(StructureView)
 
 
 def test_projected_and_materialized_unitcell_have_the_same_content_id() -> None:

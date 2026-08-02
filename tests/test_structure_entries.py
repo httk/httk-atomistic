@@ -314,16 +314,16 @@ def test_registration_discovered_via_httk_core() -> None:
     from httk.core.register import (
         entry_providers,
         known_format_adapters,
-        resolve_entry_backing,
         resolve_entry_family,
+        resolve_entry_record,
     )
 
     assert "atomistic-structures" in httk.core.known_entry_providers()
     assert known_format_adapters()["cif"] == "atomistic-structures"
     assert resolve_entry_family("structures") is StructureEntry
-    assert resolve_entry_backing("atomistic-unitcell-structure") is UnitcellStructureRecord
-    assert resolve_entry_backing("atomistic-fundamental-domain-structure") is FundamentalDomainStructureRecord
-    assert resolve_entry_backing("atomistic-asu-structure") is ASUStructureRecord
+    assert resolve_entry_record("atomistic-unitcell-structure") is UnitcellStructureRecord
+    assert resolve_entry_record("atomistic-fundamental-domain-structure") is FundamentalDomainStructureRecord
+    assert resolve_entry_record("atomistic-asu-structure") is ASUStructureRecord
     factory = resolve_callable(entry_providers.require("atomistic-structures").handler)
     provider = factory({"s-1": _nacl_like()})
     assert isinstance(provider, StructureEntryProvider)

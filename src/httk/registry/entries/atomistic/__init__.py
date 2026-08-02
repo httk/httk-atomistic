@@ -1,9 +1,9 @@
 """Register entry providers and storage backings implemented by :mod:`httk.atomistic`."""
 
 from httk.core import (
-    register_entry_backing,
     register_entry_family,
     register_entry_provider,
+    register_entry_record,
     register_optimade_entry_binding,
 )
 
@@ -26,20 +26,20 @@ register_entry_family(
     definition_id="https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures",
 )
 
-register_entry_backing(
+register_entry_record(
     name="atomistic-unitcell-structure",
-    family_name="structures",
+    family="structures",
     record="httk.atomistic.structure_record:UnitcellStructureRecord",
 )
 
-register_entry_backing(
+register_entry_record(
     name="atomistic-fundamental-domain-structure",
-    family_name="structures",
+    family="structures",
     record="httk.atomistic.structure_record:FundamentalDomainStructureRecord",
 )
 
-register_entry_backing(
+register_entry_record(
     name="atomistic-asu-structure",
-    family_name="structures",
+    family="structures",
     record="httk.atomistic.structure_record:ASUStructureRecord",
 )

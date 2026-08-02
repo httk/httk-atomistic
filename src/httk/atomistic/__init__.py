@@ -131,11 +131,11 @@ SpeciesBackend.backend_classes = [SpeciesClass, SpeciesPrimitive]
 
 # Storage opt-in is exact-source-class scoped: core intentionally resolves this
 # attribute through vars(type(source)), never by inheritance.
-Structure.__httk_storage_binding__ = UnitcellStructureRecord
-UnitcellStructureView.__httk_storage_binding__ = UnitcellStructureRecord
-FundamentalDomainStructure.__httk_storage_binding__ = FundamentalDomainStructureRecord
-ASUStructure.__httk_storage_binding__ = ASUStructureRecord
-ASUStructureView.__httk_storage_binding__ = ASUStructureRecord
+Structure.__httk_storage_record__ = UnitcellStructureRecord
+UnitcellStructureView.__httk_storage_record__ = UnitcellStructureRecord
+FundamentalDomainStructure.__httk_storage_record__ = FundamentalDomainStructureRecord
+ASUStructure.__httk_storage_record__ = ASUStructureRecord
+ASUStructureView.__httk_storage_record__ = ASUStructureRecord
 
 __all__ = [
     "DEFAULT_TOLERANCE",

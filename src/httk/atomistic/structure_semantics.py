@@ -355,7 +355,7 @@ def validate_descriptive_formula(formula: str | None) -> str | None:
 class StructureSemanticsMixin:
     """Properties shared by unit-cell, fundamental-domain, and ASU structures."""
 
-    __httk_storage_binding__: ClassVar[type[Any]]
+    __httk_storage_record__: ClassVar[type[Any]]
     _assemblies: tuple[Assembly, ...] | None
     _chemical_composition: ChemicalComposition | None
     _chemical_formula_descriptive: str | None
