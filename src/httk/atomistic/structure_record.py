@@ -270,7 +270,7 @@ class AssemblyRecord:
 
     def __post_init__(self) -> None:
         groups = tuple(self.groups)
-        if not all(isinstance(group, AssemblyGroupRecord) for group in groups):
+        if not all(type(group) is AssemblyGroupRecord for group in groups):
             raise TypeError("AssemblyRecord groups must contain AssemblyGroupRecord values")
         probabilities = tuple(
             as_fraction(value, field="AssemblyRecord group probability")[0] for value in self.group_probabilities

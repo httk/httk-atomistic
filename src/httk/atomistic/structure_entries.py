@@ -152,7 +152,8 @@ def _structure_projection(structure: Any) -> dict[str, Any]:
 
     # ``fractional_site_positions`` is included by the symmetry projection above. Assert
     # completeness here so adding a standard property cannot silently create a sparse row.
-    missing = set(_STANDARD_STRUCTURE_NAMES) - set(values)
+    missing: set[str] = set(_STANDARD_STRUCTURE_NAMES)
+    missing.difference_update(values)
     if missing:  # pragma: no cover - a maintenance assertion
         raise AssertionError(f"incomplete OPTIMADE structure projection: {sorted(missing)!r}")
     return values

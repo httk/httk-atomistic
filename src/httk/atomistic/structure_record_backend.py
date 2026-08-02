@@ -52,7 +52,9 @@ class StructureRecordBackend(StructureBackend):
 
     @cached_property
     def sites(self) -> Sites:  # pyright: ignore[reportIncompatibleMethodOverride]
-        return self._record.sites.to_sites() if self._is_unitcell else self._expanded.sites
+        return (
+            self._record.sites.to_sites() if isinstance(self._record, UnitcellStructureRecord) else self._expanded.sites
+        )
 
     @cached_property
     def species(self) -> tuple[Species, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -62,7 +64,11 @@ class StructureRecordBackend(StructureBackend):
 
     @cached_property
     def species_at_sites(self) -> tuple[str, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
-        return self._record.species_at_sites if self._is_unitcell else self._expanded.species_at_sites
+        return (
+            self._record.species_at_sites
+            if isinstance(self._record, UnitcellStructureRecord)
+            else self._expanded.species_at_sites
+        )
 
     @property
     def molecular(self) -> bool:
@@ -80,7 +86,7 @@ class StructureRecordBackend(StructureBackend):
 
     @property
     def symmetry(self) -> StructureSymmetry | None:
-        if self._is_unitcell:
+        if isinstance(self._record, UnitcellStructureRecord):
             return None if self._record.symmetry is None else self._record.symmetry.to_symmetry()
         native = self._native
         assert isinstance(native, FundamentalDomainStructure)

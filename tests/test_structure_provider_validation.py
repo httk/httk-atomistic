@@ -4,10 +4,18 @@ from fractions import Fraction
 
 import pytest
 from httk.core import PropertyDefinition
-from test_structure_record import _structure
 from test_symmetry_entries import _rocksalt
 
-from httk.atomistic import Cell, CellParams, StructureEntryProvider
+from httk.atomistic import Cell, CellParams, Sites, Species, Structure, StructureEntryProvider
+
+
+def _structure(cell: Cell) -> Structure:
+    return Structure(
+        cell,
+        Sites([[0, 0, 0]], precision=Fraction(1, 1000)),
+        (Species("Na", ("Na",), (1,)),),
+        ("Na",),
+    )
 
 
 def test_structure_provider_rows_validate_against_served_definition() -> None:
@@ -24,9 +32,7 @@ def test_structure_provider_rows_validate_against_served_definition() -> None:
                     periodicity=(True, True, True),
                 )
             ),
-            "hexagonal-2d": _structure(
-                Cell(CellParams((1, 1, 3, 90, 90, 120)).basis, periodicity=(True, True, False))
-            ),
+            "hexagonal-2d": _structure(Cell(CellParams((1, 1, 3, 90, 90, 120)).basis, periodicity=(True, True, False))),
             "rocksalt": _rocksalt(),
         },
         extra_definitions={"_httk_total_energy": energy},

@@ -8,6 +8,7 @@ import pytest
 from httk.core import FracVector, content_id, project_storage_record
 
 from httk.atomistic import (
+    AssemblyGroupRecord,
     AssemblyRecord,
     ASUSite,
     ASUStructure,
@@ -220,6 +221,13 @@ def test_assembly_record_rejects_mutable_group_impostors() -> None:
     with pytest.raises(TypeError, match="AssemblyGroupRecord"):
         AssemblyRecord((Impostor(),), (Fraction(1),))  # type: ignore[arg-type]
 
+    class MutableGroup(AssemblyGroupRecord):
+        def __init__(self) -> None:
+            object.__setattr__(self, "sites", [0])
+
+    with pytest.raises(TypeError, match="AssemblyGroupRecord"):
+        AssemblyRecord((MutableGroup(),), (Fraction(1),))
+
 
 def test_native_root_schemas_are_distinct_and_not_tagged() -> None:
     unit_fields = {item.name for item in fields(UnitcellStructureRecord)}
@@ -339,8 +347,8 @@ def test_unitcell_record_view_keeps_unread_cursor_fields_lazy() -> None:
 
     with Database.sqlite() as database:
         store = SqlStore(database)
-        store.save(_unitcell(optimization_type="first"))
-        store.save(_unitcell(optimization_type="second"))
+        store.save(_unitcell(optimization_type="local"))
+        store.save(_unitcell(optimization_type="global"))
         searcher = store.searcher()
         record = searcher.variable(UnitcellStructureRecord)
         cursor = searcher.results(record=record).cursor()
