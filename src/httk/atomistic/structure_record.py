@@ -68,11 +68,7 @@ def _basis_vector(basis: tuple[SurdScalar, ...]) -> SurdVector:
 
 @dataclass(frozen=True)
 class SpeciesRecord:
-    """The storable frozen snapshot of an atomistic :class:`~httk.atomistic.Species`.
-
-    The presence flags preserve ``None`` for optional tuple fields because a relational child
-    table cannot distinguish a missing optional value from an empty tuple when reconstructing.
-    """
+    """The storable frozen snapshot of an atomistic :class:`~httk.atomistic.Species`."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="atomistic_v3_species_record")
     __httk_canonical_source__: ClassVar[type[Species]] = Species
@@ -84,10 +80,7 @@ class SpeciesRecord:
     original_name: str | None = None
     attached: tuple[str, ...] | None = None
     nattached: tuple[int, ...] | None = None
-    mass_present: bool = False
-    attached_present: bool = False
-    concentration_precision: tuple[fractions.Fraction, ...] = ()
-    concentration_precision_present: bool = False
+    concentration_precision: tuple[fractions.Fraction, ...] | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "chemical_symbols", tuple(self.chemical_symbols))
@@ -101,10 +94,8 @@ class SpeciesRecord:
             object.__setattr__(self, "attached", tuple(self.attached))
         if self.nattached is not None:
             object.__setattr__(self, "nattached", tuple(self.nattached))
-        raw_precision = tuple(self.concentration_precision)
-        if not isinstance(self.concentration_precision_present, bool):
-            raise TypeError("SpeciesRecord concentration_precision_present must be a bool")
-        if self.concentration_precision_present:
+        raw_precision = None if self.concentration_precision is None else tuple(self.concentration_precision)
+        if raw_precision is not None:
             if len(raw_precision) != len(concentration):
                 raise ValueError("SpeciesRecord concentration_precision must match concentration")
             converted_precision: list[fractions.Fraction] = []
@@ -114,21 +105,9 @@ class SpeciesRecord:
                     raise ValueError("SpeciesRecord concentration precision cannot be negative")
                 converted_precision.append(central)
             object.__setattr__(self, "concentration_precision", tuple(converted_precision))
-        elif raw_precision:
-            raise ValueError("SpeciesRecord concentration_precision requires concentration_precision_present=True")
 
-        if not isinstance(self.mass_present, bool) or not isinstance(self.attached_present, bool):
-            raise TypeError("SpeciesRecord presence flags must be bool values")
-        if self.mass_present and self.mass is None:
-            raise ValueError("SpeciesRecord mass_present=True requires a mass tuple")
-        if not self.mass_present and self.mass:
-            raise ValueError("SpeciesRecord mass_present=False cannot have non-empty mass")
         if (self.attached is None) != (self.nattached is None):
             raise ValueError("SpeciesRecord attached and nattached must be provided together")
-        if self.attached_present and self.attached is None:
-            raise ValueError("SpeciesRecord attached_present=True requires attached and nattached tuples")
-        if not self.attached_present and (self.attached or self.nattached):
-            raise ValueError("SpeciesRecord attached_present=False cannot have non-empty attachments")
 
         for value_name, values in (
             ("concentration", self.concentration),
@@ -137,29 +116,23 @@ class SpeciesRecord:
             if any(not math.isfinite(value) for value in values):
                 raise ValueError(f"SpeciesRecord {value_name} values must be finite floats")
 
-        mass = self.mass if self.mass_present else None
-        attached = self.attached if self.attached_present else None
-        nattached = self.nattached if self.attached_present else None
         try:
             Species(
                 name=self.name,
                 chemical_symbols=self.chemical_symbols,
                 concentration=self.concentration,
-                mass=mass,
+                mass=self.mass,
                 original_name=self.original_name,
-                attached=attached,
-                nattached=nattached,
+                attached=self.attached,
+                nattached=self.nattached,
                 concentration_precision=(
                     None
-                    if not self.concentration_precision_present
+                    if self.concentration_precision is None
                     else tuple(None if value == 0 else value for value in self.concentration_precision)
                 ),
             )
         except (TypeError, ValueError) as error:
             raise ValueError("SpeciesRecord fields do not describe a valid Species") from error
-        object.__setattr__(self, "mass", mass)
-        object.__setattr__(self, "attached", attached)
-        object.__setattr__(self, "nattached", nattached)
 
     @classmethod
     def __httk_project__(cls, species: Species) -> Mapping[str, object]:
@@ -173,12 +146,9 @@ class SpeciesRecord:
             "original_name": species.original_name,
             "attached": species.attached,
             "nattached": species.nattached,
-            "mass_present": species.mass is not None,
-            "attached_present": species.attached is not None,
-            "concentration_precision": ()
-            if not present
-            else tuple(value or fractions.Fraction() for value in precision),
-            "concentration_precision_present": present,
+            "concentration_precision": (
+                None if not present else tuple(value or fractions.Fraction() for value in precision)
+            ),
         }
 
     @classmethod
@@ -192,14 +162,11 @@ class SpeciesRecord:
             original_name=species.original_name,
             attached=species.attached,
             nattached=species.nattached,
-            mass_present=species.mass is not None,
-            attached_present=species.attached is not None,
             concentration_precision=(
-                ()
+                None
                 if all(value is None for value in species.concentration_precision or ())
                 else tuple(value or fractions.Fraction() for value in species.concentration_precision or ())
             ),
-            concentration_precision_present=not all(value is None for value in species.concentration_precision or ()),
         )
 
     def to_species(self) -> Species:
@@ -208,13 +175,13 @@ class SpeciesRecord:
             name=self.name,
             chemical_symbols=self.chemical_symbols,
             concentration=self.concentration,
-            mass=self.mass if self.mass_present else None,
+            mass=self.mass,
             original_name=self.original_name,
-            attached=self.attached if self.attached_present else None,
-            nattached=self.nattached if self.attached_present else None,
+            attached=self.attached,
+            nattached=self.nattached,
             concentration_precision=(
                 None
-                if not self.concentration_precision_present
+                if self.concentration_precision is None
                 else tuple(None if value == 0 else value for value in self.concentration_precision)
             ),
         )
@@ -251,8 +218,7 @@ class AssemblyRecord:
 
     groups: tuple[AssemblyGroupRecord, ...]
     group_probabilities: tuple[fractions.Fraction, ...]
-    group_probabilities_precision: tuple[fractions.Fraction, ...] = ()
-    group_probabilities_precision_present: bool = False
+    group_probabilities_precision: tuple[fractions.Fraction, ...] | None = None
 
     def __post_init__(self) -> None:
         groups = tuple(self.groups)
@@ -261,25 +227,22 @@ class AssemblyRecord:
         probabilities = tuple(
             as_fraction(value, field="AssemblyRecord group probability")[0] for value in self.group_probabilities
         )
-        precision = tuple(
-            as_fraction(value, field="AssemblyRecord group probability precision")[0]
-            for value in self.group_probabilities_precision
+        precision = (
+            None
+            if self.group_probabilities_precision is None
+            else tuple(
+                as_fraction(value, field="AssemblyRecord group probability precision")[0]
+                for value in self.group_probabilities_precision
+            )
         )
         if not groups or len(groups) != len(probabilities):
             raise ValueError("AssemblyRecord groups and probabilities must have matching non-empty lengths")
-        if not isinstance(self.group_probabilities_precision_present, bool):
-            raise TypeError("AssemblyRecord group_probabilities_precision_present must be a bool")
-        if self.group_probabilities_precision_present:
-            if len(precision) != len(probabilities) or any(value < 0 for value in precision):
-                raise ValueError("AssemblyRecord precision must match probabilities and be non-negative")
-        elif precision:
-            raise ValueError("AssemblyRecord precision values require the presence flag")
+        if precision is not None and (len(precision) != len(probabilities) or any(value < 0 for value in precision)):
+            raise ValueError("AssemblyRecord precision must match probabilities and be non-negative")
         assembly = Assembly(
             tuple(group.sites for group in groups),
             probabilities,
-            None
-            if not self.group_probabilities_precision_present
-            else tuple(None if value == 0 else value for value in precision),
+            None if precision is None else tuple(None if value == 0 else value for value in precision),
         )
         object.__setattr__(self, "groups", groups)
         object.__setattr__(self, "group_probabilities", assembly.group_probabilities)
@@ -292,10 +255,9 @@ class AssemblyRecord:
         return {
             "groups": assembly.sites_in_groups,
             "group_probabilities": assembly.group_probabilities,
-            "group_probabilities_precision": ()
-            if not present
-            else tuple(value or fractions.Fraction() for value in precision),
-            "group_probabilities_precision_present": present,
+            "group_probabilities_precision": (
+                None if not present else tuple(value or fractions.Fraction() for value in precision)
+            ),
         }
 
     @classmethod
@@ -305,8 +267,7 @@ class AssemblyRecord:
         return cls(
             tuple(AssemblyGroupRecord(group) for group in assembly.sites_in_groups),
             assembly.group_probabilities,
-            () if not present else tuple(value or fractions.Fraction() for value in precision),
-            present,
+            None if not present else tuple(value or fractions.Fraction() for value in precision),
         )
 
     def to_assembly(self) -> Assembly:
@@ -314,7 +275,7 @@ class AssemblyRecord:
             tuple(group.sites for group in self.groups),
             self.group_probabilities,
             None
-            if not self.group_probabilities_precision_present
+            if self.group_probabilities_precision is None
             else tuple(None if value == 0 else value for value in self.group_probabilities_precision),
         )
 
@@ -329,8 +290,7 @@ class DomainSiteRecord:
     wyckoff: str
     free_parameters: tuple[fractions.Fraction, ...]
     species: str
-    representative: tuple[fractions.Fraction, ...] = ()
-    representative_present: bool = False
+    representative: tuple[fractions.Fraction, ...] | None = None
 
     @classmethod
     def __httk_project__(cls, site: ASUSite) -> Mapping[str, object]:
@@ -338,25 +298,22 @@ class DomainSiteRecord:
             "wyckoff": site.wyckoff,
             "free_parameters": tuple(site.free_params.to_fractions()),
             "species": site.species,
-            "representative": () if site.representative is None else tuple(site.representative.to_fractions()),
-            "representative_present": site.representative is not None,
+            "representative": None if site.representative is None else tuple(site.representative.to_fractions()),
         }
 
     def __post_init__(self) -> None:
         free = tuple(as_fraction(value, field="DomainSiteRecord free parameter")[0] for value in self.free_parameters)
-        representative = tuple(
-            as_fraction(value, field="DomainSiteRecord representative")[0] for value in self.representative
+        representative = (
+            None
+            if self.representative is None
+            else tuple(as_fraction(value, field="DomainSiteRecord representative")[0] for value in self.representative)
         )
         if not isinstance(self.wyckoff, str) or len(self.wyckoff) != 1:
             raise ValueError("DomainSiteRecord wyckoff must be a single letter")
         if not isinstance(self.species, str) or not self.species:
             raise ValueError("DomainSiteRecord species must be non-empty")
-        if not isinstance(self.representative_present, bool):
-            raise TypeError("DomainSiteRecord representative_present must be a bool")
-        if self.representative_present and len(representative) != 3:
+        if representative is not None and len(representative) != 3:
             raise ValueError("DomainSiteRecord representative must have exactly three values")
-        if not self.representative_present and representative:
-            raise ValueError("DomainSiteRecord representative values require the presence flag")
         object.__setattr__(self, "free_parameters", free)
         object.__setattr__(self, "representative", representative)
 
@@ -408,29 +365,17 @@ class SymmetryRecord:
     space_group_symbol_hermann_mauguin_extended: str | None = None
     space_group_symmetry_operations_xyz: tuple[str, ...] | None = None
     wyckoff_positions: tuple[str, ...] | None = None
-    operations_present: bool = False
-    wyckoff_positions_present: bool = False
 
     def __post_init__(self) -> None:
-        operations = self.space_group_symmetry_operations_xyz
-        positions = self.wyckoff_positions
-        if not isinstance(self.operations_present, bool) or not isinstance(self.wyckoff_positions_present, bool):
-            raise TypeError("SymmetryRecord presence flags must be bool values")
-        if self.operations_present and operations is None:
-            operations = ()
-        if self.wyckoff_positions_present and positions is None:
-            positions = ()
-        if not self.operations_present and operations:
-            raise ValueError("SymmetryRecord operations require their presence flag")
-        if not self.wyckoff_positions_present and positions:
-            raise ValueError("SymmetryRecord Wyckoff positions require their presence flag")
         value = StructureSymmetry(
             self.space_group_it_number,
             self.space_group_symbol_hall,
             self.space_group_symbol_hermann_mauguin,
             self.space_group_symbol_hermann_mauguin_extended,
-            None if not self.operations_present else tuple(operations or ()),
-            None if not self.wyckoff_positions_present else tuple(positions or ()),
+            None
+            if self.space_group_symmetry_operations_xyz is None
+            else tuple(self.space_group_symmetry_operations_xyz),
+            None if self.wyckoff_positions is None else tuple(self.wyckoff_positions),
         )
         object.__setattr__(self, "space_group_symmetry_operations_xyz", value.space_group_symmetry_operations_xyz)
         object.__setattr__(self, "wyckoff_positions", value.wyckoff_positions)
@@ -444,8 +389,6 @@ class SymmetryRecord:
             "space_group_symbol_hermann_mauguin_extended": symmetry.space_group_symbol_hermann_mauguin_extended,
             "space_group_symmetry_operations_xyz": symmetry.space_group_symmetry_operations_xyz,
             "wyckoff_positions": symmetry.wyckoff_positions,
-            "operations_present": symmetry.space_group_symmetry_operations_xyz is not None,
-            "wyckoff_positions_present": symmetry.wyckoff_positions is not None,
         }
 
     @classmethod
@@ -457,8 +400,6 @@ class SymmetryRecord:
             symmetry.space_group_symbol_hermann_mauguin_extended,
             symmetry.space_group_symmetry_operations_xyz,
             symmetry.wyckoff_positions,
-            symmetry.space_group_symmetry_operations_xyz is not None,
-            symmetry.wyckoff_positions is not None,
         )
 
     def to_symmetry(self) -> StructureSymmetry:
@@ -467,8 +408,8 @@ class SymmetryRecord:
             self.space_group_symbol_hall,
             self.space_group_symbol_hermann_mauguin,
             self.space_group_symbol_hermann_mauguin_extended,
-            self.space_group_symmetry_operations_xyz if self.operations_present else None,
-            self.wyckoff_positions if self.wyckoff_positions_present else None,
+            self.space_group_symmetry_operations_xyz,
+            self.wyckoff_positions,
         )
 
 
@@ -739,7 +680,6 @@ def _project_common(structure: Any) -> dict[str, object]:
         "normalized_composition": structure.composition,
         "molecular": structure.molecular,
         "assemblies": structure.assemblies,
-        "assemblies_present": structure.assemblies is not None,
         "chemical_composition": structure.chemical_composition,
         "chemical_formula_descriptive": structure.chemical_formula_descriptive,
         "chemical_formula_hill": structure.chemical_formula_hill,
@@ -762,14 +702,7 @@ def _normalize_common(record: Any, *, nsites: int) -> None:
         raise ValueError(f"{type(record).__name__} species names must be unique")
     if not isinstance(record.molecular, bool):
         raise TypeError(f"{type(record).__name__} molecular must be a bool")
-    if not isinstance(record.assemblies_present, bool):
-        raise TypeError(f"{type(record).__name__} assemblies_present must be a bool")
-    if record.assemblies_present:
-        assemblies = tuple(record.assemblies or ())
-    else:
-        if record.assemblies not in (None, ()):
-            raise ValueError(f"{type(record).__name__} assembly values require assemblies_present=True")
-        assemblies = None
+    assemblies = None if record.assemblies is None else tuple(record.assemblies)
     if assemblies is not None:
         if not all(isinstance(value, AssemblyRecord) for value in assemblies):
             raise TypeError(f"{type(record).__name__} assemblies must contain AssemblyRecord values")
@@ -851,7 +784,6 @@ class UnitcellStructureRecord:
     normalized_composition: NormalizedCompositionRecord
     molecular: bool = False
     assemblies: tuple[AssemblyRecord, ...] | None = None
-    assemblies_present: bool = False
     symmetry: SymmetryRecord | None = None
     chemical_composition: ChemicalCompositionRecord | None = None
     chemical_formula_descriptive: str | None = None
@@ -933,7 +865,6 @@ class FundamentalDomainStructureRecord:
     normalized_composition: NormalizedCompositionRecord
     molecular: bool = False
     assemblies: tuple[AssemblyRecord, ...] | None = None
-    assemblies_present: bool = False
     chemical_composition: ChemicalCompositionRecord | None = None
     chemical_formula_descriptive: str | None = None
     chemical_formula_hill: str | None = None
@@ -994,7 +925,7 @@ class FundamentalDomainStructureRecord:
                     value.wyckoff,
                     FracVector.create(value.free_parameters),
                     value.species,
-                    FracVector.create(value.representative) if value.representative_present else None,
+                    None if value.representative is None else FracVector.create(value.representative),
                 )
                 for value in self.domain_sites
             ),

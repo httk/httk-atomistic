@@ -1,11 +1,7 @@
 """Tests for httk-atomistic's IRI schema registrations."""
 
-from httk.core import (
-    known_entry_type_schemas,
-    known_property_definitions,
-    load_entry_type_schema,
-    load_property_definition,
-)
+from httk.core import load_entry_type_schema, load_property_definition
+from httk.core.register import known_entry_type_schemas, known_property_definitions
 
 from httk.atomistic.httk_definitions import load_httk_definitions
 

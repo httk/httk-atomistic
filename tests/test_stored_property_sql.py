@@ -115,7 +115,7 @@ def structure_plan(request):
     with database:
         store = SqlStore(
             database,
-            entry_backings={
+            entry_records={
                 StructureEntry: (
                     UnitcellStructureRecord,
                     FundamentalDomainStructureRecord,
@@ -135,7 +135,7 @@ def response_plan(request):
     database = _database_for(request)
     source = _unitcell(last_modified=datetime.datetime(2026, 8, 2, 10, 30, tzinfo=datetime.UTC))
     with database:
-        store = SqlStore(database, entry_backings={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
         yield stored_property_sql_plan(store, StructureEntry), source
 
@@ -154,7 +154,7 @@ def span_plan(request):
     with database:
         store = SqlStore(
             database,
-            entry_backings={
+            entry_records={
                 StructureEntry: (
                     UnitcellStructureRecord,
                     FundamentalDomainStructureRecord,
@@ -179,7 +179,7 @@ def scoped_scalar_plan(request):
         ),
     )
     with database:
-        store = SqlStore(database, entry_backings={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         for source in sources:
             store.save(source)
         yield stored_property_sql_plan(store, StructureEntry)
@@ -191,7 +191,7 @@ def long_precision_plan(request):
     literal = "0.1234567890123456789"
     source = _unitcell(coordinate_precision=Fraction(literal))
     with database:
-        store = SqlStore(database, entry_backings={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
         yield stored_property_sql_plan(store, StructureEntry), literal
 
@@ -201,7 +201,7 @@ def zero_site_plan(request):
     database = _database_for(request)
     source = _zero_site_unitcell()
     with database:
-        store = SqlStore(database, entry_backings={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
         yield stored_property_sql_plan(store, StructureEntry)
 
@@ -264,6 +264,12 @@ def test_invalid_formula_and_nonintegral_count_literals_are_filter_value_errors(
 def test_unused_disordered_species_does_not_create_a_structure_feature(structure_plan):
     plan, _sources = structure_plan
     assert _counts(plan, 'structure_features HAS "disorder"') == [0, 0, 0]
+
+
+def test_structure_feature_presence_filters_execute_sql(structure_plan):
+    plan, _sources = structure_plan
+    assert _counts(plan, 'structure_features HAS "assemblies"') == [0, 0, 0]
+    assert _counts(plan, 'structure_features HAS "site_attachments"') == [1, 0, 0]
 
 
 def test_structure_features_length_beyond_the_feature_vocabulary_is_false(structure_plan):
@@ -329,7 +335,7 @@ def test_natural_duplicate_asu_orbits_preserve_the_deduplicated_composition(dial
         database = Database.sqlite()
     source = _duplicate_a_orbit_asu()
     with database:
-        store = SqlStore(database, entry_backings={StructureEntry: ASUStructureRecord})
+        store = SqlStore(database, entry_records={StructureEntry: ASUStructureRecord})
         store.save(source)
         searcher = store.searcher()
         variable = searcher.variable(ASUStructureRecord)

@@ -80,7 +80,6 @@ def _common(source: object) -> dict[str, object]:
             if value.assemblies is None  # type: ignore[attr-defined]
             else tuple(AssemblyRecord.from_assembly(item) for item in value.assemblies)  # type: ignore[attr-defined]
         ),
-        "assemblies_present": value.assemblies is not None,  # type: ignore[attr-defined]
         "chemical_composition": (
             None
             if value.chemical_composition is None  # type: ignore[attr-defined]
@@ -388,7 +387,7 @@ def test_sql_fetched_root_records_keep_identity_and_metadata(
     with Database.sqlite() as database:
         store = SqlStore(
             database,
-            entry_backings={
+                entry_records={
                 StructureEntry: (
                     UnitcellStructureRecord,
                     FundamentalDomainStructureRecord,
@@ -411,7 +410,7 @@ def test_unitcell_record_view_keeps_unread_cursor_fields_lazy() -> None:
     from httk.data.db import Database, ExpiredCursorRowError, SqlStore
 
     with Database.sqlite() as database:
-        store = SqlStore(database, entry_backings={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(_unitcell(optimization_type="local"))
         store.save(_unitcell(optimization_type="global"))
         searcher = store.searcher()

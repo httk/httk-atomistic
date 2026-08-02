@@ -112,11 +112,11 @@ def _species_payload(record: Any) -> list[dict[str, object]]:
             "chemical_symbols": list(species.chemical_symbols),
             "concentration": [float(item) for item in species.concentration],
         }
-        if species.mass_present:
+        if species.mass is not None:
             value["mass"] = list(species.mass or ())
         if species.original_name is not None:
             value["original_name"] = species.original_name
-        if species.attached_present:
+        if species.attached is not None:
             value["attached"] = list(species.attached or ())
             value["nattached"] = list(species.nattached or ())
         values.append(value)
@@ -124,7 +124,7 @@ def _species_payload(record: Any) -> list[dict[str, object]]:
 
 
 def _assemblies_payload(record: Any) -> list[dict[str, object]] | None:
-    if not record.assemblies_present:
+    if record.assemblies is None:
         return None
     return [
         {
@@ -145,7 +145,7 @@ def _structure_features_value(record: Any, backing: str) -> list[str]:
     """Derive the public flags from represented, not merely stored, species."""
     features: set[str] = set()
     used = _used_species(record, backing)
-    if record.assemblies_present:
+    if record.assemblies is not None:
         features.add("assemblies")
     if any(len(value.chemical_symbols) > 1 or value.concentration != (Fraction(1),) for value in used):
         features.add("disorder")
@@ -196,14 +196,12 @@ def _setting_transform_payload(transform: Any) -> dict[str, object]:
 def _unitcell_symmetry_value(record: Any, name: str) -> object:
     symmetry = record.symmetry
     if name == "space_group_symmetry_operations_xyz":
-        if symmetry is not None and symmetry.operations_present:
+        if symmetry is not None and symmetry.space_group_symmetry_operations_xyz is not None:
             return list(symmetry.space_group_symmetry_operations_xyz or ())
         return ["x,y,z"] if any(record.cell.periodicity) else None
     if name == "wyckoff_positions":
         return (
-            None
-            if symmetry is None or not symmetry.wyckoff_positions_present
-            else list(symmetry.wyckoff_positions or ())
+            None if symmetry is None or symmetry.wyckoff_positions is None else list(symmetry.wyckoff_positions or ())
         )
     if name in {
         "space_group_it_number",
