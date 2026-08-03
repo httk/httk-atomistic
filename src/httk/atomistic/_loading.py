@@ -8,12 +8,12 @@ from typing import Any
 from httk.core import SurdScalar, SurdVector, exactmath
 from httk.core.optimade import OptimadeResource
 
-from ._vector_guards import to_surdscalar
-from .cell import Cell
-from .optimade_structure import OptimadeStructure
-from .sites import Sites
-from .species import Species
-from .unitcell_structure import UnitcellStructure
+from httk.atomistic.models._vector_guards import to_surdscalar
+from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.sites.sites import Sites
+from httk.atomistic.models.species.species import Species
+from httk.atomistic.models.structure.optimade import OptimadeStructure
+from httk.atomistic.models.structure.unitcell import UnitcellStructure
 
 # Cube roots leave the exact squarefree-radical field, so the volume-scaled cell's
 # overall scale factor is a *deterministic rational approximation* at this precision

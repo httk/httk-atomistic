@@ -1,0 +1,20 @@
+"""
+The abstract base class for all structure backends in httk-atomistic.
+"""
+
+from typing import Any, ClassVar
+
+from httk.core import Backend
+
+from httk.atomistic.models.structure.api import StructureAPI
+
+
+class StructureBackend(Backend["StructureBackend"], StructureAPI):
+    """
+    Abstract base class for all backends of crystal structure data.
+
+    Concrete backends carry a native representation and produce the canonical
+    Unitcell quartet declared by ``StructureAPI`` from it.
+    """
+
+    backend_classes: ClassVar[list[type[Backend[Any]]]]

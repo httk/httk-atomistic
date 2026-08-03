@@ -123,7 +123,7 @@ def test_standardization_preserves_chemical_annotations() -> None:
 def test_repeating_a_result_uses_its_unwrapped_standard_asu_exactly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    module = importlib.import_module("httk.atomistic.standardization")
+    module = importlib.import_module("httk.atomistic.symmetry.standardization")
     first = conventional_cell(_monoclinic()[0])
 
     def fail_recognition(*args: object, **kwargs: object) -> None:
@@ -284,7 +284,7 @@ def test_plain_structure_path_matches_recognized_asu_path_and_forwards_tolerance
 def test_plain_structure_path_forwards_limit_denominator(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    module = importlib.import_module("httk.atomistic.standardization")
+    module = importlib.import_module("httk.atomistic.symmetry.standardization")
     original_recognize = module.recognize_asu
     captured: dict[str, Any] = {}
     expanded = UnitcellStructureView(_rocksalt())

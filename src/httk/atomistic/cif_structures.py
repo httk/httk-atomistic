@@ -19,14 +19,15 @@ from typing import Any
 
 from httk.core import FracVector
 
+from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.cell.params import CellParams
+from httk.atomistic.models.species.species import Species
+from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
+from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.spacegroup import Spacegroup
+
 from . import data as symmetry_data
 from ._composition_values import as_fraction
-from .affine_operation import AffineOperation
-from .asu_structure import ASUStructure, WyckoffSite
-from .cell import Cell
-from .cell_params import CellParams
-from .spacegroup import Spacegroup
-from .species import Species
 
 __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
 
@@ -74,7 +75,7 @@ def asu_structure_from_cif(
     Coordinates are embedded as the rational the file literally wrote — ``0.3333`` is
     ``3333/10000``, not the binary value of ``float("0.3333")`` — and are then snapped onto
     the Wyckoff position they lie within ``tolerance`` of. That snapping is the only
-    tolerant step; see :mod:`~httk.atomistic.asu_recognition` for the full contract.
+    tolerant step; see :mod:`~httk.atomistic.symmetry.recognition` for the full contract.
 
     ``tolerance`` left unspecified is derived from the precision the file's own digits
     imply, so a coarsely written file is matched loosely and a carefully written one
@@ -167,7 +168,7 @@ def _tolerance_from_cif(data: Mapping[str, Any], cell: Cell) -> float:
     cell's own precision, and doubled because two independently rounded values can differ by
     twice their precision.
     """
-    from .asu_recognition import _SAFETY_FACTOR, DEFAULT_TOLERANCE
+    from httk.atomistic.symmetry.recognition import _SAFETY_FACTOR, DEFAULT_TOLERANCE
 
     coordinate_precision = data.get("coordinate_precision")
     basis_precision = data.get("basis_precision")
@@ -337,7 +338,7 @@ def _snap(
     tolerance: float,
 ) -> tuple[str, FracVector] | None:
     """The most specific Wyckoff position within ``tolerance``, and its free parameters."""
-    from .asu_recognition import _cartesian_distance_squared
+    from httk.atomistic.symmetry.recognition import _cartesian_distance_squared
 
     limit = tolerance * tolerance
     for position in standard.wyckoff:

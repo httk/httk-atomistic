@@ -21,7 +21,7 @@ from httk.atomistic import (
     UnitcellStructure,
     StructureEntryProvider,
 )
-from httk.atomistic.symmetry_entries import (
+from httk.atomistic.entries.symmetry import (
     SETTING_PROPERTY_KEYS,
     SYMMETRY_PROPERTY_KEYS,
     setting_definitions,
@@ -281,7 +281,7 @@ def test_a_structure_that_states_no_precision_serves_null() -> None:
 
 
 def test_the_precision_definitions_are_the_published_ones() -> None:
-    from httk.atomistic.precision_entries import precision_definitions
+    from httk.atomistic.entries.precision import precision_definitions
 
     definitions = precision_definitions()
     assert set(definitions) == {"_httk_coordinate_precision", "_httk_basis_precision"}

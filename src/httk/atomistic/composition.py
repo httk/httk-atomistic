@@ -8,9 +8,10 @@ from math import gcd
 from types import MappingProxyType
 from typing import Any, Literal
 
+from httk.atomistic.models.species.species import Species
+
 from ._composition_values import as_fraction, as_precision, normalization
 from .elements import SYMBOLS
-from .species import Species
 
 _ELEMENTS = frozenset(SYMBOLS)
 

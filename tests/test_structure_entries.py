@@ -16,8 +16,8 @@ from httk.atomistic import (
     UnitcellStructureRecord,
     WyckoffSite,
 )
-from httk.atomistic.species import Species
-from httk.atomistic.structure_entries import StructureEntry
+from httk.atomistic.models.species.species import Species
+from httk.atomistic.entries.structures import StructureEntry
 
 
 def _nacl_like() -> UnitcellStructure:

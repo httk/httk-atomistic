@@ -23,8 +23,8 @@ from httk.atomistic import (
     UnitcellStructureView,
     same_crystal,
 )
-from httk.atomistic.cell_numeric_view import CellNumericView
-from httk.atomistic.sites_numeric_view import SitesNumericView
+from httk.atomistic.models.cell.numeric_view import CellNumericView
+from httk.atomistic.models.sites.numeric_view import SitesNumericView
 
 pytest.importorskip("httk.io", reason="the readers live in httk-io")
 

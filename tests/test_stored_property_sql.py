@@ -26,7 +26,7 @@ from httk.atomistic import (
     StructureEntryProvider,
     UnitcellStructureRecord,
 )
-from httk.atomistic.structure_semantics import StructureSymmetry
+from httk.atomistic.models.structure.semantics import StructureSymmetry
 
 
 def _species() -> tuple[Species, Species]:

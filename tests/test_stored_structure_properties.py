@@ -26,8 +26,8 @@ from httk.atomistic import (
     UnitcellStructure,
     UnitcellStructureRecord,
 )
-from httk.atomistic.precision_entries import PRECISION_PROPERTY_KEYS
-from httk.atomistic.symmetry_entries import SETTING_PROPERTY_KEYS
+from httk.atomistic.entries.precision import PRECISION_PROPERTY_KEYS
+from httk.atomistic.entries.symmetry import SETTING_PROPERTY_KEYS
 
 _STANDARD = {
     "immutable_id",
@@ -204,7 +204,7 @@ def test_stored_property_responses_match_the_natural_structure_provider(record: 
 def test_response_callbacks_do_not_rebuild_an_all_property_projection(
     record: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from httk.atomistic import structure_entries
+    from httk.atomistic.entries import structures as structure_entries
 
     def forbidden_projection(*args: object, **kwargs: object) -> object:
         raise AssertionError("a stored response callback must not construct every other response property")
@@ -274,7 +274,7 @@ def test_empty_complete_composition_keeps_formulas_unknown_but_elements_known() 
 
 
 def test_spacegroup_settings_are_cached_by_it_number() -> None:
-    import httk.atomistic.stored_structure_properties as stored_properties
+    import httk.atomistic.storage.stored_properties as stored_properties
     from httk.atomistic import data
 
     stored_properties._settings_by_it_number.cache_clear()

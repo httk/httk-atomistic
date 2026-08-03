@@ -19,7 +19,7 @@ from httk.serve.optimade.backend import execute_query  # noqa: E402
 from httk.serve.optimade.filter import parse_optimade_filter  # noqa: E402
 
 from httk.atomistic import UnitcellStructure, StructureEntryProvider  # noqa: E402
-from httk.atomistic.species import Species  # noqa: E402
+from httk.atomistic.models.species.species import Species  # noqa: E402
 
 
 def _nacl(sid_cell: list[list[float]]) -> UnitcellStructure:

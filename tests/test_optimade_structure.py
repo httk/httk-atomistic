@@ -15,9 +15,9 @@ from httk.atomistic import (
     StructureBackend,
     StructureEntryProvider,
     UnitcellStructureView,
-    structure_semantics,
 )
-from httk.atomistic.precision_entries import precision_definitions
+from httk.atomistic.models.structure import semantics as structure_semantics
+from httk.atomistic.entries.precision import precision_definitions
 
 _STRUCTURES_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 

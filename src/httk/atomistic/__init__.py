@@ -13,66 +13,68 @@ so a structure in an arbitrary non-standard setting can be represented without l
 The underlying tables ship in :mod:`httk.atomistic.data`.
 """
 
-from .affine_operation import AffineOperation
-from .asu_recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
-from .asu_structure import ASUStructure, FundamentalDomainStructure, WyckoffSite
-from .asu_structure_view import ASUStructureView
-from .cell import Cell
-from .cell_backend import CellBackend
-from .cell_like import CellLike
-from .cell_params import CellParams
-from .cell_params_view import CellParamsView
-from .cell_view import CellView
-from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
-from .compat import ASEAtoms
-from .composition import (
-    Assembly,
-)
-from .datastream_structure import DatastreamStructure
-from .elements import atomic_number, symbol_of
-from .numeric_unitcell_structure import NumericUnitcellStructure
-from .numeric_unitcell_structure_view import NumericUnitcellStructureView
-from .optimade_structure import OptimadeStructure
-from .plain_cell import PlainCell
-from .plain_sites import PlainSites
-from .plain_species import PlainSpecies
-from .plain_species_view import PlainSpeciesView
-from .plain_structure import PlainStructure
-from .plain_structure_view import PlainStructureView
-from .record_cell import RecordCell
-from .record_sites import RecordSites
-from .record_species import RecordSpecies
-from .record_structure import RecordStructure
-from .setting_transform import SettingTransform
-from .sites import Sites
-from .sites_backend import SitesBackend
-from .sites_like import SitesLike
-from .sites_view import SitesView
-from .spacegroup import Spacegroup, wyckoff_letter_map
-from .species import Species
-from .species_backend import SpeciesBackend
-from .species_like import SpeciesLike
-from .species_view import SpeciesView
-from .standardization import ConventionalCellResult, conventional_cell
-from .structure_backend import StructureBackend
-from .structure_comparison import same_crystal
-from .structure_entries import StructureEntry, StructureEntryProvider
-from .structure_like import StructureLike
-from .structure_record import (
+# ruff: noqa: I001
+
+from httk.atomistic.models.cell.backend import CellBackend
+from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.cell.like import CellLike
+from httk.atomistic.models.cell.params import CellParams
+from httk.atomistic.models.cell.params_view import CellParamsView
+from httk.atomistic.models.cell.plain import PlainCell
+from httk.atomistic.models.cell.view import CellView
+from httk.atomistic.models.sites.backend import SitesBackend
+from httk.atomistic.models.sites.like import SitesLike
+from httk.atomistic.models.sites.plain import PlainSites
+from httk.atomistic.models.sites.sites import Sites
+from httk.atomistic.models.sites.view import SitesView
+from httk.atomistic.models.species.backend import SpeciesBackend
+from httk.atomistic.models.species.like import SpeciesLike
+from httk.atomistic.models.species.plain import PlainSpecies
+from httk.atomistic.models.species.plain_view import PlainSpeciesView
+from httk.atomistic.models.species.species import Species
+from httk.atomistic.models.species.view import SpeciesView
+from httk.atomistic.models.structure.ase import ASEAtoms
+from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
+from httk.atomistic.models.structure.asu_view import ASUStructureView
+from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.comparison import same_crystal
+from httk.atomistic.models.structure.datastream import DatastreamStructure
+from httk.atomistic.models.structure.like import StructureLike
+from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
+from httk.atomistic.models.structure.numeric_view import NumericUnitcellStructureView
+from httk.atomistic.models.structure.optimade import OptimadeStructure
+from httk.atomistic.models.structure.plain import PlainStructure
+from httk.atomistic.models.structure.plain_view import PlainStructureView
+from httk.atomistic.models.structure.semantics import StructureSymmetry
+from httk.atomistic.models.structure.unitcell import UnitcellStructure
+from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.entries.structures import StructureEntry, StructureEntryProvider
+from httk.atomistic.storage.records import (
     ASUStructureRecord,
     FundamentalDomainStructureRecord,
     UnitcellStructureRecord,
     validate_structure_record,
 )
+from httk.atomistic.models.cell.record import RecordCell
+from httk.atomistic.models.sites.record import RecordSites
+from httk.atomistic.models.species.record import RecordSpecies
+from httk.atomistic.models.structure.record import RecordStructure
+from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
+from httk.atomistic.symmetry.setting_transform import SettingTransform
+from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
+from httk.atomistic.symmetry.standardization import ConventionalCellResult, conventional_cell
+from httk.atomistic.symmetry.wyckoff import WyckoffPosition, wyckoff_positions
+
+from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
+from .composition import Assembly, ChemicalComposition
+from .elements import atomic_number, symbol_of
 from .supercell import (
     SupercellResult,
     build_supercell,
     cubic_supercell,
     orthogonal_supercell,
 )
-from .unitcell_structure import UnitcellStructure
-from .unitcell_structure_view import UnitcellStructureView
-from .wyckoff import WyckoffPosition, wyckoff_positions
 
 StructureBackend.backend_classes = [
     OptimadeStructure,
@@ -106,6 +108,7 @@ __all__ = [
     "CellParams",
     "CellParamsView",
     "CellView",
+    "ChemicalComposition",
     "ConventionalCellResult",
     "DatastreamStructure",
     "FundamentalDomainStructure",
@@ -125,6 +128,7 @@ __all__ = [
     "StructureEntry",
     "StructureEntryProvider",
     "StructureLike",
+    "StructureSymmetry",
     "SupercellResult",
     "UnitcellStructure",
     "UnitcellStructureRecord",
@@ -151,7 +155,7 @@ __all__ = [
 # ASE is optional. The view module subclasses ase.Atoms at class-definition time, so it
 # cannot be imported without ASE; guard it exactly like the optional numpy vector view.
 try:
-    from .ase_atoms_view import ASEAtomsView  # noqa: F401
+    from httk.atomistic.models.structure.ase_view import ASEAtomsView  # noqa: F401
 except ImportError:
     pass
 else:

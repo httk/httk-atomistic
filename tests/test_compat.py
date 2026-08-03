@@ -11,9 +11,9 @@ from httk.atomistic import (
     UnitcellStructure,
     UnitcellStructureView,
 )
-from httk.atomistic.compat import ASEAtoms, ASEAtomsProtocol
+from httk.atomistic.models.structure.ase import ASEAtoms, ASEAtomsProtocol
 from httk.atomistic.composition import ChemicalComposition
-from httk.atomistic.structure_backend import StructureBackend
+from httk.atomistic.models.structure.backend import StructureBackend
 
 
 class FakeAtoms:

@@ -8,7 +8,7 @@ along that direction, so coordinates there are unbounded and are never wrapped.
 import pytest
 
 from httk.atomistic import Cell, UnitcellStructure
-from httk.atomistic.species import Species
+from httk.atomistic.models.species.species import Species
 
 NA = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))
 CUBE = [[3, 0, 0], [0, 3, 0], [0, 0, 5]]
@@ -62,20 +62,20 @@ def test_periodicity_must_be_exactly_three_flags(bad) -> None:
 
 
 def test_periodicity_survives_the_class_view() -> None:
-    from httk.atomistic.cell_view import CellView
+    from httk.atomistic.models.cell.view import CellView
 
     cell = Cell(CUBE, periodicity=(1, 1, 0))
     assert CellView(cell).periodicity == (True, True, False)
 
 
 def test_periodicity_survives_the_structure_view() -> None:
-    from httk.atomistic.unitcell_structure_view import UnitcellStructureView
+    from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
     assert UnitcellStructureView(_structure((1, 1, 0))).cell.periodicity == (True, True, False)
 
 
 def test_periodicity_survives_the_numeric_view() -> None:
-    from httk.atomistic.cell_numeric_view import CellNumericView
+    from httk.atomistic.models.cell.numeric_view import CellNumericView
 
     pytest.importorskip("numpy")
     view = CellNumericView(Cell(CUBE, periodicity=(1, 0, 0)))
@@ -94,8 +94,8 @@ def test_a_backend_that_knows_no_periodicity_reports_a_crystal() -> None:
     Six lattice parameters cannot express periodicity, so the concrete `CellAPI.periodicity`
     default is what such a backend inherits.
     """
-    from httk.atomistic.cell_params import CellParams
-    from httk.atomistic.plain_cell import PlainCell
+    from httk.atomistic.models.cell.params import CellParams
+    from httk.atomistic.models.cell.plain import PlainCell
 
     assert CellParams([3, 3, 5, 90, 90, 90]).periodicity == (True, True, True)
     assert PlainCell(CUBE).periodicity == (True, True, True)
@@ -165,8 +165,8 @@ def test_the_tolerance_cap_does_not_fold_a_non_periodic_direction() -> None:
     direction were periodic they look 1 A apart, which tightens the derived tolerance far
     below what the data justifies.
     """
-    from httk.atomistic.asu_recognition import _half_minimum_separation
-    from httk.atomistic.unitcell_structure_view import UnitcellStructureView
+    from httk.atomistic.symmetry.recognition import _half_minimum_separation
+    from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
     pair = ((0, 0, "1/20"), (0, 0, "19/20"))
     tall = [[3, 0, 0], [0, 3, 0], [0, 0, 10]]
@@ -181,7 +181,7 @@ def test_the_tolerance_cap_does_not_fold_a_non_periodic_direction() -> None:
 
 
 def test_wrapping_a_non_periodic_direction_stays_exact() -> None:
-    from httk.atomistic._periodic_wrap import wrap_periodic
+    from httk.atomistic.symmetry._periodic_wrap import wrap_periodic
 
     wrapped = wrap_periodic([["1/3", "4/3", "4/3"]], (True, True, False))
     assert [str(value) for value in wrapped.to_fractions()[0]] == ["1/3", "1/3", "4/3"]
@@ -306,7 +306,7 @@ def test_recognize_asu_refuses_even_when_the_setting_is_supplied() -> None:
 
 def test_the_asu_view_refuses_too() -> None:
     """It has no guard of its own; it delegates to `recognize_asu`, which does."""
-    from httk.atomistic.asu_structure_view import ASUStructureView
+    from httk.atomistic.models.structure.asu_view import ASUStructureView
 
     with pytest.raises(ValueError, match="fully 3D-periodic"):
         ASUStructureView(_slab())

@@ -12,9 +12,9 @@ import fractions
 import pytest
 
 from httk.atomistic import data
-from httk.atomistic.affine_operation import AffineOperation
-from httk.atomistic.setting_transform import SettingTransform
-from httk.atomistic.spacegroup import Spacegroup, wyckoff_letter_map
+from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.setting_transform import SettingTransform
+from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 from httk.core import FracVector, SurdVector
 
 F = fractions.Fraction

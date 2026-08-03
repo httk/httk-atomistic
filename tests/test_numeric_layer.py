@@ -24,12 +24,12 @@ from httk.atomistic import (  # noqa: E402
     UnitcellStructure,
     UnitcellStructureView,
 )
-from httk.atomistic.cell_numeric_view import CellNumericView
-from httk.atomistic.numeric_cell import NumericCell
-from httk.atomistic.numeric_sites import NumericSites
-from httk.atomistic.numeric_unitcell_structure import NumericUnitcellStructure
-from httk.atomistic.sites_numeric_view import SitesNumericView
-from httk.atomistic.structure_backend import StructureBackend
+from httk.atomistic.models.cell.numeric_view import CellNumericView
+from httk.atomistic.models.cell.numeric import NumericCell
+from httk.atomistic.models.sites.numeric import NumericSites
+from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
+from httk.atomistic.models.sites.numeric_view import SitesNumericView
+from httk.atomistic.models.structure.backend import StructureBackend
 
 F = fractions.Fraction
 

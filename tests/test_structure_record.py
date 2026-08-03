@@ -6,7 +6,7 @@ from fractions import Fraction
 
 import pytest
 from httk.core import FracVector
-from httk.core.storage import content_id, project_storage_record
+from httk.core.storage import content_id, project_storage_record, storage_identity_name
 
 from httk.atomistic import (
     ASUStructure,
@@ -22,11 +22,13 @@ from httk.atomistic import (
     UnitcellStructureView,
     WyckoffSite,
 )
-from httk.atomistic.structure_record import (
+from httk.atomistic.models.structure.view import StructureView
+from httk.atomistic.storage.records import (
     AssemblyGroupRecord,
     AssemblyRecord,
     CellRecord,
     ChemicalCompositionRecord,
+    CompositionAmountRecord,
     NormalizedCompositionAmountRecord,
     NormalizedCompositionRecord,
     SettingTransformRecord,
@@ -36,7 +38,6 @@ from httk.atomistic.structure_record import (
     WyckoffSiteRecord,
     validate_structure_record,
 )
-from httk.atomistic.structure_view import StructureView
 
 
 def _species() -> tuple[Species, Species]:
@@ -161,6 +162,40 @@ def test_projected_and_materialized_unitcell_have_the_same_content_id() -> None:
     assert content_id(source) == content_id(record) == source.id == record.id
 
 
+@pytest.mark.parametrize(
+    "record_type",
+    (
+        SpeciesRecord,
+        AssemblyGroupRecord,
+        AssemblyRecord,
+        WyckoffSiteRecord,
+        SettingTransformRecord,
+        SymmetryRecord,
+        CompositionAmountRecord,
+        ChemicalCompositionRecord,
+        NormalizedCompositionRecord,
+        NormalizedCompositionAmountRecord,
+        CellRecord,
+        SitesRecord,
+        UnitcellStructureRecord,
+        FundamentalDomainStructureRecord,
+        ASUStructureRecord,
+    ),
+)
+def test_record_identity_names_are_storage_names(record_type: type[object]) -> None:
+    identity_name = storage_identity_name(record_type)
+    assert identity_name == record_type.__httk_storage__.storage_name  # type: ignore[attr-defined]
+    assert "httk.atomistic" not in identity_name
+
+
+def test_content_id_is_layout_independent_without_sqlalchemy() -> None:
+    source = _unitcell()
+
+    # 2026-08-04 identity-name pinning: ids are layout-independent now; a future move must
+    # not change this value.
+    assert content_id(source) == "6a1a336c3a7f21bb929d7ada05cd16825741ceffb44fca9e5328f74cbfac2208"
+
+
 def test_sql_store_unitcell_rename_preserves_content_id() -> None:
     pytest.importorskip("sqlalchemy")
     from httk.data.db import Database, SqlStore
@@ -170,8 +205,7 @@ def test_sql_store_unitcell_rename_preserves_content_id() -> None:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
 
-    # Captured from the in-memory SqlStore before the naming sweep.
-    assert content_id(source) == "903502fcc3fe56715130366fc9b5d65a3e7760dba9d4d491b985b6eb975ff6f0"
+    assert content_id(source) == "6a1a336c3a7f21bb929d7ada05cd16825741ceffb44fca9e5328f74cbfac2208"
 
 
 @pytest.mark.parametrize(
@@ -322,7 +356,7 @@ def test_asu_record_view_adopts_native_asu_without_recognition(monkeypatch: pyte
     def fail(*args: object, **kwargs: object) -> None:
         raise AssertionError("recognition must not run for an ASU record")
 
-    monkeypatch.setattr("httk.atomistic.asu_structure_view.recognize_asu", fail)
+    monkeypatch.setattr("httk.atomistic.models.structure.asu_view.recognize_asu", fail)
     view = ASUStructureView(record)
     assert view.space_group_it_number == 225
     assert view.domain_sites == ASUStructureView(record).domain_sites
@@ -400,7 +434,7 @@ def test_sql_fetch_of_a_root_record_does_not_reconstruct_structure(monkeypatch: 
     pytest.importorskip("sqlalchemy")
     from httk.data.db import Database, SqlStore
 
-    import httk.atomistic.structure_record as structure_record_module
+    import httk.atomistic.storage.records as structure_record_module
 
     source = _unitcell()
     with Database.sqlite() as database:

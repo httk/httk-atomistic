@@ -3,7 +3,7 @@
 from httk.core import load_entry_type_definition, load_property_definition
 from httk.core.register import known_entry_type_definitions, known_property_definitions
 
-from httk.atomistic.httk_definitions import load_httk_definitions
+from httk.atomistic.entries.definitions import load_httk_definitions
 
 STRUCTURES_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 HTTK_PROPERTY_IDS = {

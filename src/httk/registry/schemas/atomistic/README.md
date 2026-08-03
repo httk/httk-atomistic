@@ -59,8 +59,8 @@ as. The returned `PropertyDefinition.name` is nevertheless the served name;
 rewriting the published payload would defeat the point of pointing at it.
 
 The definitions are loaded at runtime by
-`httk.atomistic.symmetry_entries.setting_definitions()` and
-`httk.atomistic.precision_entries.precision_definitions()`, then merged into the served entry-type
+`httk.atomistic.entries.symmetry.setting_definitions()` and
+`httk.atomistic.entries.precision.precision_definitions()`, then merged into the served entry-type
 definition by `httk.atomistic.StructureEntryProvider`. They are packaged through
 the same `httk.registry.schemas.atomistic` package-data entry.
 

@@ -14,9 +14,9 @@ from httk.atomistic import (
     Species,
     UnitcellStructure,
 )
-from httk.atomistic.affine_operation import AffineOperation
+from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.composition import ChemicalComposition
-from httk.atomistic.structure_semantics import StructureSymmetry
+from httk.atomistic.models.structure.semantics import StructureSymmetry
 
 
 def _structure(**kwargs):

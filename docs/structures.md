@@ -3,6 +3,10 @@
 This page documents practical usage of the structure classes in `httk.atomistic`.
 It follows the same view/backend pattern as the datastream classes in `httk.core`.
 
+The implementation is organized by role: component and structure models live under
+`models/`, symmetry operations under `symmetry/`, persisted records and projections
+under `storage/`, and entry definitions and providers under `entries/`.
+
 ## Overview
 
 A crystal structure is available through one family of backends and views:
@@ -327,7 +331,7 @@ definition:
 
 ```python
 from httk.atomistic import UnitcellStructure, StructureEntryProvider
-from httk.atomistic.species import Species
+from httk.atomistic import Species
 from httk.core import PropertyDefinition
 
 cell = [[5.6, 0.0, 0.0], [0.0, 7.6, 0.0], [0.0, 0.0, 5.3]]

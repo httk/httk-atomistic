@@ -328,9 +328,10 @@ def test_deferred_cif_asu_assemblies_match_eager_view(tmp_path: Path, monkeypatc
     lazy = UnitcellStructureView(str(path))
     eager = UnitcellStructureView(native)
     assert lazy.assemblies == eager.assemblies
-    assert build_supercell(UnitcellStructureView(str(path)), 2).structure.assemblies == build_supercell(
-        native, 2
-    ).structure.assemblies
+    assert (
+        build_supercell(UnitcellStructureView(str(path)), 2).structure.assemblies
+        == build_supercell(native, 2).structure.assemblies
+    )
 
 
 def test_file_url_optimade_datastream_uses_fixture_files(tmp_path: Path) -> None:

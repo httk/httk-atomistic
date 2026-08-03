@@ -13,11 +13,11 @@ from httk.atomistic import (
     UnitcellStructure,
     UnitcellStructureView,
 )
-from httk.atomistic.plain_cell import PlainCell
-from httk.atomistic.cell_numeric_view import CellNumericView
-from httk.atomistic.plain_sites import PlainSites
-from httk.atomistic.sites_numeric_view import SitesNumericView
-from httk.atomistic.structure_backend import StructureBackend
+from httk.atomistic.models.cell.plain import PlainCell
+from httk.atomistic.models.cell.numeric_view import CellNumericView
+from httk.atomistic.models.sites.plain import PlainSites
+from httk.atomistic.models.sites.numeric_view import SitesNumericView
+from httk.atomistic.models.structure.backend import StructureBackend
 
 
 class ProbePlainCell(PlainCell):

@@ -21,15 +21,16 @@ from typing import Any
 
 from httk.core import FracVector, SurdScalar, SurdVector, VectorLike, unwrap
 
-from ._lattice import finite_translation_cosets
-from ._periodicity_guard import require_full_periodicity
-from .asu_structure import FundamentalDomainStructure
-from .cell import Cell
+from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.sites.sites import Sites
+from httk.atomistic.models.structure.asu import FundamentalDomainStructure
+from httk.atomistic.models.structure.like import StructureLike
+from httk.atomistic.models.structure.unitcell import UnitcellStructure
+from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.symmetry._lattice import finite_translation_cosets
+from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
+
 from .composition import Assembly, ChemicalComposition
-from .sites import Sites
-from .structure_like import StructureLike
-from .unitcell_structure import UnitcellStructure
-from .unitcell_structure_view import UnitcellStructureView
 
 __all__ = [
     "SupercellResult",
@@ -197,7 +198,7 @@ def build_supercell(
     Lattice vectors are rows and the returned basis is ``transformation * basis``.
     Reduced coordinates are transformed by the inverse matrix and wrapped into
     ``[0, 1)``. Any input representation is first presented as a full
-    :class:`~httk.atomistic.unitcell_structure.UnitcellStructure`.
+    :class:`~httk.atomistic.models.structure.unitcell.UnitcellStructure`.
 
     Requires a fully 3D-periodic structure. Repeating a slab within its own plane is a
     perfectly sensible operation, but it is not this one: the transformation matrix here
