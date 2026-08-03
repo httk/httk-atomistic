@@ -68,12 +68,16 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
     @property
     def species(self) -> tuple[Species, ...]:
         """The distinct species, passed through unchanged."""
-        return self._backend.species
+        return self._exact.species if getattr(self._backend, "resolve", None) is not None else self._backend.species
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
         """The species name occupying each site, passed through unchanged."""
-        return self._backend.species_at_sites
+        return (
+            self._exact.species_at_sites
+            if getattr(self._backend, "resolve", None) is not None
+            else self._backend.species_at_sites
+        )
 
     @property
     def assemblies(self) -> tuple[Assembly, ...] | None:

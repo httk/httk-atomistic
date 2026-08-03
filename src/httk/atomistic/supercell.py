@@ -152,6 +152,8 @@ def _shape_scores(metric: SurdVector) -> tuple[SurdScalar, SurdScalar]:
 
 
 def _semantic_source(view: UnitcellStructureView) -> Any:
+    if getattr(view._backend, "resolve", None) is not None:
+        return view
     raw = unwrap(view)
     # A symmetry-reduced source's domain assemblies are not indexed against the expanded
     # view. FundamentalDomainStructure exposes the checked, remapped unit-cell semantics instead.

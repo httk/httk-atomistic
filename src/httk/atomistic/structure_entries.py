@@ -1,8 +1,12 @@
 """Project atomistic structures onto the neutral OPTIMADE entry-provider contract."""
 
+import io
+import os
+import urllib.request
 from collections.abc import Iterable, Mapping
 from typing import Any, Self
 
+import httk.core
 from httk.core import (
     EntryProvider,
     EntryTypeDefinition,
@@ -87,6 +91,7 @@ class StructureEntry:
 
 def _as_structure(obj: StructureLike) -> Any:
     """Normalize accepted convenience inputs to the common structure property layer."""
+    from .structure_backend import StructureBackend
     from .structure_record import (
         ASUStructureRecord,
         FundamentalDomainStructureRecord,
@@ -94,6 +99,27 @@ def _as_structure(obj: StructureLike) -> Any:
         _domain_structure_from_record,
     )
     from .unitcell_structure_view import UnitcellStructureView
+
+    datastreamish = isinstance(
+        obj,
+        (
+            httk.core.DatastreamURL,
+            str,
+            os.PathLike,
+            urllib.request.Request,
+            bytes,
+            bytearray,
+            io.IOBase,
+            httk.core.TextstreamBackend,
+            httk.core.TextstreamView,
+            httk.core.BytestreamBackend,
+            httk.core.BytestreamView,
+        ),
+    ) or callable(getattr(obj, "resolve", None))
+    if datastreamish:
+        backend = obj if isinstance(obj, StructureBackend) else StructureBackend.create(obj)
+        resolver = getattr(backend, "resolve", None)
+        return resolver() if callable(resolver) else backend
 
     if isinstance(obj, UnitcellStructureRecord):
         return UnitcellStructureView(obj)

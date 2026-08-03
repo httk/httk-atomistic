@@ -2,6 +2,9 @@
 The accepted-input union for structure functions in httk-atomistic.
 """
 
+import io
+import os
+import urllib.request
 from typing import Any
 
 import httk.core
@@ -27,6 +30,15 @@ type StructureLike = (
     | structure_record.ASUStructureRecord
     | asu_structure.FundamentalDomainStructure
     | httk.core.OptimadeResource
+    | str
+    | os.PathLike[str]
+    | httk.core.DatastreamURL
+    | urllib.request.Request
+    | io.IOBase
+    | httk.core.TextstreamBackend
+    | httk.core.TextstreamView
+    | httk.core.BytestreamBackend
+    | httk.core.BytestreamView
     | compat.ASEAtomsProtocol
     | tuple[httk.core.VectorLike, httk.core.VectorLike, Any]
     | list[Any]

@@ -21,6 +21,26 @@ In normal user code, you usually accept `StructureLike` and normalize immediatel
 Record objects are backends too: use class conversion, such as
 `UnitcellStructureView(record)`, instead of a pair of conversion methods.
 
+## DatastreamStructure
+
+`DatastreamStructure` accepts a local path, a named open stream, a
+`httk.core.DatastreamURL`, or a `urllib.request.Request`. It checks the source
+configuration eagerly (including the path and loader name, and network consent),
+then parses lazily on first access to the file's native representation. Its
+`unwrap()` returns the original source object.
+
+```python
+from httk.atomistic import ASUStructureView, DatastreamStructure, UnitcellStructureView
+from httk.core import DatastreamURL
+
+unitcell = UnitcellStructureView("example.cif")
+asu = ASUStructureView("example.cif")
+remote = DatastreamStructure(DatastreamURL("https://example.com/example.cif"))
+```
+
+`ASUStructureView(path)` adopts declared CIF symmetry exactly; it does not run
+tolerant symmetry recognition for a native asymmetric-unit result.
+
 ## Common Calling Patterns
 
 ```python

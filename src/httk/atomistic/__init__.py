@@ -28,6 +28,7 @@ from .compat import ASEAtoms
 from .composition import (
     Assembly,
 )
+from .datastream_structure import DatastreamStructure
 from .elements import atomic_number, symbol_of
 from .numeric_unitcell_structure import NumericUnitcellStructure
 from .numeric_unitcell_structure_view import NumericUnitcellStructureView
@@ -79,6 +80,7 @@ StructureBackend.backend_classes = [
     NumericUnitcellStructure,
     ASEAtoms,
     RecordStructure,
+    DatastreamStructure,
 ]
 CellBackend.backend_classes = [PlainCell, CellParams, RecordCell]
 SitesBackend.backend_classes = [PlainSites, RecordSites]
@@ -105,6 +107,7 @@ __all__ = [
     "CellParamsView",
     "CellView",
     "ConventionalCellResult",
+    "DatastreamStructure",
     "FundamentalDomainStructure",
     "FundamentalDomainStructureRecord",
     "NumericUnitcellStructureView",
