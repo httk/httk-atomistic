@@ -13,14 +13,14 @@ from typing import Any
 from httk.core import FracVector, unwrap
 
 from .asu_recognition import recognize_asu
-from .asu_structure import ASUSite, ASUStructure
+from .asu_structure import ASUStructure, WyckoffSite
 from .cell import Cell
 from .composition import Assembly, ChemicalComposition
 from .setting_transform import SettingTransform
 from .spacegroup import Spacegroup
-from .structure import Structure
 from .structure_like import StructureLike
 from .structure_semantics import initialize_semantics
+from .unitcell_structure import UnitcellStructure
 from .unitcell_structure_view import UnitcellStructureView
 
 __all__ = ["ConventionalCellResult", "conventional_cell"]
@@ -39,7 +39,7 @@ class ConventionalCellResult:
     produce a ratio below one.
     """
 
-    structure: Structure
+    structure: UnitcellStructure
     asu: ASUStructure
     spacegroup: Spacegroup
     transform: SettingTransform
@@ -208,13 +208,13 @@ def conventional_cell(
         periodicity=asu.cell.periodicity,
     )
     standard_sites = tuple(
-        ASUSite(
+        WyckoffSite(
             site.wyckoff,
             site.free_params,
             site.species,
             None if site.representative is None else transform.to_standard(site.representative).normalize(),
         )
-        for site in asu.asu_sites
+        for site in asu.wyckoff_sites
     )
     standard_asu = ASUStructure(
         new_cell,
@@ -250,7 +250,7 @@ def conventional_cell(
     # expanded structure because their indices do not name domain sites.
     initialize_semantics(
         standard_asu,
-        nsites=len(standard_asu.asu_sites),
+        nsites=len(standard_asu.wyckoff_sites),
         molecular=source_molecular,
         assemblies=asu.assemblies if had_existing_asu else None,
         symmetry=None,

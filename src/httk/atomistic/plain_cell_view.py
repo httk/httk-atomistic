@@ -12,7 +12,7 @@ from .cell_like import CellLike
 from .cell_view_base import CellViewBase
 
 
-class CellPrimitiveView(CellViewBase, tuple):
+class PlainCellView(CellViewBase, tuple):
     """
     A view presenting an underlying cell backend as the raw 3x3 basis matrix of floats.
 

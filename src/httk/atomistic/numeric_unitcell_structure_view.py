@@ -10,17 +10,17 @@ from .composition import Assembly
 from .numeric_cell import NumericCell
 from .numeric_sites import NumericSites
 from .species import Species
-from .structure import Structure
 from .structure_backend import StructureBackend
 from .structure_like import StructureLike
 from .structure_semantics import StructureSemanticsMixin
 from .structure_view import StructureView
+from .unitcell_structure import UnitcellStructure
 
 
 class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
-    """A plain-numpy presentation of a :class:`~httk.atomistic.Structure`.
+    """A plain-numpy presentation of a :class:`~httk.atomistic.UnitcellStructure`.
 
-    Where a ``Structure`` holds its geometry exactly (a surd ``cell`` basis, rational reduced
+    Where a ``UnitcellStructure`` holds its geometry exactly (a surd ``cell`` basis, rational reduced
     coordinates, and an exact Cartesian frame), this view mirrors that interface but returns
     plain numpy numbers: its :attr:`cell` is a :class:`~httk.atomistic.numeric_cell.NumericCell`, its
     :attr:`sites` a :class:`~httk.atomistic.numeric_sites.NumericSites`, and :meth:`cartesian_sites` a
@@ -31,7 +31,7 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
     ``httk-atomistic[numpy]`` extra) and raises :class:`ImportError` eagerly when it is unavailable.
     The exact object is always one hop away via :attr:`exact`.
 
-    This is a view, not a ``Structure`` subclass. Its exact ``Structure`` is built lazily on
+    This is a view, not a ``UnitcellStructure`` subclass. Its exact ``UnitcellStructure`` is built lazily on
     first access to exact geometry.
     """
 
@@ -50,7 +50,7 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
         pass
 
     @cached_property
-    def _exact(self) -> Structure:
+    def _exact(self) -> UnitcellStructure:
         from .unitcell_structure_view import UnitcellStructureView
 
         return UnitcellStructureView(self._backend)
@@ -108,8 +108,8 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
         return cast(list[list[float]], cast(Any, self.cartesian_sites()).tolist())
 
     @property
-    def exact(self) -> Structure:
-        """The exact :class:`~httk.atomistic.Structure` this view presents."""
+    def exact(self) -> UnitcellStructure:
+        """The exact :class:`~httk.atomistic.UnitcellStructure` this view presents."""
         return self._exact
 
     def __repr__(self) -> str:

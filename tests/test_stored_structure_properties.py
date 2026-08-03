@@ -22,7 +22,7 @@ from httk.atomistic import (
     FundamentalDomainStructure,
     FundamentalDomainStructureRecord,
     Species,
-    Structure,
+    UnitcellStructure,
     StructureEntryProvider,
     UnitcellStructureRecord,
 )
@@ -217,7 +217,7 @@ def test_response_callbacks_do_not_rebuild_an_all_property_projection(
 
 def test_incomplete_normalized_composition_matches_the_natural_null_projection() -> None:
     unknown_attachment = Species("C_X", ("C",), (1,), attached=("X",), nattached=(1,))
-    source = Structure([[3, 0, 0], [0, 3, 0], [0, 0, 3]], [[0, 0, 0]], [unknown_attachment], ["C_X"])
+    source = UnitcellStructure([[3, 0, 0], [0, 3, 0], [0, 0, 3]], [[0, 0, 0]], [unknown_attachment], ["C_X"])
     record = _unitcell_record(source)
     projections = stored_property_projections(UnitcellStructureRecord)
     (natural,) = tuple(StructureEntryProvider({"entry": record}).records("structures"))
@@ -255,7 +255,7 @@ def test_formula_and_precision_queries_construct_exact_normalized_predicates() -
 
 
 def test_empty_complete_composition_keeps_formulas_unknown_but_elements_known() -> None:
-    source = Structure([[3, 0, 0], [0, 3, 0], [0, 0, 3]], [], (), ())
+    source = UnitcellStructure([[3, 0, 0], [0, 3, 0], [0, 0, 3]], [], (), ())
     record = _unitcell_record(source)
     projections = stored_property_projections(UnitcellStructureRecord)
     context = cast(QueryContext, _ProbeContext())

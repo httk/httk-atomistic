@@ -14,29 +14,29 @@ from httk.core import FracVector, unwrap  # noqa: E402
 
 from httk.atomistic import (  # noqa: E402
     Assembly,
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     Cell,
     CellParams,
     NumericUnitcellStructureView,
     Species,
     Sites,
-    Structure,
+    UnitcellStructure,
     UnitcellStructureView,
 )
 from httk.atomistic.cell_numeric_view import CellNumericView
 from httk.atomistic.numeric_cell import NumericCell
 from httk.atomistic.numeric_sites import NumericSites
-from httk.atomistic.numeric_unitcell_structure_backend import NumericUnitcellStructureBackend
+from httk.atomistic.numeric_unitcell_structure import NumericUnitcellStructure
 from httk.atomistic.sites_numeric_view import SitesNumericView
 from httk.atomistic.structure_backend import StructureBackend
 
 F = fractions.Fraction
 
 
-def _hexagonal_structure() -> Structure:
+def _hexagonal_structure() -> UnitcellStructure:
     cell = Cell(CellParams((3, 3, 5, 90, 90, 120)).basis)
-    return Structure(
+    return UnitcellStructure(
         cell=cell,
         sites=[[F(0), F(0), F(0)], [F(1, 3), F(1, 3), F(0)]],
         species=[{"name": "Mg", "chemical_symbols": ["Mg"], "concentration": [1.0]}],
@@ -51,7 +51,7 @@ def test_numeric_unitcell_structure_values_are_plain_numpy() -> None:
     structure = _hexagonal_structure()
     numeric = structure.numeric()
     assert isinstance(numeric, NumericUnitcellStructureView)
-    assert not isinstance(numeric, Structure)
+    assert not isinstance(numeric, UnitcellStructure)
 
     exact_cell = structure.cell
     # Vectors are exactly-typed float64 ndarrays (not a subclass) matching the exact to_floats().
@@ -104,7 +104,7 @@ def test_numeric_unitcell_structure_view_of_structure_and_triple() -> None:
     assert UnitcellStructureView(view) == structure
 
     backend = StructureBackend.create(view)
-    assert isinstance(backend, NumericUnitcellStructureBackend)
+    assert isinstance(backend, NumericUnitcellStructure)
     assert backend.cell is structure.cell
     assert backend.sites is structure.sites
     assert StructureBackend.create(view, kind="numeric") is not None
@@ -132,9 +132,9 @@ def test_numeric_asu_assemblies_use_expanded_indices() -> None:
         [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
         221,
         [
-            ASUSite("c", no_parameters, "C"),
-            ASUSite("a", no_parameters, "Na"),
-            ASUSite("b", no_parameters, "Cl"),
+            WyckoffSite("c", no_parameters, "C"),
+            WyckoffSite("a", no_parameters, "Na"),
+            WyckoffSite("b", no_parameters, "Cl"),
         ],
         [
             Species("C", ("C",), (1,)),

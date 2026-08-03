@@ -13,12 +13,12 @@ import pytest
 from httk.core import FracVector
 
 from httk.atomistic import (
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     SettingTransform,
     Spacegroup,
     Species,
-    Structure,
+    UnitcellStructure,
     StructureEntryProvider,
 )
 from httk.atomistic.symmetry_entries import (
@@ -44,7 +44,7 @@ def _record(structure: object) -> dict:
 
 def _rocksalt() -> ASUStructure:
     return ASUStructure(
-        CUBIC, 225, [ASUSite("a", NO_PARAMETERS, "Na"), ASUSite("b", NO_PARAMETERS, "Cl")], _species("Na", "Cl")
+        CUBIC, 225, [WyckoffSite("a", NO_PARAMETERS, "Na"), WyckoffSite("b", NO_PARAMETERS, "Cl")], _species("Na", "Cl")
     )
 
 
@@ -72,8 +72,8 @@ def test_the_extended_symbol_is_a_single_line() -> None:
 
 
 def test_a_plain_structure_serves_null_symmetry() -> None:
-    """A Structure carries no symmetry, and inferring some would mean a hidden search."""
-    structure = Structure(CUBIC, [[0, 0, 0]], _species("Na"), ["Na"])
+    """A UnitcellStructure carries no symmetry, and inferring some would mean a hidden search."""
+    structure = UnitcellStructure(CUBIC, [[0, 0, 0]], _species("Na"), ["Na"])
     record = _record(structure)
 
     for name in SYMMETRY_PROPERTY_KEYS:
@@ -104,7 +104,7 @@ def test_symbols_and_letters_describe_the_setting_the_structure_is_in() -> None:
     asu = ASUStructure(
         [[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         15,
-        [ASUSite("e", FracVector.create(["1/3"]), "Si")],
+        [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
         _species("Si"),
         transform=setting.transform_from_standard,
     )
@@ -129,7 +129,7 @@ def test_wyckoff_letters_are_translated_across_the_setting_boundary() -> None:
     asu = ASUStructure(
         [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
         224,
-        [ASUSite("j", FracVector.create(["1/7"]), "O")],
+        [WyckoffSite("j", FracVector.create(["1/7"]), "O")],
         _species("O"),
         transform=setting.transform_from_standard,
     )
@@ -146,7 +146,7 @@ def test_wyckoff_multiplicity_follows_the_setting_too() -> None:
     asu = ASUStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 12]],
         166,
-        [ASUSite("a", NO_PARAMETERS, "Bi")],
+        [WyckoffSite("a", NO_PARAMETERS, "Bi")],
         _species("Bi"),
         transform=setting.transform_from_standard,
     )
@@ -164,7 +164,7 @@ def test_an_untabulated_setting_serves_the_number_but_not_a_symbol() -> None:
     a client has everything it needs to reconstruct the structure.
     """
     shifted = SettingTransform(FracVector.eye((3, 3)), ["1/8", "1/8", "1/8"])
-    asu = ASUStructure(CUBIC, 225, [ASUSite("a", NO_PARAMETERS, "Na")], _species("Na"), transform=shifted)
+    asu = ASUStructure(CUBIC, 225, [WyckoffSite("a", NO_PARAMETERS, "Na")], _species("Na"), transform=shifted)
     record = _record(asu)
 
     assert record["space_group_it_number"] == 225
@@ -184,7 +184,7 @@ def test_the_setting_transform_is_served_as_exact_rationals() -> None:
     asu = ASUStructure(
         [[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         15,
-        [ASUSite("e", FracVector.create(["1/3"]), "Si")],
+        [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
         _species("Si"),
         transform=setting.transform_from_standard,
     )
@@ -226,7 +226,7 @@ def test_the_served_definition_describes_every_served_property() -> None:
 
 def test_the_definition_shape_does_not_depend_on_the_contents() -> None:
     """A database of plain structures describes the same properties as one of ASUs."""
-    plain = StructureEntryProvider({"x": Structure(CUBIC, [[0, 0, 0]], _species("Na"), ["Na"])})
+    plain = StructureEntryProvider({"x": UnitcellStructure(CUBIC, [[0, 0, 0]], _species("Na"), ["Na"])})
     symmetric = StructureEntryProvider({"x": _rocksalt()})
     assert set(plain.entry_types()["structures"].properties) == set(symmetric.entry_types()["structures"].properties)
 
@@ -264,7 +264,7 @@ def test_precision_is_served_from_the_structure() -> None:
     asu = ASUStructure(
         Cell(CUBIC, 1, F(1, 1000)),
         225,
-        [ASUSite("a", NO_PARAMETERS, "Na")],
+        [WyckoffSite("a", NO_PARAMETERS, "Na")],
         _species("Na"),
         coordinate_precision=F(1, 10000),
     )
@@ -275,7 +275,7 @@ def test_precision_is_served_from_the_structure() -> None:
 
 def test_a_structure_that_states_no_precision_serves_null() -> None:
     """Distinguishable from a claim of exactness, which is the point of using null."""
-    record = _record(Structure(CUBIC, [[0, 0, 0]], _species("Na"), ["Na"]))
+    record = _record(UnitcellStructure(CUBIC, [[0, 0, 0]], _species("Na"), ["Na"]))
     assert record["_httk_coordinate_precision"] is None
     assert record["_httk_basis_precision"] is None
 

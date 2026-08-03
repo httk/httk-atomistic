@@ -7,8 +7,8 @@ It follows the same view/backend pattern as the datastream classes in `httk.core
 
 A crystal structure is available through one family of backends and views:
 
-- backends: `Structure` (the unit-cell representation), `FundamentalDomainStructure`, `StructurePrimitive` (an spglib-like triple), and the optional numeric and record backends
-- views: `UnitcellStructureView` (presents any backend as a `Structure`), `StructurePrimitiveView` (presents any backend as a `(lattice, positions, numbers)` tuple)
+- backends: `UnitcellStructure` (the unit-cell representation), `FundamentalDomainStructure`, `PlainStructure` (an spglib-like triple), and the optional numeric and record backends
+- views: `UnitcellStructureView` (presents any backend as a `UnitcellStructure`), `PlainStructureView` (presents any backend as a `(lattice, positions, numbers)` tuple)
 - accepted union: `StructureLike`
 
 Every backend produces the same canonical Unitcell quartet declared by `StructureAPI`:
@@ -24,10 +24,10 @@ Record objects are backends too: use class conversion, such as
 ## Common Calling Patterns
 
 ```python
-from httk.atomistic import Structure, UnitcellStructureView, StructurePrimitiveView
+from httk.atomistic import UnitcellStructure, UnitcellStructureView, PlainStructureView
 
-# A Structure (the Unitcell representation)
-structure = Structure(
+# A UnitcellStructure (the Unitcell representation)
+structure = UnitcellStructure(
     cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
     sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
     species=[
@@ -37,10 +37,10 @@ structure = Structure(
     species_at_sites=["Na", "Cl"],
 )
 
-# Structure in -> primitive triple out
-lattice, positions, numbers = StructurePrimitiveView(structure)
+# UnitcellStructure in -> primitive triple out
+lattice, positions, numbers = PlainStructureView(structure)
 
-# spglib-like triple in -> Structure out
+# spglib-like triple in -> UnitcellStructure out
 triple = (
     [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
     [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
@@ -52,11 +52,11 @@ as_structure = UnitcellStructureView(triple)
 ## Component families
 
 The `cell`, `sites`, and `species` components each get the same view/backend treatment as
-`Structure` itself:
+`UnitcellStructure` itself:
 
-- `Cell`: the class itself is the class backend; other backends are `CellPrimitive` / `CellParams`,
+- `Cell`: the class itself is the class backend; other backends are `PlainCell` / `CellParams`,
   and views are `CellView` /
-  `CellPrimitiveView` / `CellParamsView`, union `CellLike`. `Cell` exposes `basis` plus the
+  `PlainCellView` / `CellParamsView`, union `CellLike`. `Cell` exposes `basis` plus the
   derived `lengths`, `angles` (the crystallographic `alpha`/`beta`/`gamma` in degrees), and
   `volume`. The params representation is a flat `(a, b, c, alpha, beta, gamma)` 6-tuple
   (angles in degrees): a cell can be constructed from parameters anywhere a `CellLike` is
@@ -65,17 +65,17 @@ The `cell`, `sites`, and `species` components each get the same view/backend tre
   parameters, with the elements also available as the named properties `a`/`b`/`c`/
   `alpha`/`beta`/`gamma`. Note that parameters carry no orientation, so cell → params →
   cell reproduces lengths, angles, and volume but not the original orientation.
-- `Sites`: the class itself is the class backend; the other backend is `SitesPrimitive`, and views are `SitesView` /
-  `SitesPrimitiveView`, union `SitesLike`. `Sites` exposes `reduced_coords` and is iterable,
+- `Sites`: the class itself is the class backend; the other backend is `PlainSites`, and views are `SitesView` /
+  `PlainSitesView`, union `SitesLike`. `Sites` exposes `reduced_coords` and is iterable,
   indexable, and sized over its rows.
 - `Species` (one species; the OPTIMADE `species` object): the class itself is the class backend;
-  the other backend is `SpeciesPrimitive`, and views are `SpeciesView` / `SpeciesPrimitiveView`,
+  the other backend is `PlainSpecies`, and views are `SpeciesView` / `PlainSpeciesView`,
   union `SpeciesLike`.
   The class representation is the frozen `Species`; the primitive representation is an
   OPTIMADE species dict.
 
 ```python
-from httk.atomistic import Cell, CellParamsView, CellView, SpeciesPrimitiveView, Structure
+from httk.atomistic import Cell, CellParamsView, CellView, PlainSpeciesView, UnitcellStructure
 
 cell = CellView(structure.cell)  # class conversion; this is a Cell
 cell.lengths                     # a triple of exact SurdScalar norms
@@ -84,10 +84,10 @@ cell.volume                      # an exact SurdScalar
 raw_basis = CellView(cell).basis.to_floats()         # render the exact basis as plain floats
 params = CellParamsView(cell)                        # (a, b, c, alpha, beta, gamma) as floats
 params.a, params.gamma
-optimade = dict(SpeciesPrimitiveView(structure.species[0]))  # a species as an OPTIMADE dict
+optimade = dict(PlainSpeciesView(structure.species[0]))  # a species as an OPTIMADE dict
 
 # Construct from parameters (standard orientation convention):
-structure_from_params = Structure(
+structure_from_params = UnitcellStructure(
     cell=(4.0, 4.0, 4.0, 90.0, 90.0, 90.0),
     sites=[[0.0, 0.0, 0.0]],
     species=[{"name": "Fe", "chemical_symbols": ["Fe"], "concentration": [1.0]}],
@@ -96,28 +96,29 @@ structure_from_params = Structure(
 ```
 
 The kinds dispatch by type and shape: a `Cell`/`Sites`/`Species` is already its class backend,
-a raw basis matrix / dict uses its `*Primitive` backend, and a flat 6-sequence uses the
-`CellParams` backend. Pass `kind="class"`, `kind="primitive"`, or `kind="params"` to force
-an interpretation.
+a raw basis matrix / dict uses its `*Plain` backend, and a flat 6-sequence uses the
+`CellParams` backend. Pass `kind="plain"` or `kind="params"` to force an
+interpretation; class instances are selected by their type.
 
 ## Notes
 
-- A `Structure` is already the unit-cell backend and a length-3 triple uses
-  `StructurePrimitive`. A malformed triple raises `TypeError` from `create`.
-  Pass `kind="unitcell"` or `kind="primitive"` to force an interpretation.
+- A `UnitcellStructure` is already the unit-cell backend and a length-3 triple uses
+  `PlainStructure`. A malformed triple raises `TypeError` from `create`.
+  Pass `kind="unitcell"` or `kind="plain"` to force an interpretation.
 - `UnitcellStructureView` and the `*View` views are lazy per component: each backend
-  accessor is normalized on first access. `StructurePrimitiveView`, `CellParamsView`, and
-  the `*PrimitiveView` payload views remain eager because they build tuple/dict payloads;
+  accessor is normalized on first access. `PlainStructureView`, `PlainCellView`,
+  `PlainSitesView`, `PlainSpeciesView`, and `CellParamsView` remain eager because they
+  build tuple/dict payloads;
   `SpeciesView` remains eager so `Species` validation happens at construction. The
-  `*View` and `*PrimitiveView` immutable-subclass views are genuine instances of their
-  class (a `Cell`, a tuple, ...); `SpeciesPrimitiveView` is a genuine — but detached and
+  plain views are genuine immutable-subclass views of their
+  class (a `Cell`, a tuple, ...); `PlainSpeciesView` is a genuine — but detached and
   mutable — OPTIMADE `dict`.
-- `StructurePrimitiveView` requires every site's species to be a single, unattached
+- `PlainStructureView` requires every site's species to be a single, unattached
   chemical element; alloy, vacancy, and attached species cannot be represented as a
   bare atomic number and raise `TypeError`. Such species survive in the Unitcell
   representation.
 - Rewrapping a view returns the same object, and views built from the same backend
-  share it. `unwrap(view)` returns the native raw object (a `Structure` or a triple, a
+  share it. `unwrap(view)` returns the native raw object (a `UnitcellStructure` or a triple, a
   `Cell` or a raw basis matrix, a `Species` or a dict).
 - The numeric model is **exact**. A `Cell` stores its lattice vectors as a `httk.core.SurdVector`
   (the squarefree-radical field) factored as a positive `SurdScalar` `scale` times an
@@ -125,10 +126,10 @@ an interpretation.
   `Fraction` degrees. A `Sites` stores its reduced coordinates as an exact rational
   `httk.core.FracVector`. The rule for leaving the exact model is uniform: **exact accessors
   return vector objects; render them** — `.to_floats()` on any of them gives nested plain-float
-  lists (numpy-free, JSON-ready), `float(...)` works on every exact scalar, the `*PrimitiveView`s
+  lists (numpy-free, JSON-ready), `float(...)` works on every exact scalar, the plain views
   give immutable float tuples, and the numpy-backed numeric layer (`.numeric()`, see below) gives
   true numpy arrays. An `ASUStructure` holds a structure as its asymmetric unit — a space
-  group plus one site per orbit — and expands to a `Structure` on demand; see {doc}`asu`.
+  group plus one site per orbit — and expands to a `UnitcellStructure` on demand; see {doc}`asu`.
   A `Cell` and a `Sites` each also carry an optional `precision` recording how precisely
   their numbers were stated by the source they came from; see {doc}`precision`.
 
@@ -143,7 +144,7 @@ where radicals such as the hexagonal $\sqrt3$ appear — is exact in the squaref
 import fractions
 
 from httk.core import FracVector, SurdVector
-from httk.atomistic import Cell, CellParams, Structure
+from httk.atomistic import Cell, CellParams, UnitcellStructure
 
 F = fractions.Fraction
 
@@ -162,7 +163,7 @@ assert scaled.basis == Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]).basis
 assert scaled.volume == SurdVector.create(64)
 
 # Exact Cartesian positions: reduced (rational) coordinates times the surd cell basis.
-structure = Structure(
+structure = UnitcellStructure(
     cell=cell,
     sites=[[F(0), F(0), F(0)], [F(1, 3), F(1, 3), F(0)]],
     species=[{"name": "Mg", "chemical_symbols": ["Mg"], "concentration": [1.0]}],
@@ -192,9 +193,9 @@ There are two ways to leave the exact model for plain floats, and they serve dif
 - The **compositional rendering** — `cell.basis.to_floats()`, `structure.cartesian_sites().to_floats()`,
   `sites.reduced_coords.to_floats()`, `float(cell.volume)` — every exact vector object renders
   itself as nested plain-`float` lists (a family-level guarantee: `to_floats()`/`to_float()` are part
-  of the vector contract). It needs **no numpy**, works everywhere, and (with the `*PrimitiveView`s
+  of the vector contract). It needs **no numpy**, works everywhere, and (with the plain views
   and the OPTIMADE records) is the numpy-free JSON/presentation boundary.
-- The **numeric layer** — `Cell.numeric()`, `Sites.numeric()`, `Structure.numeric()` — returns a
+- The **numeric layer** — `Cell.numeric()`, `Sites.numeric()`, `UnitcellStructure.numeric()` — returns a
   `NumericCell`, `NumericSites`, or `NumericUnitcellStructureView` that mirrors the exact interface but returns
   true numpy: a `float64` `numpy.ndarray` for every vector, a plain `float` for every scalar
   (`scale`, `volume`). Reach for it when you want numpy arrays — plotting, a numerical routine, quick
@@ -202,19 +203,19 @@ There are two ways to leave the exact model for plain floats, and they serve dif
 
 The numeric layer is numpy-backed, so it **requires the `httk-atomistic[numpy]` extra** and raises
 `ImportError` eagerly at construction when numpy is not installed. (The `.to_floats()` renderings,
-the `*PrimitiveView`s, and the OPTIMADE records stay numpy-free, so numpy is optional for everything
+the plain views and the OPTIMADE records stay numpy-free, so numpy is optional for everything
 except this numpy presentation.)
 
 ```python
 import numpy
 import fractions
 
-from httk.atomistic import Cell, CellParams, Structure
+from httk.atomistic import Cell, CellParams, UnitcellStructure
 
 F = fractions.Fraction
 
 cell = Cell(CellParams((3, 3, 5, 90, 90, 120)).basis)   # hexagonal: a real sqrt(3)
-structure = Structure(
+structure = UnitcellStructure(
     cell=cell,
     sites=[[F(0), F(0), F(0)], [F(1, 3), F(1, 3), F(0)]],
     species=[{"name": "Mg", "chemical_symbols": ["Mg"], "concentration": [1.0]}],
@@ -244,34 +245,16 @@ The same presentation is also available as views over any backend — `CellNumer
 `SitesNumericView`, `NumericUnitcellStructureView` — mirroring the `*View` pattern (rewrap-idempotent,
 `unwrap` returns the raw original), and likewise requiring numpy.
 
-## Building a Structure from a POSCAR mapping
+## Loading a POSCAR
 
-`structure_from_poscar` bridges *httk-io*'s neutral, string-preserving POSCAR
-mapping (the output of `httk.io.read_poscar`, format tag `"vasp-poscar"`) into an
-exact `Structure`. It imports nothing from *httk-io* — it only understands the
-mapping shape — so parsing and the domain model stay decoupled. The cell rows are
-taken exactly; Direct coordinates become reduced coordinates verbatim, while
-Cartesian coordinates are converted exactly as `cart * basis.inv()` (the VASP
-universal scale factor cancels, since it scales lattice vectors and Cartesian
-positions alike):
+`httk.core.load` returns a `UnitcellStructure` for POSCAR and CONTCAR files. It
+uses the neutral, string-preserving reader payload internally, so cell rows and
+coordinates remain exact; compressed `.bz2` and `.gz` files work too.
 
 ```python
-from httk.atomistic import structure_from_poscar
+from httk.core import load
 
-poscar = {
-    "format": "vasp-poscar",
-    "comment": "rocksalt-ish",
-    "scale": "1.0",
-    "volume": None,
-    "cell": [["4.0", "0.0", "0.0"], ["0.0", "4.0", "0.0"], ["0.0", "0.0", "4.0"]],
-    "symbols": ["Na", "Cl"],
-    "counts": [1, 1],
-    "cartesian": False,
-    "coords": [["0.0", "0.0", "0.0"], ["0.5", "0.5", "0.5"]],
-    "selective_dynamics": None,
-}
-
-structure = structure_from_poscar(poscar)
+structure = load("POSCAR")
 assert [species.name for species in structure.species] == ["Na", "Cl"]
 assert structure.cell.basis.to_floats() == [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
 assert structure.species_at_sites == ("Na", "Cl")
@@ -279,15 +262,12 @@ assert structure.species_at_sites == ("Na", "Cl")
 
 A negative scale line encodes a target cell **volume**; the resulting overall
 scale is the cube root of `V / |det(basis)|`, which leaves the exact surd field,
-so it is a deterministic rational approximation (the basis rows stay exact). The
-end-to-end `load_structure(path)` combines `httk.core.load` (which selects the
-reader by file type and decompresses `.bz2`/`.gz` transparently) with this
-bridge; it requires *httk-io* to be importable so its POSCAR loader is
-registered.
+so it is a deterministic rational approximation (the basis rows stay exact).
+The POSCAR reader requires *httk-io* to be importable so it can be registered.
 
 ## Building supercells
 
-`Structure.supercell(A)` applies an exact integer transformation to the cell
+`UnitcellStructure.supercell(A)` applies an exact integer transformation to the cell
 rows. If `A` has determinant $d$, the result contains exactly $|d|$ periodic
 copies and has basis `A * structure.cell.basis`. Coordinates and translation
 cosets stay rational-exact; no geometric tolerance is used.
@@ -315,7 +295,7 @@ an exact multiplier in v2.
 
 ## Serving structures as OPTIMADE
 
-`StructureEntryProvider` maps `{id: Structure}` onto the neutral
+`StructureEntryProvider` maps `{id: UnitcellStructure}` onto the neutral
 `httk.core.EntryProvider` contract for a serving module such as *httk-serve*.
 Besides the core structural fields it auto-derives the standard composition
 fields for a fully ordered structure (every species a single, unattached
@@ -326,7 +306,7 @@ serve null), and can serve custom database-specific properties via an extended
 definition:
 
 ```python
-from httk.atomistic import Structure, StructureEntryProvider
+from httk.atomistic import UnitcellStructure, StructureEntryProvider
 from httk.atomistic.species import Species
 from httk.core import PropertyDefinition
 
@@ -337,7 +317,7 @@ species = [
     Species(name="O", chemical_symbols=("O",), concentration=(1.0,)),
     Species(name="Sm", chemical_symbols=("Sm",), concentration=(1.0,)),
 ]
-smfeo3 = Structure(cell, sites, species, ["Fe"] * 4 + ["O"] * 12 + ["Sm"] * 4)
+smfeo3 = UnitcellStructure(cell, sites, species, ["Fe"] * 4 + ["O"] * 12 + ["Sm"] * 4)
 
 energy = PropertyDefinition.from_simple("_httk_total_energy", description="Total energy.", fulltype="float")
 provider = StructureEntryProvider(
@@ -360,6 +340,6 @@ assert records["known-but-empty"]["chemical_formula_reduced"] is None
 
 `unwrap(obj)` returns the most raw representation available:
 
-- for `Structure` / `UnitcellStructureView` this is the `Structure` backend
-- for `StructurePrimitive` / `StructurePrimitiveView` this is the `(lattice, positions, numbers)` triple
+- for `UnitcellStructure` / `UnitcellStructureView` this is the `UnitcellStructure` backend
+- for `PlainStructure` / `PlainStructureView` this is the `(lattice, positions, numbers)` triple
 - for non-view/backend objects it returns the object unchanged

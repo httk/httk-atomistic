@@ -6,9 +6,10 @@ parameters. Expanding it produces the full unit cell; recognizing a full cell
 produces it back.
 
 ```python
-from httk.atomistic import UnitcellStructureView, load_asu_structure
+from httk.atomistic import UnitcellStructureView
+from httk.core import load
 
-asu = load_asu_structure("nacl.cif")
+asu = load("nacl.cif")
 structure = UnitcellStructureView(asu)     # the full cell, exactly
 ```
 
@@ -24,10 +25,10 @@ the cell.
 | `cell` | the cell, in the structure's *own* setting |
 | `spacegroup` | the space group, as its International Tables **standard** setting |
 | `transform` | a {py:class}`~httk.atomistic.SettingTransform` from that standard setting to the structure's own |
-| `asu_sites` | one {py:class}`~httk.atomistic.ASUSite` per orbit: a Wyckoff letter, its free parameters, and a species name |
+| `wyckoff_sites` | one {py:class}`~httk.atomistic.WyckoffSite` per orbit: a Wyckoff letter, its free parameters, and a species name |
 | `species` | the species the sites name |
 
-An `ASUSite` carries a bare Wyckoff letter (`"e"`, not `"4e"`) and one exact
+An `WyckoffSite` carries a bare Wyckoff letter (`"e"`, not `"4e"`) and one exact
 value per degree of freedom — none at all for a fixed position such as an
 inversion centre. Partial occupancy needs nothing special: it lives in the
 referenced {py:class}`~httk.atomistic.Species`, which already carries a
@@ -45,7 +46,7 @@ that transform is *stored* rather than looked up, a setting that appears in no
 table is representable exactly as well as a tabulated one:
 
 ```python
-from httk.atomistic import ASUSite, ASUStructure, SettingTransform, Spacegroup
+from httk.atomistic import WyckoffSite, ASUStructure, SettingTransform, Spacegroup
 from httk.core import FracVector
 
 # A tabulated setting: look the transform up.
@@ -109,7 +110,7 @@ For an existing ASU — including a full-cell view that is still backed by one �
 `conventional_cell()` returns the same crystal re-expressed in the space group's IT
 standard-setting conventional cell. It keeps the ASU's standard-to-own transform in the
 result for provenance, while the result ASU has an identity transform; the basis change and
-expansion remain exact. For a plain `Structure`, the operation first runs tolerant
+expansion remain exact. For a plain `UnitcellStructure`, the operation first runs tolerant
 `recognize_asu()`: measured coordinates may be snapped, and the result records the transform
 chosen by recognition rather than an unstated transform from the input. Consequently a noisy
 plain structure need not be `same_crystal()`-equal to the result. The returned `multiplier`
@@ -178,7 +179,7 @@ one.
 
 ## Round-tripping
 
-`Structure → ASUStructure → Structure` reproduces the same crystal exactly, with
+`UnitcellStructure → ASUStructure → UnitcellStructure` reproduces the same crystal exactly, with
 no numerical drift, and for input that was already exact the coordinates come
 back *identical*:
 
@@ -193,7 +194,7 @@ assert same_crystal(structure, rebuilt)
 stated in: same cell and same *multiset* of (species, wrapped coordinate),
 ignoring site order and which lattice translate was written down. Site ordering
 is not preserved — the rebuilt structure follows canonical expansion order — so
-`Structure.__eq__`, which compares site lists element by element, is stricter
+`UnitcellStructure.__eq__`, which compares site lists element by element, is stricter
 than crystallographic identity and is the wrong tool here.
 
 ## Reading CIFs
@@ -203,11 +204,11 @@ and states the operations that generate the rest, so no symmetry search is
 needed.
 
 ```python
-from httk.atomistic import asu_structures_from_cif, load_asu_structure, load_structure
+from httk.atomistic import UnitcellStructureView, asu_structures_from_cif
 from httk.core import load
 
-asu = load_asu_structure("structure.cif")          # keeps the ASU form
-structure = load_structure("structure.cif")        # expands to the full cell
+asu = load("structure.cif")                         # keeps the native ASU form
+structure = UnitcellStructureView(asu)               # expand explicitly
 everything = asu_structures_from_cif(load("multi.cif", raw=True))   # one per data block
 ```
 
@@ -228,7 +229,7 @@ be wrong — pass `trust_declared_symmetry=False` to ignore the declaration and
 identify the setting from the operations alone:
 
 ```python
-asu = load_asu_structure("misdeclared.cif", trust_declared_symmetry=False)
+asu = asu_structures_from_cif(load("misdeclared.cif", raw=True), trust_declared_symmetry=False)[0]
 ```
 
 The Hermann-Mauguin symbol is deliberately not checked: it has too many
@@ -249,7 +250,7 @@ for structures raises with those reasons rather than returning an empty list.
 `StructureEntryProvider` serves an `ASUStructure`'s symmetry automatically. The standard
 OPTIMADE properties — `space_group_it_number`, the Hall and Hermann-Mauguin symbols,
 `space_group_symmetry_operations_xyz`, `wyckoff_positions`, `fractional_site_positions`,
-and `site_coordinate_span` — come straight from the ASU. A plain `Structure` carries no
+and `site_coordinate_span` — come straight from the ASU. A plain `UnitcellStructure` carries no
 symmetry, so they serve `null`; inferring a space group there would mean running a
 symmetry search behind the caller's back, with a tolerance nobody chose, on every record.
 
@@ -288,6 +289,6 @@ actually used. See the package's `README.md` for provenance and attribution.
 
 ## See also
 
-- {doc}`structures` — the `Structure` model these expand into
+- {doc}`structures` — the `UnitcellStructure` model these expand into
 - {doc}`precision` — where the default tolerance comes from
 - {doc}`examples/asu_from_cif` — a runnable walkthrough of everything above

@@ -9,14 +9,14 @@ from httk.core import FracVector, SurdVector
 
 from httk.atomistic import (
     Assembly,
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     ASUStructureView,
     Cell,
     SettingTransform,
     Spacegroup,
     Species,
-    Structure,
+    UnitcellStructure,
     StructureLike,
     UnitcellStructureView,
     conventional_cell,
@@ -39,7 +39,7 @@ def _rocksalt() -> ASUStructure:
     return ASUStructure(
         CUBIC,
         225,
-        [ASUSite("a", NO_PARAMETERS, "Na"), ASUSite("b", NO_PARAMETERS, "Cl")],
+        [WyckoffSite("a", NO_PARAMETERS, "Na"), WyckoffSite("b", NO_PARAMETERS, "Cl")],
         _species("Na", "Cl"),
     )
 
@@ -50,7 +50,7 @@ def _monoclinic() -> tuple[ASUStructure, SettingTransform]:
         ASUStructure(
             ORTHO,
             15,
-            [ASUSite("e", FracVector.create(["1/3"]), "Si")],
+            [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
             _species("Si"),
             transform=transform,
         ),
@@ -100,7 +100,7 @@ def test_standardization_preserves_chemical_annotations() -> None:
     asu = ASUStructure(
         CUBIC,
         225,
-        [ASUSite("a", NO_PARAMETERS, "Na"), ASUSite("b", NO_PARAMETERS, "Cl")],
+        [WyckoffSite("a", NO_PARAMETERS, "Na"), WyckoffSite("b", NO_PARAMETERS, "Cl")],
         _species("Na", "Cl"),
         chemical_composition=ChemicalComposition({"H": 2}, mode="implicit"),
         chemical_formula_descriptive="Cl2HNa2",
@@ -149,7 +149,7 @@ def test_a_nonstandard_setting_is_mapped_back_to_the_standard_cell() -> None:
     original = UnitcellStructureView(asu)
 
     result = conventional_cell(asu)
-    mapped = Structure(
+    mapped = UnitcellStructure(
         result.structure.cell,
         [transform.to_standard(row).normalize() for row in original.sites.reduced_coords],
         original.species,
@@ -173,7 +173,7 @@ def test_rhombohedral_setting_expands_to_three_standard_cell_sites() -> None:
     asu = ASUStructure(
         rhombohedral_basis,
         166,
-        [ASUSite("a", NO_PARAMETERS, "Bi")],
+        [WyckoffSite("a", NO_PARAMETERS, "Bi")],
         _species("Bi"),
         transform=transform,
         chemical_composition=ChemicalComposition({"H": 1}, mode="implicit"),
@@ -199,7 +199,7 @@ def test_rhombohedral_setting_expands_to_three_standard_cell_sites() -> None:
 
 def test_standardization_remaps_assemblies_only_for_an_exact_bijection() -> None:
     carbon = _species("C")
-    exact = Structure(
+    exact = UnitcellStructure(
         CUBIC,
         [[0, 0, 0]],
         carbon,
@@ -210,7 +210,7 @@ def test_standardization_remaps_assemblies_only_for_an_exact_bijection() -> None
     assert result.assemblies is not None
     assert result.assemblies[0].sites_in_groups == ((0,),)
 
-    noisy = Structure(
+    noisy = UnitcellStructure(
         CUBIC,
         [[F(1, 100_000), 0, 0]],
         carbon,
@@ -229,7 +229,7 @@ def test_precision_is_scaled_by_the_exact_induced_matrix_norms() -> None:
             precision=F(1, 50),
         ),
         221,
-        [ASUSite("a", NO_PARAMETERS, "C")],
+        [WyckoffSite("a", NO_PARAMETERS, "C")],
         _species("C"),
         transform=transform,
         coordinate_precision=F(1, 1000),
@@ -247,7 +247,7 @@ def test_an_untabulated_half_determinant_transform_can_have_a_subunit_multiplier
     asu = ASUStructure(
         [[10, 0, 0], [0, 5, 0], [0, 0, 5]],
         221,
-        [ASUSite("a", NO_PARAMETERS, "C")],
+        [WyckoffSite("a", NO_PARAMETERS, "C")],
         _species("C"),
         transform=transform,
     )
@@ -259,7 +259,7 @@ def test_an_untabulated_half_determinant_transform_can_have_a_subunit_multiplier
 
 def test_plain_structure_path_matches_recognized_asu_path_and_forwards_tolerance() -> None:
     expanded = UnitcellStructureView(_rocksalt())
-    plain = Structure(
+    plain = UnitcellStructure(
         expanded.cell,
         expanded.sites,
         expanded.species,
@@ -269,8 +269,8 @@ def test_plain_structure_path_matches_recognized_asu_path_and_forwards_tolerance
     expected = conventional_cell(recognize_asu(plain))
     assert direct.structure == expected.structure
 
-    one_site = UnitcellStructureView(ASUStructure(CUBIC, 221, [ASUSite("a", NO_PARAMETERS, "C")], _species("C")))
-    noisy = Structure(
+    one_site = UnitcellStructureView(ASUStructure(CUBIC, 221, [WyckoffSite("a", NO_PARAMETERS, "C")], _species("C")))
+    noisy = UnitcellStructure(
         one_site.cell,
         [[F(1, 100000), F(0), F(0)]],
         one_site.species,
@@ -288,7 +288,7 @@ def test_plain_structure_path_forwards_limit_denominator(
     original_recognize = module.recognize_asu
     captured: dict[str, Any] = {}
     expanded = UnitcellStructureView(_rocksalt())
-    plain = Structure(
+    plain = UnitcellStructure(
         expanded.cell,
         expanded.sites,
         expanded.species,
@@ -314,7 +314,7 @@ def test_asu_input_rejects_recognition_arguments() -> None:
 
 
 def test_non_three_dimensional_plain_input_is_refused_by_recognition() -> None:
-    structure = Structure(
+    structure = UnitcellStructure(
         Cell(CUBIC, periodicity=(True, True, False)),
         [[0, 0, 0]],
         _species("C"),

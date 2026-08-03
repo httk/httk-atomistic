@@ -26,7 +26,7 @@ Both are exact rationals, so nothing picks up binary noise on the way to
 becoming a tolerance. `None` means unknown, which is a real answer and not the
 same as claiming exactness.
 
-`Structure.cartesian_precision()` combines them into the number a tolerance
+`UnitcellStructure.cartesian_precision()` combines them into the number a tolerance
 actually wants: a distance. That conversion is not cosmetic — the same `1e-4`
 coordinates mean `5e-4` in a 5 A cell and `3e-3` in a 30 A one.
 
@@ -55,7 +55,7 @@ from httk.atomistic import (
     Sites,
     Spacegroup,
     Species,
-    Structure,
+    UnitcellStructure,
     UnitcellStructureView,
     structure_tolerance,
 )
@@ -92,14 +92,14 @@ def show_the_conversion_to_a_distance() -> None:
     sodium = [Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))]
     for edge in (5, 30):
         cell = [[edge, 0, 0], [0, edge, 0], [0, 0, edge]]
-        structure = Structure(Cell(cell), Sites([[0, 0, 0]], F(1, 10000)), sodium, ["Na"])
+        structure = UnitcellStructure(Cell(cell), Sites([[0, 0, 0]], F(1, 10000)), sodium, ["Na"])
         print(f"   coordinates good to 1e-4 in a {edge:>2} A cell  ->  {angstrom(structure.cartesian_precision())}")
     print("Same coordinates, same claim, six times the physical uncertainty.")
     print()
 
     print("The cell's own precision is a floor — a cell known to 1e-3 cannot")
     print("place an atom better than that, however many decimals the sites have:")
-    coarse_cell = Structure(
+    coarse_cell = UnitcellStructure(
         Cell([[5, 0, 0], [0, 5, 0], [0, 0, 5]], 1, F(1, 1000)),
         Sites([[0, 0, 0]], F(1, 10000)),
         sodium,
@@ -142,7 +142,7 @@ def show_the_payoff(directory: Path) -> None:
 
     for label, tolerance in (("a fixed 1e-3 tolerance", 1e-3), ("the derived tolerance", None)):
         asu = asu_structure_from_cif(block, tolerance=tolerance)
-        position = asu.spacegroup.wyckoff_position(asu.asu_sites[0].wyckoff)
+        position = asu.spacegroup.wyckoff_position(asu.wyckoff_sites[0].wyckoff)
         atoms = len(UnitcellStructureView(asu).sites)
         print(f"   {label:<24} -> Wyckoff {position.multiplicity}{position.letter}, {atoms} atoms")
 
@@ -163,8 +163,10 @@ def show_the_tolerance_is_bounded() -> None:
     ]
     cell = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
 
-    far = Structure(Cell(cell), Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]], F(1, 10)), species, ["Na", "Cl"])
-    close = Structure(Cell(cell), Sites([[0, 0, 0], [F(1, 10), 0, 0]], F(1, 10)), species, ["Na", "Cl"])
+    far = UnitcellStructure(
+        Cell(cell), Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]], F(1, 10)), species, ["Na", "Cl"]
+    )
+    close = UnitcellStructure(Cell(cell), Sites([[0, 0, 0], [F(1, 10), 0, 0]], F(1, 10)), species, ["Na", "Cl"])
 
     print(f"   coarse data, atoms 4.33 A apart -> {structure_tolerance(far):.2f} A  (as derived)")
     print(f"   coarse data, atoms 0.50 A apart -> {structure_tolerance(close):.2f} A  (capped)")
@@ -172,7 +174,7 @@ def show_the_tolerance_is_bounded() -> None:
     print("merge atoms that are genuinely distinct.")
     print()
 
-    unknown = Structure(Cell(cell), Sites([[0, 0, 0]]), species[:1], ["Na"])
+    unknown = UnitcellStructure(Cell(cell), Sites([[0, 0, 0]]), species[:1], ["Na"])
     print(f"   a structure that states no precision  -> {angstrom(unknown.cartesian_precision())}")
     print(f"   ...so its tolerance is                -> {structure_tolerance(unknown)} (the documented fallback)")
     print()

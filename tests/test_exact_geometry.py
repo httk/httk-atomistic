@@ -9,7 +9,7 @@ import math
 import pytest
 from httk.core import FracVector, SurdVector
 
-from httk.atomistic import Cell, CellParams, Sites, Structure
+from httk.atomistic import Cell, CellParams, Sites, UnitcellStructure
 
 F = fractions.Fraction
 
@@ -88,7 +88,7 @@ def test_scale_factors_out_exactly() -> None:
 
 def test_exact_cartesian_and_metric_bond_length() -> None:
     cell = _hexagonal(3, 5)
-    structure = Structure(
+    structure = UnitcellStructure(
         cell=cell,
         sites=[[F(0), F(0), F(0)], [F(1, 3), F(1, 3), F(0)]],
         species=[{"name": "Fe", "chemical_symbols": ["Fe"], "concentration": [1.0]}],
@@ -123,8 +123,8 @@ def test_vectorlike_inputs_fraction_string_fracvector() -> None:
     # FracVector directly.
     fv_cell = Cell(FracVector.create(identity))
     assert fv_cell.basis == SurdVector.create(identity)
-    # A Structure accepts these forms.
-    structure = Structure(
+    # A UnitcellStructure accepts these forms.
+    structure = UnitcellStructure(
         cell=[["1/3", 0, 0], [0, 1, 0], [0, 0, 1]],
         sites=FracVector.create([[F(1, 4), F(1, 4), F(1, 4)]]),
         species=[{"name": "Si", "chemical_symbols": ["Si"], "concentration": [1.0]}],

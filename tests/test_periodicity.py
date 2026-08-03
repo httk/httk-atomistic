@@ -1,4 +1,4 @@
-"""Unit tests for 2D, 1D and 0D periodicity on Cell, Sites and Structure.
+"""Unit tests for 2D, 1D and 0D periodicity on Cell, Sites and UnitcellStructure.
 
 The model under test: the basis is a *coordinate frame*, not a container. A row flagged
 non-periodic is not a lattice vector, only a statement of what a fractional coordinate means
@@ -7,15 +7,15 @@ along that direction, so coordinates there are unbounded and are never wrapped.
 
 import pytest
 
-from httk.atomistic import Cell, Structure
+from httk.atomistic import Cell, UnitcellStructure
 from httk.atomistic.species import Species
 
 NA = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))
 CUBE = [[3, 0, 0], [0, 3, 0], [0, 0, 5]]
 
 
-def _structure(periodicity=None, coords=((0, 0, 0),)) -> Structure:
-    return Structure(Cell(CUBE, periodicity=periodicity), list(coords), [NA], ["Na"] * len(coords))
+def _structure(periodicity=None, coords=((0, 0, 0),)) -> UnitcellStructure:
+    return UnitcellStructure(Cell(CUBE, periodicity=periodicity), list(coords), [NA], ["Na"] * len(coords))
 
 
 # --- the attribute ---
@@ -89,20 +89,20 @@ def test_periodicity_survives_the_numeric_presentation() -> None:
 
 
 def test_a_backend_that_knows_no_periodicity_reports_a_crystal() -> None:
-    """CellParams and CellPrimitive have no source for it, and a crystal is the honest default.
+    """CellParams and PlainCell have no source for it, and a crystal is the honest default.
 
     Six lattice parameters cannot express periodicity, so the concrete `CellAPI.periodicity`
     default is what such a backend inherits.
     """
     from httk.atomistic.cell_params import CellParams
-    from httk.atomistic.cell_primitive import CellPrimitive
+    from httk.atomistic.plain_cell import PlainCell
 
     assert CellParams([3, 3, 5, 90, 90, 90]).periodicity == (True, True, True)
-    assert CellPrimitive(CUBE).periodicity == (True, True, True)
+    assert PlainCell(CUBE).periodicity == (True, True, True)
 
 
 def test_structure_reads_periodicity_through_its_cell() -> None:
-    """Structure gains no constructor argument; the value rides inside the Cell."""
+    """UnitcellStructure gains no constructor argument; the value rides inside the Cell."""
     structure = _structure((1, 1, 0))
     assert structure.periodicity == structure.cell.periodicity == (True, True, False)
 
@@ -173,7 +173,7 @@ def test_the_tolerance_cap_does_not_fold_a_non_periodic_direction() -> None:
 
     def half_separation(periodicity):
         cell = Cell(tall, periodicity=periodicity)
-        structure = Structure(cell, list(pair), [NA], ["Na", "Na"])
+        structure = UnitcellStructure(cell, list(pair), [NA], ["Na", "Na"])
         return _half_minimum_separation(UnitcellStructureView(structure))
 
     assert half_separation((1, 1, 1)) == pytest.approx(0.5)  # folded: 1 A apart
@@ -278,14 +278,14 @@ def test_lengths_and_angles_stay_available_whatever_the_periodicity() -> None:
 # unsymmetric structure pass as symmetric.
 
 
-def _slab() -> Structure:
+def _slab() -> UnitcellStructure:
     return _structure((1, 1, 0))
 
 
 def test_asu_structure_refuses_a_reduced_periodicity_cell() -> None:
-    from httk.atomistic import ASUSite, ASUStructure
+    from httk.atomistic import WyckoffSite, ASUStructure
 
-    site = ASUSite(wyckoff="a", free_params=(), species="Na")
+    site = WyckoffSite(wyckoff="a", free_params=(), species="Na")
     with pytest.raises(ValueError, match="fully 3D-periodic"):
         ASUStructure(_slab().cell, 221, [site], [NA])
 
@@ -339,7 +339,7 @@ def test_a_crystal_is_still_recognised_normally() -> None:
     from httk.atomistic import recognize_asu, same_crystal
 
     cell = Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]])
-    structure = Structure(cell, [[0, 0, 0], ["1/2", "1/2", "1/2"]], [NA], ["Na", "Na"])
+    structure = UnitcellStructure(cell, [[0, 0, 0], ["1/2", "1/2", "1/2"]], [NA], ["Na", "Na"])
     asu = recognize_asu(structure)
     assert same_crystal(asu, structure)
 
@@ -356,7 +356,7 @@ def test_a_molecule_is_the_identity_frame_with_nothing_periodic() -> None:
     hydrogen = Species(name="H", chemical_symbols=("H",), concentration=(1.0,))
     oxygen = Species(name="O", chemical_symbols=("O",), concentration=(1.0,))
     water = [[0, 0, 0], ["3/4", "3/5", 0], ["-3/4", "3/5", 0]]
-    molecule = Structure(
+    molecule = UnitcellStructure(
         Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]], periodicity=(0, 0, 0)),
         water,
         [oxygen, hydrogen],
@@ -423,7 +423,7 @@ def test_a_crystal_still_serves_its_space_group() -> None:
     from httk.atomistic import StructureEntryProvider, recognize_asu
 
     cell = Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]])
-    structure = Structure(cell, [[0, 0, 0], ["1/2", "1/2", "1/2"]], [NA], ["Na", "Na"])
+    structure = UnitcellStructure(cell, [[0, 0, 0], ["1/2", "1/2", "1/2"]], [NA], ["Na", "Na"])
     asu = recognize_asu(structure)
     (record,) = list(StructureEntryProvider({"x": asu}).records("structures"))
     assert record["nperiodic_dimensions"] == 3
@@ -456,7 +456,7 @@ def test_the_documented_remarking_recipe_preserves_everything_else() -> None:
     """
     from httk.atomistic import Sites
 
-    loaded = Structure(
+    loaded = UnitcellStructure(
         Cell([[2, 0, 0], [0, 2, 0], [0, 0, 20]], scale=3, precision="1/10000"),
         Sites([[0, 0, "2/5"]], precision="1/100000"),
         [NA],
@@ -464,7 +464,7 @@ def test_the_documented_remarking_recipe_preserves_everything_else() -> None:
     )
     assert loaded.periodicity == (True, True, True)
 
-    slab = Structure(
+    slab = UnitcellStructure(
         Cell(
             loaded.cell.unscaled_basis,
             loaded.cell.scale,

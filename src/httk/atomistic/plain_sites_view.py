@@ -12,7 +12,7 @@ from .sites_like import SitesLike
 from .sites_view_base import SitesViewBase
 
 
-class SitesPrimitiveView(SitesViewBase, tuple):
+class PlainSitesView(SitesViewBase, tuple):
     """
     A view presenting an underlying sites backend as a raw Nx3 matrix of floats.
 

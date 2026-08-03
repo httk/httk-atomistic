@@ -32,14 +32,14 @@ chemical symbol), a tuple of `chemical_symbols`, and a matching tuple of
   length. This is how you record a methyl group, a hydroxyl, or bound water
   without inventing coordinates you do not have.
 
-**Which representations can carry this?** The Unitcell representation — a `Structure`, and the
+**Which representations can carry this?** The Unitcell representation — a `UnitcellStructure`, and the
 `UnitcellStructureView` over any backend — carries all of it, because it stores
 the `Species` objects themselves. The OPTIMADE species dict (via
-`SpeciesPrimitiveView`) carries all of it too, because that is where the model
+`PlainSpeciesView`) carries all of it too, because that is where the model
 came from. But the **primitive** representation is the spglib-style
 `(lattice, positions, numbers)` triple, and `numbers` is a list of bare atomic
 numbers: there is no integer that means "90% Ti", and no integer that means
-"carbon plus three hydrogens". So `StructurePrimitiveView` does not silently
+"carbon plus three hydrogens". So `PlainStructureView` does not silently
 round, drop, or approximate — it raises `TypeError`, naming the species it
 could not express.
 
@@ -57,10 +57,10 @@ primitive only at the boundary of a tool that cannot represent disorder; a
 from httk.core import unwrap
 
 from httk.atomistic import (
+    PlainSpeciesView,
+    PlainStructureView,
     Species,
-    SpeciesPrimitiveView,
-    Structure,
-    StructurePrimitiveView,
+    UnitcellStructure,
     UnitcellStructureView,
 )
 
@@ -97,8 +97,8 @@ def species_are_richer_than_elements() -> None:
 
 
 def disorder_survives_the_simple_representation() -> None:
-    """The Structure, and any UnitcellStructureView, keep every field intact."""
-    structure = Structure(
+    """The UnitcellStructure, and any UnitcellStructureView, keep every field intact."""
+    structure = UnitcellStructure(
         cell=CUBIC,
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         species=[TI_WITH_VACANCY, METHYL],
@@ -106,7 +106,7 @@ def disorder_survives_the_simple_representation() -> None:
     )
 
     by_name = {species.name: species for species in structure.species}
-    print("Unitcell representation (a Structure):")
+    print("Unitcell representation (a UnitcellStructure):")
     print("  Ti  chemical_symbols ", by_name["Ti"].chemical_symbols)
     print("  Ti  concentration    ", by_name["Ti"].concentration)
     print("  CH3 attached         ", by_name["CH3"].attached)
@@ -120,35 +120,35 @@ def disorder_survives_the_simple_representation() -> None:
     # ...and so does the OPTIMADE species dict, which is where this model comes from.
     print("  as OPTIMADE dicts:")
     for species in structure.species:
-        print("   ", dict(SpeciesPrimitiveView(species)))
+        print("   ", dict(PlainSpeciesView(species)))
 
 
 def the_primitive_representation_refuses() -> None:
     """A bare atomic number cannot mean '90% Ti', so conversion raises TypeError."""
-    print("Primitive representation (an spglib-style triple):")
+    print("Plain representation (an spglib-style triple):")
     for label, species in (("partial vacancy", TI_WITH_VACANCY), ("attached particles", METHYL), ("alloy", FE_NI)):
-        structure = Structure(
+        structure = UnitcellStructure(
             cell=CUBIC,
             sites=[[0.0, 0.0, 0.0]],
             species=[species],
             species_at_sites=[species.name],
         )
         try:
-            StructurePrimitiveView(structure)
+            PlainStructureView(structure)
         except TypeError as error:
             print(f"  {label:<19} -> TypeError: {error}")
         else:  # pragma: no cover - unreachable while the check above holds
             print(f"  {label:<19} -> unexpectedly accepted")
 
     # A fully ordered structure converts without complaint, of course:
-    ordered = Structure(cell=CUBIC, sites=[[0.0, 0.0, 0.0]], species=[OXYGEN], species_at_sites=["O"])
-    _lattice, _positions, numbers = StructurePrimitiveView(ordered)
+    ordered = UnitcellStructure(cell=CUBIC, sites=[[0.0, 0.0, 0.0]], species=[OXYGEN], species_at_sites=["O"])
+    _lattice, _positions, numbers = PlainStructureView(ordered)
     print("  fully ordered       -> atomic numbers", numbers)
 
 
 def guard_before_converting() -> None:
     """The idiomatic pre-flight check before handing a structure to an element-only tool."""
-    mixed = Structure(
+    mixed = UnitcellStructure(
         cell=CUBIC,
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         species=[FE_NI, OXYGEN],

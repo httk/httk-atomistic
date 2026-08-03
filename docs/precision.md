@@ -6,9 +6,10 @@ A data file states its numbers to a definite number of digits, and that is a cla
 `symprec` follows the data instead of being a constant somebody guessed.
 
 ```python
-from httk.atomistic import load_asu_structure, structure_tolerance
+from httk.atomistic import structure_tolerance
+from httk.core import load
 
-asu = load_asu_structure("measured.cif")
+asu = load("measured.cif")
 asu.coordinate_precision      # Fraction(1, 10000) — from the file's own digits
 asu.cell.precision            # Fraction(3, 10000) — widened by a stated esd
 structure_tolerance(asu)      # a matching tolerance derived from both
@@ -28,7 +29,7 @@ noise on the way to becoming a tolerance. `None` means **unknown**, which is a r
 and not the same as claiming exactness. A non-positive value is rejected: zero would assert
 an exactness no measurement has.
 
-`Structure` reads both through, and adds the value a tolerance actually wants:
+`UnitcellStructure` reads both through, and adds the value a tolerance actually wants:
 
 ```python
 structure.coordinate_precision     # fractional
@@ -46,7 +47,7 @@ before it is used as a distance.
 ```{admonition} Precision is not part of identity
 :class: note
 
-It takes no part in `==`, on `Cell`, `Sites`, `Structure`, or in
+It takes no part in `==`, on `Cell`, `Sites`, `UnitcellStructure`, or in
 {py:func}`~httk.atomistic.same_crystal`. The same atoms read from a more carefully written
 file are still the same structure. (`Cell.__eq__` already ignored the `scale`/`unscaled`
 factoring for the same reason.)

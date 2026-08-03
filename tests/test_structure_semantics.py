@@ -4,7 +4,7 @@ import pytest
 
 from httk.atomistic import (
     Assembly,
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     ASUStructureView,
     Cell,
@@ -12,7 +12,7 @@ from httk.atomistic import (
     Sites,
     Spacegroup,
     Species,
-    Structure,
+    UnitcellStructure,
 )
 from httk.atomistic.affine_operation import AffineOperation
 from httk.atomistic.composition import ChemicalComposition
@@ -20,7 +20,7 @@ from httk.atomistic.structure_semantics import StructureSymmetry
 
 
 def _structure(**kwargs):
-    return Structure(
+    return UnitcellStructure(
         Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]),
         Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]]),
         (Species("B", ("B",), (1,)), Species("TlO", ("Tl", "O"), (F(1, 3), F(2, 3)))),
@@ -45,7 +45,7 @@ def test_structure_exposes_common_optimade_semantics() -> None:
 
 
 def test_span_depends_on_representation_not_dimensionality() -> None:
-    zero_dimensional = Structure(
+    zero_dimensional = UnitcellStructure(
         Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]], periodicity=(False, False, False)),
         Sites([[0, 0, 0]]),
         (Species("C", ("C",), (1,)),),
@@ -53,7 +53,7 @@ def test_span_depends_on_representation_not_dimensionality() -> None:
     )
     assert zero_dimensional.site_coordinate_span == "unit_cell"
     assert zero_dimensional.space_group_symmetry_operations_xyz is None
-    molecular = Structure(
+    molecular = UnitcellStructure(
         zero_dimensional.cell,
         zero_dimensional.sites,
         zero_dimensional.species,
@@ -88,7 +88,7 @@ def test_native_annotations_are_explicit_structural_values() -> None:
 
 
 def test_explicit_hill_validation_and_roundtrip() -> None:
-    methane = Structure(
+    methane = UnitcellStructure(
         Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]),
         Sites([[0, 0, 0]]),
         (Species("methane", ("C",), (1,), attached=("H",), nattached=(4,)),),
@@ -99,15 +99,19 @@ def test_explicit_hill_validation_and_roundtrip() -> None:
     assert methane.chemical_formula_hill == "CH4"
     assert methane.chemical_formula_descriptive == "CH4"
     with pytest.raises(ValueError, match="Hill order"):
-        Structure(methane.cell, methane.sites, methane.species, methane.species_at_sites, chemical_formula_hill="H4C")
+        UnitcellStructure(
+            methane.cell, methane.sites, methane.species, methane.species_at_sites, chemical_formula_hill="H4C"
+        )
     with pytest.raises(ValueError, match="ratios disagree"):
-        Structure(methane.cell, methane.sites, methane.species, methane.species_at_sites, chemical_formula_hill="CH3")
+        UnitcellStructure(
+            methane.cell, methane.sites, methane.species, methane.species_at_sites, chemical_formula_hill="CH3"
+        )
 
 
 def test_fundamental_domain_and_asu_spans_and_representatives() -> None:
     cell = Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]])
     group = Spacegroup.standard(221)
-    site = ASUSite("a", (), "Cs", representative=(0, 0, 0))
+    site = WyckoffSite("a", (), "Cs", representative=(0, 0, 0))
     species = (Species("Cs", ("Cs",), (1,)),)
     domain = FundamentalDomainStructure(cell, group, (site,), species)
     asu = ASUStructure(cell, group, (site,), species, molecular=True)
@@ -124,7 +128,7 @@ def test_fundamental_domain_and_asu_spans_and_representatives() -> None:
         FundamentalDomainStructure(
             cell,
             group,
-            (ASUSite("a", (), "Cs", representative=(F(1, 4), 0, 0)),),
+            (WyckoffSite("a", (), "Cs", representative=(F(1, 4), 0, 0)),),
             species,
         )
 
@@ -150,7 +154,7 @@ def test_semantic_input_validation() -> None:
     with pytest.raises(ValueError, match="Wyckoff"):
         StructureSymmetry(wyckoff_positions=("bogus",))
     with pytest.raises(ValueError, match="three periodic"):
-        Structure(
+        UnitcellStructure(
             Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]], periodicity=(True, True, False)),
             Sites([[0, 0, 0]]),
             (Species("B", ("B",), (1,)),),
@@ -158,7 +162,7 @@ def test_semantic_input_validation() -> None:
             symmetry=StructureSymmetry(space_group_it_number=1),
         )
     with pytest.raises(ValueError, match="must be null"):
-        Structure(
+        UnitcellStructure(
             Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]], periodicity=(False, False, False)),
             Sites([[0, 0, 0]]),
             (Species("B", ("B",), (1,)),),
@@ -196,11 +200,13 @@ def test_present_empty_assemblies_and_precision_are_structural() -> None:
     assert empty.assemblies == ()
     assert empty.structure_features == ("assemblies", "disorder")
     assert empty != _structure()
-    precise = Structure(
+    precise = UnitcellStructure(
         Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]], precision=F(1, 100)),
         Sites([[0, 0, 0]], precision=F(1, 100)),
         (Species("B", ("B",), (1,)),),
         ("B",),
     )
-    vague = Structure(precise.cell.basis, precise.sites.reduced_coords, precise.species, precise.species_at_sites)
+    vague = UnitcellStructure(
+        precise.cell.basis, precise.sites.reduced_coords, precise.species, precise.species_at_sites
+    )
     assert precise != vague

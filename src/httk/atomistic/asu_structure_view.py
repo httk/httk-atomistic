@@ -89,7 +89,7 @@ class ASUStructureView(StructureView, ASUStructure):
             instance,
             asu.cell,
             asu.spacegroup,
-            asu.asu_sites,
+            asu.wyckoff_sites,
             asu.species,
             asu.transform,
             asu.coordinate_precision,

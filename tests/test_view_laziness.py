@@ -2,7 +2,7 @@ import pytest
 from httk.core import FracVector, unwrap
 
 from httk.atomistic import (
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     Cell,
     CellView,
@@ -10,17 +10,17 @@ from httk.atomistic import (
     Sites,
     SitesView,
     Species,
-    Structure,
+    UnitcellStructure,
     UnitcellStructureView,
 )
-from httk.atomistic.cell_primitive import CellPrimitive
+from httk.atomistic.plain_cell import PlainCell
 from httk.atomistic.cell_numeric_view import CellNumericView
-from httk.atomistic.sites_primitive import SitesPrimitive
+from httk.atomistic.plain_sites import PlainSites
 from httk.atomistic.sites_numeric_view import SitesNumericView
 from httk.atomistic.structure_backend import StructureBackend
 
 
-class ProbeCellPrimitive(CellPrimitive):
+class ProbePlainCell(PlainCell):
     unscaled_basis_calls = 0
 
     @property
@@ -29,7 +29,7 @@ class ProbeCellPrimitive(CellPrimitive):
         return super().unscaled_basis
 
 
-class ProbeSitesPrimitive(SitesPrimitive):
+class ProbePlainSites(PlainSites):
     reduced_coords_calls = 0
 
     @property
@@ -75,7 +75,7 @@ class CountingStructureBackend(StructureBackend):
 
 
 def test_cell_view_fills_backend_call_groups_lazily() -> None:
-    probe = ProbeCellPrimitive(CUBE)
+    probe = ProbePlainCell(CUBE)
     view = CellView(probe)
 
     assert probe.unscaled_basis_calls == 0
@@ -89,7 +89,7 @@ def test_cell_view_fills_backend_call_groups_lazily() -> None:
 
 
 def test_sites_view_fills_backend_call_groups_lazily() -> None:
-    probe = ProbeSitesPrimitive(COORDS)
+    probe = ProbePlainSites(COORDS)
     precision_view = SitesView(probe)
 
     assert precision_view.precision is None
@@ -104,7 +104,7 @@ def test_sites_view_fills_backend_call_groups_lazily() -> None:
 def test_numeric_views_defer_their_exact_presentation() -> None:
     pytest.importorskip("numpy")
 
-    cell_probe = ProbeCellPrimitive(CUBE)
+    cell_probe = ProbePlainCell(CUBE)
     cell_view = CellNumericView(cell_probe)
     assert "_cell" not in cell_view.__dict__
     assert cell_probe.unscaled_basis_calls == 0
@@ -112,7 +112,7 @@ def test_numeric_views_defer_their_exact_presentation() -> None:
     _ = cell_view.basis
     assert cell_probe.unscaled_basis_calls == 1
 
-    sites_probe = ProbeSitesPrimitive(COORDS)
+    sites_probe = ProbePlainSites(COORDS)
     sites_view = SitesNumericView(sites_probe)
     assert "_sites" not in sites_view.__dict__
     assert sites_probe.reduced_coords_calls == 0
@@ -122,7 +122,7 @@ def test_numeric_views_defer_their_exact_presentation() -> None:
 
 
 def test_cell_view_defers_degenerate_basis_validation() -> None:
-    probe = ProbeCellPrimitive([[1, 0, 0], [2, 0, 0], [0, 0, 1]])
+    probe = ProbePlainCell([[1, 0, 0], [2, 0, 0], [0, 0, 1]])
     view = CellView(probe)
 
     assert "_unscaled_basis" not in view.__dict__
@@ -134,7 +134,7 @@ def test_cell_view_defers_degenerate_basis_validation() -> None:
 
 
 def test_unmaterialized_cell_view_round_trips_and_compares() -> None:
-    probe = ProbeCellPrimitive(CUBE)
+    probe = ProbePlainCell(CUBE)
     view = CellView(probe)
 
     assert "_unscaled_basis" not in view.__dict__
@@ -161,7 +161,7 @@ def test_asu_unitcell_view_does_not_expand_until_sites() -> None:
     asu = ASUStructure(
         CUBE,
         225,
-        [ASUSite("a", FracVector.create(()), "Na")],
+        [WyckoffSite("a", FracVector.create(()), "Na")],
         [Species("Na", ("Na",), (1.0,))],
     )
     view = UnitcellStructureView(asu)
@@ -197,7 +197,7 @@ def test_structure_view_defers_species_name_validation() -> None:
 
     with pytest.raises(ValueError) as error:
         _ = view.species_at_sites
-    assert str(error.value) == "Structure species_at_sites references unknown species name: 'Missing'"
+    assert str(error.value) == "UnitcellStructure species_at_sites references unknown species name: 'Missing'"
 
     cell_only = UnitcellStructureView(CountingStructureBackend(("Missing", "Cl")))
     assert cell_only.cell.basis.to_floats() == [
@@ -207,7 +207,7 @@ def test_structure_view_defers_species_name_validation() -> None:
     ]
 
     with pytest.raises(ValueError) as eager_error:
-        Structure(CUBE, COORDS, bad._species, ("Missing", "Cl"))
+        UnitcellStructure(CUBE, COORDS, bad._species, ("Missing", "Cl"))
     assert str(eager_error.value) == str(error.value)
 
 
@@ -218,15 +218,17 @@ def test_structure_validation_precedence_stays_eager_but_views_are_per_component
     )
     one_site = [[0, 0, 0]]
     with pytest.raises(ValueError) as eager_error:
-        Structure(CUBE, one_site, species, ("Missing", "Na"))
-    assert str(eager_error.value) == "Structure species_at_sites must have the same length as sites"
+        UnitcellStructure(CUBE, one_site, species, ("Missing", "Na"))
+    assert str(eager_error.value) == "UnitcellStructure species_at_sites must have the same length as sites"
 
     bad_name_view = UnitcellStructureView(CountingStructureBackend(("Missing", "Na"), Sites(one_site)))
     with pytest.raises(ValueError) as membership_error:
         _ = bad_name_view.species_at_sites
-    assert str(membership_error.value) == "Structure species_at_sites references unknown species name: 'Missing'"
+    assert (
+        str(membership_error.value) == "UnitcellStructure species_at_sites references unknown species name: 'Missing'"
+    )
 
     bad_length_view = UnitcellStructureView(CountingStructureBackend(("Na", "Na"), Sites(one_site)))
     with pytest.raises(ValueError) as length_error:
         _ = bad_length_view.sites
-    assert str(length_error.value) == "Structure species_at_sites must have the same length as sites"
+    assert str(length_error.value) == "UnitcellStructure species_at_sites must have the same length as sites"

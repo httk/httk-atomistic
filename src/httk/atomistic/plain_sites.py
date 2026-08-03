@@ -10,7 +10,7 @@ from ._vector_guards import is_coords_nx3, to_fracvector
 from .sites_backend import SitesBackend
 
 
-class SitesPrimitive(SitesBackend):
+class PlainSites(SitesBackend):
     """
     Backend for sites backed by a raw Nx3 list or tuple of numbers (or any Nx3 vector-like).
 
@@ -24,7 +24,7 @@ class SitesPrimitive(SitesBackend):
 
     # Cannot type annotate __new__ as `Self | None` for some reason
     def __new__(cls, obj: Any, **hints: Any) -> Any:
-        if hints and hints.get("kind", "primitive") != "primitive":
+        if hints and hints.get("kind", "plain") != "plain":
             return None
         if not is_coords_nx3(obj):
             return None

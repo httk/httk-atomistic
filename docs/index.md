@@ -9,7 +9,7 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 :class: tip
 
 - **API reference**: {doc}`reference/index`
-- **Structure guide**: {doc}`structures`
+- **UnitcellStructure guide**: {doc}`structures`
 - **Asymmetric units**: {doc}`asu`
 - **Data precision**: {doc}`precision`
 - **Periodicity (slabs, wires, molecules)**: {doc}`periodicity`
@@ -30,9 +30,9 @@ python -m pip install -e .
 ## Usage example
 
 ```python
-from httk.atomistic import Structure, StructurePrimitiveView
+from httk.atomistic import UnitcellStructure, PlainStructureView
 
-structure = Structure(
+structure = UnitcellStructure(
     cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
     sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
     species=[
@@ -43,7 +43,7 @@ structure = Structure(
 )
 
 # Present the same structure as an spglib-like (lattice, positions, numbers) tuple.
-lattice, positions, numbers = StructurePrimitiveView(structure)
+lattice, positions, numbers = PlainStructureView(structure)
 ```
 
 ```{toctree}

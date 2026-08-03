@@ -16,14 +16,12 @@ import pytest
 from httk.core import load
 
 from httk.atomistic import (
+    ASUStructure,
     Spacegroup,
     UnitcellStructureView,
     asu_structure_from_cif,
     asu_structures_from_cif,
     cif_setting,
-    load_asu_structure,
-    load_structure,
-    same_crystal,
 )
 
 F = fractions.Fraction
@@ -86,9 +84,9 @@ def _rocksalt_cif(tmp_path: Path) -> Path:
 
 
 def test_cif_expands_to_the_full_cell(tmp_path: Path) -> None:
-    asu = load_asu_structure(str(_rocksalt_cif(tmp_path)))
+    asu = load(str(_rocksalt_cif(tmp_path)))
     assert asu.spacegroup.it_number == 225
-    assert [(site.wyckoff, site.species) for site in asu.asu_sites] == [("a", "Na"), ("b", "Cl")]
+    assert [(site.wyckoff, site.species) for site in asu.wyckoff_sites] == [("a", "Na"), ("b", "Cl")]
 
     structure = UnitcellStructureView(asu)
     assert len(structure.sites) == 8
@@ -106,15 +104,31 @@ def test_cif_expands_to_the_full_cell(tmp_path: Path) -> None:
     }
 
 
-def test_load_structure_and_load_asu_structure_agree(tmp_path: Path) -> None:
-    path = str(_rocksalt_cif(tmp_path))
-    assert same_crystal(load_structure(path), UnitcellStructureView(load_asu_structure(path)))
+def test_loading_fidelity_oracle(tmp_path: Path) -> None:
+    path = str(_sg15_cif(tmp_path, declaration="_space_group_IT_number 15\n"))
+
+    asu = load(path)
+    full = UnitcellStructureView(load(path))
+    assert asu.spacegroup.it_number == 15
+    assert asu.spacegroup.setting == "15:b1"
+    assert [(site.wyckoff, site.free_params.to_fractions()) for site in asu.wyckoff_sites] == [("e", [F(3333, 10000)])]
+    assert full.cell.basis.to_floats() == [[5.0, 0.0, 0.0], [0.0, 6.0, 0.0], [0.0, 0.0, 7.0]]
+    assert full.sites.reduced_coords.to_fractions() == [
+        [F(0), F(3333, 10000), F(1, 4)],
+        [F(0), F(6667, 10000), F(3, 4)],
+        [F(1, 2), F(1667, 10000), F(3, 4)],
+        [F(1, 2), F(8333, 10000), F(1, 4)],
+    ]
+    assert [(species.name, species.chemical_symbols, species.concentration) for species in full.species] == [
+        ("Si", ("Si",), (F(1),))
+    ]
+    assert full.species_at_sites == ("Si", "Si", "Si", "Si")
 
 
 def test_core_load_adapts_single_cif_and_raw_keeps_payload(tmp_path: Path) -> None:
     path = _rocksalt_cif(tmp_path)
     structure = load(str(path))
-    assert isinstance(structure, UnitcellStructureView)
+    assert isinstance(structure, ASUStructure)
     payload = load(str(path), raw=True)
     assert payload["format"] == "cif"
 
@@ -126,7 +140,7 @@ def test_the_cell_is_exact_not_the_files_rounded_basis(tmp_path: Path) -> None:
     entries are ~3e-16 rather than zero; using it would put that noise into every
     structure.
     """
-    asu = load_asu_structure(str(_rocksalt_cif(tmp_path)))
+    asu = load(str(_rocksalt_cif(tmp_path)))
     assert asu.cell.angles == (F(90), F(90), F(90))
     assert asu.cell.lengths[0] == asu.cell.lengths[1] == asu.cell.lengths[2]
 
@@ -143,7 +157,7 @@ def test_a_non_standard_setting_is_recognized_as_itself(tmp_path: Path) -> None:
         [("Si1", "Si", ("0.25", "0.0", "0.3333"), "1.0")],
         name="SG15c1",
     )
-    asu = load_asu_structure(str(path))
+    asu = load(str(path))
     setting = asu.setting()
     assert setting is not None
     assert setting.setting == "15:c1"
@@ -201,13 +215,13 @@ def test_occupancies_survive_into_the_structure(tmp_path: Path) -> None:
         [("Na1", "Na", ("0.0", "0.0", "0.0"), "0.5"), ("Cl1", "Cl", ("0.5", "0.5", "0.5"), "1.0")],
         name="Partial",
     )
-    asu = load_asu_structure(str(path))
+    asu = load(str(path))
     concentrations = {species.name: species.concentration for species in asu.species}
     assert concentrations["Na1"] == (0.5,)
     assert concentrations["Cl"] == (1.0,)
     # A partially occupied site is named for its CIF label, since two sites of one element
     # can carry different occupancies.
-    assert [site.species for site in asu.asu_sites] == ["Na1", "Cl"]
+    assert [site.species for site in asu.wyckoff_sites] == ["Na1", "Cl"]
 
 
 def test_neutral_exact_occupancies_preserve_central_values_and_precision(tmp_path: Path) -> None:
@@ -252,9 +266,9 @@ def test_coordinates_embed_as_the_decimal_the_file_wrote(tmp_path: Path) -> None
         (5, 6, 7, 90, 90, 90),
         [("Si1", "Si", ("0.0", "0.3333", "0.25"), "1.0")],
     )
-    asu = load_asu_structure(str(path))
-    assert asu.asu_sites[0].wyckoff == "e"
-    assert asu.asu_sites[0].free_params.to_fractions() == [F(3333, 10000)]
+    asu = load(str(path))
+    assert asu.wyckoff_sites[0].wyckoff == "e"
+    assert asu.wyckoff_sites[0].free_params.to_fractions() == [F(3333, 10000)]
 
 
 def test_uncertainties_are_stripped_from_coordinates(tmp_path: Path) -> None:
@@ -264,7 +278,7 @@ def test_uncertainties_are_stripped_from_coordinates(tmp_path: Path) -> None:
         (5, 6, 7, 90, 90, 90),
         [("Si1", "Si", ("0.0", "0.3333(7)", "0.25"), "1.0")],
     )
-    assert load_asu_structure(str(path)).asu_sites[0].free_params.to_fractions() == [F(3333, 10000)]
+    assert load(str(path)).wyckoff_sites[0].free_params.to_fractions() == [F(3333, 10000)]
 
 
 def test_a_site_on_no_special_position_falls_back_to_the_general_one(tmp_path: Path) -> None:
@@ -284,7 +298,7 @@ def test_a_site_on_no_special_position_falls_back_to_the_general_one(tmp_path: P
     asu = asu_structure_from_cif(load(str(path), raw=True)["blocks"][0], tolerance=0.0)
     general = Spacegroup.standard(225).wyckoff[-1]
     assert general.free_count == 3
-    assert asu.asu_sites[0].wyckoff == general.letter
+    assert asu.wyckoff_sites[0].wyckoff == general.letter
     assert len(UnitcellStructureView(asu).sites) == general.multiplicity
 
 
@@ -326,7 +340,7 @@ def test_a_multi_block_cif_yields_one_structure_per_block(tmp_path: Path) -> Non
         load(str(combined))
 
     with pytest.raises(ValueError, match="holds 2 structures"):
-        load_asu_structure(str(combined))
+        load(str(combined))
 
 
 def test_a_non_cif_payload_is_refused(tmp_path: Path) -> None:
@@ -361,33 +375,25 @@ def test_a_conventionally_spelled_hall_symbol_is_recognized(tmp_path: Path) -> N
     Without normalizing, every correctly declared Hall symbol looks unknown — which used to
     be survivable only because the miss was silent, and would now be an error.
     """
-    block = load(
-        str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall '-C 2yc'\n")), raw=True
-    )["blocks"][0]
+    block = load(str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall '-C 2yc'\n")), raw=True)["blocks"][0]
     assert cif_setting(block).setting == "15:b1"
 
 
 def test_a_hall_symbol_naming_no_setting_is_an_error(tmp_path: Path) -> None:
-    block = load(
-        str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall 'Not A Symbol'\n")), raw=True
-    )["blocks"][0]
+    block = load(str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall 'Not A Symbol'\n")), raw=True)["blocks"][0]
     with pytest.raises(ValueError, match="names no known space-group setting"):
         cif_setting(block)
 
 
 def test_a_hall_symbol_naming_the_wrong_group_is_an_error(tmp_path: Path) -> None:
     """SG 14's Hall symbol on a file whose operations are SG 15's: the file contradicts itself."""
-    block = load(
-        str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall '-P 2ybc'\n")), raw=True
-    )["blocks"][0]
+    block = load(str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall '-P 2ybc'\n")), raw=True)["blocks"][0]
     with pytest.raises(ValueError, match="contradicts itself"):
         cif_setting(block)
 
 
 def test_a_wrong_it_number_is_an_error(tmp_path: Path) -> None:
-    block = load(
-        str(_sg15_cif(tmp_path, declaration="_space_group_IT_number 14\n")), raw=True
-    )["blocks"][0]
+    block = load(str(_sg15_cif(tmp_path, declaration="_space_group_IT_number 14\n")), raw=True)["blocks"][0]
     with pytest.raises(ValueError, match="contradicts itself"):
         cif_setting(block)
 
@@ -420,14 +426,16 @@ def test_the_declaration_can_be_ignored_on_request(tmp_path: Path, declaration: 
 
     asu = asu_structure_from_cif(block, trust_declared_symmetry=False)
     assert asu.spacegroup.it_number == 15
-    assert asu.asu_sites[0].wyckoff == "e"
+    assert asu.wyckoff_sites[0].wyckoff == "e"
 
 
-def test_the_escape_hatch_reaches_through_load_asu_structure(tmp_path: Path) -> None:
+def test_the_escape_hatch_uses_the_raw_load_path(tmp_path: Path) -> None:
     path = _sg15_cif(tmp_path, declaration="_space_group_IT_number 14\n")
     with pytest.raises(ValueError, match="contradicts itself"):
-        load_asu_structure(str(path))
-    assert load_asu_structure(str(path), trust_declared_symmetry=False).spacegroup.it_number == 15
+        load(str(path))
+    assert (
+        asu_structures_from_cif(load(str(path), raw=True), trust_declared_symmetry=False)[0].spacegroup.it_number == 15
+    )
 
 
 def test_a_file_with_no_declaration_searches_every_setting(tmp_path: Path) -> None:

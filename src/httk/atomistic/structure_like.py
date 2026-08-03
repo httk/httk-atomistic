@@ -9,19 +9,19 @@ import httk.core
 from . import (
     asu_structure,
     compat,
-    structure,
     structure_backend,
     structure_record,
     structure_view,
+    unitcell_structure,
 )
 
-# A structure is any structure backend/view, a Structure, an ASUStructure (a structure
+# A structure is any structure backend/view, a UnitcellStructure, an ASUStructure (a structure
 # held as its asymmetric unit, expanded on demand), or an spglib-like
 # (lattice, positions, numbers) triple whose lattice and positions are vector-like.
 type StructureLike = (
     structure_backend.StructureBackend
     | structure_view.StructureView
-    | structure.Structure
+    | unitcell_structure.UnitcellStructure
     | structure_record.UnitcellStructureRecord
     | structure_record.FundamentalDomainStructureRecord
     | structure_record.ASUStructureRecord

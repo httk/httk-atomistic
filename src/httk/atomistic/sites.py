@@ -29,7 +29,7 @@ class Sites(SitesBackend):
     all land on their exact rational value. An irrational :class:`~httk.core.SurdVector` input is
     reduced deterministically through the vector family's ``fractions`` hub (never raising on data);
     the exact Cartesian frame — where radicals belong — is obtained instead via
-    :meth:`~httk.atomistic.Structure.cartesian_sites`.
+    :meth:`~httk.atomistic.UnitcellStructure.cartesian_sites`.
     """
 
     _reduced_coords: FracVector
@@ -62,7 +62,7 @@ class Sites(SitesBackend):
 
         Fractional and therefore dimensionless: reduced coordinates are fractions of a cell
         edge, and a ``Sites`` carries no cell to convert with. Use
-        :meth:`~httk.atomistic.Structure.cartesian_precision` for the corresponding length,
+        :meth:`~httk.atomistic.UnitcellStructure.cartesian_precision` for the corresponding length,
         which is the number an interatomic tolerance or an spglib ``symprec`` actually
         wants.
 

@@ -5,12 +5,12 @@ from httk.core import FracVector
 
 from httk.atomistic import (
     Assembly,
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     Cell,
     Spacegroup,
     Species,
-    SpeciesPrimitiveView,
+    PlainSpeciesView,
     SpeciesView,
 )
 from httk.atomistic.composition import (
@@ -55,11 +55,11 @@ def test_species_class_and_primitive_views_keep_exactness_off_standard_json() ->
     class_view = SpeciesView(raw)
     assert class_view.concentration == (F(1, 2),)
     assert class_view.concentration_precision == (F(7, 10000),)
-    private_primitive = SpeciesPrimitiveView(raw)
+    private_primitive = PlainSpeciesView(raw)
     assert private_primitive["concentration"] == [0.5]
     assert private_primitive["_httk_concentration_precision"] == [0.0007]
 
-    standard = SpeciesPrimitiveView(Species("Ge", ("Ge",), (F(1, 2),)))
+    standard = PlainSpeciesView(Species("Ge", ("Ge",), (F(1, 2),)))
     assert standard["concentration"] == [0.5]
     assert "_httk_concentration_precision" not in standard
 
@@ -173,7 +173,7 @@ def test_assembly_validation_and_asu_multiplicity_projection() -> None:
     asu = ASUStructure(
         Cell([[5, 0, 0], [0, 5, 0], [0, 0, 5]]),
         Spacegroup.standard(225),
-        (ASUSite("a", FracVector.create(()), "Ge"),),
+        (WyckoffSite("a", FracVector.create(()), "Ge"),),
         (Species("Ge", ("Ge",), (1,)),),
     )
     assert asu.multiplicities() == (4,)

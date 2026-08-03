@@ -11,7 +11,7 @@ from .species_like import SpeciesLike
 from .species_view_base import SpeciesViewBase
 
 
-class SpeciesPrimitiveView(SpeciesViewBase, dict):
+class PlainSpeciesView(SpeciesViewBase, dict):
     """
     A view presenting an underlying species backend as an OPTIMADE species dict.
 

@@ -4,7 +4,7 @@ The v1 Step 2 tutorial demonstrated a particularly useful feature: starting
 from a skewed primitive cell, httk could build an exact integer supercell and
 search for rectangular or nearly cubic choices automatically.
 
-The v2 interface separates those two jobs. `Structure.supercell()` applies a
+The v2 interface separates those two jobs. `UnitcellStructure.supercell()` applies a
 transformation you already know. `orthogonal_supercell()` and
 `cubic_supercell()` search at an explicitly requested **multiplier** — the
 number of original cells, and therefore the factor by which the site count
@@ -18,12 +18,12 @@ is a proof that the corresponding target was reached exactly.
 
 import fractions
 
-from httk.atomistic import Structure
+from httk.atomistic import UnitcellStructure
 
 F = fractions.Fraction
 
 # The skewed cell from the v1 Step 2 POSCAR2 tutorial, represented exactly.
-structure = Structure(
+structure = UnitcellStructure(
     cell=[
         [F(1622, 400), 0, 0],
         [0, F(1622, 400), 0],

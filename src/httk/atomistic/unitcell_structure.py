@@ -55,7 +55,9 @@ def _infer_species(species_at_sites: Sequence[SpeciesLike]) -> tuple[tuple[Speci
             by_name[value.name] = value
             distinct.append(value)
         elif existing != value:
-            raise ValueError(f"Structure species_at_sites gives conflicting definitions for species {value.name!r}")
+            raise ValueError(
+                f"UnitcellStructure species_at_sites gives conflicting definitions for species {value.name!r}"
+            )
         names.append(value.name)
     return tuple(distinct), tuple(names)
 
@@ -63,26 +65,26 @@ def _infer_species(species_at_sites: Sequence[SpeciesLike]) -> tuple[tuple[Speci
 def _check_species_names(species: Sequence[Species]) -> None:
     names = [s.name for s in species]
     if len(names) != len(set(names)):
-        raise ValueError("Structure species names must be unique")
+        raise ValueError("UnitcellStructure species names must be unique")
 
 
 def _check_species_at_sites(species_at_sites: Sequence[str], species: Sequence[Species]) -> None:
     known = {s.name for s in species}
     for name in species_at_sites:
         if name not in known:
-            raise ValueError(f"Structure species_at_sites references unknown species name: {name!r}")
+            raise ValueError(f"UnitcellStructure species_at_sites references unknown species name: {name!r}")
 
 
 def _check_sites_length(sites: Sites, species_at_sites: Sequence[str]) -> None:
     if len(species_at_sites) != len(sites):
-        raise ValueError("Structure species_at_sites must have the same length as sites")
+        raise ValueError("UnitcellStructure species_at_sites must have the same length as sites")
 
 
-class Structure(StructureBackend, StructureSemanticsMixin):
+class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
     """
     A crystal structure in the Unitcell representation.
 
-    A Structure holds a ``cell`` (a ``Cell`` of 3x3 cell vectors), ``sites`` (a ``Sites``
+    A UnitcellStructure holds a ``cell`` (a ``Cell`` of 3x3 cell vectors), ``sites`` (a ``Sites``
     of Nx3 reduced coordinates), a list of ``species`` (each a ``Species``), and a
     length-N ``species_at_sites`` giving the species name occupying each site. Inputs are
     normalized on construction through the component families: the cell, sites, and each
@@ -124,7 +126,7 @@ class Structure(StructureBackend, StructureSemanticsMixin):
         last_modified: datetime.datetime | None = None,
     ) -> None:
         if species_at_sites is None:
-            raise TypeError("Structure species_at_sites is required")
+            raise TypeError("UnitcellStructure species_at_sites is required")
         norm_cell = _norm_cell(cell)
         norm_sites = _norm_sites(sites)
         if species is None:
@@ -329,7 +331,7 @@ class Structure(StructureBackend, StructureSemanticsMixin):
 
     def __eq__(self, other: object) -> bool:
         """Equality of geometry and all structural semantic assertions, including precision."""
-        if not isinstance(other, Structure):
+        if not isinstance(other, UnitcellStructure):
             return NotImplemented
         return (
             self._cell == other._cell
@@ -349,7 +351,7 @@ class Structure(StructureBackend, StructureSemanticsMixin):
 
     def __repr__(self) -> str:
         return (
-            f"Structure(cell={self._cell!r}, sites={self._sites!r}, "
+            f"UnitcellStructure(cell={self._cell!r}, sites={self._sites!r}, "
             f"species={self._species!r}, species_at_sites={self._species_at_sites!r})"
         )
 

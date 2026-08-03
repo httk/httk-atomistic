@@ -14,7 +14,7 @@ from .structure_like import StructureLike
 from .structure_view import StructureView
 
 
-class StructurePrimitiveView(StructureView, tuple):
+class PlainStructureView(StructureView, tuple):
     """
     A view presenting an underlying structure backend as a primitive triple.
 

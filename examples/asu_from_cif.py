@@ -68,16 +68,15 @@ Run this file to see every step printed.
 import tempfile
 from pathlib import Path
 
-from httk.core import FracVector
+from httk.core import FracVector, load
 
 from httk.atomistic import (
-    ASUSite,
     ASUStructure,
     Spacegroup,
     Species,
-    Structure,
+    UnitcellStructure,
     UnitcellStructureView,
-    load_asu_structure,
+    WyckoffSite,
     recognize_asu,
     same_crystal,
 )
@@ -122,13 +121,13 @@ def write_nacl_cif(directory: Path) -> Path:
 def read_the_asymmetric_unit(path: Path) -> ASUStructure:
     """A CIF states its own symmetry, so no symmetry search is needed — and no spglib."""
     print("== Reading a CIF into an asymmetric unit ==")
-    asu = load_asu_structure(str(path))
+    asu = load(str(path))
 
     print(f"space group:       {asu.spacegroup.it_number} ({asu.spacegroup.hermann_mauguin})")
     print(f"standard setting:  {asu.spacegroup.setting}")
     print(f"written in:        {'the standard setting' if asu.is_standard_setting else asu.setting().setting}")
-    print(f"asymmetric unit:   {len(asu.asu_sites)} site(s) for {sum(asu.multiplicities())} atoms")
-    for site, multiplicity in zip(asu.asu_sites, asu.multiplicities()):
+    print(f"asymmetric unit:   {len(asu.wyckoff_sites)} site(s) for {sum(asu.multiplicities())} atoms")
+    for site, multiplicity in zip(asu.wyckoff_sites, asu.multiplicities()):
         position = asu.spacegroup.wyckoff_position(site.wyckoff)
         print(
             f"   {site.species:<4} on Wyckoff {position.multiplicity}{position.letter}"
@@ -140,7 +139,7 @@ def read_the_asymmetric_unit(path: Path) -> ASUStructure:
 
 
 def expand_to_the_full_cell(asu: ASUStructure) -> None:
-    """`UnitcellStructureView` turns an ASU into an ordinary Structure, exactly."""
+    """`UnitcellStructureView` turns an ASU into an ordinary UnitcellStructure, exactly."""
     print("== Expanding to the full unit cell ==")
     structure = UnitcellStructureView(asu)
 
@@ -159,7 +158,7 @@ def go_back_to_the_asymmetric_unit(asu: ASUStructure) -> None:
     recovered = recognize_asu(expanded, setting=asu.setting())
     rebuilt = UnitcellStructureView(recovered)
 
-    print("recovered:", ", ".join(f"{site.species} on {site.wyckoff}" for site in recovered.asu_sites))
+    print("recovered:", ", ".join(f"{site.species} on {site.wyckoff}" for site in recovered.wyckoff_sites))
     print("same crystal:               ", same_crystal(expanded, rebuilt))
     print("coordinates bitwise identical:", expanded.sites.reduced_coords == rebuilt.sites.reduced_coords)
     print("The input was already exact, so nothing moved at all.")
@@ -177,7 +176,7 @@ def show_a_non_standard_setting() -> None:
     print("Same position, different coordinates — the settings are different frames.")
 
     silicon = [Species(name="Si", chemical_symbols=("Si",), concentration=(1.0,))]
-    site = [ASUSite("e", FracVector.create(["1/3"]), "Si")]
+    site = [WyckoffSite("e", FracVector.create(["1/3"]), "Si")]
     cell = [[5, 0, 0], [0, 6, 0], [0, 0, 7]]
 
     in_standard = ASUStructure(cell, 15, site, silicon)
@@ -202,7 +201,7 @@ def show_that_recognition_is_the_lossy_direction() -> None:
     exact = ASUStructure(
         [[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         15,
-        [ASUSite("e", FracVector.create(["1/3"]), "Si")],
+        [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
         silicon,
     )
     expanded = UnitcellStructureView(exact)
@@ -212,7 +211,7 @@ def show_that_recognition_is_the_lossy_direction() -> None:
         [value + FracVector.create(f"{index + 1}/100000").to_fraction() for value in row]
         for index, row in enumerate(expanded.sites.reduced_coords.to_fractions())
     ]
-    measured = Structure(expanded.cell, nudged, expanded.species, expanded.species_at_sites)
+    measured = UnitcellStructure(expanded.cell, nudged, expanded.species, expanded.species_at_sites)
 
     recovered = recognize_asu(measured, setting=Spacegroup.standard(15))
     idealised = UnitcellStructureView(recovered)

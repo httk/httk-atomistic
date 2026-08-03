@@ -12,9 +12,9 @@ from .cell import Cell
 from .elements import symbol_of
 from .sites import Sites
 from .species import Species
-from .structure import Structure
 from .structure_backend import StructureBackend
 from .structure_view import StructureView
+from .unitcell_structure import UnitcellStructure
 
 
 @runtime_checkable
@@ -22,7 +22,7 @@ class ASEAtomsProtocol(Protocol):
     """The minimal method surface needed to treat an object as ASE ``Atoms``.
 
     This is a runtime-checkable, duck-typed protocol. ASE is not required: any object
-    providing these four methods qualifies for :class:`ASEAtomsBackend`.
+    providing these four methods qualifies for :class:`ASEAtoms`.
     """
 
     def get_cell(self) -> Any:
@@ -43,7 +43,7 @@ def _float_rows(values: Any) -> list[list[float]]:
     return [[float(value) for value in row] for row in values]
 
 
-class ASEAtomsBackend(StructureBackend):
+class ASEAtoms(StructureBackend):
     """Backend for ASE ``Atoms`` and compatible duck-typed objects.
 
     Conversion is eager because reading the four methods and normalizing their values is
@@ -51,14 +51,14 @@ class ASEAtomsBackend(StructureBackend):
     """
 
     _raw: Any
-    _structure: Structure
+    _structure: UnitcellStructure
 
     def __new__(cls, obj: Any, **hints: Any) -> Any:
         if hints.get("kind", "ase") != "ase":
             return None
         # ASEAtomsView is itself an Atoms subclass and therefore satisfies the protocol;
         # existing structure-family objects must remain represented by their own backend.
-        if isinstance(obj, (Structure, StructureBackend, StructureView)):
+        if isinstance(obj, (UnitcellStructure, StructureBackend, StructureView)):
             return None
         if not isinstance(obj, ASEAtomsProtocol):
             return None
@@ -68,7 +68,7 @@ class ASEAtomsBackend(StructureBackend):
         symbols = tuple(symbol_of(int(number)) for number in obj.get_atomic_numbers())
         distinct_symbols = tuple(dict.fromkeys(symbols))
         self._raw = obj
-        self._structure = Structure(
+        self._structure = UnitcellStructure(
             Cell(
                 _float_rows(obj.get_cell()),
                 periodicity=tuple(bool(flag) for flag in obj.get_pbc()),
@@ -117,6 +117,6 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["ASEAtomsBackend", "ASEAtomsProtocol"]
+__all__ = ["ASEAtoms", "ASEAtomsProtocol"]
 if _ase_available:
     __all__.append("ASEAtomsView")

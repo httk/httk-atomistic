@@ -1,7 +1,7 @@
 """Vendored crystallographic symmetry datasets and their lookups.
 
 Two datasets ship with *httk-atomistic*, both read through
-:class:`~httk.core.DataLoader` and both licensed CC BY 4.0 (see the adjacent
+:class:`~httk.core.DatasetLoader` and both licensed CC BY 4.0 (see the adjacent
 ``LICENSE`` and ``README.md`` for the full attribution):
 
 ``symmetry_basics.json.gz``
@@ -39,7 +39,7 @@ from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Any
 
-from httk.core import DataLoader
+from httk.core import DatasetLoader
 
 __all__ = [
     "point_groups",
@@ -68,22 +68,22 @@ def _resource_path(name: str) -> Path:
 
 
 @cache
-def _basics() -> DataLoader:
-    return DataLoader("httk.atomistic.symmetry_basics", _resource_path("symmetry_basics.json.gz"))
+def _basics() -> DatasetLoader:
+    return DatasetLoader("httk.atomistic.symmetry_basics", _resource_path("symmetry_basics.json.gz"))
 
 
 @cache
-def _transforms() -> DataLoader:
-    return DataLoader(
+def _transforms() -> DatasetLoader:
+    return DatasetLoader(
         "httk.atomistic.spacegroup_setting_transforms",
         _resource_path("spacegroup_setting_transforms.json.gz"),
     )
 
 
-def _lookup_index(loader: DataLoader, dataset: str, name: str) -> dict[str, int]:
+def _lookup_index(loader: DatasetLoader, dataset: str, name: str) -> dict[str, int]:
     """A named lookup index from a dataset, as a plain name-to-position mapping.
 
-    ``DataLoader.index`` is ``None`` for a document that is not in the structured JSON-LD
+    ``DatasetLoader.index`` is ``None`` for a document that is not in the structured JSON-LD
     form. That cannot happen for the files vendored here, but it is worth failing with a
     sentence that names the cause rather than an ``AttributeError`` on ``None`` if a data
     refresh ever changes the shape.

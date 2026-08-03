@@ -1,7 +1,7 @@
 """Tests for recognizing the asymmetric unit of a full structure.
 
-The headline property is the round trip: ``ASUStructure -> Structure -> ASUStructure ->
-Structure`` reproduces the same crystal, exactly, with no numerical drift. It is asserted
+The headline property is the round trip: ``ASUStructure -> UnitcellStructure -> ASUStructure ->
+UnitcellStructure`` reproduces the same crystal, exactly, with no numerical drift. It is asserted
 here for centred lattices, special and general positions, non-standard settings, and a
 volume-changing transform.
 
@@ -16,13 +16,13 @@ import pytest
 from httk.core import FracVector, unwrap
 
 from httk.atomistic import (
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     ASUStructureView,
     SettingTransform,
     Spacegroup,
     Species,
-    Structure,
+    UnitcellStructure,
     UnitcellStructureView,
     recognize_asu,
     same_crystal,
@@ -42,7 +42,7 @@ def _species(*names: str) -> list[Species]:
 
 def _rocksalt() -> ASUStructure:
     return ASUStructure(
-        CUBIC, 225, [ASUSite("a", NO_PARAMETERS, "Na"), ASUSite("b", NO_PARAMETERS, "Cl")], _species("Na", "Cl")
+        CUBIC, 225, [WyckoffSite("a", NO_PARAMETERS, "Na"), WyckoffSite("b", NO_PARAMETERS, "Cl")], _species("Na", "Cl")
     )
 
 
@@ -52,7 +52,7 @@ def _monoclinic(setting: str = "15:b1") -> ASUStructure:
     return ASUStructure(
         ORTHO,
         15,
-        [ASUSite("e", FracVector.create(["1/3"]), "Si")],
+        [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
         _species("Si"),
         transform=spacegroup.transform_from_standard,
     )
@@ -86,7 +86,7 @@ def test_round_trip_through_a_volume_changing_transform() -> None:
     original = ASUStructure(
         HEXAGONAL,
         166,
-        [ASUSite("a", NO_PARAMETERS, "Bi")],
+        [WyckoffSite("a", NO_PARAMETERS, "Bi")],
         _species("Bi"),
         transform=rhombohedral.transform_from_standard,
     )
@@ -101,7 +101,7 @@ def test_round_trip_through_a_volume_changing_transform() -> None:
 def test_round_trip_through_an_untabulated_setting() -> None:
     """A setting in no table round-trips like any other, given its transform."""
     shifted = SettingTransform(FracVector.eye((3, 3)), ["1/8", "1/8", "1/8"])
-    original = ASUStructure(CUBIC, 225, [ASUSite("a", NO_PARAMETERS, "Na")], _species("Na"), transform=shifted)
+    original = ASUStructure(CUBIC, 225, [WyckoffSite("a", NO_PARAMETERS, "Na")], _species("Na"), transform=shifted)
     expanded = UnitcellStructureView(original)
 
     recovered = recognize_asu(expanded, standard=Spacegroup.standard(225), transform=shifted)
@@ -111,24 +111,24 @@ def test_round_trip_through_an_untabulated_setting() -> None:
 
 def test_recognition_recovers_the_original_wyckoff_description() -> None:
     recovered = recognize_asu(UnitcellStructureView(_rocksalt()), setting=Spacegroup.standard(225))
-    assert [(site.wyckoff, site.species) for site in recovered.asu_sites] == [("a", "Na"), ("b", "Cl")]
+    assert [(site.wyckoff, site.species) for site in recovered.wyckoff_sites] == [("a", "Na"), ("b", "Cl")]
     assert recovered.multiplicities() == (4, 4)
 
     monoclinic = recognize_asu(UnitcellStructureView(_monoclinic()), setting=Spacegroup.standard(15))
-    assert monoclinic.asu_sites[0].wyckoff == "e"
-    assert monoclinic.asu_sites[0].free_params == FracVector.create([F(1, 3)])
+    assert monoclinic.wyckoff_sites[0].wyckoff == "e"
+    assert monoclinic.wyckoff_sites[0].free_params == FracVector.create([F(1, 3)])
 
 
 # --- tolerance, and the lossy direction ---
 
 
-def _perturbed(structure: Structure, amount: F) -> Structure:
+def _perturbed(structure: UnitcellStructure, amount: F) -> UnitcellStructure:
     """The same structure with every coordinate nudged, as measured data would be."""
     coords = [
         [value + amount * F(index * 3 + axis + 1) for axis, value in enumerate(row)]
         for index, row in enumerate(structure.sites.reduced_coords.to_fractions())
     ]
-    return Structure(structure.cell, coords, structure.species, structure.species_at_sites)
+    return UnitcellStructure(structure.cell, coords, structure.species, structure.species_at_sites)
 
 
 def test_a_measured_structure_is_snapped_onto_its_symmetry() -> None:
@@ -141,7 +141,7 @@ def test_a_measured_structure_is_snapped_onto_its_symmetry() -> None:
     noisy = _perturbed(exact, F(1, 100000))
 
     recovered = recognize_asu(noisy, setting=Spacegroup.standard(15))
-    assert len(recovered.asu_sites) == 1
+    assert len(recovered.wyckoff_sites) == 1
     assert recovered.multiplicities() == (4,)
 
     rebuilt = UnitcellStructureView(recovered)
@@ -174,10 +174,10 @@ def test_limit_denominator_idealises_free_parameters_on_request() -> None:
     noisy = _perturbed(exact, F(1, 100000))
 
     faithful = recognize_asu(noisy, setting=Spacegroup.standard(15))
-    assert faithful.asu_sites[0].free_params.to_fractions()[0] != F(1, 3)
+    assert faithful.wyckoff_sites[0].free_params.to_fractions()[0] != F(1, 3)
 
     idealised = recognize_asu(noisy, setting=Spacegroup.standard(15), limit_denominator=12)
-    assert idealised.asu_sites[0].free_params == FracVector.create([F(1, 3)])
+    assert idealised.wyckoff_sites[0].free_params == FracVector.create([F(1, 3)])
 
 
 def test_a_structure_without_the_claimed_symmetry_is_rejected() -> None:
@@ -186,7 +186,7 @@ def test_a_structure_without_the_claimed_symmetry_is_rejected() -> None:
     coords = [list(row) for row in structure.sites.reduced_coords.to_fractions()]
     # Move a single atom well off its position, breaking the orbit.
     coords[1] = [F(3, 7), F(1, 5), F(2, 9)]
-    broken = Structure(structure.cell, coords, structure.species, structure.species_at_sites)
+    broken = UnitcellStructure(structure.cell, coords, structure.species, structure.species_at_sites)
 
     with pytest.raises(ValueError, match="not symmetric|does not lie"):
         recognize_asu(broken, setting=Spacegroup.standard(225))
@@ -209,7 +209,7 @@ def test_view_adopts_an_existing_asu_without_recognizing_anything() -> None:
     """A backend that already holds an ASU is passed through, exactly and with no tolerance."""
     original = _monoclinic()
     view = ASUStructureView(original)
-    assert view.asu_sites == original.asu_sites
+    assert view.wyckoff_sites == original.wyckoff_sites
     assert view.transform == original.transform
     assert unwrap(view) is original
 
@@ -223,7 +223,7 @@ def test_view_rewrap_identity_and_unwrap() -> None:
 def test_view_recognizes_a_plain_structure() -> None:
     expanded = UnitcellStructureView(_rocksalt())
     view = ASUStructureView(expanded, setting=Spacegroup.standard(225))
-    assert [site.wyckoff for site in view.asu_sites] == ["a", "b"]
+    assert [site.wyckoff for site in view.wyckoff_sites] == ["a", "b"]
     assert same_crystal(expanded, UnitcellStructureView(view))
 
 
@@ -237,7 +237,7 @@ def test_spglib_finds_the_symmetry_of_a_structure_that_carries_none() -> None:
 
     recovered = recognize_asu(expanded)
     assert recovered.spacegroup.it_number == 225
-    assert [site.wyckoff for site in recovered.asu_sites] == ["a", "b"]
+    assert [site.wyckoff for site in recovered.wyckoff_sites] == ["a", "b"]
     assert same_crystal(expanded, UnitcellStructureView(recovered))
 
 
@@ -254,7 +254,7 @@ def test_spglib_bridges_the_two_origin_groups_correctly(it_number: int) -> None:
     original = ASUStructure(
         [[5, 0, 0], [0, 5, 0], [0, 0, 5]] if standard.crystal_system == "cubic" else ORTHO,
         it_number,
-        [ASUSite(letter, NO_PARAMETERS, "C")],
+        [WyckoffSite(letter, NO_PARAMETERS, "C")],
         _species("C"),
     )
     expanded = UnitcellStructureView(original)
@@ -266,8 +266,10 @@ def test_spglib_bridges_the_two_origin_groups_correctly(it_number: int) -> None:
 def test_spglib_result_prefers_the_standard_setting_when_the_structure_is_in_it() -> None:
     """spglib fixes the group but not the frame; the tidier of the valid answers is chosen."""
     pytest.importorskip("spglib")
-    original = ASUStructure([[5, 0, 0], [0, 5, 0], [0, 0, 5]], 227, [ASUSite("a", NO_PARAMETERS, "C")], _species("C"))
+    original = ASUStructure(
+        [[5, 0, 0], [0, 5, 0], [0, 0, 5]], 227, [WyckoffSite("a", NO_PARAMETERS, "C")], _species("C")
+    )
     recovered = recognize_asu(UnitcellStructureView(original))
     assert recovered.spacegroup.it_number == 227
     assert recovered.is_standard_setting
-    assert recovered.asu_sites[0].wyckoff == "a"
+    assert recovered.wyckoff_sites[0].wyckoff == "a"

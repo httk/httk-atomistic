@@ -28,7 +28,7 @@ class SitesAPI(ABC):
         """How precisely the coordinates were stated, in fractional units, or ``None``.
 
         Fractional, not a length: reduced coordinates are dimensionless and a ``Sites`` has
-        no cell to convert with. :meth:`~httk.atomistic.Structure.cartesian_precision`
+        no cell to convert with. :meth:`~httk.atomistic.UnitcellStructure.cartesian_precision`
         does the conversion, where the cell is known.
 
         Concrete rather than abstract, so a backend with no source of precision inherits

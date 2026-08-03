@@ -25,7 +25,7 @@ from httk.core import (
     combined_precision,
     decimal_precision,
     decode_optimade_value,
-    load_entry_type_schema,
+    load_entry_type_definition,
     optimade_document_root,
     stored_property,
 )
@@ -122,7 +122,7 @@ class OptimadeStructure(StructureBackend):
 
     @cached_property
     def _local_schema(self) -> EntryTypeDefinition:
-        return load_entry_type_schema(self.entry_type_definition_id)
+        return load_entry_type_definition(self.entry_type_definition_id)
 
     @cached_property
     def _remote_names_by_definition_id(self) -> Mapping[str, str]:

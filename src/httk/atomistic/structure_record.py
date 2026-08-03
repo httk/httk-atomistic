@@ -19,14 +19,14 @@ from httk.core import (
 
 from ._composition_values import as_fraction
 from ._vector_guards import to_periodicity, to_precision
-from .asu_structure import ASUSite, ASUStructure, FundamentalDomainStructure
+from .asu_structure import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from .cell import Cell
 from .composition import Assembly, ChemicalComposition, CompositionResult, validate_assemblies
 from .setting_transform import SettingTransform
 from .sites import Sites
 from .species import Species
-from .structure import Structure
 from .structure_semantics import StructureSymmetry
+from .unitcell_structure import UnitcellStructure
 
 __all__ = [
     "ASUStructureRecord",
@@ -35,7 +35,6 @@ __all__ = [
     "CellRecord",
     "ChemicalCompositionRecord",
     "CompositionAmountRecord",
-    "DomainSiteRecord",
     "FundamentalDomainStructureRecord",
     "NormalizedCompositionAmountRecord",
     "NormalizedCompositionRecord",
@@ -44,6 +43,7 @@ __all__ = [
     "SpeciesRecord",
     "SymmetryRecord",
     "UnitcellStructureRecord",
+    "WyckoffSiteRecord",
 ]
 
 
@@ -238,11 +238,14 @@ class AssemblyRecord:
 
 
 @dataclass(frozen=True)
-class DomainSiteRecord:
-    """Exact Wyckoff/free-parameter site with its retained representative."""
+class WyckoffSiteRecord:
+    """Exact Wyckoff/free-parameter site with its retained representative.
+
+    The owning record's ``domain_sites`` field is storage-visible and deliberately unchanged.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="atomistic_v3_domain_site_record")
-    __httk_canonical_source__: ClassVar[type[ASUSite]] = ASUSite
+    __httk_canonical_source__: ClassVar[type[WyckoffSite]] = WyckoffSite
 
     wyckoff: str
     free_parameters: tuple[fractions.Fraction, ...]
@@ -250,7 +253,7 @@ class DomainSiteRecord:
     representative: tuple[fractions.Fraction, ...] | None = None
 
     @classmethod
-    def __httk_project__(cls, site: ASUSite) -> Mapping[str, object]:
+    def __httk_project__(cls, site: WyckoffSite) -> Mapping[str, object]:
         return {
             "wyckoff": site.wyckoff,
             "free_parameters": tuple(site.free_params.to_fractions()),
@@ -259,18 +262,18 @@ class DomainSiteRecord:
         }
 
     def __post_init__(self) -> None:
-        free = tuple(as_fraction(value, field="DomainSiteRecord free parameter")[0] for value in self.free_parameters)
+        free = tuple(as_fraction(value, field="WyckoffSiteRecord free parameter")[0] for value in self.free_parameters)
         representative = (
             None
             if self.representative is None
-            else tuple(as_fraction(value, field="DomainSiteRecord representative")[0] for value in self.representative)
+            else tuple(as_fraction(value, field="WyckoffSiteRecord representative")[0] for value in self.representative)
         )
         if not isinstance(self.wyckoff, str) or len(self.wyckoff) != 1:
-            raise ValueError("DomainSiteRecord wyckoff must be a single letter")
+            raise ValueError("WyckoffSiteRecord wyckoff must be a single letter")
         if not isinstance(self.species, str) or not self.species:
-            raise ValueError("DomainSiteRecord species must be non-empty")
+            raise ValueError("WyckoffSiteRecord species must be non-empty")
         if representative is not None and len(representative) != 3:
-            raise ValueError("DomainSiteRecord representative must have exactly three values")
+            raise ValueError("WyckoffSiteRecord representative must have exactly three values")
         object.__setattr__(self, "free_parameters", free)
         object.__setattr__(self, "representative", representative)
 
@@ -713,7 +716,7 @@ class UnitcellStructureRecord:
         identity_name="httk.atomistic.UnitcellStructureRecord",
         indexes=(("immutable_id",), ("last_modified",), ("optimization_type",)),
     )
-    __httk_canonical_source__: ClassVar[type[Structure]] = Structure
+    __httk_canonical_source__: ClassVar[type[UnitcellStructure]] = UnitcellStructure
 
     cell: CellRecord
     sites: SitesRecord
@@ -759,7 +762,7 @@ class UnitcellStructureRecord:
         object.__setattr__(self, "species_at_sites", species_at_sites)
 
     @classmethod
-    def __httk_project__(cls, structure: Structure) -> Mapping[str, object]:
+    def __httk_project__(cls, structure: UnitcellStructure) -> Mapping[str, object]:
         values = _project_common(structure)
         values.update(
             {
@@ -788,7 +791,7 @@ class FundamentalDomainStructureRecord:
     __httk_canonical_source__: ClassVar[type[FundamentalDomainStructure]] = FundamentalDomainStructure
 
     cell: CellRecord
-    domain_sites: tuple[DomainSiteRecord, ...]
+    domain_sites: tuple[WyckoffSiteRecord, ...]
     species: tuple[SpeciesRecord, ...]
     spacegroup_it_number: int
     setting_transform: SettingTransformRecord
@@ -817,8 +820,8 @@ class FundamentalDomainStructureRecord:
 
     def __post_init__(self) -> None:
         domain_sites = tuple(self.domain_sites)
-        if not all(isinstance(value, DomainSiteRecord) for value in domain_sites):
-            raise TypeError("FundamentalDomainStructureRecord domain_sites must contain DomainSiteRecord values")
+        if not all(isinstance(value, WyckoffSiteRecord) for value in domain_sites):
+            raise TypeError("FundamentalDomainStructureRecord domain_sites must contain WyckoffSiteRecord values")
         if not isinstance(self.spacegroup_it_number, int) or isinstance(self.spacegroup_it_number, bool):
             raise TypeError("FundamentalDomainStructureRecord spacegroup_it_number must be an integer")
         if not 1 <= self.spacegroup_it_number <= 230:
@@ -961,7 +964,7 @@ def _domain_structure_from_record(
         _cell_from_record(record.cell),
         Spacegroup.standard(record.spacegroup_it_number),
         tuple(
-            ASUSite(
+            WyckoffSite(
                 value.wyckoff,
                 FracVector.create(value.free_parameters),
                 value.species,
@@ -981,7 +984,7 @@ def _structure_from_record(
 ) -> Any:
     if not isinstance(record, UnitcellStructureRecord):
         return _domain_structure_from_record(record)
-    return Structure(
+    return UnitcellStructure(
         _cell_from_record(record.cell),
         _sites_from_record(record.sites),
         tuple(_species_from_record(value) for value in record.species),

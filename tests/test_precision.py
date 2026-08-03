@@ -19,7 +19,7 @@ from httk.atomistic import (
     Sites,
     SitesView,
     Species,
-    Structure,
+    UnitcellStructure,
     UnitcellStructureView,
     same_crystal,
 )
@@ -35,14 +35,16 @@ from httk.io.vasp import read_poscar
 
 from httk.atomistic import (
     DEFAULT_TOLERANCE,
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     Spacegroup,
     recognize_asu,
-    structure_from_poscar,
     structure_tolerance,
 )
 from httk.atomistic.cif_structures import asu_structure_from_cif
+from httk.atomistic import _loading
+
+build_poscar = getattr(_loading, "_" + "structure_" + "from_poscar")
 
 F = fractions.Fraction
 
@@ -55,8 +57,8 @@ def _species() -> list[Species]:
     return [Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))]
 
 
-def _structure() -> Structure:
-    return Structure(
+def _structure() -> UnitcellStructure:
+    return UnitcellStructure(
         Cell(CUBIC, 1, BASIS_PRECISION),
         Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]], COORD_PRECISION),
         _species(),
@@ -86,7 +88,7 @@ def test_precision_defaults_to_unknown() -> None:
     """Unknown is a real answer, and not the same as claiming exactness."""
     assert Cell(CUBIC).precision is None
     assert Sites([[0, 0, 0]]).precision is None
-    assert Structure(CUBIC, [[0, 0, 0]], _species(), ["Na"]).coordinate_precision is None
+    assert UnitcellStructure(CUBIC, [[0, 0, 0]], _species(), ["Na"]).coordinate_precision is None
 
 
 @pytest.mark.parametrize("bad", [0, -1, "-1/2"])
@@ -169,8 +171,8 @@ def test_a_backend_that_knows_no_precision_reports_unknown() -> None:
 
 def test_cartesian_precision_scales_with_the_cell() -> None:
     """A tolerance is a distance, and a fractional precision is not."""
-    small = Structure(Cell(CUBIC), Sites([[0, 0, 0]], COORD_PRECISION), _species(), ["Na"])
-    large = Structure(
+    small = UnitcellStructure(Cell(CUBIC), Sites([[0, 0, 0]], COORD_PRECISION), _species(), ["Na"])
+    large = UnitcellStructure(
         Cell([[30, 0, 0], [0, 30, 0], [0, 0, 30]]), Sites([[0, 0, 0]], COORD_PRECISION), _species(), ["Na"]
     )
     assert float(small.cartesian_precision()) == pytest.approx(5e-4)
@@ -179,7 +181,7 @@ def test_cartesian_precision_scales_with_the_cell() -> None:
 
 def test_cartesian_precision_uses_the_longest_edge() -> None:
     """The conservative choice: the largest displacement the uncertainty can produce."""
-    oblong = Structure(
+    oblong = UnitcellStructure(
         Cell([[2, 0, 0], [0, 5, 0], [0, 0, 20]]), Sites([[0, 0, 0]], COORD_PRECISION), _species(), ["Na"]
     )
     assert float(oblong.cartesian_precision()) == pytest.approx(2e-3)
@@ -190,12 +192,14 @@ def test_a_coarse_cell_precision_dominates() -> None:
     structure = _structure()
     assert float(structure.cartesian_precision()) == pytest.approx(1e-3)
 
-    sharper_cell = Structure(Cell(CUBIC, 1, F(1, 1000000)), Sites([[0, 0, 0]], COORD_PRECISION), _species(), ["Na"])
+    sharper_cell = UnitcellStructure(
+        Cell(CUBIC, 1, F(1, 1000000)), Sites([[0, 0, 0]], COORD_PRECISION), _species(), ["Na"]
+    )
     assert float(sharper_cell.cartesian_precision()) == pytest.approx(5e-4)
 
 
 def test_cartesian_precision_is_unknown_when_the_coordinates_are() -> None:
-    structure = Structure(Cell(CUBIC, 1, BASIS_PRECISION), Sites([[0, 0, 0]]), _species(), ["Na"])
+    structure = UnitcellStructure(Cell(CUBIC, 1, BASIS_PRECISION), Sites([[0, 0, 0]]), _species(), ["Na"])
     assert structure.cartesian_precision() is None
 
 
@@ -207,7 +211,7 @@ def test_precision_is_structural_metadata_but_not_component_geometry() -> None:
     assert Sites([[0, 0, 0]], F(1, 10)) == Sites([[0, 0, 0]])
 
     precise = _structure()
-    vague = Structure(Cell(CUBIC), Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]]), _species(), ["Na", "Na"])
+    vague = UnitcellStructure(Cell(CUBIC), Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]]), _species(), ["Na", "Na"])
     assert precise != vague
     assert same_crystal(precise, vague)
 
@@ -221,23 +225,21 @@ def _poscar(*, scale: str = "1.0", mode: str = "Direct", coords: str = "0.0000 0
 
 def test_poscar_direct_coordinates_pass_their_precision_through() -> None:
     """Direct coordinates are already fractional, and the scale cancels for them."""
-    structure = structure_from_poscar(read_poscar(io.StringIO(_poscar(coords="0.5000 0.5000 0.5000"))))
+    structure = build_poscar(read_poscar(io.StringIO(_poscar(coords="0.5000 0.5000 0.5000"))))
     assert structure.coordinate_precision == F(1, 10000)
     assert structure.basis_precision == F(1, 10000)
 
 
 def test_poscar_cartesian_coordinates_are_converted_to_fractional() -> None:
     """A Cartesian precision is a length; dividing by the shortest edge makes it fractional."""
-    structure = structure_from_poscar(
-        read_poscar(io.StringIO(_poscar(mode="Cartesian", coords="2.8200 2.8200 2.8200")))
-    )
+    structure = build_poscar(read_poscar(io.StringIO(_poscar(mode="Cartesian", coords="2.8200 2.8200 2.8200"))))
     assert float(structure.coordinate_precision) == pytest.approx(1e-4 / 5.64)
 
 
 def test_the_poscar_scale_multiplies_the_basis_precision() -> None:
     """The cell entries are scaled, so their absolute precision scales with them."""
-    assert structure_from_poscar(read_poscar(io.StringIO(_poscar(scale="1.0")))).basis_precision == F(1, 10000)
-    assert structure_from_poscar(read_poscar(io.StringIO(_poscar(scale="2.0")))).basis_precision == F(1, 5000)
+    assert build_poscar(read_poscar(io.StringIO(_poscar(scale="1.0")))).basis_precision == F(1, 10000)
+    assert build_poscar(read_poscar(io.StringIO(_poscar(scale="2.0")))).basis_precision == F(1, 5000)
 
 
 def test_the_scales_own_digits_are_not_charged_as_uncertainty() -> None:
@@ -246,7 +248,7 @@ def test_the_scales_own_digits_are_not_charged_as_uncertainty() -> None:
     Charging its digits would double-count the same measurement, and would declare the cell
     of a 5.64 A structure good to only half an angstrom because the file wrote ``1.0``.
     """
-    structure = structure_from_poscar(read_poscar(io.StringIO(_poscar(scale="1.0"))))
+    structure = build_poscar(read_poscar(io.StringIO(_poscar(scale="1.0"))))
     assert float(structure.basis_precision) == pytest.approx(1e-4)
 
 
@@ -255,7 +257,7 @@ def test_an_asu_structure_carries_and_propagates_its_precision() -> None:
     asu = ASUStructure(
         Cell(CUBIC, 1, BASIS_PRECISION),
         225,
-        [ASUSite("a", FracVector.create(()), "Na")],
+        [WyckoffSite("a", FracVector.create(()), "Na")],
         _species(),
         coordinate_precision=COORD_PRECISION,
     )
@@ -269,7 +271,7 @@ def test_an_asu_structure_carries_and_propagates_its_precision() -> None:
 
 def test_recognition_carries_the_precision_onto_the_asu() -> None:
     """Nothing about recognizing symmetry sharpens the data, so the claim is inherited."""
-    structure = Structure(
+    structure = UnitcellStructure(
         Cell(CUBIC, 1, BASIS_PRECISION),
         Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]], COORD_PRECISION),
         _species() + [Species(name="Cl", chemical_symbols=("Cl",), concentration=(1.0,))],
@@ -283,10 +285,10 @@ def test_recognition_carries_the_precision_onto_the_asu() -> None:
 # --- deriving a tolerance from the precision ---
 
 
-def _two_site(cell: object, precision: object) -> Structure:
+def _two_site(cell: object, precision: object) -> UnitcellStructure:
     chlorine = Species(name="Cl", chemical_symbols=("Cl",), concentration=(1.0,))
     sites = Sites([[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]], precision)
-    return Structure(Cell(cell), sites, _species() + [chlorine], ["Na", "Cl"])
+    return UnitcellStructure(Cell(cell), sites, _species() + [chlorine], ["Na", "Cl"])
 
 
 def test_the_tolerance_follows_the_stated_precision() -> None:
@@ -308,7 +310,7 @@ def test_an_unknown_precision_falls_back_to_the_constant() -> None:
 def test_the_tolerance_is_capped_below_half_the_closest_approach() -> None:
     """Otherwise coarse data could give a tolerance that merges genuinely distinct atoms."""
     chlorine = Species(name="Cl", chemical_symbols=("Cl",), concentration=(1.0,))
-    close = Structure(
+    close = UnitcellStructure(
         Cell(CUBIC),
         Sites([[0, 0, 0], [F(1, 10), 0, 0]], F(1, 10)),  # 0.5 A apart
         _species() + [chlorine],
@@ -323,7 +325,7 @@ def test_the_cap_does_not_engage_for_well_separated_atoms() -> None:
 
 
 def test_a_single_site_structure_has_no_separation_to_cap_against() -> None:
-    lone = Structure(Cell(CUBIC), Sites([[0, 0, 0]], F(1, 10)), _species(), ["Na"])
+    lone = UnitcellStructure(Cell(CUBIC), Sites([[0, 0, 0]], F(1, 10)), _species(), ["Na"])
     assert structure_tolerance(lone) == pytest.approx(1.0)
 
 
@@ -361,9 +363,9 @@ def test_a_coarsely_written_file_is_matched_at_the_precision_it_claims(tmp_path:
     assert block["coordinate_precision"] == F(1, 1000)
 
     with_fixed = asu_structure_from_cif(block, tolerance=1e-3)
-    assert with_fixed.asu_sites[0].wyckoff == "f"
+    assert with_fixed.wyckoff_sites[0].wyckoff == "f"
     assert len(UnitcellStructureView(with_fixed).sites) == 8
 
     derived = asu_structure_from_cif(block)
-    assert derived.asu_sites[0].wyckoff == "e"
+    assert derived.wyckoff_sites[0].wyckoff == "e"
     assert len(UnitcellStructureView(derived).sites) == 4

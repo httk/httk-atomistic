@@ -8,10 +8,10 @@ import pytest
 from httk.atomistic import (
     Assembly,
     Species,
-    Structure,
+    UnitcellStructure,
     UnitcellStructureView,
 )
-from httk.atomistic.compat import ASEAtomsBackend, ASEAtomsProtocol
+from httk.atomistic.compat import ASEAtoms, ASEAtomsProtocol
 from httk.atomistic.composition import ChemicalComposition
 from httk.atomistic.structure_backend import StructureBackend
 
@@ -35,7 +35,7 @@ def test_fake_atoms_protocol_and_exact_structure_conversion() -> None:
 
     assert isinstance(fake, ASEAtomsProtocol)
     backend = StructureBackend.create(fake)
-    assert isinstance(backend, ASEAtomsBackend)
+    assert isinstance(backend, ASEAtoms)
     assert backend.unwrap() is fake
 
     structure = UnitcellStructureView(fake)
@@ -57,7 +57,7 @@ def test_fake_atoms_protocol_and_exact_structure_conversion() -> None:
 def test_kind_hint_selects_or_rejects_ase_backend() -> None:
     fake = FakeAtoms()
 
-    assert isinstance(StructureBackend.create(fake, kind="ase"), ASEAtomsBackend)
+    assert isinstance(StructureBackend.create(fake, kind="ase"), ASEAtoms)
     with pytest.raises(TypeError):
         StructureBackend.create(fake, kind="unitcell")
 
@@ -92,13 +92,13 @@ def test_ase_atoms_rejects_assemblies_and_implicit_atoms() -> None:
 
     species = Species("C", ("C",), (1,))
     geometry = ([[4, 0, 0], [0, 4, 0], [0, 0, 4]], [[0, 0, 0]], [species], ["C"])
-    assembled = Structure(*geometry, assemblies=(Assembly(((0,),), (1,)),))
-    implicit = Structure(*geometry, chemical_composition=ChemicalComposition({"H": 2}, mode="implicit"))
+    assembled = UnitcellStructure(*geometry, assemblies=(Assembly(((0,),), (1,)),))
+    implicit = UnitcellStructure(*geometry, chemical_composition=ChemicalComposition({"H": 2}, mode="implicit"))
     with pytest.raises(TypeError, match="assemblies"):
         ASEAtomsView(assembled)
     with pytest.raises(TypeError, match="declared chemical composition"):
         ASEAtomsView(implicit)
-    full = Structure(*geometry, chemical_composition=ChemicalComposition({"O": 1}, mode="full"))
+    full = UnitcellStructure(*geometry, chemical_composition=ChemicalComposition({"O": 1}, mode="full"))
     with pytest.raises(TypeError, match="declared chemical composition"):
         ASEAtomsView(full)
 
@@ -113,7 +113,7 @@ def test_ase_atoms_rejects_disorder_partial_occupancy_and_attachments() -> None:
         Species("attached", ("C",), (1,), attached=("H",), nattached=(1,)),
     )
     for species in species_values:
-        structure = Structure(
+        structure = UnitcellStructure(
             [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
             [[0, 0, 0]],
             [species],

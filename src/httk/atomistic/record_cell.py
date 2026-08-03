@@ -8,7 +8,7 @@ from .cell_backend import CellBackend
 from .structure_record import CellRecord, _basis_vector
 
 
-class CellRecordBackend(CellBackend):
+class RecordCell(CellBackend):
     _record: CellRecord
 
     def __new__(cls, obj: Any, **hints: Any) -> Any:

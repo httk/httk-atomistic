@@ -4,11 +4,11 @@ from httk.core import register_format_adapter
 
 register_format_adapter(
     name="atomistic-structures",
-    adapter="httk.atomistic.vasp_structures:structure_from_payload",
+    adapter="httk.atomistic._loading:_structure_from_payload",
     formats=("cif", "vasp-poscar"),
 )
 register_format_adapter(
     name="atomistic-structures",
-    adapter="httk.atomistic.vasp_structures:structure_from_optimade_payload",
+    adapter="httk.atomistic._loading:_structure_from_optimade_payload",
     formats=("optimade-entry",),
 )

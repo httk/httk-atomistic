@@ -32,7 +32,7 @@ from httk.core import FracVector, SurdVector
 
 from ._periodic_wrap import wrap_periodic_half
 from ._periodicity_guard import require_full_periodicity
-from .asu_structure import ASUSite, ASUStructure
+from .asu_structure import ASUStructure, WyckoffSite
 from .setting_transform import SettingTransform
 from .spacegroup import Spacegroup
 from .structure_like import StructureLike
@@ -289,7 +289,7 @@ def _group_into_orbits(
     """
     cosets = transform.lattice_cosets()
     consumed = [False] * len(placed)
-    asu_sites: list[ASUSite] = []
+    wyckoff_sites: list[WyckoffSite] = []
 
     for index, (position, parameters, _snapped) in enumerate(placed):
         if consumed[index]:
@@ -330,12 +330,12 @@ def _group_into_orbits(
 
         for other in members:
             consumed[other] = True
-        asu_sites.append(ASUSite(position.letter, parameters, species))
+        wyckoff_sites.append(WyckoffSite(position.letter, parameters, species))
 
     # The recognized ASU inherits the precision of the structure it came from: nothing
     # about recognition sharpens the data, and dropping it here would mean the value had
     # to be guessed again by everything downstream.
-    return ASUStructure(cell, standard, asu_sites, view.species, transform, view.sites.precision)
+    return ASUStructure(cell, standard, wyckoff_sites, view.species, transform, view.sites.precision)
 
 
 def _lies_in_orbit(point: FracVector, orbit: Sequence[FracVector], cell: Any, tolerance: float) -> bool:

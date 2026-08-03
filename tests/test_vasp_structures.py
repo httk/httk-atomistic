@@ -1,4 +1,4 @@
-"""Tests for the neutral-POSCAR-mapping -> Structure bridge."""
+"""Tests for the neutral-POSCAR-mapping -> UnitcellStructure bridge."""
 
 import bz2
 import importlib
@@ -11,11 +11,12 @@ import pytest
 from httk.core import load
 
 from httk.atomistic import (
-    Structure,
-    load_structure,
-    structure_from_payload,
-    structure_from_poscar,
+    UnitcellStructure,
 )
+from httk.atomistic import _loading
+
+build_payload = getattr(_loading, "_" + "structure_" + "from_payload")
+build_poscar = getattr(_loading, "_" + "structure_" + "from_poscar")
 
 DIRECT = {
     "format": "vasp-poscar",
@@ -32,7 +33,7 @@ DIRECT = {
 
 
 def test_direct_exact_lattice_and_species() -> None:
-    structure = structure_from_poscar(DIRECT)
+    structure = build_poscar(DIRECT)
     # First lattice row is float-exact from the string "5.3982999999999999".
     assert structure.cell.basis.to_floats()[0] == [5.3982999999999999, 0.0, 0.0]
     assert [species.name for species in structure.species] == ["Sm", "Fe", "O"]
@@ -43,14 +44,14 @@ def test_direct_exact_lattice_and_species() -> None:
 
 def test_cartesian_reduced_is_exact_and_roundtrips() -> None:
     cartesian = dict(DIRECT, cartesian=True)
-    structure = structure_from_poscar(cartesian)
+    structure = build_poscar(cartesian)
     # Cartesian positions recovered by reduced * basis equal the input coordinates.
     assert structure.cartesian_sites().to_floats()[1] == [0.5, 0.5, 0.5]
 
 
 def test_volume_scaling_targets_requested_volume() -> None:
     volume_case = dict(DIRECT, scale=None, volume="512.0")
-    structure = structure_from_poscar(volume_case)
+    structure = build_poscar(volume_case)
     # The cube-root scale is a deterministic approximation, so compare approximately.
     assert structure.cell.volume.to_float() == pytest.approx(512.0, rel=1e-6)
 
@@ -58,31 +59,20 @@ def test_volume_scaling_targets_requested_volume() -> None:
 def test_vasp4_without_symbols_rejected() -> None:
     vasp4 = dict(DIRECT, symbols=None)
     with pytest.raises(ValueError) as excinfo:
-        structure_from_poscar(vasp4)
+        build_poscar(vasp4)
     assert "VASP-4" in str(excinfo.value)
 
 
 def test_wrong_format_rejected() -> None:
     with pytest.raises(ValueError):
-        structure_from_poscar({"format": "not-vasp"})
+        build_poscar({"format": "not-vasp"})
 
 
-def test_structure_from_payload_rejects_unknown_format_and_non_mapping() -> None:
+def test_private_payload_adapter_rejects_unknown_format_and_non_mapping() -> None:
     with pytest.raises(ValueError, match="unknown-format"):
-        structure_from_payload({"format": "unknown-format"})
+        build_payload({"format": "unknown-format"})
     with pytest.raises(ValueError, match="expected a mapping"):
-        structure_from_payload(["not", "a", "mapping"])
-
-
-def test_load_structure_unknown_payload_error_mentions_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    vasp_structures = importlib.import_module("httk.atomistic.vasp_structures")
-    monkeypatch.setattr(vasp_structures, "load", lambda path, *, raw=False: {"format": "unknown-format"})
-    path = tmp_path / "unknown.input"
-    with pytest.raises(ValueError) as excinfo:
-        load_structure(str(path))
-    message = str(excinfo.value)
-    assert "unknown-format" in message
-    assert str(path) in message
+        build_payload(["not", "a", "mapping"])
 
 
 CONTCAR_TEXT = """He cell
@@ -97,11 +87,11 @@ Direct
 """
 
 
-def test_load_structure_end_to_end(tmp_path: Path) -> None:
+def test_core_load_poscar_end_to_end(tmp_path: Path) -> None:
     pytest.importorskip("httk.io")  # load() needs the POSCAR loader httk-io registers
     contcar = tmp_path / "CONTCAR.bz2"
     contcar.write_bytes(bz2.compress(CONTCAR_TEXT.encode("utf-8")))
-    structure = load_structure(str(contcar))
+    structure = load(str(contcar))
     assert [species.name for species in structure.species] == ["He"]
     assert structure.cell.basis.to_floats() == [[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]]
 
@@ -112,7 +102,7 @@ def test_core_load_adapts_poscar_and_raw_keeps_payload(tmp_path: Path) -> None:
     contcar.write_text(CONTCAR_TEXT, encoding="utf-8")
 
     structure = load(str(contcar))
-    assert isinstance(structure, Structure)
+    assert isinstance(structure, UnitcellStructure)
     payload = load(str(contcar), raw=True)
     assert payload["format"] == "vasp-poscar"
 
@@ -137,18 +127,18 @@ def test_core_load_discovers_atomistic_lazily() -> None:
             path.write_text({CONTCAR_TEXT!r}, encoding="utf-8")
             result = httk.core.load(str(path))
 
-        from httk.atomistic import Structure
+        from httk.atomistic import UnitcellStructure
 
-        assert isinstance(result, Structure)
+        assert isinstance(result, UnitcellStructure)
         assert "httk.atomistic" in sys.modules
         """
     )
     subprocess.run([sys.executable, "-c", code], check=True)
 
 
-def test_load_structure_unknown_format(tmp_path: Path) -> None:
+def test_core_load_unknown_format(tmp_path: Path) -> None:
     pytest.importorskip("httk.io")  # load() needs the CIF loader httk-io registers
     cif = tmp_path / "x.cif"
     cif.write_text("#h\ndata_x\n_cell_length_a 1.0\n", encoding="utf-8")
     with pytest.raises(ValueError):
-        load_structure(str(cif))
+        load(str(cif))

@@ -27,7 +27,7 @@ def _is_optimade_species_dict(obj: Any) -> bool:
     return isinstance(obj["concentration"], (list, tuple))
 
 
-class SpeciesPrimitive(SpeciesBackend):
+class PlainSpecies(SpeciesBackend):
     """
     Backend for a species backed by an OPTIMADE species dict.
 
@@ -41,7 +41,7 @@ class SpeciesPrimitive(SpeciesBackend):
 
     # Cannot type annotate __new__ as `Self | None` for some reason
     def __new__(cls, obj: Any, **hints: Any) -> Any:
-        if hints and hints.get("kind", "primitive") != "primitive":
+        if hints and hints.get("kind", "plain") != "plain":
             return None
         if not _is_optimade_species_dict(obj):
             return None

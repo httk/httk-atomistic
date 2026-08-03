@@ -172,7 +172,7 @@ class ChemicalComposition:
 
 
 def validate_assemblies(assemblies: Iterable[Assembly], nsites: int | None = None) -> tuple[Assembly, ...]:
-    """Validate global assembly site ownership for a future Structure constructor."""
+    """Validate global assembly site ownership for a future UnitcellStructure constructor."""
     values = tuple(assemblies)
     seen: set[int] = set()
     for assembly in values:
@@ -275,8 +275,8 @@ def _integer_ratio(ratios: Sequence[Fraction]) -> tuple[int, ...] | None:
 
 def _site_data(structure: Any) -> tuple[tuple[str, ...], tuple[Fraction, ...], tuple[Species, ...]]:
     species = tuple(structure.species)
-    if hasattr(structure, "asu_sites") and hasattr(structure, "multiplicities"):
-        names = tuple(site.species for site in structure.asu_sites)
+    if hasattr(structure, "wyckoff_sites") and hasattr(structure, "multiplicities"):
+        names = tuple(site.species for site in structure.wyckoff_sites)
         factors = tuple(Fraction(value) for value in structure.multiplicities())
     else:
         names = tuple(structure.species_at_sites)
@@ -303,7 +303,7 @@ def derive_structure_features(structure: Any) -> tuple[str, ...]:
 
 
 def project_composition(structure: Any) -> CompositionResult:
-    """Project a Structure or ASUStructure to exact elemental amounts without normalization."""
+    """Project a UnitcellStructure or ASUStructure to exact elemental amounts without normalization."""
     names, factors, species = _site_data(structure)
     by_name = {value.name: value for value in species}
     assemblies = validate_assemblies(getattr(structure, "assemblies", ()) or (), len(names))

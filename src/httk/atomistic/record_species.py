@@ -7,7 +7,7 @@ from .species_backend import SpeciesBackend
 from .structure_record import SpeciesRecord, _concentration_precision_from_record
 
 
-class SpeciesRecordBackend(SpeciesBackend):
+class RecordSpecies(SpeciesBackend):
     _record: SpeciesRecord
 
     def __new__(cls, obj: Any, **hints: Any) -> Any:

@@ -6,11 +6,11 @@ import pytest
 from httk.core import PropertyDefinition
 from test_symmetry_entries import _rocksalt
 
-from httk.atomistic import Cell, CellParams, Sites, Species, Structure, StructureEntryProvider
+from httk.atomistic import Cell, CellParams, Sites, Species, UnitcellStructure, StructureEntryProvider
 
 
-def _structure(cell: Cell) -> Structure:
-    return Structure(
+def _structure(cell: Cell) -> UnitcellStructure:
+    return UnitcellStructure(
         cell,
         Sites([[0, 0, 0]], precision=Fraction(1, 1000)),
         (Species("Na", ("Na",), (1,)),),

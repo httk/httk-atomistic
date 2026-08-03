@@ -1,5 +1,5 @@
 """
-A view presenting any structure backend as a Structure (the Unitcell representation).
+A view presenting any structure backend as a UnitcellStructure (the Unitcell representation).
 """
 
 from functools import cached_property
@@ -12,8 +12,12 @@ from .cell import Cell
 from .composition import Assembly
 from .sites import Sites
 from .species import Species
-from .structure import (
-    Structure,
+from .structure_backend import StructureBackend
+from .structure_like import StructureLike
+from .structure_semantics import _METADATA_UNSET, _resolve_view_metadata, _semantic_value
+from .structure_view import StructureView
+from .unitcell_structure import (
+    UnitcellStructure,
     _check_sites_length,
     _check_species_at_sites,
     _check_species_names,
@@ -22,17 +26,13 @@ from .structure import (
     _norm_species,
     _norm_species_at_sites,
 )
-from .structure_backend import StructureBackend
-from .structure_like import StructureLike
-from .structure_semantics import _METADATA_UNSET, _resolve_view_metadata, _semantic_value
-from .structure_view import StructureView
 
 
-class UnitcellStructureView(StructureView, Structure):
+class UnitcellStructureView(StructureView, UnitcellStructure):
     """
-    A view presenting an underlying structure backend as a ``Structure``.
+    A view presenting an underlying structure backend as a ``UnitcellStructure``.
 
-    This view is a genuine ``Structure``, so it can be passed anywhere a Structure
+    This view is a genuine ``UnitcellStructure``, so it can be passed anywhere a UnitcellStructure
     is accepted. Each component is normalized lazily on first access. For an
     ASU-backed view, accessing ``cell`` or ``species`` never triggers expansion.
     """
@@ -75,7 +75,7 @@ class UnitcellStructureView(StructureView, Structure):
             "other",
         } and not isinstance(backend, FundamentalDomainStructure):
             raise IncompleteOptimadeResourceError(
-                f"site_coordinate_span={span!r} cannot be projected as a native unit-cell Structure view"
+                f"site_coordinate_span={span!r} cannot be projected as a native unit-cell UnitcellStructure view"
             )
         instance = super().__new__(cls)
         instance._backend = backend

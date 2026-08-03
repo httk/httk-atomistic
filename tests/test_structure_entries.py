@@ -8,11 +8,11 @@ from httk.core import FracVector, PropertyDefinition
 
 from httk.atomistic import (
     Assembly,
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     ASUStructureRecord,
     FundamentalDomainStructureRecord,
-    Structure,
+    UnitcellStructure,
     StructureEntryProvider,
     UnitcellStructureRecord,
 )
@@ -20,13 +20,13 @@ from httk.atomistic.species import Species
 from httk.atomistic.structure_entries import StructureEntry
 
 
-def _nacl_like() -> Structure:
+def _nacl_like() -> UnitcellStructure:
     # A non-orthogonal cell (rows are the lattice vectors).
     cell = [[2.0, 0.0, 0.0], [1.0, 2.0, 0.0], [0.0, 0.0, 3.0]]
     sites = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
     na = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))
     cl = Species(name="Cl", chemical_symbols=("Cl",), concentration=(1.0,))
-    return Structure(cell, sites, [na, cl], ["Na", "Cl"])
+    return UnitcellStructure(cell, sites, [na, cl], ["Na", "Cl"])
 
 
 def _provider() -> StructureEntryProvider:
@@ -107,7 +107,7 @@ def test_species_are_optimade_dicts() -> None:
 def test_structure_features_disorder() -> None:
     cell = [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 3.0]]
     mixed = Species(name="M", chemical_symbols=("Fe", "Ni"), concentration=(0.5, 0.5))
-    structure = Structure(cell, [[0.0, 0.0, 0.0]], [mixed], ["M"])
+    structure = UnitcellStructure(cell, [[0.0, 0.0, 0.0]], [mixed], ["M"])
     (record,) = list(StructureEntryProvider({"m": structure}).records("structures"))
     assert record["structure_features"] == ["disorder"]
     # elements collects the constituent chemical symbols:
@@ -118,7 +118,7 @@ def test_structure_features_disorder() -> None:
 def test_structure_features_site_attachments() -> None:
     cell = [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 3.0]]
     ch3 = Species(name="CH3", chemical_symbols=("C",), concentration=(1.0,), attached=("H",), nattached=(3,))
-    structure = Structure(cell, [[0.0, 0.0, 0.0]], [ch3], ["CH3"])
+    structure = UnitcellStructure(cell, [[0.0, 0.0, 0.0]], [ch3], ["CH3"])
     (record,) = list(StructureEntryProvider({"c": structure}).records("structures"))
     assert record["structure_features"] == ["site_attachments"]
 
@@ -134,12 +134,12 @@ def test_unused_species_do_not_mark_structure_features() -> None:
     na = Species(name="Na", chemical_symbols=("Na",), concentration=(1,))
     unused_disordered = Species(name="X", chemical_symbols=("Fe", "Ni"), concentration=(0.5, 0.5))
     unused_attached = Species(name="CH3", chemical_symbols=("C",), concentration=(1,), attached=("H",), nattached=(3,))
-    structure = Structure(cell, [[0, 0, 0]], [na, unused_disordered, unused_attached], ["Na"])
+    structure = UnitcellStructure(cell, [[0, 0, 0]], [na, unused_disordered, unused_attached], ["Na"])
     (record,) = list(StructureEntryProvider({"only-na": structure}).records("structures"))
     assert record["structure_features"] == []
 
 
-def _smfeo3() -> Structure:
+def _smfeo3() -> UnitcellStructure:
     # 4 Fe, 12 O, 4 Sm ordered sites (a fully ordered composition).
     cell = [[5.6, 0.0, 0.0], [0.0, 7.6, 0.0], [0.0, 0.0, 5.3]]
     sites = [[0.01 * i, 0.0, 0.0] for i in range(20)]
@@ -147,7 +147,7 @@ def _smfeo3() -> Structure:
     o = Species(name="O", chemical_symbols=("O",), concentration=(1.0,))
     sm = Species(name="Sm", chemical_symbols=("Sm",), concentration=(1.0,))
     species_at_sites = ["Fe"] * 4 + ["O"] * 12 + ["Sm"] * 4
-    return Structure(cell, sites, [fe, o, sm], species_at_sites)
+    return UnitcellStructure(cell, sites, [fe, o, sm], species_at_sites)
 
 
 def test_chemical_formula_and_ratios() -> None:
@@ -179,7 +179,7 @@ def test_null_structure_serves_null() -> None:
 def test_disordered_structure_uses_exact_expected_composition() -> None:
     cell = [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 3.0]]
     mixed = Species(name="M", chemical_symbols=("Fe", "Ni"), concentration=(0.5, 0.5))
-    structure = Structure(cell, [[0.0, 0.0, 0.0]], [mixed], ["M"])
+    structure = UnitcellStructure(cell, [[0.0, 0.0, 0.0]], [mixed], ["M"])
     (record,) = list(StructureEntryProvider({"m": structure}).records("structures"))
     assert record["chemical_formula_reduced"] == "FeNi"
     assert record["chemical_formula_anonymous"] == "AB"
@@ -220,7 +220,7 @@ def test_standard_properties_cannot_be_overridden(source: str) -> None:
 def test_structure_entry_metadata_is_served_but_not_structural_equality() -> None:
     stamp = datetime.datetime(2026, 8, 1, 12, 30, tzinfo=datetime.UTC)
     structure = _nacl_like()
-    left = Structure(
+    left = UnitcellStructure(
         structure.cell,
         structure.sites,
         structure.species,
@@ -228,7 +228,7 @@ def test_structure_entry_metadata_is_served_but_not_structural_equality() -> Non
         immutable_id="stable-left",
         last_modified=stamp,
     )
-    right = Structure(
+    right = UnitcellStructure(
         structure.cell,
         structure.sites,
         structure.species,
@@ -249,7 +249,9 @@ def test_structure_entry_validation_and_mapping_identity() -> None:
     with pytest.raises(ValueError, match="timezone"):
         naive = datetime.datetime(2026, 8, 1, tzinfo=datetime.UTC).replace(tzinfo=None)
         structure = _nacl_like()
-        Structure(structure.cell, structure.sites, structure.species, structure.species_at_sites, last_modified=naive)
+        UnitcellStructure(
+            structure.cell, structure.sites, structure.species, structure.species_at_sites, last_modified=naive
+        )
     with pytest.raises(TypeError, match="logical entry family"):
         StructureEntry()
 
@@ -258,7 +260,7 @@ def test_complete_standard_projection_and_assembly_null_semantics() -> None:
     cell = [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 3.0]]
     na = Species(name="Na", chemical_symbols=("Na",), concentration=(1,))
     cl = Species(name="Cl", chemical_symbols=("Cl",), concentration=(1,))
-    structure = Structure(
+    structure = UnitcellStructure(
         cell,
         [[0, 0, 0], [0.5, 0.5, 0.5]],
         [na, cl],
@@ -281,7 +283,7 @@ def test_complete_standard_projection_and_assembly_null_semantics() -> None:
 
     (plain,) = list(StructureEntryProvider({"x": _nacl_like()}).records("structures"))
     assert plain["assemblies"] is None
-    empty_assemblies = Structure(cell, [[0, 0, 0]], [na], ["Na"], assemblies=())
+    empty_assemblies = UnitcellStructure(cell, [[0, 0, 0]], [na], ["Na"], assemblies=())
     (present_empty,) = list(StructureEntryProvider({"x": empty_assemblies}).records("structures"))
     assert present_empty["assemblies"] == []
 
@@ -291,7 +293,7 @@ def test_asymmetric_unit_is_projected_without_unit_cell_expansion() -> None:
     asu = ASUStructure(
         [[5.64, 0, 0], [0, 5.64, 0], [0, 0, 5.64]],
         225,
-        [ASUSite("a", no_parameters, "Na"), ASUSite("b", no_parameters, "Cl")],
+        [WyckoffSite("a", no_parameters, "Na"), WyckoffSite("b", no_parameters, "Cl")],
         [
             Species(name="Na", chemical_symbols=("Na",), concentration=(1,)),
             Species(name="Cl", chemical_symbols=("Cl",), concentration=(1,)),
@@ -351,14 +353,14 @@ def test_periodicity_is_served_whatever_the_composition() -> None:
     attached = Species(name="C", chemical_symbols=("C",), concentration=(1.0,), attached=("H",), nattached=(1,))
 
     for label, species in (("ordered", ordered), ("disordered", disordered), ("attached", attached)):
-        structure = Structure(cell, [[0, 0, 0]], [species], [species.name])
+        structure = UnitcellStructure(cell, [[0, 0, 0]], [species], [species.name])
         (record,) = list(StructureEntryProvider({"x": structure}).records("structures"))
         assert record["nperiodic_dimensions"] == 3, label
         assert record["dimension_types"] == [1, 1, 1], label
 
     # Exact partial occupations have an exact expected composition as well.
     (record,) = list(
-        StructureEntryProvider({"x": Structure(cell, [[0, 0, 0]], [disordered], ["X"])}).records("structures")
+        StructureEntryProvider({"x": UnitcellStructure(cell, [[0, 0, 0]], [disordered], ["X"])}).records("structures")
     )
     assert record["chemical_formula_reduced"] == "KNa"
     assert record["elements_ratios"] == [0.5, 0.5]

@@ -7,13 +7,13 @@ from httk.core import FracVector, SurdScalar
 
 from httk.atomistic import (
     Assembly,
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     Cell,
     CellParams,
     Sites,
     Species,
-    Structure,
+    UnitcellStructure,
     SupercellResult,
     build_supercell,
     cubic_supercell,
@@ -28,8 +28,8 @@ def _species(*names: str) -> list[Species]:
     return [Species(name=name, chemical_symbols=(name,), concentration=(1.0,)) for name in names]
 
 
-def _binary_structure() -> Structure:
-    return Structure(
+def _binary_structure() -> UnitcellStructure:
+    return UnitcellStructure(
         cell=[[1, 0, 0], [0, 1, 0], [0, 0, 1]],
         sites=[[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]],
         species=_species("Na", "Cl"),
@@ -37,8 +37,8 @@ def _binary_structure() -> Structure:
     )
 
 
-def _single_site(cell: object) -> Structure:
-    return Structure(cell, [[0, 0, 0]], _species("Na"), ["Na"])
+def _single_site(cell: object) -> UnitcellStructure:
+    return UnitcellStructure(cell, [[0, 0, 0]], _species("Na"), ["Na"])
 
 
 def test_a_diagonal_supercell_is_built_exactly_in_cell_major_order() -> None:
@@ -141,7 +141,7 @@ def test_scalar_supercell_uses_cubic_multiplier_for_site_limit() -> None:
 
 
 def test_precision_bounds_are_transformed_conservatively() -> None:
-    structure = Structure(
+    structure = UnitcellStructure(
         cell=Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]], precision=F(1, 1000)),
         sites=Sites([[F(1, 3), F(1, 5), F(1, 7)]], precision=F(1, 10_000)),
         species=_species("Na"),
@@ -154,7 +154,7 @@ def test_precision_bounds_are_transformed_conservatively() -> None:
 
 
 def test_supercell_preserves_formula_annotations_and_remaps_assemblies() -> None:
-    source = Structure(
+    source = UnitcellStructure(
         [[2, 0, 0], [0, 2, 0], [0, 0, 2]],
         [[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]],
         _species("Na", "Cl"),
@@ -189,7 +189,7 @@ def test_non_simple_inputs_expand_to_a_plain_structure() -> None:
     asu = ASUStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         221,
-        [ASUSite("a", no_parameters, "Na")],
+        [WyckoffSite("a", no_parameters, "Na")],
         _species("Na"),
     )
     primitive = (
@@ -200,8 +200,8 @@ def test_non_simple_inputs_expand_to_a_plain_structure() -> None:
 
     from_asu = build_supercell(asu, [[2, 0, 0], [0, 1, 0], [0, 0, 1]])
     from_primitive = build_supercell(primitive, [[2, 0, 0], [0, 1, 0], [0, 0, 1]])
-    assert type(from_asu.structure) is Structure
-    assert type(from_primitive.structure) is Structure
+    assert type(from_asu.structure) is UnitcellStructure
+    assert type(from_primitive.structure) is UnitcellStructure
     assert len(from_asu.structure.sites) == 2
     assert len(from_primitive.structure.sites) == 2
 

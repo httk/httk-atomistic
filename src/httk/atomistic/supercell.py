@@ -27,8 +27,8 @@ from .asu_structure import FundamentalDomainStructure
 from .cell import Cell
 from .composition import Assembly, ChemicalComposition
 from .sites import Sites
-from .structure import Structure
 from .structure_like import StructureLike
+from .unitcell_structure import UnitcellStructure
 from .unitcell_structure_view import UnitcellStructureView
 
 __all__ = [
@@ -53,7 +53,7 @@ class SupercellResult:
     :class:`~httk.core.SurdScalar` values; zero proves the ideal shape exactly.
     """
 
-    structure: Structure
+    structure: UnitcellStructure
     transformation: FracVector
     multiplier: int
     orthogonality_score: SurdScalar
@@ -195,7 +195,7 @@ def build_supercell(
     Lattice vectors are rows and the returned basis is ``transformation * basis``.
     Reduced coordinates are transformed by the inverse matrix and wrapped into
     ``[0, 1)``. Any input representation is first presented as a full
-    :class:`~httk.atomistic.structure.Structure`.
+    :class:`~httk.atomistic.unitcell_structure.UnitcellStructure`.
 
     Requires a fully 3D-periodic structure. Repeating a slab within its own plane is a
     perfectly sensible operation, but it is not this one: the transformation matrix here
@@ -238,7 +238,7 @@ def build_supercell(
     semantics = _semantic_source(view)
     assemblies = _replicated_assemblies(getattr(semantics, "assemblies", None), len(view.sites), multiplier)
     composition = getattr(semantics, "chemical_composition", None)
-    result = Structure(
+    result = UnitcellStructure(
         new_cell,
         new_sites,
         view.species,

@@ -4,7 +4,7 @@
 ``httk.io.cif`` (format tag ``"cif"``) and turns it into an exact ASU representation. It
 imports nothing from *httk-io* — it only understands the neutral mapping shape — keeping
 the parsing capability and the domain model decoupled, exactly as
-:func:`~httk.atomistic.structure_from_poscar` already does for POSCAR files.
+the private POSCAR adapter already does for POSCAR files.
 
 A CIF is the natural source for an ASU: it lists one site per orbit and states the symmetry
 operations that generate the rest. That means no symmetry *search* is needed, and spglib is
@@ -22,7 +22,7 @@ from httk.core import FracVector
 from . import data as symmetry_data
 from ._composition_values import as_fraction
 from .affine_operation import AffineOperation
-from .asu_structure import ASUSite, ASUStructure
+from .asu_structure import ASUStructure, WyckoffSite
 from .cell import Cell
 from .cell_params import CellParams
 from .spacegroup import Spacegroup
@@ -111,7 +111,7 @@ def asu_structure_from_cif(
     occupancy_precisions = data.get("occupancy_precisions")
 
     species_by_name: dict[str, Species] = {}
-    asu_sites: list[ASUSite] = []
+    wyckoff_sites: list[WyckoffSite] = []
     for index, coordinate in enumerate(coordinates):
         if occupancies_exact is not None and occupancies_exact[index] is not None:
             occupancy = occupancies_exact[index]
@@ -145,12 +145,12 @@ def asu_structure_from_cif(
             parameters = FracVector.create(
                 [value.limit_denominator(limit_denominator) for value in parameters.to_fractions()]
             )
-        asu_sites.append(ASUSite(letter, parameters, name, coordinate.normalize()))
+        wyckoff_sites.append(WyckoffSite(letter, parameters, name, coordinate.normalize()))
 
     return ASUStructure(
         cell,
         standard,
-        asu_sites,
+        wyckoff_sites,
         list(species_by_name.values()),
         transform,
         data.get("coordinate_precision"),

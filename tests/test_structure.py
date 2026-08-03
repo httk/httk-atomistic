@@ -7,10 +7,10 @@ from httk.atomistic import (
     Cell,
     Sites,
     Species,
-    Structure,
+    UnitcellStructure,
     StructureBackend,
-    StructurePrimitive,
-    StructurePrimitiveView,
+    PlainStructure,
+    PlainStructureView,
     UnitcellStructureView,
     atomic_number,
     symbol_of,
@@ -19,8 +19,8 @@ from httk.atomistic import (
 CUBIC = [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
 
 
-def nacl_structure() -> Structure:
-    return Structure(
+def nacl_structure() -> UnitcellStructure:
+    return UnitcellStructure(
         cell=CUBIC,
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         species=[
@@ -113,7 +113,7 @@ def test_species_is_single_element_cases() -> None:
     assert not attached.is_single_element
 
 
-# --- Structure ---
+# --- UnitcellStructure ---
 
 
 def test_structure_normalizes_and_exposes_quartet() -> None:
@@ -135,7 +135,7 @@ def test_structure_normalizes_and_exposes_quartet() -> None:
 
 
 def test_structure_accepts_mixed_bare_and_species_inputs() -> None:
-    structure = Structure(
+    structure = UnitcellStructure(
         cell=CUBIC,
         sites=[
             [0.0, 0.0, 0.0],
@@ -151,7 +151,7 @@ def test_structure_accepts_mixed_bare_and_species_inputs() -> None:
 
 
 def test_structure_accepts_bare_symbol_species_inputs() -> None:
-    structure = Structure(
+    structure = UnitcellStructure(
         cell=CUBIC,
         sites=[
             [0.0, 0.0, 0.0],
@@ -168,7 +168,7 @@ def test_structure_accepts_bare_symbol_species_inputs() -> None:
 
 
 def test_structure_accepts_atomic_number_species_inputs() -> None:
-    structure = Structure(
+    structure = UnitcellStructure(
         cell=CUBIC,
         sites=[
             [0.0, 0.0, 0.0],
@@ -187,7 +187,7 @@ def test_structure_accepts_atomic_number_species_inputs() -> None:
 def test_structure_infers_species_from_site_values_in_first_occurrence_order() -> None:
     oxygen = Species("O", ("O",), (1,))
     chlorine = {"name": "Cl", "chemical_symbols": ["Cl"], "concentration": [1]}
-    structure = Structure(
+    structure = UnitcellStructure(
         cell=CUBIC,
         sites=[[0, 0, 0], ["1/2", 0, 0], [0, "1/2", 0], [0, 0, "1/2"], ["1/2", "1/2", "1/2"]],
         species_at_sites=[oxygen, 22, chlorine, 22, oxygen],
@@ -199,7 +199,7 @@ def test_structure_infers_species_from_site_values_in_first_occurrence_order() -
 
 def test_structure_rejects_conflicting_inferred_species_definitions() -> None:
     with pytest.raises(ValueError, match="conflicting definitions"):
-        Structure(
+        UnitcellStructure(
             cell=CUBIC,
             sites=[[0, 0, 0], ["1/2", "1/2", "1/2"]],
             species_at_sites=[
@@ -212,28 +212,28 @@ def test_structure_rejects_conflicting_inferred_species_definitions() -> None:
 def test_structure_shape_and_name_validation() -> None:
     # A malformed cell is rejected by the Cell family (a 2x2 cannot be represented).
     with pytest.raises((ValueError, TypeError)):
-        Structure(
+        UnitcellStructure(
             cell=[[1.0, 0.0], [0.0, 1.0]],
             sites=[[0.0, 0.0, 0.0]],
             species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
             species_at_sites=["Na"],
         )
     with pytest.raises(ValueError):
-        Structure(
+        UnitcellStructure(
             cell=CUBIC,
             sites=[[0.0, 0.0, 0.0]],
             species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
             species_at_sites=["Na", "Cl"],
         )
     with pytest.raises(ValueError):
-        Structure(
+        UnitcellStructure(
             cell=CUBIC,
             sites=[[0.0, 0.0, 0.0]],
             species=[{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}],
             species_at_sites=["Cl"],
         )
     with pytest.raises(ValueError):
-        Structure(
+        UnitcellStructure(
             cell=CUBIC,
             sites=[[0.0, 0.0, 0.0]],
             species=[
@@ -246,7 +246,7 @@ def test_structure_shape_and_name_validation() -> None:
 
 def test_structure_equality() -> None:
     assert nacl_structure() == nacl_structure()
-    other = Structure(
+    other = UnitcellStructure(
         cell=CUBIC,
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         species=[
@@ -267,9 +267,9 @@ def test_backend_create_dispatches_and_kind_overrides() -> None:
     assert UnitcellStructureView(simple)._backend is simple
 
     primitive = StructureBackend.create(nacl_triple())
-    assert isinstance(primitive, StructurePrimitive)
+    assert isinstance(primitive, PlainStructure)
 
-    assert isinstance(StructureBackend.create(nacl_triple(), kind="primitive"), StructurePrimitive)
+    assert isinstance(StructureBackend.create(nacl_triple(), kind="plain"), PlainStructure)
 
 
 def test_backend_create_raises_for_malformed_triple() -> None:
@@ -280,7 +280,7 @@ def test_backend_create_raises_for_malformed_triple() -> None:
     with pytest.raises(TypeError):
         StructureBackend.create(12345)
     with pytest.raises(TypeError):
-        StructureBackend.create(nacl_structure(), kind="primitive")
+        StructureBackend.create(nacl_structure(), kind="plain")
 
 
 # --- Views ---
@@ -288,7 +288,7 @@ def test_backend_create_raises_for_malformed_triple() -> None:
 
 def test_simple_view_from_primitive_derives_species() -> None:
     view = UnitcellStructureView(nacl_triple())
-    assert isinstance(view, Structure)
+    assert isinstance(view, UnitcellStructure)
     assert view.cell.basis.to_floats() == [
         [4.0, 0.0, 0.0],
         [0.0, 4.0, 0.0],
@@ -308,14 +308,14 @@ def test_simple_view_species_is_one_per_distinct_number() -> None:
 
 
 def test_primitive_view_from_structure_has_correct_numbers() -> None:
-    lattice, positions, numbers = StructurePrimitiveView(nacl_structure())
+    lattice, positions, numbers = PlainStructureView(nacl_structure())
     assert lattice == ((4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0))
     assert positions == ((0.0, 0.0, 0.0), (0.5, 0.5, 0.5))
     assert numbers == (11, 17)
 
 
 def test_primitive_view_raises_for_non_single_element_species() -> None:
-    alloy = Structure(
+    alloy = UnitcellStructure(
         cell=CUBIC,
         sites=[[0.0, 0.0, 0.0]],
         species=[
@@ -328,7 +328,7 @@ def test_primitive_view_raises_for_non_single_element_species() -> None:
         species_at_sites=["Ti"],
     )
     with pytest.raises(TypeError):
-        StructurePrimitiveView(alloy)
+        PlainStructureView(alloy)
 
 
 def test_primitive_view_rejects_every_unrepresentable_semantic_feature() -> None:
@@ -338,7 +338,7 @@ def test_primitive_view_rejects_every_unrepresentable_semantic_feature() -> None
     element = Species("C", ("C",), (1,))
     partial = Species("C", ("C",), (fractions.Fraction(1, 2),))
     attached = Species("CH", ("C",), (1,), attached=("H",), nattached=(1,))
-    implicit = Structure(
+    implicit = UnitcellStructure(
         CUBIC,
         [[0, 0, 0]],
         [element],
@@ -346,11 +346,11 @@ def test_primitive_view_rejects_every_unrepresentable_semantic_feature() -> None
         chemical_composition=ChemicalComposition({"H": 2}, mode="implicit"),
     )
     cases = (
-        Structure(CUBIC, [[0, 0, 0]], [partial], ["C"]),
-        Structure(CUBIC, [[0, 0, 0]], [attached], ["CH"]),
-        Structure(CUBIC, [[0, 0, 0]], [element], ["C"], assemblies=(Assembly(((0,),), (1,)),)),
+        UnitcellStructure(CUBIC, [[0, 0, 0]], [partial], ["C"]),
+        UnitcellStructure(CUBIC, [[0, 0, 0]], [attached], ["CH"]),
+        UnitcellStructure(CUBIC, [[0, 0, 0]], [element], ["C"], assemblies=(Assembly(((0,),), (1,)),)),
         implicit,
-        Structure(
+        UnitcellStructure(
             CUBIC,
             [[0, 0, 0]],
             [element],
@@ -360,11 +360,11 @@ def test_primitive_view_rejects_every_unrepresentable_semantic_feature() -> None
     )
     for structure in cases:
         with pytest.raises(TypeError):
-            StructurePrimitiveView(structure)
+            PlainStructureView(structure)
 
 
 def test_primitive_view_refuses_partially_occupied_single_symbol_species() -> None:
-    partial = Structure(
+    partial = UnitcellStructure(
         cell=CUBIC,
         sites=[[0.0, 0.0, 0.0]],
         species=[Species("Na_half", ("Na",), (0.5,))],
@@ -372,7 +372,7 @@ def test_primitive_view_refuses_partially_occupied_single_symbol_species() -> No
     )
     assert not partial.species[0].is_single_element
     with pytest.raises(TypeError, match="single, unattached"):
-        StructurePrimitiveView(partial)
+        PlainStructureView(partial)
 
 
 def test_view_rewrap_identity_and_shared_backend() -> None:
@@ -384,29 +384,29 @@ def test_view_rewrap_identity_and_shared_backend() -> None:
     assert v1._backend is backend
     assert v2._backend is backend
 
-    pv = StructurePrimitiveView(nacl_structure())
-    assert StructurePrimitiveView(pv) is pv
+    pv = PlainStructureView(nacl_structure())
+    assert PlainStructureView(pv) is pv
 
 
 def test_unwrap_returns_native_raw_object() -> None:
     structure = nacl_structure()
     simple_view = UnitcellStructureView(structure)
-    # Simple view built from a Structure -> unwrap gives back a Structure
-    assert isinstance(unwrap(simple_view), Structure)
+    # Simple view built from a UnitcellStructure -> unwrap gives back a UnitcellStructure
+    assert isinstance(unwrap(simple_view), UnitcellStructure)
 
     triple = nacl_triple()
     primitive_backend = StructureBackend.create(triple)
     assert unwrap(primitive_backend) is triple
 
-    primitive_view = StructurePrimitiveView(structure)
-    assert isinstance(unwrap(primitive_view), Structure)
+    primitive_view = PlainStructureView(structure)
+    assert isinstance(unwrap(primitive_view), UnitcellStructure)
 
 
 # --- OPTIMADE example fidelity ---
 
 
 def test_optimade_vacancy_and_attached_examples_survive_simple_but_not_primitive() -> None:
-    structure = Structure(
+    structure = UnitcellStructure(
         cell=CUBIC,
         sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         species=[
@@ -433,4 +433,4 @@ def test_optimade_vacancy_and_attached_examples_survive_simple_but_not_primitive
 
     # But they cannot be represented as a primitive structure.
     with pytest.raises(TypeError):
-        StructurePrimitiveView(structure)
+        PlainStructureView(structure)

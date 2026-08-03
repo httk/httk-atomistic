@@ -6,9 +6,9 @@ three directions actually repeat, so httk can represent all of them and reject o
 that only make sense for a crystal.
 
 ```python
-from httk.atomistic import Cell, Structure
+from httk.atomistic import Cell, UnitcellStructure
 
-slab = Structure(
+slab = UnitcellStructure(
     Cell([[3, 0, 0], [0, 3, 0], [0, 0, 1]], periodicity=(True, True, False)),
     sites, species, species_at_sites,
 )
@@ -39,7 +39,7 @@ That last point is what makes a molecule fall out for free. Give it the identity
 nothing periodic, and its "fractional" coordinates are literally its ångström coordinates:
 
 ```python
-water = Structure(
+water = UnitcellStructure(
     Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]], periodicity=(False, False, False)),
     sites=[[0, 0, 0], [0.7576, 0.5865, 0], [-0.7576, 0.5865, 0]],   # angstrom
     species=[oxygen, hydrogen],
@@ -73,7 +73,7 @@ close neighbours and derive a tolerance far tighter than the data justifies.
 
 ### Identity
 
-Periodicity takes part in `==`, on `Cell` and on `Structure`, and in `same_crystal`. It is not
+Periodicity takes part in `==`, on `Cell` and on `UnitcellStructure`, and in `same_crystal`. It is not
 provenance the way a recorded precision is — it says which rows are lattice vectors at all, so
 a slab is never the same cell as the bulk that happens to share its basis.
 
@@ -139,10 +139,11 @@ by convention — a lot of empty space along **c** — and nothing in the file s
 periodicity has to come from you:
 
 ```python
-from httk.atomistic import Cell, Structure, load_structure
+from httk.atomistic import Cell, UnitcellStructure
+from httk.core import load
 
-relaxed = load_structure("relaxed.POSCAR")
-slab = Structure(
+relaxed = load("relaxed.POSCAR")
+slab = UnitcellStructure(
     Cell(
         relaxed.cell.unscaled_basis,
         relaxed.cell.scale,

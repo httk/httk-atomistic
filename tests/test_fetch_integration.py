@@ -10,7 +10,7 @@ from typing import Any
 
 import httk.core
 import pytest
-from httk.core import OptimadeResource, load_entry_type_schema
+from httk.core import OptimadeResource, load_entry_type_definition
 
 from httk.atomistic import OptimadeStructure, UnitcellStructureView, build_supercell
 
@@ -24,7 +24,7 @@ class _Response(io.BytesIO):
 
 
 def _entry_and_info() -> tuple[str, str]:
-    schema = load_entry_type_schema(_STRUCTURES_ID)
+    schema = load_entry_type_definition(_STRUCTURES_ID)
     properties = {
         remote_name: {"$id": schema.properties[property_name].definition_id}
         for remote_name, property_name in {

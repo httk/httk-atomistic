@@ -14,7 +14,7 @@ properties `fractional_site_positions`, `wyckoff_positions`,
 `optimization_type`.
 
 The checked-in file is the source of truth. It is loaded with
-`httk.core.load_entry_type_schema` and served by
+`httk.core.load_entry_type_definition` and served by
 `httk.atomistic.StructureEntryProvider`. The `references`, `files`, and
 `calculations` standard entry types are vendored by *httk-core*, not here.
 The JSON and license files are packaged through the

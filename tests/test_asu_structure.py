@@ -12,14 +12,14 @@ from httk.core import FracVector, unwrap
 
 from httk.atomistic import (
     Assembly,
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     Cell,
     FundamentalDomainStructure,
     SettingTransform,
     Spacegroup,
     Species,
-    Structure,
+    UnitcellStructure,
     StructureBackend,
     StructureEntryProvider,
     UnitcellStructureView,
@@ -42,7 +42,7 @@ def _rocksalt() -> ASUStructure:
     return ASUStructure(
         cell=CUBIC,
         spacegroup=225,
-        asu_sites=[ASUSite("a", NO_PARAMETERS, "Na"), ASUSite("b", NO_PARAMETERS, "Cl")],
+        wyckoff_sites=[WyckoffSite("a", NO_PARAMETERS, "Na"), WyckoffSite("b", NO_PARAMETERS, "Cl")],
         species=_species("Na", "Cl"),
     )
 
@@ -93,7 +93,7 @@ def test_a_free_parameter_places_a_whole_orbit() -> None:
     asu = ASUStructure(
         cell=[[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         spacegroup=15,
-        asu_sites=[ASUSite("e", FracVector.create(["1/3"]), "Si")],
+        wyckoff_sites=[WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
         species=_species("Si"),
     )
     assert asu.multiplicities() == (4,)
@@ -110,7 +110,7 @@ def test_a_free_parameter_places_a_whole_orbit() -> None:
 def test_partial_occupancy_survives_expansion() -> None:
     """Occupancy lives in the Species, so every generated site carries it."""
     half_sodium = Species(name="Na_half", chemical_symbols=("Na",), concentration=(0.5,))
-    asu = ASUStructure(CUBIC, 225, [ASUSite("a", NO_PARAMETERS, "Na_half")], [half_sodium])
+    asu = ASUStructure(CUBIC, 225, [WyckoffSite("a", NO_PARAMETERS, "Na_half")], [half_sodium])
     structure = UnitcellStructureView(asu)
     assert len(structure.sites) == 4
     assert structure.species[0].concentration == (0.5,)
@@ -128,11 +128,11 @@ def test_a_volume_changing_transform_collapses_the_orbit_exactly() -> None:
     rhombohedral = Spacegroup.for_setting("166:R")
     assert rhombohedral.transform_from_standard.determinant() == F(3)
 
-    in_standard = ASUStructure(HEXAGONAL, 166, [ASUSite("a", NO_PARAMETERS, "Bi")], _species("Bi"))
+    in_standard = ASUStructure(HEXAGONAL, 166, [WyckoffSite("a", NO_PARAMETERS, "Bi")], _species("Bi"))
     in_rhombohedral = ASUStructure(
         HEXAGONAL,
         166,
-        [ASUSite("a", NO_PARAMETERS, "Bi")],
+        [WyckoffSite("a", NO_PARAMETERS, "Bi")],
         _species("Bi"),
         transform=rhombohedral.transform_from_standard,
     )
@@ -151,7 +151,7 @@ def test_a_supercell_transform_adds_the_missing_lattice_cosets() -> None:
     asu = ASUStructure(
         [[11.28, 0, 0], [0, 5.64, 0], [0, 0, 5.64]],
         225,
-        [ASUSite("a", NO_PARAMETERS, "Na")],
+        [WyckoffSite("a", NO_PARAMETERS, "Na")],
         _species("Na"),
         transform=doubled,
     )
@@ -165,13 +165,13 @@ def test_a_supercell_transform_adds_the_missing_lattice_cosets() -> None:
 def test_an_untabulated_setting_is_representable() -> None:
     """The point of storing a transform: a setting in no table works like any other."""
     shifted = SettingTransform(FracVector.eye((3, 3)), ["1/8", "1/8", "1/8"])
-    asu = ASUStructure(CUBIC, 225, [ASUSite("a", NO_PARAMETERS, "Na")], _species("Na"), transform=shifted)
+    asu = ASUStructure(CUBIC, 225, [WyckoffSite("a", NO_PARAMETERS, "Na")], _species("Na"), transform=shifted)
 
     assert asu.setting() is None
     assert not asu.is_standard_setting
     assert (F(1, 8), F(1, 8), F(1, 8)) in _fractions_of(asu)
 
-    unshifted = ASUStructure(CUBIC, 225, [ASUSite("a", NO_PARAMETERS, "Na")], _species("Na"))
+    unshifted = ASUStructure(CUBIC, 225, [WyckoffSite("a", NO_PARAMETERS, "Na")], _species("Na"))
     # The same crystal, moved: same number of atoms, different coordinates.
     assert len(_fractions_of(asu)) == len(_fractions_of(unshifted))
     assert not same_crystal(asu, unshifted)
@@ -181,7 +181,7 @@ def test_a_tabulated_setting_reports_itself() -> None:
     asu = ASUStructure(
         [[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         15,
-        [ASUSite("e", FracVector.create(["1/3"]), "Si")],
+        [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
         _species("Si"),
         transform=Spacegroup.for_setting("15:c1").transform_from_standard,
     )
@@ -195,17 +195,17 @@ def test_a_tabulated_setting_reports_itself() -> None:
 
 def test_asu_structure_rejects_inconsistent_input() -> None:
     with pytest.raises(ValueError, match="unknown species"):
-        ASUStructure(CUBIC, 225, [ASUSite("a", NO_PARAMETERS, "Xx")], _species("Na"))
+        ASUStructure(CUBIC, 225, [WyckoffSite("a", NO_PARAMETERS, "Xx")], _species("Na"))
 
     with pytest.raises(KeyError):
-        ASUStructure(CUBIC, 225, [ASUSite("zz", NO_PARAMETERS, "Na")], _species("Na"))
+        ASUStructure(CUBIC, 225, [WyckoffSite("zz", NO_PARAMETERS, "Na")], _species("Na"))
 
     with pytest.raises(ValueError, match="free parameter"):
         # Wyckoff a of SG 225 is a fixed position and takes no parameters.
-        ASUStructure(CUBIC, 225, [ASUSite("a", FracVector.create(["1/3"]), "Na")], _species("Na"))
+        ASUStructure(CUBIC, 225, [WyckoffSite("a", FracVector.create(["1/3"]), "Na")], _species("Na"))
 
     with pytest.raises(ValueError, match="unique"):
-        ASUStructure(CUBIC, 225, [ASUSite("a", NO_PARAMETERS, "Na")], _species("Na") + _species("Na"))
+        ASUStructure(CUBIC, 225, [WyckoffSite("a", NO_PARAMETERS, "Na")], _species("Na") + _species("Na"))
 
 
 def test_asu_structure_requires_the_standard_setting() -> None:
@@ -214,7 +214,7 @@ def test_asu_structure_requires_the_standard_setting() -> None:
         ASUStructure(
             CUBIC,
             Spacegroup.for_setting("15:c1"),
-            [ASUSite("a", NO_PARAMETERS, "Na")],
+            [WyckoffSite("a", NO_PARAMETERS, "Na")],
             _species("Na"),
         )
 
@@ -245,7 +245,7 @@ def test_view_rewrap_identity_shared_backend_and_unwrap() -> None:
 def test_an_asu_structure_is_a_structure_everywhere() -> None:
     """Being in StructureLike is what lets it flow through the rest of the package."""
     view = UnitcellStructureView(_rocksalt())
-    assert isinstance(view, Structure)
+    assert isinstance(view, UnitcellStructure)
     assert isinstance(view.cell, Cell)
     assert view.cartesian_sites().to_floats()[0] == [0.0, 0.0, 0.0]
     assert UnitcellStructureView(_rocksalt()) == view
@@ -255,7 +255,7 @@ def test_symmetry_reduced_expansion_rejects_ambiguous_molecular_placement() -> N
     molecular = ASUStructure(
         CUBIC,
         225,
-        [ASUSite("a", NO_PARAMETERS, "Na", FracVector.create([0, 0, 0]))],
+        [WyckoffSite("a", NO_PARAMETERS, "Na", FracVector.create([0, 0, 0]))],
         _species("Na"),
         molecular=True,
     )
@@ -268,7 +268,7 @@ def test_symmetry_reduced_expansion_retains_unambiguous_molecular_representative
     molecular = ASUStructure(
         CUBIC,
         1,
-        [ASUSite("a", point, "C", point)],
+        [WyckoffSite("a", point, "C", point)],
         _species("C"),
         molecular=True,
     )
@@ -281,7 +281,7 @@ def test_symmetry_reduced_expansion_rejects_ambiguous_assembly_correlations() ->
     correlated = ASUStructure(
         CUBIC,
         225,
-        [ASUSite("a", NO_PARAMETERS, "Na")],
+        [WyckoffSite("a", NO_PARAMETERS, "Na")],
         _species("Na"),
         assemblies=(Assembly(((0,),), (1,)),),
     )
@@ -297,7 +297,7 @@ def test_native_assemblies_are_servable_without_expansion() -> None:
     correlated = ASUStructure(
         CUBIC,
         225,
-        [ASUSite("a", NO_PARAMETERS, "Na")],
+        [WyckoffSite("a", NO_PARAMETERS, "Na")],
         _species("Na"),
         assemblies=(Assembly(((0,),), (1,)),),
     )
@@ -321,7 +321,7 @@ def test_symmetry_reduced_expansion_remaps_one_to_one_assembly_sites() -> None:
     correlated = ASUStructure(
         CUBIC,
         221,
-        [ASUSite("a", NO_PARAMETERS, "Na")],
+        [WyckoffSite("a", NO_PARAMETERS, "Na")],
         _species("Na"),
         assemblies=(Assembly(((0,),), (1,)),),
     )
@@ -336,7 +336,7 @@ def test_symmetry_reduced_expansion_remaps_one_to_one_assembly_sites() -> None:
 
 def test_same_crystal_ignores_order_and_lattice_translation() -> None:
     reference = UnitcellStructureView(_rocksalt())
-    reordered = Structure(
+    reordered = UnitcellStructure(
         reference.cell,
         list(reversed(reference.sites.reduced_coords.to_fractions())),
         reference.species,
@@ -347,14 +347,14 @@ def test_same_crystal_ignores_order_and_lattice_translation() -> None:
     # Shifting a site by a whole lattice vector names the same atom.
     translated_coords = [list(row) for row in reference.sites.reduced_coords.to_fractions()]
     translated_coords[0] = [value + 1 for value in translated_coords[0]]
-    translated = Structure(reference.cell, translated_coords, reference.species, reference.species_at_sites)
+    translated = UnitcellStructure(reference.cell, translated_coords, reference.species, reference.species_at_sites)
     assert same_crystal(reference, translated)
 
 
 def test_same_crystal_detects_real_differences() -> None:
     reference = UnitcellStructureView(_rocksalt())
 
-    different_cell = Structure(
+    different_cell = UnitcellStructure(
         [[5.65, 0, 0], [0, 5.64, 0], [0, 0, 5.64]],
         reference.sites.reduced_coords,
         reference.species,
@@ -362,7 +362,7 @@ def test_same_crystal_detects_real_differences() -> None:
     )
     assert not same_crystal(reference, different_cell)
 
-    swapped = Structure(
+    swapped = UnitcellStructure(
         reference.cell,
         reference.sites.reduced_coords,
         reference.species,
@@ -372,7 +372,7 @@ def test_same_crystal_detects_real_differences() -> None:
 
     # A doubled atom must not compare equal: the multiset counts repeats.
     coords = [list(row) for row in reference.sites.reduced_coords.to_fractions()]
-    doubled = Structure(
+    doubled = UnitcellStructure(
         reference.cell,
         coords + [coords[0]],
         reference.species,

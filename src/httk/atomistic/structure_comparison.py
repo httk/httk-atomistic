@@ -1,12 +1,12 @@
 """Comparing structures as crystals rather than as lists of atoms.
 
-``Structure.__eq__`` compares the site list element by element, which is the right default
+``UnitcellStructure.__eq__`` compares the site list element by element, which is the right default
 for a data object but is stricter than crystallographic identity: the same crystal written
 with its atoms in a different order, or with a site represented by a different lattice
-translate, is a different ``Structure`` and the same crystal.
+translate, is a different ``UnitcellStructure`` and the same crystal.
 
 That distinction matters for the asymmetric-unit round trip.
-``Structure -> ASUStructure -> Structure`` reproduces the crystal exactly — the coordinates
+``UnitcellStructure -> ASUStructure -> UnitcellStructure`` reproduces the crystal exactly — the coordinates
 are exact rationals throughout, with no numerical drift — but site ordering and the choice
 of lattice representative follow the canonical expansion order rather than the original
 input. :func:`same_crystal` is the predicate that guarantee is stated in.
@@ -43,7 +43,7 @@ def same_crystal(first: StructureLike, second: StructureLike) -> bool:
     convention this function deliberately does not have.
 
     Accepts anything structure-like on either side, so a
-    :class:`~httk.atomistic.Structure` may be compared directly against an
+    :class:`~httk.atomistic.UnitcellStructure` may be compared directly against an
     :class:`~httk.atomistic.ASUStructure` without expanding it by hand.
     """
     from .unitcell_structure_view import UnitcellStructureView

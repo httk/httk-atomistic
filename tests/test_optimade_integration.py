@@ -18,19 +18,19 @@ from httk.serve.optimade import adapter_from_providers  # noqa: E402
 from httk.serve.optimade.backend import execute_query  # noqa: E402
 from httk.serve.optimade.filter import parse_optimade_filter  # noqa: E402
 
-from httk.atomistic import Structure, StructureEntryProvider  # noqa: E402
+from httk.atomistic import UnitcellStructure, StructureEntryProvider  # noqa: E402
 from httk.atomistic.species import Species  # noqa: E402
 
 
-def _nacl(sid_cell: list[list[float]]) -> Structure:
+def _nacl(sid_cell: list[list[float]]) -> UnitcellStructure:
     na = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))
     cl = Species(name="Cl", chemical_symbols=("Cl",), concentration=(1.0,))
-    return Structure(sid_cell, [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], [na, cl], ["Na", "Cl"])
+    return UnitcellStructure(sid_cell, [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], [na, cl], ["Na", "Cl"])
 
 
-def _single(cell: list[list[float]]) -> Structure:
+def _single(cell: list[list[float]]) -> UnitcellStructure:
     si = Species(name="Si", chemical_symbols=("Si",), concentration=(1.0,))
-    return Structure(cell, [[0.0, 0.0, 0.0]], [si], ["Si"])
+    return UnitcellStructure(cell, [[0.0, 0.0, 0.0]], [si], ["Si"])
 
 
 def _provider() -> StructureEntryProvider:
@@ -95,8 +95,8 @@ def _periodicity_provider() -> StructureEntryProvider:
     si = Species(name="Si", chemical_symbols=("Si",), concentration=(1.0,))
     basis = [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 5.0]]
 
-    def structure(periodicity: tuple[int, int, int]) -> Structure:
-        return Structure(Cell(basis, periodicity=periodicity), [[0.0, 0.0, 0.0]], [si], ["Si"])
+    def structure(periodicity: tuple[int, int, int]) -> UnitcellStructure:
+        return UnitcellStructure(Cell(basis, periodicity=periodicity), [[0.0, 0.0, 0.0]], [si], ["Si"])
 
     return StructureEntryProvider(
         {

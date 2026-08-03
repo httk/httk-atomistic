@@ -5,7 +5,7 @@ This directory holds the authoritative, supported copies of the symmetry data th
 (`httk.atomistic.ASUStructure`). The checked-in files are the source of truth:
 httk-atomistic supports exactly these versions.
 
-They are loaded at runtime through `httk.core.DataLoader` via the accessors in
+They are loaded at runtime through `httk.core.DatasetLoader` via the accessors in
 `httk.atomistic.data` (packaged through `pyproject.toml`'s package-data entry
 `"httk.atomistic" = [..., "data/*"]`). Nothing is read at import time; the first lookup
 triggers the load.

@@ -8,7 +8,7 @@ import pytest
 from httk.core import FracVector, content_id, project_storage_record
 
 from httk.atomistic import (
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     ASUStructureRecord,
     ASUStructureView,
@@ -16,7 +16,7 @@ from httk.atomistic import (
     FundamentalDomainStructureRecord,
     SettingTransform,
     Species,
-    Structure,
+    UnitcellStructure,
     StructureEntry,
     UnitcellStructureRecord,
     UnitcellStructureView,
@@ -26,7 +26,7 @@ from httk.atomistic.structure_record import (
     AssemblyRecord,
     CellRecord,
     ChemicalCompositionRecord,
-    DomainSiteRecord,
+    WyckoffSiteRecord,
     NormalizedCompositionAmountRecord,
     NormalizedCompositionRecord,
     SettingTransformRecord,
@@ -42,8 +42,8 @@ def _species() -> tuple[Species, Species]:
     return Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))
 
 
-def _mixed_precision_unitcell() -> Structure:
-    return Structure(
+def _mixed_precision_unitcell() -> UnitcellStructure:
+    return UnitcellStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         [[0, 0, 0]],
         (
@@ -58,8 +58,8 @@ def _mixed_precision_unitcell() -> Structure:
     )
 
 
-def _unitcell(**metadata: object) -> Structure:
-    return Structure(
+def _unitcell(**metadata: object) -> UnitcellStructure:
+    return UnitcellStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         [[0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]],
         _species(),
@@ -75,8 +75,8 @@ def _domain(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         225,
         (
-            ASUSite("a", FracVector.create(()), "Na"),
-            ASUSite("b", FracVector.create(()), "Cl"),
+            WyckoffSite("a", FracVector.create(()), "Na"),
+            WyckoffSite("b", FracVector.create(()), "Cl"),
         ),
         _species(),
         **metadata,
@@ -118,7 +118,7 @@ def _common(source: object) -> dict[str, object]:
     }
 
 
-def _unitcell_record(source: Structure) -> UnitcellStructureRecord:
+def _unitcell_record(source: UnitcellStructure) -> UnitcellStructureRecord:
     common = _common(source)
     return UnitcellStructureRecord(
         **common,
@@ -137,7 +137,7 @@ def _domain_record(
     return record_type(
         **_common(source),
         domain_sites=tuple(
-            DomainSiteRecord(**project_storage_record(DomainSiteRecord, site)) for site in source.domain_sites
+            WyckoffSiteRecord(**project_storage_record(WyckoffSiteRecord, site)) for site in source.domain_sites
         ),
         spacegroup_it_number=source.spacegroup.it_number,
         setting_transform=SettingTransformRecord(**SettingTransformRecord.__httk_project__(source.transform)),
@@ -146,7 +146,7 @@ def _domain_record(
 
 
 def test_exact_source_bindings_are_representation_local() -> None:
-    assert vars(Structure)["__httk_storage_record__"] is UnitcellStructureRecord
+    assert vars(UnitcellStructure)["__httk_storage_record__"] is UnitcellStructureRecord
     assert vars(UnitcellStructureView)["__httk_storage_record__"] is UnitcellStructureRecord
     assert vars(FundamentalDomainStructure)["__httk_storage_record__"] is FundamentalDomainStructureRecord
     assert vars(ASUStructure)["__httk_storage_record__"] is ASUStructureRecord
@@ -158,6 +158,19 @@ def test_projected_and_materialized_unitcell_have_the_same_content_id() -> None:
     source = _unitcell()
     record = _unitcell_record(source)
     assert content_id(source) == content_id(record) == source.id == record.id
+
+
+def test_sql_store_unitcell_rename_preserves_content_id() -> None:
+    pytest.importorskip("sqlalchemy")
+    from httk.data.db import Database, SqlStore
+
+    source = _unitcell()
+    with Database.sqlite() as database:
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store.save(source)
+
+    # Captured from the in-memory SqlStore before the naming sweep.
+    assert content_id(source) == "903502fcc3fe56715130366fc9b5d65a3e7760dba9d4d491b985b6eb975ff6f0"
 
 
 @pytest.mark.parametrize(
@@ -406,7 +419,7 @@ def test_asu_record_preserves_cross_orbit_deduplicated_composition() -> None:
     source = ASUStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         225,
-        (ASUSite("a", FracVector.create(()), "Na"), ASUSite("a", FracVector.create(()), "Na")),
+        (WyckoffSite("a", FracVector.create(()), "Na"), WyckoffSite("a", FracVector.create(()), "Na")),
         (Species("Na", ("Na",), (1,)),),
     )
     assert source.multiplicities() == (4, 0)
@@ -447,7 +460,7 @@ def test_normalized_composition_record_requires_ratios_to_normalize_amounts() ->
     ),
 )
 def test_sql_fetched_root_records_keep_identity_and_metadata(
-    source: Structure | FundamentalDomainStructure,
+    source: UnitcellStructure | FundamentalDomainStructure,
     record_type: type[UnitcellStructureRecord | FundamentalDomainStructureRecord | ASUStructureRecord],
     view_type: type[UnitcellStructureView] | type[ASUStructureView],
 ) -> None:

@@ -1,6 +1,6 @@
-"""Building a Structure three ways, and reading its geometry back out exactly
+"""Building a UnitcellStructure three ways, and reading its geometry back out exactly
 
-A `Structure` in *httk-atomistic* is always the same canonical quartet — a
+A `UnitcellStructure` in *httk-atomistic* is always the same canonical quartet — a
 `cell` of three lattice vectors, `sites` of reduced (fractional) coordinates, a
 tuple of `species`, and the `species_at_sites` naming which species occupies
 each site. What varies is how you *hand it in*. The cell argument dispatches on
@@ -15,7 +15,7 @@ object and are inspected with exactly the same code:
    `CellParams`. A basis is built for you using the standard orientation
    convention: $\\mathbf{a}$ along $x$, $\\mathbf{b}$ in the $xy$-plane.
 3. **An spglib-style triple** — `(lattice, positions, numbers)`, the shape
-   symmetry libraries speak. `UnitcellStructureView` presents it as a `Structure`,
+   symmetry libraries speak. `UnitcellStructureView` presents it as a `UnitcellStructure`,
    inventing one species per distinct atomic number.
 
 The second half of this script is about the one thing that most often surprises
@@ -48,8 +48,8 @@ from httk.atomistic import (
     Cell,
     CellParams,
     CellParamsView,
-    Structure,
-    StructurePrimitiveView,
+    PlainStructureView,
+    UnitcellStructure,
     UnitcellStructureView,
 )
 
@@ -63,9 +63,9 @@ NACL_SPECIES = [
 NACL_SITES = [[F(0), F(0), F(0)], [F(1, 2), F(1, 2), F(1, 2)]]
 
 
-def from_explicit_matrix() -> Structure:
+def from_explicit_matrix() -> UnitcellStructure:
     """Route 1: hand in the three lattice vectors as rows of a 3x3 matrix."""
-    return Structure(
+    return UnitcellStructure(
         cell=[[5.64, 0.0, 0.0], [0.0, 5.64, 0.0], [0.0, 0.0, 5.64]],
         sites=NACL_SITES,
         species=NACL_SPECIES,
@@ -73,10 +73,10 @@ def from_explicit_matrix() -> Structure:
     )
 
 
-def from_cell_parameters() -> Structure:
+def from_cell_parameters() -> UnitcellStructure:
     """Route 2: hand in (a, b, c, alpha, beta, gamma); the basis is built for you."""
     # A flat 6-sequence is dispatched to the CellParams backend automatically...
-    return Structure(
+    return UnitcellStructure(
         cell=(5.64, 5.64, 5.64, 90.0, 90.0, 90.0),
         sites=NACL_SITES,
         species=NACL_SPECIES,
@@ -84,8 +84,8 @@ def from_cell_parameters() -> Structure:
     )
 
 
-def from_primitive_triple() -> Structure:
-    """Route 3: an spglib-style (lattice, positions, numbers) triple, viewed as a Structure."""
+def from_primitive_triple() -> UnitcellStructure:
+    """Route 3: an spglib-style (lattice, positions, numbers) triple, viewed as a UnitcellStructure."""
     triple = (
         [[5.64, 0.0, 0.0], [0.0, 5.64, 0.0], [0.0, 0.0, 5.64]],
         [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
@@ -94,7 +94,7 @@ def from_primitive_triple() -> Structure:
     return UnitcellStructureView(triple)
 
 
-def describe(label: str, structure: Structure) -> None:
+def describe(label: str, structure: UnitcellStructure) -> None:
     """Print the exact geometry of a structure, rendering to floats only at the end."""
     cell = structure.cell
     print(f"{label}:")
@@ -111,7 +111,7 @@ def exact_hexagonal() -> None:
     # CellParams turns (3, 3, 5, 90, 90, 120) into a basis with a genuine sqrt(3) in it,
     # not a float approximation of one. `radicands` lists the radicals actually present.
     cell = Cell(CellParams((3, 3, 5, 90, 90, 120)).basis)
-    structure = Structure(
+    structure = UnitcellStructure(
         cell=cell,
         sites=[[F(0), F(0), F(0)], [F(1, 3), F(1, 3), F(0)]],
         species=[{"name": "Mg", "chemical_symbols": ["Mg"], "concentration": [1.0]}],
@@ -173,7 +173,7 @@ def main() -> None:
     # Every one of them goes back out as an spglib-style triple, too: the primitive
     # view is the same presentation in reverse (this is what the former
     # examples/structure_to_primitive.py showed).
-    lattice, positions, numbers = StructurePrimitiveView(matrix_structure)
+    lattice, positions, numbers = PlainStructureView(matrix_structure)
     print("back to a primitive triple:")
     print("  lattice  ", lattice)
     print("  positions", positions)

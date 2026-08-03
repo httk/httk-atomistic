@@ -45,9 +45,7 @@ def discover_examples() -> list[Path]:
     if not EXAMPLES_DIR.is_dir():
         return []
     return sorted(
-        path
-        for path in EXAMPLES_DIR.rglob("*.py")
-        if path.name != "__init__.py" and "__pycache__" not in path.parts
+        path for path in EXAMPLES_DIR.rglob("*.py") if path.name != "__init__.py" and "__pycache__" not in path.parts
     )
 
 
@@ -73,9 +71,7 @@ def _example_id(path: Path) -> str:
 
 def _example_params() -> list[object]:
     return [
-        pytest.param(example, marks=pytest.mark.extended)
-        if _example_id(example) in _EXTENDED_EXAMPLES
-        else example
+        pytest.param(example, marks=pytest.mark.extended) if _example_id(example) in _EXTENDED_EXAMPLES else example
         for example in discover_examples()
     ]
 

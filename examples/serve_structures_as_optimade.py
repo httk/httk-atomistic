@@ -1,6 +1,6 @@
 """Serving structures as OPTIMADE, with derived fields and custom properties
 
-`StructureEntryProvider` is the adapter that turns a plain `{id: Structure}`
+`StructureEntryProvider` is the adapter that turns a plain `{id: UnitcellStructure}`
 mapping into something an OPTIMADE server can query. It implements the neutral
 `httk.core.EntryProvider` contract — `entry_types()`, `property_keys()`,
 `records()` — and nothing about it is specific to any particular server. That is
@@ -8,7 +8,7 @@ the point of the seam: *httk-atomistic* has the data, *httk-serve* serves it,
 and neither imports the other. They meet at the contract.
 
 **What the provider derives for you.** Beyond the structural fields it reads
-straight off the `Structure` (`lattice_vectors`, `cartesian_site_positions`,
+straight off the `UnitcellStructure` (`lattice_vectors`, `cartesian_site_positions`,
 `species`, `species_at_sites`, `nsites`, `elements`, `nelements`), it computes
 the standard OPTIMADE composition fields:
 
@@ -20,7 +20,7 @@ the standard OPTIMADE composition fields:
 - `elements_ratios` — each element's fraction of the sites, ordered to match
   `elements`.
 - `nperiodic_dimensions` and `dimension_types` — 3 and `[1, 1, 1]`, since a
-  `Structure` is a fully periodic crystal.
+  `UnitcellStructure` is a fully periodic crystal.
 - `structure_features` — the OPTIMADE flag list. A site with mixed occupancy
   makes this `["disorder"]`; a species with attached particles adds
   `"site_attachments"`; a fully ordered structure gets `[]`.
@@ -60,7 +60,7 @@ from httk.core import PropertyDefinition
 from httk.serve.optimade import adapter_from_providers, parse_optimade_filter
 from httk.serve.optimade.backend import execute_query
 
-from httk.atomistic import Species, Structure, StructureEntryProvider
+from httk.atomistic import Species, StructureEntryProvider, UnitcellStructure
 
 #: This example needs the optional peer distribution *httk-serve* on the path.
 HTTK_EXAMPLE_REQUIRES = ["httk.serve.optimade"]
@@ -73,15 +73,15 @@ SM = Species(name="Sm", chemical_symbols=("Sm",), concentration=(1.0,))
 FE_NI = Species(name="M", chemical_symbols=("Fe", "Ni"), concentration=(0.5, 0.5))
 
 
-def ordered_smfeo3() -> Structure:
+def ordered_smfeo3() -> UnitcellStructure:
     cell = [[5.6, 0.0, 0.0], [0.0, 7.6, 0.0], [0.0, 0.0, 5.3]]
     sites = [[0.01 * index, 0.0, 0.0] for index in range(20)]
-    return Structure(cell, sites, [FE, OXYGEN, SM], ["Fe"] * 4 + ["O"] * 12 + ["Sm"] * 4)
+    return UnitcellStructure(cell, sites, [FE, OXYGEN, SM], ["Fe"] * 4 + ["O"] * 12 + ["Sm"] * 4)
 
 
-def disordered_alloy() -> Structure:
+def disordered_alloy() -> UnitcellStructure:
     cell = [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 3.0]]
-    return Structure(cell, [[0.0, 0.0, 0.0]], [FE_NI], ["M"])
+    return UnitcellStructure(cell, [[0.0, 0.0, 0.0]], [FE_NI], ["M"])
 
 
 def build_provider() -> StructureEntryProvider:

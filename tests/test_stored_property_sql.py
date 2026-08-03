@@ -13,7 +13,7 @@ from httk.data.db import Database, SqlStore, stored_property_sql_plan
 from httk.data.optimade_query import FilterTranslationError
 
 from httk.atomistic import (
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     ASUStructureRecord,
     Cell,
@@ -21,7 +21,7 @@ from httk.atomistic import (
     FundamentalDomainStructureRecord,
     Sites,
     Species,
-    Structure,
+    UnitcellStructure,
     StructureEntry,
     StructureEntryProvider,
     UnitcellStructureRecord,
@@ -39,8 +39,8 @@ def _unitcell(
     coordinate_precision: Fraction | None = None,
     basis_precision: Fraction | None = None,
     **metadata: Any,
-) -> Structure:
-    return Structure(
+) -> UnitcellStructure:
+    return UnitcellStructure(
         Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]], precision=basis_precision),
         Sites([[0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]], precision=coordinate_precision),
         _species(),
@@ -54,7 +54,7 @@ def _domain(record_type: type[Any], *, molecular: bool = False) -> FundamentalDo
     return record_type(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         225,
-        (ASUSite("a", FracVector.create(()), "Na"), ASUSite("b", FracVector.create(()), "Cl")),
+        (WyckoffSite("a", FracVector.create(()), "Na"), WyckoffSite("b", FracVector.create(()), "Cl")),
         _species(),
         molecular=molecular,
     )
@@ -65,19 +65,19 @@ def _duplicate_a_orbit_asu() -> ASUStructure:
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         225,
         (
-            ASUSite("a", FracVector.create(()), "Na"),
-            ASUSite("a", FracVector.create(()), "Na"),
+            WyckoffSite("a", FracVector.create(()), "Na"),
+            WyckoffSite("a", FracVector.create(()), "Na"),
         ),
         (Species("Na", ("Na",), (1,)),),
     )
 
 
-def _zero_site_unitcell() -> Structure:
-    return Structure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], [], (), ())
+def _zero_site_unitcell() -> UnitcellStructure:
+    return UnitcellStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], [], (), ())
 
 
-def _incomplete_unitcell() -> Structure:
-    return Structure(
+def _incomplete_unitcell() -> UnitcellStructure:
+    return UnitcellStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         [[0, 0, 0]],
         (Species("C_X", ("C",), (1,), attached=("X",), nattached=(1,)),),
@@ -85,8 +85,8 @@ def _incomplete_unitcell() -> Structure:
     )
 
 
-def _unitcell_with_unused_disordered_species() -> Structure:
-    return Structure(
+def _unitcell_with_unused_disordered_species() -> UnitcellStructure:
+    return UnitcellStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         [[0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]],
         (*_species(), Species("unused-half", ("Na",), (Fraction(1, 2),))),

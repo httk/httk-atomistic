@@ -10,7 +10,7 @@ from ._vector_guards import is_basis_3x3, to_surdvector
 from .cell_backend import CellBackend
 
 
-class CellPrimitive(CellBackend):
+class PlainCell(CellBackend):
     """
     Backend for a cell backed by a raw 3x3 list or tuple of numbers (or any 3x3 vector-like).
 
@@ -25,7 +25,7 @@ class CellPrimitive(CellBackend):
 
     # Cannot type annotate __new__ as `Self | None` for some reason
     def __new__(cls, obj: Any, **hints: Any) -> Any:
-        if hints and hints.get("kind", "primitive") != "primitive":
+        if hints and hints.get("kind", "plain") != "plain":
             return None
         if not is_basis_3x3(obj):
             return None

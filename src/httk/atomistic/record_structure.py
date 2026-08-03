@@ -1,4 +1,4 @@
-"""Structure backend for the three exact native storage records."""
+"""UnitcellStructure backend for the three exact native storage records."""
 
 from functools import cached_property
 from typing import Any, cast
@@ -24,7 +24,7 @@ from .structure_record import (
 from .structure_semantics import StructureSymmetry
 
 
-class StructureRecordBackend(StructureBackend):
+class RecordStructure(StructureBackend):
     """Expose a concrete record through the existing structure view family."""
 
     _record: UnitcellStructureRecord | FundamentalDomainStructureRecord | ASUStructureRecord

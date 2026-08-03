@@ -1,7 +1,7 @@
 """Tests for httk-atomistic's IRI schema registrations."""
 
-from httk.core import load_entry_type_schema, load_property_definition
-from httk.core.register import known_entry_type_schemas, known_property_definitions
+from httk.core import load_entry_type_definition, load_property_definition
+from httk.core.register import known_entry_type_definitions, known_property_definitions
 
 from httk.atomistic.httk_definitions import load_httk_definitions
 
@@ -22,14 +22,13 @@ def test_atomistic_property_schemas_are_registered_and_loadable() -> None:
     assert set(HTTK_PROPERTY_IDS.values()) <= set(known_property_definitions())
     for definition_id in HTTK_PROPERTY_IDS.values():
         assert load_property_definition(definition_id).definition_id == definition_id
-    assert STRUCTURES_ID in known_entry_type_schemas()
-    assert load_entry_type_schema(STRUCTURES_ID).definition_id == STRUCTURES_ID
+    assert STRUCTURES_ID in known_entry_type_definitions()
+    assert load_entry_type_definition(STRUCTURES_ID).definition_id == STRUCTURES_ID
 
 
 def test_httk_definitions_keep_served_names_and_published_ids() -> None:
     file_names = {
-        served_name: definition_id.rsplit("/", 1)[-1]
-        for served_name, definition_id in HTTK_PROPERTY_IDS.items()
+        served_name: definition_id.rsplit("/", 1)[-1] for served_name, definition_id in HTTK_PROPERTY_IDS.items()
     }
     definitions = load_httk_definitions(file_names)
 

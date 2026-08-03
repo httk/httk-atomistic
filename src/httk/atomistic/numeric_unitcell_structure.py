@@ -7,16 +7,16 @@ from .numeric_cell import NumericCell
 from .numeric_sites import NumericSites
 from .sites import Sites
 from .species import Species
-from .structure import Structure
 from .structure_backend import StructureBackend
+from .unitcell_structure import UnitcellStructure
 
 
-class NumericUnitcellStructureBackend(StructureBackend):
+class NumericUnitcellStructure(StructureBackend):
     """Backend recognizing the plain-numpy structure quartet.
 
     The wrapped object must expose ``NumericCell``/``NumericSites`` values through
     ``cell``/``sites`` and the usual ``species``/``species_at_sites`` attributes.
-    Its exact quartet is taken from an ``exact`` :class:`~httk.atomistic.structure.Structure` when available,
+    Its exact quartet is taken from an ``exact`` :class:`~httk.atomistic.unitcell_structure.UnitcellStructure` when available,
     then from the component presentations' ``exact`` values. If neither component
     carries an exact value, the numeric ``basis`` and ``reduced_coords`` arrays are
     passed through the vector family into ``Cell`` and ``Sites``. That last route is
@@ -25,7 +25,7 @@ class NumericUnitcellStructureBackend(StructureBackend):
     """
 
     _object: Any
-    _structure: Structure
+    _structure: UnitcellStructure
 
     def __new__(cls, obj: Any, **hints: Any) -> Any:
         if hints.get("kind", "numeric") != "numeric":
@@ -44,7 +44,7 @@ class NumericUnitcellStructureBackend(StructureBackend):
     def __init__(self, obj: Any, **hints: Any) -> None:
         self._object = obj
         exact = getattr(obj, "exact", None)
-        if isinstance(exact, Structure):
+        if isinstance(exact, UnitcellStructure):
             self._structure = exact
             return
 
@@ -63,7 +63,7 @@ class NumericUnitcellStructureBackend(StructureBackend):
                 precision=getattr(obj.sites, "precision", None),
             )
 
-        self._structure = Structure(
+        self._structure = UnitcellStructure(
             cell,
             sites,
             obj.species,

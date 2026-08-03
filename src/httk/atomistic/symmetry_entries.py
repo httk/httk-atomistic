@@ -16,7 +16,7 @@ of a database-specific property, but the definition keeps its own ``$id``, so a 
 following the link reaches the authoritative published schema instead of a local
 paraphrase.
 
-Everything here serves ``null`` for a plain :class:`~httk.atomistic.Structure`, which
+Everything here serves ``null`` for a plain :class:`~httk.atomistic.UnitcellStructure`, which
 carries no symmetry — with the sole exception of ``fractional_site_positions``, which is
 just the reduced coordinates and is always available.
 """
@@ -161,7 +161,7 @@ def _wyckoff_symbols(asu: FundamentalDomainStructure, setting: Any) -> list[str]
     """
     letters = wyckoff_letter_map(asu.spacegroup, setting)
     symbols: list[str] = []
-    for site in asu.asu_sites:
+    for site in asu.wyckoff_sites:
         position = setting.wyckoff_position(letters[site.wyckoff])
         symbols.append(position.letter)
     return symbols

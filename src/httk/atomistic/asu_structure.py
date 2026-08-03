@@ -1,7 +1,7 @@
 """A crystal structure held as its asymmetric unit.
 
 An :class:`ASUStructure` records only the symmetry-distinct sites — the asymmetric unit —
-plus the space group needed to regenerate the rest. Where a :class:`~httk.atomistic.Structure`
+plus the space group needed to regenerate the rest. Where a :class:`~httk.atomistic.UnitcellStructure`
 lists every atom in the cell, this lists one representative per orbit as a Wyckoff letter
 and the values of that position's free parameters.
 
@@ -45,11 +45,11 @@ from .species_view import SpeciesView
 from .structure_backend import StructureBackend
 from .structure_semantics import StructureSemanticsMixin, initialize_semantics
 
-__all__ = ["ASUSite", "ASUStructure", "FundamentalDomainStructure"]
+__all__ = ["ASUStructure", "FundamentalDomainStructure", "WyckoffSite"]
 
 
 @dataclass(frozen=True)
-class ASUSite:
+class WyckoffSite:
     """One symmetry-distinct site: a Wyckoff position, its free parameters, and a species.
 
     ``wyckoff`` is a bare letter (``"e"``, not ``"4e"``) naming a position of the
@@ -73,12 +73,12 @@ class ASUSite:
         if self.representative is not None:
             representative = FracVector.create(self.representative)
             if representative.dim != (3,):
-                raise ValueError("ASUSite representative must be a three-dimensional coordinate")
+                raise ValueError("WyckoffSite representative must be a three-dimensional coordinate")
             object.__setattr__(self, "representative", representative)
 
     def __repr__(self) -> str:
         values = ", ".join(str(value) for value in self.free_params.to_fractions()) if self.free_count else ""
-        return f"ASUSite({self.species!r} at {self.wyckoff}{f'({values})' if values else ''})"
+        return f"WyckoffSite({self.species!r} at {self.wyckoff}{f'({values})' if values else ''})"
 
     @property
     def free_count(self) -> int:
@@ -91,13 +91,13 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
 
     Holds the cell in the structure's own setting, the space group as its **standard**
     setting, a transform from that standard setting to the structure's own, one
-    :class:`ASUSite` per symmetry-distinct site, and the species they name.
+    :class:`WyckoffSite` per symmetry-distinct site, and the species they name.
     """
 
     _cell: Cell
     _spacegroup: Spacegroup
     _transform: SettingTransform
-    _asu_sites: tuple[ASUSite, ...]
+    _wyckoff_sites: tuple[WyckoffSite, ...]
     _species: tuple[Species, ...]
     _coordinate_precision: fractions.Fraction | None
     kind: ClassVar[str] = "asu"
@@ -106,7 +106,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         self,
         cell: CellLike,
         spacegroup: Spacegroup | int,
-        asu_sites: Sequence[ASUSite],
+        wyckoff_sites: Sequence[WyckoffSite],
         species: Sequence[SpeciesLike],
         transform: SettingTransform | None = None,
         coordinate_precision: Any = None,
@@ -131,14 +131,14 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
             )
         self._transform = SettingTransform.identity() if transform is None else transform
         self._coordinate_precision = to_precision(coordinate_precision)
-        self._asu_sites = tuple(asu_sites)
+        self._wyckoff_sites = tuple(wyckoff_sites)
         self._species = tuple(item if isinstance(item, Species) else SpeciesView(item) for item in species)
 
         names = [item.name for item in self._species]
         if len(names) != len(set(names)):
             raise ValueError("ASUStructure species names must be unique")
         known = set(names)
-        for site in self._asu_sites:
+        for site in self._wyckoff_sites:
             if site.species not in known:
                 raise ValueError(f"ASUStructure site references unknown species name: {site.species!r}")
             position = self._spacegroup.wyckoff_position(site.wyckoff)
@@ -154,7 +154,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
                 )
         initialize_semantics(
             self,
-            nsites=len(self._asu_sites),
+            nsites=len(self._wyckoff_sites),
             molecular=molecular,
             assemblies=None if assemblies is None else tuple(assemblies),
             symmetry=None,
@@ -184,14 +184,14 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         return self._transform
 
     @property
-    def asu_sites(self) -> tuple[ASUSite, ...]:
+    def wyckoff_sites(self) -> tuple[WyckoffSite, ...]:
         """The symmetry-distinct sites."""
-        return self._asu_sites
+        return self._wyckoff_sites
 
     @property
-    def domain_sites(self) -> tuple[ASUSite, ...]:
+    def domain_sites(self) -> tuple[WyckoffSite, ...]:
         """Representation-neutral name for the directly stored fundamental-domain sites."""
-        return self._asu_sites
+        return self._wyckoff_sites
 
     @property
     def species(self) -> tuple[Species, ...]:
@@ -232,9 +232,9 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
     @property
     def domain_species_at_sites(self) -> tuple[str, ...]:
         """Species names of the directly represented domain sites."""
-        return tuple(site.species for site in self._asu_sites)
+        return tuple(site.species for site in self._wyckoff_sites)
 
-    def _representatives_for_site(self, site: ASUSite) -> tuple[FracVector, ...]:
+    def _representatives_for_site(self, site: WyckoffSite) -> tuple[FracVector, ...]:
         position = self._spacegroup.wyckoff_position(site.wyckoff)
         values: list[FracVector] = []
         for standard_point in position.coordinates(site.free_params):
@@ -242,7 +242,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
             values.extend((own_point + coset).normalize() for coset in self._transform.lattice_cosets())
         return tuple(values)
 
-    def _representative_matches_orbit(self, site: ASUSite) -> bool:
+    def _representative_matches_orbit(self, site: WyckoffSite) -> bool:
         assert site.representative is not None
         stated = site.representative.normalize().to_fractions()
         # A source representative is retained before symmetry snapping. Coordinate
@@ -265,7 +265,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
             site.representative.normalize()
             if site.representative is not None
             else self._representatives_for_site(site)[0]
-            for site in self._asu_sites
+            for site in self._wyckoff_sites
         ]
         return Sites(
             FracVector.create([list(value.to_fractions()) for value in coordinates]), self._coordinate_precision
@@ -282,7 +282,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
 
     @property
     def nsites(self) -> int:
-        return len(self._asu_sites)
+        return len(self._wyckoff_sites)
 
     @property
     def site_coordinate_span(self) -> str:
@@ -326,7 +326,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         if setting is None:
             return None
         letters = wyckoff_letter_map(self._spacegroup, setting)
-        return tuple(setting.wyckoff_position(letters[site.wyckoff]).letter for site in self._asu_sites)
+        return tuple(setting.wyckoff_position(letters[site.wyckoff]).letter for site in self._wyckoff_sites)
 
     @property
     def is_standard_setting(self) -> bool:
@@ -400,7 +400,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         if not self.molecular:
             return
         counts = self.multiplicities()
-        if any(count != 1 for count in counts) or any(site.representative is None for site in self.asu_sites):
+        if any(count != 1 for count in counts) or any(site.representative is None for site in self.wyckoff_sites):
             raise ValueError(
                 "symmetry-reduced molecular expansion requires one retained representative "
                 "for every one-to-one domain site"
@@ -422,7 +422,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         counts: list[int] = []
         seen: set[tuple[fractions.Fraction, ...]] = set()
 
-        for site in self._asu_sites:
+        for site in self._wyckoff_sites:
             position = self._spacegroup.wyckoff_position(site.wyckoff)
             # The tabulated orbit is the complete, already-deduplicated set of equivalent
             # points in the standard setting, so the group's operations never need to be
@@ -498,7 +498,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
             and self._cell.precision == other._cell.precision
             and self._spacegroup == other._spacegroup
             and self._transform == other._transform
-            and self._asu_sites == other._asu_sites
+            and self._wyckoff_sites == other._wyckoff_sites
             and self._species == other._species
             and self._coordinate_precision == other._coordinate_precision
             and self._molecular == other._molecular
@@ -516,7 +516,9 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
             if self.is_standard_setting
             else f"setting {setting.setting if setting else '(untabulated)'}"
         )
-        return f"{type(self).__name__}({self._spacegroup.hermann_mauguin!r}, {len(self._asu_sites)} site(s), {where})"
+        return (
+            f"{type(self).__name__}({self._spacegroup.hermann_mauguin!r}, {len(self._wyckoff_sites)} site(s), {where})"
+        )
 
 
 class ASUStructure(FundamentalDomainStructure):

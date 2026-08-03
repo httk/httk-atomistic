@@ -8,7 +8,7 @@ from .sites_backend import SitesBackend
 from .structure_record import SitesRecord
 
 
-class SitesRecordBackend(SitesBackend):
+class RecordSites(SitesBackend):
     _record: SitesRecord
 
     def __new__(cls, obj: Any, **hints: Any) -> Any:

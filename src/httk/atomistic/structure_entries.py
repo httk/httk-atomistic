@@ -8,13 +8,12 @@ from httk.core import (
     EntryTypeDefinition,
     IncompleteOptimadeResourceError,
     PropertyDefinition,
-    load_entry_type_schema,
+    load_entry_type_definition,
 )
 
 from ._optimade_payloads import assemblies_payload, species_payload
 from .asu_structure import FundamentalDomainStructure
 from .precision_entries import PRECISION_PROPERTY_KEYS, precision_definitions, precision_properties
-from .structure import Structure
 from .structure_like import StructureLike
 from .symmetry_entries import (
     SETTING_PROPERTY_KEYS,
@@ -22,13 +21,14 @@ from .symmetry_entries import (
     setting_definitions,
     symmetry_properties,
 )
+from .unitcell_structure import UnitcellStructure
 
 __all__ = ["StructureEntry", "StructureEntryProvider"]
 
 
 def _structures_definition() -> EntryTypeDefinition:
     """Return the vendored OPTIMADE v1.3 ``structures`` definition."""
-    return load_entry_type_schema("https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures")
+    return load_entry_type_definition("https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures")
 
 
 # All four common entry properties and all 26 structure-specific properties in
@@ -104,7 +104,7 @@ def _as_structure(obj: StructureLike) -> Any:
         # it is being served. Its composition already accounts for orbit multiplicities.
         return obj
     if isinstance(obj, (tuple, list)):
-        return Structure(*tuple(obj))
+        return UnitcellStructure(*tuple(obj))
     return obj
 
 

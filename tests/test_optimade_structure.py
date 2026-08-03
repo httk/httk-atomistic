@@ -7,7 +7,7 @@ from httk.core import (
     OptimadeDocument,
     OptimadeResource,
     OptimadeSchemaSnapshot,
-    load_entry_type_schema,
+    load_entry_type_definition,
 )
 
 from httk.atomistic import (
@@ -23,7 +23,7 @@ _STRUCTURES_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/str
 
 
 def _definition_ids() -> dict[str, str]:
-    schema = load_entry_type_schema(_STRUCTURES_ID)
+    schema = load_entry_type_definition(_STRUCTURES_ID)
     return {
         name: schema.properties[name].definition_id
         for name in (
@@ -72,7 +72,7 @@ def _resource(*, ids: dict[str, object] | None = None, attributes: dict[str, obj
 def _semantic_resource(attributes: dict[str, object]) -> OptimadeResource:
     """Build a resource whose deliberately renamed fields cover *attributes*."""
 
-    schema = load_entry_type_schema(_STRUCTURES_ID)
+    schema = load_entry_type_definition(_STRUCTURES_ID)
     properties = {
         f"transport_{index}": {"$id": schema.properties[name].definition_id} for index, name in enumerate(attributes)
     }
@@ -321,7 +321,7 @@ def test_source_and_backend_are_retained_on_view_round_trip() -> None:
 
 def test_portable_structure_profile_is_semantic_and_exact() -> None:
     definition_ids = _definition_ids()
-    schema = load_entry_type_schema(_STRUCTURES_ID)
+    schema = load_entry_type_definition(_STRUCTURES_ID)
     portable = {
         "immutable_id": "source_immutable",
         "last_modified": "source_modified",

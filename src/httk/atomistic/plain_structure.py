@@ -29,7 +29,7 @@ def _is_primitive_triple(obj: Any) -> bool:
     return len(numbers) == nsites
 
 
-class StructurePrimitive(StructureBackend):
+class PlainStructure(StructureBackend):
     """
     Backend for a crystal structure backed by an spglib-like triple.
 
@@ -52,7 +52,7 @@ class StructurePrimitive(StructureBackend):
 
     # Cannot type annotate __new__ as `Self | None` for some reason
     def __new__(cls, obj: Any, **hints: Any) -> Any:
-        if hints and hints.get("kind", "primitive") != "primitive":
+        if hints and hints.get("kind", "plain") != "plain":
             return None
         if not _is_primitive_triple(obj):
             return None
