@@ -14,26 +14,26 @@ from httk.core import FracVector
 
 from httk.atomistic import (
     Cell,
-    CellClassView,
-    CellNumericView,
     CellParamsView,
+    CellView,
     Sites,
-    SitesClassView,
-    SitesNumericView,
+    SitesView,
     Species,
     Structure,
     UnitcellStructureView,
     same_crystal,
 )
+from httk.atomistic.cell_numeric_view import CellNumericView
+from httk.atomistic.sites_numeric_view import SitesNumericView
 
 pytest.importorskip("httk.io", reason="the readers live in httk-io")
 
-import io  # noqa: E402
+import io
 
-from httk.core import load  # noqa: E402
-from httk.io.vasp import read_poscar  # noqa: E402
+from httk.core import load
+from httk.io.vasp import read_poscar
 
-from httk.atomistic import (  # noqa: E402
+from httk.atomistic import (
     DEFAULT_TOLERANCE,
     ASUSite,
     ASUStructure,
@@ -42,7 +42,7 @@ from httk.atomistic import (  # noqa: E402
     structure_from_poscar,
     structure_tolerance,
 )
-from httk.atomistic.cif_structures import asu_structure_from_cif  # noqa: E402
+from httk.atomistic.cif_structures import asu_structure_from_cif
 
 F = fractions.Fraction
 
@@ -101,8 +101,8 @@ def test_a_non_positive_precision_is_rejected(bad: object) -> None:
 # --- carrying it through every reconstruction site ---
 
 
-def test_cell_class_view_carries_precision() -> None:
-    assert CellClassView(Cell(CUBIC, 1, BASIS_PRECISION)).precision == BASIS_PRECISION
+def test_cell_view_carries_precision() -> None:
+    assert CellView(Cell(CUBIC, 1, BASIS_PRECISION)).precision == BASIS_PRECISION
 
 
 def test_cell_params_view_carries_precision() -> None:
@@ -117,8 +117,8 @@ def test_cell_numeric_view_carries_precision_as_a_float() -> None:
     assert CellNumericView(Cell(CUBIC, 1, BASIS_PRECISION)).precision == pytest.approx(1e-3)
 
 
-def test_sites_class_view_carries_precision() -> None:
-    assert SitesClassView(Sites([[0, 0, 0]], COORD_PRECISION)).precision == COORD_PRECISION
+def test_sites_view_carries_precision() -> None:
+    assert SitesView(Sites([[0, 0, 0]], COORD_PRECISION)).precision == COORD_PRECISION
 
 
 def test_sites_numeric_view_carries_precision_as_a_float() -> None:
@@ -135,10 +135,10 @@ def test_structure_view_carries_both_precisions() -> None:
 def test_precision_survives_repeated_rewrapping() -> None:
     """Views are meant to be applied freely, so a round trip must not erode anything."""
     cell = Cell(CUBIC, 1, BASIS_PRECISION)
-    assert CellClassView(CellClassView(CellClassView(cell))).precision == BASIS_PRECISION
+    assert CellView(CellView(CellView(cell))).precision == BASIS_PRECISION
 
     sites = Sites([[0, 0, 0]], COORD_PRECISION)
-    assert SitesClassView(SitesClassView(sites)).precision == COORD_PRECISION
+    assert SitesView(SitesView(sites)).precision == COORD_PRECISION
 
 
 def test_numeric_layer_round_trips_back_to_the_exact_value() -> None:
@@ -216,13 +216,7 @@ def test_precision_is_structural_metadata_but_not_component_geometry() -> None:
 
 
 def _poscar(*, scale: str = "1.0", mode: str = "Direct", coords: str = "0.0000 0.0000 0.0000") -> str:
-    return (
-        "NaCl\n"
-        f"{scale}\n"
-        "5.6400 0.0000 0.0000\n0.0000 5.6400 0.0000\n0.0000 0.0000 5.6400\n"
-        "Na\n1\n"
-        f"{mode}\n{coords}\n"
-    )
+    return f"NaCl\n{scale}\n5.6400 0.0000 0.0000\n0.0000 5.6400 0.0000\n0.0000 0.0000 5.6400\nNa\n1\n{mode}\n{coords}\n"
 
 
 def test_poscar_direct_coordinates_pass_their_precision_through() -> None:

@@ -8,11 +8,13 @@ from httk.atomistic import (
     ASUSite,
     ASUStructure,
     Cell,
-    ChemicalComposition,
     Spacegroup,
     Species,
-    SpeciesClassView,
     SpeciesPrimitiveView,
+    SpeciesView,
+)
+from httk.atomistic.composition import (
+    ChemicalComposition,
     anonymous_symbol,
     derive_structure_features,
     project_composition,
@@ -50,7 +52,7 @@ def test_species_class_and_primitive_views_keep_exactness_off_standard_json() ->
         "concentration": ["0.5000"],
         "_httk_concentration_precision": [F(7, 10000)],
     }
-    class_view = SpeciesClassView(raw)
+    class_view = SpeciesView(raw)
     assert class_view.concentration == (F(1, 2),)
     assert class_view.concentration_precision == (F(7, 10000),)
     private_primitive = SpeciesPrimitiveView(raw)

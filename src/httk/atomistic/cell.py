@@ -9,6 +9,7 @@ from httk.core import SurdScalar, SurdVector, VectorLike, exactmath
 from httk.core.exactmath import integer_sqrt
 
 from ._vector_guards import to_periodicity, to_precision, to_surdscalar, to_surdvector
+from .cell_backend import CellBackend
 
 if TYPE_CHECKING:
     from .numeric_cell import NumericCell
@@ -47,7 +48,7 @@ def _scalar_length(lsq: SurdScalar) -> SurdScalar:
     return SurdVector.create(exactmath.sqrt(approx, prec=_FALLBACK_PREC, limit=True))._as_scalar()
 
 
-class Cell:
+class Cell(CellBackend):
     """
     A crystallographic cell: its basis, the 3x3 matrix of cell vectors, held **exactly**.
 

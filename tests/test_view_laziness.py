@@ -5,19 +5,19 @@ from httk.atomistic import (
     ASUSite,
     ASUStructure,
     Cell,
-    CellClassView,
-    CellNumericView,
+    CellView,
     NumericUnitcellStructureView,
     Sites,
-    SitesClassView,
-    SitesNumericView,
+    SitesView,
     Species,
     Structure,
-    StructureBackend,
     UnitcellStructureView,
 )
 from httk.atomistic.cell_primitive import CellPrimitive
+from httk.atomistic.cell_numeric_view import CellNumericView
 from httk.atomistic.sites_primitive import SitesPrimitive
+from httk.atomistic.sites_numeric_view import SitesNumericView
+from httk.atomistic.structure_backend import StructureBackend
 
 
 class ProbeCellPrimitive(CellPrimitive):
@@ -43,9 +43,7 @@ COORDS = [[0, 0, 0], ["1/2", "1/2", "1/2"]]
 
 
 class CountingStructureBackend(StructureBackend):
-    def __init__(
-        self, species_at_sites: tuple[str, ...] = ("Na", "Cl"), sites: Sites | None = None
-    ) -> None:
+    def __init__(self, species_at_sites: tuple[str, ...] = ("Na", "Cl"), sites: Sites | None = None) -> None:
         self.calls = {"cell": 0, "sites": 0, "species": 0, "species_at_sites": 0}
         self._cell = Cell(CUBE)
         self._sites = Sites(COORDS) if sites is None else sites
@@ -76,9 +74,9 @@ class CountingStructureBackend(StructureBackend):
         return self._species_at_sites
 
 
-def test_cell_class_view_fills_backend_call_groups_lazily() -> None:
+def test_cell_view_fills_backend_call_groups_lazily() -> None:
     probe = ProbeCellPrimitive(CUBE)
-    view = CellClassView(probe)
+    view = CellView(probe)
 
     assert probe.unscaled_basis_calls == 0
     assert unwrap(view) is probe.unwrap()
@@ -90,14 +88,14 @@ def test_cell_class_view_fills_backend_call_groups_lazily() -> None:
     assert probe.unscaled_basis_calls == 1
 
 
-def test_sites_class_view_fills_backend_call_groups_lazily() -> None:
+def test_sites_view_fills_backend_call_groups_lazily() -> None:
     probe = ProbeSitesPrimitive(COORDS)
-    precision_view = SitesClassView(probe)
+    precision_view = SitesView(probe)
 
     assert precision_view.precision is None
     assert probe.reduced_coords_calls == 0
 
-    view = SitesClassView(probe)
+    view = SitesView(probe)
     _ = view.reduced_coords
     _ = view.reduced_coords
     assert probe.reduced_coords_calls == 1
@@ -123,9 +121,9 @@ def test_numeric_views_defer_their_exact_presentation() -> None:
     assert sites_probe.reduced_coords_calls == 1
 
 
-def test_cell_class_view_defers_degenerate_basis_validation() -> None:
+def test_cell_view_defers_degenerate_basis_validation() -> None:
     probe = ProbeCellPrimitive([[1, 0, 0], [2, 0, 0], [0, 0, 1]])
-    view = CellClassView(probe)
+    view = CellView(probe)
 
     assert "_unscaled_basis" not in view.__dict__
     with pytest.raises(ValueError, match="non-degenerate"):
@@ -135,9 +133,9 @@ def test_cell_class_view_defers_degenerate_basis_validation() -> None:
     assert "_unscaled_basis" not in view.__dict__
 
 
-def test_unmaterialized_cell_class_view_round_trips_and_compares() -> None:
+def test_unmaterialized_cell_view_round_trips_and_compares() -> None:
     probe = ProbeCellPrimitive(CUBE)
-    view = CellClassView(probe)
+    view = CellView(probe)
 
     assert "_unscaled_basis" not in view.__dict__
     assert view == Cell(CUBE)
@@ -223,16 +221,12 @@ def test_structure_validation_precedence_stays_eager_but_views_are_per_component
         Structure(CUBE, one_site, species, ("Missing", "Na"))
     assert str(eager_error.value) == "Structure species_at_sites must have the same length as sites"
 
-    bad_name_view = UnitcellStructureView(
-        CountingStructureBackend(("Missing", "Na"), Sites(one_site))
-    )
+    bad_name_view = UnitcellStructureView(CountingStructureBackend(("Missing", "Na"), Sites(one_site)))
     with pytest.raises(ValueError) as membership_error:
         _ = bad_name_view.species_at_sites
     assert str(membership_error.value) == "Structure species_at_sites references unknown species name: 'Missing'"
 
-    bad_length_view = UnitcellStructureView(
-        CountingStructureBackend(("Na", "Na"), Sites(one_site))
-    )
+    bad_length_view = UnitcellStructureView(CountingStructureBackend(("Na", "Na"), Sites(one_site)))
     with pytest.raises(ValueError) as length_error:
         _ = bad_length_view.sites
     assert str(length_error.value) == "Structure species_at_sites must have the same length as sites"

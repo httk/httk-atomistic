@@ -8,10 +8,10 @@ from httk.core import unwrap
 
 from .species_backend import SpeciesBackend
 from .species_like import SpeciesLike
-from .species_view import SpeciesView
+from .species_view_base import SpeciesViewBase
 
 
-class SpeciesPrimitiveView(SpeciesView, dict):
+class SpeciesPrimitiveView(SpeciesViewBase, dict):
     """
     A view presenting an underlying species backend as an OPTIMADE species dict.
 

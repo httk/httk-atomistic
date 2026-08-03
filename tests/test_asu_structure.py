@@ -11,15 +11,17 @@ import pytest
 from httk.core import FracVector, unwrap
 
 from httk.atomistic import (
+    Assembly,
     ASUSite,
     ASUStructure,
     Cell,
+    FundamentalDomainStructure,
     SettingTransform,
     Spacegroup,
     Species,
     Structure,
-    StructureASU,
     StructureBackend,
+    StructureEntryProvider,
     UnitcellStructureView,
     same_crystal,
 )
@@ -222,16 +224,15 @@ def test_asu_structure_requires_the_standard_setting() -> None:
 
 def test_backend_dispatch_and_kind_override() -> None:
     asu = _rocksalt()
-    backend = StructureBackend.create(asu)
-    assert isinstance(backend, StructureASU)
-    assert isinstance(StructureBackend.create(asu, kind="asu"), StructureASU)
-    with pytest.raises(TypeError):
-        StructureBackend.create(asu, kind="primitive")
+    backend = asu
+    assert isinstance(backend, FundamentalDomainStructure)
+    assert isinstance(backend, StructureBackend)
+    assert UnitcellStructureView(backend)._backend is backend
 
 
 def test_view_rewrap_identity_shared_backend_and_unwrap() -> None:
     asu = _rocksalt()
-    backend = StructureBackend.create(asu)
+    backend = asu
     first = UnitcellStructureView(backend)
     assert UnitcellStructureView(first) is first
     second = UnitcellStructureView(backend)
@@ -247,7 +248,7 @@ def test_an_asu_structure_is_a_structure_everywhere() -> None:
     assert isinstance(view, Structure)
     assert isinstance(view.cell, Cell)
     assert view.cartesian_sites().to_floats()[0] == [0.0, 0.0, 0.0]
-    assert _rocksalt().to_structure() == view
+    assert UnitcellStructureView(_rocksalt()) == view
 
 
 def test_symmetry_reduced_expansion_rejects_ambiguous_molecular_placement() -> None:
@@ -277,8 +278,6 @@ def test_symmetry_reduced_expansion_retains_unambiguous_molecular_representative
 
 
 def test_symmetry_reduced_expansion_rejects_ambiguous_assembly_correlations() -> None:
-    from httk.atomistic import Assembly
-
     correlated = ASUStructure(
         CUBIC,
         225,
@@ -286,13 +285,39 @@ def test_symmetry_reduced_expansion_rejects_ambiguous_assembly_correlations() ->
         _species("Na"),
         assemblies=(Assembly(((0,),), (1,)),),
     )
+    with pytest.raises(ValueError) as error:
+        _ = UnitcellStructureView(correlated).assemblies
+    assert str(error.value) == (
+        "symmetry-reduced expansion cannot map assembly correlations "
+        "when a correlated domain site has multiple unit-cell images"
+    )
+
+
+def test_native_assemblies_are_servable_without_expansion() -> None:
+    correlated = ASUStructure(
+        CUBIC,
+        225,
+        [ASUSite("a", NO_PARAMETERS, "Na")],
+        _species("Na"),
+        assemblies=(Assembly(((0,),), (1,)),),
+    )
+
+    assert correlated.assemblies == (Assembly(((0,),), (1,)),)
+    assert correlated.composition.amounts == (("Na", F(4)),)
+    (entry,) = list(StructureEntryProvider({"correlated": correlated}).records("structures"))
+    assert entry["assemblies"] == [{"sites_in_groups": [[0]], "group_probabilities": [1.0]}]
+
+    pytest.importorskip("sqlalchemy")
+    from httk.data.db import Database, SqlStore
+
+    with Database.sqlite() as database:
+        SqlStore(database, entry_records={}).save(correlated)
+
     with pytest.raises(ValueError, match="assembly correlations"):
-        _ = UnitcellStructureView(correlated).sites
+        _ = UnitcellStructureView(correlated).assemblies
 
 
 def test_symmetry_reduced_expansion_remaps_one_to_one_assembly_sites() -> None:
-    from httk.atomistic import Assembly
-
     correlated = ASUStructure(
         CUBIC,
         221,

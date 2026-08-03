@@ -24,9 +24,9 @@ from httk.atomistic import (
     Structure,
     StructureEntry,
     StructureEntryProvider,
-    StructureSymmetry,
     UnitcellStructureRecord,
 )
+from httk.atomistic.structure_semantics import StructureSymmetry
 
 
 def _species() -> tuple[Species, Species]:
@@ -341,7 +341,9 @@ def test_natural_duplicate_asu_orbits_preserve_the_deduplicated_composition(dial
         variable = searcher.variable(ASUStructureRecord)
         searcher.output(variable, "record")
         (fetched,), _names = next(iter(searcher))
-        assert fetched.normalized_composition.to_result().amounts == (("Na", Fraction(4)),)
+        assert tuple((value.element, value.amount) for value in fetched.normalized_composition.amounts) == (
+            ("Na", Fraction(4)),
+        )
         served = next(iter(StructureEntryProvider({fetched.id: fetched}).records("structures")))
         assert served["elements"] == ["Na"]
         assert served["elements_ratios"] == [1.0]

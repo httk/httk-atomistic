@@ -11,11 +11,11 @@ from ._vector_guards import require_numpy
 from .cell import Cell
 from .cell_backend import CellBackend
 from .cell_like import CellLike
-from .cell_view import CellView
+from .cell_view_base import CellViewBase
 from .numeric_cell import NumericCell
 
 
-class CellNumericView(CellView, NumericCell):
+class CellNumericView(CellViewBase, NumericCell):
     """
     A view presenting an underlying cell backend as a ``NumericCell``.
 

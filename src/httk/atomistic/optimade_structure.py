@@ -30,26 +30,26 @@ from httk.core import (
     stored_property,
 )
 
-from . import data
 from ._composition_values import normalization
 from .cell import Cell
 from .composition import Assembly, CompositionResult, anonymous_symbol, project_composition, validate_assemblies
-from .elements import SYMBOLS
 from .precision_entries import precision_definitions
 from .sites import Sites
 from .spacegroup import Spacegroup
 from .species import Species
 from .structure_backend import StructureBackend
 from .structure_semantics import (
+    _ELEMENTS,
+    _FORMULA_TOKEN,
+    _OPTIMIZATION_TYPES,
+    _SYMOP_COORDINATE,
     StructureSymmetry,
-    _operation_group_signature,
-    _symmetry_operation_group,
     validate_descriptive_formula,
+    validate_hill_formula,
 )
 
 _STRUCTURES_DEFINITION_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 _MISSING = object()
-_ELEMENTS = frozenset(SYMBOLS)
 _COORDINATE_SPANS = frozenset(
     {
         "fundamental_domain",
@@ -64,10 +64,7 @@ _COORDINATE_SPANS = frozenset(
 )
 _UNIT_CELL_SPANS = frozenset({"unit_cell", "molecular_unit_cell"})
 _STRUCTURE_FEATURES = frozenset({"assemblies", "disorder", "implicit_atoms", "site_attachments"})
-_OPTIMIZATION_TYPES = frozenset({"experimental", "hybrid", "global", "local", "none", "indeterminate", "other"})
-_FORMULA_TOKEN = re.compile(r"([A-Z][a-z]?)([1-9][0-9]*)?")
 _ANONYMOUS_TOKEN = re.compile(r"([A-Z][a-z]*)([1-9][0-9]*)?")
-_SYMOP_COORDINATE = re.compile(r"[xyzXYZ0-9+\-*/(). ]+")
 _WYCKOFF = frozenset("abcdefghijklmnopqrstuvwxyzα")
 
 
@@ -580,23 +577,19 @@ class OptimadeStructure(StructureBackend):
         tokens = self._formula_tokens(value, property_name)
         if len({element for element, _ in tokens}) != len(tokens):
             raise IncompleteOptimadeResourceError(f"OPTIMADE semantic property {property_name!r} repeats an element")
+        if property_name == "chemical_formula_hill":
+            try:
+                validate_hill_formula(value, None)
+            except ValueError as exc:
+                raise IncompleteOptimadeResourceError(
+                    "OPTIMADE semantic property 'chemical_formula_hill' is not in Hill order"
+                ) from exc
         if property_name == "chemical_formula_reduced" and tuple(element for element, _ in tokens) != tuple(
             sorted(element for element, _ in tokens)
         ):
             raise IncompleteOptimadeResourceError(
                 "OPTIMADE semantic property 'chemical_formula_reduced' is not in alphabetical order"
             )
-        if property_name == "chemical_formula_hill":
-            elements = [element for element, _ in tokens]
-            expected = (
-                ["C"] + (["H"] if "H" in elements else []) + sorted(set(elements) - {"C", "H"})
-                if "C" in elements
-                else sorted(elements)
-            )
-            if elements != expected:
-                raise IncompleteOptimadeResourceError(
-                    "OPTIMADE semantic property 'chemical_formula_hill' is not in Hill order"
-                )
         declared_elements = self.elements
         if declared_elements is not None and set(declared_elements) != {element for element, _ in tokens}:
             raise IncompleteOptimadeResourceError(
@@ -626,19 +619,13 @@ class OptimadeStructure(StructureBackend):
                 raise IncompleteOptimadeResourceError(
                     f"OPTIMADE semantic property {property_name!r} disagrees with the supplied site composition"
                 )
-            if property_name == "chemical_formula_hill" and projected.complete and projected.amounts:
-                counts = dict(tokens)
-                amounts = dict(projected.amounts)
-                if set(counts) != set(amounts):
+            if property_name == "chemical_formula_hill":
+                try:
+                    validate_hill_formula(value, projected)
+                except ValueError as exc:
                     raise IncompleteOptimadeResourceError(
                         "OPTIMADE semantic property 'chemical_formula_hill' disagrees with the supplied site composition"
-                    )
-                first = next(iter(counts))
-                scale = amounts[first] / counts[first]
-                if any(amounts[element] != scale * count for element, count in counts.items()):
-                    raise IncompleteOptimadeResourceError(
-                        "OPTIMADE semantic property 'chemical_formula_hill' disagrees with the supplied site composition"
-                    )
+                    ) from exc
         return value
 
     def _elements_ratio_width(self) -> Fraction:
@@ -905,14 +892,28 @@ class OptimadeStructure(StructureBackend):
     def symmetry(self) -> StructureSymmetry:
         """Typed source symmetry metadata used by the common unit-cell view layer."""
 
-        return StructureSymmetry(
-            space_group_it_number=self.space_group_it_number,
-            space_group_symbol_hall=self.space_group_symbol_hall,
-            space_group_symbol_hermann_mauguin=self.space_group_symbol_hermann_mauguin,
-            space_group_symbol_hermann_mauguin_extended=self.space_group_symbol_hermann_mauguin_extended,
-            space_group_symmetry_operations_xyz=self.space_group_symmetry_operations_xyz,
-            wyckoff_positions=self.wyckoff_positions,
-        )
+        try:
+            return StructureSymmetry(
+                space_group_it_number=self._space_group_it_number_value(),
+                space_group_symbol_hall=self._symmetry_string_value("space_group_symbol_hall"),
+                space_group_symbol_hermann_mauguin=self._symmetry_string_value("space_group_symbol_hermann_mauguin"),
+                space_group_symbol_hermann_mauguin_extended=self._symmetry_string_value(
+                    "space_group_symbol_hermann_mauguin_extended"
+                ),
+                space_group_symmetry_operations_xyz=self._space_group_operations_value(),
+                wyckoff_positions=self._wyckoff_positions_value(),
+            )
+        except ValueError as exc:
+            message = str(exc)
+            if message == "supplied space-group number and symbols are inconsistent":
+                message = "OPTIMADE supplied space-group number and symbols are mutually inconsistent"
+            elif message == "supplied space-group operations disagree with its number or symbols":
+                message = "OPTIMADE supplied space-group operations disagree with its number or symbols"
+            elif message == "supplied Wyckoff positions disagree with the space-group setting":
+                message = "OPTIMADE semantic property 'wyckoff_positions' disagrees with the supplied space group"
+            elif message.startswith("space-group symmetry operations "):
+                message = f"OPTIMADE supplied space-group operations do not form a valid group: {message}"
+            raise IncompleteOptimadeResourceError(message) from exc
 
     @stored_property
     def optimization_type(self) -> str | None:
@@ -965,65 +966,7 @@ class OptimadeStructure(StructureBackend):
 
     @cached_property
     def _declared_spacegroup_candidates(self) -> tuple[Spacegroup, ...]:
-        """Tabulated settings consistent with every supplied symmetry identifier/value."""
-
-        number = self._decoded_optional("space_group_it_number")
-        hall = self._decoded_optional("space_group_symbol_hall")
-        hm = self._decoded_optional("space_group_symbol_hermann_mauguin")
-        extended = self._decoded_optional("space_group_symbol_hermann_mauguin_extended")
-        raw_operations = self._decoded_optional("space_group_symmetry_operations_xyz")
-        identifiers = any(value is not None for value in (number, hall, hm, extended))
-        setting_identifier = any(value is not None for value in (hall, hm, extended))
-        if not identifiers and raw_operations is None:
-            return ()
-        records = list(data.spacegroup_settings())
-        if isinstance(number, int) and not isinstance(number, bool):
-            records = [record for record in records if record["it_number"] == number]
-        if isinstance(hall, str):
-            records = [record for record in records if record.get("hall") == hall]
-        if isinstance(hm, str):
-            records = [record for record in records if record.get("hm_short") == hm]
-        if isinstance(extended, str):
-            records = [
-                record
-                for record in records
-                if " ".join(str(record.get("hm_extended") or "").split()) == " ".join(extended.split())
-            ]
-        if identifiers and not records:
-            raise IncompleteOptimadeResourceError(
-                "OPTIMADE supplied space-group number and symbols are mutually inconsistent"
-            )
-        if isinstance(raw_operations, tuple | list):
-            try:
-                operation_group = _symmetry_operation_group(tuple(cast(str, value) for value in raw_operations))
-            except (TypeError, ValueError) as exc:
-                raise IncompleteOptimadeResourceError(
-                    f"OPTIMADE supplied space-group operations do not form a valid group: {exc}"
-                ) from exc
-            matching = [
-                record
-                for record in records
-                if frozenset(operation.wrapped() for operation in Spacegroup(record).symmetry_operations)
-                == operation_group
-            ]
-            if not matching:
-                standard_group = (
-                    frozenset(operation.wrapped() for operation in Spacegroup.standard(number).symmetry_operations)
-                    if isinstance(number, int) and not isinstance(number, bool)
-                    else None
-                )
-                if (
-                    setting_identifier
-                    or standard_group is None
-                    or len(operation_group) != len(standard_group)
-                    or _operation_group_signature(operation_group) != _operation_group_signature(standard_group)
-                ):
-                    raise IncompleteOptimadeResourceError(
-                        "OPTIMADE supplied space-group operations disagree with its number or symbols"
-                    )
-            else:
-                records = matching
-        return tuple(Spacegroup(record) for record in records)
+        return tuple(Spacegroup(record) for record in self.symmetry.matched_settings)
 
     def _declared_periodic_dimensions(self) -> int | None:
         periodic = self._portable_value("nperiodic_dimensions")
@@ -1034,7 +977,7 @@ class OptimadeStructure(StructureBackend):
             return sum(cast(tuple[int, int, int], dimensions))
         return None
 
-    def _symmetry_string(self, property_name: str) -> str | None:
+    def _symmetry_string_value(self, property_name: str) -> str | None:
         value = self._decoded_optional(property_name)
         if value is None:
             return None
@@ -1047,23 +990,14 @@ class OptimadeStructure(StructureBackend):
             raise IncompleteOptimadeResourceError(
                 f"OPTIMADE semantic property {property_name!r} must be null unless nperiodic_dimensions is 3"
             )
-        _ = self._declared_spacegroup_candidates
         return value
 
-    @stored_property
-    def space_group_symbol_hall(self) -> str | None:
-        return self._symmetry_string("space_group_symbol_hall")
+    def _symmetry_string(self, property_name: str) -> str | None:
+        value = self._symmetry_string_value(property_name)
+        _ = self.symmetry
+        return value
 
-    @stored_property
-    def space_group_symbol_hermann_mauguin(self) -> str | None:
-        return self._symmetry_string("space_group_symbol_hermann_mauguin")
-
-    @stored_property
-    def space_group_symbol_hermann_mauguin_extended(self) -> str | None:
-        return self._symmetry_string("space_group_symbol_hermann_mauguin_extended")
-
-    @stored_property
-    def space_group_it_number(self) -> int | None:
+    def _space_group_it_number_value(self) -> int | None:
         value = self._decoded_optional("space_group_it_number")
         if value is None:
             return None
@@ -1076,11 +1010,9 @@ class OptimadeStructure(StructureBackend):
             raise IncompleteOptimadeResourceError(
                 "OPTIMADE semantic property 'space_group_it_number' must be null unless nperiodic_dimensions is 3"
             )
-        _ = self._declared_spacegroup_candidates
         return value
 
-    @stored_property
-    def space_group_symmetry_operations_xyz(self) -> tuple[str, ...] | None:
+    def _space_group_operations_value(self) -> tuple[str, ...] | None:
         value = self._decoded_optional("space_group_symmetry_operations_xyz")
         if value is None:
             return None
@@ -1107,11 +1039,9 @@ class OptimadeStructure(StructureBackend):
             raise IncompleteOptimadeResourceError(
                 "OPTIMADE semantic property 'space_group_symmetry_operations_xyz' must be null for a nonperiodic structure"
             )
-        _ = self._declared_spacegroup_candidates
         return value
 
-    @stored_property
-    def wyckoff_positions(self) -> tuple[str, ...] | None:
+    def _wyckoff_positions_value(self) -> tuple[str, ...] | None:
         value = self._decoded_optional("wyckoff_positions")
         if value is None:
             return None
@@ -1130,14 +1060,36 @@ class OptimadeStructure(StructureBackend):
             raise IncompleteOptimadeResourceError(
                 "OPTIMADE semantic property 'wyckoff_positions' disagrees with 'nsites'"
             )
-        candidates = self._declared_spacegroup_candidates
-        if candidates and not any(
-            all(letter in {position.letter for position in candidate.wyckoff} for letter in value)
-            for candidate in candidates
-        ):
-            raise IncompleteOptimadeResourceError(
-                "OPTIMADE semantic property 'wyckoff_positions' disagrees with the supplied space group"
-            )
+        return value
+
+    @stored_property
+    def space_group_symbol_hall(self) -> str | None:
+        return self._symmetry_string("space_group_symbol_hall")
+
+    @stored_property
+    def space_group_symbol_hermann_mauguin(self) -> str | None:
+        return self._symmetry_string("space_group_symbol_hermann_mauguin")
+
+    @stored_property
+    def space_group_symbol_hermann_mauguin_extended(self) -> str | None:
+        return self._symmetry_string("space_group_symbol_hermann_mauguin_extended")
+
+    @stored_property
+    def space_group_it_number(self) -> int | None:
+        value = self._space_group_it_number_value()
+        _ = self.symmetry
+        return value
+
+    @stored_property
+    def space_group_symmetry_operations_xyz(self) -> tuple[str, ...] | None:
+        value = self._space_group_operations_value()
+        _ = self.symmetry
+        return value
+
+    @stored_property
+    def wyckoff_positions(self) -> tuple[str, ...] | None:
+        value = self._wyckoff_positions_value()
+        _ = self.symmetry
         return value
 
     @cached_property

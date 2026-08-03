@@ -9,10 +9,10 @@ from httk.core import unwrap
 from ._vector_guards import to_float_tuples
 from .cell_backend import CellBackend
 from .cell_like import CellLike
-from .cell_view import CellView
+from .cell_view_base import CellViewBase
 
 
-class CellPrimitiveView(CellView, tuple):
+class CellPrimitiveView(CellViewBase, tuple):
     """
     A view presenting an underlying cell backend as the raw 3x3 basis matrix of floats.
 

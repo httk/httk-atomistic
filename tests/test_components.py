@@ -2,31 +2,29 @@ import fractions
 import math
 
 import pytest
-from httk.core import SurdVector, unwrap
+from httk.core import SurdVector, project_storage_record, unwrap
 
 from httk.atomistic import (
     Cell,
-    CellBackend,
-    CellClass,
-    CellClassView,
     CellParams,
     CellParamsView,
     CellPrimitive,
-    CellPrimitiveView,
+    CellView,
     Sites,
-    SitesBackend,
-    SitesClass,
-    SitesClassView,
     SitesPrimitive,
-    SitesPrimitiveView,
+    SitesView,
     Species,
-    SpeciesBackend,
-    SpeciesClass,
-    SpeciesClassView,
     SpeciesPrimitive,
     SpeciesPrimitiveView,
+    SpeciesView,
     Structure,
 )
+from httk.atomistic.cell_backend import CellBackend
+from httk.atomistic.cell_primitive_view import CellPrimitiveView
+from httk.atomistic.sites_backend import SitesBackend
+from httk.atomistic.sites_primitive_view import SitesPrimitiveView
+from httk.atomistic.species_backend import SpeciesBackend
+from httk.atomistic.structure_record import CellRecord, SitesRecord, SpeciesRecord
 
 F = fractions.Fraction
 
@@ -66,9 +64,7 @@ def test_cell_derived_quantities_orthorhombic() -> None:
 def test_cell_derived_quantities_hexagonal() -> None:
     cell = Cell(HEX)
     alpha, beta, gamma = cell.angles
-    assert tuple(length.to_float() for length in cell.lengths) == pytest.approx(
-        (1.0, 1.0, 2.0), abs=TOL
-    )
+    assert tuple(length.to_float() for length in cell.lengths) == pytest.approx((1.0, 1.0, 2.0), abs=TOL)
     # alpha between b,c; beta between a,c; gamma between a,b (120 for hexagonal). The HEX cell is
     # built from an irrational float (sqrt(3)/2), so gamma/volume are deterministic approximations.
     assert float(alpha) == pytest.approx(90.0, abs=TOL)
@@ -87,11 +83,12 @@ def test_cell_equality_and_repr() -> None:
 # --- Cell dispatch and views ---
 
 
-def test_cell_backend_dispatches_and_kind_overrides() -> None:
+def test_cell_backend_dispatches_and_domain_adoption() -> None:
     assert isinstance(CellBackend.create(ORTHO), CellPrimitive)
-    assert isinstance(CellBackend.create(Cell(ORTHO)), CellClass)
+    cell = Cell(ORTHO)
+    assert isinstance(cell, CellBackend)
+    assert CellView(cell)._backend is cell
     assert isinstance(CellBackend.create(ORTHO, kind="primitive"), CellPrimitive)
-    assert isinstance(CellBackend.create(Cell(ORTHO), kind="class"), CellClass)
 
 
 def test_cell_backend_raises_for_malformed() -> None:
@@ -100,12 +97,12 @@ def test_cell_backend_raises_for_malformed() -> None:
     with pytest.raises(TypeError):
         CellBackend.create(12345)
     with pytest.raises(TypeError):
-        CellBackend.create(Cell(ORTHO), kind="primitive")
+        CellBackend.create(Cell(ORTHO))
 
 
 def test_cell_views_class_and_primitive() -> None:
     # Class view from a raw matrix (primitive backend).
-    class_view = CellClassView(ORTHO)
+    class_view = CellView(ORTHO)
     assert isinstance(class_view, Cell)
     assert class_view.basis.to_floats() == [
         [2.0, 0.0, 0.0],
@@ -120,9 +117,41 @@ def test_cell_views_class_and_primitive() -> None:
     assert tuple(primitive_view) == ((2.0, 0.0, 0.0), (0.0, 3.0, 0.0), (0.0, 0.0, 4.0))
 
 
+def test_component_views_accept_storage_records_without_eager_exact_rebuild() -> None:
+    cell_record = CellRecord(**project_storage_record(CellRecord, Cell(ORTHO)))
+    cell_view = CellView(cell_record)
+    assert "_unscaled_basis" not in cell_view.__dict__
+    assert cell_view == Cell(ORTHO)
+    assert unwrap(cell_view) is cell_record
+
+    sites_record = SitesRecord(**project_storage_record(SitesRecord, Sites([[0, 0, 0]])))
+    sites_view = SitesView(sites_record)
+    assert "_reduced_coords" not in sites_view.__dict__
+    assert sites_view == Sites([[0, 0, 0]])
+    assert unwrap(sites_view) is sites_record
+
+    species = Species("Fe", ("Fe",), (1,))
+    species_record = SpeciesRecord(**SpeciesRecord.__httk_project__(species))
+    species_view = SpeciesView(species_record)
+    assert species_view == species
+    assert unwrap(species_view) is species_record
+
+
+def test_species_view_decodes_mixed_precision_record_sentinel() -> None:
+    species = Species(
+        "FeNi",
+        ("Fe", "Ni"),
+        (F(1, 2), F(1, 2)),
+        concentration_precision=(None, F(1, 1000)),
+    )
+    record = SpeciesRecord(**SpeciesRecord.__httk_project__(species))
+
+    assert SpeciesView(record).concentration_precision == (None, F(1, 1000))
+
+
 def test_cell_view_rewrap_identity_and_unwrap() -> None:
-    class_view = CellClassView(ORTHO)
-    assert CellClassView(class_view) is class_view
+    class_view = CellView(ORTHO)
+    assert CellView(class_view) is class_view
 
     primitive_view = CellPrimitiveView(Cell(ORTHO))
     assert CellPrimitiveView(primitive_view) is primitive_view
@@ -130,7 +159,8 @@ def test_cell_view_rewrap_identity_and_unwrap() -> None:
     # unwrap returns the native raw object.
     assert unwrap(CellBackend.create(ORTHO)) is ORTHO
     cell = Cell(ORTHO)
-    assert unwrap(CellBackend.create(cell)) is cell
+    assert unwrap(cell) is cell
+    assert unwrap(CellView(ORTHO)) is ORTHO
 
 
 # --- Sites ---
@@ -154,11 +184,13 @@ def test_sites_construction_and_sequence_behavior() -> None:
 def test_sites_dispatch_and_views() -> None:
     raw = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
     assert isinstance(SitesBackend.create(raw), SitesPrimitive)
-    assert isinstance(SitesBackend.create(Sites(raw)), SitesClass)
+    sites = Sites(raw)
+    assert isinstance(sites, SitesBackend)
+    assert SitesView(sites)._backend is sites
     with pytest.raises(TypeError):
         SitesBackend.create([[0.0, 0.0]])
 
-    class_view = SitesClassView(raw)
+    class_view = SitesView(raw)
     assert isinstance(class_view, Sites)
     assert len(class_view) == 2
 
@@ -166,23 +198,21 @@ def test_sites_dispatch_and_views() -> None:
     assert isinstance(primitive_view, tuple)
     assert tuple(primitive_view) == ((0.0, 0.0, 0.0), (0.5, 0.5, 0.5))
 
-    assert SitesClassView(class_view) is class_view
+    assert SitesView(class_view) is class_view
     assert unwrap(SitesBackend.create(raw)) is raw
 
 
 # --- Species ---
 
 
-def test_species_class_construction_and_dispatch() -> None:
+def test_species_construction_and_dispatch() -> None:
     species = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))
     optimade = {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}
 
-    assert isinstance(SpeciesBackend.create(species), SpeciesClass)
+    assert isinstance(species, SpeciesBackend)
+    assert SpeciesView(species)._backend is species
     assert isinstance(SpeciesBackend.create(optimade), SpeciesPrimitive)
-    assert isinstance(SpeciesBackend.create(species, kind="class"), SpeciesClass)
-    assert isinstance(
-        SpeciesBackend.create(optimade, kind="primitive"), SpeciesPrimitive
-    )
+    assert isinstance(SpeciesBackend.create(optimade, kind="primitive"), SpeciesPrimitive)
     with pytest.raises(TypeError):
         SpeciesBackend.create("Fe", kind="primitive")
     with pytest.raises(TypeError):
@@ -192,11 +222,9 @@ def test_species_class_construction_and_dispatch() -> None:
 def test_species_bare_symbol_and_atomic_number_inputs() -> None:
     for value in ("Fe", "X", "vacancy", 1, 118):
         symbol = value if isinstance(value, str) else ("H" if value == 1 else "Og")
-        expected = Species(
-            name=symbol, chemical_symbols=(symbol,), concentration=(1.0,)
-        )
+        expected = Species(name=symbol, chemical_symbols=(symbol,), concentration=(1.0,))
         assert Species.create(value) == expected
-        view = SpeciesClassView(value)
+        view = SpeciesView(value)
         assert view.name == symbol
         assert view.chemical_symbols == (symbol,)
         assert view.concentration == (1.0,)
@@ -204,7 +232,7 @@ def test_species_bare_symbol_and_atomic_number_inputs() -> None:
 
 def test_species_equality_and_hash_are_subclass_tolerant() -> None:
     plain = Species("Fe", ("Fe",), (1.0,))
-    view = SpeciesClassView("Fe")
+    view = SpeciesView("Fe")
 
     assert view == plain
     assert plain == view
@@ -224,18 +252,16 @@ def test_species_bare_input_validation() -> None:
     with pytest.raises(ValueError, match="bool"):
         Species.create(True)
     with pytest.raises(ValueError, match="bool"):
-        SpeciesClassView(False)
+        SpeciesView(False)
 
 
 def test_species_backend_raises_for_malformed() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         SpeciesBackend.create(12345)
     with pytest.raises(TypeError):
         SpeciesBackend.create({"name": "Na"})  # missing required keys
     with pytest.raises(TypeError):
-        SpeciesBackend.create(
-            {"name": 5, "chemical_symbols": ["Na"], "concentration": [1.0]}
-        )
+        SpeciesBackend.create({"name": 5, "chemical_symbols": ["Na"], "concentration": [1.0]})
 
 
 def test_species_dict_to_class_roundtrip_with_optional_fields() -> None:
@@ -249,7 +275,7 @@ def test_species_dict_to_class_roundtrip_with_optional_fields() -> None:
         "nattached": [3],
     }
     # dict -> class (a genuine, fully validated Species)
-    species_view = SpeciesClassView(optimade)
+    species_view = SpeciesView(optimade)
     assert isinstance(species_view, Species)
     assert species_view.name == "CH3"
     assert species_view.chemical_symbols == ("C",)
@@ -269,7 +295,7 @@ def test_species_dict_to_class_roundtrip_with_optional_fields() -> None:
     assert "attached" not in payload
 
     # class -> dict, carrying the optional fields when present.
-    full = SpeciesPrimitiveView(SpeciesClassView(optimade))
+    full = SpeciesPrimitiveView(SpeciesView(optimade))
     assert full["mass"] == [12.011]
     assert full["attached"] == ["H"]
     assert full["nattached"] == [3]
@@ -286,9 +312,9 @@ def test_species_primitive_view_is_detached_mutable_dict() -> None:
 
 def test_species_view_rewrap_and_unwrap() -> None:
     species = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))
-    class_view = SpeciesClassView(species)
-    assert SpeciesClassView(class_view) is class_view
-    assert unwrap(SpeciesBackend.create(species)) is species
+    class_view = SpeciesView(species)
+    assert SpeciesView(class_view) is class_view
+    assert unwrap(species) is species
 
     optimade = {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}
     assert unwrap(SpeciesBackend.create(optimade)) is optimade
@@ -297,14 +323,12 @@ def test_species_view_rewrap_and_unwrap() -> None:
     assert SpeciesPrimitiveView(primitive_view) is primitive_view
 
 
-def test_species_class_view_applies_full_validation() -> None:
+def test_species_view_applies_full_validation() -> None:
     # A dict that passes the conservative primitive check but is not a valid Species.
     bad = {"name": "bad", "chemical_symbols": ["Zz"], "concentration": [1.0]}
-    assert isinstance(
-        SpeciesBackend.create(bad), SpeciesPrimitive
-    )  # conservative check passes
+    assert isinstance(SpeciesBackend.create(bad), SpeciesPrimitive)  # conservative check passes
     with pytest.raises(ValueError):
-        SpeciesClassView(bad)  # full validation rejects the unknown symbol
+        SpeciesView(bad)  # full validation rejects the unknown symbol
 
 
 def test_cell_params_backend_constructs_standard_matrix() -> None:
@@ -324,9 +348,7 @@ def test_cell_params_backend_constructs_standard_matrix() -> None:
 
 def test_cell_params_dispatch_and_kind_overrides() -> None:
     assert isinstance(CellBackend.create([1.0, 2.0, 3.0, 80.0, 85.0, 95.0]), CellParams)
-    assert isinstance(
-        CellBackend.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), CellPrimitive
-    )
+    assert isinstance(CellBackend.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), CellPrimitive)
     with pytest.raises(TypeError):
         CellBackend.create((1.0, 2.0, 3.0, 80.0, 85.0, 95.0), kind="primitive")
     with pytest.raises(TypeError):
@@ -363,9 +385,7 @@ def test_cell_params_view_of_rotated_matrix_is_lossy_but_faithful() -> None:
     assert [length.to_float() for length in reconstructed.lengths] == pytest.approx(
         [length.to_float() for length in rotated.lengths]
     )
-    assert [float(angle) for angle in reconstructed.angles] == pytest.approx(
-        [float(angle) for angle in rotated.angles]
-    )
+    assert [float(angle) for angle in reconstructed.angles] == pytest.approx([float(angle) for angle in rotated.angles])
 
 
 def test_structure_from_cell_params() -> None:
@@ -377,6 +397,4 @@ def test_structure_from_cell_params() -> None:
     )
     assert isinstance(structure.cell, Cell)
     assert structure.cell.volume == SurdVector.create(64)
-    assert tuple(CellParamsView(structure.cell)) == pytest.approx(
-        (4.0, 4.0, 4.0, 90.0, 90.0, 90.0)
-    )
+    assert tuple(CellParamsView(structure.cell)) == pytest.approx((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))

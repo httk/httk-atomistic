@@ -8,8 +8,8 @@ from httk.core import NumericVector, to_numeric
 
 from ._vector_guards import require_numpy
 from .sites import Sites
-from .sites_class_view import SitesClassView
 from .sites_like import SitesLike
+from .sites_view import SitesView
 
 
 class NumericSites:
@@ -30,7 +30,7 @@ class NumericSites:
 
     def __init__(self, sites: SitesLike) -> None:
         require_numpy()
-        self._sites = sites if isinstance(sites, Sites) else SitesClassView(sites)
+        self._sites = sites if isinstance(sites, Sites) else SitesView(sites)
 
     @property
     def precision(self) -> float | None:

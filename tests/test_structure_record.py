@@ -8,35 +8,54 @@ import pytest
 from httk.core import FracVector, content_id, project_storage_record
 
 from httk.atomistic import (
-    AssemblyGroupRecord,
-    AssemblyRecord,
     ASUSite,
     ASUStructure,
     ASUStructureRecord,
     ASUStructureView,
-    CellRecord,
-    ChemicalCompositionRecord,
-    DomainSiteRecord,
     FundamentalDomainStructure,
     FundamentalDomainStructureRecord,
-    NormalizedCompositionAmountRecord,
-    NormalizedCompositionRecord,
     SettingTransform,
-    SettingTransformRecord,
-    SitesRecord,
     Species,
-    SpeciesRecord,
     Structure,
     StructureEntry,
-    StructureView,
-    SymmetryRecord,
     UnitcellStructureRecord,
     UnitcellStructureView,
 )
+from httk.atomistic.structure_record import (
+    AssemblyGroupRecord,
+    AssemblyRecord,
+    CellRecord,
+    ChemicalCompositionRecord,
+    DomainSiteRecord,
+    NormalizedCompositionAmountRecord,
+    NormalizedCompositionRecord,
+    SettingTransformRecord,
+    SitesRecord,
+    SpeciesRecord,
+    SymmetryRecord,
+)
+from httk.atomistic.structure_view import StructureView
+from httk.atomistic.structure_record import validate_structure_record
 
 
 def _species() -> tuple[Species, Species]:
     return Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))
+
+
+def _mixed_precision_unitcell() -> Structure:
+    return Structure(
+        [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
+        [[0, 0, 0]],
+        (
+            Species(
+                "FeNi",
+                ("Fe", "Ni"),
+                (Fraction(1, 2), Fraction(1, 2)),
+                concentration_precision=(None, Fraction(1, 1000)),
+            ),
+        ),
+        ("FeNi",),
+    )
 
 
 def _unitcell(**metadata: object) -> Structure:
@@ -72,18 +91,24 @@ def _common(source: object) -> dict[str, object]:
     value = source  # keep the helper compact without weakening public annotations
     return {
         "cell": _cell_record(value.cell),  # type: ignore[attr-defined]
-        "species": tuple(SpeciesRecord.from_species(item) for item in value.species),  # type: ignore[attr-defined]
-        "normalized_composition": NormalizedCompositionRecord.from_result(value.composition),  # type: ignore[attr-defined]
+        "species": tuple(SpeciesRecord(**SpeciesRecord.__httk_project__(item)) for item in value.species),  # type: ignore[attr-defined]
+        "normalized_composition": NormalizedCompositionRecord(
+            tuple(
+                NormalizedCompositionAmountRecord(*item)
+                for item in NormalizedCompositionRecord.__httk_project__(value.composition)["amounts"]  # type: ignore[index]
+            ),
+            value.composition.complete,  # type: ignore[attr-defined]
+        ),
         "molecular": value.molecular,  # type: ignore[attr-defined]
         "assemblies": (
             None
             if value.assemblies is None  # type: ignore[attr-defined]
-            else tuple(AssemblyRecord.from_assembly(item) for item in value.assemblies)  # type: ignore[attr-defined]
+            else tuple(AssemblyRecord(**AssemblyRecord.__httk_project__(item)) for item in value.assemblies)  # type: ignore[attr-defined]
         ),
         "chemical_composition": (
             None
             if value.chemical_composition is None  # type: ignore[attr-defined]
-            else ChemicalCompositionRecord.from_composition(value.chemical_composition)  # type: ignore[attr-defined]
+            else ChemicalCompositionRecord(**ChemicalCompositionRecord.__httk_project__(value.chemical_composition))  # type: ignore[attr-defined]
         ),
         "chemical_formula_descriptive": value.chemical_formula_descriptive,  # type: ignore[attr-defined]
         "chemical_formula_hill": value.chemical_formula_hill,  # type: ignore[attr-defined]
@@ -99,7 +124,9 @@ def _unitcell_record(source: Structure) -> UnitcellStructureRecord:
         **common,
         sites=SitesRecord(**project_storage_record(SitesRecord, source.sites)),
         species_at_sites=source.species_at_sites,
-        symmetry=None if source.symmetry is None else SymmetryRecord.from_symmetry(source.symmetry),
+        symmetry=None
+        if source.symmetry is None
+        else SymmetryRecord(**SymmetryRecord.__httk_project__(source.symmetry)),
     )
 
 
@@ -113,7 +140,7 @@ def _domain_record(
             DomainSiteRecord(**project_storage_record(DomainSiteRecord, site)) for site in source.domain_sites
         ),
         spacegroup_it_number=source.spacegroup.it_number,
-        setting_transform=SettingTransformRecord.from_transform(source.transform),
+        setting_transform=SettingTransformRecord(**SettingTransformRecord.__httk_project__(source.transform)),
         coordinate_precision=source.coordinate_precision,
     )
 
@@ -162,7 +189,7 @@ def test_metadata_round_trips_without_changing_identity_or_equality() -> None:
     record = _unitcell_record(annotated)
     assert plain_record == record
     assert plain_record.id == record.id
-    rebuilt = record.to_structure()
+    rebuilt = UnitcellStructureView(record)
     assert rebuilt.immutable_id == "source-7"
     assert rebuilt.last_modified == stamp
 
@@ -216,6 +243,23 @@ def test_unitcell_record_is_a_structure_like_view_source() -> None:
     assert view.id == record.id
 
 
+def test_mixed_species_precision_survives_record_and_sql_views() -> None:
+    source = _mixed_precision_unitcell()
+    expected = (None, Fraction(1, 1000))
+    record = _unitcell_record(source)
+
+    assert UnitcellStructureView(record).species[0].concentration_precision == expected
+
+    pytest.importorskip("sqlalchemy")
+    from httk.data.db import Database, SqlStore
+
+    with Database.sqlite() as database:
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        sid = store.save(source)
+        fetched = store.fetch(UnitcellStructureRecord, sid)
+        assert UnitcellStructureView(fetched).species[0].concentration_precision == expected
+
+
 def test_assembly_record_rejects_mutable_group_impostors() -> None:
     class Impostor:
         def __init__(self) -> None:
@@ -267,7 +311,7 @@ def test_asu_record_view_adopts_native_asu_without_recognition(monkeypatch: pyte
     monkeypatch.setattr("httk.atomistic.asu_structure_view.recognize_asu", fail)
     view = ASUStructureView(record)
     assert view.space_group_it_number == 225
-    assert view.domain_sites == record.to_structure().domain_sites
+    assert view.domain_sites == ASUStructureView(record).domain_sites
     assert view.unwrap() is record
 
 
@@ -312,7 +356,7 @@ def test_record_rejects_naive_last_modified() -> None:
         )
 
 
-def test_record_rejects_normalized_composition_that_contradicts_native_structure() -> None:
+def test_record_construction_defers_normalized_composition_validation() -> None:
     source = _unitcell()
     values = _common(source)
     values["normalized_composition"] = NormalizedCompositionRecord(
@@ -322,13 +366,39 @@ def test_record_rejects_normalized_composition_that_contradicts_native_structure
         ),
         True,
     )
+    record = UnitcellStructureRecord(
+        **values,
+        sites=SitesRecord(**project_storage_record(SitesRecord, source.sites)),
+        species_at_sites=source.species_at_sites,
+        symmetry=None,
+    )
     with pytest.raises(ValueError, match="normalized_composition contradicts"):
-        UnitcellStructureRecord(
-            **values,
-            sites=SitesRecord(**project_storage_record(SitesRecord, source.sites)),
-            species_at_sites=source.species_at_sites,
-            symmetry=None,
-        )
+        validate_structure_record(record)
+
+    pytest.importorskip("sqlalchemy")
+    from httk.data.db import Database, SqlStore
+
+    with Database.sqlite() as database, pytest.raises(ValueError, match="normalized_composition contradicts"):
+        SqlStore(database, entry_records={}).save(record)
+
+
+def test_sql_fetch_of_a_root_record_does_not_reconstruct_structure(monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("sqlalchemy")
+    from httk.data.db import Database, SqlStore
+
+    import httk.atomistic.structure_record as structure_record_module
+
+    source = _unitcell()
+    with Database.sqlite() as database:
+        store = SqlStore(database, entry_records={})
+        sid = store.save(source)
+
+        def forbidden_reconstruction(*args: object, **kwargs: object) -> object:
+            raise AssertionError("fetch must not reconstruct a root structure")
+
+        monkeypatch.setattr(structure_record_module, "_structure_from_record", forbidden_reconstruction)
+        fetched = store.fetch(UnitcellStructureRecord, sid)
+        assert fetched.id == source.id
 
 
 def test_asu_record_preserves_cross_orbit_deduplicated_composition() -> None:
@@ -346,7 +416,7 @@ def test_asu_record_preserves_cross_orbit_deduplicated_composition() -> None:
     assert tuple((value.element, value.amount) for value in record.normalized_composition.amounts) == (
         ("Na", Fraction(4)),
     )
-    assert record.to_structure().composition.amounts == (("Na", Fraction(4)),)
+    assert UnitcellStructureView(record).composition.amounts == (("Na", Fraction(4)),)
 
 
 def test_normalized_composition_record_requires_ratios_to_normalize_amounts() -> None:
@@ -387,7 +457,7 @@ def test_sql_fetched_root_records_keep_identity_and_metadata(
     with Database.sqlite() as database:
         store = SqlStore(
             database,
-                entry_records={
+            entry_records={
                 StructureEntry: (
                     UnitcellStructureRecord,
                     FundamentalDomainStructureRecord,

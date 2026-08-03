@@ -8,15 +8,15 @@ from httk.atomistic import (
     ASUStructure,
     ASUStructureView,
     Cell,
-    ChemicalComposition,
     FundamentalDomainStructure,
     Sites,
     Spacegroup,
     Species,
     Structure,
-    StructureSymmetry,
 )
 from httk.atomistic.affine_operation import AffineOperation
+from httk.atomistic.composition import ChemicalComposition
+from httk.atomistic.structure_semantics import StructureSymmetry
 
 
 def _structure(**kwargs):

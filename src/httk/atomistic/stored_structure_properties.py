@@ -7,6 +7,7 @@ they never compare presentation floats or persist rendered formula strings.
 """
 
 import datetime
+import functools
 import math
 import re
 from collections import Counter
@@ -25,6 +26,7 @@ from httk.core import (
     SurdVector,
 )
 
+from ._optimade_payloads import assemblies_payload, species_payload
 from .composition import anonymous_symbol
 from .elements import SYMBOLS
 from .precision_entries import PRECISION_PROPERTY_KEYS
@@ -95,44 +97,14 @@ def _normalized_composition_value(record: Any, name: str) -> object:
         return len(composition.amounts)
     if name == "elements_ratios":
         return [float(value.ratio) for value in composition.amounts]
-    result = composition.to_result()
+    from .structure_record import _composition_result_from_record
+
+    result = _composition_result_from_record(composition)
     if name == "chemical_formula_reduced":
         return result.chemical_formula_reduced
     if name == "chemical_formula_anonymous":
         return result.chemical_formula_anonymous
     raise AssertionError(f"unknown normalized composition property: {name}")
-
-
-def _species_payload(record: Any) -> list[dict[str, object]]:
-    """Render stored species without rebuilding their Structure-level views."""
-    values: list[dict[str, object]] = []
-    for species in record.species:
-        value: dict[str, object] = {
-            "name": species.name,
-            "chemical_symbols": list(species.chemical_symbols),
-            "concentration": [float(item) for item in species.concentration],
-        }
-        if species.mass is not None:
-            value["mass"] = list(species.mass or ())
-        if species.original_name is not None:
-            value["original_name"] = species.original_name
-        if species.attached is not None:
-            value["attached"] = list(species.attached or ())
-            value["nattached"] = list(species.nattached or ())
-        values.append(value)
-    return values
-
-
-def _assemblies_payload(record: Any) -> list[dict[str, object]] | None:
-    if record.assemblies is None:
-        return None
-    return [
-        {
-            "sites_in_groups": [list(group.sites) for group in assembly.groups],
-            "group_probabilities": [float(value) for value in assembly.group_probabilities],
-        }
-        for assembly in record.assemblies or ()
-    ]
 
 
 def _used_species(record: Any, backing: str) -> tuple[Any, ...]:
@@ -165,20 +137,29 @@ def _coordinate_span(record: Any, backing: str) -> str:
     return f"molecular_{name}" if record.molecular else name
 
 
+@functools.cache
+def _settings_by_it_number() -> dict[int, tuple[dict[str, Any], ...]]:
+    from . import data
+
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    for setting in data.spacegroup_settings():
+        grouped.setdefault(setting["it_number"], []).append(setting)
+    return {it_number: tuple(settings) for it_number, settings in grouped.items()}
+
+
 def _domain_setting(record: Any) -> tuple[Any, Any | None, Any]:
     """Recover the stored setting without materializing a domain structure."""
-    from . import data
     from .spacegroup import Spacegroup
 
     spacegroup = Spacegroup.standard(record.spacegroup_it_number)
-    transform = record.setting_transform.to_transform()
+    from .structure_record import _setting_transform_from_record
+
+    transform = _setting_transform_from_record(record.setting_transform)
     if transform.is_identity():
         return spacegroup, spacegroup, transform
     if transform.hall_entry is not None:
         return spacegroup, Spacegroup.for_hall_entry(transform.hall_entry), transform
-    for setting_record in data.spacegroup_settings():
-        if setting_record["it_number"] != spacegroup.it_number:
-            continue
+    for setting_record in _settings_by_it_number().get(spacegroup.it_number, ()):
         candidate = Spacegroup(setting_record)
         if candidate.transform_from_standard == transform:
             return spacegroup, candidate, transform
@@ -279,15 +260,24 @@ def _response_value(record: Any, name: str, backing: str) -> object:
     if name == "nperiodic_dimensions":
         return sum(record.cell.periodicity)
     if name == "lattice_vectors":
-        return record.cell.to_cell().basis.to_floats()
+        from .cell_view import CellView
+
+        return CellView(record.cell).basis.to_floats()
     if name == "fractional_site_positions":
         if backing == "unitcell":
             return record.sites.reduced_coords.to_floats()
-        return record.to_structure().fractional_site_positions
+        from .structure_record import _domain_structure_from_record
+
+        return _domain_structure_from_record(record).fractional_site_positions
     if name == "cartesian_site_positions":
         if backing == "unitcell":
-            return (SurdVector.create(record.sites.to_sites().reduced_coords) * record.cell.to_cell().basis).to_floats()
-        return record.to_structure().cartesian_site_positions
+            from .cell_view import CellView
+            from .sites_view import SitesView
+
+            return (SurdVector.create(SitesView(record.sites).reduced_coords) * CellView(record.cell).basis).to_floats()
+        from .structure_record import _domain_structure_from_record
+
+        return _domain_structure_from_record(record).cartesian_site_positions
     if name == "site_coordinate_span":
         return _coordinate_span(record, backing)
     if name == "site_coordinate_span_description":
@@ -299,9 +289,9 @@ def _response_value(record: Any, name: str, backing: str) -> object:
             list(record.species_at_sites) if backing == "unitcell" else [site.species for site in record.domain_sites]
         )
     if name == "species":
-        return _species_payload(record)
+        return [species_payload(value) for value in record.species]
     if name == "assemblies":
-        return _assemblies_payload(record)
+        return assemblies_payload(record.assemblies)
     if name == "structure_features":
         return _structure_features_value(record, backing)
     if name in {

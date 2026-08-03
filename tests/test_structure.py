@@ -11,7 +11,6 @@ from httk.atomistic import (
     StructureBackend,
     StructurePrimitive,
     StructurePrimitiveView,
-    UnitcellStructureBackend,
     UnitcellStructureView,
     atomic_number,
     symbol_of,
@@ -263,16 +262,13 @@ def test_structure_equality() -> None:
 
 
 def test_backend_create_dispatches_and_kind_overrides() -> None:
-    simple = StructureBackend.create(nacl_structure())
-    assert isinstance(simple, UnitcellStructureBackend)
+    simple = nacl_structure()
+    assert isinstance(simple, StructureBackend)
+    assert UnitcellStructureView(simple)._backend is simple
 
     primitive = StructureBackend.create(nacl_triple())
     assert isinstance(primitive, StructurePrimitive)
 
-    assert isinstance(
-        StructureBackend.create(nacl_structure(), kind="unitcell"),
-        UnitcellStructureBackend,
-    )
     assert isinstance(StructureBackend.create(nacl_triple(), kind="primitive"), StructurePrimitive)
 
 
@@ -336,7 +332,8 @@ def test_primitive_view_raises_for_non_single_element_species() -> None:
 
 
 def test_primitive_view_rejects_every_unrepresentable_semantic_feature() -> None:
-    from httk.atomistic import Assembly, ChemicalComposition, Species
+    from httk.atomistic import Assembly, Species
+    from httk.atomistic.composition import ChemicalComposition
 
     element = Species("C", ("C",), (1,))
     partial = Species("C", ("C",), (fractions.Fraction(1, 2),))

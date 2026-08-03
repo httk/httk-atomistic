@@ -9,10 +9,10 @@ from httk.core import unwrap
 from ._vector_guards import to_float_tuples
 from .sites_backend import SitesBackend
 from .sites_like import SitesLike
-from .sites_view import SitesView
+from .sites_view_base import SitesViewBase
 
 
-class SitesPrimitiveView(SitesView, tuple):
+class SitesPrimitiveView(SitesViewBase, tuple):
     """
     A view presenting an underlying sites backend as a raw Nx3 matrix of floats.
 

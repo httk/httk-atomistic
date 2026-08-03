@@ -62,10 +62,10 @@ def test_periodicity_must_be_exactly_three_flags(bad) -> None:
 
 
 def test_periodicity_survives_the_class_view() -> None:
-    from httk.atomistic.cell_class_view import CellClassView
+    from httk.atomistic.cell_view import CellView
 
     cell = Cell(CUBE, periodicity=(1, 1, 0))
-    assert CellClassView(cell).periodicity == (True, True, False)
+    assert CellView(cell).periodicity == (True, True, False)
 
 
 def test_periodicity_survives_the_structure_view() -> None:
@@ -198,7 +198,7 @@ def test_volume_refuses_a_cell_that_is_not_fully_periodic(periodicity) -> None:
     and any density derived from it would inherit that.
     """
     with pytest.raises(ValueError) as excinfo:
-        Cell(CUBE, periodicity=periodicity).volume
+        Cell(CUBE, periodicity=periodicity).volume  # noqa: B018
     message = str(excinfo.value)
     assert "fully 3D-periodic" in message
     assert "periodic_measure" in message

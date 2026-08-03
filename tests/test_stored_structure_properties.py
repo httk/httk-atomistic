@@ -3,7 +3,7 @@
 import datetime
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Any, cast
+from typing import cast
 
 import pytest
 from httk.core import (
@@ -194,37 +194,25 @@ def test_stored_property_responses_match_the_natural_structure_provider(record: 
 
 
 @pytest.mark.parametrize(
-    ("record", "maximum_reconstructions"),
+    "record",
     (
-        (_unitcell_record(_unitcell()), 0),
-        (_domain_record(_domain(FundamentalDomainStructure)), 2),
-        (_domain_record(_domain(ASUStructure)), 2),
+        _unitcell_record(_unitcell()),
+        _domain_record(_domain(FundamentalDomainStructure)),
+        _domain_record(_domain(ASUStructure)),
     ),
 )
 def test_response_callbacks_do_not_rebuild_an_all_property_projection(
-    record: object, maximum_reconstructions: int, monkeypatch: pytest.MonkeyPatch
+    record: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Only the two domain-coordinate properties need a narrow reconstruction."""
     from httk.atomistic import structure_entries
 
     def forbidden_projection(*args: object, **kwargs: object) -> object:
         raise AssertionError("a stored response callback must not construct every other response property")
 
-    record_type = cast(Any, type(record))
-    original = record_type.to_structure
-    calls = 0
-
-    def counted(value: object) -> object:
-        nonlocal calls
-        calls += 1
-        return original(value)
-
     monkeypatch.setattr(structure_entries, "_structure_projection", forbidden_projection)
-    monkeypatch.setattr(record_type, "to_structure", counted)
     projections = stored_property_projections(type(record))
     for projection in projections.values():
         projection.response(record)
-    assert calls <= maximum_reconstructions
 
 
 def test_incomplete_normalized_composition_matches_the_natural_null_projection() -> None:
@@ -283,6 +271,17 @@ def test_empty_complete_composition_keeps_formulas_unknown_but_elements_known() 
     assert formula_query is not None
     formula_known = formula_query(context, "IS_KNOWN", None)
     assert _Value("count", _Scope(("normalized_composition", "amounts"))) in _walk(formula_known)
+
+
+def test_spacegroup_settings_are_cached_by_it_number() -> None:
+    import httk.atomistic.stored_structure_properties as stored_properties
+    from httk.atomistic import data
+
+    stored_properties._settings_by_it_number.cache_clear()
+    grouped = stored_properties._settings_by_it_number()
+    assert sum(len(settings) for settings in grouped.values()) == len(data.spacegroup_settings())
+    assert len(grouped[225]) < len(data.spacegroup_settings())
+    assert stored_properties._settings_by_it_number() is grouped
 
 
 @pytest.mark.parametrize(

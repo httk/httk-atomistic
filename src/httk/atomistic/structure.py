@@ -5,20 +5,21 @@ The Simple structure representation for httk-atomistic.
 import datetime
 import fractions
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from httk.core import SurdVector, VectorLike
 
 from .cell import Cell
-from .cell_class_view import CellClassView
 from .cell_like import CellLike
+from .cell_view import CellView
 from .sites import Sites
-from .sites_class_view import SitesClassView
 from .sites_like import SitesLike
+from .sites_view import SitesView
 from .species import Species
-from .species_class_view import SpeciesClassView
 from .species_like import SpeciesLike
-from .structure_semantics import StructureSemanticsMixin, StructureSymmetry, initialize_semantics
+from .species_view import SpeciesView
+from .structure_backend import StructureBackend
+from .structure_semantics import StructureSemanticsMixin, StructureSymmetry, _semantic_value, initialize_semantics
 
 if TYPE_CHECKING:
     from .composition import Assembly, ChemicalComposition
@@ -27,15 +28,15 @@ if TYPE_CHECKING:
 
 
 def _norm_cell(cell: CellLike) -> Cell:
-    return cell if isinstance(cell, Cell) else CellClassView(cell)
+    return cell if isinstance(cell, Cell) else CellView(cell)
 
 
 def _norm_sites(sites: SitesLike) -> Sites:
-    return sites if isinstance(sites, Sites) else SitesClassView(sites)
+    return sites if isinstance(sites, Sites) else SitesView(sites)
 
 
 def _norm_species(species: Sequence[SpeciesLike]) -> tuple[Species, ...]:
-    return tuple(s if isinstance(s, Species) else SpeciesClassView(s) for s in species)
+    return tuple(s if isinstance(s, Species) else SpeciesView(s) for s in species)
 
 
 def _norm_species_at_sites(species_at_sites: Sequence[object]) -> tuple[str, ...]:
@@ -48,7 +49,7 @@ def _infer_species(species_at_sites: Sequence[SpeciesLike]) -> tuple[tuple[Speci
     by_name: dict[str, Species] = {}
     names: list[str] = []
     for source in species_at_sites:
-        value = source if isinstance(source, Species) else SpeciesClassView(source)
+        value = source if isinstance(source, Species) else SpeciesView(source)
         existing = by_name.get(value.name)
         if existing is None:
             by_name[value.name] = value
@@ -77,7 +78,7 @@ def _check_sites_length(sites: Sites, species_at_sites: Sequence[str]) -> None:
         raise ValueError("Structure species_at_sites must have the same length as sites")
 
 
-class Structure(StructureSemanticsMixin):
+class Structure(StructureBackend, StructureSemanticsMixin):
     """
     A crystal structure in the Unitcell representation.
 
@@ -103,6 +104,7 @@ class Structure(StructureSemanticsMixin):
     _sites: Sites
     _species: tuple[Species, ...]
     _species_at_sites: tuple[str, ...]
+    kind: ClassVar[str] = "unitcell"
 
     def __init__(
         self,
@@ -206,16 +208,16 @@ class Structure(StructureSemanticsMixin):
     @property
     def site_coordinate_span(self) -> str:
         """The span asserted by this representation, independent of dimensionality."""
-        molecular = self._semantic_value("_molecular", "molecular", False)
+        molecular = _semantic_value(self, "molecular", False, "_molecular")
         return "molecular_unit_cell" if molecular else "unit_cell"
 
     @property
     def molecular(self) -> bool:
-        return bool(self._semantic_value("_molecular", "molecular", False))
+        return bool(_semantic_value(self, "molecular", False, "_molecular"))
 
     @property
     def symmetry(self) -> StructureSymmetry | None:
-        return self._semantic_value("_symmetry", "symmetry")
+        return _semantic_value(self, "symmetry", private_name="_symmetry")
 
     def cartesian_precision(self) -> fractions.Fraction | None:
         """The coordinate precision as a length, or ``None`` if it is unknown.

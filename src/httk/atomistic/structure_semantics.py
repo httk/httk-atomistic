@@ -141,6 +141,62 @@ def _operation_group_signature(group: frozenset[Any]) -> tuple[tuple[Fraction, F
     return tuple(sorted(values))
 
 
+def declared_spacegroup_settings(
+    *,
+    it_number: int | None,
+    hall: str | None,
+    hermann_mauguin: str | None,
+    hermann_mauguin_extended: str | None,
+    operation_group: frozenset[Any] | None,
+) -> tuple[dict[str, Any], ...]:
+    """Return tabulated settings consistent with the supplied symmetry metadata."""
+    identifiers = any(value is not None for value in (it_number, hall, hermann_mauguin, hermann_mauguin_extended))
+    if not identifiers and operation_group is None:
+        return ()
+
+    from . import data
+    from .spacegroup import Spacegroup
+
+    records = list(data.spacegroup_settings())
+    if it_number is not None:
+        records = [record for record in records if record["it_number"] == it_number]
+    if hall is not None:
+        records = [record for record in records if record.get("hall") == hall]
+    if hermann_mauguin is not None:
+        records = [record for record in records if record.get("hm_short") == hermann_mauguin]
+    if hermann_mauguin_extended is not None:
+        records = [
+            record
+            for record in records
+            if " ".join(str(record.get("hm_extended") or "").split()) == " ".join(hermann_mauguin_extended.split())
+        ]
+    if identifiers and not records:
+        raise ValueError("supplied space-group number and symbols are inconsistent")
+    if operation_group is not None:
+        matching = [
+            record
+            for record in records
+            if frozenset(value.wrapped() for value in Spacegroup(record).symmetry_operations) == operation_group
+        ]
+        if not matching:
+            standard_group = (
+                frozenset(value.wrapped() for value in Spacegroup.standard(it_number).symmetry_operations)
+                if it_number is not None
+                else None
+            )
+            has_setting_symbol = any(value is not None for value in (hall, hermann_mauguin, hermann_mauguin_extended))
+            if (
+                has_setting_symbol
+                or standard_group is None
+                or len(operation_group) != len(standard_group)
+                or _operation_group_signature(operation_group) != _operation_group_signature(standard_group)
+            ):
+                raise ValueError("supplied space-group operations disagree with its number or symbols")
+        else:
+            records = matching
+    return tuple(records)
+
+
 @dataclass(frozen=True)
 class StructureSymmetry:
     """Optional, explicitly supplied symmetry metadata for a unit-cell structure."""
@@ -151,6 +207,7 @@ class StructureSymmetry:
     space_group_symbol_hermann_mauguin_extended: str | None = None
     space_group_symmetry_operations_xyz: tuple[str, ...] | None = None
     wyckoff_positions: tuple[str, ...] | None = None
+    matched_settings: ClassVar[tuple[dict[str, Any], ...]]
 
     def __post_init__(self) -> None:
         number = self.space_group_it_number
@@ -188,36 +245,16 @@ class StructureSymmetry:
                 raise ValueError("wyckoff_positions must contain lowercase Wyckoff letters")
             object.__setattr__(self, "wyckoff_positions", positions)
 
-        identifiers_present = number is not None or any(
-            getattr(self, name) is not None
-            for name in (
-                "space_group_symbol_hall",
-                "space_group_symbol_hermann_mauguin",
-                "space_group_symbol_hermann_mauguin_extended",
-            )
+        settings = declared_spacegroup_settings(
+            it_number=number,
+            hall=self.space_group_symbol_hall,
+            hermann_mauguin=self.space_group_symbol_hermann_mauguin,
+            hermann_mauguin_extended=self.space_group_symbol_hermann_mauguin_extended,
+            operation_group=operation_group,
         )
-        if identifiers_present:
-            from . import data
+        if operations is None and settings:
             from .spacegroup import Spacegroup
 
-            records = list(data.spacegroup_settings())
-            if number is not None:
-                records = [record for record in records if record["it_number"] == number]
-            if self.space_group_symbol_hall is not None:
-                records = [record for record in records if record.get("hall") == self.space_group_symbol_hall]
-            if self.space_group_symbol_hermann_mauguin is not None:
-                records = [
-                    record for record in records if record.get("hm_short") == self.space_group_symbol_hermann_mauguin
-                ]
-            if self.space_group_symbol_hermann_mauguin_extended is not None:
-                records = [
-                    record
-                    for record in records
-                    if " ".join(str(record.get("hm_extended") or "").split())
-                    == " ".join(self.space_group_symbol_hermann_mauguin_extended.split())
-                ]
-            if not records:
-                raise ValueError("supplied space-group number and symbols are inconsistent")
             has_setting_symbol = any(
                 value is not None
                 for value in (
@@ -226,36 +263,16 @@ class StructureSymmetry:
                     self.space_group_symbol_hermann_mauguin_extended,
                 )
             )
-            if operations is None:
-                selected = (
-                    Spacegroup(records[0]) if has_setting_symbol or number is None else Spacegroup.standard(number)
-                )
-                operations = tuple(value.wrapped().to_xyz() for value in selected.symmetry_operations)
-                object.__setattr__(self, "space_group_symmetry_operations_xyz", operations)
-                operation_group = _symmetry_operation_group(operations)
-            assert operation_group is not None
-            matching = [
-                record
-                for record in records
-                if frozenset(value.wrapped() for value in Spacegroup(record).symmetry_operations) == operation_group
-            ]
-            if not matching:
-                standard_group = (
-                    frozenset(value.wrapped() for value in Spacegroup.standard(number).symmetry_operations)
-                    if number is not None
-                    else None
-                )
-                if (
-                    has_setting_symbol
-                    or standard_group is None
-                    or len(operation_group) != len(standard_group)
-                    or _operation_group_signature(operation_group) != _operation_group_signature(standard_group)
-                ):
-                    raise ValueError("supplied space-group operations disagree with its number or symbols")
-                matching = records
-            if positions is not None and not any(
+            selected = Spacegroup(settings[0]) if has_setting_symbol or number is None else Spacegroup.standard(number)
+            operations = tuple(value.wrapped().to_xyz() for value in selected.symmetry_operations)
+            object.__setattr__(self, "space_group_symmetry_operations_xyz", operations)
+        object.__setattr__(self, "matched_settings", settings)
+        if positions is not None and settings:
+            from .spacegroup import Spacegroup
+
+            if not any(
                 all(letter in {value.letter for value in Spacegroup(record).wyckoff} for letter in positions)
-                for record in matching
+                for record in settings
             ):
                 raise ValueError("supplied Wyckoff positions disagree with the space-group setting")
 
@@ -295,12 +312,12 @@ def _formula_counts(formula: str) -> tuple[tuple[str, int], ...]:
     return tuple(values)
 
 
-def validate_hill_formula(formula: str | None, composition: CompositionResult) -> str | None:
+def validate_hill_formula(formula: str | None, composition: CompositionResult | None) -> str | None:
     """Validate an explicitly assigned Hill formula without inventing its molecular scale."""
     if formula is None:
         return None
     counts = _formula_counts(formula)
-    if composition.complete and composition.amounts:
+    if composition is not None and composition.complete and composition.amounts:
         stated = dict(counts)
         actual = dict(composition.amounts)
         if set(stated) != set(actual):
@@ -352,6 +369,28 @@ def validate_descriptive_formula(formula: str | None) -> str | None:
     return formula
 
 
+def _semantic_value(
+    source: Any,
+    public_name: str,
+    default: Any = None,
+    private_name: str | None = None,
+) -> Any:
+    namespace = getattr(source, "__dict__", {})
+    if private_name is not None:
+        if private_name in namespace:
+            return namespace[private_name]
+        source = namespace.get("_backend")
+        if source is None:
+            return default
+    marker = object()
+    value = getattr(source, public_name, marker)
+    if value is not marker:
+        return value
+    unwrap = getattr(source, "unwrap", None)
+    owner = unwrap() if callable(unwrap) else None
+    return default if owner is None or owner is source else getattr(owner, public_name, default)
+
+
 class StructureSemanticsMixin:
     """Properties shared by unit-cell, fundamental-domain, and ASU structures."""
 
@@ -379,34 +418,19 @@ class StructureSemanticsMixin:
 
     @property
     def immutable_id(self) -> str | None:
-        return self._semantic_value("_immutable_id", "immutable_id")
+        return _semantic_value(self, "immutable_id", private_name="_immutable_id")
 
     @property
     def last_modified(self) -> datetime.datetime | None:
-        return self._semantic_value("_last_modified", "last_modified")
-
-    def _semantic_value(self, private_name: str, public_name: str, default: Any = None) -> Any:
-        namespace = getattr(self, "__dict__", {})
-        if private_name in namespace:
-            return namespace[private_name]
-        backend = namespace.get("_backend")
-        if backend is None:
-            return default
-        marker = object()
-        value = getattr(backend, public_name, marker)
-        if value is not marker:
-            return value
-        unwrap = getattr(backend, "unwrap", None)
-        source = unwrap() if callable(unwrap) else None
-        return default if source is None or source is self else getattr(source, public_name, default)
+        return _semantic_value(self, "last_modified", private_name="_last_modified")
 
     @property
     def assemblies(self) -> tuple[Assembly, ...] | None:
-        return self._semantic_value("_assemblies", "assemblies")
+        return _semantic_value(self, "assemblies", private_name="_assemblies")
 
     @property
     def chemical_composition(self) -> ChemicalComposition | None:
-        return self._semantic_value("_chemical_composition", "chemical_composition")
+        return _semantic_value(self, "chemical_composition", private_name="_chemical_composition")
 
     @property
     def composition(self) -> CompositionResult:
@@ -439,15 +463,15 @@ class StructureSemanticsMixin:
 
     @property
     def chemical_formula_descriptive(self) -> str | None:
-        return self._semantic_value("_chemical_formula_descriptive", "chemical_formula_descriptive")
+        return _semantic_value(self, "chemical_formula_descriptive", private_name="_chemical_formula_descriptive")
 
     @property
     def chemical_formula_hill(self) -> str | None:
-        return self._semantic_value("_chemical_formula_hill", "chemical_formula_hill")
+        return _semantic_value(self, "chemical_formula_hill", private_name="_chemical_formula_hill")
 
     @property
     def optimization_type(self) -> str | None:
-        return self._semantic_value("_optimization_type", "optimization_type")
+        return _semantic_value(self, "optimization_type", private_name="_optimization_type")
 
     @property
     def dimension_types(self) -> tuple[int, int, int]:
@@ -480,34 +504,34 @@ class StructureSemanticsMixin:
 
     @property
     def space_group_it_number(self) -> int | None:
-        symmetry = self._semantic_value("_symmetry", "symmetry")
+        symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         return None if symmetry is None else symmetry.space_group_it_number
 
     @property
     def space_group_symbol_hall(self) -> str | None:
-        symmetry = self._semantic_value("_symmetry", "symmetry")
+        symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         return None if symmetry is None else symmetry.space_group_symbol_hall
 
     @property
     def space_group_symbol_hermann_mauguin(self) -> str | None:
-        symmetry = self._semantic_value("_symmetry", "symmetry")
+        symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         return None if symmetry is None else symmetry.space_group_symbol_hermann_mauguin
 
     @property
     def space_group_symbol_hermann_mauguin_extended(self) -> str | None:
-        symmetry = self._semantic_value("_symmetry", "symmetry")
+        symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         return None if symmetry is None else symmetry.space_group_symbol_hermann_mauguin_extended
 
     @property
     def space_group_symmetry_operations_xyz(self) -> tuple[str, ...] | None:
-        symmetry = self._semantic_value("_symmetry", "symmetry")
+        symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         if symmetry is not None and symmetry.space_group_symmetry_operations_xyz is not None:
             return symmetry.space_group_symmetry_operations_xyz
         return ("x,y,z",) if cast(Any, self).nperiodic_dimensions else None
 
     @property
     def wyckoff_positions(self) -> tuple[str, ...] | None:
-        symmetry = self._semantic_value("_symmetry", "symmetry")
+        symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         return None if symmetry is None else symmetry.wyckoff_positions
 
 
@@ -522,17 +546,8 @@ def _resolve_view_metadata(
 ) -> tuple[str | None, datetime.datetime | None]:
     """Inherit view metadata, allowing explicit values only when none existed."""
 
-    def inherited(name: str) -> Any:
-        marker = object()
-        value = getattr(source, name, marker)
-        if value is not marker:
-            return value
-        unwrap = getattr(source, "unwrap", None)
-        owner = unwrap() if callable(unwrap) else None
-        return None if owner is None or owner is source else getattr(owner, name, None)
-
-    inherited_immutable_id = inherited("immutable_id")
-    inherited_last_modified = inherited("last_modified")
+    inherited_immutable_id = _semantic_value(source, "immutable_id")
+    inherited_last_modified = _semantic_value(source, "last_modified")
     if (
         inherited_immutable_id is not None
         and immutable_id is not _METADATA_UNSET

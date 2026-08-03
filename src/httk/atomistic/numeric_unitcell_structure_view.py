@@ -6,6 +6,7 @@ from typing import Any, Self, cast
 from httk.core import NumericVector, to_numeric, unwrap
 
 from ._vector_guards import require_numpy
+from .composition import Assembly
 from .numeric_cell import NumericCell
 from .numeric_sites import NumericSites
 from .species import Species
@@ -73,6 +74,10 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
     def species_at_sites(self) -> tuple[str, ...]:
         """The species name occupying each site, passed through unchanged."""
         return self._backend.species_at_sites
+
+    @property
+    def assemblies(self) -> tuple[Assembly, ...] | None:
+        return self._exact.assemblies
 
     def cartesian_sites(self) -> NumericVector:
         """The Cartesian site positions as an ``(N, 3)`` ``float64`` numpy array."""

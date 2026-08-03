@@ -6,15 +6,14 @@ from typing import Any
 import pytest
 
 from httk.atomistic import (
-    ASEAtomsBackend,
-    ASEAtomsProtocol,
     Assembly,
-    ChemicalComposition,
     Species,
     Structure,
-    StructureBackend,
     UnitcellStructureView,
 )
+from httk.atomistic.compat import ASEAtomsBackend, ASEAtomsProtocol
+from httk.atomistic.composition import ChemicalComposition
+from httk.atomistic.structure_backend import StructureBackend
 
 
 class FakeAtoms:

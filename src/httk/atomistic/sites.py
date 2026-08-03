@@ -9,12 +9,13 @@ from typing import TYPE_CHECKING, Any
 from httk.core import FracVector, VectorLike
 
 from ._vector_guards import to_fracvector, to_precision
+from .sites_backend import SitesBackend
 
 if TYPE_CHECKING:
     from .numeric_sites import NumericSites
 
 
-class Sites:
+class Sites(SitesBackend):
     """
     The sites of a crystal structure: the Nx3 matrix of reduced coordinates, held **exactly**.
 

@@ -10,22 +10,26 @@ import pytest
 numpy = pytest.importorskip("numpy")
 
 import httk.core.vectors as vectors_pkg  # noqa: E402
-from httk.core import unwrap  # noqa: E402
+from httk.core import FracVector, unwrap  # noqa: E402
 
 from httk.atomistic import (  # noqa: E402
+    Assembly,
+    ASUSite,
+    ASUStructure,
     Cell,
-    CellNumericView,
     CellParams,
-    NumericCell,
-    NumericSites,
-    NumericUnitcellStructureBackend,
     NumericUnitcellStructureView,
+    Species,
     Sites,
-    SitesNumericView,
     Structure,
-    StructureBackend,
     UnitcellStructureView,
 )
+from httk.atomistic.cell_numeric_view import CellNumericView
+from httk.atomistic.numeric_cell import NumericCell
+from httk.atomistic.numeric_sites import NumericSites
+from httk.atomistic.numeric_unitcell_structure_backend import NumericUnitcellStructureBackend
+from httk.atomistic.sites_numeric_view import SitesNumericView
+from httk.atomistic.structure_backend import StructureBackend
 
 F = fractions.Fraction
 
@@ -64,9 +68,7 @@ def test_numeric_unitcell_structure_values_are_plain_numpy() -> None:
 
     # lengths are a (3,) float64 ndarray; angles a (3,) float64 ndarray in degrees.
     assert type(numeric.cell.lengths) is numpy.ndarray
-    assert numeric.cell.lengths.tolist() == [
-        length.to_float() for length in exact_cell.lengths
-    ]
+    assert numeric.cell.lengths.tolist() == [length.to_float() for length in exact_cell.lengths]
     assert type(numeric.cell.angles) is numpy.ndarray
     assert numeric.cell.angles.tolist() == pytest.approx([90.0, 90.0, 120.0])
 
@@ -122,6 +124,31 @@ def test_numeric_unitcell_structure_view_of_structure_and_triple() -> None:
         [0.0, 4.0, 0.0],
         [0.0, 0.0, 4.0],
     ]
+
+
+def test_numeric_asu_assemblies_use_expanded_indices() -> None:
+    no_parameters = FracVector.create(())
+    asu = ASUStructure(
+        [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
+        221,
+        [
+            ASUSite("c", no_parameters, "C"),
+            ASUSite("a", no_parameters, "Na"),
+            ASUSite("b", no_parameters, "Cl"),
+        ],
+        [
+            Species("C", ("C",), (1,)),
+            Species("Na", ("Na",), (1,)),
+            Species("Cl", ("Cl",), (1,)),
+        ],
+        assemblies=(Assembly(((1,), (2,)), (F(1, 2), F(1, 2))),),
+    )
+
+    exact = UnitcellStructureView(asu)
+    numeric = NumericUnitcellStructureView(asu)
+    assert numeric.assemblies == exact.assemblies
+    assert numeric.assemblies is not None
+    assert numeric.assemblies[0].sites_in_groups == ((3,), (4,))
 
 
 def test_cell_numeric_view_of_params_and_cell() -> None:

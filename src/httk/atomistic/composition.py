@@ -3,7 +3,7 @@
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
-from functools import reduce
+from functools import cached_property, reduce
 from math import gcd
 from types import MappingProxyType
 from typing import Any, Literal
@@ -98,23 +98,23 @@ class Assembly:
         object.__setattr__(self, "group_probabilities", tuple(values))
         object.__setattr__(self, "group_probabilities_precision", precisions)
 
-    @property
-    def normalized(self) -> bool:
+    @cached_property
+    def _normalization(self) -> tuple[bool, str, CompositionDiagnostic | None]:
         return _normalization_diagnostic(
             "assembly probabilities", self.group_probabilities, self.group_probabilities_precision or ()
-        )[0]
+        )
+
+    @property
+    def normalized(self) -> bool:
+        return self._normalization[0]
 
     @property
     def normalization_status(self) -> str:
-        return _normalization_diagnostic(
-            "assembly probabilities", self.group_probabilities, self.group_probabilities_precision or ()
-        )[1]
+        return self._normalization[1]
 
     @property
     def normalization_diagnostic(self) -> CompositionDiagnostic | None:
-        return _normalization_diagnostic(
-            "assembly probabilities", self.group_probabilities, self.group_probabilities_precision or ()
-        )[2]
+        return self._normalization[2]
 
 
 @dataclass(frozen=True, init=False)
@@ -130,13 +130,7 @@ class ChemicalComposition:
         amounts: Mapping[str, Any] | Iterable[tuple[str, Any]],
         mode: Literal["implicit", "full"] = "implicit",
         amounts_precision: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
-        *,
-        precision: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
     ) -> None:
-        if precision is not None:
-            if amounts_precision is not None:
-                raise TypeError("pass either amounts_precision or precision, not both")
-            amounts_precision = precision
         if mode not in {"implicit", "full"}:
             raise ValueError("ChemicalComposition mode must be 'implicit' or 'full'")
         raw = dict(amounts)
@@ -163,10 +157,6 @@ class ChemicalComposition:
         object.__setattr__(self, "amounts", tuple(converted))
         object.__setattr__(self, "amounts_precision", tuple(precisions))
         object.__setattr__(self, "mode", mode)
-
-    @classmethod
-    def from_mapping(cls, amounts: Mapping[str, Any], **kwargs: Any) -> "ChemicalComposition":
-        return cls(amounts, **kwargs)
 
     @property
     def elements(self) -> tuple[str, ...]:
@@ -225,20 +215,12 @@ class CompositionResult:
     diagnostics: tuple[CompositionDiagnostic, ...] = ()
 
     @property
-    def elemental_amounts(self) -> tuple[tuple[str, Fraction], ...]:
-        return self.amounts
-
-    @property
     def amount_mapping(self) -> Mapping[str, Fraction]:
         return MappingProxyType(dict(self.amounts))
 
     @property
     def uncertainty_mapping(self) -> Mapping[str, Fraction | None]:
         return MappingProxyType(dict(self.uncertainties))
-
-    @property
-    def normalization_state(self) -> bool:
-        return self.normalized
 
     @property
     def elements(self) -> tuple[str, ...]:

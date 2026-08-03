@@ -11,6 +11,7 @@ from typing import Any
 
 from ._composition_values import as_fraction, as_precision, normalization
 from .elements import SYMBOLS, symbol_of
+from .species_backend import SpeciesBackend
 
 _ELEMENTS: frozenset[str] = frozenset(SYMBOLS)
 _SPECIAL_SYMBOLS: frozenset[str] = frozenset({"X", "vacancy"})
@@ -20,7 +21,7 @@ type PrecisionInput = ExactInput | None
 
 
 @dataclass(frozen=True, eq=False, init=False)
-class Species:
+class Species(SpeciesBackend):
     """
     A chemical species occupying one or more sites, mirroring the OPTIMADE ``species`` object.
 
@@ -33,14 +34,14 @@ class Species:
     together and share their length.
     """
 
-    name: str
-    chemical_symbols: tuple[str, ...]
-    concentration: tuple[fractions.Fraction, ...]
-    mass: tuple[float, ...] | None = None
-    original_name: str | None = None
-    attached: tuple[str, ...] | None = None
-    nattached: tuple[int, ...] | None = None
-    concentration_precision: tuple[fractions.Fraction | None, ...] | None = None
+    name: str = ""  # pyright: ignore[reportIncompatibleMethodOverride]
+    chemical_symbols: tuple[str, ...] = ()  # pyright: ignore[reportIncompatibleMethodOverride]
+    concentration: tuple[fractions.Fraction, ...] = ()  # pyright: ignore[reportIncompatibleMethodOverride]
+    mass: tuple[float, ...] | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
+    original_name: str | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
+    attached: tuple[str, ...] | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
+    nattached: tuple[int, ...] | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
+    concentration_precision: tuple[fractions.Fraction | None, ...] | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
 
     def __init__(
         self,
@@ -218,7 +219,7 @@ class Species:
         )
 
     @classmethod
-    def create(cls, obj: "Species | dict[str, Any] | str | int") -> "Species":
+    def create(cls, obj: "Species | dict[str, Any] | str | int", **hints: Any) -> "Species":
         """
         Return a Species from an existing Species, bare symbol or atomic number, or
         OPTIMADE species dict.

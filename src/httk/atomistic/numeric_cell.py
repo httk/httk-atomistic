@@ -6,8 +6,8 @@ from httk.core import NumericVector, to_numeric, to_numeric_scalar
 
 from ._vector_guards import require_numpy
 from .cell import Cell
-from .cell_class_view import CellClassView
 from .cell_like import CellLike
+from .cell_view import CellView
 
 
 class NumericCell:
@@ -29,7 +29,7 @@ class NumericCell:
 
     def __init__(self, cell: CellLike) -> None:
         require_numpy()
-        self._cell = cell if isinstance(cell, Cell) else CellClassView(cell)
+        self._cell = cell if isinstance(cell, Cell) else CellView(cell)
 
     def _vector(self, values: tuple[object, ...]) -> NumericVector:
         """Present a tuple of exact scalars as a plain ``float64`` numpy vector."""

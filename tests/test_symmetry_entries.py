@@ -20,11 +20,11 @@ from httk.atomistic import (
     Species,
     Structure,
     StructureEntryProvider,
-    setting_definitions,
 )
 from httk.atomistic.symmetry_entries import (
     SETTING_PROPERTY_KEYS,
     SYMMETRY_PROPERTY_KEYS,
+    setting_definitions,
 )
 
 F = fractions.Fraction
@@ -172,8 +172,7 @@ def test_an_untabulated_setting_serves_the_number_but_not_a_symbol() -> None:
     assert record["space_group_symbol_hermann_mauguin"] is None
     assert record["wyckoff_positions"] is None
     assert record["space_group_symmetry_operations_xyz"] == [
-        shifted.symop_to_setting(value).wrapped().to_xyz()
-        for value in Spacegroup.standard(225).symmetry_operations
+        shifted.symop_to_setting(value).wrapped().to_xyz() for value in Spacegroup.standard(225).symmetry_operations
     ]
     assert record["_httk_setting_it_nc"] is None
     assert record["_httk_setting_transform"]["vector"] == ["1/8", "1/8", "1/8"]
@@ -282,7 +281,7 @@ def test_a_structure_that_states_no_precision_serves_null() -> None:
 
 
 def test_the_precision_definitions_are_the_published_ones() -> None:
-    from httk.atomistic import precision_definitions
+    from httk.atomistic.precision_entries import precision_definitions
 
     definitions = precision_definitions()
     assert set(definitions) == {"_httk_coordinate_precision", "_httk_basis_precision"}

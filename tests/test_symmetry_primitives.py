@@ -92,7 +92,7 @@ def test_affine_operation_renders_tabulated_symops_identically() -> None:
     checked = 0
     for record in data.spacegroup_settings()[::3]:
         for entry in record["symops"]:
-            operation = AffineOperation.from_symop_record(entry)
+            operation = AffineOperation.from_record(entry)
             assert operation.to_xyz() == entry["affine_transformation"]["xyz"]
             checked += 1
     assert checked > 2000
@@ -121,9 +121,7 @@ def test_setting_transform_maps_the_standard_symop_set_onto_each_setting(setting
     standard = target.standard_setting()
     transform = target.transform_from_standard
 
-    mapped = frozenset(
-        transform.symop_to_setting(operation).wrapped() for operation in standard.symmetry_operations
-    )
+    mapped = frozenset(transform.symop_to_setting(operation).wrapped() for operation in standard.symmetry_operations)
     assert mapped == _wrapped_symops(target)
 
 
@@ -242,9 +240,9 @@ def test_every_orbit_member_recovers_its_parameters_not_just_the_representative(
             expected = _point_set(orbit)
 
             recovered_all = [position.parameters_of(coordinate.normalize()) for coordinate in orbit]
-            assert all(
-                recovered is not None for recovered in recovered_all
-            ), f"{setting} letter {position.letter} lost an orbit member"
+            assert all(recovered is not None for recovered in recovered_all), (
+                f"{setting} letter {position.letter} lost an orbit member"
+            )
             checked += len(recovered_all)
 
             # Whichever branch a member matched on, its parameters must regenerate the very

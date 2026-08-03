@@ -25,7 +25,7 @@ import fractions
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any
+from typing import Any, ClassVar
 
 from httk.core import FracVector
 
@@ -33,14 +33,16 @@ from . import data
 from ._periodicity_guard import require_full_periodicity
 from ._vector_guards import to_precision
 from .cell import Cell
-from .cell_class_view import CellClassView
 from .cell_like import CellLike
+from .cell_view import CellView
+from .composition import Assembly
 from .setting_transform import SettingTransform
 from .sites import Sites
 from .spacegroup import Spacegroup, wyckoff_letter_map
 from .species import Species
-from .species_class_view import SpeciesClassView
 from .species_like import SpeciesLike
+from .species_view import SpeciesView
+from .structure_backend import StructureBackend
 from .structure_semantics import StructureSemanticsMixin, initialize_semantics
 
 __all__ = ["ASUSite", "ASUStructure", "FundamentalDomainStructure"]
@@ -84,7 +86,7 @@ class ASUSite:
         return 0 if self.free_params.dim in ((), (0,)) else self.free_params.dim[0]
 
 
-class FundamentalDomainStructure(StructureSemanticsMixin):
+class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
     """A crystal structure represented by one exact site per symmetry orbit.
 
     Holds the cell in the structure's own setting, the space group as its **standard**
@@ -98,6 +100,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin):
     _asu_sites: tuple[ASUSite, ...]
     _species: tuple[Species, ...]
     _coordinate_precision: fractions.Fraction | None
+    kind: ClassVar[str] = "asu"
 
     def __init__(
         self,
@@ -117,7 +120,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin):
         immutable_id: str | None = None,
         last_modified: datetime.datetime | None = None,
     ) -> None:
-        self._cell = cell if isinstance(cell, Cell) else CellClassView(cell)
+        self._cell = cell if isinstance(cell, Cell) else CellView(cell)
         require_full_periodicity(self._cell, "ASUStructure")
         self._spacegroup = spacegroup if isinstance(spacegroup, Spacegroup) else Spacegroup.standard(spacegroup)
         if not self._spacegroup.is_standard_setting:
@@ -129,7 +132,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin):
         self._transform = SettingTransform.identity() if transform is None else transform
         self._coordinate_precision = to_precision(coordinate_precision)
         self._asu_sites = tuple(asu_sites)
-        self._species = tuple(item if isinstance(item, Species) else SpeciesClassView(item) for item in species)
+        self._species = tuple(item if isinstance(item, Species) else SpeciesView(item) for item in species)
 
         names = [item.name for item in self._species]
         if len(names) != len(set(names)):
@@ -227,7 +230,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin):
         return self._molecular
 
     @property
-    def species_at_sites(self) -> tuple[str, ...]:
+    def domain_species_at_sites(self) -> tuple[str, ...]:
         """Species names of the directly represented domain sites."""
         return tuple(site.species for site in self._asu_sites)
 
@@ -256,8 +259,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin):
                 return True
         return False
 
-    @property
-    def sites(self) -> Sites:
+    def _representative_sites(self) -> Sites:
         """Exact representative positions retained by the fundamental-domain representation."""
         coordinates = [
             site.representative.normalize()
@@ -272,7 +274,15 @@ class FundamentalDomainStructure(StructureSemanticsMixin):
     def cartesian_sites(self) -> Any:
         from httk.core import SurdVector
 
-        return SurdVector.create(self.sites.reduced_coords) * self._cell.basis
+        return SurdVector.create(self._representative_sites().reduced_coords) * self._cell.basis
+
+    @property
+    def fractional_site_positions(self) -> list[list[float]]:
+        return self._representative_sites().reduced_coords.to_floats()
+
+    @property
+    def nsites(self) -> int:
+        return len(self._asu_sites)
 
     @property
     def site_coordinate_span(self) -> str:
@@ -352,6 +362,50 @@ class FundamentalDomainStructure(StructureSemanticsMixin):
 
     # --- expansion ---
 
+    def _expanded_offsets(self) -> tuple[tuple[int, ...], tuple[int, ...]]:
+        counts = self.multiplicities()
+        offsets: list[int] = []
+        offset = 0
+        for count in counts:
+            offsets.append(offset)
+            offset += count
+        return counts, tuple(offsets)
+
+    def _expanded_assemblies(self) -> tuple[Assembly, ...] | None:
+        assemblies = self._assemblies
+        if assemblies is None or not assemblies:
+            return assemblies
+        counts, offsets = self._expanded_offsets()
+        expanded: list[Assembly] = []
+        for assembly in assemblies:
+            groups: list[tuple[int, ...]] = []
+            for group in assembly.sites_in_groups:
+                if any(counts[index] != 1 for index in group):
+                    raise ValueError(
+                        "symmetry-reduced expansion cannot map assembly correlations "
+                        "when a correlated domain site has multiple unit-cell images"
+                    )
+                groups.append(tuple(offsets[index] for index in group))
+            expanded.append(
+                Assembly(
+                    tuple(groups),
+                    assembly.group_probabilities,
+                    assembly.group_probabilities_precision,
+                )
+            )
+        return tuple(expanded)
+
+    def _validate_expansion_semantics(self) -> None:
+        self._expanded_assemblies()
+        if not self.molecular:
+            return
+        counts = self.multiplicities()
+        if any(count != 1 for count in counts) or any(site.representative is None for site in self.asu_sites):
+            raise ValueError(
+                "symmetry-reduced molecular expansion requires one retained representative "
+                "for every one-to-one domain site"
+            )
+
     @cached_property
     def _expansion(self) -> tuple[FracVector, tuple[str, ...], tuple[int, ...]]:
         """The full cell: coordinates, the species at each, and the per-site counts.
@@ -418,15 +472,19 @@ class FundamentalDomainStructure(StructureSemanticsMixin):
         """
         return self._expansion[2]
 
-    def to_structure(self) -> Any:
-        """The equivalent full-cell :class:`~httk.atomistic.Structure`.
+    @property
+    def sites(self) -> Sites:
+        self._validate_expansion_semantics()
+        return self._representative_sites() if self.molecular else self.expand_sites()
 
-        Equivalent to ``UnitcellStructureView(asu_structure)``; provided as a plain method so
-        the common case needs no knowledge of the view machinery.
-        """
-        from .unitcell_structure_view import UnitcellStructureView
+    @property
+    def species_at_sites(self) -> tuple[str, ...]:
+        self._validate_expansion_semantics()
+        return self.domain_species_at_sites if self.molecular else self.expand_species_at_sites()
 
-        return UnitcellStructureView(self)
+    @property
+    def assemblies(self) -> tuple[Assembly, ...] | None:
+        return self._assemblies
 
     # --- identity ---
 

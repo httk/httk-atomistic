@@ -88,7 +88,11 @@ def symmetry_properties(structure: Any) -> dict[str, Any]:
     if structure is None:
         return values
 
-    values["fractional_site_positions"] = structure.fractional_site_positions
+    values["fractional_site_positions"] = (
+        structure.fractional_site_positions
+        if not isinstance(structure, FundamentalDomainStructure)
+        else structure._representative_sites().reduced_coords.to_floats()
+    )
     values["site_coordinate_span"] = structure.site_coordinate_span
     values["site_coordinate_span_description"] = structure.site_coordinate_span_description
 

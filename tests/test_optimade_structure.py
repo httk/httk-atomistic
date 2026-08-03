@@ -15,8 +15,9 @@ from httk.atomistic import (
     StructureBackend,
     StructureEntryProvider,
     UnitcellStructureView,
-    precision_definitions,
+    structure_semantics,
 )
+from httk.atomistic.precision_entries import precision_definitions
 
 _STRUCTURES_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 
@@ -548,6 +549,25 @@ def test_source_symmetry_is_mutually_cross_checked() -> None:
     backend = OptimadeStructure(_semantic_resource(attributes))
     with pytest.raises(IncompleteOptimadeResourceError, match="three-coordinate strings"):
         _ = backend.space_group_symmetry_operations_xyz
+
+
+def test_source_symmetry_settings_are_resolved_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = 0
+    resolver = structure_semantics.declared_spacegroup_settings
+
+    def counted(**kwargs: object) -> tuple[dict[str, object], ...]:
+        nonlocal calls
+        calls += 1
+        return resolver(**kwargs)
+
+    monkeypatch.setattr(structure_semantics, "declared_spacegroup_settings", counted)
+    backend = OptimadeStructure(_semantic_resource(_complete_attributes()))
+
+    assert backend.space_group_it_number == 1
+    assert backend.space_group_symbol_hall == "P 1"
+    assert backend.space_group_symmetry_operations_xyz == ("x,y,z",)
+    assert backend.wyckoff_positions == ("a", "a")
+    assert calls == 1
 
 
 def test_span_description_is_only_valid_for_other() -> None:

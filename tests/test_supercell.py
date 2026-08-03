@@ -11,7 +11,6 @@ from httk.atomistic import (
     ASUStructure,
     Cell,
     CellParams,
-    ChemicalComposition,
     Sites,
     Species,
     Structure,
@@ -20,6 +19,7 @@ from httk.atomistic import (
     cubic_supercell,
     orthogonal_supercell,
 )
+from httk.atomistic.composition import ChemicalComposition
 
 F = fractions.Fraction
 

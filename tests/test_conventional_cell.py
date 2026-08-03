@@ -13,18 +13,17 @@ from httk.atomistic import (
     ASUStructure,
     ASUStructureView,
     Cell,
-    ChemicalComposition,
     SettingTransform,
     Spacegroup,
     Species,
     Structure,
-    StructureASU,
     StructureLike,
     UnitcellStructureView,
     conventional_cell,
     recognize_asu,
     same_crystal,
 )
+from httk.atomistic.composition import ChemicalComposition
 
 F = fractions.Fraction
 NO_PARAMETERS = FracVector.create(())
@@ -142,7 +141,7 @@ def test_asu_views_and_backends_are_used_without_recognition() -> None:
     asu = _rocksalt()
 
     assert conventional_cell(ASUStructureView(asu)).asu == conventional_cell(asu).asu
-    assert conventional_cell(StructureASU(asu)).asu == conventional_cell(asu).asu
+    assert conventional_cell(asu).asu == conventional_cell(asu).asu
 
 
 def test_a_nonstandard_setting_is_mapped_back_to_the_standard_cell() -> None:

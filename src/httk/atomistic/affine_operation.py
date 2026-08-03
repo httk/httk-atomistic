@@ -60,17 +60,13 @@ class AffineOperation:
 
     @classmethod
     def from_record(cls, record: dict[str, Any]) -> Self:
-        """Build from a vendored ``affine_transformation`` record.
+        """Build from either vendored affine-record shape.
 
         The record's ``matrix`` and ``vector`` hold exact rational strings (``"1/2"``,
         ``"-1"``), which embed exactly.
         """
-        return cls(record["matrix"], record["vector"])
-
-    @classmethod
-    def from_symop_record(cls, record: dict[str, Any]) -> Self:
-        """Build from a vendored ``symops`` entry (which nests its affine part)."""
-        return cls.from_record(record["affine_transformation"])
+        affine = record.get("affine_transformation", record)
+        return cls(affine["matrix"], affine["vector"])
 
     # --- accessors ---
 

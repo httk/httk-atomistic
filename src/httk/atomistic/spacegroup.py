@@ -129,7 +129,7 @@ class Spacegroup:
         The full set with centring translations already folded in, so its length is the
         group order and no separate centring pass is needed.
         """
-        return tuple(AffineOperation.from_symop_record(entry) for entry in self._record["symops"])
+        return tuple(AffineOperation.from_record(entry) for entry in self._record["symops"])
 
     @cached_property
     def centering_translations(self) -> tuple[FracVector, ...]:

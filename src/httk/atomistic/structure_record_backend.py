@@ -1,15 +1,26 @@
 """Structure backend for the three exact native storage records."""
 
 from functools import cached_property
-from typing import Any
+from typing import Any, cast
 
 from .asu_structure import ASUStructure, FundamentalDomainStructure
 from .cell import Cell
+from .cell_view import CellView
 from .composition import Assembly
 from .sites import Sites
+from .sites_view import SitesView
 from .species import Species
+from .species_view import SpeciesView
 from .structure_backend import StructureBackend
-from .structure_record import ASUStructureRecord, FundamentalDomainStructureRecord, UnitcellStructureRecord
+from .structure_record import (
+    ASUStructureRecord,
+    FundamentalDomainStructureRecord,
+    UnitcellStructureRecord,
+    _assembly_from_record,
+    _chemical_composition_from_record,
+    _domain_structure_from_record,
+    _symmetry_from_record,
+)
 from .structure_semantics import StructureSymmetry
 
 
@@ -34,7 +45,9 @@ class StructureRecordBackend(StructureBackend):
 
     @cached_property
     def _native(self) -> Any:
-        return self._record.to_structure()
+        record = self._record
+        assert isinstance(record, (FundamentalDomainStructureRecord, ASUStructureRecord))
+        return _domain_structure_from_record(record)
 
     @cached_property
     def _expanded(self) -> Any:
@@ -48,18 +61,22 @@ class StructureRecordBackend(StructureBackend):
 
     @cached_property
     def cell(self) -> Cell:  # pyright: ignore[reportIncompatibleMethodOverride]
-        return self._record.cell.to_cell() if self._is_unitcell else self._native.cell
+        return CellView(cast(Any, self._record.cell)) if self._is_unitcell else self._native.cell
 
     @cached_property
     def sites(self) -> Sites:  # pyright: ignore[reportIncompatibleMethodOverride]
         return (
-            self._record.sites.to_sites() if isinstance(self._record, UnitcellStructureRecord) else self._expanded.sites
+            SitesView(cast(Any, self._record.sites))
+            if isinstance(self._record, UnitcellStructureRecord)
+            else self._expanded.sites
         )
 
     @cached_property
     def species(self) -> tuple[Species, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
         return (
-            tuple(value.to_species() for value in self._record.species) if self._is_unitcell else self._native.species
+            tuple(SpeciesView(cast(Any, value)) for value in self._record.species)
+            if self._is_unitcell
+            else self._native.species
         )
 
     @cached_property
@@ -80,14 +97,14 @@ class StructureRecordBackend(StructureBackend):
             return (
                 None
                 if self._record.assemblies is None
-                else tuple(value.to_assembly() for value in self._record.assemblies)
+                else tuple(_assembly_from_record(value) for value in self._record.assemblies)
             )
         return self._expanded.assemblies
 
     @property
     def symmetry(self) -> StructureSymmetry | None:
         if isinstance(self._record, UnitcellStructureRecord):
-            return None if self._record.symmetry is None else self._record.symmetry.to_symmetry()
+            return None if self._record.symmetry is None else _symmetry_from_record(self._record.symmetry)
         native = self._native
         assert isinstance(native, FundamentalDomainStructure)
         positions = native.wyckoff_positions
@@ -107,7 +124,11 @@ class StructureRecordBackend(StructureBackend):
 
     @property
     def chemical_composition(self) -> Any:
-        return None if self._record.chemical_composition is None else self._record.chemical_composition.to_composition()
+        return (
+            None
+            if self._record.chemical_composition is None
+            else _chemical_composition_from_record(self._record.chemical_composition)
+        )
 
     @property
     def chemical_formula_descriptive(self) -> str | None:

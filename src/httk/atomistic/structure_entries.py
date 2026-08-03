@@ -11,10 +11,9 @@ from httk.core import (
     load_entry_type_schema,
 )
 
+from ._optimade_payloads import assemblies_payload, species_payload
 from .asu_structure import FundamentalDomainStructure
-from .composition import Assembly
 from .precision_entries import PRECISION_PROPERTY_KEYS, precision_definitions, precision_properties
-from .species_primitive_view import SpeciesPrimitiveView
 from .structure import Structure
 from .structure_like import StructureLike
 from .symmetry_entries import (
@@ -88,10 +87,18 @@ class StructureEntry:
 
 def _as_structure(obj: StructureLike) -> Any:
     """Normalize accepted convenience inputs to the common structure property layer."""
-    from .structure_record import ASUStructureRecord, FundamentalDomainStructureRecord, UnitcellStructureRecord
+    from .structure_record import (
+        ASUStructureRecord,
+        FundamentalDomainStructureRecord,
+        UnitcellStructureRecord,
+        _domain_structure_from_record,
+    )
+    from .unitcell_structure_view import UnitcellStructureView
 
-    if isinstance(obj, (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord)):
-        return obj.to_structure()
+    if isinstance(obj, UnitcellStructureRecord):
+        return UnitcellStructureView(obj)
+    if isinstance(obj, (FundamentalDomainStructureRecord, ASUStructureRecord)):
+        obj = _domain_structure_from_record(obj)
     if isinstance(obj, FundamentalDomainStructure):
         # Representation is semantic: do not expand a fundamental domain merely because
         # it is being served. Its composition already accounts for orbit multiplicities.
@@ -99,19 +106,6 @@ def _as_structure(obj: StructureLike) -> Any:
     if isinstance(obj, (tuple, list)):
         return Structure(*tuple(obj))
     return obj
-
-
-def _assembly_payload(assemblies: tuple[Assembly, ...] | None) -> list[dict[str, Any]] | None:
-    """Serialize assemblies without losing the distinction between null and present."""
-    if assemblies is None:
-        return None
-    return [
-        {
-            "sites_in_groups": [list(group) for group in assembly.sites_in_groups],
-            "group_probabilities": [float(value) for value in assembly.group_probabilities],
-        }
-        for assembly in assemblies
-    ]
 
 
 def _structure_projection(structure: Any) -> dict[str, Any]:
@@ -155,10 +149,16 @@ def _structure_projection(structure: Any) -> dict[str, Any]:
         "cartesian_site_positions": numeric_matrix(structure.cartesian_site_positions),
         "site_coordinate_span": structure.site_coordinate_span,
         "site_coordinate_span_description": structure.site_coordinate_span_description,
-        "nsites": structure.nsites,
-        "species_at_sites": list(structure.species_at_sites),
-        "species": [dict(SpeciesPrimitiveView(value)) for value in structure.species],
-        "assemblies": _assembly_payload(structure.assemblies),
+        "nsites": len(structure.domain_sites)
+        if isinstance(structure, FundamentalDomainStructure)
+        else structure.nsites,
+        "species_at_sites": (
+            list(structure.domain_species_at_sites)
+            if isinstance(structure, FundamentalDomainStructure)
+            else list(structure.species_at_sites)
+        ),
+        "species": [species_payload(value) for value in structure.species],
+        "assemblies": assemblies_payload(structure.assemblies),
         "structure_features": list(structure.structure_features),
         "optimization_type": structure.optimization_type,
     }

@@ -9,10 +9,10 @@ from httk.core import unwrap
 from .cell import Cell
 from .cell_backend import CellBackend
 from .cell_like import CellLike
-from .cell_view import CellView
+from .cell_view_base import CellViewBase
 
 
-class CellParamsView(CellView, tuple):
+class CellParamsView(CellViewBase, tuple):
     """
     A view presenting an underlying cell backend as cell parameters.
 

@@ -94,7 +94,7 @@ class ASUStructureView(StructureView, ASUStructure):
             asu.transform,
             asu.coordinate_precision,
             molecular=asu.molecular,
-            assemblies=asu.assemblies,
+            assemblies=asu._assemblies,
             chemical_composition=asu.chemical_composition,
             chemical_formula_descriptive=asu.chemical_formula_descriptive,
             chemical_formula_hill=asu.chemical_formula_hill,
@@ -107,6 +107,18 @@ class ASUStructureView(StructureView, ASUStructure):
 
     def __init__(self, obj: StructureLike, **kwargs: Any) -> None:
         pass
+
+    @property
+    def sites(self):
+        return self._representative_sites()
+
+    @property
+    def species_at_sites(self):
+        return self.domain_species_at_sites
+
+    @property
+    def assemblies(self):
+        return self._assemblies
 
     def unwrap(self) -> Any:
         return unwrap(self._backend)

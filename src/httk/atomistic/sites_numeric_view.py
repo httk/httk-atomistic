@@ -12,10 +12,10 @@ from .numeric_sites import NumericSites
 from .sites import Sites
 from .sites_backend import SitesBackend
 from .sites_like import SitesLike
-from .sites_view import SitesView
+from .sites_view_base import SitesViewBase
 
 
-class SitesNumericView(SitesView, NumericSites):
+class SitesNumericView(SitesViewBase, NumericSites):
     """
     A view presenting an underlying sites backend as a ``NumericSites`` object.
 

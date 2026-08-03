@@ -1,6 +1,5 @@
 """Frozen storage records for complete atomistic structures."""
 
-import builtins
 import datetime
 import fractions
 import math
@@ -19,7 +18,7 @@ from httk.core import (
 )
 
 from ._composition_values import as_fraction
-from ._vector_guards import to_precision
+from ._vector_guards import to_periodicity, to_precision
 from .asu_structure import ASUSite, ASUStructure, FundamentalDomainStructure
 from .cell import Cell
 from .composition import Assembly, ChemicalComposition, CompositionResult, validate_assemblies
@@ -68,7 +67,7 @@ def _basis_vector(basis: tuple[SurdScalar, ...]) -> SurdVector:
 
 @dataclass(frozen=True)
 class SpeciesRecord:
-    """The storable frozen snapshot of an atomistic :class:`~httk.atomistic.Species`."""
+    """The storable frozen snapshot of an atomistic :class:`~httk.atomistic.Species`; hand-built records are shape-checked and semantically validated at storage or explicitly."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="atomistic_v3_species_record")
     __httk_canonical_source__: ClassVar[type[Species]] = Species
@@ -82,18 +81,42 @@ class SpeciesRecord:
     nattached: tuple[int, ...] | None = None
     concentration_precision: tuple[fractions.Fraction, ...] | None = None
 
+    @classmethod
+    def __httk_validate__(cls, record: "SpeciesRecord") -> None:
+        _validate_species_record(record)
+
     def __post_init__(self) -> None:
-        object.__setattr__(self, "chemical_symbols", tuple(self.chemical_symbols))
+        symbols = tuple(self.chemical_symbols)
+        if not isinstance(self.name, str):
+            raise TypeError("SpeciesRecord name must be a string")
+        if not symbols or not all(isinstance(value, str) for value in symbols):
+            raise TypeError("SpeciesRecord chemical_symbols must contain non-empty strings")
+        object.__setattr__(self, "chemical_symbols", symbols)
         concentration = tuple(
             as_fraction(value, field="SpeciesRecord concentration")[0] for value in self.concentration
         )
+        if len(concentration) != len(symbols):
+            raise ValueError("SpeciesRecord concentration must match chemical_symbols")
+        if any(value < 0 or value > 1 for value in concentration):
+            raise ValueError("SpeciesRecord concentration values must be in [0, 1]")
         object.__setattr__(self, "concentration", concentration)
         if self.mass is not None:
-            object.__setattr__(self, "mass", tuple(self.mass))
+            mass = tuple(self.mass)
+            if len(mass) != len(symbols):
+                raise ValueError("SpeciesRecord mass must match chemical_symbols")
+            object.__setattr__(self, "mass", mass)
+        if self.original_name is not None and not isinstance(self.original_name, str):
+            raise TypeError("SpeciesRecord original_name must be a string or None")
         if self.attached is not None:
-            object.__setattr__(self, "attached", tuple(self.attached))
+            attached = tuple(self.attached)
+            if not all(isinstance(value, str) for value in attached):
+                raise TypeError("SpeciesRecord attached must contain strings")
+            object.__setattr__(self, "attached", attached)
         if self.nattached is not None:
-            object.__setattr__(self, "nattached", tuple(self.nattached))
+            nattached = tuple(self.nattached)
+            if any(not isinstance(value, int) or isinstance(value, bool) or value < 0 for value in nattached):
+                raise ValueError("SpeciesRecord nattached must contain non-negative integers")
+            object.__setattr__(self, "nattached", nattached)
         raw_precision = None if self.concentration_precision is None else tuple(self.concentration_precision)
         if raw_precision is not None:
             if len(raw_precision) != len(concentration):
@@ -108,6 +131,8 @@ class SpeciesRecord:
 
         if (self.attached is None) != (self.nattached is None):
             raise ValueError("SpeciesRecord attached and nattached must be provided together")
+        if self.attached is not None and len(self.attached) != len(self.nattached or ()):
+            raise ValueError("SpeciesRecord attached and nattached must have matching lengths")
 
         for value_name, values in (
             ("concentration", self.concentration),
@@ -115,24 +140,6 @@ class SpeciesRecord:
         ):
             if any(not math.isfinite(value) for value in values):
                 raise ValueError(f"SpeciesRecord {value_name} values must be finite floats")
-
-        try:
-            Species(
-                name=self.name,
-                chemical_symbols=self.chemical_symbols,
-                concentration=self.concentration,
-                mass=self.mass,
-                original_name=self.original_name,
-                attached=self.attached,
-                nattached=self.nattached,
-                concentration_precision=(
-                    None
-                    if self.concentration_precision is None
-                    else tuple(None if value == 0 else value for value in self.concentration_precision)
-                ),
-            )
-        except (TypeError, ValueError) as error:
-            raise ValueError("SpeciesRecord fields do not describe a valid Species") from error
 
     @classmethod
     def __httk_project__(cls, species: Species) -> Mapping[str, object]:
@@ -150,41 +157,6 @@ class SpeciesRecord:
                 None if not present else tuple(value or fractions.Fraction() for value in precision)
             ),
         }
-
-    @classmethod
-    def from_species(cls, species: Species) -> "SpeciesRecord":
-        """Create a storage record containing the exact species metadata."""
-        return cls(
-            name=species.name,
-            chemical_symbols=species.chemical_symbols,
-            concentration=species.concentration,
-            mass=species.mass,
-            original_name=species.original_name,
-            attached=species.attached,
-            nattached=species.nattached,
-            concentration_precision=(
-                None
-                if all(value is None for value in species.concentration_precision or ())
-                else tuple(value or fractions.Fraction() for value in species.concentration_precision or ())
-            ),
-        )
-
-    def to_species(self) -> Species:
-        """Reconstruct the domain :class:`~httk.atomistic.Species` from this snapshot."""
-        return Species(
-            name=self.name,
-            chemical_symbols=self.chemical_symbols,
-            concentration=self.concentration,
-            mass=self.mass,
-            original_name=self.original_name,
-            attached=self.attached,
-            nattached=self.nattached,
-            concentration_precision=(
-                None
-                if self.concentration_precision is None
-                else tuple(None if value == 0 else value for value in self.concentration_precision)
-            ),
-        )
 
 
 @dataclass(frozen=True)
@@ -219,6 +191,10 @@ class AssemblyRecord:
     groups: tuple[AssemblyGroupRecord, ...]
     group_probabilities: tuple[fractions.Fraction, ...]
     group_probabilities_precision: tuple[fractions.Fraction, ...] | None = None
+
+    @property
+    def sites_in_groups(self) -> tuple[tuple[int, ...], ...]:
+        return tuple(group.sites for group in self.groups)
 
     def __post_init__(self) -> None:
         groups = tuple(self.groups)
@@ -259,25 +235,6 @@ class AssemblyRecord:
                 None if not present else tuple(value or fractions.Fraction() for value in precision)
             ),
         }
-
-    @classmethod
-    def from_assembly(cls, assembly: Assembly) -> "AssemblyRecord":
-        precision = assembly.group_probabilities_precision or ()
-        present = not all(value is None for value in precision)
-        return cls(
-            tuple(AssemblyGroupRecord(group) for group in assembly.sites_in_groups),
-            assembly.group_probabilities,
-            None if not present else tuple(value or fractions.Fraction() for value in precision),
-        )
-
-    def to_assembly(self) -> Assembly:
-        return Assembly(
-            tuple(group.sites for group in self.groups),
-            self.group_probabilities,
-            None
-            if self.group_probabilities_precision is None
-            else tuple(None if value == 0 else value for value in self.group_probabilities_precision),
-        )
 
 
 @dataclass(frozen=True)
@@ -320,7 +277,7 @@ class DomainSiteRecord:
 
 @dataclass(frozen=True)
 class SettingTransformRecord:
-    """Exact durable standard-to-own setting transform."""
+    """Exact durable standard-to-own setting transform; hand-built records are shape-checked and semantically validated at storage or explicitly."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="atomistic_v3_setting_transform_record")
     __httk_canonical_source__: ClassVar[type[SettingTransform]] = SettingTransform
@@ -329,12 +286,21 @@ class SettingTransformRecord:
     vector: tuple[fractions.Fraction, ...]
     hall_entry: Annotated[str | None, IdentitySkip()] = field(default=None, compare=False)
 
+    @classmethod
+    def __httk_validate__(cls, record: "SettingTransformRecord") -> None:
+        _validate_setting_transform_record(record)
+
     def __post_init__(self) -> None:
         matrix = FracVector.create(self.matrix)
         vector = tuple(as_fraction(value, field="SettingTransformRecord vector")[0] for value in self.vector)
-        transform = SettingTransform(matrix, vector, hall_entry=self.hall_entry)
-        object.__setattr__(self, "matrix", transform.matrix)
-        object.__setattr__(self, "vector", tuple(transform.vector.to_fractions()))
+        if matrix.dim != (3, 3):
+            raise ValueError(f"AffineOperation matrix must be 3x3, got dim {matrix.dim}")
+        if len(vector) != 3:
+            raise ValueError(f"AffineOperation vector must have 3 elements, got dim {(len(vector),)}")
+        object.__setattr__(self, "matrix", matrix)
+        object.__setattr__(self, "vector", vector)
+        if self.hall_entry is not None and not isinstance(self.hall_entry, str):
+            raise TypeError("SettingTransformRecord hall_entry must be a string or None")
 
     @classmethod
     def __httk_project__(cls, transform: SettingTransform) -> Mapping[str, object]:
@@ -344,17 +310,10 @@ class SettingTransformRecord:
             "hall_entry": transform.hall_entry,
         }
 
-    @classmethod
-    def from_transform(cls, transform: SettingTransform) -> "SettingTransformRecord":
-        return cls(transform.matrix, tuple(transform.vector.to_fractions()), transform.hall_entry)
-
-    def to_transform(self) -> SettingTransform:
-        return SettingTransform(self.matrix, self.vector, hall_entry=self.hall_entry)
-
 
 @dataclass(frozen=True)
 class SymmetryRecord:
-    """Typed optional symmetry metadata of an ordinary unit-cell structure."""
+    """Typed optional symmetry metadata of an ordinary unit-cell structure; hand-built records are shape-checked and semantically validated at storage or explicitly."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="atomistic_symmetry_v3")
     __httk_canonical_source__: ClassVar[type[StructureSymmetry]] = StructureSymmetry
@@ -366,19 +325,41 @@ class SymmetryRecord:
     space_group_symmetry_operations_xyz: tuple[str, ...] | None = None
     wyckoff_positions: tuple[str, ...] | None = None
 
+    @classmethod
+    def __httk_validate__(cls, record: "SymmetryRecord") -> None:
+        _validate_symmetry_record(record)
+
     def __post_init__(self) -> None:
-        value = StructureSymmetry(
-            self.space_group_it_number,
-            self.space_group_symbol_hall,
-            self.space_group_symbol_hermann_mauguin,
-            self.space_group_symbol_hermann_mauguin_extended,
+        if self.space_group_it_number is not None and (
+            not isinstance(self.space_group_it_number, int)
+            or isinstance(self.space_group_it_number, bool)
+            or not 1 <= self.space_group_it_number <= 230
+        ):
+            raise ValueError("space_group_it_number must be an integer in [1, 230]")
+        for name in (
+            "space_group_symbol_hall",
+            "space_group_symbol_hermann_mauguin",
+            "space_group_symbol_hermann_mauguin_extended",
+        ):
+            value = getattr(self, name)
+            if value is not None and (not isinstance(value, str) or not value):
+                raise TypeError(f"{name} must be a non-empty string or None")
+        object.__setattr__(
+            self,
+            "space_group_symmetry_operations_xyz",
             None
             if self.space_group_symmetry_operations_xyz is None
             else tuple(self.space_group_symmetry_operations_xyz),
+        )
+        object.__setattr__(
+            self,
+            "wyckoff_positions",
             None if self.wyckoff_positions is None else tuple(self.wyckoff_positions),
         )
-        object.__setattr__(self, "space_group_symmetry_operations_xyz", value.space_group_symmetry_operations_xyz)
-        object.__setattr__(self, "wyckoff_positions", value.wyckoff_positions)
+        for name in ("space_group_symmetry_operations_xyz", "wyckoff_positions"):
+            values = getattr(self, name)
+            if values is not None and not all(isinstance(value, str) for value in values):
+                raise TypeError(f"{name} must contain strings or be None")
 
     @classmethod
     def __httk_project__(cls, symmetry: StructureSymmetry) -> Mapping[str, object]:
@@ -390,27 +371,6 @@ class SymmetryRecord:
             "space_group_symmetry_operations_xyz": symmetry.space_group_symmetry_operations_xyz,
             "wyckoff_positions": symmetry.wyckoff_positions,
         }
-
-    @classmethod
-    def from_symmetry(cls, symmetry: StructureSymmetry) -> "SymmetryRecord":
-        return cls(
-            symmetry.space_group_it_number,
-            symmetry.space_group_symbol_hall,
-            symmetry.space_group_symbol_hermann_mauguin,
-            symmetry.space_group_symbol_hermann_mauguin_extended,
-            symmetry.space_group_symmetry_operations_xyz,
-            symmetry.wyckoff_positions,
-        )
-
-    def to_symmetry(self) -> StructureSymmetry:
-        return StructureSymmetry(
-            self.space_group_it_number,
-            self.space_group_symbol_hall,
-            self.space_group_symbol_hermann_mauguin,
-            self.space_group_symbol_hermann_mauguin_extended,
-            self.space_group_symmetry_operations_xyz,
-            self.wyckoff_positions,
-        )
 
 
 @dataclass(frozen=True)
@@ -465,7 +425,7 @@ class ChemicalCompositionRecord:
         }
 
     def __post_init__(self) -> None:
-        value = self.to_composition()
+        value = _chemical_composition_from_record(self)
         object.__setattr__(
             self,
             "amounts",
@@ -473,23 +433,6 @@ class ChemicalCompositionRecord:
                 CompositionAmountRecord(element, amount, dict(value.amounts_precision)[element])
                 for element, amount in value.amounts
             ),
-        )
-
-    @classmethod
-    def from_composition(cls, composition: ChemicalComposition) -> "ChemicalCompositionRecord":
-        precision = dict(composition.amounts_precision)
-        return cls(
-            tuple(
-                CompositionAmountRecord(element, amount, precision[element]) for element, amount in composition.amounts
-            ),
-            composition.mode,
-        )
-
-    def to_composition(self) -> ChemicalComposition:
-        return ChemicalComposition(
-            {value.element: value.amount for value in self.amounts},
-            cast(Any, self.mode),
-            {value.element: value.precision for value in self.amounts if value.precision is not None},
         )
 
 
@@ -540,31 +483,6 @@ class NormalizedCompositionRecord:
                 raise ValueError("NormalizedCompositionRecord ratios must exactly normalize their amounts")
         object.__setattr__(self, "amounts", amounts)
 
-    @classmethod
-    def from_result(cls, result: CompositionResult) -> "NormalizedCompositionRecord":
-        precision = dict(result.uncertainties)
-        total = sum((amount for _, amount in result.amounts), fractions.Fraction())
-        return cls(
-            tuple(
-                NormalizedCompositionAmountRecord(element, amount / total, amount, precision[element])
-                for element, amount in result.amounts
-            ),
-            result.complete,
-        )
-
-    def to_result(self) -> CompositionResult:
-        amounts = tuple((value.element, value.amount) for value in self.amounts)
-        uncertainties = tuple((value.element, value.precision) for value in self.amounts)
-        exact = all(value.precision is None for value in self.amounts)
-        return CompositionResult(
-            amounts,
-            uncertainties,
-            self.complete,
-            exact,
-            True,
-            "exact" if exact else "within_precision",
-        )
-
 
 @dataclass(frozen=True)
 class NormalizedCompositionAmountRecord:
@@ -613,7 +531,7 @@ class NormalizedCompositionAmountRecord:
 
 @dataclass(frozen=True)
 class CellRecord:
-    """Exact durable cell basis, precision, and periodicity."""
+    """Exact durable cell basis, precision, and periodicity; hand-built records are shape-checked and semantically validated at storage or explicitly."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_cell_v1",
@@ -625,15 +543,20 @@ class CellRecord:
     precision: fractions.Fraction | None
     periodicity: tuple[bool, ...]
 
+    @classmethod
+    def __httk_validate__(cls, record: "CellRecord") -> None:
+        _validate_cell_record(record)
+
     def __post_init__(self) -> None:
         basis = tuple(self.basis)
         periodicity = tuple(self.periodicity)
         if len(basis) != 9 or not all(isinstance(value, SurdScalar) for value in basis):
             raise ValueError("CellRecord basis must contain exactly nine SurdScalar values")
-        cell = Cell(_basis_vector(basis), precision=self.precision, periodicity=periodicity)
+        precision = to_precision(self.precision)
+        periodicity = to_periodicity(periodicity)
         object.__setattr__(self, "basis", basis)
-        object.__setattr__(self, "precision", cell.precision)
-        object.__setattr__(self, "periodicity", cell.periodicity)
+        object.__setattr__(self, "precision", precision)
+        object.__setattr__(self, "periodicity", periodicity)
 
     @classmethod
     def __httk_project__(cls, cell: Cell) -> Mapping[str, object]:
@@ -642,9 +565,6 @@ class CellRecord:
             "precision": cell.precision,
             "periodicity": cell.periodicity,
         }
-
-    def to_cell(self) -> Cell:
-        return Cell(_basis_vector(self.basis), precision=self.precision, periodicity=self.periodicity)
 
 
 @dataclass(frozen=True)
@@ -668,9 +588,6 @@ class SitesRecord:
     @classmethod
     def __httk_project__(cls, sites: Sites) -> Mapping[str, object]:
         return {"reduced_coords": sites.reduced_coords, "precision": sites.precision}
-
-    def to_sites(self) -> Sites:
-        return Sites(self.reduced_coords, precision=self.precision)
 
 
 def _project_common(structure: Any) -> dict[str, object]:
@@ -706,7 +623,7 @@ def _normalize_common(record: Any, *, nsites: int) -> None:
     if assemblies is not None:
         if not all(isinstance(value, AssemblyRecord) for value in assemblies):
             raise TypeError(f"{type(record).__name__} assemblies must contain AssemblyRecord values")
-        validate_assemblies((value.to_assembly() for value in assemblies), nsites)
+        validate_assemblies((_assembly_from_record(value) for value in assemblies), nsites)
     if record.chemical_composition is not None and not isinstance(
         record.chemical_composition, ChemicalCompositionRecord
     ):
@@ -733,11 +650,30 @@ def _validate_normalized_composition(record: Any) -> None:
     overlap across distinct stored domain sites. A per-orbit multiplicity
     shortcut would overcount a valid duplicate orbit.
     """
-    expected = NormalizedCompositionRecord.from_result(record.to_structure().composition)
+    expected = _normalized_composition_record_from_result(_structure_from_record(record).composition)
     if record.normalized_composition != expected:
         raise ValueError(
             f"{type(record).__name__} normalized_composition contradicts the composition reconstructed from native fields"
         )
+
+
+def _validate_species_record(record: SpeciesRecord) -> None:
+    try:
+        _species_from_record(record)
+    except (TypeError, ValueError) as error:
+        raise ValueError("SpeciesRecord fields do not describe a valid Species") from error
+
+
+def _validate_cell_record(record: CellRecord) -> None:
+    Cell(_basis_vector(record.basis), precision=record.precision, periodicity=record.periodicity)
+
+
+def _validate_symmetry_record(record: SymmetryRecord) -> None:
+    _symmetry_from_record(record)
+
+
+def _validate_setting_transform_record(record: SettingTransformRecord) -> None:
+    _setting_transform_from_record(record)
 
 
 class _CommonConstructorValues(TypedDict):
@@ -754,10 +690,12 @@ class _CommonConstructorValues(TypedDict):
 def _common_constructor_values(record: Any) -> _CommonConstructorValues:
     return {
         "molecular": record.molecular,
-        "assemblies": None if record.assemblies is None else tuple(value.to_assembly() for value in record.assemblies),
+        "assemblies": None
+        if record.assemblies is None
+        else tuple(_assembly_from_record(value) for value in record.assemblies),
         "chemical_composition": None
         if record.chemical_composition is None
-        else record.chemical_composition.to_composition(),
+        else _chemical_composition_from_record(record.chemical_composition),
         "chemical_formula_descriptive": record.chemical_formula_descriptive,
         "chemical_formula_hill": record.chemical_formula_hill,
         "optimization_type": record.optimization_type,
@@ -768,7 +706,7 @@ def _common_constructor_values(record: Any) -> _CommonConstructorValues:
 
 @dataclass(frozen=True)
 class UnitcellStructureRecord:
-    """Native durable backing for an explicit unit-cell structure."""
+    """Native durable backing for an explicit unit-cell structure; hand-built records are shape-checked and semantically validated at storage or explicitly."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_unitcell_structure_v1",
@@ -792,6 +730,10 @@ class UnitcellStructureRecord:
     immutable_id: Annotated[str | None, IdentitySkip()] = field(default=None, compare=False)
     last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
 
+    @classmethod
+    def __httk_validate__(cls, record: "UnitcellStructureRecord") -> None:
+        validate_structure_record(record)
+
     @property
     def type(self) -> str:
         return "structures"
@@ -806,16 +748,15 @@ class UnitcellStructureRecord:
         species_at_sites = tuple(self.species_at_sites)
         if not all(isinstance(value, str) for value in species_at_sites):
             raise TypeError("UnitcellStructureRecord species_at_sites must contain strings")
-        _normalize_common(self, nsites=len(self.sites.to_sites()))
+        _normalize_common(self, nsites=len(self.sites.reduced_coords))
         known = {value.name for value in self.species}
-        if len(species_at_sites) != len(self.sites.to_sites()):
+        if len(species_at_sites) != len(self.sites.reduced_coords):
             raise ValueError("UnitcellStructureRecord species_at_sites must match sites")
         if unknown := set(species_at_sites) - known:
             raise ValueError(f"UnitcellStructureRecord references unknown species: {sorted(unknown)!r}")
         if self.symmetry is not None and not isinstance(self.symmetry, SymmetryRecord):
             raise TypeError("UnitcellStructureRecord symmetry must be a SymmetryRecord or None")
         object.__setattr__(self, "species_at_sites", species_at_sites)
-        _validate_normalized_composition(self)
 
     @classmethod
     def __httk_project__(cls, structure: Structure) -> Mapping[str, object]:
@@ -829,20 +770,10 @@ class UnitcellStructureRecord:
         )
         return values
 
-    def to_structure(self) -> Structure:
-        return Structure(
-            self.cell.to_cell(),
-            self.sites.to_sites(),
-            tuple(value.to_species() for value in self.species),
-            self.species_at_sites,
-            symmetry=None if self.symmetry is None else self.symmetry.to_symmetry(),
-            **_common_constructor_values(self),
-        )
-
 
 @dataclass(frozen=True)
 class FundamentalDomainStructureRecord:
-    """Native durable backing for a symmetry fundamental domain."""
+    """Native durable backing for a symmetry fundamental domain; hand-built records are shape-checked and semantically validated at storage or explicitly."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_fundamental_domain_structure_v1",
@@ -872,6 +803,10 @@ class FundamentalDomainStructureRecord:
     immutable_id: Annotated[str | None, IdentitySkip()] = field(default=None, compare=False)
     last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
 
+    @classmethod
+    def __httk_validate__(cls, record: "FundamentalDomainStructureRecord") -> None:
+        validate_structure_record(record)
+
     @property
     def type(self) -> str:
         return "structures"
@@ -897,7 +832,6 @@ class FundamentalDomainStructureRecord:
         known = {value.name for value in self.species}
         if unknown := {value.species for value in domain_sites} - known:
             raise ValueError(f"FundamentalDomainStructureRecord references unknown species: {sorted(unknown)!r}")
-        _validate_normalized_composition(self)
 
     @classmethod
     def __httk_project__(cls, structure: FundamentalDomainStructure) -> Mapping[str, object]:
@@ -912,36 +846,10 @@ class FundamentalDomainStructureRecord:
         )
         return values
 
-    def _to_structure_type(
-        self, structure_type: builtins.type[FundamentalDomainStructure]
-    ) -> FundamentalDomainStructure:
-        from .spacegroup import Spacegroup
-
-        return structure_type(
-            self.cell.to_cell(),
-            Spacegroup.standard(self.spacegroup_it_number),
-            tuple(
-                ASUSite(
-                    value.wyckoff,
-                    FracVector.create(value.free_parameters),
-                    value.species,
-                    None if value.representative is None else FracVector.create(value.representative),
-                )
-                for value in self.domain_sites
-            ),
-            tuple(value.to_species() for value in self.species),
-            self.setting_transform.to_transform(),
-            self.coordinate_precision,
-            **_common_constructor_values(self),
-        )
-
-    def to_structure(self) -> FundamentalDomainStructure:
-        return self._to_structure_type(FundamentalDomainStructure)
-
 
 @dataclass(frozen=True)
 class ASUStructureRecord(FundamentalDomainStructureRecord):
-    """Native durable backing for an asserted asymmetric unit."""
+    """Native durable backing for an asserted asymmetric unit; hand-built records are shape-checked and semantically validated at storage or explicitly."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_asu_structure_v1",
@@ -955,6 +863,10 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
     )
     __httk_canonical_source__: ClassVar[type[ASUStructure]] = ASUStructure
 
+    @classmethod
+    def __httk_validate__(cls, record: "FundamentalDomainStructureRecord") -> None:
+        validate_structure_record(record)
+
     @property
     def type(self) -> str:
         return "structures"
@@ -963,8 +875,129 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
     def id(self) -> str:
         return content_id(self)
 
-    def to_structure(self) -> ASUStructure:
-        return cast(ASUStructure, self._to_structure_type(ASUStructure))
+
+def _concentration_precision_from_record(
+    precision: tuple[fractions.Fraction, ...] | None,
+) -> tuple[fractions.Fraction | None, ...] | None:
+    return None if precision is None else tuple(None if value == 0 else value for value in precision)
+
+
+def _species_from_record(record: SpeciesRecord) -> Species:
+    return Species(
+        name=record.name,
+        chemical_symbols=record.chemical_symbols,
+        concentration=record.concentration,
+        mass=record.mass,
+        original_name=record.original_name,
+        attached=record.attached,
+        nattached=record.nattached,
+        concentration_precision=_concentration_precision_from_record(record.concentration_precision),
+    )
+
+
+def _assembly_from_record(record: AssemblyRecord) -> Assembly:
+    return Assembly(
+        tuple(group.sites for group in record.groups),
+        record.group_probabilities,
+        None
+        if record.group_probabilities_precision is None
+        else tuple(None if value == 0 else value for value in record.group_probabilities_precision),
+    )
+
+
+def _setting_transform_from_record(record: SettingTransformRecord) -> SettingTransform:
+    return SettingTransform(record.matrix, record.vector, hall_entry=record.hall_entry)
+
+
+def _symmetry_from_record(record: SymmetryRecord) -> StructureSymmetry:
+    return StructureSymmetry(
+        record.space_group_it_number,
+        record.space_group_symbol_hall,
+        record.space_group_symbol_hermann_mauguin,
+        record.space_group_symbol_hermann_mauguin_extended,
+        record.space_group_symmetry_operations_xyz,
+        record.wyckoff_positions,
+    )
+
+
+def _chemical_composition_from_record(record: ChemicalCompositionRecord) -> ChemicalComposition:
+    return ChemicalComposition(
+        {value.element: value.amount for value in record.amounts},
+        cast(Any, record.mode),
+        {value.element: value.precision for value in record.amounts if value.precision is not None},
+    )
+
+
+def _composition_result_from_record(record: NormalizedCompositionRecord) -> CompositionResult:
+    amounts = tuple((value.element, value.amount) for value in record.amounts)
+    uncertainties = tuple((value.element, value.precision) for value in record.amounts)
+    exact = all(value.precision is None for value in record.amounts)
+    return CompositionResult(
+        amounts, uncertainties, record.complete, exact, True, "exact" if exact else "within_precision"
+    )
+
+
+def _normalized_composition_record_from_result(result: CompositionResult) -> NormalizedCompositionRecord:
+    values = NormalizedCompositionRecord.__httk_project__(result)
+    amounts = tuple(NormalizedCompositionAmountRecord(*item) for item in values["amounts"])  # type: ignore[arg-type]
+    return NormalizedCompositionRecord(amounts, values["complete"])  # type: ignore[arg-type]
+
+
+def _cell_from_record(record: CellRecord) -> Cell:
+    return Cell(_basis_vector(record.basis), precision=record.precision, periodicity=record.periodicity)
+
+
+def _sites_from_record(record: SitesRecord) -> Sites:
+    return Sites(record.reduced_coords, precision=record.precision)
+
+
+def _domain_structure_from_record(
+    record: FundamentalDomainStructureRecord | ASUStructureRecord,
+) -> FundamentalDomainStructure:
+    from .spacegroup import Spacegroup
+
+    structure_type = ASUStructure if isinstance(record, ASUStructureRecord) else FundamentalDomainStructure
+    return structure_type(
+        _cell_from_record(record.cell),
+        Spacegroup.standard(record.spacegroup_it_number),
+        tuple(
+            ASUSite(
+                value.wyckoff,
+                FracVector.create(value.free_parameters),
+                value.species,
+                None if value.representative is None else FracVector.create(value.representative),
+            )
+            for value in record.domain_sites
+        ),
+        tuple(_species_from_record(value) for value in record.species),
+        _setting_transform_from_record(record.setting_transform),
+        record.coordinate_precision,
+        **_common_constructor_values(record),
+    )
+
+
+def _structure_from_record(
+    record: UnitcellStructureRecord | FundamentalDomainStructureRecord | ASUStructureRecord,
+) -> Any:
+    if not isinstance(record, UnitcellStructureRecord):
+        return _domain_structure_from_record(record)
+    return Structure(
+        _cell_from_record(record.cell),
+        _sites_from_record(record.sites),
+        tuple(_species_from_record(value) for value in record.species),
+        record.species_at_sites,
+        symmetry=None if record.symmetry is None else _symmetry_from_record(record.symmetry),
+        **_common_constructor_values(record),
+    )
+
+
+def validate_structure_record(
+    record: UnitcellStructureRecord | FundamentalDomainStructureRecord | ASUStructureRecord,
+) -> None:
+    """Validate a hand-built root record by rebuilding its native structure semantics."""
+    if type(record) not in (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord):
+        raise TypeError("validate_structure_record expects an exact root structure record")
+    _validate_normalized_composition(record)
 
 
 from .stored_structure_properties import attach_structure_property_projections
