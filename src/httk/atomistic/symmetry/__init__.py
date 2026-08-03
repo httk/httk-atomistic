@@ -4,6 +4,7 @@ from .affine_operation import AffineOperation
 from .setting_transform import SettingTransform
 from .spacegroup import Spacegroup, wyckoff_letter_map
 from .wyckoff import WyckoffBranch, WyckoffPosition, wyckoff_positions
+from .xyz import operation_from_xyz, operation_from_xyzt, parse_linear_expression
 
 __all__ = [
     "DEFAULT_TOLERANCE",
@@ -14,6 +15,9 @@ __all__ = [
     "WyckoffBranch",
     "WyckoffPosition",
     "conventional_cell",
+    "operation_from_xyz",
+    "operation_from_xyzt",
+    "parse_linear_expression",
     "recognize_asu",
     "structure_tolerance",
     "wyckoff_letter_map",

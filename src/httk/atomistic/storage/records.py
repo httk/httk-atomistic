@@ -963,9 +963,9 @@ def _composition_result_from_record(record: NormalizedCompositionRecord) -> Comp
 
 
 def _normalized_composition_record_from_result(result: CompositionResult) -> NormalizedCompositionRecord:
-    values = NormalizedCompositionRecord.__httk_project__(result)
-    amounts = tuple(NormalizedCompositionAmountRecord(*item) for item in values["amounts"])  # type: ignore[arg-type]
-    return NormalizedCompositionRecord(amounts, values["complete"])  # type: ignore[arg-type]
+    values = cast(dict[str, Any], NormalizedCompositionRecord.__httk_project__(result))
+    amounts = tuple(NormalizedCompositionAmountRecord(*item) for item in values["amounts"])
+    return NormalizedCompositionRecord(amounts, values["complete"])
 
 
 def _cell_from_record(record: CellRecord) -> Cell:

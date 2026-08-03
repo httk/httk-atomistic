@@ -231,7 +231,7 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
         return self._metadata("optimization_type")
 
     @property
-    def site_coordinate_span_description(self) -> str | None:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def site_coordinate_span_description(self) -> str | None:
         return self._metadata("site_coordinate_span_description")
 
     @property

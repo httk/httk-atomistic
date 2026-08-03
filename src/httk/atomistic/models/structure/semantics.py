@@ -499,7 +499,7 @@ class StructureSemanticsMixin:
         return derive_structure_features(self)
 
     @property
-    def site_coordinate_span_description(self) -> None:
+    def site_coordinate_span_description(self) -> str | None:
         return None
 
     @property

@@ -184,7 +184,7 @@ def test_an_unidentifiable_setting_is_refused_rather_than_guessed(tmp_path: Path
     block = dict(load(str(path), raw=True)["blocks"][0])
     # Drop most of the operations, so the set matches no tabulated group, and drop the
     # declaration too so the failure is about the operations rather than a contradiction.
-    block["symops"] = block["symops"][:3]
+    block["symops_xyz"] = block["symops_xyz"][:3]
     block["space_group_nbr"] = None
     block["space_group_name_hall"] = None
     with pytest.raises(ValueError, match="no tabulated space-group setting"):
@@ -198,7 +198,7 @@ def test_an_unidentifiable_setting_is_refused_rather_than_guessed(tmp_path: Path
 def test_a_block_with_no_symmetry_operations_is_refused(tmp_path: Path) -> None:
     path = _rocksalt_cif(tmp_path)
     block = dict(load(str(path), raw=True)["blocks"][0])
-    block["symops"] = []
+    block["symops_xyz"] = []
     with pytest.raises(ValueError, match="no symmetry operations"):
         asu_structure_from_cif(block)
 

@@ -23,8 +23,8 @@ from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
-from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.spacegroup import Spacegroup
+from httk.atomistic.symmetry.xyz import operation_from_xyz
 
 from . import data as symmetry_data
 from ._composition_values import as_fraction
@@ -129,7 +129,7 @@ def asu_structure_from_cif(
                 name=name,
                 chemical_symbols=(symbols[index],),
                 concentration=(occupancy,),
-                original_name=labels[index],
+                original_name=None if labels[index] == symbols[index] else labels[index],
                 concentration_precision=(occupancy_precision,) if occupancy_precisions is not None else None,
             )
 
@@ -209,10 +209,10 @@ def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True
     many are equally valid and they describe different crystals — so such a file has to be
     built with an explicit :class:`~httk.atomistic.SettingTransform`.
     """
-    operations = data.get("symops")
+    operations = data.get("symops_xyz")
     if not operations:
         raise ValueError("this CIF block states no symmetry operations, so its setting cannot be determined")
-    target = frozenset(AffineOperation(rotation, translation).wrapped() for rotation, translation in operations)
+    target = frozenset(operation_from_xyz(operation).wrapped() for operation in operations)
 
     candidates: list[dict[str, Any]] | None = None
     declared = None
@@ -300,10 +300,7 @@ def _cell_from_cif(data: Mapping[str, Any]) -> Cell:
         # The text the file wrote, so 5.6402 becomes 56402/10000 rather than the binary
         # value of float("5.6402").
         return Cell(CellParams([fractions.Fraction(value) for value in exact]).basis, 1, precision)
-    parameters = data.get("cell_parameters")
-    if parameters is not None:
-        return Cell(CellParams([fractions.Fraction(str(value)) for value in parameters]).basis, 1, precision)
-    return Cell(data["basis"], 1, precision)
+    raise ValueError("CIF payload has no complete exact cell-parameter channel")
 
 
 def _exact_positions(data: Mapping[str, Any]) -> list[FracVector]:
@@ -316,7 +313,7 @@ def _exact_positions(data: Mapping[str, Any]) -> list[FracVector]:
     exact = data.get("positions_exact")
     if exact is not None:
         return [FracVector.create([fractions.Fraction(value) for value in row]) for row in exact]
-    return [FracVector.create(list(row)) for row in data["positions"]]
+    raise ValueError("CIF payload has no exact fractional-coordinate channel")
 
 
 def _species_name(symbol: str, label: str, occupancy: Any) -> str:
