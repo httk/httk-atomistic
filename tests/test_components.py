@@ -2,27 +2,28 @@ import fractions
 import math
 
 import pytest
-from httk.core import SurdVector, project_storage_record, unwrap
+from httk.core import SurdVector, unwrap
+from httk.core.storage import project_storage_record
 
 from httk.atomistic import (
     Cell,
     CellParams,
     CellParamsView,
-    PlainCell,
     CellView,
-    Sites,
+    PlainCell,
     PlainSites,
-    SitesView,
-    Species,
     PlainSpecies,
     PlainSpeciesView,
+    Sites,
+    SitesView,
+    Species,
     SpeciesView,
     UnitcellStructure,
 )
 from httk.atomistic.cell_backend import CellBackend
 from httk.atomistic.plain_cell_view import PlainCellView
-from httk.atomistic.sites_backend import SitesBackend
 from httk.atomistic.plain_sites_view import PlainSitesView
+from httk.atomistic.sites_backend import SitesBackend
 from httk.atomistic.species_backend import SpeciesBackend
 from httk.atomistic.structure_record import CellRecord, SitesRecord, SpeciesRecord
 

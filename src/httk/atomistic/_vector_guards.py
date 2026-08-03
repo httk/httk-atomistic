@@ -17,9 +17,9 @@ from httk.core import (
     FracVector,
     SurdScalar,
     SurdVector,
-    VectorFracView,
     numpy_available,
 )
+from httk.core.vectors import VectorFracView
 
 
 def require_numpy() -> None:
@@ -48,7 +48,7 @@ def to_fracvector(obj: Any) -> FracVector:
     Normalize any vector-like input into an exact :class:`~httk.core.FracVector`.
 
     A :class:`~httk.core.SurdVector` is routed through the vector family's ``fractions`` hub
-    (:class:`~httk.core.VectorFracView`): exact when the value is rational, else a deterministic
+(:class:`~httk.core.vectors.VectorFracView`): exact when the value is rational, else a deterministic
     rational reduction (never raises on data).
     """
     if isinstance(obj, FracVector):

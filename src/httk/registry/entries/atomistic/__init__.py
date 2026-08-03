@@ -1,8 +1,8 @@
 """Register entry providers and storage backings implemented by :mod:`httk.atomistic`."""
 
-from httk.core import (
+from httk.core import register_entry_provider
+from httk.core.register import (
     register_entry_family,
-    register_entry_provider,
     register_entry_record,
     register_optimade_entry_binding,
 )

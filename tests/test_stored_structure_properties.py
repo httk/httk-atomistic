@@ -6,7 +6,7 @@ from fractions import Fraction
 from typing import cast
 
 import pytest
-from httk.core import (
+from httk.core.storage import (
     QueryContext,
     QueryExpression,
     QueryLiteralError,
@@ -22,8 +22,8 @@ from httk.atomistic import (
     FundamentalDomainStructure,
     FundamentalDomainStructureRecord,
     Species,
-    UnitcellStructure,
     StructureEntryProvider,
+    UnitcellStructure,
     UnitcellStructureRecord,
 )
 from httk.atomistic.precision_entries import PRECISION_PROPERTY_KEYS

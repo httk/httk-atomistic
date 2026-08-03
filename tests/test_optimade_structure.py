@@ -2,12 +2,12 @@ import json
 from fractions import Fraction
 
 import pytest
-from httk.core import (
+from httk.core import load_entry_type_definition
+from httk.core.optimade import (
     IncompleteOptimadeResourceError,
     OptimadeDocument,
     OptimadeResource,
     OptimadeSchemaSnapshot,
-    load_entry_type_definition,
 )
 
 from httk.atomistic import (

@@ -412,7 +412,7 @@ class StructureSemanticsMixin:
     @property
     def id(self) -> str:
         """The stable content identity of this exact representation."""
-        from httk.core import content_id
+        from httk.core.storage import content_id
 
         return content_id(self)
 

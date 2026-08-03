@@ -1,6 +1,6 @@
 """Register httk-atomistic's vendored entry-type and property schemas."""
 
-from httk.core import register_entry_type_definition, register_property_definition
+from httk.core.register import register_entry_type_definition, register_property_definition
 
 register_entry_type_definition(
     definition_id="https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures",

@@ -7,15 +7,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Annotated, Any, ClassVar, TypedDict, cast
 
-import httk.core.storage_markers
+import httk.core.storage.markers
 from httk.core import (
     FracVector,
-    IdentitySkip,
-    StorageInfo,
     SurdScalar,
     SurdVector,
-    content_id,
 )
+from httk.core.storage import IdentitySkip, StorageInfo, content_id
 
 from ._composition_values import as_fraction
 from ._vector_guards import to_periodicity, to_precision
@@ -285,7 +283,7 @@ class SettingTransformRecord:
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="atomistic_v3_setting_transform_record")
     __httk_canonical_source__: ClassVar[type[SettingTransform]] = SettingTransform
 
-    matrix: Annotated[FracVector, httk.core.storage_markers.Shape(3, 3)]
+    matrix: Annotated[FracVector, httk.core.storage.markers.Shape(3, 3)]
     vector: tuple[fractions.Fraction, ...]
     hall_entry: Annotated[str | None, IdentitySkip()] = field(default=None, compare=False)
 
@@ -580,7 +578,7 @@ class SitesRecord:
     )
     __httk_canonical_source__: ClassVar[type[Sites]] = Sites
 
-    reduced_coords: Annotated[FracVector, httk.core.storage_markers.Shape(0, 3)]
+    reduced_coords: Annotated[FracVector, httk.core.storage.markers.Shape(0, 3)]
     precision: fractions.Fraction | None
 
     def __post_init__(self) -> None:

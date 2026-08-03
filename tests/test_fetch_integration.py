@@ -10,7 +10,8 @@ from typing import Any
 
 import httk.core
 import pytest
-from httk.core import OptimadeResource, load_entry_type_definition
+from httk.core import load_entry_type_definition
+from httk.core.optimade import OptimadeResource
 
 from httk.atomistic import OptimadeStructure, UnitcellStructureView, build_supercell
 

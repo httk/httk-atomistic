@@ -128,13 +128,13 @@ nitpick_ignore = [
     ("py:obj", "ase.Atoms"),
     # OptimadeResource is new in the sibling httk-core workspace; the vendored
     # intersphinx inventory continues to describe the latest release.
-    ("py:class", "httk.core.OptimadeResource"),
+    ("py:class", "httk.core.optimade.OptimadeResource"),
     # IdentitySkip is likewise new in the sibling core workspace and is rendered
     # unqualified when AutoAPI displays Annotated record fields.
     ("py:class", "IdentitySkip"),
     # StoredPropertyProjection is new in the sibling core workspace; the
     # committed release inventory cannot name it until core is released.
-    ("py:class", "httk.core.StoredPropertyProjection"),
+    ("py:class", "httk.core.storage.StoredPropertyProjection"),
     # The protocol property ``type`` is indexed through both its defining
     # module and the package re-export; qualified member links stay available.
     ("py:obj", "type"),

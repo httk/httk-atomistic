@@ -8,13 +8,13 @@ from httk.core import FracVector, PropertyDefinition
 
 from httk.atomistic import (
     Assembly,
-    WyckoffSite,
     ASUStructure,
     ASUStructureRecord,
     FundamentalDomainStructureRecord,
-    UnitcellStructure,
     StructureEntryProvider,
+    UnitcellStructure,
     UnitcellStructureRecord,
+    WyckoffSite,
 )
 from httk.atomistic.species import Species
 from httk.atomistic.structure_entries import StructureEntry
@@ -311,16 +311,16 @@ def test_asymmetric_unit_is_projected_without_unit_cell_expansion() -> None:
 
 def test_registration_discovered_via_httk_core() -> None:
     # Importing httk.core discovers the adapter and entry registration tiers.
-    import httk.core
     from httk.core._plugins import resolve_callable
     from httk.core.register import (
         entry_providers,
+        known_entry_providers,
         known_format_adapters,
         resolve_entry_family,
         resolve_entry_record,
     )
 
-    assert "atomistic-structures" in httk.core.known_entry_providers()
+    assert "atomistic-structures" in known_entry_providers()
     assert known_format_adapters()["cif"] == "atomistic-structures"
     assert resolve_entry_family("structures") is StructureEntry
     assert resolve_entry_record("atomistic-unitcell-structure") is UnitcellStructureRecord

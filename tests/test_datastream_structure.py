@@ -10,7 +10,8 @@ from typing import Any
 
 import httk.core
 import pytest
-from httk.core import IncompleteOptimadeResourceError, TextstreamURLView
+from httk.core import TextstreamURLView
+from httk.core.optimade import IncompleteOptimadeResourceError
 
 from httk.atomistic import (
     Assembly,

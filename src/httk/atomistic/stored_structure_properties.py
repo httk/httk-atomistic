@@ -16,14 +16,14 @@ from fractions import Fraction
 from itertools import combinations
 from typing import Any
 
-from httk.core import (
+from httk.core import SurdVector
+from httk.core.storage import (
     QueryContext,
     QueryExpression,
     QueryLiteralError,
     QueryScope,
     QueryValue,
     StoredPropertyProjection,
-    SurdVector,
 )
 
 from ._optimade_payloads import assemblies_payload, species_payload

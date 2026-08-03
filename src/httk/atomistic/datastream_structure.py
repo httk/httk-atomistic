@@ -8,7 +8,9 @@ from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
 import httk.core
+from httk.core.datastream import BytestreamBackend, BytestreamURLView, BytestreamView, TextstreamBackend, TextstreamView
 from httk.core.datastream.network_policy import require_network_consent
+from httk.core.optimade import is_optimade_entry_url, redact_optimade_url
 
 from .cell import Cell
 from .sites import Sites
@@ -32,21 +34,21 @@ class DatastreamStructure(StructureBackend):
 
     @staticmethod
     def _is_optimade_url(value: str) -> bool:
-        return urlsplit(value).scheme in {"http", "https", "ftp", "file"} and httk.core.is_optimade_entry_url(value)
+        return urlsplit(value).scheme in {"http", "https", "ftp", "file"} and is_optimade_entry_url(value)
 
     @staticmethod
     def _is_network_optimade_url(value: str) -> bool:
-        return urlsplit(value).scheme in {"http", "https", "ftp"} and httk.core.is_optimade_entry_url(value)
+        return urlsplit(value).scheme in {"http", "https", "ftp"} and is_optimade_entry_url(value)
 
     @staticmethod
     def _is_stream_source(obj: Any) -> bool:
         return isinstance(
             obj,
             (
-                httk.core.TextstreamBackend,
-                httk.core.TextstreamView,
-                httk.core.BytestreamBackend,
-                httk.core.BytestreamView,
+                TextstreamBackend,
+                TextstreamView,
+                BytestreamBackend,
+                BytestreamView,
                 io.IOBase,
             ),
         )
@@ -99,7 +101,7 @@ class DatastreamStructure(StructureBackend):
                 except PermissionError as error:
                     raise PermissionError(
                         f"{error} For a lazy structure source, wrap the URL: "
-                        f"DatastreamURL({httk.core.redact_optimade_url(source)!r})."
+                        f"DatastreamURL({redact_optimade_url(source)!r})."
                     ) from None
             elif not self._is_url_string(source) and not Path(source).exists():
                 raise FileNotFoundError(f"Datastream structure source does not exist: {source!r}")
@@ -123,7 +125,7 @@ class DatastreamStructure(StructureBackend):
             return None if name is None else os.fsdecode(os.fspath(name))
         if cls._is_stream_source(obj):
             url = getattr(obj, "url", None)
-            if url is None and isinstance(obj, (httk.core.TextstreamURLView, httk.core.BytestreamURLView)):
+            if url is None and isinstance(obj, (httk.core.TextstreamURLView, BytestreamURLView)):
                 url = str(obj)
             if url is not None:
                 return urlsplit(url).path

@@ -5,7 +5,8 @@ A view presenting any structure backend as a UnitcellStructure (the Unitcell rep
 from functools import cached_property
 from typing import Any, Self
 
-from httk.core import IncompleteOptimadeResourceError, unwrap
+from httk.core import unwrap
+from httk.core.optimade import IncompleteOptimadeResourceError
 
 from .asu_structure import FundamentalDomainStructure
 from .cell import Cell

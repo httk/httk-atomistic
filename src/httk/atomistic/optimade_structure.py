@@ -19,16 +19,18 @@ from urllib.parse import urlsplit
 
 from httk.core import (
     EntryTypeDefinition,
-    IncompleteOptimadeResourceError,
-    OptimadeResource,
     SurdVector,
     combined_precision,
     decimal_precision,
-    decode_optimade_value,
     load_entry_type_definition,
-    optimade_document_root,
-    stored_property,
 )
+from httk.core.optimade import (
+    IncompleteOptimadeResourceError,
+    OptimadeResource,
+    decode_optimade_value,
+    optimade_document_root,
+)
+from httk.core.storage import stored_property
 
 from ._composition_values import normalization
 from .cell import Cell
@@ -81,7 +83,7 @@ def _is_definition_iri(value: object) -> bool:
 
 @dataclass(frozen=True, init=False)
 class OptimadeStructure(StructureBackend):
-    """A structure backend whose exact source is an :class:`~httk.core.OptimadeResource`.
+    """A structure backend whose exact source is an :class:`~httk.core.optimade.OptimadeResource`.
 
     Construction merely retains the resource.  The canonical structure quartet
     is decoded one component at a time, so an incomplete remote resource is

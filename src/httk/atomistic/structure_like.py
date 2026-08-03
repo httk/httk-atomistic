@@ -8,6 +8,8 @@ import urllib.request
 from typing import Any
 
 import httk.core
+import httk.core.datastream
+import httk.core.optimade
 
 from . import (
     asu_structure,
@@ -29,16 +31,16 @@ type StructureLike = (
     | structure_record.FundamentalDomainStructureRecord
     | structure_record.ASUStructureRecord
     | asu_structure.FundamentalDomainStructure
-    | httk.core.OptimadeResource
+    | httk.core.optimade.OptimadeResource
     | str
     | os.PathLike[str]
     | httk.core.DatastreamURL
     | urllib.request.Request
     | io.IOBase
-    | httk.core.TextstreamBackend
-    | httk.core.TextstreamView
-    | httk.core.BytestreamBackend
-    | httk.core.BytestreamView
+    | httk.core.datastream.TextstreamBackend
+    | httk.core.datastream.TextstreamView
+    | httk.core.datastream.BytestreamBackend
+    | httk.core.datastream.BytestreamView
     | compat.ASEAtomsProtocol
     | tuple[httk.core.VectorLike, httk.core.VectorLike, Any]
     | list[Any]

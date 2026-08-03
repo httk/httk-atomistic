@@ -10,10 +10,11 @@ import httk.core
 from httk.core import (
     EntryProvider,
     EntryTypeDefinition,
-    IncompleteOptimadeResourceError,
     PropertyDefinition,
     load_entry_type_definition,
 )
+from httk.core.datastream import BytestreamBackend, BytestreamView, TextstreamBackend, TextstreamView
+from httk.core.optimade import IncompleteOptimadeResourceError
 
 from ._optimade_payloads import assemblies_payload, species_payload
 from .asu_structure import FundamentalDomainStructure
@@ -110,10 +111,10 @@ def _as_structure(obj: StructureLike) -> Any:
             bytes,
             bytearray,
             io.IOBase,
-            httk.core.TextstreamBackend,
-            httk.core.TextstreamView,
-            httk.core.BytestreamBackend,
-            httk.core.BytestreamView,
+            TextstreamBackend,
+            TextstreamView,
+            BytestreamBackend,
+            BytestreamView,
         ),
     ) or callable(getattr(obj, "resolve", None))
     if datastreamish:

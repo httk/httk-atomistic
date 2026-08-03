@@ -5,10 +5,10 @@ from dataclasses import fields
 from fractions import Fraction
 
 import pytest
-from httk.core import FracVector, content_id, project_storage_record
+from httk.core import FracVector
+from httk.core.storage import content_id, project_storage_record
 
 from httk.atomistic import (
-    WyckoffSite,
     ASUStructure,
     ASUStructureRecord,
     ASUStructureView,
@@ -16,26 +16,27 @@ from httk.atomistic import (
     FundamentalDomainStructureRecord,
     SettingTransform,
     Species,
-    UnitcellStructure,
     StructureEntry,
+    UnitcellStructure,
     UnitcellStructureRecord,
     UnitcellStructureView,
+    WyckoffSite,
 )
 from httk.atomistic.structure_record import (
     AssemblyGroupRecord,
     AssemblyRecord,
     CellRecord,
     ChemicalCompositionRecord,
-    WyckoffSiteRecord,
     NormalizedCompositionAmountRecord,
     NormalizedCompositionRecord,
     SettingTransformRecord,
     SitesRecord,
     SpeciesRecord,
     SymmetryRecord,
+    WyckoffSiteRecord,
+    validate_structure_record,
 )
 from httk.atomistic.structure_view import StructureView
-from httk.atomistic.structure_record import validate_structure_record
 
 
 def _species() -> tuple[Species, Species]:

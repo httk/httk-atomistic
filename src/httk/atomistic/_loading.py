@@ -5,7 +5,8 @@ import math
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from httk.core import OptimadeResource, SurdScalar, SurdVector, exactmath
+from httk.core import SurdScalar, SurdVector, exactmath
+from httk.core.optimade import OptimadeResource
 
 from ._vector_guards import to_surdscalar
 from .cell import Cell
