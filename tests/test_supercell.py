@@ -94,6 +94,12 @@ def test_invalid_transformations_are_rejected(transformation: object, message: s
         build_supercell(_binary_structure(), transformation)
 
 
+@pytest.mark.parametrize("scalar", [True, False])
+def test_scalar_supercell_rejects_bool(scalar: bool) -> None:
+    with pytest.raises(ValueError, match="3x3"):
+        build_supercell(_binary_structure(), scalar)
+
+
 def test_a_singular_source_cell_is_rejected_clearly() -> None:
     """Lazy views accept bad geometry until an operation needs the basis.
 
@@ -127,6 +133,11 @@ def test_site_limit_is_checked_before_materialization() -> None:
         )
         == 12
     )
+
+
+def test_scalar_supercell_uses_cubic_multiplier_for_site_limit() -> None:
+    with pytest.raises(ValueError, match=r"16 sites .* max_sites=15"):
+        build_supercell(_binary_structure(), 2, max_sites=15)
 
 
 def test_precision_bounds_are_transformed_conservatively() -> None:

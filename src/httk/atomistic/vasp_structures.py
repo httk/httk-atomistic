@@ -16,10 +16,11 @@ import math
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from httk.core import SurdScalar, SurdVector, exactmath, load
+from httk.core import OptimadeResource, SurdScalar, SurdVector, exactmath, load
 
 from ._vector_guards import to_surdscalar
 from .cell import Cell
+from .optimade_structure import OptimadeStructure
 from .sites import Sites
 from .species import Species
 from .structure import Structure
@@ -111,6 +112,22 @@ def structure_from_poscar(data: Mapping[str, Any]) -> Structure:
             species.append(Species(name=symbol, chemical_symbols=(symbol,), concentration=(1.0,)))
 
     return Structure(cell, sites, species, species_at_sites)
+
+
+def structure_from_optimade_payload(data: Mapping[str, Any]) -> OptimadeStructure:
+    """Build an :class:`~httk.atomistic.OptimadeStructure` from a tagged payload."""
+    if not isinstance(data, Mapping):
+        raise ValueError(f"structure_from_optimade_payload expected a mapping, got {type(data).__name__}.")
+    fmt = data.get("format")
+    if fmt != "optimade-entry":
+        raise ValueError(f"structure_from_optimade_payload expected an 'optimade-entry' mapping, got format={fmt!r}.")
+    resource = data.get("resource")
+    if not isinstance(resource, OptimadeResource):
+        raise ValueError(
+            "structure_from_optimade_payload expected an OptimadeResource in 'resource', "
+            f"got {type(resource).__name__}."
+        )
+    return OptimadeStructure(resource)
 
 
 def _structure_from_cif(data: Mapping[str, Any]) -> Structure:

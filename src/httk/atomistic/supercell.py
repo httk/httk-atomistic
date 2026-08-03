@@ -60,7 +60,10 @@ class SupercellResult:
     cubicity_score: SurdScalar
 
 
-def _integer_transformation(transformation: VectorLike) -> tuple[FracVector, int]:
+def _integer_transformation(transformation: VectorLike | int) -> tuple[FracVector, int]:
+    if isinstance(transformation, int) and not isinstance(transformation, bool):
+        value = _positive_integer(transformation, "supercell multiplier")
+        return FracVector.create([[value, 0, 0], [0, value, 0], [0, 0, value]]), value**3
     matrix = FracVector.create(transformation).simplify()
     if matrix.dim != (3, 3):
         raise ValueError(f"a supercell transformation must be 3x3, got {matrix.dim}")
@@ -183,7 +186,7 @@ def _replicated_assemblies(
 
 def build_supercell(
     structure: StructureLike,
-    transformation: VectorLike,
+    transformation: VectorLike | int,
     *,
     max_sites: int | None = DEFAULT_MAX_SITES,
 ) -> SupercellResult:

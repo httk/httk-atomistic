@@ -26,6 +26,7 @@ type StructureLike = (
     | structure_record.FundamentalDomainStructureRecord
     | structure_record.ASUStructureRecord
     | asu_structure.FundamentalDomainStructure
+    | httk.core.OptimadeResource
     | compat.ASEAtomsProtocol
     | tuple[httk.core.VectorLike, httk.core.VectorLike, Any]
     | list[Any]

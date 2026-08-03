@@ -7,3 +7,8 @@ register_format_adapter(
     adapter="httk.atomistic.vasp_structures:structure_from_payload",
     formats=("cif", "vasp-poscar"),
 )
+register_format_adapter(
+    name="atomistic-structures",
+    adapter="httk.atomistic.vasp_structures:structure_from_optimade_payload",
+    formats=("optimade-entry",),
+)
