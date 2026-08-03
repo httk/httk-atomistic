@@ -7,7 +7,7 @@ It follows the same view/backend pattern as the datastream classes in `httk.core
 
 A crystal structure is available through one family of backends and views:
 
-- backends: `UnitcellStructureBackend` (wraps a `Structure`), `StructurePrimitive` (wraps an spglib-like triple)
+- backends: `Structure` (the unit-cell representation), `FundamentalDomainStructure`, `StructurePrimitive` (an spglib-like triple), and the optional numeric and record backends
 - views: `UnitcellStructureView` (presents any backend as a `Structure`), `StructurePrimitiveView` (presents any backend as a `(lattice, positions, numbers)` tuple)
 - accepted union: `StructureLike`
 
@@ -18,6 +18,8 @@ Views build their presentation from that quartet; there is no pairwise conversio
 representations.
 
 In normal user code, you usually accept `StructureLike` and normalize immediately to one view.
+Record objects are backends too: use class conversion, such as
+`UnitcellStructureView(record)`, instead of a pair of conversion methods.
 
 ## Common Calling Patterns
 
@@ -50,10 +52,10 @@ as_structure = UnitcellStructureView(triple)
 ## Component families
 
 The `cell`, `sites`, and `species` components each get the same view/backend treatment as
-`Structure` itself, mirroring the Structure family with `Class` where it uses `Unitcell` (there
-the word describes the representation, which still applies):
+`Structure` itself:
 
-- `Cell`: backends `CellClass` / `CellPrimitive` / `CellParams`, views `CellClassView` /
+- `Cell`: the class itself is the class backend; other backends are `CellPrimitive` / `CellParams`,
+  and views are `CellView` /
   `CellPrimitiveView` / `CellParamsView`, union `CellLike`. `Cell` exposes `basis` plus the
   derived `lengths`, `angles` (the crystallographic `alpha`/`beta`/`gamma` in degrees), and
   `volume`. The params representation is a flat `(a, b, c, alpha, beta, gamma)` 6-tuple
@@ -63,22 +65,23 @@ the word describes the representation, which still applies):
   parameters, with the elements also available as the named properties `a`/`b`/`c`/
   `alpha`/`beta`/`gamma`. Note that parameters carry no orientation, so cell → params →
   cell reproduces lengths, angles, and volume but not the original orientation.
-- `Sites`: backends `SitesClass` / `SitesPrimitive`, views `SitesClassView` /
+- `Sites`: the class itself is the class backend; the other backend is `SitesPrimitive`, and views are `SitesView` /
   `SitesPrimitiveView`, union `SitesLike`. `Sites` exposes `reduced_coords` and is iterable,
   indexable, and sized over its rows.
-- `Species` (one species; the OPTIMADE `species` object): backends `SpeciesClass` /
-  `SpeciesPrimitive`, views `SpeciesClassView` / `SpeciesPrimitiveView`, union `SpeciesLike`.
+- `Species` (one species; the OPTIMADE `species` object): the class itself is the class backend;
+  the other backend is `SpeciesPrimitive`, and views are `SpeciesView` / `SpeciesPrimitiveView`,
+  union `SpeciesLike`.
   The class representation is the frozen `Species`; the primitive representation is an
   OPTIMADE species dict.
 
 ```python
-from httk.atomistic import CellParamsView, CellPrimitiveView, SpeciesPrimitiveView, Structure
+from httk.atomistic import Cell, CellParamsView, CellView, SpeciesPrimitiveView, Structure
 
-cell = structure.cell            # a Cell
+cell = CellView(structure.cell)  # class conversion; this is a Cell
 cell.lengths                     # a triple of exact SurdScalar norms
 cell.angles                      # (alpha, beta, gamma) as exact Fraction degrees
 cell.volume                      # an exact SurdScalar
-raw_basis = tuple(CellPrimitiveView(cell))           # back to a raw 3x3 tuple of floats
+raw_basis = CellView(cell).basis.to_floats()         # render the exact basis as plain floats
 params = CellParamsView(cell)                        # (a, b, c, alpha, beta, gamma) as floats
 params.a, params.gamma
 optimade = dict(SpeciesPrimitiveView(structure.species[0]))  # a species as an OPTIMADE dict
@@ -92,21 +95,21 @@ structure_from_params = Structure(
 )
 ```
 
-The kinds dispatch by type and shape: a `Cell`/`Sites`/`Species` goes to its `*Class`
-backend, a raw basis matrix / dict to its `*Primitive` backend, and a flat 6-sequence to the
+The kinds dispatch by type and shape: a `Cell`/`Sites`/`Species` is already its class backend,
+a raw basis matrix / dict uses its `*Primitive` backend, and a flat 6-sequence uses the
 `CellParams` backend. Pass `kind="class"`, `kind="primitive"`, or `kind="params"` to force
 an interpretation.
 
 ## Notes
 
-- A `Structure` is dispatched to `UnitcellStructureBackend` and a length-3 triple to
+- A `Structure` is already the unit-cell backend and a length-3 triple uses
   `StructurePrimitive`. A malformed triple raises `TypeError` from `create`.
   Pass `kind="unitcell"` or `kind="primitive"` to force an interpretation.
-- `UnitcellStructureView` and the `*ClassView` views are lazy per component: each backend
+- `UnitcellStructureView` and the `*View` views are lazy per component: each backend
   accessor is normalized on first access. `StructurePrimitiveView`, `CellParamsView`, and
   the `*PrimitiveView` payload views remain eager because they build tuple/dict payloads;
-  `SpeciesClassView` remains eager so `Species` validation happens at construction. The
-  `*ClassView` and `*PrimitiveView` immutable-subclass views are genuine instances of their
+  `SpeciesView` remains eager so `Species` validation happens at construction. The
+  `*View` and `*PrimitiveView` immutable-subclass views are genuine instances of their
   class (a `Cell`, a tuple, ...); `SpeciesPrimitiveView` is a genuine — but detached and
   mutable — OPTIMADE `dict`.
 - `StructurePrimitiveView` requires every site's species to be a single, unattached
@@ -238,7 +241,7 @@ assert numeric.exact == structure
 ```
 
 The same presentation is also available as views over any backend — `CellNumericView`,
-`SitesNumericView`, `NumericUnitcellStructureView` — mirroring the `*ClassView` pattern (rewrap-idempotent,
+`SitesNumericView`, `NumericUnitcellStructureView` — mirroring the `*View` pattern (rewrap-idempotent,
 `unwrap` returns the raw original), and likewise requiring numpy.
 
 ## Building a Structure from a POSCAR mapping
@@ -357,6 +360,6 @@ assert records["known-but-empty"]["chemical_formula_reduced"] is None
 
 `unwrap(obj)` returns the most raw representation available:
 
-- for `UnitcellStructureBackend` / `UnitcellStructureView` this is the wrapped `Structure`
+- for `Structure` / `UnitcellStructureView` this is the `Structure` backend
 - for `StructurePrimitive` / `StructurePrimitiveView` this is the `(lattice, positions, numbers)` triple
 - for non-view/backend objects it returns the object unchanged

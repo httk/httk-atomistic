@@ -22,8 +22,8 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
 
     Where a ``Structure`` holds its geometry exactly (a surd ``cell`` basis, rational reduced
     coordinates, and an exact Cartesian frame), this view mirrors that interface but returns
-    plain numpy numbers: its :attr:`cell` is a :class:`~httk.atomistic.NumericCell`, its
-    :attr:`sites` a :class:`~httk.atomistic.NumericSites`, and :meth:`cartesian_sites` a
+    plain numpy numbers: its :attr:`cell` is a :class:`~httk.atomistic.numeric_cell.NumericCell`, its
+    :attr:`sites` a :class:`~httk.atomistic.numeric_sites.NumericSites`, and :meth:`cartesian_sites` a
     ``float64`` numpy array. The ``species``/``species_at_sites`` are passed through unchanged.
     It is for callers who do not need exact arithmetic and just want numpy arrays.
 
@@ -57,12 +57,12 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
 
     @property
     def cell(self) -> NumericCell:
-        """The cell as a :class:`~httk.atomistic.NumericCell`."""
+        """The cell as a :class:`~httk.atomistic.numeric_cell.NumericCell`."""
         return NumericCell(self._exact.cell)
 
     @property
     def sites(self) -> NumericSites:
-        """The sites as a :class:`~httk.atomistic.NumericSites`."""
+        """The sites as a :class:`~httk.atomistic.numeric_sites.NumericSites`."""
         return NumericSites(self._exact.sites)
 
     @property
