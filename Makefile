@@ -48,6 +48,25 @@ optimade-defs:
 	curl -fsSL https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures.json -o src/httk/registry/schemas/atomistic/structures.json
 	curl -fsSL https://raw.githubusercontent.com/Materials-Consortia/schemas/master/LICENSE -o src/httk/registry/schemas/atomistic/LICENSE
 
+# Refresh the vendored httk property definitions from the published schemas.httk.org
+# v0.1 set (network target, like optimade-defs); the checked-in copies under
+# src/httk/registry/schemas/atomistic/ are the authoritative supported versions.
+HTTK_DEFS = \
+	core/fractional_coordinate_precision \
+	core/length_precision \
+	magnetism/site_moments \
+	pointgroups/crystal_system \
+	spacegroups/centring_type \
+	spacegroups/hall_entry \
+	spacegroups/is_reference_setting \
+	spacegroups/setting_it_nc \
+	symmetry/affine_transformation
+httk-defs:
+	set -e; for def in $(HTTK_DEFS); do \
+		curl -fsSL "https://schemas.httk.org/defs/v0.1/properties/$$def.json" \
+			-o "src/httk/registry/schemas/atomistic/$$(basename "$$def").json"; \
+	done
+
 # Refresh the vendored CC BY 4.0 symmetry datasets under src/httk/atomistic/data/ from a
 # local data-generators checkout. Offline, unlike optimade-defs. The transforms file is a
 # derived subset, written with a fixed gzip mtime so the output is byte-reproducible; see

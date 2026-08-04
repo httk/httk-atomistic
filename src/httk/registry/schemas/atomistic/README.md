@@ -22,11 +22,11 @@ The JSON and license files are packaged through the
 
 ## Published httk property definitions
 
-The remaining eight JSON files are the authoritative, supported copies of the
+The remaining nine JSON files are the authoritative, supported copies of the
 non-OPTIMADE-standard property definitions that *httk-atomistic* serves. They
 describe which setting a crystal structure is written in, the change of basis
-from the International Tables standard setting to it, and how precisely the
-structure's numbers were stated.
+from the International Tables standard setting to it, how precisely the
+structure's numbers were stated, and the magnetic moments of its sites.
 
 They are published definitions taken verbatim from
 [schemas.httk.org](https://schemas.httk.org), not local paraphrases. A client
@@ -42,6 +42,7 @@ following a property's `$id` therefore reaches the authoritative schema.
 | `_httk_setting_transform` | `affine_transformation.json` | `…/properties/symmetry/affine_transformation` |
 | `_httk_coordinate_precision` | `fractional_coordinate_precision.json` | `…/properties/core/fractional_coordinate_precision` |
 | `_httk_basis_precision` | `length_precision.json` | `…/properties/core/length_precision` |
+| `_httk_site_moments` | `site_moments.json` | `…/properties/magnetism/site_moments` |
 
 All are under `https://schemas.httk.org/defs/v0.1/properties/`.
 
@@ -59,8 +60,9 @@ as. The returned `PropertyDefinition.name` is nevertheless the served name;
 rewriting the published payload would defeat the point of pointing at it.
 
 The definitions are loaded at runtime by
-`httk.atomistic.entries.symmetry.setting_definitions()` and
-`httk.atomistic.entries.precision.precision_definitions()`, then merged into the served entry-type
+`httk.atomistic.entries.symmetry.setting_definitions()`,
+`httk.atomistic.entries.precision.precision_definitions()`, and
+`httk.atomistic.entries.moments.moment_definitions()`, then merged into the served entry-type
 definition by `httk.atomistic.StructureEntryProvider`. They are packaged through
 the same `httk.registry.schemas.atomistic` package-data entry.
 
@@ -107,13 +109,11 @@ is AGPL, and from the CC BY 4.0 symmetry datasets under `httk.atomistic/data/`.
 ## Refreshing
 
 Run `make optimade-defs` from the repository root to re-fetch `structures.json`
-and the OPTIMADE `LICENSE`. This is the only source task that uses the network;
-ordinary builds and tests read the committed copies offline. After a refresh,
-review the diff and re-commit only intended version changes.
-
-For the httk property definitions, copy the wanted files from a checkout of the
-published schemas repository:
-`defs/v0.1/properties/<section>/<name>.json`, keeping the basename. After a
-refresh, run `make test` (`tests/test_symmetry_entries.py` asserts that each
-definition still carries a `schemas.httk.org` `$id`) and re-commit only intended
-version changes.
+and the OPTIMADE `LICENSE`, and `make httk-defs` to re-fetch the nine httk
+property definitions from <https://schemas.httk.org> (the `HTTK_DEFS` list in
+the Makefile names them as `<section>/<name>`; basenames are kept). These are
+the only source tasks that use the network; ordinary builds and tests read the
+committed copies offline. After a refresh, run `make test`
+(`tests/test_symmetry_entries.py` asserts that each definition still carries a
+`schemas.httk.org` `$id`), review the diff, and re-commit only intended version
+changes.
