@@ -10,7 +10,7 @@ pytest.importorskip("httk.data.db")
 
 from httk.core import FracVector
 from httk.data.db import Database, SqlStore, stored_property_sql_plan
-from httk.data.optimade_query import FilterTranslationError
+from httk.data.query.optimade_filters import FilterTranslationError
 
 from httk.atomistic import (
     WyckoffSite,
