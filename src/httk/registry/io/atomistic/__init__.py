@@ -5,7 +5,7 @@ from httk.core.register import register_format_adapter
 register_format_adapter(
     name="atomistic-structures",
     adapter="httk.atomistic._loading:_structure_from_payload",
-    formats=("cif", "vasp-poscar"),
+    formats=("cif", "mcif", "vasp-poscar"),
 )
 from httk.core.register import register_format_serializer
 

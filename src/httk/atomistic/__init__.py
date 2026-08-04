@@ -47,12 +47,14 @@ from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.models.structure.datastream import DatastreamStructure
 from httk.atomistic.models.structure.like import StructureLike
+from httk.atomistic.models.structure.modulated import ModulatedStructure
 from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
 from httk.atomistic.models.structure.numeric_view import NumericUnitcellStructureView
 from httk.atomistic.models.structure.optimade import OptimadeStructure
 from httk.atomistic.models.structure.plain import PlainStructure
 from httk.atomistic.models.structure.plain_view import PlainStructureView
 from httk.atomistic.models.structure.semantics import StructureSymmetry
+from httk.atomistic.models.structure.symops import SymopsStructure
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.entries.structures import StructureEntry, StructureEntryProvider
@@ -126,6 +128,7 @@ __all__ = [
     "DatastreamStructure",
     "FundamentalDomainStructure",
     "FundamentalDomainStructureRecord",
+    "ModulatedStructure",
     "NumericUnitcellStructureView",
     "OptimadeStructure",
     "PlainSpeciesView",
@@ -144,6 +147,7 @@ __all__ = [
     "StructureLike",
     "StructureSymmetry",
     "SupercellResult",
+    "SymopsStructure",
     "UnitcellStructure",
     "UnitcellStructureRecord",
     "UnitcellStructureView",

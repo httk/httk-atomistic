@@ -113,6 +113,19 @@ def _structure_from_cif(data: Mapping[str, Any]) -> Any:
     return structures[0]
 
 
+def _structure_from_mcif(data: Mapping[str, Any]) -> Any:
+    """Build the native SymopsStructure or ModulatedStructure of one loaded mCIF."""
+    from .mcif_structures import symops_structures_from_mcif
+
+    structures = symops_structures_from_mcif(data)
+    if len(structures) != 1:
+        raise ValueError(
+            f"this mCIF holds {len(structures)} structures; load() builds one, so use "
+            f"symops_structures_from_mcif(httk.core.load(path, raw=True)) to get them all"
+        )
+    return structures[0]
+
+
 def _basis_precision(data: Mapping[str, Any], raw_basis: SurdVector, scale: Any) -> fractions.Fraction | None:
     """How precisely the POSCAR states its cell, as an absolute length."""
     cell_precision = data.get("cell_precision")
@@ -139,6 +152,7 @@ def _coordinate_precision(data: Mapping[str, Any], raw_basis: SurdVector) -> fra
 _STRUCTURE_ADAPTERS: dict[str, Callable[[Mapping[str, Any]], Any]] = {
     "vasp-poscar": _structure_from_poscar,
     "cif": _structure_from_cif,
+    "mcif": _structure_from_mcif,
 }
 
 
