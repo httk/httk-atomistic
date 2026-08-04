@@ -27,6 +27,13 @@ from httk.atomistic.models.sites.like import SitesLike
 from httk.atomistic.models.sites.plain import PlainSites
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.sites.view import SitesView
+from httk.atomistic.models.moments.backend import SiteMomentsBackend
+from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
+from httk.atomistic.models.moments.cartesian_view import CartesianSiteMomentsView
+from httk.atomistic.models.moments.collinear import CollinearSiteMoments
+from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
+from httk.atomistic.models.moments.crystalaxis_view import CrystalAxisSiteMomentsView
+from httk.atomistic.models.moments.like import SiteMomentsLike
 from httk.atomistic.models.species.backend import SpeciesBackend
 from httk.atomistic.models.species.like import SpeciesLike
 from httk.atomistic.models.species.plain import PlainSpecies
@@ -86,6 +93,7 @@ StructureBackend.backend_classes = [
 ]
 CellBackend.backend_classes = [PlainCell, CellParams, RecordCell]
 SitesBackend.backend_classes = [PlainSites, RecordSites]
+SiteMomentsBackend.backend_classes = []
 SpeciesBackend.backend_classes = [PlainSpecies, RecordSpecies]
 
 # Storage opt-in is exact-source-class scoped: core intentionally resolves this
@@ -103,13 +111,18 @@ __all__ = [
     "ASUStructureView",
     "AffineOperation",
     "Assembly",
+    "CartesianSiteMoments",
+    "CartesianSiteMomentsView",
     "Cell",
     "CellLike",
     "CellParams",
     "CellParamsView",
     "CellView",
     "ChemicalComposition",
+    "CollinearSiteMoments",
     "ConventionalCellResult",
+    "CrystalAxisSiteMoments",
+    "CrystalAxisSiteMomentsView",
     "DatastreamStructure",
     "FundamentalDomainStructure",
     "FundamentalDomainStructureRecord",
@@ -118,6 +131,7 @@ __all__ = [
     "PlainSpeciesView",
     "PlainStructureView",
     "SettingTransform",
+    "SiteMomentsLike",
     "Sites",
     "SitesLike",
     "SitesView",
