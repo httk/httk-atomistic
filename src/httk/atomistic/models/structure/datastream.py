@@ -62,8 +62,8 @@ class DatastreamStructure(StructureBackend):
         url = cls._url(obj)
         optimade = url is not None and cls._is_optimade_url(url)
         if isinstance(obj, urllib.request.Request) and optimade:
-            return super().__new__(cls) if httk.core.has_loader_for(name) else None
-        if httk.core.has_loader_for(name):
+            return super().__new__(cls) if httk.core.has_reader_for(name) else None
+        if httk.core.has_reader_for(name):
             return super().__new__(cls)
         if (
             isinstance(obj, str) and not cls._is_stream_source(obj) or isinstance(obj, httk.core.DatastreamURL)
@@ -83,7 +83,7 @@ class DatastreamStructure(StructureBackend):
             and request_url is not None
             and self._is_network_optimade_url(request_url)
             and self._name is not None
-            and httk.core.has_loader_for(self._name)
+            and httk.core.has_reader_for(self._name)
             and "name" not in self._hints
         ):
             raise ValueError(
