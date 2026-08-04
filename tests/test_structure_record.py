@@ -187,6 +187,9 @@ def test_unitcell_moments_round_trip_exactly(
     rebuilt = _structure_from_record(record)
     assert rebuilt.site_moments == source.site_moments
     assert rebuilt.site_moments.precision == source.site_moments.precision
+    viewed = UnitcellStructureView(record)
+    assert viewed.site_moments == source.site_moments
+    assert viewed.site_moments.precision == source.site_moments.precision
 
 
 def test_domain_site_moments_round_trip_exactly() -> None:
@@ -203,6 +206,7 @@ def test_domain_site_moments_round_trip_exactly() -> None:
     rebuilt = _domain_structure_from_record(record)
     assert rebuilt.domain_sites == source.domain_sites
     assert all(site.moment.precision == Fraction(1, 100) for site in rebuilt.domain_sites if site.moment is not None)
+    assert UnitcellStructureView(record).site_moments == UnitcellStructureView(source).site_moments
 
 
 @pytest.mark.parametrize(

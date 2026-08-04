@@ -20,6 +20,7 @@ from httk.atomistic.storage.records import (
     _assembly_from_record,
     _chemical_composition_from_record,
     _domain_structure_from_record,
+    _moment_from_record,
     _symmetry_from_record,
 )
 
@@ -86,6 +87,17 @@ class RecordStructure(StructureBackend):
             if isinstance(self._record, UnitcellStructureRecord)
             else self._expanded.species_at_sites
         )
+
+    @cached_property
+    def site_moments(self) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+        if isinstance(self._record, UnitcellStructureRecord):
+            return _moment_from_record(
+                self._record.site_moments_kind,
+                self._record.site_moments,
+                self._record.site_moments_precision,
+                self.cell,
+            )
+        return self._expanded.site_moments
 
     @property
     def molecular(self) -> bool:
