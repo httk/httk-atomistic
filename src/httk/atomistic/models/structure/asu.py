@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, ClassVar
 
-from httk.core import FracVector
+from httk.core import FracVector, SurdVector
 
 from httk.atomistic import data
 from httk.atomistic.composition import Assembly
@@ -35,6 +35,10 @@ from httk.atomistic.models._vector_guards import to_precision
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.like import CellLike
 from httk.atomistic.models.cell.view import CellView
+from httk.atomistic.models.moments.backend import SiteMomentsBackend
+from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
+from httk.atomistic.models.moments.collinear import CollinearSiteMoments
+from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.like import SpeciesLike
 from httk.atomistic.models.species.species import Species
@@ -57,6 +61,11 @@ class WyckoffSite:
     of that position — none at all for a fixed position such as an inversion centre.
     ``species`` names one of the owning structure's species.
 
+    Moment data uses verbatim-copy semantics: every expanded orbit image carries the same
+    moment. This is physically meaningful only when the site symmetry preserves that moment;
+    magnetic structures that break it must be represented as a unit cell (or via
+    ``SymopsStructure``, coming later).
+
     Partial occupancy needs nothing special here: it lives in the referenced
     :class:`~httk.atomistic.Species`, which already carries a composition.
     """
@@ -65,6 +74,7 @@ class WyckoffSite:
     free_params: FracVector
     species: str
     representative: FracVector | None = None
+    moment: SiteMomentsBackend | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "wyckoff", str(self.wyckoff))
@@ -75,6 +85,11 @@ class WyckoffSite:
             if representative.dim != (3,):
                 raise ValueError("WyckoffSite representative must be a three-dimensional coordinate")
             object.__setattr__(self, "representative", representative)
+        if self.moment is not None:
+            if not isinstance(self.moment, SiteMomentsBackend):
+                raise TypeError("WyckoffSite moment must be a SiteMomentsBackend")
+            if len(self.moment) != 1:
+                raise ValueError("WyckoffSite moment must contain exactly one site moment")
 
     def __repr__(self) -> str:
         values = ", ".join(str(value) for value in self.free_params.to_fractions()) if self.free_count else ""
@@ -133,6 +148,18 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         self._coordinate_precision = to_precision(coordinate_precision)
         self._wyckoff_sites = tuple(wyckoff_sites)
         self._species = tuple(item if isinstance(item, Species) else SpeciesView(item) for item in species)
+
+        moments = tuple(site.moment for site in self._wyckoff_sites)
+        if any(value is None for value in moments) and any(value is not None for value in moments):
+            raise ValueError("state moments for all sites or none")
+        stated_moments = tuple(value for value in moments if value is not None)
+        if stated_moments:
+            kind = getattr(stated_moments[0], "kind", None)
+            if any(getattr(value, "kind", None) != kind for value in stated_moments[1:]):
+                raise ValueError("ASUStructure site moments must all have the same kind")
+            for value in stated_moments:
+                if isinstance(value, CrystalAxisSiteMoments) and value.cell != self._cell:
+                    raise ValueError("ASUStructure site moments have incoherent crystal-axis frames")
 
         names = [item.name for item in self._species]
         if len(names) != len(set(names)):
@@ -463,6 +490,43 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         """The species name occupying each site produced by :meth:`expand_sites`, in order."""
         return self._expansion[1]
 
+    def expand_site_moments(self) -> SiteMomentsBackend | None:
+        """Return one exact structure-level moment for every represented site."""
+        moments = tuple(site.moment for site in self._wyckoff_sites)
+        if not moments or moments[0] is None:
+            return None
+        self._validate_expansion_semantics()
+        counts = (1,) * len(moments) if self.molecular else self.multiplicities()
+        first = moments[0]
+        if isinstance(first, CollinearSiteMoments):
+            values = [
+                site.moment.collinear_moments.to_fractions()[0]  # type: ignore[union-attr]
+                for site, count in zip(self._wyckoff_sites, counts)
+                for _ in range(count)
+            ]
+            return CollinearSiteMoments(values)
+        if isinstance(first, CrystalAxisSiteMoments):
+            rows = [
+                [
+                    site.moment.crystalaxis_moments._element((0, column))  # type: ignore[union-attr]
+                    for column in range(3)
+                ]
+                for site, count in zip(self._wyckoff_sites, counts)
+                for _ in range(count)
+            ]
+            return CrystalAxisSiteMoments(SurdVector._from_scalar_grid(rows, (len(rows), 3)), self._cell)
+        if isinstance(first, CartesianSiteMoments):
+            rows = [
+                [
+                    site.moment.cartesian_moments._element((0, column))  # type: ignore[union-attr]
+                    for column in range(3)
+                ]
+                for site, count in zip(self._wyckoff_sites, counts)
+                for _ in range(count)
+            ]
+            return CartesianSiteMoments(SurdVector._from_scalar_grid(rows, (len(rows), 3)))
+        raise TypeError(f"unsupported SiteMomentsBackend kind: {getattr(first, 'kind', None)!r}")
+
     def multiplicities(self) -> tuple[int, ...]:
         """How many cell sites each asymmetric-unit site generates, in order.
 
@@ -481,6 +545,10 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
     def species_at_sites(self) -> tuple[str, ...]:
         self._validate_expansion_semantics()
         return self.domain_species_at_sites if self.molecular else self.expand_species_at_sites()
+
+    @property
+    def site_moments(self) -> SiteMomentsBackend | None:
+        return self.expand_site_moments()
 
     @property
     def assemblies(self) -> tuple[Assembly, ...] | None:

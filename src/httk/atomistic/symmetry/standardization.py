@@ -191,6 +191,11 @@ def conventional_cell(
         )
 
     assert asu is not None
+    if any(site.moment is not None for site in asu.wyckoff_sites):
+        # ponytail: refusal; carry exact cartesian moments through once setting-change frame invariance is pinned by a test
+        raise ValueError(
+            "conventional_cell does not yet support structures with site moments; keep the original setting"
+        )
     transform = asu.transform
     basis_matrix = transform.matrix.T()
     coordinate_matrix = basis_matrix.inv()

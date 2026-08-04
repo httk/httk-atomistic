@@ -11,13 +11,14 @@ from httk.core.optimade import (
 )
 
 from httk.atomistic import (
+    CartesianSiteMoments,
     OptimadeStructure,
     StructureBackend,
     StructureEntryProvider,
     UnitcellStructureView,
 )
-from httk.atomistic.models.structure import semantics as structure_semantics
 from httk.atomistic.entries.precision import precision_definitions
+from httk.atomistic.models.structure import semantics as structure_semantics
 
 _STRUCTURES_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 
@@ -82,6 +83,30 @@ def _semantic_resource(attributes: dict[str, object]) -> OptimadeResource:
     )
     document = OptimadeDocument.create(
         json.dumps({"data": [{"id": "semantic", "type": "structures", "attributes": renamed}]}),
+        "https://example.test/v1/structures",
+    )
+    return OptimadeResource(document, 0, OptimadeSchemaSnapshot("structures", info))
+
+
+def _moment_resource(moment_rows: object) -> OptimadeResource:
+    schema = load_entry_type_definition(_STRUCTURES_ID)
+    names = {
+        "species_at_sites": "remote_species_at_sites",
+        "nsites": "remote_nsites",
+        "structure_features": "remote_structure_features",
+    }
+    properties = {remote: {"$id": schema.properties[name].definition_id} for name, remote in names.items()}
+    info = OptimadeDocument.create(
+        json.dumps({"data": {"properties": properties}}), "https://example.test/info/structures"
+    )
+    attributes = {
+        names["species_at_sites"]: ["Na", "Cl"],
+        names["nsites"]: 2,
+        names["structure_features"]: ["_httk_magnetism"],
+        "_httk_site_moments": moment_rows,
+    }
+    document = OptimadeDocument.create(
+        json.dumps({"data": [{"id": "magnetic", "type": "structures", "attributes": attributes}]}),
         "https://example.test/v1/structures",
     )
     return OptimadeResource(document, 0, OptimadeSchemaSnapshot("structures", info))
@@ -621,3 +646,17 @@ def test_nullable_geometry_does_not_force_native_precision_projection() -> None:
     record = next(iter(StructureEntryProvider({"remote": backend}).records("structures")))
     assert record["dimension_types"] is None
     assert record["_httk_coordinate_precision"] == pytest.approx(0.1)
+
+
+def test_optimade_site_moments_and_magnetism_feature() -> None:
+    backend = OptimadeStructure(_moment_resource([[1.5, 0.0, 0.0], [-1.5, 0.0, 0.0]]))
+
+    assert backend.site_moments == CartesianSiteMoments([[1.5, 0, 0], [-1.5, 0, 0]])
+    assert backend.structure_features == ("_httk_magnetism",)
+
+
+def test_optimade_site_moments_reject_malformed_shape() -> None:
+    backend = OptimadeStructure(_moment_resource([[1.0, 0.0], [-1.0, 0.0]]))
+
+    with pytest.raises(IncompleteOptimadeResourceError, match="_httk_site_moments"):
+        _ = backend.site_moments

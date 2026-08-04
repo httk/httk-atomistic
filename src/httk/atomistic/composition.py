@@ -300,6 +300,8 @@ def derive_structure_features(structure: Any) -> tuple[str, ...]:
     chemical = getattr(structure, "chemical_composition", None)
     if isinstance(chemical, ChemicalComposition) and chemical.mode == "implicit":
         features.add("implicit_atoms")
+    if getattr(structure, "site_moments", None) is not None:
+        features.add("_httk_magnetism")
     return tuple(sorted(features))
 
 

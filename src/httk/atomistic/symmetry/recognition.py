@@ -30,6 +30,10 @@ from typing import Any
 
 from httk.core import FracVector, SurdVector
 
+from httk.atomistic.models.moments.backend import SiteMomentsBackend
+from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
+from httk.atomistic.models.moments.collinear import CollinearSiteMoments
+from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.symmetry._periodic_wrap import wrap_periodic_half
@@ -290,6 +294,12 @@ def _group_into_orbits(
     cosets = transform.lattice_cosets()
     consumed = [False] * len(placed)
     wyckoff_sites: list[WyckoffSite] = []
+    site_moments = view.site_moments
+    if isinstance(site_moments, CrystalAxisSiteMoments) and site_moments.cell != cell:
+        raise ValueError(
+            "recognize_asu cannot re-express crystal-axis site moments in the target cell; "
+            "convert them to Cartesian first"
+        )
 
     for index, (position, parameters, _snapped) in enumerate(placed):
         if consumed[index]:
@@ -330,12 +340,53 @@ def _group_into_orbits(
 
         for other in members:
             consumed[other] = True
-        wyckoff_sites.append(WyckoffSite(position.letter, parameters, species))
+        moment = None if site_moments is None else _orbit_moment(site_moments, members, species, position, cell)
+        wyckoff_sites.append(WyckoffSite(position.letter, parameters, species, moment=moment))
 
     # The recognized ASU inherits the precision of the structure it came from: nothing
     # about recognition sharpens the data, and dropping it here would mean the value had
     # to be guessed again by everything downstream.
     return ASUStructure(cell, standard, wyckoff_sites, view.species, transform, view.sites.precision)
+
+
+def _orbit_moment(
+    site_moments: SiteMomentsBackend,
+    members: Sequence[int],
+    species: str,
+    position: WyckoffPosition,
+    cell: Any,
+) -> SiteMomentsBackend:
+    """Collapse one orbit's exact, uniform structure-level moment into one row."""
+    first = members[0]
+    values: Any
+    row: Any
+    uniform: bool
+    moment: SiteMomentsBackend
+    if isinstance(site_moments, CollinearSiteMoments):
+        values = site_moments.collinear_moments
+        row = values._element((first,))
+        uniform = all(values._element((index,)) == row for index in members[1:])
+        moment = CollinearSiteMoments([row], precision=site_moments.precision)
+    elif isinstance(site_moments, CartesianSiteMoments):
+        values = site_moments.cartesian_moments
+        row = [values._element((first, column)) for column in range(3)]
+        uniform = all([values._element((index, column)) for column in range(3)] == row for index in members[1:])
+        moment = CartesianSiteMoments(SurdVector._from_scalar_grid([row], (1, 3)), precision=site_moments.precision)
+    elif isinstance(site_moments, CrystalAxisSiteMoments):
+        values = site_moments.crystalaxis_moments
+        row = [values._element((first, column)) for column in range(3)]
+        uniform = all([values._element((index, column)) for column in range(3)] == row for index in members[1:])
+        moment = CrystalAxisSiteMoments(
+            SurdVector._from_scalar_grid([row], (1, 3)), cell, precision=site_moments.precision
+        )
+    else:
+        raise TypeError(f"unsupported SiteMomentsBackend kind: {getattr(site_moments, 'kind', None)!r}")
+    if not uniform:
+        raise ValueError(
+            f"orbit of {species} at {position.multiplicity}{position.letter} carries non-uniform site moments; "
+            "a fundamental domain cannot represent this magnetic structure — keep the unit cell"
+        )
+    return moment
 
 
 def _lies_in_orbit(point: FracVector, orbit: Sequence[FracVector], cell: Any, tolerance: float) -> bool:

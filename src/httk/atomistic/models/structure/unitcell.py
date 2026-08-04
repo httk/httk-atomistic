@@ -5,13 +5,17 @@ The Simple structure representation for httk-atomistic.
 import datetime
 import fractions
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from httk.core import SurdVector, VectorLike
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.like import CellLike
 from httk.atomistic.models.cell.view import CellView
+from httk.atomistic.models.moments.backend import SiteMomentsBackend
+from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
+from httk.atomistic.models.moments.like import SiteMomentsLike
+from httk.atomistic.models.moments.view_base import SiteMomentsViewBase
 from httk.atomistic.models.sites.like import SitesLike
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.sites.view import SitesView
@@ -46,6 +50,29 @@ def _norm_species(species: Sequence[SpeciesLike]) -> tuple[Species, ...]:
 
 def _norm_species_at_sites(species_at_sites: Sequence[object]) -> tuple[str, ...]:
     return tuple(str(name) for name in species_at_sites)
+
+
+def _norm_site_moments(value: SiteMomentsLike | None) -> SiteMomentsBackend | None:
+    if value is None:
+        return None
+    if isinstance(value, SiteMomentsBackend):
+        return value
+    if isinstance(value, SiteMomentsViewBase):
+        return cast(SiteMomentsBackend, value)
+    raise TypeError(
+        "UnitcellStructure site_moments must be a SiteMoments class or view; a bare array is "
+        "frame-ambiguous, so construct CartesianSiteMoments, CrystalAxisSiteMoments, or "
+        "CollinearSiteMoments explicitly"
+    )
+
+
+def _check_site_moments(value: SiteMomentsBackend | None, sites: Sites, cell: Cell) -> None:
+    if value is None:
+        return
+    if len(value) != len(sites):
+        raise ValueError("UnitcellStructure site_moments must have the same length as sites")
+    if isinstance(value, CrystalAxisSiteMoments) and value.cell != cell:
+        raise ValueError("UnitcellStructure site_moments has an incoherent crystal-axis frame")
 
 
 def _infer_species(species_at_sites: Sequence[SpeciesLike]) -> tuple[tuple[Species, ...], tuple[str, ...]]:
@@ -111,6 +138,7 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
     _sites: Sites
     _species: tuple[Species, ...]
     _species_at_sites: tuple[str, ...]
+    _site_moments: SiteMomentsBackend | None
     kind: ClassVar[str] = "unitcell"
 
     def __init__(
@@ -120,6 +148,7 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         species: Sequence[SpeciesLike] | None = None,
         species_at_sites: Sequence[SpeciesLike] | None = None,
         *,
+        site_moments: SiteMomentsLike | None = None,
         molecular: bool = False,
         assemblies: Sequence["Assembly"] | None = None,
         symmetry: StructureSymmetry | None = None,
@@ -142,11 +171,14 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         _check_sites_length(norm_sites, norm_species_at_sites)
         _check_species_names(norm_species)
         _check_species_at_sites(norm_species_at_sites, norm_species)
+        norm_site_moments = _norm_site_moments(site_moments)
+        _check_site_moments(norm_site_moments, norm_sites, norm_cell)
 
         self._cell = norm_cell
         self._sites = norm_sites
         self._species = norm_species
         self._species_at_sites = norm_species_at_sites
+        self._site_moments = norm_site_moments
         initialize_semantics(
             self,
             nsites=len(norm_sites),
@@ -180,6 +212,11 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
     def species_at_sites(self) -> tuple[str, ...]:
         """The species name occupying each site, in site order."""
         return self._species_at_sites
+
+    @property
+    def site_moments(self) -> SiteMomentsBackend | None:
+        """Optional per-site magnetic moments, in ``sites`` order."""
+        return self._site_moments
 
     @property
     def coordinate_precision(self) -> fractions.Fraction | None:
@@ -335,7 +372,11 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         )
 
     def __eq__(self, other: object) -> bool:
-        """Equality of geometry and all structural semantic assertions, including precision."""
+        """Equality of geometry and structural assertions, including precision and moments.
+
+        Moments are content and participate in equality; their own stated precision remains
+        excluded by the SiteMoments equality contract.
+        """
         if not isinstance(other, UnitcellStructure):
             return NotImplemented
         return (
@@ -345,6 +386,7 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
             and self.coordinate_precision == other.coordinate_precision
             and self._species == other._species
             and self._species_at_sites == other._species_at_sites
+            and self._site_moments == other._site_moments
             and self.molecular == other.molecular
             and self.assemblies == other.assemblies
             and self.symmetry == other.symmetry

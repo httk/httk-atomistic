@@ -5,6 +5,7 @@ The minimal canonical structure interface for httk-atomistic.
 from abc import ABC, abstractmethod
 
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 
@@ -38,3 +39,11 @@ class StructureAPI(ABC):
     @abstractmethod
     def species_at_sites(self) -> tuple[str, ...]:
         raise NotImplementedError
+
+    @property
+    def site_moments(self) -> SiteMomentsBackend | None:
+        """Optional per-site magnetic moments, one entry per site in ``sites`` order.
+
+        ``None`` means "nothing stated", not "zero moments".
+        """
+        return None

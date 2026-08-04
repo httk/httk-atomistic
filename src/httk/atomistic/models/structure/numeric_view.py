@@ -80,6 +80,11 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
         )
 
     @property
+    def site_moments(self) -> Any:
+        moments = self._exact.site_moments
+        return None if moments is None else to_numeric(moments.cartesian_moments)
+
+    @property
     def assemblies(self) -> tuple[Assembly, ...] | None:
         return self._exact.assemblies
 

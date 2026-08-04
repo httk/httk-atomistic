@@ -10,6 +10,7 @@ from httk.core.optimade import IncompleteOptimadeResourceError
 
 from httk.atomistic.composition import Assembly
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
@@ -18,10 +19,12 @@ from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.semantics import _METADATA_UNSET, _resolve_view_metadata, _semantic_value
 from httk.atomistic.models.structure.unitcell import (
     UnitcellStructure,
+    _check_site_moments,
     _check_sites_length,
     _check_species_at_sites,
     _check_species_names,
     _norm_cell,
+    _norm_site_moments,
     _norm_sites,
     _norm_species,
     _norm_species_at_sites,
@@ -159,6 +162,11 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
         _check_sites_length(sites, self._species_at_sites)
         object.__setattr__(self, "_sites", sites)
 
+    def _fill_site_moments(self) -> None:
+        value = _norm_site_moments(self._effective_backend().site_moments)
+        _check_site_moments(value, self.sites, self.cell)
+        object.__setattr__(self, "_site_moments", value)
+
     @cached_property
     def _cell(self) -> Cell:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
         self._fill_cell()
@@ -178,6 +186,15 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
     def _species_at_sites(self) -> tuple[str, ...]:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
         self._fill_species_at_sites()
         return self.__dict__["_species_at_sites"]
+
+    @cached_property
+    def _site_moments(self) -> SiteMomentsBackend | None:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
+        self._fill_site_moments()
+        return self.__dict__["_site_moments"]
+
+    @property
+    def site_moments(self) -> SiteMomentsBackend | None:
+        return self._site_moments
 
     def unwrap(self) -> Any:
         return unwrap(self._backend)

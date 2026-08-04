@@ -42,6 +42,7 @@ from httk.atomistic.composition import (
 )
 from httk.atomistic.entries.precision import precision_definitions
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.backend import StructureBackend
@@ -71,7 +72,7 @@ _COORDINATE_SPANS = frozenset(
     }
 )
 _UNIT_CELL_SPANS = frozenset({"unit_cell", "molecular_unit_cell"})
-_STRUCTURE_FEATURES = frozenset({"assemblies", "disorder", "implicit_atoms", "site_attachments"})
+_STRUCTURE_FEATURES = frozenset({"assemblies", "disorder", "implicit_atoms", "site_attachments", "_httk_magnetism"})
 _ANONYMOUS_TOKEN = re.compile(r"([A-Z][a-z]*)([1-9][0-9]*)?")
 _WYCKOFF = frozenset("abcdefghijklmnopqrstuvwxyzα")
 
@@ -196,6 +197,13 @@ class OptimadeStructure(StructureBackend):
         if not isinstance(attributes, Mapping):
             return _MISSING
         return attributes.get(remote_name, _MISSING)
+
+    def _raw_site_moments(self) -> object:
+        # TODO: resolve _httk_site_moments through its future property-definition helper.
+        attributes = self.raw.get("attributes")
+        if not isinstance(attributes, Mapping):
+            return _MISSING
+        return attributes.get("_httk_site_moments", _MISSING)
 
     def _decoded_optional(self, property_name: str) -> object | None:
         """Decode one optional source property without borrowing its transport name."""
@@ -748,6 +756,11 @@ class OptimadeStructure(StructureBackend):
                 raise IncompleteOptimadeResourceError(
                     f"OPTIMADE semantic property 'structure_features' has an inconsistent {flag!r} flag"
                 )
+        has_magnetism = self._raw_site_moments() not in (_MISSING, None)
+        if ("_httk_magnetism" in value) != has_magnetism:
+            raise IncompleteOptimadeResourceError(
+                "OPTIMADE semantic property 'structure_features' has an inconsistent '_httk_magnetism' flag"
+            )
         return value
 
     @cached_property
@@ -895,6 +908,20 @@ class OptimadeStructure(StructureBackend):
             return Fraction(cast(Decimal | int, value))
         lattice = self._raw_optional("lattice_vectors")
         return None if lattice is _MISSING else self._decimal_precision(lattice)
+
+    @stored_property
+    def site_moments(self) -> CartesianSiteMoments | None:
+        raw = self._raw_site_moments()
+        if raw is _MISSING or raw is None:
+            return None
+        raw_sites = self._raw_optional("species_at_sites")
+        nsites = len(raw_sites) if isinstance(raw_sites, tuple | list) else self.nsites
+        if not isinstance(nsites, int):
+            raise IncompleteOptimadeResourceError(
+                "OPTIMADE semantic property '_httk_site_moments' cannot validate its site count"
+            )
+        rows = self._numeric_matrix(raw, property_name="_httk_site_moments", rows=nsites)
+        return CartesianSiteMoments(rows)
 
     @cached_property
     def symmetry(self) -> StructureSymmetry:

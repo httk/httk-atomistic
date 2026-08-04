@@ -57,10 +57,24 @@ def same_crystal(first: StructureLike, second: StructureLike) -> bool:
     if left.cell.basis != right.cell.basis:
         return False
 
-    return _site_multiset(left) == _site_multiset(right)
+    left_moments = left.site_moments
+    right_moments = right.site_moments
+    if (left_moments is None) != (right_moments is None):
+        return False
+    left_kind = getattr(left_moments, "kind", None)
+    right_kind = getattr(right_moments, "kind", None)
+    if (
+        left_moments is not None
+        and right_moments is not None
+        and left_kind != right_kind
+        and (left_kind == "collinear" or right_kind == "collinear")
+    ):
+        return False
+
+    return _site_multiset(left, left_moments) == _site_multiset(right, right_moments)
 
 
-def _site_multiset(structure: Any) -> Counter[tuple[Any, ...]]:
+def _site_multiset(structure: Any, moments: Any = None) -> Counter[tuple[Any, ...]]:
     """Occupied sites as a multiset of ``(species, wrapped coordinate)``.
 
     A multiset rather than a set, so that a repeated entry counts. Collapsing duplicates
@@ -69,7 +83,17 @@ def _site_multiset(structure: Any) -> Counter[tuple[Any, ...]]:
     """
     by_name = {item.name: item for item in structure.species}
     wrapped = wrap_periodic(structure.sites.reduced_coords, structure.cell.periodicity)
+    moment_rows = _moment_rows(moments)
     return Counter(
-        (by_name[name], tuple(coordinate))
-        for name, coordinate in zip(structure.species_at_sites, wrapped.to_fractions())
+        (by_name[name], tuple(coordinate), None if moments is None else moment_rows[index])
+        for index, (name, coordinate) in enumerate(zip(structure.species_at_sites, wrapped.to_fractions()))
     )
+
+
+def _moment_rows(moments: Any) -> tuple[Any, ...]:
+    if moments is None:
+        return ()
+    if getattr(moments, "kind", None) == "collinear":
+        return tuple(moments.collinear_moments.to_fractions())
+    cartesian = moments.cartesian_moments
+    return tuple(tuple(cartesian._element((row, column)) for column in range(3)) for row in range(len(moments)))

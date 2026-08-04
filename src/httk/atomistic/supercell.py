@@ -22,6 +22,11 @@ from typing import Any
 from httk.core import FracVector, SurdScalar, SurdVector, VectorLike, unwrap
 
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.moments.backend import SiteMomentsBackend
+from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
+from httk.atomistic.models.moments.cartesian_view import CartesianSiteMomentsView
+from httk.atomistic.models.moments.collinear import CollinearSiteMoments
+from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structure.like import StructureLike
@@ -199,6 +204,8 @@ def build_supercell(
     Reduced coordinates are transformed by the inverse matrix and wrapped into
     ``[0, 1)``. Any input representation is first presented as a full
     :class:`~httk.atomistic.models.structure.unitcell.UnitcellStructure`.
+    Crystal-axis site moments are converted to Cartesian moments because the supercell has
+    new crystal axes; Cartesian and collinear moments retain their representation.
 
     Requires a fully 3D-periodic structure. Repeating a slab within its own plane is a
     perfectly sensible operation, but it is not this one: the transformation matrix here
@@ -238,6 +245,7 @@ def build_supercell(
     new_unscaled_basis = SurdVector.create(matrix) * view.cell.unscaled_basis
     new_cell = Cell(new_unscaled_basis, view.cell.scale, new_basis_precision)
     new_sites = Sites(transformed_coords, new_coordinate_precision)
+    new_site_moments = _replicated_site_moments(view.site_moments, multiplier)
     semantics = _semantic_source(view)
     assemblies = _replicated_assemblies(getattr(semantics, "assemblies", None), len(view.sites), multiplier)
     composition = getattr(semantics, "chemical_composition", None)
@@ -246,6 +254,7 @@ def build_supercell(
         new_sites,
         view.species,
         view.species_at_sites * multiplier,
+        site_moments=new_site_moments,
         molecular=bool(getattr(semantics, "molecular", False)),
         assemblies=assemblies,
         chemical_composition=_scaled_composition(composition, multiplier),
@@ -255,6 +264,24 @@ def build_supercell(
     )
     orthogonality, cubicity = _shape_scores(new_cell.metric())
     return SupercellResult(result, matrix, multiplier, orthogonality, cubicity)
+
+
+def _replicated_site_moments(moments: SiteMomentsBackend | None, multiplier: int) -> SiteMomentsBackend | None:
+    if moments is None:
+        return None
+    if isinstance(moments, CollinearSiteMoments):
+        return CollinearSiteMoments(moments.collinear_moments.to_fractions() * multiplier, precision=moments.precision)
+    if isinstance(moments, CrystalAxisSiteMoments):
+        moments = CartesianSiteMomentsView(moments)
+    if isinstance(moments, CartesianSiteMoments):
+        values = moments.cartesian_moments
+        rows = [
+            [values._element((index, column)) for column in range(3)]
+            for _ in range(multiplier)
+            for index in range(values.dim[0])
+        ]
+        return CartesianSiteMoments(SurdVector._from_scalar_grid(rows, (len(rows), 3)), precision=moments.precision)
+    raise TypeError(f"unsupported SiteMomentsBackend kind: {getattr(moments, 'kind', None)!r}")
 
 
 def _decimal_metric(cell: Cell) -> list[list[decimal.Decimal]]:
