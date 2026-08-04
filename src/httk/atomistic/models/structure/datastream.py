@@ -21,7 +21,7 @@ from httk.atomistic.models.structure.backend import StructureBackend
 class DatastreamStructure(StructureBackend):
     """A structure source parsed only when its data is first accessed.
 
-    Requests are intentionally loader-only: an OPTIMADE-shaped Request is declined so
+    Requests are intentionally reader-only: an OPTIMADE-shaped Request is declined so
     its headers are never lost by replacing it with ``fetch(url)``. Open streams are
     one-shot sources; a failed parse is not cached, but consumed data cannot be replayed.
     """
@@ -87,8 +87,8 @@ class DatastreamStructure(StructureBackend):
             and "name" not in self._hints
         ):
             raise ValueError(
-                "Request URL is both OPTIMADE-shaped and loader-named; use httk.core.fetch(url, kind=...) "
-                "or pass a name= hint to select the loader."
+                "Request URL is both OPTIMADE-shaped and reader-named; use httk.core.fetch(url, kind=...) "
+                "or pass a name= hint to select the reader."
             )
 
         if isinstance(obj, os.PathLike):
