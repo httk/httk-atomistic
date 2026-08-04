@@ -117,17 +117,36 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
                 "CIF cannot preserve an ASUStructure with an unregistered setting transform; "
                 "use a tabulated setting or save a unit-cell view"
             )
-        operations = tuple(obj.transform.symop_to_setting(operation) for operation in obj.spacegroup.symmetry_operations)
+        operations = tuple(
+            obj.transform.symop_to_setting(operation) for operation in obj.spacegroup.symmetry_operations
+        )
         positions = [
-            site.representative.normalize() if site.representative is not None else obj._representatives_for_site(site)[0]
+            site.representative.normalize()
+            if site.representative is not None
+            else obj._representatives_for_site(site)[0]
             for site in obj.wyckoff_sites
         ]
-        return {"format": "cif", "blocks": [_block(obj, positions, operations, spacegroup=setting, labels=[site.species for site in obj.wyckoff_sites])]}
+        return {
+            "format": "cif",
+            "blocks": [
+                _block(
+                    obj, positions, operations, spacegroup=setting, labels=[site.species for site in obj.wyckoff_sites]
+                )
+            ],
+        }
 
     structure = UnitcellStructureView(obj)
     identity = AffineOperation.identity()
     labels = list(structure.species_at_sites)
     return {
         "format": "cif",
-        "blocks": [_block(structure, list(structure.sites.reduced_coords), (identity,), spacegroup=Spacegroup.standard(1), labels=labels)],
+        "blocks": [
+            _block(
+                structure,
+                list(structure.sites.reduced_coords),
+                (identity,),
+                spacegroup=Spacegroup.standard(1),
+                labels=labels,
+            )
+        ],
     }
