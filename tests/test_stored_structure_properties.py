@@ -28,6 +28,7 @@ from httk.atomistic import (
 )
 from httk.atomistic.entries.precision import PRECISION_PROPERTY_KEYS
 from httk.atomistic.entries.symmetry import SETTING_PROPERTY_KEYS
+from httk.atomistic.models.moments import CartesianSiteMoments, CollinearSiteMoments, CrystalAxisSiteMoments
 
 _STANDARD = {
     "immutable_id",
@@ -57,6 +58,7 @@ _STANDARD = {
     "assemblies",
     "wyckoff_positions",
     "structure_features",
+    "_httk_site_moments",
     "optimization_type",
 }
 _EXPECTED = _STANDARD | set(SETTING_PROPERTY_KEYS) | set(PRECISION_PROPERTY_KEYS)
@@ -189,7 +191,7 @@ def test_stored_property_responses_match_the_natural_structure_provider(record: 
     projections = stored_property_projections(type(record))
     (natural,) = tuple(StructureEntryProvider({"entry": record}).records("structures"))
     assert {name: projection.response(record) for name, projection in projections.items()} == {
-        name: natural[name] for name in projections
+        name: natural.get(name) for name in projections
     }
 
 
@@ -226,6 +228,28 @@ def test_incomplete_normalized_composition_matches_the_natural_null_projection()
     for name in ("elements", "nelements", "elements_ratios", "chemical_formula_reduced", "chemical_formula_anonymous"):
         assert projections[name].response(record) is None
         assert projections[name].response(record) == natural[name]
+
+
+@pytest.mark.parametrize(
+    "moments",
+    (
+        CartesianSiteMoments([[1, 2, 3], [-1, 0, 1]]),
+        CrystalAxisSiteMoments([[1, 2, 3], [-1, 0, 1]], _unitcell().cell),
+        CollinearSiteMoments([1, -1]),
+    ),
+)
+def test_site_moment_response_is_cartesian_float_rows_or_null(
+    moments: CartesianSiteMoments | CrystalAxisSiteMoments | CollinearSiteMoments,
+) -> None:
+    record = _unitcell_record(_unitcell(site_moments=moments))
+    projection = stored_property_projections(UnitcellStructureRecord)["_httk_site_moments"]
+    assert projection.query is None
+    assert projection.response(record) == (
+        None if isinstance(moments, CollinearSiteMoments) else [[1.0, 2.0, 3.0], [-1.0, 0.0, 1.0]]
+    )
+    assert "_httk_magnetism" in stored_property_projections(UnitcellStructureRecord)["structure_features"].response(
+        record
+    )
 
 
 def test_formula_and_precision_queries_construct_exact_normalized_predicates() -> None:
@@ -274,8 +298,8 @@ def test_empty_complete_composition_keeps_formulas_unknown_but_elements_known() 
 
 
 def test_spacegroup_settings_are_cached_by_it_number() -> None:
-    import httk.atomistic.storage.stored_properties as stored_properties
     from httk.atomistic import data
+    from httk.atomistic.storage import stored_properties
 
     stored_properties._settings_by_it_number.cache_clear()
     grouped = stored_properties._settings_by_it_number()
@@ -308,6 +332,11 @@ def test_periodic_dimension_and_feature_queries_use_native_scopes(
     feature_expression = features(context, "=", ["site_attachments", "disorder"])
     assert _Value("field", ("species", "attached_present")) in _walk(feature_expression)
     assert _Value("field", site_name) in _walk(feature_expression)
+
+    magnetism = features(context, "HAS_ANY", ["_httk_magnetism"])
+    assert _Value("field", ("site_moments_kind",)) in _walk(magnetism) or _Value(
+        "field", ("domain_sites", "moment_kind")
+    ) in _walk(magnetism)
 
 
 @pytest.mark.parametrize(

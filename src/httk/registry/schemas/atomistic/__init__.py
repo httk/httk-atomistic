@@ -39,3 +39,7 @@ register_property_definition(
     definition_id="https://schemas.httk.org/defs/v0.1/properties/spacegroups/setting_it_nc",
     resource="httk.registry.schemas.atomistic:setting_it_nc.json",
 )
+register_property_definition(
+    definition_id="https://schemas.httk.org/defs/v0.1/properties/magnetism/site_moments",
+    resource="httk.registry.schemas.atomistic:site_moments.json",
+)

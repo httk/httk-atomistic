@@ -14,7 +14,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping
 from fractions import Fraction
 from itertools import combinations
-from typing import Any
+from typing import Any, cast
 
 from httk.core import SurdVector
 from httk.core.storage import (
@@ -68,10 +68,11 @@ _STANDARD_PROPERTIES: tuple[str, ...] = (
     "assemblies",
     "wyckoff_positions",
     "structure_features",
+    "_httk_site_moments",
     "optimization_type",
 )
 
-_FEATURES = ("assemblies", "disorder", "implicit_atoms", "site_attachments")
+_FEATURES = ("_httk_magnetism", "assemblies", "disorder", "implicit_atoms", "site_attachments")
 _COORDINATE_SPANS = frozenset(
     {
         "unit_cell",
@@ -125,7 +126,30 @@ def _structure_features_value(record: Any, backing: str) -> list[str]:
         features.add("site_attachments")
     if record.chemical_composition is not None and record.chemical_composition.mode == "implicit":
         features.add("implicit_atoms")
+    if (
+        record.site_moments_kind is not None
+        if backing == "unitcell"
+        else any(site.moment_kind is not None for site in record.domain_sites)
+    ):
+        features.add("_httk_magnetism")
     return sorted(features)
+
+
+def _site_moments_value(record: Any, backing: str) -> object:
+    from httk.atomistic.storage.records import _cell_from_record, _domain_structure_from_record, _moment_from_record
+
+    if backing == "unitcell":
+        moments = _moment_from_record(
+            record.site_moments_kind,
+            record.site_moments,
+            record.site_moments_precision,
+            _cell_from_record(record.cell),
+        )
+    else:
+        moments = _domain_structure_from_record(record).site_moments
+    if moments is None or cast(Any, moments).kind == "collinear":
+        return None
+    return moments.cartesian_moments.to_floats()
 
 
 def _coordinate_span(record: Any, backing: str) -> str:
@@ -294,6 +318,8 @@ def _response_value(record: Any, name: str, backing: str) -> object:
         return assemblies_payload(record.assemblies)
     if name == "structure_features":
         return _structure_features_value(record, backing)
+    if name == "_httk_site_moments":
+        return _site_moments_value(record, backing)
     if name in {
         "space_group_it_number",
         "space_group_symbol_hall",
@@ -672,7 +698,9 @@ def _used_species_scope(context: QueryContext, site_scope: QueryScope, site_name
     )
 
 
-def _feature_predicate(context: QueryContext, name: str, species: QueryScope) -> QueryExpression:
+def _feature_predicate(
+    context: QueryContext, name: str, species: QueryScope, moment_kind_path: tuple[str, ...]
+) -> QueryExpression:
     if name == "assemblies":
         return context.equal(context.field("assemblies_present"), context.constant(True))
     if name == "implicit_atoms":
@@ -691,6 +719,12 @@ def _feature_predicate(context: QueryContext, name: str, species: QueryScope) ->
             species,
             context.or_(context.compare(context.count(symbols), ">", context.constant(1)), partial),
         )
+    if name == "_httk_magnetism":
+        scope: QueryScope = context
+        for path_part in moment_kind_path[:-1]:
+            scope = scope.scope(path_part)
+        predicate = context.not_(context.is_null(scope.field(moment_kind_path[-1])))
+        return context.exists(scope, predicate) if moment_kind_path[:-1] else predicate
     raise AssertionError(f"unknown structure feature: {name}")
 
 
@@ -707,6 +741,7 @@ def _feature_literals(literal: object) -> tuple[str, ...]:
 
 def _structure_features_query(
     used_species: Callable[[QueryContext], QueryScope],
+    moment_kind_path: tuple[str, ...],
 ) -> Callable[[QueryContext, str, object], QueryExpression]:
     def query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
         if operator == "IS_KNOWN":
@@ -723,16 +758,16 @@ def _structure_features_query(
                 alternatives.append(
                     context.and_(
                         *[
-                            _feature_predicate(context, name, species)
+                            _feature_predicate(context, name, species, moment_kind_path)
                             if name in selected_set
-                            else context.not_(_feature_predicate(context, name, species))
+                            else context.not_(_feature_predicate(context, name, species, moment_kind_path))
                             for name in _FEATURES
                         ]
                     )
                 )
             return context.or_(*alternatives)
         values = _feature_literals(literal)
-        matches = [_feature_predicate(context, value, species) for value in values]
+        matches = [_feature_predicate(context, value, species, moment_kind_path) for value in values]
         if operator == "HAS_ANY":
             return context.or_(*matches)
         if operator == "HAS_ALL":
@@ -741,9 +776,9 @@ def _structure_features_query(
             allowed = frozenset(values)
             return context.and_(
                 *[
-                    _feature_predicate(context, name, species)
+                    _feature_predicate(context, name, species, moment_kind_path)
                     if name in allowed
-                    else context.not_(_feature_predicate(context, name, species))
+                    else context.not_(_feature_predicate(context, name, species, moment_kind_path))
                     for name in _FEATURES
                 ]
             )
@@ -751,9 +786,9 @@ def _structure_features_query(
             allowed = frozenset(values)
             result = context.and_(
                 *[
-                    _feature_predicate(context, name, species)
+                    _feature_predicate(context, name, species, moment_kind_path)
                     if name in allowed
-                    else context.not_(_feature_predicate(context, name, species))
+                    else context.not_(_feature_predicate(context, name, species, moment_kind_path))
                     for name in _FEATURES
                 ]
             )
@@ -822,6 +857,7 @@ def _common_queries(
     backing: str,
     coordinate_path: tuple[str, ...],
     used_species: Callable[[QueryContext], QueryScope],
+    moment_kind_path: tuple[str, ...],
 ) -> None:
     for name in ("immutable_id", "chemical_formula_descriptive", "chemical_formula_hill", "optimization_type"):
         projections[name] = StoredPropertyProjection(
@@ -844,7 +880,8 @@ def _common_queries(
         response=_response("chemical_formula_anonymous", backing), query=_formula_query(anonymous=True)
     )
     projections["structure_features"] = StoredPropertyProjection(
-        response=_response("structure_features", backing), query=_structure_features_query(used_species)
+        response=_response("structure_features", backing),
+        query=_structure_features_query(used_species, moment_kind_path),
     )
     projections["nperiodic_dimensions"] = StoredPropertyProjection(
         response=_response("nperiodic_dimensions", backing), query=_nperiodic_dimensions_query
@@ -871,6 +908,7 @@ def unitcell_structure_properties() -> Mapping[str, StoredPropertyProjection]:
         backing="unitcell",
         coordinate_path=("sites", "precision"),
         used_species=lambda context: _used_species_scope(context, context.scope("species_at_sites"), "value"),
+        moment_kind_path=("site_moments_kind",),
     )
     projections["site_coordinate_span"] = StoredPropertyProjection(
         response=_response("site_coordinate_span", "unitcell"),
@@ -895,6 +933,7 @@ def _domain_structure_properties(*, asymmetric_unit: bool) -> Mapping[str, Store
         backing=backing,
         coordinate_path=("coordinate_precision",),
         used_species=lambda context: _used_species_scope(context, context.scope("domain_sites"), "species"),
+        moment_kind_path=("domain_sites", "moment_kind"),
     )
     projections["site_coordinate_span"] = StoredPropertyProjection(
         response=_response("site_coordinate_span", backing),

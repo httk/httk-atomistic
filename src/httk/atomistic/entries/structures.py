@@ -17,6 +17,7 @@ from httk.core.datastream import BytestreamBackend, BytestreamView, TextstreamBa
 from httk.core.optimade import IncompleteOptimadeResourceError
 
 from httk.atomistic.entries._payloads import assemblies_payload, species_payload
+from httk.atomistic.entries.moments import MOMENT_PROPERTY_KEYS, moment_definitions, moment_properties
 from httk.atomistic.entries.precision import PRECISION_PROPERTY_KEYS, precision_definitions, precision_properties
 from httk.atomistic.entries.symmetry import (
     SETTING_PROPERTY_KEYS,
@@ -87,7 +88,12 @@ class StructureEntry:
     @classmethod
     def entry_type_definition(cls) -> EntryTypeDefinition:
         """Return the standard structure definition extended by atomistic properties."""
-        return _structures_definition().extended(setting_definitions()).extended(precision_definitions())
+        return (
+            _structures_definition()
+            .extended(setting_definitions())
+            .extended(precision_definitions())
+            .extended(moment_definitions())
+        )
 
 
 def _as_structure(obj: StructureLike) -> Any:
@@ -284,6 +290,7 @@ class StructureEntryProvider(EntryProvider):
         property_keys = {name: ("__id" if name == "id" else name) for name in _STANDARD_PROPERTY_NAMES}
         property_keys.update({name: name for name in SETTING_PROPERTY_KEYS})
         property_keys.update({name: name for name in PRECISION_PROPERTY_KEYS})
+        property_keys.update({name: name for name in MOMENT_PROPERTY_KEYS})
         property_keys.update({name: name for name in self._property_names})
         return property_keys
 
@@ -307,6 +314,7 @@ class StructureEntryProvider(EntryProvider):
                 record.update({name: None for name in _STANDARD_STRUCTURE_NAMES})
                 record.update(symmetry_properties(None))
                 record.update(precision_properties(None))
+                record.update(moment_properties(None))
             else:
                 record.update(_structure_projection(structure))
                 # Provider-specific setting/precision fields remain extensions to the
@@ -318,6 +326,12 @@ class StructureEntryProvider(EntryProvider):
                     if structure.site_coordinate_span in {"unit_cell", "molecular_unit_cell"}:
                         raise
                     record.update({name: None for name in PRECISION_PROPERTY_KEYS})
+                try:
+                    record.update(moment_properties(structure))
+                except IncompleteOptimadeResourceError:
+                    if structure.site_coordinate_span in {"unit_cell", "molecular_unit_cell"}:
+                        raise
+                    record.update({name: None for name in MOMENT_PROPERTY_KEYS})
             entry_properties = self._properties.get(entry_id, {})
             for name in self._property_names:
                 record[name] = entry_properties.get(name)

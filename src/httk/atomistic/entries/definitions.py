@@ -26,6 +26,7 @@ _DEFINITION_IDS = {
     "is_reference_setting": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/is_reference_setting",
     "length_precision": "https://schemas.httk.org/defs/v0.1/properties/core/length_precision",
     "setting_it_nc": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/setting_it_nc",
+    "site_moments": "https://schemas.httk.org/defs/v0.1/properties/magnetism/site_moments",
 }
 
 

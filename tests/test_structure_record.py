@@ -22,6 +22,7 @@ from httk.atomistic import (
     UnitcellStructureView,
     WyckoffSite,
 )
+from httk.atomistic.models.moments import CartesianSiteMoments, CollinearSiteMoments, CrystalAxisSiteMoments
 from httk.atomistic.models.structure.view import StructureView
 from httk.atomistic.storage.records import (
     AssemblyGroupRecord,
@@ -36,6 +37,8 @@ from httk.atomistic.storage.records import (
     SpeciesRecord,
     SymmetryRecord,
     WyckoffSiteRecord,
+    _domain_structure_from_record,
+    _structure_from_record,
     validate_structure_record,
 )
 
@@ -126,6 +129,11 @@ def _unitcell_record(source: UnitcellStructure) -> UnitcellStructureRecord:
         **common,
         sites=SitesRecord(**project_storage_record(SitesRecord, source.sites)),
         species_at_sites=source.species_at_sites,
+        site_moments_kind=None if source.site_moments is None else source.site_moments.kind,
+        site_moments=None
+        if source.site_moments is None
+        else project_storage_record(UnitcellStructureRecord, source)["site_moments"],
+        site_moments_precision=None if source.site_moments is None else source.site_moments.precision,
         symmetry=None
         if source.symmetry is None
         else SymmetryRecord(**SymmetryRecord.__httk_project__(source.symmetry)),
@@ -159,7 +167,42 @@ def test_exact_source_bindings_are_representation_local() -> None:
 def test_projected_and_materialized_unitcell_have_the_same_content_id() -> None:
     source = _unitcell()
     record = _unitcell_record(source)
+    assert (record.site_moments_kind, record.site_moments, record.site_moments_precision) == (None, None, None)
     assert content_id(source) == content_id(record) == source.id == record.id
+
+
+@pytest.mark.parametrize(
+    "moments",
+    (
+        CartesianSiteMoments([[1, 2, 3], [-1, 0, 1]], precision=Fraction(1, 100)),
+        CrystalAxisSiteMoments([[1, 2, 3], [-1, 0, 1]], _unitcell().cell, precision=Fraction(1, 100)),
+        CollinearSiteMoments([1, -1], precision=Fraction(1, 100)),
+    ),
+)
+def test_unitcell_moments_round_trip_exactly(
+    moments: CartesianSiteMoments | CrystalAxisSiteMoments | CollinearSiteMoments,
+) -> None:
+    source = _unitcell(site_moments=moments)
+    record = _unitcell_record(source)
+    rebuilt = _structure_from_record(record)
+    assert rebuilt.site_moments == source.site_moments
+    assert rebuilt.site_moments.precision == source.site_moments.precision
+
+
+def test_domain_site_moments_round_trip_exactly() -> None:
+    source = ASUStructure(
+        [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
+        225,
+        (
+            WyckoffSite("a", (), "Na", moment=CartesianSiteMoments([[1, 2, 3]], precision=Fraction(1, 100))),
+            WyckoffSite("b", (), "Cl", moment=CartesianSiteMoments([[-1, 0, 1]], precision=Fraction(1, 100))),
+        ),
+        _species(),
+    )
+    record = _domain_record(source)
+    rebuilt = _domain_structure_from_record(record)
+    assert rebuilt.domain_sites == source.domain_sites
+    assert all(site.moment.precision == Fraction(1, 100) for site in rebuilt.domain_sites if site.moment is not None)
 
 
 @pytest.mark.parametrize(
@@ -191,9 +234,9 @@ def test_record_identity_names_are_storage_names(record_type: type[object]) -> N
 def test_content_id_is_layout_independent_without_sqlalchemy() -> None:
     source = _unitcell()
 
-    # 2026-08-04 identity-name pinning: ids are layout-independent now; a future move must
-    # not change this value.
-    assert content_id(source) == "6a1a336c3a7f21bb929d7ada05cd16825741ceffb44fca9e5328f74cbfac2208"
+    # 2026-08-04 identity-name pinning plus 2026-08 site-moments fields: pre-existing
+    # stores must be rebuilt; a future move must not change this value.
+    assert content_id(source) == "1673ab7b2b843705487850a874974126d8310f712d88cc928bca362834bb8a54"
 
 
 def test_sql_store_unitcell_rename_preserves_content_id() -> None:
@@ -205,7 +248,20 @@ def test_sql_store_unitcell_rename_preserves_content_id() -> None:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
 
-    assert content_id(source) == "6a1a336c3a7f21bb929d7ada05cd16825741ceffb44fca9e5328f74cbfac2208"
+    assert content_id(source) == "1673ab7b2b843705487850a874974126d8310f712d88cc928bca362834bb8a54"
+
+
+def test_sql_store_round_trips_site_moments() -> None:
+    pytest.importorskip("sqlalchemy")
+    from httk.data.db import Database, SqlStore
+
+    source = _unitcell(site_moments=CartesianSiteMoments([[1, 2, 3], [-1, 0, 1]], precision=Fraction(1, 100)))
+    with Database.sqlite() as database:
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        fetched = store.fetch(UnitcellStructureRecord, store.save(source))
+
+    assert _structure_from_record(fetched).site_moments == source.site_moments
+    assert fetched.site_moments_precision == Fraction(1, 100)
 
 
 @pytest.mark.parametrize(

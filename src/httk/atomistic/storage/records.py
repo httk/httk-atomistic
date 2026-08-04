@@ -2,6 +2,7 @@
 
 import datetime
 import fractions
+import itertools
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -19,6 +20,9 @@ from httk.atomistic._composition_values import as_fraction
 from httk.atomistic.composition import Assembly, ChemicalComposition, CompositionResult, validate_assemblies
 from httk.atomistic.models._vector_guards import to_periodicity, to_precision
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
+from httk.atomistic.models.moments.collinear import CollinearSiteMoments
+from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
@@ -61,6 +65,62 @@ def _basis_vector(basis: tuple[SurdScalar, ...]) -> SurdVector:
         for radicand in radicands
     }
     return SurdVector.from_radicand_map(components)
+
+
+_SITE_MOMENT_KINDS = frozenset(("cartesian", "crystalaxis", "collinear"))
+
+
+def _moment_components(moment: Any) -> tuple[SurdScalar, ...]:
+    if moment.kind == "collinear":
+        return tuple(SurdVector.create(value)._as_scalar() for value in moment.collinear_moments.to_fractions())
+    values = moment.cartesian_moments if moment.kind == "cartesian" else moment.crystalaxis_moments
+    return tuple(values._element(index) for index in itertools.product(*[range(size) for size in values.dim]))
+
+
+def _moment_from_record(
+    kind: str | None,
+    components: tuple[SurdScalar, ...] | None,
+    precision: fractions.Fraction | None,
+    cell: Cell | None = None,
+) -> Any:
+    if kind is None:
+        return None
+    assert components is not None
+    if kind == "collinear":
+        if any(not value.is_rational for value in components):
+            raise ValueError("collinear moment components must be rational")
+        return CollinearSiteMoments(tuple(value.to_fractions_approx() for value in components), precision=precision)
+    rows = [list(components[offset : offset + 3]) for offset in range(0, len(components), 3)]
+    vector = SurdVector._from_scalar_grid(rows, (len(rows), 3))
+    if kind == "cartesian":
+        return CartesianSiteMoments(vector, precision=precision)
+    assert cell is not None
+    return CrystalAxisSiteMoments(vector, cell, precision=precision)
+
+
+def _validate_moment_fields(record: Any, record_name: str, *, nsites: int | None = None) -> None:
+    kind = record.site_moments_kind if hasattr(record, "site_moments_kind") else record.moment_kind
+    components = record.site_moments if hasattr(record, "site_moments") else record.moment
+    precision_name = "site_moments_precision" if hasattr(record, "site_moments_precision") else "moment_precision"
+    precision = to_precision(getattr(record, precision_name))
+    if kind is None:
+        if components is not None or precision is not None:
+            raise ValueError(f"{record_name} moment components and precision require a moment kind")
+        return
+    if kind not in _SITE_MOMENT_KINDS:
+        raise ValueError(f"{record_name} moment kind must be one of {sorted(_SITE_MOMENT_KINDS)!r}")
+    if components is None:
+        raise ValueError(f"{record_name} moment kind requires components")
+    components = tuple(
+        value if isinstance(value, SurdScalar) else SurdVector.create(value)._as_scalar() for value in components
+    )
+    expected = (
+        (nsites if kind == "collinear" else 3 * nsites) if nsites is not None else (1 if kind == "collinear" else 3)
+    )
+    if len(components) != expected:
+        raise ValueError(f"{record_name} moment components have the wrong shape for {kind!r}")
+    object.__setattr__(record, "site_moments" if hasattr(record, "site_moments") else "moment", components)
+    object.__setattr__(record, precision_name, precision)
 
 
 @dataclass(frozen=True)
@@ -261,6 +321,9 @@ class WyckoffSiteRecord:
     free_parameters: tuple[fractions.Fraction, ...]
     species: str
     representative: tuple[fractions.Fraction, ...] | None = None
+    moment_kind: str | None = None
+    moment: tuple[SurdScalar, ...] | None = None
+    moment_precision: fractions.Fraction | None = None
 
     @classmethod
     def __httk_project__(cls, site: WyckoffSite) -> Mapping[str, object]:
@@ -269,6 +332,9 @@ class WyckoffSiteRecord:
             "free_parameters": tuple(site.free_params.to_fractions()),
             "species": site.species,
             "representative": None if site.representative is None else tuple(site.representative.to_fractions()),
+            "moment_kind": None if site.moment is None else cast(Any, site.moment).kind,
+            "moment": None if site.moment is None else _moment_components(site.moment),
+            "moment_precision": None if site.moment is None else site.moment.precision,
         }
 
     def __post_init__(self) -> None:
@@ -284,6 +350,7 @@ class WyckoffSiteRecord:
             raise ValueError("WyckoffSiteRecord species must be non-empty")
         if representative is not None and len(representative) != 3:
             raise ValueError("WyckoffSiteRecord representative must have exactly three values")
+        _validate_moment_fields(self, "WyckoffSiteRecord")
         object.__setattr__(self, "free_parameters", free)
         object.__setattr__(self, "representative", representative)
 
@@ -745,6 +812,9 @@ class UnitcellStructureRecord:
     species: tuple[SpeciesRecord, ...]
     species_at_sites: tuple[str, ...]
     normalized_composition: NormalizedCompositionRecord
+    site_moments_kind: str | None = None
+    site_moments: tuple[SurdScalar, ...] | None = None
+    site_moments_precision: fractions.Fraction | None = None
     molecular: bool = False
     assemblies: tuple[AssemblyRecord, ...] | None = None
     symmetry: SymmetryRecord | None = None
@@ -779,6 +849,7 @@ class UnitcellStructureRecord:
             raise ValueError("UnitcellStructureRecord species_at_sites must match sites")
         if unknown := set(species_at_sites) - known:
             raise ValueError(f"UnitcellStructureRecord references unknown species: {sorted(unknown)!r}")
+        _validate_moment_fields(self, "UnitcellStructureRecord", nsites=len(species_at_sites))
         if self.symmetry is not None and not isinstance(self.symmetry, SymmetryRecord):
             raise TypeError("UnitcellStructureRecord symmetry must be a SymmetryRecord or None")
         object.__setattr__(self, "species_at_sites", species_at_sites)
@@ -791,6 +862,9 @@ class UnitcellStructureRecord:
                 "sites": structure.sites,
                 "species_at_sites": structure.species_at_sites,
                 "symmetry": structure.symmetry,
+                "site_moments_kind": None if structure.site_moments is None else cast(Any, structure.site_moments).kind,
+                "site_moments": None if structure.site_moments is None else _moment_components(structure.site_moments),
+                "site_moments_precision": None if structure.site_moments is None else structure.site_moments.precision,
             }
         )
         return values
@@ -991,6 +1065,12 @@ def _domain_structure_from_record(
                 FracVector.create(value.free_parameters),
                 value.species,
                 None if value.representative is None else FracVector.create(value.representative),
+                moment=_moment_from_record(
+                    value.moment_kind,
+                    value.moment,
+                    value.moment_precision,
+                    _cell_from_record(record.cell),
+                ),
             )
             for value in record.domain_sites
         ),
@@ -1011,6 +1091,12 @@ def _structure_from_record(
         _sites_from_record(record.sites),
         tuple(_species_from_record(value) for value in record.species),
         record.species_at_sites,
+        site_moments=_moment_from_record(
+            record.site_moments_kind,
+            record.site_moments,
+            record.site_moments_precision,
+            _cell_from_record(record.cell),
+        ),
         symmetry=None if record.symmetry is None else _symmetry_from_record(record.symmetry),
         **_common_constructor_values(record),
     )

@@ -1,0 +1,72 @@
+{
+    "$id": "https://schemas.httk.org/defs/v0.1/properties/magnetism/site_moments",
+    "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
+    "title": "Site magnetic moments",
+    "x-optimade-type": "list",
+    "x-optimade-definition": {
+        "kind": "property",
+        "version": "0.1.0",
+        "format": "1.3",
+        "name": "site_moments",
+        "label": "site_moments_magnetism"
+    },
+    "x-optimade-unit": "inapplicable",
+    "type": [
+        "array",
+        "null"
+    ],
+    "description": "The magnetic moment vector of each site, in Cartesian coordinates and Bohr magnetons.\n\n**Requirements/Conventions**:\n\n- The outer list MUST have the same length and order as the sites of the structure,\n  i.e., one inner list per member of `cartesian_site_positions`.\n- Each inner list is the magnetic moment vector of the corresponding site, given as\n  three Cartesian components in Bohr magnetons.\n- The Cartesian frame MUST be the same frame in which `lattice_vectors` and\n  `cartesian_site_positions` are expressed.\n- A site with no ordered magnetic moment MUST be given as the zero vector.\n- The value MUST be `null` where moments are unknown, and where only collinear moment\n  magnitudes without a global axis are recorded, since no Cartesian direction can then\n  be stated.",
+    "items": {
+        "x-optimade-type": "list",
+        "x-optimade-unit": "inapplicable",
+        "type": [
+            "array"
+        ],
+        "x-optimade-dimensions": {
+            "names": [
+                "dim_cartesian"
+            ],
+            "sizes": [
+                3
+            ]
+        },
+        "items": {
+            "x-optimade-type": "float",
+            "x-optimade-unit": "bohrmagneton",
+            "type": [
+                "number"
+            ]
+        }
+    },
+    "examples": [
+        [
+            [
+                0.0,
+                0.0,
+                2.0
+            ],
+            [
+                0.0,
+                0.0,
+                -2.0
+            ]
+        ],
+        [
+            [
+                1.2,
+                0.0,
+                0.0
+            ],
+            [
+                -1.2,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                0.0
+            ]
+        ]
+    ]
+}
