@@ -85,18 +85,21 @@ from .supercell import (
     orthogonal_supercell,
 )
 
+# Record backends first: they match their exact record classes by isinstance and
+# reject everything else instantly, so record inputs never fall through the
+# parse-and-raise probes of the raw-input backends (and raw inputs lose nothing).
 StructureBackend.backend_classes = [
+    RecordStructure,
     OptimadeStructure,
     PlainStructure,
     NumericUnitcellStructure,
     ASEAtoms,
-    RecordStructure,
     DatastreamStructure,
 ]
-CellBackend.backend_classes = [PlainCell, CellParams, RecordCell]
-SitesBackend.backend_classes = [PlainSites, RecordSites]
+CellBackend.backend_classes = [RecordCell, PlainCell, CellParams]
+SitesBackend.backend_classes = [RecordSites, PlainSites]
 SiteMomentsBackend.backend_classes = []
-SpeciesBackend.backend_classes = [PlainSpecies, RecordSpecies]
+SpeciesBackend.backend_classes = [RecordSpecies, PlainSpecies]
 
 # Storage opt-in is exact-source-class scoped: core intentionally resolves this
 # attribute through vars(type(source)), never by inheritance.
