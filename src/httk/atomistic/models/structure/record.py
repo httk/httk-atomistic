@@ -62,12 +62,14 @@ class RecordStructure(StructureBackend):
 
     @cached_property
     def cell(self) -> Cell:  # pyright: ignore[reportIncompatibleMethodOverride]
-        return CellView(cast(Any, self._record.cell)) if self._is_unitcell else self._native.cell
+        # These wrap sites hold record components by construction, so the kind
+        # hint selects the record backend without probing the raw-input ones.
+        return CellView(cast(Any, self._record.cell), kind="record") if self._is_unitcell else self._native.cell
 
     @cached_property
     def sites(self) -> Sites:  # pyright: ignore[reportIncompatibleMethodOverride]
         return (
-            SitesView(cast(Any, self._record.sites))
+            SitesView(cast(Any, self._record.sites), kind="record")
             if isinstance(self._record, UnitcellStructureRecord)
             else self._expanded.sites
         )
@@ -75,7 +77,7 @@ class RecordStructure(StructureBackend):
     @cached_property
     def species(self) -> tuple[Species, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
         return (
-            tuple(SpeciesView(cast(Any, value)) for value in self._record.species)
+            tuple(SpeciesView(cast(Any, value), kind="record") for value in self._record.species)
             if self._is_unitcell
             else self._native.species
         )

@@ -124,8 +124,22 @@ def _is_empty_sequence(obj: Any) -> bool:
     return isinstance(obj, (list, tuple)) and len(obj) == 0
 
 
+def _vector_shaped(obj: Any) -> bool:
+    """Cheap structural test run before an exact conversion is attempted.
+
+    Foreign objects (records, row proxies, arbitrary domain classes) are rejected
+    on one isinstance check instead of failing deep inside the exact numeric
+    tower; only plausibly vector-like inputs reach the EAFP conversion attempt.
+    """
+    if isinstance(obj, (FracVector, SurdVector)):
+        return True
+    return not isinstance(obj, (str, bytes)) and isinstance(obj, Iterable)
+
+
 def is_basis_3x3(obj: Any) -> bool:
     """True iff ``obj`` builds a vector of shape ``(3, 3)`` (a cell basis)."""
+    if not _vector_shaped(obj):
+        return False
     value = try_surdvector(obj)
     return value is not None and value.dim == (3, 3)
 
@@ -134,11 +148,15 @@ def is_coords_nx3(obj: Any) -> bool:
     """True iff ``obj`` builds a vector of shape ``(N, 3)`` (reduced coordinates); empty allowed."""
     if _is_empty_sequence(obj):
         return True
+    if not _vector_shaped(obj):
+        return False
     value = try_surdvector(obj)
     return value is not None and len(value.dim) == 2 and value.dim[1] == 3
 
 
 def is_params6(obj: Any) -> bool:
     """True iff ``obj`` builds a flat length-6 vector (cell parameters ``a,b,c,alpha,beta,gamma``)."""
+    if not _vector_shaped(obj):
+        return False
     value = try_surdvector(obj)
     return value is not None and value.dim == (6,)
