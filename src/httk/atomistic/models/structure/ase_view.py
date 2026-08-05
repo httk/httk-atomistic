@@ -89,5 +89,9 @@ class ASEAtomsView(StructureView, ase.Atoms):
         """Return the raw object represented by the underlying structure backend."""
         return unwrap(self._backend)
 
+    def unview(self) -> ase.Atoms:
+        # ase.Atoms(other) builds a base-class copy of the presented atoms.
+        return ase.Atoms(self)
+
 
 __all__ = ["ASEAtomsView"]

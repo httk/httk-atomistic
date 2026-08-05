@@ -122,3 +122,30 @@ class ASUStructureView(StructureView, ASUStructure):
 
     def unwrap(self) -> Any:
         return unwrap(self._backend)
+
+    def unview(self) -> ASUStructure:
+        # A genuine ASUStructure backend carrying the same metadata is exactly the presented
+        # value: reuse it. Otherwise materialize a plain ASUStructure from the view's own
+        # (eagerly initialized) state.
+        backend = self._backend
+        if type(backend) is ASUStructure and (self.immutable_id, self.last_modified) == (
+            backend.immutable_id,
+            backend.last_modified,
+        ):
+            return backend
+        return ASUStructure(
+            self.cell,
+            self.spacegroup,
+            self.wyckoff_sites,
+            self.species,
+            self.transform,
+            self.coordinate_precision,
+            molecular=self.molecular,
+            assemblies=self._assemblies,
+            chemical_composition=self.chemical_composition,
+            chemical_formula_descriptive=self.chemical_formula_descriptive,
+            chemical_formula_hill=self.chemical_formula_hill,
+            optimization_type=self.optimization_type,
+            immutable_id=self.immutable_id,
+            last_modified=self.last_modified,
+        )

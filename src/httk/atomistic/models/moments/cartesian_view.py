@@ -47,3 +47,10 @@ class CartesianSiteMomentsView(SiteMomentsViewBase, CartesianSiteMoments):
     def _precision(self) -> fractions.Fraction | None:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
         self._fill_precision()
         return self.__dict__["_precision"]
+
+    def unview(self) -> CartesianSiteMoments:
+        # A genuine CartesianSiteMoments backend is exactly the presented value: reuse it.
+        backend = self._backend
+        if type(backend) is CartesianSiteMoments:
+            return backend
+        return CartesianSiteMoments(self._cartesian_moments, self._precision)

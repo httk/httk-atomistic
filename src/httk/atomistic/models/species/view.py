@@ -50,3 +50,19 @@ class SpeciesView(SpeciesViewBase, Species):
 
     def unwrap(self) -> Any:
         return unwrap(self._backend)
+
+    def unview(self) -> Species:
+        # The folded design makes a genuine Species backend exactly the presented value: reuse it.
+        backend = self._backend
+        if type(backend) is Species:
+            return backend
+        return Species(
+            name=self.name,
+            chemical_symbols=self.chemical_symbols,
+            concentration=self.concentration,
+            mass=self.mass,
+            original_name=self.original_name,
+            attached=self.attached,
+            nattached=self.nattached,
+            concentration_precision=self.concentration_precision,
+        )

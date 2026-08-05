@@ -49,3 +49,10 @@ class SitesNumericView(SitesViewBase, NumericSites):
 
     def unwrap(self) -> Any:
         return unwrap(self._backend)
+
+    def unview(self) -> NumericSites:
+        # A genuine NumericSites backend is exactly the presented value: reuse it.
+        backend = self._backend
+        if type(backend) is NumericSites:
+            return backend
+        return NumericSites(self._sites)

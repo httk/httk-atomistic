@@ -77,3 +77,7 @@ class CellParamsView(CellViewBase, tuple):
 
     def unwrap(self) -> Any:
         return unwrap(self._backend)
+
+    def unview(self) -> tuple:
+        # The view IS its presentation 6-tuple; shed to a plain tuple.
+        return tuple(self)

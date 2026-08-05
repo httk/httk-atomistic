@@ -360,10 +360,19 @@ assert records["known-but-empty"]["lattice_vectors"] is None
 assert records["known-but-empty"]["chemical_formula_reduced"] is None
 ```
 
-## Shared Behavior and `unwrap`
+## Shared Behavior, `unwrap`, and `unview`
 
 `unwrap(obj)` returns the most raw representation available:
 
 - for `UnitcellStructure` / `UnitcellStructureView` this is the `UnitcellStructure` backend
 - for `PlainStructure` / `PlainStructureView` this is the `(lattice, positions, numbers)` triple
 - for non-view/backend objects it returns the object unchanged
+
+`unview(obj)` (from `httk.core`) sheds the httk view wrapper sideways instead, returning a plain
+instance of the *presented* type: a `CellView` becomes a `Cell` (reusing the backend object when
+it already is exactly the presented value), the `Plain*View`s become plain tuples/dicts,
+`UnitcellStructureView`/`ASUStructureView` become plain structures (view-level
+`immutable_id`/`last_modified` metadata is carried onto the materialized structure), and
+`ASEAtomsView` a base-class `ase.Atoms`. `NumericUnitcellStructureView` is interface-only and
+raises `TypeError` — use `.exact` or `UnitcellStructureView(...)` instead. Non-view inputs pass
+through unchanged. See the four-verb table in the *httk-core* backend/view guide.

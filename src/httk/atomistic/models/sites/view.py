@@ -59,3 +59,10 @@ class SitesView(SitesViewBase, Sites):
 
     def unwrap(self) -> Any:
         return unwrap(self._backend)
+
+    def unview(self) -> Sites:
+        # The folded design makes a genuine Sites backend exactly the presented value: reuse it.
+        backend = self._backend
+        if type(backend) is Sites:
+            return backend
+        return Sites(self._reduced_coords, self._precision)

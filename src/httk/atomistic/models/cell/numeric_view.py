@@ -57,3 +57,10 @@ class CellNumericView(CellViewBase, NumericCell):
 
     def unwrap(self) -> Any:
         return unwrap(self._backend)
+
+    def unview(self) -> NumericCell:
+        # A genuine NumericCell backend is exactly the presented value: reuse it.
+        backend = self._backend
+        if type(backend) is NumericCell:
+            return backend
+        return NumericCell(self._cell)

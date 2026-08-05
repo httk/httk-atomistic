@@ -130,3 +130,11 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
     def unwrap(self) -> Any:
         """Return the raw object wrapped by the backend."""
         return unwrap(self._backend)
+
+    def unview(self) -> Any:
+        # This view mirrors an interface with plain-numpy returns; there is no standalone plain
+        # value it could faithfully become.
+        raise TypeError(
+            "NumericUnitcellStructureView is an interface-only view with no standalone plain value; "
+            "use .exact (or UnitcellStructureView(...)) for the exact structure"
+        )

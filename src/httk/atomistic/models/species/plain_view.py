@@ -58,3 +58,7 @@ class PlainSpeciesView(SpeciesViewBase, dict):
 
     def unwrap(self) -> Any:
         return unwrap(self._backend)
+
+    def unview(self) -> dict:
+        # The view IS its presentation dict (already a detached copy); shed to a plain dict.
+        return dict(self)

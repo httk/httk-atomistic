@@ -35,3 +35,7 @@ class PlainCellView(CellViewBase, tuple):
 
     def unwrap(self) -> Any:
         return unwrap(self._backend)
+
+    def unview(self) -> tuple:
+        # The view IS its presentation tuple; shed to a plain tuple (rows shared).
+        return tuple(self)

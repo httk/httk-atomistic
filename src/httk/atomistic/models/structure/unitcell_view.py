@@ -199,6 +199,33 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
     def unwrap(self) -> Any:
         return unwrap(self._backend)
 
+    def unview(self) -> UnitcellStructure:
+        # A genuine UnitcellStructure backend carrying the same metadata is exactly the presented
+        # value: reuse it. Otherwise (other backends, ASU expansion, or view-level metadata)
+        # materialize a plain UnitcellStructure from the presented components.
+        backend = self._effective_backend()
+        if type(backend) is UnitcellStructure and (self.immutable_id, self.last_modified) == (
+            backend.immutable_id,
+            backend.last_modified,
+        ):
+            return backend
+        return UnitcellStructure(
+            self.cell,
+            self.sites,
+            self.species,
+            self.species_at_sites,
+            site_moments=self.site_moments,
+            molecular=self.molecular,
+            assemblies=self.assemblies,
+            symmetry=self.symmetry,
+            chemical_composition=self.chemical_composition,
+            chemical_formula_descriptive=self.chemical_formula_descriptive,
+            chemical_formula_hill=self.chemical_formula_hill,
+            optimization_type=self.optimization_type,
+            immutable_id=self.immutable_id,
+            last_modified=self.last_modified,
+        )
+
     @property
     def immutable_id(self) -> str | None:
         self._effective_backend()

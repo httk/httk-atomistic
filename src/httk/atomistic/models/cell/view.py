@@ -91,3 +91,10 @@ class CellView(CellViewBase, Cell):
 
     def unwrap(self) -> Any:
         return unwrap(self._backend)
+
+    def unview(self) -> Cell:
+        # The folded design makes a genuine Cell backend exactly the presented value: reuse it.
+        backend = self._backend
+        if type(backend) is Cell:
+            return backend
+        return Cell(self._unscaled_basis, self._scale, self._precision, self._periodicity)

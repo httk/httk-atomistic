@@ -82,3 +82,11 @@ class CrystalAxisSiteMomentsView(SiteMomentsViewBase, CrystalAxisSiteMoments):
     def _precision(self) -> fractions.Fraction | None:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
         self._fill_precision()
         return self.__dict__["_precision"]
+
+    def unview(self) -> CrystalAxisSiteMoments:
+        # A genuine CrystalAxisSiteMoments backend is exactly the presented value (a conflicting
+        # cell hint is rejected at construction): reuse it.
+        backend = self._backend
+        if type(backend) is CrystalAxisSiteMoments:
+            return backend
+        return CrystalAxisSiteMoments(self._crystalaxis_moments, self.cell, self._precision)
