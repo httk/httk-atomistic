@@ -28,7 +28,7 @@ import math
 from collections.abc import Sequence
 from typing import Any
 
-from httk.core import FracVector, SurdVector
+from httk.core import FracVector, SurdVector, register_citation
 
 from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
@@ -421,6 +421,23 @@ def _find_symmetry(view: Any, tolerance: float) -> tuple[Spacegroup, SettingTran
             "install it with `pip install httk-atomistic[default]`, or supply the space group "
             "explicitly via recognize_asu(..., setting=...)"
         ) from error
+    register_citation(
+        applies_to="Symmetry recognition uses spglib",
+        references={
+            "authors": (
+                {"name": "Atsushi Togo"},
+                {"name": "Kohei Shinohara"},
+                {"name": "Isao Tanaka"},
+            ),
+            "title": "Spglib: a software library for crystal symmetry search",
+            "journal": "Science and Technology of Advanced Materials: Methods",
+            "volume": "4",
+            "pages": "2384822",
+            "year": "2024",
+            "doi": "10.1080/27660400.2024.2384822",
+            "bib_type": "article",
+        },
+    )
 
     names = sorted(set(view.species_at_sites))
     cell = (

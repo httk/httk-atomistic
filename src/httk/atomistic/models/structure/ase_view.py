@@ -8,7 +8,33 @@ the public :class:`ASEAtomsView` definition.
 from typing import TYPE_CHECKING, Any, Self
 
 import ase
-from httk.core import unwrap
+from httk.core import register_citation, unwrap
+
+register_citation(
+    applies_to="Structure interchange with the Atomic Simulation Environment (ASE)",
+    references={
+        "authors": (
+            {"name": "Ask Hjorth Larsen"},
+            {"name": "Jens Jørgen Mortensen"},
+            {"name": "Jakob Blomqvist"},
+            {"name": "Ivano E. Castelli"},
+            {"name": "Rune Christensen"},
+            {"name": "Marcin Dułak"},
+            {"name": "Jesper Friis"},
+            {"name": "Michael N. Groves"},
+            {"name": "Bjørk Hammer"},
+            {"name": "Cory Hargus"},
+            {"name": "and others"},
+        ),
+        "title": "The atomic simulation environment—a Python library for working with atoms",
+        "journal": "Journal of Physics: Condensed Matter",
+        "volume": "29",
+        "pages": "273002",
+        "year": "2017",
+        "doi": "10.1088/1361-648X/aa680e",
+        "bib_type": "article",
+    },
+)
 
 from httk.atomistic._atomic_projection import require_bare_atomic_projection
 from httk.atomistic.elements import atomic_number
