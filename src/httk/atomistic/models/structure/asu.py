@@ -27,7 +27,20 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, ClassVar
 
-from httk.core import FracVector, SurdVector
+from httk.core import FracVector, SurdVector, register_citation
+
+register_citation(
+    applies_to="The symmetry and asymmetric-unit structure handling was informed by Edvard Valentin's subgroup-matching work for httk v1",
+    references={
+        "authors": ({"name": "Edvard Valentin"},),
+        "title": "Connecting Crystal Structures by Symmetry via Subgroup Matching",
+        "school": "Linköping University",
+        "year": "2024",
+        "note": "Master's thesis, urn:nbn:se:liu:diva-207867",
+        "url": "https://urn.kb.se/resolve?urn=urn:nbn:se:liu:diva-207867",
+        "bib_type": "mastersthesis",
+    },
+)
 
 from httk.atomistic import data
 from httk.atomistic.composition import Assembly

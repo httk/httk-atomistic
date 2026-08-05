@@ -75,3 +75,16 @@ import httk.atomistic.models.structure.ase_view
 assert heading in credits.entries()
 """
     )
+
+
+def test_asymmetric_unit_credit_is_registered_with_atomistic_import() -> None:
+    _run_isolated(
+        """
+from httk.core import credits
+
+heading = "The symmetry and asymmetric-unit structure handling was informed by Edvard Valentin's subgroup-matching work for httk v1"
+assert heading not in credits.entries()
+import httk.atomistic
+assert heading in credits.entries()
+"""
+    )
