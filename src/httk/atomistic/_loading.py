@@ -73,13 +73,16 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
     counts = data["counts"]
 
     species: list[Species] = []
-    seen: set[str] = set()
+    group_totals: dict[str, int] = {}
+    group_numbers: dict[str, int] = {}
+    for symbol in symbols:
+        group_totals[symbol] = group_totals.get(symbol, 0) + 1
     species_at_sites: list[str] = []
     for symbol, count in zip(symbols, counts):
-        species_at_sites.extend([symbol] * count)
-        if symbol not in seen:
-            seen.add(symbol)
-            species.append(Species(name=symbol, chemical_symbols=(symbol,), concentration=(1.0,)))
+        group_numbers[symbol] = group_numbers.get(symbol, 0) + 1
+        name = symbol if group_totals[symbol] == 1 else f"{symbol}{group_numbers[symbol]}"
+        species_at_sites.extend([name] * count)
+        species.append(Species(name=name, chemical_symbols=(symbol,), concentration=(1.0,)))
 
     return UnitcellStructure(cell, sites, species, species_at_sites)
 

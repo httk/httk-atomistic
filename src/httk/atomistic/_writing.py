@@ -2,6 +2,7 @@
 
 import fractions
 from collections.abc import Mapping
+from decimal import Decimal, localcontext
 from typing import Any
 
 from httk.core import FracVector
@@ -10,6 +11,8 @@ from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+_POSCAR_DECIMAL_DIGITS = 16
 
 
 def _finite_decimal(value: fractions.Fraction) -> str:
@@ -42,6 +45,41 @@ def _exact_value(value: Any, *, field: str) -> fractions.Fraction:
 
 def _render(value: Any, *, field: str) -> str:
     return _finite_decimal(_exact_value(value, field=field))
+
+
+def _poscar_token(value: Any) -> str:
+    if isinstance(value, fractions.Fraction):
+        rational = value
+    elif getattr(value, "is_rational", False):
+        rational = value._rational_fraction()
+    else:
+        with localcontext() as context:
+            context.prec = _POSCAR_DECIMAL_DIGITS
+            return format(value.to_decimal(digits=_POSCAR_DECIMAL_DIGITS), ".16g")
+
+    denominator = rational.denominator
+    while denominator % 2 == 0:
+        denominator //= 2
+    while denominator % 5 == 0:
+        denominator //= 5
+    if denominator == 1:
+        return _finite_decimal(rational)
+    with localcontext() as context:
+        context.prec = _POSCAR_DECIMAL_DIGITS
+        return format(Decimal(rational.numerator) / Decimal(rational.denominator), ".16g")
+
+
+def _pad_poscar_decimal(value: str) -> str:
+    if "e" in value.lower():
+        return value
+    whole, dot, fraction = value.partition(".")
+    if not dot:
+        return whole + "." + "0" * _POSCAR_DECIMAL_DIGITS
+    return whole + "." + fraction.ljust(_POSCAR_DECIMAL_DIGITS, "0")
+
+
+def _poscar_padded_token(value: Any) -> str:
+    return _pad_poscar_decimal(_poscar_token(value))
 
 
 def _cell_parameters(cell: Any) -> tuple[str, ...]:
@@ -149,4 +187,52 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
                 labels=labels,
             )
         ],
+    }
+
+
+def _poscar_payload_from_structure(obj: Any) -> Mapping[str, object]:
+    """Serialize a structure to POSCAR's neutral payload."""
+    structure = UnitcellStructureView(obj)
+    species_at_sites = tuple(structure.species_at_sites)
+    if not species_at_sites:
+        raise ValueError("POSCAR cannot represent an empty structure")
+
+    by_name = {species.name: species for species in structure.species}
+    names: list[str] = []
+    symbol_for_name: dict[str, str] = {}
+    for name in species_at_sites:
+        if name in symbol_for_name:
+            continue
+        species = by_name[name]
+        if not species.is_single_element:
+            raise ValueError(
+                f"POSCAR cannot represent disorder/partial occupancy for species {name!r}; "
+                "each occupied site must have one fully occupied chemical symbol"
+            )
+        symbol_for_name[name] = species.chemical_symbols[0]
+        names.append(name)
+
+    groups: dict[str, list[int]] = {name: [] for name in names}
+    for index, name in enumerate(species_at_sites):
+        groups[name].append(index)
+    order = [index for name in names for index in groups[name]]
+    symbols = [symbol_for_name[name] for name in names]
+    rows = list(structure.sites.reduced_coords)
+    coords = [[_poscar_padded_token(value) for value in rows[index].to_fractions()] for index in order]
+    cell = [
+        [_poscar_padded_token(structure.cell.unscaled_basis._element((row, column))) for column in range(3)]
+        for row in range(3)
+    ]
+    formula = structure.chemical_formula_hill or structure.chemical_formula_reduced or "structure"
+    return {
+        "format": "vasp-poscar",
+        "comment": f"{formula} {structure.id}",
+        "scale": _poscar_token(structure.cell.scale),
+        "volume": None,
+        "cell": cell,
+        "symbols": symbols,
+        "counts": [len(groups[name]) for name in names],
+        "cartesian": False,
+        "coords": coords,
+        "selective_dynamics": None,
     }
