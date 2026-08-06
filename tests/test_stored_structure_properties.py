@@ -59,6 +59,7 @@ _STANDARD = {
     "wyckoff_positions",
     "structure_features",
     "_httk_site_moments",
+    "_httk_charge",
     "optimization_type",
 }
 _EXPECTED = _STANDARD | set(SETTING_PROPERTY_KEYS) | set(PRECISION_PROPERTY_KEYS)
@@ -276,6 +277,12 @@ def test_formula_and_precision_queries_construct_exact_normalized_predicates() -
     precision_expression = precision(context, "=", "1/1000")
     assert _Value("constant", Fraction(1, 1000)) in _walk(precision_expression)
     assert projections["_httk_coordinate_precision"].sort is None
+
+    charge = projections["_httk_charge"].query
+    assert charge is not None
+    charge_expression = charge(context, "=", "3/2")
+    assert _Value("field", ("charge",)) in _walk(charge_expression)
+    assert _Value("constant", Fraction(3, 2)) in _walk(charge_expression)
 
 
 def test_empty_complete_composition_keeps_formulas_unknown_but_elements_known() -> None:

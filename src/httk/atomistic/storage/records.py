@@ -42,6 +42,7 @@ __all__ = [
     "NormalizedCompositionRecord",
     "SettingTransformRecord",
     "SitesRecord",
+    "SpeciesConstituentRecord",
     "SpeciesRecord",
     "SymmetryRecord",
     "UnitcellStructureRecord",
@@ -124,48 +125,66 @@ def _validate_moment_fields(record: Any, record_name: str, *, nsites: int | None
 
 
 @dataclass(frozen=True)
+class SpeciesConstituentRecord:
+    """One aligned, optionally decorated constituent of a stored species."""
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_v1_species_constituent_record",
+        identity_name="atomistic_v1_species_constituent_record",
+    )
+
+    chemical_symbol: str
+    concentration: fractions.Fraction
+    mass: float | None = None
+    charge: fractions.Fraction | None = None
+    spin: fractions.Fraction | None = None
+    label: str | None = None
+    concentration_precision: fractions.Fraction | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.chemical_symbol, str):
+            raise TypeError("SpeciesConstituentRecord chemical_symbol must be a string")
+        if not isinstance(self.concentration, fractions.Fraction):
+            raise TypeError("SpeciesConstituentRecord concentration must be a Fraction")
+        if self.mass is not None and (not isinstance(self.mass, float) or isinstance(self.mass, bool)):
+            raise TypeError("SpeciesConstituentRecord mass must be a float or None")
+        if self.mass is not None and not math.isfinite(self.mass):
+            raise ValueError("SpeciesConstituentRecord mass must be finite")
+        for name in ("charge", "spin", "concentration_precision"):
+            value = getattr(self, name)
+            if value is not None and not isinstance(value, fractions.Fraction):
+                raise TypeError(f"SpeciesConstituentRecord {name} must be a Fraction or None")
+        if self.label is not None and not isinstance(self.label, str):
+            raise TypeError("SpeciesConstituentRecord label must be a string or None")
+
+
+@dataclass(frozen=True)
 class SpeciesRecord:
     """The storable frozen snapshot of an atomistic :class:`~httk.atomistic.Species`; hand-built records are shape-checked and semantically validated at storage or explicitly."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_v3_species_record",
-        identity_name="atomistic_v3_species_record",
+        storage_name="atomistic_v4_species_record",
+        identity_name="atomistic_v4_species_record",
     )
     __httk_canonical_source__: ClassVar[type[Species]] = Species
 
     name: str
-    chemical_symbols: tuple[str, ...]
-    concentration: tuple[fractions.Fraction, ...]
-    mass: tuple[float, ...] | None = None
+    constituents: tuple[SpeciesConstituentRecord, ...]
     original_name: str | None = None
     attached: tuple[str, ...] | None = None
     nattached: tuple[int, ...] | None = None
-    concentration_precision: tuple[fractions.Fraction, ...] | None = None
 
     @classmethod
     def __httk_validate__(cls, record: "SpeciesRecord") -> None:
         _validate_species_record(record)
 
     def __post_init__(self) -> None:
-        symbols = tuple(self.chemical_symbols)
         if not isinstance(self.name, str):
             raise TypeError("SpeciesRecord name must be a string")
-        if not symbols or not all(isinstance(value, str) for value in symbols):
-            raise TypeError("SpeciesRecord chemical_symbols must contain non-empty strings")
-        object.__setattr__(self, "chemical_symbols", symbols)
-        concentration = tuple(
-            as_fraction(value, field="SpeciesRecord concentration")[0] for value in self.concentration
-        )
-        if len(concentration) != len(symbols):
-            raise ValueError("SpeciesRecord concentration must match chemical_symbols")
-        if any(value < 0 or value > 1 for value in concentration):
-            raise ValueError("SpeciesRecord concentration values must be in [0, 1]")
-        object.__setattr__(self, "concentration", concentration)
-        if self.mass is not None:
-            mass = tuple(self.mass)
-            if len(mass) != len(symbols):
-                raise ValueError("SpeciesRecord mass must match chemical_symbols")
-            object.__setattr__(self, "mass", mass)
+        constituents = tuple(self.constituents)
+        if not constituents or not all(type(value) is SpeciesConstituentRecord for value in constituents):
+            raise TypeError("SpeciesRecord constituents must contain SpeciesConstituentRecord values")
+        object.__setattr__(self, "constituents", constituents)
         if self.original_name is not None and not isinstance(self.original_name, str):
             raise TypeError("SpeciesRecord original_name must be a string or None")
         if self.attached is not None:
@@ -178,45 +197,65 @@ class SpeciesRecord:
             if any(not isinstance(value, int) or isinstance(value, bool) or value < 0 for value in nattached):
                 raise ValueError("SpeciesRecord nattached must contain non-negative integers")
             object.__setattr__(self, "nattached", nattached)
-        raw_precision = None if self.concentration_precision is None else tuple(self.concentration_precision)
-        if raw_precision is not None:
-            if len(raw_precision) != len(concentration):
-                raise ValueError("SpeciesRecord concentration_precision must match concentration")
-            converted_precision: list[fractions.Fraction] = []
-            for value in raw_precision:
-                central, _ = as_fraction(value, field="SpeciesRecord concentration precision")
-                if central < 0:
-                    raise ValueError("SpeciesRecord concentration precision cannot be negative")
-                converted_precision.append(central)
-            object.__setattr__(self, "concentration_precision", tuple(converted_precision))
-
         if (self.attached is None) != (self.nattached is None):
             raise ValueError("SpeciesRecord attached and nattached must be provided together")
         if self.attached is not None and len(self.attached) != len(self.nattached or ()):
             raise ValueError("SpeciesRecord attached and nattached must have matching lengths")
 
-        for value_name, values in (
-            ("concentration", self.concentration),
-            ("mass", self.mass or ()),
-        ):
-            if any(not math.isfinite(value) for value in values):
-                raise ValueError(f"SpeciesRecord {value_name} values must be finite floats")
+    @property
+    def chemical_symbols(self) -> tuple[str, ...]:
+        return tuple(value.chemical_symbol for value in self.constituents)
+
+    @property
+    def concentration(self) -> tuple[fractions.Fraction, ...]:
+        return tuple(value.concentration for value in self.constituents)
+
+    @property
+    def mass(self) -> tuple[float, ...] | None:
+        values = tuple(value.mass for value in self.constituents)
+        return None if all(value is None for value in values) else cast(tuple[float, ...], values)
+
+    @property
+    def concentration_precision(self) -> tuple[fractions.Fraction | None, ...] | None:
+        values = tuple(value.concentration_precision for value in self.constituents)
+        return None if all(value is None for value in values) else values
+
+    @property
+    def charges(self) -> tuple[fractions.Fraction | None, ...] | None:
+        values = tuple(value.charge for value in self.constituents)
+        return None if all(value is None for value in values) else values
+
+    @property
+    def spins(self) -> tuple[fractions.Fraction | None, ...] | None:
+        values = tuple(value.spin for value in self.constituents)
+        return None if all(value is None for value in values) else values
+
+    @property
+    def labels(self) -> tuple[str | None, ...] | None:
+        values = tuple(value.label for value in self.constituents)
+        return None if all(value is None for value in values) else values
 
     @classmethod
     def __httk_project__(cls, species: Species) -> Mapping[str, object]:
-        precision = species.concentration_precision or ()
-        present = not all(value is None for value in precision)
         return {
             "name": species.name,
-            "chemical_symbols": species.chemical_symbols,
-            "concentration": species.concentration,
-            "mass": species.mass,
+            "constituents": tuple(
+                SpeciesConstituentRecord(
+                    chemical_symbol=symbol,
+                    concentration=concentration,
+                    mass=None if species.mass is None else species.mass[index],
+                    charge=None if species.charges is None else species.charges[index],
+                    spin=None if species.spins is None else species.spins[index],
+                    label=None if species.labels is None else species.labels[index],
+                    concentration_precision=(
+                        None if species.concentration_precision is None else species.concentration_precision[index]
+                    ),
+                )
+                for index, (symbol, concentration) in enumerate(zip(species.chemical_symbols, species.concentration))
+            ),
             "original_name": species.original_name,
             "attached": species.attached,
             "nattached": species.nattached,
-            "concentration_precision": (
-                None if not present else tuple(value or fractions.Fraction() for value in precision)
-            ),
         }
 
 
@@ -687,6 +726,7 @@ def _project_common(structure: Any) -> dict[str, object]:
         "cell": structure.cell,
         "species": structure.species,
         "normalized_composition": structure.composition,
+        "charge": structure.charge,
         "molecular": structure.molecular,
         "assemblies": structure.assemblies,
         "chemical_composition": structure.chemical_composition,
@@ -769,6 +809,7 @@ def _validate_setting_transform_record(record: SettingTransformRecord) -> None:
 
 
 class _CommonConstructorValues(TypedDict):
+    charge: fractions.Fraction | None
     molecular: bool
     assemblies: tuple[Any, ...] | None
     chemical_composition: ChemicalComposition | None
@@ -781,6 +822,7 @@ class _CommonConstructorValues(TypedDict):
 
 def _common_constructor_values(record: Any) -> _CommonConstructorValues:
     return {
+        "charge": record.charge,
         "molecular": record.molecular,
         "assemblies": None
         if record.assemblies is None
@@ -801,8 +843,8 @@ class UnitcellStructureRecord:
     """Native durable backing for an explicit unit-cell structure; hand-built records are shape-checked and semantically validated at storage or explicitly."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_unitcell_structure_v1",
-        identity_name="atomistic_unitcell_structure_v1",
+        storage_name="atomistic_unitcell_structure_v2",
+        identity_name="atomistic_unitcell_structure_v2",
         indexes=(("immutable_id",), ("last_modified",), ("optimization_type",)),
     )
     __httk_canonical_source__: ClassVar[type[UnitcellStructure]] = UnitcellStructure
@@ -812,6 +854,7 @@ class UnitcellStructureRecord:
     species: tuple[SpeciesRecord, ...]
     species_at_sites: tuple[str, ...]
     normalized_composition: NormalizedCompositionRecord
+    charge: fractions.Fraction | None = None
     site_moments_kind: str | None = None
     site_moments: tuple[SurdScalar, ...] | None = None
     site_moments_precision: fractions.Fraction | None = None
@@ -875,8 +918,8 @@ class FundamentalDomainStructureRecord:
     """Native durable backing for a symmetry fundamental domain; hand-built records are shape-checked and semantically validated at storage or explicitly."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_fundamental_domain_structure_v1",
-        identity_name="atomistic_fundamental_domain_structure_v1",
+        storage_name="atomistic_fundamental_domain_structure_v2",
+        identity_name="atomistic_fundamental_domain_structure_v2",
         indexes=(
             ("spacegroup_it_number",),
             ("immutable_id",),
@@ -893,6 +936,7 @@ class FundamentalDomainStructureRecord:
     setting_transform: SettingTransformRecord
     coordinate_precision: fractions.Fraction | None
     normalized_composition: NormalizedCompositionRecord
+    charge: fractions.Fraction | None = None
     molecular: bool = False
     assemblies: tuple[AssemblyRecord, ...] | None = None
     chemical_composition: ChemicalCompositionRecord | None = None
@@ -951,8 +995,8 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
     """Native durable backing for an asserted asymmetric unit; hand-built records are shape-checked and semantically validated at storage or explicitly."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_asu_structure_v1",
-        identity_name="atomistic_asu_structure_v1",
+        storage_name="atomistic_asu_structure_v2",
+        identity_name="atomistic_asu_structure_v2",
         indexes=(
             ("spacegroup_it_number",),
             ("immutable_id",),
@@ -976,21 +1020,30 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
 
 
 def _concentration_precision_from_record(
-    precision: tuple[fractions.Fraction, ...] | None,
+    precision: tuple[fractions.Fraction | None, ...] | None,
 ) -> tuple[fractions.Fraction | None, ...] | None:
-    return None if precision is None else tuple(None if value == 0 else value for value in precision)
+    return precision
 
 
 def _species_from_record(record: SpeciesRecord) -> Species:
+    constituents = record.constituents
+    mass_values = tuple(value.mass for value in constituents)
+    charge_values = tuple(value.charge for value in constituents)
+    spin_values = tuple(value.spin for value in constituents)
+    label_values = tuple(value.label for value in constituents)
+    precision_values = tuple(value.concentration_precision for value in constituents)
     return Species(
         name=record.name,
-        chemical_symbols=record.chemical_symbols,
-        concentration=record.concentration,
-        mass=record.mass,
+        chemical_symbols=tuple(value.chemical_symbol for value in constituents),
+        concentration=tuple(value.concentration for value in constituents),
+        mass=None if all(value is None for value in mass_values) else cast(tuple[float, ...], mass_values),
         original_name=record.original_name,
         attached=record.attached,
         nattached=record.nattached,
-        concentration_precision=_concentration_precision_from_record(record.concentration_precision),
+        concentration_precision=None if all(value is None for value in precision_values) else precision_values,
+        charges=None if all(value is None for value in charge_values) else charge_values,
+        spins=None if all(value is None for value in spin_values) else spin_values,
+        labels=None if all(value is None for value in label_values) else label_values,
     )
 
 

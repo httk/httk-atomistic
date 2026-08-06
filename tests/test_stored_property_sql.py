@@ -171,7 +171,7 @@ def span_plan(request):
 def scoped_scalar_plan(request):
     database = _database_for(request)
     sources = (
-        _unitcell(coordinate_precision=Fraction(1, 500), basis_precision=Fraction(1, 200)),
+        _unitcell(coordinate_precision=Fraction(1, 500), basis_precision=Fraction(1, 200), charge=Fraction(3, 2)),
         _unitcell(
             symmetry=StructureSymmetry(225),
             coordinate_precision=Fraction(1, 1000),
@@ -216,6 +216,7 @@ def test_plan_projects_the_same_rows_as_the_natural_structure_provider(response_
     assert set(actual) == {source.id}
     expected = dict(next(iter(StructureEntryProvider({source.id: source}).records("structures"))))
     expected["id"] = expected.pop("__id")
+    expected["_httk_charge"] = None
     assert actual[source.id] == expected
 
 
@@ -307,6 +308,11 @@ def test_optional_reference_scalars_are_correlated_and_preserve_unknown(scoped_s
     assert _counts(plan, "space_group_it_number IS UNKNOWN") == [1]
     assert _counts(plan, "space_group_it_number IS KNOWN") == [1]
     assert _counts(plan, "NOT space_group_it_number = 225") == [0]
+
+
+def test_charge_filter_is_exact_and_preserves_unknown(scoped_scalar_plan):
+    assert _counts(scoped_scalar_plan, "_httk_charge = 1.5") == [1]
+    assert _counts(scoped_scalar_plan, "_httk_charge IS UNKNOWN") == [1]
 
 
 @pytest.mark.parametrize(

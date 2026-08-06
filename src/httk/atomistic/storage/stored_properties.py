@@ -120,7 +120,7 @@ def _structure_features_value(record: Any, backing: str) -> list[str]:
     used = _used_species(record, backing)
     if record.assemblies is not None:
         features.add("assemblies")
-    if any(len(value.chemical_symbols) > 1 or value.concentration != (Fraction(1),) for value in used):
+    if any(len(value.constituents) > 1 or value.concentration != (Fraction(1),) for value in used):
         features.add("disorder")
     if any(value.attached for value in used):
         features.add("site_attachments")
@@ -335,6 +335,8 @@ def _response_value(record: Any, name: str, backing: str) -> object:
         return None if value is None else float(value)
     if name == "_httk_basis_precision":
         return None if record.cell.precision is None else float(record.cell.precision)
+    if name == "_httk_charge":
+        return None if record.charge is None else float(record.charge)
     raise AssertionError(f"unknown stored structure property: {name}")
 
 
@@ -709,15 +711,14 @@ def _feature_predicate(
     if name == "site_attachments":
         return context.exists(species, context.equal(species.field("attached_present"), context.constant(True)))
     if name == "disorder":
-        symbols = species.scope("chemical_symbols")
-        concentration = species.scope("concentration")
+        constituents = species.scope("constituents")
         partial = context.exists(
-            concentration,
-            context.not_(context.exact_equal(concentration.field("value"), context.constant(Fraction(1)))),
+            constituents,
+            context.not_(context.exact_equal(constituents.field("concentration"), context.constant(Fraction(1)))),
         )
         return context.exists(
             species,
-            context.or_(context.compare(context.count(symbols), ">", context.constant(1)), partial),
+            context.or_(context.compare(context.count(constituents), ">", context.constant(1)), partial),
         )
     if name == "_httk_magnetism":
         scope: QueryScope = context
@@ -895,6 +896,10 @@ def _common_queries(
     projections["_httk_basis_precision"] = StoredPropertyProjection(
         response=_response("_httk_basis_precision", backing),
         query=_fraction_query(("cell", "precision"), "_httk_basis_precision"),
+    )
+    projections["_httk_charge"] = StoredPropertyProjection(
+        response=_response("_httk_charge", backing),
+        query=_fraction_query(("charge",), "_httk_charge"),
     )
     for name in (*SETTING_PROPERTY_KEYS, *PRECISION_PROPERTY_KEYS):
         projections.setdefault(name, StoredPropertyProjection(response=_response(name, backing)))

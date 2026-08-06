@@ -37,6 +37,18 @@ class RecordSpecies(SpeciesBackend):
         return _concentration_precision_from_record(self._record.concentration_precision)
 
     @property
+    def charges(self) -> tuple[Fraction | None, ...] | None:
+        return self._record.charges
+
+    @property
+    def spins(self) -> tuple[Fraction | None, ...] | None:
+        return self._record.spins
+
+    @property
+    def labels(self) -> tuple[str | None, ...] | None:
+        return self._record.labels
+
+    @property
     def mass(self) -> tuple[float, ...] | None:
         return self._record.mass
 

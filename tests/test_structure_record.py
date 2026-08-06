@@ -1,6 +1,7 @@
 """Tests for representation-specific atomistic storage records."""
 
 import datetime
+import math
 from dataclasses import fields
 from fractions import Fraction
 
@@ -34,6 +35,7 @@ from httk.atomistic.storage.records import (
     NormalizedCompositionRecord,
     SettingTransformRecord,
     SitesRecord,
+    SpeciesConstituentRecord,
     SpeciesRecord,
     SymmetryRecord,
     WyckoffSiteRecord,
@@ -104,6 +106,7 @@ def _common(source: object) -> dict[str, object]:
             ),
             value.composition.complete,  # type: ignore[attr-defined]
         ),
+        "charge": value.charge,  # type: ignore[attr-defined]
         "molecular": value.molecular,  # type: ignore[attr-defined]
         "assemblies": (
             None
@@ -213,6 +216,7 @@ def test_domain_site_moments_round_trip_exactly() -> None:
     "record_type",
     (
         SpeciesRecord,
+        SpeciesConstituentRecord,
         AssemblyGroupRecord,
         AssemblyRecord,
         WyckoffSiteRecord,
@@ -238,9 +242,9 @@ def test_record_identity_names_are_storage_names(record_type: type[object]) -> N
 def test_content_id_is_layout_independent_without_sqlalchemy() -> None:
     source = _unitcell()
 
-    # 2026-08-04 identity-name pinning plus 2026-08 site-moments fields: pre-existing
-    # stores must be rebuilt; a future move must not change this value.
-    assert content_id(source) == "1673ab7b2b843705487850a874974126d8310f712d88cc928bca362834bb8a54"
+    # 2026-08-06 species constituent child record + structure charge fields:
+    # pre-existing stores must be rebuilt; a future move must not change this value.
+    assert content_id(source) == "1cb6fc7054843c7d79cb3c7e6503512d95eb9bde662520367f3b3508e3b7bab5"
 
 
 def test_sql_store_unitcell_rename_preserves_content_id() -> None:
@@ -252,7 +256,7 @@ def test_sql_store_unitcell_rename_preserves_content_id() -> None:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
 
-    assert content_id(source) == "1673ab7b2b843705487850a874974126d8310f712d88cc928bca362834bb8a54"
+    assert content_id(source) == "1cb6fc7054843c7d79cb3c7e6503512d95eb9bde662520367f3b3508e3b7bab5"
 
 
 def test_sql_store_round_trips_site_moments() -> None:
@@ -366,6 +370,53 @@ def test_mixed_species_precision_survives_record_and_sql_views() -> None:
         sid = store.save(source)
         fetched = store.fetch(UnitcellStructureRecord, sid)
         assert UnitcellStructureView(fetched).species[0].concentration_precision == expected
+
+
+@pytest.mark.parametrize("dialect", ("sqlite", "duckdb"))
+def test_decorated_repeated_species_and_structure_charge_round_trip(dialect: str) -> None:
+    decorated = Species(
+        "FeFe",
+        ("Fe", "Fe"),
+        (Fraction(1, 2), Fraction(1, 2)),
+        concentration_precision=(None, Fraction(1, 1000)),
+        mass=(55.845, 55.846),
+        charges=(None, Fraction(0)),
+        spins=(None, Fraction(1, 2)),
+        labels=("left", None),
+        attached=("H",),
+        nattached=(1,),
+    )
+    source = UnitcellStructure(
+        [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
+        [[0, 0, 0]],
+        (decorated,),
+        ("FeFe",),
+        charge=Fraction(-3, 2),
+    )
+    record = _unitcell_record(source)
+    assert record.charge == Fraction(-3, 2)
+    assert record.species[0].constituents[0].charge is None
+    assert record.species[0].constituents[1].charge == Fraction(0)
+    assert _structure_from_record(record).species == (decorated,)
+
+    pytest.importorskip("sqlalchemy")
+    if dialect == "duckdb":
+        pytest.importorskip("duckdb_engine")
+    from httk.data.db import Database, SqlStore
+
+    database = Database.duckdb() if dialect == "duckdb" else Database.sqlite()
+    with database:
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        fetched = store.fetch(UnitcellStructureRecord, store.save(source))
+        viewed = UnitcellStructureView(fetched)
+        assert viewed.charge == source.charge
+        assert viewed.species == source.species
+
+
+@pytest.mark.parametrize("mass", (math.inf, -math.inf, math.nan))
+def test_species_constituent_rejects_nonfinite_mass(mass: float) -> None:
+    with pytest.raises(ValueError, match="finite"):
+        SpeciesConstituentRecord("Fe", Fraction(1), mass=mass)
 
 
 def test_assembly_record_rejects_mutable_group_impostors() -> None:
