@@ -57,6 +57,7 @@ from httk.atomistic.models.structure.semantics import StructureSymmetry
 from httk.atomistic.models.structure.symops import SymopsStructure
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.wavefunction import PlaneWaveFunctions, save_vesta, wavefunction_overlap
 from httk.atomistic.entries.structures import StructureEntry, StructureEntryProvider
 from httk.atomistic.storage.records import (
     ASUStructureRecord,
@@ -136,6 +137,7 @@ __all__ = [
     "OptimadeStructure",
     "PlainSpeciesView",
     "PlainStructureView",
+    "PlaneWaveFunctions",
     "SettingTransform",
     "SiteMomentsLike",
     "Sites",
@@ -166,9 +168,11 @@ __all__ = [
     "orthogonal_supercell",
     "recognize_asu",
     "same_crystal",
+    "save_vesta",
     "structure_tolerance",
     "symbol_of",
     "validate_structure_record",
+    "wavefunction_overlap",
     "wyckoff_letter_map",
     "wyckoff_positions",
 ]

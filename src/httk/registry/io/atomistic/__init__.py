@@ -7,6 +7,11 @@ register_format_adapter(
     adapter="httk.atomistic._loading:_structure_from_payload",
     formats=("cif", "mcif", "vasp-poscar"),
 )
+register_format_adapter(
+    name="atomistic-wavefunctions",
+    adapter="httk.atomistic.wavefunction:_planewaves_from_payload",
+    formats=("vasp-wavecar",),
+)
 from httk.core.register import register_format_serializer
 
 register_format_serializer(
@@ -16,6 +21,10 @@ register_format_serializer(
 register_format_serializer(
     format="vasp-poscar",
     serializer="httk.atomistic._writing:_poscar_payload_from_structure",
+)
+register_format_serializer(
+    format="vasp-wavecar",
+    serializer="httk.atomistic.wavefunction:_wavecar_payload_from_planewaves",
 )
 register_format_adapter(
     name="atomistic-structures",

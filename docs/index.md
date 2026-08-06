@@ -13,6 +13,7 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 - **Asymmetric units**: {doc}`asu`
 - **Data precision**: {doc}`precision`
 - **Periodicity (slabs, wires, molecules)**: {doc}`periodicity`
+- **Plane-wave wavefunctions**: {doc}`wavefunctions`
 - **Runnable examples**: {doc}`examples/index`
 - **Examples notebook**: {doc}`notebooks/examples`
 - **Disorder walkthrough**: {doc}`notebooks/disorder`
@@ -52,6 +53,7 @@ lattice, positions, numbers = PlainStructureView(structure)
 
 reference/index
 structures
+wavefunctions
 asu
 precision
 periodicity
