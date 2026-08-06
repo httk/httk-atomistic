@@ -10,6 +10,7 @@ __all__ = [
     "DEFAULT_TOLERANCE",
     "AffineOperation",
     "ConventionalCellResult",
+    "PrimitiveCellResult",
     "SettingTransform",
     "Spacegroup",
     "WyckoffBranch",
@@ -18,6 +19,7 @@ __all__ = [
     "operation_from_xyz",
     "operation_from_xyzt",
     "parse_linear_expression",
+    "primitive_cell",
     "recognize_asu",
     "structure_tolerance",
     "wyckoff_letter_map",
@@ -25,6 +27,7 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
+    from .primitive import PrimitiveCellResult, primitive_cell
     from .recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
     from .standardization import ConventionalCellResult, conventional_cell
 
@@ -43,5 +46,10 @@ def __getattr__(name: str) -> object:
         from .standardization import ConventionalCellResult, conventional_cell
 
         globals().update(ConventionalCellResult=ConventionalCellResult, conventional_cell=conventional_cell)
+        return globals()[name]
+    if name in {"PrimitiveCellResult", "primitive_cell"}:
+        from .primitive import PrimitiveCellResult, primitive_cell
+
+        globals().update(PrimitiveCellResult=PrimitiveCellResult, primitive_cell=primitive_cell)
         return globals()[name]
     raise AttributeError(name)

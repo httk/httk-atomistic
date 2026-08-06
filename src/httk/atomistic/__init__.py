@@ -91,6 +91,7 @@ from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
+from httk.atomistic.symmetry.primitive import PrimitiveCellResult, primitive_cell
 from httk.atomistic.symmetry.standardization import ConventionalCellResult, conventional_cell
 from httk.atomistic.symmetry.wyckoff import WyckoffPosition, wyckoff_positions
 
@@ -176,6 +177,7 @@ __all__ = [
     "PlainStructureView",
     "PlainTrajectory",
     "PlaneWaveFunctions",
+    "PrimitiveCellResult",
     "PymatgenStructure",
     "PymatgenStructureProtocol",
     "RecordTrajectory",
@@ -218,6 +220,7 @@ __all__ = [
     "niggli_reduce",
     "niggli_reduced",
     "orthogonal_supercell",
+    "primitive_cell",
     "recognize_asu",
     "same_crystal",
     "save_vesta",

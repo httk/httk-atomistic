@@ -178,15 +178,18 @@ def recognize_asu(
             raise ValueError(f"'standard' must be an IT standard setting, got {standard.setting}")
     else:
         standard, found = _find_symmetry(view, tolerance)
-        # spglib fixes the group but not the frame: its transformation is one of many that
-        # describe the structure correctly, differing by an element of the group's affine
-        # normalizer. All of them are faithful — the round trip holds either way — but they
-        # name different Wyckoff letters, so prefer the standard setting when the structure
-        # is already in it, which is by far the common case and gives the tidier answer.
-        try:
-            return _recognize(view, standard, SettingTransform.identity(), tolerance, limit_denominator)
-        except ValueError:
-            transform = found
+        # At lattice index 1, spglib fixes the group but not the frame: its transformation is
+        # one of many that describe the structure correctly, differing by an element of the
+        # group's affine normalizer. All are faithful — the round trip holds either way — but
+        # they name different Wyckoff letters, so prefer the standard setting when the input
+        # already has that lattice. A non-unit index means the input is a super- or sub-cell of
+        # the standard lattice; trying identity there would hide that lattice relationship.
+        if abs(found.determinant()) == 1:
+            try:
+                return _recognize(view, standard, SettingTransform.identity(), tolerance, limit_denominator)
+            except ValueError:
+                pass
+        transform = found
 
     return _recognize(view, standard, transform, tolerance, limit_denominator)
 

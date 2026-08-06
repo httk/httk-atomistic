@@ -60,6 +60,7 @@ asu
 precision
 periodicity
 lattice-reduction
+primitive-cells
 examples/index
 notebooks/examples
 notebooks/disorder
