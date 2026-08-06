@@ -38,3 +38,24 @@ jobs:
 
       - name: Run CI
         run: make ci
+
+  compat:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ github.event.inputs.python-version || '3.12' }}
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          pip install -e .[dev]
+          pip install ase pymatgen
+
+      - name: Run compatibility tests
+        run: python -m pytest tests/test_compat.py tests/test_pymatgen_compat.py tests/test_unview.py tests/test_citations.py -q

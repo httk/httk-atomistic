@@ -126,6 +126,9 @@ nitpick_ignore = [
     # ase is an optional dependency surfaced by the compat layer.
     ("py:class", "ase.Atoms"),
     ("py:obj", "ase.Atoms"),
+    # pymatgen is an optional dependency surfaced by the compat layer.
+    ("py:class", "pymatgen.core.Structure"),
+    ("py:obj", "pymatgen.core.Structure"),
     # OptimadeResource is new in the sibling httk-core workspace; the vendored
     # intersphinx inventory continues to describe the latest release.
     ("py:class", "httk.core.optimade.OptimadeResource"),
