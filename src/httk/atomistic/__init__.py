@@ -40,7 +40,7 @@ from httk.atomistic.models.species.plain import PlainSpecies
 from httk.atomistic.models.species.plain_view import PlainSpeciesView
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.species.view import SpeciesView
-from httk.atomistic.compat import ASEAtoms, ASEAtomsProtocol
+from httk.atomistic.compat import ASEAtoms, ASEAtomsProtocol, PymatgenStructure, PymatgenStructureProtocol
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.asu_view import ASUStructureView
 from httk.atomistic.models.structure.backend import StructureBackend
@@ -95,6 +95,7 @@ StructureBackend.backend_classes = [
     PlainStructure,
     NumericUnitcellStructure,
     ASEAtoms,
+    PymatgenStructure,
     DatastreamStructure,
 ]
 CellBackend.backend_classes = [RecordCell, PlainCell, CellParams]
@@ -140,6 +141,8 @@ __all__ = [
     "PlainSpeciesView",
     "PlainStructureView",
     "PlaneWaveFunctions",
+    "PymatgenStructure",
+    "PymatgenStructureProtocol",
     "SettingTransform",
     "SiteMomentsLike",
     "Sites",
@@ -187,3 +190,10 @@ except ImportError:
     pass
 else:
     __all__.append("ASEAtomsView")
+
+try:
+    from httk.atomistic.compat import PymatgenStructureView  # noqa: F401
+except ImportError:
+    pass
+else:
+    __all__.append("PymatgenStructureView")

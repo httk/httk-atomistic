@@ -77,6 +77,20 @@ assert heading in credits.entries()
     )
 
 
+def test_pymatgen_credit_is_registered_when_pymatgen_view_is_imported() -> None:
+    pytest.importorskip("pymatgen")
+    _run_isolated(
+        """
+from httk.core import credits
+
+heading = "Structure interchange with pymatgen"
+assert heading not in credits.entries()
+import httk.atomistic.compat.pymatgen.view
+assert heading in credits.entries()
+"""
+    )
+
+
 def test_asymmetric_unit_credit_is_registered_with_atomistic_import() -> None:
     _run_isolated(
         """

@@ -3,7 +3,6 @@
 import fractions
 
 import pytest
-
 from httk.core import FracVector, View, unview
 
 from httk.atomistic import (
@@ -24,11 +23,11 @@ from httk.atomistic import (
 )
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.cell.plain_view import PlainCellView
-from httk.atomistic.models.sites.plain_view import PlainSitesView
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.cartesian_view import CartesianSiteMomentsView
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.moments.crystalaxis_view import CrystalAxisSiteMomentsView
+from httk.atomistic.models.sites.plain_view import PlainSitesView
 
 F = fractions.Fraction
 
@@ -176,6 +175,21 @@ def test_ase_atoms_view_unview() -> None:
     assert type(plain) is ase.Atoms
     assert not isinstance(plain, View)
     assert (plain.numbers == view.numbers).all()
+
+
+def test_pymatgen_structure_view_unview() -> None:
+    pytest.importorskip("pymatgen")
+    from pymatgen.core import Structure
+
+    from httk.atomistic import PymatgenStructureView
+
+    source = Structure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], ["Na"], [[0, 0, 0]])
+    view = PymatgenStructureView(source)
+    view.replace(0, "Na", label="replaced")
+    plain = unview(view)
+    assert type(plain) is Structure
+    assert not isinstance(plain, View)
+    assert plain.labels == ["replaced"]
 
 
 # --- moments family ---
