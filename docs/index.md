@@ -14,6 +14,7 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 - **Data precision**: {doc}`precision`
 - **Periodicity (slabs, wires, molecules)**: {doc}`periodicity`
 - **Plane-wave wavefunctions**: {doc}`wavefunctions`
+- **Trajectory JSON Lines**: {doc}`trajectory_jsonl`
 - **Runnable examples**: {doc}`examples/index`
 - **Examples notebook**: {doc}`notebooks/examples`
 - **Disorder walkthrough**: {doc}`notebooks/disorder`
@@ -54,6 +55,7 @@ lattice, positions, numbers = PlainStructureView(structure)
 reference/index
 structures
 wavefunctions
+trajectory_jsonl
 asu
 precision
 periodicity

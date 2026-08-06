@@ -1,0 +1,92 @@
+"""The native immutable trajectory representation."""
+
+from collections.abc import Iterator, Mapping, Sequence
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, ClassVar
+
+from httk.atomistic.models.species.species import Species
+from httk.atomistic.models.structure.unitcell import UnitcellStructure
+from httk.atomistic.models.trajectory.backend import TrajectoryBackend
+
+if TYPE_CHECKING:
+    from httk.atomistic.models.structure.like import StructureLike
+
+
+class Trajectory(TrajectoryBackend):
+    """An immutable trajectory holding eagerly coerced unit-cell frames."""
+
+    kind: ClassVar[str] = "native"
+    __httk_storage_record__: ClassVar[type[Any]]
+    _frames: tuple[UnitcellStructure, ...]
+    _observables: Mapping[str, tuple[Any, ...]]
+    _reference_frames: tuple[int, ...] | None
+    _species: tuple[Species, ...]
+    _species_at_sites: tuple[str, ...]
+
+    def __init__(
+        self,
+        frames: Sequence["StructureLike"],
+        observables: Mapping[str, Sequence[Any]] | None = None,
+        reference_frames: Sequence[int] | None = None,
+    ) -> None:
+        if not frames:
+            raise ValueError("Trajectory requires at least one frame")
+        from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+
+        coerced = tuple(UnitcellStructureView(frame).unview() for frame in frames)
+        species = coerced[0].species
+        species_at_sites = coerced[0].species_at_sites
+        for index, frame in enumerate(coerced[1:], 1):
+            if frame.species != species or frame.species_at_sites != species_at_sites:
+                raise ValueError(f"Trajectory frame {index} has a varying composition")
+        values = {} if observables is None else {name: tuple(value) for name, value in observables.items()}
+        for name, value in values.items():
+            if len(value) != len(coerced):
+                raise ValueError(f"Trajectory observable {name!r} has length {len(value)}, expected {len(coerced)}")
+        references: tuple[int, ...] | None = None
+        if reference_frames is not None:
+            checked: list[int] = []
+            for reference in reference_frames:
+                if not isinstance(reference, int) or isinstance(reference, bool):
+                    raise ValueError(f"Trajectory reference frame {reference!r} is not an integer")
+                if not 0 <= reference < len(coerced):
+                    raise ValueError(f"Trajectory reference frame {reference!r} is out of bounds")
+                checked.append(reference)
+            references = tuple(sorted(set(checked)))
+        self._frames = coerced
+        self._observables = MappingProxyType(values)
+        self._reference_frames = references
+        self._species = species
+        self._species_at_sites = species_at_sites
+
+    @property
+    def nframes(self) -> int:
+        return len(self._frames)
+
+    def frame(self, i: int) -> UnitcellStructure:
+        return self._frames[i]
+
+    def frames(self) -> Iterator[UnitcellStructure]:
+        return iter(self._frames)
+
+    @property
+    def reference_frames(self) -> tuple[int, ...] | None:
+        return self._reference_frames
+
+    @property
+    def species(self) -> tuple[Species, ...]:
+        return self._species
+
+    @property
+    def species_at_sites(self) -> tuple[str, ...]:
+        return self._species_at_sites
+
+    @property
+    def observable_names(self) -> tuple[str, ...]:
+        return tuple(self._observables)
+
+    def observable(self, name: str) -> tuple[Any, ...]:
+        try:
+            return self._observables[name]
+        except KeyError:
+            raise KeyError(name) from None

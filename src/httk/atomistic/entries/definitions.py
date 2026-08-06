@@ -31,6 +31,10 @@ _DEFINITION_IDS = {
     "setting_it_nc": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/setting_it_nc",
     "site_moments": "https://schemas.httk.org/defs/v0.1/properties/magnetism/site_moments",
     "structure_charge": "https://schemas.httk.org/defs/v0.1/properties/chemistry/structure_charge",
+    "frame_stresses": "https://schemas.httk.org/defs/v0.1/properties/trajectories/frame_stresses",
+    "frame_temperatures": "https://schemas.httk.org/defs/v0.1/properties/trajectories/frame_temperatures",
+    "frame_total_energies": "https://schemas.httk.org/defs/v0.1/properties/trajectories/frame_total_energies",
+    "time_step": "https://schemas.httk.org/defs/v0.1/properties/trajectories/time_step",
 }
 
 

@@ -4,8 +4,10 @@ import datetime
 import fractions
 import itertools
 import math
+import numbers
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Annotated, Any, ClassVar, TypedDict, cast
 
 import httk.core.storage.markers
@@ -28,6 +30,7 @@ from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.semantics import StructureSymmetry
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
+from httk.atomistic.models.trajectory.api import TrajectoryAPI
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 
 __all__ = [
@@ -40,11 +43,13 @@ __all__ = [
     "FundamentalDomainStructureRecord",
     "NormalizedCompositionAmountRecord",
     "NormalizedCompositionRecord",
+    "ObservableSummaryRecord",
     "SettingTransformRecord",
     "SitesRecord",
     "SpeciesConstituentRecord",
     "SpeciesRecord",
     "SymmetryRecord",
+    "TrajectoryRecord",
     "UnitcellStructureRecord",
     "WyckoffSiteRecord",
 ]
@@ -1162,6 +1167,193 @@ def validate_structure_record(
     if type(record) not in (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord):
         raise TypeError("validate_structure_record expects an exact root structure record")
     _validate_normalized_composition(record)
+
+
+def _assembly_record_from_assembly(assembly: Assembly) -> AssemblyRecord:
+    projected = cast(dict[str, Any], AssemblyRecord.__httk_project__(assembly))
+    groups = tuple(AssemblyGroupRecord(sites=sites) for sites in cast(tuple[tuple[int, ...], ...], projected["groups"]))
+    return AssemblyRecord(
+        groups=groups,
+        group_probabilities=cast(tuple[fractions.Fraction, ...], projected["group_probabilities"]),
+        group_probabilities_precision=cast(
+            tuple[fractions.Fraction, ...] | None, projected["group_probabilities_precision"]
+        ),
+    )
+
+
+def _unitcell_record_from_structure(structure: UnitcellStructure) -> UnitcellStructureRecord:
+    values: dict[str, Any] = dict(UnitcellStructureRecord.__httk_project__(structure))
+    values["cell"] = CellRecord(**cast(dict[str, Any], CellRecord.__httk_project__(structure.cell)))
+    values["sites"] = SitesRecord(**cast(dict[str, Any], SitesRecord.__httk_project__(structure.sites)))
+    values["species"] = tuple(
+        SpeciesRecord(**cast(dict[str, Any], SpeciesRecord.__httk_project__(species))) for species in structure.species
+    )
+    values["normalized_composition"] = _normalized_composition_record_from_result(structure.composition)
+    values["assemblies"] = (
+        None
+        if structure.assemblies is None
+        else tuple(_assembly_record_from_assembly(assembly) for assembly in structure.assemblies)
+    )
+    values["symmetry"] = (
+        None
+        if structure.symmetry is None
+        else SymmetryRecord(**cast(dict[str, Any], SymmetryRecord.__httk_project__(structure.symmetry)))
+    )
+    values["chemical_composition"] = (
+        None
+        if structure.chemical_composition is None
+        else ChemicalCompositionRecord(
+            **cast(dict[str, Any], ChemicalCompositionRecord.__httk_project__(structure.chemical_composition))
+        )
+    )
+    return UnitcellStructureRecord(**values)
+
+
+def _observable_summary(name: str, values: tuple[Any, ...]) -> "ObservableSummaryRecord":
+    try:
+        if any(isinstance(value, bool) or not isinstance(value, numbers.Number | Decimal) for value in values):
+            raise ValueError
+        converted = tuple(float(value) for value in values)
+        if any(not math.isfinite(value) for value in converted):
+            raise ValueError
+    except (TypeError, ValueError, OverflowError):
+        converted = ()
+    if not converted:
+        return ObservableSummaryRecord(name)
+    return ObservableSummaryRecord(name, converted[0], converted[-1], min(converted), max(converted))
+
+
+@dataclass(frozen=True)
+class ObservableSummaryRecord:
+    """Bounded numeric summary for one trajectory observable."""
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_trajectory_observable_summary_v1",
+        identity_name="atomistic_trajectory_observable_summary_v1",
+    )
+
+    name: str
+    first: float | None = None
+    last: float | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name:
+            raise ValueError("ObservableSummaryRecord name must be a non-empty string")
+        for field_name in ("first", "last", "minimum", "maximum"):
+            value = getattr(self, field_name)
+            if value is not None and (not isinstance(value, float) or not math.isfinite(value)):
+                raise TypeError(f"ObservableSummaryRecord {field_name} must be a finite float or None")
+
+
+def _validate_trajectory_record(record: "TrajectoryRecord") -> None:
+    for structure in record.reference_frame_structures:
+        validate_structure_record(structure)
+        if tuple(value.name for value in structure.species) != tuple(value.name for value in record.species):
+            raise ValueError("TrajectoryRecord reference structure species disagree with trajectory species")
+        if structure.species_at_sites != record.species_at_sites:
+            raise ValueError("TrajectoryRecord reference structure composition disagrees with trajectory")
+
+
+@dataclass(frozen=True)
+class TrajectoryRecord:
+    """Bounded trajectory identity and reference-frame summary; frame data is never stored."""
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_trajectory_v1",
+        identity_name="atomistic_trajectory_v1",
+        indexes=(("immutable_id",), ("last_modified",), ("nframes",)),
+    )
+    __httk_canonical_source__: ClassVar[type[TrajectoryAPI]] = cast(type[TrajectoryAPI], TrajectoryAPI)
+
+    nframes: int
+    species: tuple[SpeciesRecord, ...]
+    species_at_sites: tuple[str, ...]
+    reference_frame_indexes: tuple[int, ...]
+    reference_frame_structures: tuple[UnitcellStructureRecord, ...]
+    observable_summaries: tuple[ObservableSummaryRecord, ...]
+    source_locator: Annotated[str | None, IdentitySkip()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip()] = field(default=None, compare=False)
+    last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
+
+    @classmethod
+    def __httk_validate__(cls, record: "TrajectoryRecord") -> None:
+        _validate_trajectory_record(record)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.nframes, int) or isinstance(self.nframes, bool) or self.nframes < 1:
+            raise ValueError("TrajectoryRecord nframes must be a positive integer")
+        species = tuple(self.species)
+        if not species or not all(type(value) is SpeciesRecord for value in species):
+            raise TypeError("TrajectoryRecord species must contain SpeciesRecord values")
+        if len({value.name for value in species}) != len(species):
+            raise ValueError("TrajectoryRecord species names must be unique")
+        species_at_sites = tuple(self.species_at_sites)
+        if not all(isinstance(value, str) for value in species_at_sites):
+            raise TypeError("TrajectoryRecord species_at_sites must contain strings")
+        if set(species_at_sites) - {value.name for value in species}:
+            raise ValueError("TrajectoryRecord species_at_sites references an unknown species")
+        indexes = tuple(self.reference_frame_indexes)
+        structures = tuple(self.reference_frame_structures)
+        if not all(isinstance(value, int) and not isinstance(value, bool) for value in indexes):
+            raise TypeError("TrajectoryRecord reference_frame_indexes must contain integers")
+        if any(not 0 <= value < self.nframes for value in indexes):
+            raise ValueError("TrajectoryRecord reference_frame_indexes contains an out-of-bounds index")
+        if indexes != tuple(sorted(set(indexes))):
+            raise ValueError("TrajectoryRecord reference_frame_indexes must be sorted and deduplicated")
+        if len(indexes) != len(structures) or not all(type(value) is UnitcellStructureRecord for value in structures):
+            raise TypeError("TrajectoryRecord reference frames must match UnitcellStructureRecord values")
+        summaries = tuple(self.observable_summaries)
+        if not all(type(value) is ObservableSummaryRecord for value in summaries):
+            raise TypeError("TrajectoryRecord observable_summaries must contain ObservableSummaryRecord values")
+        if len({value.name for value in summaries}) != len(summaries):
+            raise ValueError("TrajectoryRecord observable summary names must be unique")
+        if self.source_locator is not None and not isinstance(self.source_locator, str):
+            raise TypeError("TrajectoryRecord source_locator must be a string or None")
+        if self.immutable_id is not None and not isinstance(self.immutable_id, str):
+            raise TypeError("TrajectoryRecord immutable_id must be a string or None")
+        if self.last_modified is not None:
+            if not isinstance(self.last_modified, datetime.datetime):
+                raise TypeError("TrajectoryRecord last_modified must be a datetime or None")
+            if self.last_modified.tzinfo is None or self.last_modified.utcoffset() is None:
+                raise ValueError("TrajectoryRecord last_modified must include a timezone")
+        object.__setattr__(self, "species", species)
+        object.__setattr__(self, "species_at_sites", species_at_sites)
+        object.__setattr__(self, "reference_frame_indexes", indexes)
+        object.__setattr__(self, "reference_frame_structures", structures)
+        object.__setattr__(self, "observable_summaries", summaries)
+
+    @property
+    def type(self) -> str:
+        return "trajectories"
+
+    @property
+    def id(self) -> str:
+        return content_id(self)
+
+    @classmethod
+    def __httk_project__(cls, trajectory: TrajectoryAPI) -> Mapping[str, object]:
+        declared = trajectory.reference_frames
+        indexes = tuple(declared) if declared is not None else tuple(dict.fromkeys((0, trajectory.nframes - 1)))
+        return {
+            "nframes": trajectory.nframes,
+            "species": tuple(
+                SpeciesRecord(**cast(dict[str, Any], SpeciesRecord.__httk_project__(species)))
+                for species in trajectory.species
+            ),
+            "species_at_sites": trajectory.species_at_sites,
+            "reference_frame_indexes": indexes,
+            "reference_frame_structures": tuple(
+                _unitcell_record_from_structure(trajectory.frame(index)) for index in indexes
+            ),
+            "observable_summaries": tuple(
+                _observable_summary(name, trajectory.observable(name)) for name in sorted(trajectory.observable_names)
+            ),
+            "source_locator": getattr(trajectory, "source_locator", None),
+            "immutable_id": getattr(trajectory, "immutable_id", None),
+            "last_modified": getattr(trajectory, "last_modified", None),
+        }
 
 
 from httk.atomistic.storage.stored_properties import attach_structure_property_projections

@@ -5,11 +5,14 @@ from collections.abc import Mapping
 from decimal import Decimal, localcontext
 from typing import Any
 
-from httk.core import FracVector
+from httk.core import FracVector, unwrap
 
 from httk.atomistic._atomic_projection import require_bare_atomic_projection
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.models.structure.view import StructureView
+from httk.atomistic.models.trajectory.backend import TrajectoryBackend
+from httk.atomistic.models.trajectory.view import TrajectoryView
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -195,6 +198,14 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
 
 def _poscar_payload_from_structure(obj: Any) -> Mapping[str, object]:
     """Serialize a structure to POSCAR's neutral payload."""
+    from httk.atomistic.integrations.vasp import VASPStructure
+
+    backend = obj._backend if isinstance(obj, StructureView) else unwrap(obj)
+    if isinstance(obj, VASPStructure):
+        return obj.payload
+    if isinstance(backend, VASPStructure):
+        return backend.payload
+
     structure = UnitcellStructureView(obj)
     require_bare_atomic_projection(structure, "POSCAR")
     species_at_sites = tuple(structure.species_at_sites)
@@ -239,4 +250,51 @@ def _poscar_payload_from_structure(obj: Any) -> Mapping[str, object]:
         "cartesian": False,
         "coords": coords,
         "selective_dynamics": None,
+    }
+
+
+def _trajectory_jsonl_payload(obj: Any) -> Mapping[str, object]:
+    """Adapt a trajectory to a streaming neutral JSONL writer payload."""
+    trajectory = TrajectoryBackend.create(obj) if isinstance(obj, Mapping) else obj
+    if not isinstance(trajectory, (TrajectoryBackend, TrajectoryView)):
+        raise TypeError(f"cannot save {type(obj).__name__} as a trajectory JSONL file")
+
+    from httk.atomistic.models.species.plain_view import PlainSpeciesView
+
+    first_cell: list[list[float]] | None = None
+    constant = True
+    for frame in trajectory.frames():
+        cell = frame.cell.basis.to_floats()
+        if first_cell is None:
+            first_cell = cell
+        elif cell != first_cell:
+            constant = False
+    if first_cell is None:
+        raise ValueError("cannot save an empty trajectory")
+
+    observable_values = {name: iter(trajectory.observable(name)) for name in trajectory.observable_names}
+
+    def frame_lines() -> Any:
+        for index, frame in enumerate(trajectory.frames()):
+            values = {name: next(observable_values[name]) for name in observable_values}
+            line: dict[str, Any] = {
+                "index": index,
+                "fractional_site_positions": frame.sites.reduced_coords.to_floats(),
+                "observables": values,
+            }
+            if not constant:
+                line["lattice_vectors"] = frame.cell.basis.to_floats()
+            yield line
+
+    return {
+        "format": "httk-trajectory-jsonl",
+        "header": {
+            "species": [dict(PlainSpeciesView(species)) for species in trajectory.species],
+            "species_at_sites": list(trajectory.species_at_sites),
+            "constant_cell": first_cell if constant else None,
+            "nframes": trajectory.nframes,
+            "observable_names": list(trajectory.observable_names),
+            "reference_frames": (None if trajectory.reference_frames is None else list(trajectory.reference_frames)),
+        },
+        "frames": frame_lines(),
     }

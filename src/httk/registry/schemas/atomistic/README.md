@@ -20,9 +20,16 @@ The checked-in file is the source of truth. It is loaded with
 The JSON and license files are packaged through the
 `httk.registry.schemas.atomistic` package-data entry in `pyproject.toml`.
 
+## OPTIMADE `trajectories` entry-type
+
+`trajectories.json` is the official OPTIMADE v1.3 trajectories entry-type
+definition. Its frame-dependent structure properties use a leading
+`dim_frames` axis; properties declaring that axis `constant` may use the
+one-value compact form.
+
 ## Published httk property definitions
 
-The remaining nine JSON files are the authoritative, supported copies of the
+The remaining thirteen JSON files are the authoritative, supported copies of the
 non-OPTIMADE-standard property definitions that *httk-atomistic* serves. They
 describe which setting a crystal structure is written in, the change of basis
 from the International Tables standard setting to it, how precisely the
@@ -85,6 +92,11 @@ The OPTIMADE source repository is
 | File | Version | Source URL |
 | --- | --- | --- |
 | `structures.json` | v1.3 (30 properties) | <https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures.json> |
+| `trajectories.json` | v1.3 | <https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/trajectories.json> |
+| `frame_total_energies.json` | v0.1 | <https://schemas.httk.org/defs/v0.1/properties/trajectories/frame_total_energies> |
+| `frame_temperatures.json` | v0.1 | <https://schemas.httk.org/defs/v0.1/properties/trajectories/frame_temperatures> |
+| `frame_stresses.json` | v0.1 | <https://schemas.httk.org/defs/v0.1/properties/trajectories/frame_stresses> |
+| `time_step.json` | v0.1 | <https://schemas.httk.org/defs/v0.1/properties/trajectories/time_step> |
 
 The published httk schemas are at <https://github.com/httk/schemas>, served from
 <https://schemas.httk.org>. Their sources are
@@ -108,8 +120,8 @@ is AGPL, and from the CC BY 4.0 symmetry datasets under `httk.atomistic/data/`.
 
 ## Refreshing
 
-Run `make optimade-defs` from the repository root to re-fetch `structures.json`
-and the OPTIMADE `LICENSE`, and `make httk-defs` to re-fetch the nine httk
+Run `make optimade-defs` from the repository root to re-fetch `structures.json`,
+`trajectories.json`, and the OPTIMADE `LICENSE`, and `make httk-defs` to re-fetch the thirteen httk
 property definitions from <https://schemas.httk.org> (the `HTTK_DEFS` list in
 the Makefile names them as `<section>/<name>`; basenames are kept). These are
 the only source tasks that use the network; ordinary builds and tests read the

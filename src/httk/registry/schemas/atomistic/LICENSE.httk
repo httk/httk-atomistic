@@ -19,3 +19,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+The trajectory property definitions were copied verbatim from
+https://schemas.httk.org/defs/v0.1/properties/trajectories/ and its
+schemas-source build at https://github.com/httk/schemas-sources.

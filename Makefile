@@ -46,6 +46,7 @@ docs-lock-check: docs-clean
 # src/httk/registry/schemas/atomistic/ is the authoritative supported version.
 optimade-defs:
 	curl -fsSL https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures.json -o src/httk/registry/schemas/atomistic/structures.json
+	curl -fsSL https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/trajectories.json -o src/httk/registry/schemas/atomistic/trajectories.json
 	curl -fsSL https://raw.githubusercontent.com/Materials-Consortia/schemas/master/LICENSE -o src/httk/registry/schemas/atomistic/LICENSE
 
 # Refresh the vendored httk property definitions from the published schemas.httk.org
@@ -64,7 +65,11 @@ HTTK_DEFS = \
 	spacegroups/hall_entry \
 	spacegroups/is_reference_setting \
 	spacegroups/setting_it_nc \
-	symmetry/affine_transformation
+	symmetry/affine_transformation \
+	trajectories/frame_stresses \
+	trajectories/frame_temperatures \
+	trajectories/frame_total_energies \
+	trajectories/time_step
 httk-defs:
 	set -e; for def in $(HTTK_DEFS); do \
 		curl -fsSL "https://schemas.httk.org/defs/v0.1/properties/$$def.json" \

@@ -1,0 +1,81 @@
+{
+    "$id": "https://schemas.httk.org/defs/v0.1/properties/trajectories/frame_total_energies",
+    "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
+    "title": "Frame total energies",
+    "x-optimade-type": "list",
+    "x-optimade-definition": {
+        "kind": "property",
+        "version": "0.1.0",
+        "format": "1.3",
+        "name": "frame_total_energies",
+        "label": "frame_total_energies_trajectories_httk"
+    },
+    "x-optimade-unit": "eV",
+    "x-optimade-unit-definitions": [
+        {
+            "$id": "https://schemas.optimade.org/defs/v1.2/units/si/general/electronvolt",
+            "title": "electron volt",
+            "symbol": "eV",
+            "display-symbol": "eV",
+            "description": "A unit of energy that representing the kinetic energy acquired by an electron as it accelerates through a 1 volt potential difference in a vacuum using the current, or one of the historical, definitions given in the editions of the International System of Units (SI).\n\nThe electronvolt unit appears in the International System of Units (SI), 1st ed. (1970) defined as \"1 electronvolt is the energy acquired by an electron after traversing a potential difference of 1 V in a vacuum; 1 eV = 1.60219\u00d710\u207b\u00b9\u2079 J approximately.\"\nThis definition makes the unit equal to 1 volt times the value of the elementary charge.\nIn the 2019 redefinition of the SI units the elementary charge is exactly 1.602176634\u00b710\u207b\u00b9\u2079 C, making the electron volt exactly equal to 1.602176634\u00b710\u207b\u00b9\u2079 J.\nThe International System of Units (SI), 9th ed. (2019) accordingly notes the exact relationship with the SI 2019 derived unit joule as \"1 eV = 1.602176634\u00b710\u207b\u00b9\u2079 J\" but retains the definition from 1970 in a footnote.\n\nThe unit is categorized in the International System of Units (SI), 9th ed. (2019) as \"Non-SI units accepted for use with the SI units\".\n\nThis is a generalized definition taken to reference the current, or one of the historical, SI unit definitions.\nThis definition is intended for situations when it is not possible to be more precise, e.g., in contexts where data have been collected that uses different historical SI definitions.",
+            "compatibility": [
+                "https://schemas.optimade.org/defs/v1.2/units/si/1970/accepted/electronvolt",
+                "https://schemas.optimade.org/defs/v1.2/units/si/1983/accepted/electronvolt",
+                "https://schemas.optimade.org/defs/v1.2/units/si/2019/accepted/electronvolt"
+            ],
+            "resources": [
+                {
+                    "relation": "Definition in the International System of Units (SI), 9th Edition",
+                    "resource-id": "https://www.bipm.org/en/publications/si-brochure"
+                },
+                {
+                    "relation": "Wikipedia article describing the unit",
+                    "resource-id": "https://en.wikipedia.org/wiki/Electronvolt"
+                }
+            ],
+            "approximate-relations": [
+                {
+                    "base-units": [
+                        {
+                            "symbol": "V",
+                            "id": "https://schemas.optimade.org/defs/v1.2/units/si/general/volt"
+                        },
+                        {
+                            "symbol": "e",
+                            "id": "https://schemas.optimade.org/defs/v1.2/constants/codata/2018/electromagnetic/elementarycharge"
+                        }
+                    ],
+                    "base-units-expression": "e*V"
+                }
+            ],
+            "x-optimade-definition": {
+                "label": "electronvolt_si_general",
+                "kind": "unit",
+                "format": "1.2",
+                "version": "1.2.0",
+                "name": "electronvolt"
+            }
+        }
+    ],
+    "x-optimade-dimensions": {
+        "names": [
+            "dim_frames"
+        ],
+        "sizes": [
+            null
+        ]
+    },
+    "type": [
+        "array",
+        "null"
+    ],
+    "items": {
+        "x-optimade-type": "float",
+        "x-optimade-unit": "eV",
+        "type": [
+            "number",
+            "null"
+        ]
+    },
+    "description": "The total energy of each frame of a trajectory, in electronvolt, aligned with the trajectory frame axis (`dim_frames`).\nA `null` value indicates that the energy of the corresponding frame is unknown.\nThe reference/zero of the total energy scale is method- and code-specific, so values are comparable only within one consistent computational setup."
+}

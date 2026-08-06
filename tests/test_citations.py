@@ -71,7 +71,7 @@ from httk.core import credits
 
 heading = "Structure interchange with the Atomic Simulation Environment (ASE)"
 assert heading not in credits.entries()
-import httk.atomistic.compat.ase.view
+import httk.atomistic.integrations.ase.view
 assert heading in credits.entries()
 """
     )
@@ -85,7 +85,7 @@ from httk.core import credits
 
 heading = "Structure interchange with pymatgen"
 assert heading not in credits.entries()
-import httk.atomistic.compat.pymatgen.view
+import httk.atomistic.integrations.pymatgen.view
 assert heading in credits.entries()
 """
     )

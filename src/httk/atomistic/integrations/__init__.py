@@ -1,9 +1,17 @@
-"""External-library compatibility bridges."""
+"""External-library integration bridges."""
 
 from .ase import ASEAtoms, ASEAtomsProtocol
 from .pymatgen import PymatgenStructure, PymatgenStructureProtocol
+from .vasp import VASPStructure, VASPTrajectory
 
-__all__ = ["ASEAtoms", "ASEAtomsProtocol", "PymatgenStructure", "PymatgenStructureProtocol"]
+__all__ = [
+    "ASEAtoms",
+    "ASEAtomsProtocol",
+    "PymatgenStructure",
+    "PymatgenStructureProtocol",
+    "VASPStructure",
+    "VASPTrajectory",
+]
 
 try:
     from .ase import ASEAtomsView  # noqa: F401

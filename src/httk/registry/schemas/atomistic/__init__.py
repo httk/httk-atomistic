@@ -6,6 +6,10 @@ register_entry_type_definition(
     definition_id="https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures",
     resource="httk.registry.schemas.atomistic:structures.json",
 )
+register_entry_type_definition(
+    definition_id="https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/trajectories",
+    resource="httk.registry.schemas.atomistic:trajectories.json",
+)
 
 register_property_definition(
     definition_id="https://schemas.httk.org/defs/v0.1/properties/symmetry/affine_transformation",
@@ -58,4 +62,20 @@ register_property_definition(
 register_property_definition(
     definition_id="https://schemas.httk.org/defs/v0.1/properties/magnetism/site_moments",
     resource="httk.registry.schemas.atomistic:site_moments.json",
+)
+register_property_definition(
+    definition_id="https://schemas.httk.org/defs/v0.1/properties/trajectories/frame_stresses",
+    resource="httk.registry.schemas.atomistic:frame_stresses.json",
+)
+register_property_definition(
+    definition_id="https://schemas.httk.org/defs/v0.1/properties/trajectories/frame_temperatures",
+    resource="httk.registry.schemas.atomistic:frame_temperatures.json",
+)
+register_property_definition(
+    definition_id="https://schemas.httk.org/defs/v0.1/properties/trajectories/frame_total_energies",
+    resource="httk.registry.schemas.atomistic:frame_total_energies.json",
+)
+register_property_definition(
+    definition_id="https://schemas.httk.org/defs/v0.1/properties/trajectories/time_step",
+    resource="httk.registry.schemas.atomistic:time_step.json",
 )

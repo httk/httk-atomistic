@@ -26,8 +26,17 @@ register_format_serializer(
     format="vasp-wavecar",
     serializer="httk.atomistic.wavefunction:_wavecar_payload_from_planewaves",
 )
+register_format_serializer(
+    format="httk-trajectory-jsonl",
+    serializer="httk.atomistic._writing:_trajectory_jsonl_payload",
+)
 register_format_adapter(
     name="atomistic-structures",
     adapter="httk.atomistic._loading:_structure_from_optimade_payload",
     formats=("optimade-entry",),
+)
+register_format_adapter(
+    name="atomistic-trajectories",
+    adapter="httk.atomistic._loading:_trajectory_from_payload",
+    formats=("vasp-outcar", "vasp-xdatcar", "httk-trajectory-jsonl"),
 )

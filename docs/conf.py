@@ -123,10 +123,10 @@ nitpick_ignore = [
     ("py:class", "Ellipsis"),
     # numpy is an optional dependency surfaced by the numeric layer.
     ("py:class", "numpy.ndarray"),
-    # ase is an optional dependency surfaced by the compat layer.
+    # ase is an optional dependency surfaced by the integrations layer.
     ("py:class", "ase.Atoms"),
     ("py:obj", "ase.Atoms"),
-    # pymatgen is an optional dependency surfaced by the compat layer.
+    # pymatgen is an optional dependency surfaced by the integrations layer.
     ("py:class", "pymatgen.core.Structure"),
     ("py:obj", "pymatgen.core.Structure"),
     # OptimadeResource is new in the sibling httk-core workspace; the vendored

@@ -40,7 +40,14 @@ from httk.atomistic.models.species.plain import PlainSpecies
 from httk.atomistic.models.species.plain_view import PlainSpeciesView
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.species.view import SpeciesView
-from httk.atomistic.compat import ASEAtoms, ASEAtomsProtocol, PymatgenStructure, PymatgenStructureProtocol
+from httk.atomistic.integrations import (
+    ASEAtoms,
+    ASEAtomsProtocol,
+    PymatgenStructure,
+    PymatgenStructureProtocol,
+    VASPStructure,
+    VASPTrajectory,
+)
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.asu_view import ASUStructureView
 from httk.atomistic.models.structure.backend import StructureBackend
@@ -57,13 +64,24 @@ from httk.atomistic.models.structure.semantics import StructureSymmetry
 from httk.atomistic.models.structure.symops import SymopsStructure
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.models.trajectory import (
+    JsonlTrajectory,
+    PlainTrajectory,
+    RecordTrajectory,
+    Trajectory,
+    TrajectoryLike,
+    TrajectoryView,
+)
 from httk.atomistic.wavefunction import PlaneWaveFunctions, save_vesta, wavefunction_overlap
 from httk.atomistic.entries.structures import StructureEntry, StructureEntryProvider
+from httk.atomistic.entries.trajectories import TrajectoryEntry, TrajectoryEntryProvider
 from httk.atomistic.storage.records import (
     ASUStructureRecord,
     FundamentalDomainStructureRecord,
     UnitcellStructureRecord,
     validate_structure_record,
+    ObservableSummaryRecord,
+    TrajectoryRecord,
 )
 from httk.atomistic.models.cell.record import RecordCell
 from httk.atomistic.models.sites.record import RecordSites
@@ -102,6 +120,9 @@ CellBackend.backend_classes = [RecordCell, PlainCell, CellParams]
 SitesBackend.backend_classes = [RecordSites, PlainSites]
 SiteMomentsBackend.backend_classes = []
 SpeciesBackend.backend_classes = [RecordSpecies, PlainSpecies]
+from httk.atomistic.models.trajectory.backend import TrajectoryBackend
+
+TrajectoryBackend.backend_classes = [RecordTrajectory, PlainTrajectory]
 
 # Storage opt-in is exact-source-class scoped: core intentionally resolves this
 # attribute through vars(type(source)), never by inheritance.
@@ -110,6 +131,8 @@ UnitcellStructureView.__httk_storage_record__ = UnitcellStructureRecord
 FundamentalDomainStructure.__httk_storage_record__ = FundamentalDomainStructureRecord
 ASUStructure.__httk_storage_record__ = ASUStructureRecord
 ASUStructureView.__httk_storage_record__ = ASUStructureRecord
+Trajectory.__httk_storage_record__ = TrajectoryRecord
+TrajectoryView.__httk_storage_record__ = TrajectoryRecord
 
 __all__ = [
     "DEFAULT_TOLERANCE",
@@ -135,14 +158,18 @@ __all__ = [
     "DatastreamStructure",
     "FundamentalDomainStructure",
     "FundamentalDomainStructureRecord",
+    "JsonlTrajectory",
     "ModulatedStructure",
     "NumericUnitcellStructureView",
+    "ObservableSummaryRecord",
     "OptimadeStructure",
     "PlainSpeciesView",
     "PlainStructureView",
+    "PlainTrajectory",
     "PlaneWaveFunctions",
     "PymatgenStructure",
     "PymatgenStructureProtocol",
+    "RecordTrajectory",
     "SettingTransform",
     "SiteMomentsLike",
     "Sites",
@@ -158,9 +185,17 @@ __all__ = [
     "StructureSymmetry",
     "SupercellResult",
     "SymopsStructure",
+    "Trajectory",
+    "TrajectoryEntry",
+    "TrajectoryEntryProvider",
+    "TrajectoryLike",
+    "TrajectoryRecord",
+    "TrajectoryView",
     "UnitcellStructure",
     "UnitcellStructureRecord",
     "UnitcellStructureView",
+    "VASPStructure",
+    "VASPTrajectory",
     "WyckoffPosition",
     "WyckoffSite",
     "asu_structure_from_cif",
@@ -185,14 +220,14 @@ __all__ = [
 # ASE is optional. The view module subclasses ase.Atoms at class-definition time, so it
 # cannot be imported without ASE; guard it exactly like the optional numpy vector view.
 try:
-    from httk.atomistic.compat import ASEAtomsView  # noqa: F401
+    from httk.atomistic.integrations import ASEAtomsView  # noqa: F401
 except ImportError:
     pass
 else:
     __all__.append("ASEAtomsView")
 
 try:
-    from httk.atomistic.compat import PymatgenStructureView  # noqa: F401
+    from httk.atomistic.integrations import PymatgenStructureView  # noqa: F401
 except ImportError:
     pass
 else:

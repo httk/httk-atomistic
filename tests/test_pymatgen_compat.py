@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 import pytest
 
 from httk.atomistic import PymatgenStructure, PymatgenStructureProtocol, StructureBackend, UnitcellStructureView
-from httk.atomistic.compat.ase import ASEAtomsProtocol
+from httk.atomistic.integrations.ase import ASEAtomsProtocol
 
 
 class Lattice:
@@ -75,7 +75,7 @@ def test_pymatgen_absence_keeps_backend_importable() -> None:
 import sys
 sys.modules['pymatgen'] = None
 import httk.atomistic
-import httk.atomistic.compat.pymatgen.models as models
+import httk.atomistic.integrations.pymatgen.models as models
 try:
     models.PymatgenStructureView
 except ImportError as exc:

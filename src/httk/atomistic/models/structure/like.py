@@ -11,8 +11,8 @@ import httk.core
 import httk.core.datastream
 import httk.core.optimade
 
-import httk.atomistic.compat.ase.models
-import httk.atomistic.compat.pymatgen.models
+import httk.atomistic.integrations.ase.models
+import httk.atomistic.integrations.pymatgen.models
 import httk.atomistic.models.structure.asu
 import httk.atomistic.models.structure.backend
 import httk.atomistic.models.structure.unitcell
@@ -40,8 +40,8 @@ type StructureLike = (
     | httk.core.datastream.TextstreamView
     | httk.core.datastream.BytestreamBackend
     | httk.core.datastream.BytestreamView
-    | httk.atomistic.compat.ase.models.ASEAtomsProtocol
-    | httk.atomistic.compat.pymatgen.models.PymatgenStructureProtocol
+    | httk.atomistic.integrations.ase.models.ASEAtomsProtocol
+    | httk.atomistic.integrations.pymatgen.models.PymatgenStructureProtocol
     | tuple[httk.core.VectorLike, httk.core.VectorLike, Any]
     | list[Any]
 )
