@@ -346,7 +346,9 @@ def _group_into_orbits(
     # The recognized ASU inherits the precision of the structure it came from: nothing
     # about recognition sharpens the data, and dropping it here would mean the value had
     # to be guessed again by everything downstream.
-    return ASUStructure(cell, standard, wyckoff_sites, view.species, transform, view.sites.precision)
+    return ASUStructure(
+        cell, standard, wyckoff_sites, view.species, transform, view.sites.precision, charge=view.charge
+    )
 
 
 def _orbit_moment(

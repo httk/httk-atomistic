@@ -1253,3 +1253,16 @@ class OptimadeStructure(StructureBackend):
     @property
     def species_at_sites(self) -> tuple[str, ...]:
         return self._species_at_sites
+
+    @property
+    def charge(self) -> Fraction | None:
+        attributes = self.raw.get("attributes")
+        if not isinstance(attributes, Mapping):
+            return None
+        value = attributes.get("_httk_charge")
+        if value is None:
+            return None
+        try:
+            return Fraction(str(value))
+        except (TypeError, ValueError, ZeroDivisionError) as exc:
+            raise IncompleteOptimadeResourceError("OPTIMADE '_httk_charge' must be a number or null") from exc

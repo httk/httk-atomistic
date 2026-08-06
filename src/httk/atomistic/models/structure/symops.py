@@ -1,6 +1,7 @@
 """A structure represented by a CIF site's own complete symmetry operations."""
 
 import datetime
+import fractions
 from collections.abc import Sequence
 from functools import cached_property
 from typing import Any, ClassVar
@@ -107,6 +108,7 @@ class SymopsStructure(StructureBackend, StructureSemanticsMixin):
         optimization_type: str | None = None,
         immutable_id: str | None = None,
         last_modified: datetime.datetime | None = None,
+        charge: fractions.Fraction | int | str | None = None,
     ) -> None:
         norm_cell = _norm_cell(cell)
         norm_sites = _norm_sites(sites)
@@ -136,6 +138,7 @@ class SymopsStructure(StructureBackend, StructureSemanticsMixin):
         self._species = norm_species
         self._listed_species_at_sites = norm_species_at_sites
         self._listed_site_moments = norm_site_moments
+        self._charge = None if charge is None else fractions.Fraction(charge)
         self._symops = normalized
         self._bns_number = bns_number
         self._bns_label = bns_label
@@ -208,6 +211,10 @@ class SymopsStructure(StructureBackend, StructureSemanticsMixin):
     @property
     def site_coordinate_span(self) -> str:
         return "unit_cell"
+
+    @property
+    def charge(self) -> fractions.Fraction | None:
+        return self._charge
 
     def cartesian_sites(self) -> SurdVector:
         return SurdVector.create(self.sites.reduced_coords) * self._cell.basis

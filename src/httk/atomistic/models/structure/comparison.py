@@ -56,6 +56,8 @@ def same_crystal(first: StructureLike, second: StructureLike) -> bool:
 
     if left.cell.basis != right.cell.basis:
         return False
+    if left.charge != right.charge:
+        return False
 
     left_moments = left.site_moments
     right_moments = right.site_moments

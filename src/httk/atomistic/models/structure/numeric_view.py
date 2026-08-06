@@ -80,6 +80,11 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
         )
 
     @property
+    def charge(self) -> float | None:
+        value = self._exact.charge
+        return None if value is None else float(value)
+
+    @property
     def site_moments(self) -> Any:
         moments = self._exact.site_moments
         return None if moments is None else to_numeric(moments.cartesian_moments)

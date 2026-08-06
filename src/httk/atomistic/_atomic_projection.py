@@ -16,6 +16,14 @@ def require_bare_atomic_projection(backend: Any, target: str) -> None:
         raise TypeError(
             f"This structure cannot be represented as {target} because it has a declared chemical composition"
         )
+    charge = getattr(source, "charge", getattr(backend, "charge", None))
+    if charge is not None:
+        raise ValueError(f"This structure cannot be represented as {target} because it has a charge")
+    species = getattr(source, "species", getattr(backend, "species", ()))
+    for item in species:
+        for field in ("charges", "spins", "labels"):
+            if getattr(item, field, None) is not None:
+                raise ValueError(f"This structure cannot be represented as {target} because species has {field}")
 
 
 __all__ = ["require_bare_atomic_projection"]

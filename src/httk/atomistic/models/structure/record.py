@@ -102,6 +102,10 @@ class RecordStructure(StructureBackend):
         return self._expanded.site_moments
 
     @property
+    def charge(self) -> Any:
+        return getattr(self._record, "charge", None)
+
+    @property
     def molecular(self) -> bool:
         return self._record.molecular
 

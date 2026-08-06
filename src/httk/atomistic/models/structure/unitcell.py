@@ -139,6 +139,7 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
     _species: tuple[Species, ...]
     _species_at_sites: tuple[str, ...]
     _site_moments: SiteMomentsBackend | None
+    _charge: fractions.Fraction | None
     kind: ClassVar[str] = "unitcell"
 
     def __init__(
@@ -158,6 +159,7 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         optimization_type: str | None = None,
         immutable_id: str | None = None,
         last_modified: datetime.datetime | None = None,
+        charge: fractions.Fraction | int | str | None = None,
     ) -> None:
         if species_at_sites is None:
             raise TypeError("UnitcellStructure species_at_sites is required")
@@ -179,6 +181,7 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         self._species = norm_species
         self._species_at_sites = norm_species_at_sites
         self._site_moments = norm_site_moments
+        self._charge = None if charge is None else fractions.Fraction(charge)
         initialize_semantics(
             self,
             nsites=len(norm_sites),
@@ -217,6 +220,11 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
     def site_moments(self) -> SiteMomentsBackend | None:
         """Optional per-site magnetic moments, in ``sites`` order."""
         return self._site_moments
+
+    @property
+    def charge(self) -> fractions.Fraction | None:
+        """The explicitly assigned exact net charge of the full cell, if stated."""
+        return self._charge
 
     @property
     def coordinate_precision(self) -> fractions.Fraction | None:
@@ -387,6 +395,7 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
             and self._species == other._species
             and self._species_at_sites == other._species_at_sites
             and self._site_moments == other._site_moments
+            and self.charge == other.charge
             and self.molecular == other.molecular
             and self.assemblies == other.assemblies
             and self.symmetry == other.symmetry

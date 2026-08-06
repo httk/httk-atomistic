@@ -128,6 +128,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
     _wyckoff_sites: tuple[WyckoffSite, ...]
     _species: tuple[Species, ...]
     _coordinate_precision: fractions.Fraction | None
+    _charge: fractions.Fraction | None
     kind: ClassVar[str] = "asu"
 
     def __init__(
@@ -147,6 +148,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         optimization_type: str | None = None,
         immutable_id: str | None = None,
         last_modified: datetime.datetime | None = None,
+        charge: fractions.Fraction | int | str | None = None,
     ) -> None:
         self._cell = cell if isinstance(cell, Cell) else CellView(cell)
         require_full_periodicity(self._cell, "ASUStructure")
@@ -159,6 +161,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
             )
         self._transform = SettingTransform.identity() if transform is None else transform
         self._coordinate_precision = to_precision(coordinate_precision)
+        self._charge = None if charge is None else fractions.Fraction(charge)
         self._wyckoff_sites = tuple(wyckoff_sites)
         self._species = tuple(item if isinstance(item, Species) else SpeciesView(item) for item in species)
 
@@ -564,6 +567,11 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         return self.expand_site_moments()
 
     @property
+    def charge(self) -> fractions.Fraction | None:
+        """The explicitly assigned exact charge of the full expanded cell, if stated."""
+        return self._charge
+
+    @property
     def assemblies(self) -> tuple[Assembly, ...] | None:
         return self._assemblies
 
@@ -582,6 +590,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
             and self._wyckoff_sites == other._wyckoff_sites
             and self._species == other._species
             and self._coordinate_precision == other._coordinate_precision
+            and self._charge == other._charge
             and self._molecular == other._molecular
             and self._assemblies == other._assemblies
             and self._chemical_composition == other._chemical_composition

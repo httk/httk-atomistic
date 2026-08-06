@@ -41,6 +41,9 @@ class SpeciesView(SpeciesViewBase, Species):
             attached=backend.attached,
             nattached=backend.nattached,
             concentration_precision=backend.concentration_precision,
+            charges=backend.charges,
+            spins=backend.spins,
+            labels=backend.labels,
         )
         instance._backend = backend
         return instance
@@ -65,4 +68,7 @@ class SpeciesView(SpeciesViewBase, Species):
             attached=self.attached,
             nattached=self.nattached,
             concentration_precision=self.concentration_precision,
+            charges=self.charges,
+            spins=self.spins,
+            labels=self.labels,
         )

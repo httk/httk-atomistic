@@ -101,6 +101,7 @@ class ASUStructureView(StructureView, ASUStructure):
             optimization_type=asu.optimization_type,
             immutable_id=resolved_immutable_id,
             last_modified=resolved_last_modified,
+            charge=asu.charge,
         )
         instance._backend = backend
         return instance
@@ -148,4 +149,5 @@ class ASUStructureView(StructureView, ASUStructure):
             optimization_type=self.optimization_type,
             immutable_id=self.immutable_id,
             last_modified=self.last_modified,
+            charge=self.charge,
         )

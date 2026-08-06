@@ -261,6 +261,7 @@ def build_supercell(
         chemical_formula_descriptive=getattr(semantics, "chemical_formula_descriptive", None),
         chemical_formula_hill=getattr(semantics, "chemical_formula_hill", None),
         optimization_type=getattr(semantics, "optimization_type", None),
+        charge=None if view.charge is None else view.charge * multiplier,
     )
     orthogonality, cubicity = _shape_scores(new_cell.metric())
     return SupercellResult(result, matrix, multiplier, orthogonality, cubicity)

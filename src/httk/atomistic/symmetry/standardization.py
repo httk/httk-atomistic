@@ -221,23 +221,33 @@ def conventional_cell(
         )
         for site in asu.wyckoff_sites
     )
-    standard_asu = ASUStructure(
-        new_cell,
-        asu.spacegroup,
-        standard_sites,
-        asu.species,
-        transform=SettingTransform.identity(),
-        coordinate_precision=new_coordinate_precision,
-        molecular=source_molecular,
-        # An existing reduced representation indexes assemblies against its domain.
-        # Plain input assemblies index the full unit cell and are remapped below.
-        assemblies=asu.assemblies if had_existing_asu else None,
-    )
+
+    def _standard_asu(charge: fractions.Fraction | None = None) -> ASUStructure:
+        return ASUStructure(
+            new_cell,
+            asu.spacegroup,
+            standard_sites,
+            asu.species,
+            transform=SettingTransform.identity(),
+            coordinate_precision=new_coordinate_precision,
+            molecular=source_molecular,
+            # An existing reduced representation indexes assemblies against its domain.
+            # Plain input assemblies index the full unit cell and are remapped below.
+            assemblies=asu.assemblies if had_existing_asu else None,
+            charge=charge,
+        )
+
+    standard_asu = _standard_asu()
     result_structure = UnitcellStructureView(standard_asu)
     original_count = len(original.sites)
     if original_count == 0:
         raise ValueError("conventional_cell() cannot determine a site-count multiplier for an empty structure")
     multiplier = fractions.Fraction(len(result_structure.sites), original_count)
+
+    if original.charge is not None:
+        # The multiplier is only known after the first expansion, so rebuild with scaled charge.
+        standard_asu = _standard_asu(original.charge * multiplier)
+        result_structure = UnitcellStructureView(standard_asu)
 
     # All tabulated transforms have determinant 1 or 3. Keep this invariant explicit while
     # allowing a caller-supplied untabulated transform to describe a larger own cell.

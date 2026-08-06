@@ -7,6 +7,7 @@ from typing import Any
 
 from httk.core import FracVector
 
+from httk.atomistic._atomic_projection import require_bare_atomic_projection
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.symmetry.affine_operation import AffineOperation
@@ -149,6 +150,7 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
     serializer never silently turns an exact structure into a float.
     """
     if isinstance(obj, FundamentalDomainStructure):
+        require_bare_atomic_projection(obj, "CIF")
         setting = obj.setting()
         if setting is None:
             raise ValueError(
@@ -174,6 +176,7 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
         }
 
     structure = UnitcellStructureView(obj)
+    require_bare_atomic_projection(structure, "CIF")
     identity = AffineOperation.identity()
     labels = list(structure.species_at_sites)
     return {
@@ -193,6 +196,7 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
 def _poscar_payload_from_structure(obj: Any) -> Mapping[str, object]:
     """Serialize a structure to POSCAR's neutral payload."""
     structure = UnitcellStructureView(obj)
+    require_bare_atomic_projection(structure, "POSCAR")
     species_at_sites = tuple(structure.species_at_sites)
     if not species_at_sites:
         raise ValueError("POSCAR cannot represent an empty structure")

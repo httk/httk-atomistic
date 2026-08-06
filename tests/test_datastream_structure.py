@@ -16,12 +16,16 @@ from httk.core.optimade import IncompleteOptimadeResourceError
 from httk.atomistic import (
     Assembly,
     ASUStructureView,
+    Cell,
+    CollinearSiteMoments,
     DatastreamStructure,
     NumericUnitcellStructureView,
+    Species,
     StructureEntryProvider,
     UnitcellStructureView,
     build_supercell,
 )
+from httk.atomistic.models.structure.unitcell import UnitcellStructure
 
 pytest.importorskip("httk.io")
 
@@ -55,6 +59,23 @@ He1 He 0 0 0 1
 """,
         encoding="utf-8",
     )
+
+
+def test_datastream_delegates_concrete_charge_and_site_moments() -> None:
+    native = UnitcellStructure(
+        Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
+        [[0, 0, 0]],
+        [Species("Si", ("Si",), (1,))],
+        ["Si"],
+        site_moments=CollinearSiteMoments([2]),
+        charge="1/3",
+    )
+    lazy = object.__new__(DatastreamStructure)
+    lazy._parsed = native
+
+    assert lazy.charge == native.charge
+    assert lazy.site_moments == native.site_moments
+    assert lazy.site_moments is not None
 
 
 def _mock_http(monkeypatch: pytest.MonkeyPatch, responses: dict[str, str]) -> None:

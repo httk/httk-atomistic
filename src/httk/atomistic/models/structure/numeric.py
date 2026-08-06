@@ -1,5 +1,6 @@
 """Backend for numeric unitcell structure presentations."""
 
+from fractions import Fraction
 from typing import Any
 
 from httk.atomistic.models.cell.cell import Cell
@@ -63,6 +64,7 @@ class NumericUnitcellStructure(StructureBackend):
                 precision=getattr(obj.sites, "precision", None),
             )
 
+        raw_charge = getattr(obj, "charge", None)
         self._structure = UnitcellStructure(
             cell,
             sites,
@@ -75,6 +77,7 @@ class NumericUnitcellStructure(StructureBackend):
             chemical_formula_descriptive=getattr(obj, "chemical_formula_descriptive", None),
             chemical_formula_hill=getattr(obj, "chemical_formula_hill", None),
             optimization_type=getattr(obj, "optimization_type", None),
+            charge=None if raw_charge is None else Fraction(raw_charge),
         )
 
     @property
@@ -96,6 +99,10 @@ class NumericUnitcellStructure(StructureBackend):
     def species_at_sites(self) -> tuple[str, ...]:
         """The exact species name for each site."""
         return self._structure.species_at_sites
+
+    @property
+    def charge(self) -> Fraction | None:
+        return self._structure.charge
 
     def unwrap(self) -> Any:
         """Return the wrapped numeric presentation object."""

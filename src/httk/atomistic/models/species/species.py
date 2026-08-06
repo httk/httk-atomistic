@@ -18,6 +18,15 @@ _SPECIAL_SYMBOLS: frozenset[str] = frozenset({"X", "vacancy"})
 
 type ExactInput = fractions.Fraction | int | float | decimal.Decimal | str
 type PrecisionInput = ExactInput | None
+type DecorationInput = fractions.Fraction | int | str | None
+
+
+def _normalize_decoration(
+    values: Sequence[DecorationInput] | None,
+) -> tuple[fractions.Fraction | None, ...] | None:
+    if values is None:
+        return None
+    return tuple(None if value is None else fractions.Fraction(value) for value in values)
 
 
 @dataclass(frozen=True, eq=False, init=False)
@@ -42,6 +51,9 @@ class Species(SpeciesBackend):
     attached: tuple[str, ...] | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
     nattached: tuple[int, ...] | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
     concentration_precision: tuple[fractions.Fraction | None, ...] | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
+    charges: tuple[fractions.Fraction | None, ...] | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
+    spins: tuple[fractions.Fraction | None, ...] | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
+    labels: tuple[str | None, ...] | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
 
     def __init__(
         self,
@@ -53,6 +65,9 @@ class Species(SpeciesBackend):
         attached: Sequence[str] | None = None,
         nattached: Sequence[int] | None = None,
         concentration_precision: Sequence[PrecisionInput] | None = None,
+        charges: Sequence[DecorationInput] | None = None,
+        spins: Sequence[DecorationInput] | None = None,
+        labels: Sequence[str | None] | None = None,
     ) -> None:
         """Create a Species from convenient numeric inputs and retain exact central values.
 
@@ -78,14 +93,16 @@ class Species(SpeciesBackend):
             "concentration_precision",
             None if concentration_precision is None else tuple(concentration_precision),
         )
+        object.__setattr__(self, "charges", _normalize_decoration(charges))
+        object.__setattr__(self, "spins", _normalize_decoration(spins))
+        normalized_labels = None if labels is None else tuple(labels)
+        object.__setattr__(self, "labels", normalized_labels)
         self.__post_init__()
 
     def __post_init__(self) -> None:
         symbols = tuple(self.chemical_symbols)
         if not symbols:
             raise ValueError("Species chemical_symbols must be non-empty")
-        if len(symbols) != len(set(symbols)):
-            raise ValueError("Species chemical_symbols must be unique")
         object.__setattr__(self, "chemical_symbols", symbols)
         concentration: list[fractions.Fraction] = []
         inferred_precision: list[fractions.Fraction | None] = []
@@ -126,6 +143,32 @@ class Species(SpeciesBackend):
                 raise ValueError("Species attached cannot be empty when present")
             if any(symbol not in _ELEMENTS and symbol != "X" for symbol in self.attached):
                 raise ValueError("Species attached symbols must be elements or 'X'")
+        for field_name in ("charges", "spins", "labels"):
+            values = getattr(self, field_name)
+            if values is not None and len(values) != len(symbols):
+                raise ValueError(f"Species {field_name} must have the same length as chemical_symbols")
+            if values is not None and all(value is None for value in values):
+                object.__setattr__(self, field_name, None)
+        if self.labels is not None:
+            if any(value is not None and not isinstance(value, str) for value in self.labels):
+                raise ValueError("Species labels values must be strings or None")
+            object.__setattr__(self, "labels", tuple(self.labels))
+        decorations = tuple(
+            (
+                symbol,
+                None if self.mass is None else self.mass[index],
+                None if self.charges is None else self.charges[index],
+                None if self.spins is None else self.spins[index],
+                None if self.labels is None else self.labels[index],
+            )
+            for index, symbol in enumerate(symbols)
+        )
+        if len(decorations) != len(set(decorations)):
+            raise ValueError(
+                "Species chemical_symbols must be unique unless decorations "
+                "(mass/charge/spin/label) distinguish repeated symbols; exact duplicate "
+                "constituents are not allowed"
+            )
         stated_precision = self.concentration_precision
         if stated_precision is None:
             precision = tuple(inferred_precision)
@@ -150,6 +193,9 @@ class Species(SpeciesBackend):
             self.attached,
             self.nattached,
             self.concentration_precision,
+            self.charges,
+            self.spins,
+            self.labels,
         ) == (
             other.name,
             other.chemical_symbols,
@@ -159,6 +205,9 @@ class Species(SpeciesBackend):
             other.attached,
             other.nattached,
             other.concentration_precision,
+            other.charges,
+            other.spins,
+            other.labels,
         )
 
     def __hash__(self) -> int:
@@ -173,6 +222,9 @@ class Species(SpeciesBackend):
                 self.attached,
                 self.nattached,
                 self.concentration_precision,
+                self.charges,
+                self.spins,
+                self.labels,
             )
         )
 
@@ -238,6 +290,13 @@ class Species(SpeciesBackend):
         attached = obj.get("attached")
         nattached = obj.get("nattached")
         mass = obj.get("mass")
+
+        def parse_decoration(key: str) -> tuple[fractions.Fraction | None, ...] | None:
+            raw = obj.get(key)
+            if raw is None:
+                return None
+            return tuple(None if value is None else fractions.Fraction(str(value)) for value in raw)
+
         return cls(
             name=obj["name"],
             chemical_symbols=tuple(obj["chemical_symbols"]),
@@ -251,4 +310,7 @@ class Species(SpeciesBackend):
                 if obj.get("_httk_concentration_precision") is None
                 else tuple(obj["_httk_concentration_precision"])
             ),
+            charges=parse_decoration("_httk_charges"),
+            spins=parse_decoration("_httk_spins"),
+            labels=None if obj.get("_httk_labels") is None else tuple(obj["_httk_labels"]),
         )

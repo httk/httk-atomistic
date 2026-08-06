@@ -13,6 +13,7 @@ from httk.core.datastream.network_policy import require_network_consent
 from httk.core.optimade import is_optimade_entry_url, redact_optimade_url
 
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.backend import StructureBackend
@@ -193,6 +194,14 @@ class DatastreamStructure(StructureBackend):
     @property
     def species_at_sites(self) -> tuple[str, ...]:
         return self.resolve().species_at_sites
+
+    @property
+    def site_moments(self) -> SiteMomentsBackend | None:
+        return self.resolve().site_moments
+
+    @property
+    def charge(self) -> Any:
+        return self.resolve().charge
 
     def __getattr__(self, name: str) -> Any:
         if name.startswith("_"):

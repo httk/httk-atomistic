@@ -3,6 +3,7 @@ The minimal canonical structure interface for httk-atomistic.
 """
 
 from abc import ABC, abstractmethod
+from fractions import Fraction
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.moments.backend import SiteMomentsBackend
@@ -39,6 +40,15 @@ class StructureAPI(ABC):
     @abstractmethod
     def species_at_sites(self) -> tuple[str, ...]:
         raise NotImplementedError
+
+    @property
+    def charge(self) -> Fraction | None:
+        """Explicitly assigned net charge number of the structure's cell content.
+
+        ``None`` means unstated and is never derived from the species; it is distinct
+        from an explicit zero.
+        """
+        return None
 
     @property
     def site_moments(self) -> SiteMomentsBackend | None:

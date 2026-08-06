@@ -40,6 +40,16 @@ class PlainSpeciesView(SpeciesViewBase, dict):
             payload["attached"] = list(backend.attached)
         if backend.nattached is not None:
             payload["nattached"] = list(backend.nattached)
+        # _httk_charges/_httk_spins are JSON-number floats; exact values live on Species.
+        charges = backend.charges
+        if charges is not None and any(value is not None for value in charges):
+            payload["_httk_charges"] = [None if value is None else float(value) for value in charges]
+        spins = backend.spins
+        if spins is not None and any(value is not None for value in spins):
+            payload["_httk_spins"] = [None if value is None else float(value) for value in spins]
+        labels = backend.labels
+        if labels is not None and any(value is not None for value in labels):
+            payload["_httk_labels"] = list(labels)
         raw = backend.unwrap()
         if isinstance(raw, dict) and "_httk_concentration_precision" in raw:
             payload["_httk_concentration_precision"] = [

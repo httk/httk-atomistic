@@ -88,5 +88,29 @@ class PlainSpecies(SpeciesBackend):
     def original_name(self) -> str | None:
         return self._raw.get("original_name")
 
+    @property
+    def charges(self) -> tuple[Fraction | None, ...] | None:
+        raw = self._raw.get("_httk_charges")
+        if raw is None:
+            return None
+        values = tuple(None if value is None else Fraction(str(value)) for value in raw)
+        return None if len(values) == len(self.chemical_symbols) and all(value is None for value in values) else values
+
+    @property
+    def spins(self) -> tuple[Fraction | None, ...] | None:
+        raw = self._raw.get("_httk_spins")
+        if raw is None:
+            return None
+        values = tuple(None if value is None else Fraction(str(value)) for value in raw)
+        return None if len(values) == len(self.chemical_symbols) and all(value is None for value in values) else values
+
+    @property
+    def labels(self) -> tuple[str | None, ...] | None:
+        raw = self._raw.get("_httk_labels")
+        if raw is None:
+            return None
+        values = tuple(raw)
+        return None if len(values) == len(self.chemical_symbols) and all(value is None for value in values) else values
+
     def unwrap(self) -> Any:
         return self._raw

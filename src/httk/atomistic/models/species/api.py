@@ -27,6 +27,35 @@ class SpeciesAPI(ABC):
         raise NotImplementedError
 
     @property
+    def charges(self) -> tuple[Fraction | None, ...] | None:
+        """Assigned charge numbers for the constituents, or ``None`` if unstated.
+
+        A ``None`` element means the charge of that constituent is unstated; whole-
+        ``None`` means no constituent charges are stated. Values use elementary-charge
+        units, for example a formal oxidation state.
+        """
+        return None
+
+    @property
+    def spins(self) -> tuple[Fraction | None, ...] | None:
+        """Idealized signed spins assigned to the constituents, or ``None`` if unstated.
+
+        A ``None`` element means the spin of that constituent is unstated; whole-``None``
+        means no constituent spins are stated. This is distinct from a calculated site
+        magnetic moment.
+        """
+        return None
+
+    @property
+    def labels(self) -> tuple[str | None, ...] | None:
+        """Free-form per-constituent labels, or ``None`` if unstated.
+
+        A ``None`` element means that constituent has no stated label; whole-``None``
+        means no constituent labels are stated.
+        """
+        return None
+
+    @property
     @abstractmethod
     def concentration(self) -> tuple[Fraction, ...]:
         raise NotImplementedError

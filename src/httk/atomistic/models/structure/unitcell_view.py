@@ -2,6 +2,7 @@
 A view presenting any structure backend as a UnitcellStructure (the Unitcell representation).
 """
 
+import fractions
 from functools import cached_property
 from typing import Any, Self
 
@@ -196,6 +197,10 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
     def site_moments(self) -> SiteMomentsBackend | None:
         return self._site_moments
 
+    @property
+    def charge(self) -> fractions.Fraction | None:
+        return self._effective_backend().charge
+
     def unwrap(self) -> Any:
         return unwrap(self._backend)
 
@@ -224,6 +229,7 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
             optimization_type=self.optimization_type,
             immutable_id=self.immutable_id,
             last_modified=self.last_modified,
+            charge=self.charge,
         )
 
     @property
