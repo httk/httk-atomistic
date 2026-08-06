@@ -5,7 +5,7 @@ so the package-level exports can guard the import while documentation tools can 
 the public :class:`ASEAtomsView` definition.
 """
 
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Self, cast
 
 import ase
 from httk.core import register_citation, unwrap
@@ -36,9 +36,12 @@ register_citation(
     },
 )
 
-from httk.atomistic._atomic_projection import require_bare_atomic_projection
 from httk.atomistic.elements import atomic_number
+from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
+from httk.atomistic.models.moments.cartesian_view import CartesianSiteMomentsView
+from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.models.structure.view import StructureView
 
 if TYPE_CHECKING:
@@ -60,11 +63,26 @@ class ASEAtomsView(StructureView, ase.Atoms):
         if isinstance(obj, cls):
             return obj
         backend = cls._prepare_backend(obj, hints)
-        require_bare_atomic_projection(backend, "ASE Atoms")
+        structure = UnitcellStructureView(backend)
+        if structure.assemblies is not None:
+            raise TypeError("This structure cannot be represented as ASE Atoms because it has assemblies")
+        if structure.chemical_composition is not None:
+            raise TypeError(
+                "This structure cannot be represented as ASE Atoms because it has a declared chemical composition"
+            )
+        source = unwrap(backend)
+        charge = getattr(source, "charge", getattr(backend, "charge", None))
+        if charge is not None:
+            raise ValueError("This structure cannot be represented as ASE Atoms because it has a charge")
+        species_values = getattr(source, "species", getattr(backend, "species", ()))
+        for item in species_values:
+            for field in ("spins", "labels", "mass"):
+                if getattr(item, field, None) is not None:
+                    raise ValueError(f"This structure cannot be represented as ASE Atoms because species has {field}")
         instance = super().__new__(cls)
-        species_by_name = {species.name: species for species in backend.species}
+        species_by_name = {species.name: species for species in structure.species}
         numbers: list[int] = []
-        for name in backend.species_at_sites:
+        for name in structure.species_at_sites:
             species = species_by_name[name]
             if not species.is_single_element:
                 raise TypeError(
@@ -74,11 +92,27 @@ class ASEAtomsView(StructureView, ase.Atoms):
             numbers.append(atomic_number(species.chemical_symbols[0]))
         ase.Atoms.__init__(
             instance,
-            cell=backend.cell.basis.to_floats(),
-            scaled_positions=backend.sites.reduced_coords.to_floats(),
+            cell=structure.cell.basis.to_floats(),
+            scaled_positions=structure.sites.reduced_coords.to_floats(),
             numbers=numbers,
-            pbc=backend.cell.periodicity,
+            pbc=structure.cell.periodicity,
         )
+        moments = structure.site_moments
+        if moments is not None:
+            if isinstance(moments, CollinearSiteMoments):
+                instance.set_initial_magnetic_moments([float(value) for value in moments.collinear_moments.to_floats()])
+            else:
+                cartesian = moments if isinstance(moments, CartesianSiteMoments) else CartesianSiteMomentsView(moments)
+                instance.set_initial_magnetic_moments(
+                    [[float(value) for value in row] for row in cartesian.cartesian_moments.to_floats()]
+                )
+        if any(species.charges is not None for species in structure.species):
+            initial_charges: list[float] = []
+            for name in structure.species_at_sites:
+                charges = species_by_name[name].charges
+                charge = None if charges is None else charges[0]
+                initial_charges.append(0.0 if charge is None else float(cast(Any, charge)))
+            cast(Any, instance).set_initial_charges(initial_charges)
         instance._backend = backend
         return instance
 

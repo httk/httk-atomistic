@@ -6,15 +6,18 @@ ASE, while :class:`~httk.atomistic.compat.ase.view.ASEAtomsView` is available on
 ASE itself is installed.
 """
 
+import fractions
+from collections.abc import Iterable
 from typing import Any, Protocol, runtime_checkable
 
 from httk.atomistic.elements import symbol_of
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
+from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
-from httk.atomistic.models.structure.view import StructureView
 
 
 @runtime_checkable
@@ -43,6 +46,65 @@ def _float_rows(values: Any) -> list[list[float]]:
     return [[float(value) for value in row] for row in values]
 
 
+def _values(value: Any) -> list[Any]:
+    """Copy an ASE array-like result without importing numpy."""
+    if hasattr(value, "tolist"):
+        value = value.tolist()
+    return list(value)
+
+
+def _exact_float(value: Any) -> fractions.Fraction:
+    return fractions.Fraction(str(float(value)))
+
+
+def _magnetic_moments(obj: Any) -> Any:
+    if not hasattr(obj, "get_initial_magnetic_moments"):
+        return None
+    values = _values(obj.get_initial_magnetic_moments())
+    if not values:
+        return None
+    if isinstance(values[0], Iterable) and not isinstance(values[0], (str, bytes)):
+        rows = [list(row) for row in values]
+        if all(float(item) == 0 for row in rows for item in row):
+            return None
+        return CartesianSiteMoments([[_exact_float(item) for item in row] for row in rows])
+    if all(float(value) == 0 for value in values):
+        return None
+    return CollinearSiteMoments([_exact_float(value) for value in values])
+
+
+def _charge_species(symbols: tuple[str, ...], obj: Any) -> tuple[tuple[Species, ...], tuple[str, ...]]:
+    if not hasattr(obj, "get_initial_charges"):
+        distinct_symbols = tuple(dict.fromkeys(symbols))
+        return tuple(Species.create(symbol) for symbol in distinct_symbols), symbols
+    values = _values(obj.get_initial_charges())
+    if all(float(value) == 0 for value in values):
+        distinct_symbols = tuple(dict.fromkeys(symbols))
+        return tuple(Species.create(symbol) for symbol in distinct_symbols), symbols
+
+    charges = tuple(fractions.Fraction(str(value)) for value in values)
+    species_by_key: dict[tuple[str, fractions.Fraction], Species] = {}
+    name_keys: dict[str, tuple[str, fractions.Fraction]] = {}
+    species_values: list[Species] = []
+    names: list[str] = []
+    for symbol, charge in zip(symbols, charges, strict=True):
+        key = (symbol, charge)
+        species = species_by_key.get(key)
+        if species is None:
+            base = f"{symbol}{abs(charge)}{'+' if charge >= 0 else '-'}"
+            name = base
+            suffix = 2
+            while name in name_keys and name_keys[name] != key:
+                name = f"{base}_{suffix}"
+                suffix += 1
+            species = Species(name, (symbol,), (1,), charges=(charge,))
+            species_by_key[key] = species
+            name_keys[name] = key
+            species_values.append(species)
+        names.append(species.name)
+    return tuple(species_values), tuple(names)
+
+
 class ASEAtoms(StructureBackend):
     """Backend for ASE ``Atoms`` and compatible duck-typed objects.
 
@@ -56,9 +118,9 @@ class ASEAtoms(StructureBackend):
     def __new__(cls, obj: Any, **hints: Any) -> Any:
         if hints.get("kind", "ase") != "ase":
             return None
-        # ASEAtomsView is itself an Atoms subclass and therefore satisfies the protocol;
-        # existing structure-family objects must remain represented by their own backend.
-        if isinstance(obj, (UnitcellStructure, StructureBackend, StructureView)):
+        # Existing structure-family objects must remain represented by their own backend;
+        # an ASEAtomsView is also an Atoms object and is intentionally round-trippable.
+        if isinstance(obj, (UnitcellStructure, StructureBackend)):
             return None
         if not isinstance(obj, ASEAtomsProtocol):
             return None
@@ -66,7 +128,7 @@ class ASEAtoms(StructureBackend):
 
     def __init__(self, obj: ASEAtomsProtocol, **hints: Any) -> None:
         symbols = tuple(symbol_of(int(number)) for number in obj.get_atomic_numbers())
-        distinct_symbols = tuple(dict.fromkeys(symbols))
+        species, species_at_sites = _charge_species(symbols, obj)
         self._raw = obj
         self._structure = UnitcellStructure(
             Cell(
@@ -74,8 +136,9 @@ class ASEAtoms(StructureBackend):
                 periodicity=tuple(bool(flag) for flag in obj.get_pbc()),
             ),
             Sites(_float_rows(obj.get_scaled_positions())),
-            tuple(Species.create(symbol) for symbol in distinct_symbols),
-            symbols,
+            species,
+            species_at_sites,
+            site_moments=_magnetic_moments(obj),
         )
 
     @property
@@ -97,6 +160,11 @@ class ASEAtoms(StructureBackend):
     def species_at_sites(self) -> tuple[str, ...]:
         """The species name occupying each site."""
         return self._structure.species_at_sites
+
+    @property
+    def site_moments(self) -> Any:
+        """The optional per-site moments; absent and all-zero ASE defaults are indistinguishable."""
+        return self._structure.site_moments
 
     def unwrap(self) -> Any:
         """Return the original Atoms-like object."""
