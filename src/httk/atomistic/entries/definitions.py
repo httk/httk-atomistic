@@ -25,8 +25,12 @@ _DEFINITION_IDS = {
     "hall_entry": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/hall_entry",
     "is_reference_setting": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/is_reference_setting",
     "length_precision": "https://schemas.httk.org/defs/v0.1/properties/core/length_precision",
+    "species_charges": "https://schemas.httk.org/defs/v0.1/properties/chemistry/species_charges",
+    "species_labels": "https://schemas.httk.org/defs/v0.1/properties/chemistry/species_labels",
+    "species_spins": "https://schemas.httk.org/defs/v0.1/properties/chemistry/species_spins",
     "setting_it_nc": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/setting_it_nc",
     "site_moments": "https://schemas.httk.org/defs/v0.1/properties/magnetism/site_moments",
+    "structure_charge": "https://schemas.httk.org/defs/v0.1/properties/chemistry/structure_charge",
 }
 
 

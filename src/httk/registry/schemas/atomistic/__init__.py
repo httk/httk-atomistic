@@ -24,6 +24,22 @@ register_property_definition(
     resource="httk.registry.schemas.atomistic:fractional_coordinate_precision.json",
 )
 register_property_definition(
+    definition_id="https://schemas.httk.org/defs/v0.1/properties/chemistry/species_charges",
+    resource="httk.registry.schemas.atomistic:species_charges.json",
+)
+register_property_definition(
+    definition_id="https://schemas.httk.org/defs/v0.1/properties/chemistry/species_labels",
+    resource="httk.registry.schemas.atomistic:species_labels.json",
+)
+register_property_definition(
+    definition_id="https://schemas.httk.org/defs/v0.1/properties/chemistry/species_spins",
+    resource="httk.registry.schemas.atomistic:species_spins.json",
+)
+register_property_definition(
+    definition_id="https://schemas.httk.org/defs/v0.1/properties/chemistry/structure_charge",
+    resource="httk.registry.schemas.atomistic:structure_charge.json",
+)
+register_property_definition(
     definition_id="https://schemas.httk.org/defs/v0.1/properties/spacegroups/hall_entry",
     resource="httk.registry.schemas.atomistic:hall_entry.json",
 )

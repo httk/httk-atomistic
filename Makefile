@@ -52,6 +52,10 @@ optimade-defs:
 # v0.1 set (network target, like optimade-defs); the checked-in copies under
 # src/httk/registry/schemas/atomistic/ are the authoritative supported versions.
 HTTK_DEFS = \
+	chemistry/species_charges \
+	chemistry/species_labels \
+	chemistry/species_spins \
+	chemistry/structure_charge \
 	core/fractional_coordinate_precision \
 	core/length_precision \
 	magnetism/site_moments \

@@ -1,0 +1,44 @@
+{
+    "$id": "https://schemas.httk.org/defs/v0.1/properties/chemistry/species_labels",
+    "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
+    "title": "Species constituent labels",
+    "x-optimade-type": "list",
+    "x-optimade-definition": {
+        "kind": "property",
+        "version": "0.1.0",
+        "format": "1.3",
+        "name": "species_labels",
+        "label": "species_labels_chemistry"
+    },
+    "x-optimade-unit": "inapplicable",
+    "x-optimade-dimensions": {
+        "names": [
+            "dim_species_chemical_symbols"
+        ],
+        "sizes": [
+            null
+        ]
+    },
+    "type": [
+        "array",
+        "null"
+    ],
+    "description": "A free-form label attached to each constituent of a species.\n\nThis property appears as a key inside each dictionary of the `species` property of a structure, alongside `chemical_symbols` and `concentration`.\nA label distinguishes constituents that are otherwise identically described, and carries source-specific naming such as the name of a placeholder species assigned to the non-chemical symbol `\"X\"`.\n\n**Requirements/Conventions**:\n\n- The list MUST have the same length and order as the `chemical_symbols` list of the species dictionary it appears in.\n- Each entry is the label of the corresponding constituent.\n- An entry MUST be `null` where the corresponding constituent has no label.\n- The value MUST be `null`, or the key omitted, where no constituent has a label.",
+    "items": {
+        "x-optimade-type": "string",
+        "x-optimade-unit": "inapplicable",
+        "type": [
+            "string",
+            "null"
+        ]
+    },
+    "examples": [
+        [
+            "water"
+        ],
+        [
+            null,
+            "up"
+        ]
+    ]
+}

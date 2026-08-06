@@ -15,6 +15,11 @@ HTTK_PROPERTY_IDS = {
     "_httk_setting_transform": "https://schemas.httk.org/defs/v0.1/properties/symmetry/affine_transformation",
     "_httk_coordinate_precision": "https://schemas.httk.org/defs/v0.1/properties/core/fractional_coordinate_precision",
     "_httk_basis_precision": "https://schemas.httk.org/defs/v0.1/properties/core/length_precision",
+    "_httk_species_charges": "https://schemas.httk.org/defs/v0.1/properties/chemistry/species_charges",
+    "_httk_species_labels": "https://schemas.httk.org/defs/v0.1/properties/chemistry/species_labels",
+    "_httk_species_spins": "https://schemas.httk.org/defs/v0.1/properties/chemistry/species_spins",
+    "_httk_charge": "https://schemas.httk.org/defs/v0.1/properties/chemistry/structure_charge",
+    "_httk_site_moments": "https://schemas.httk.org/defs/v0.1/properties/magnetism/site_moments",
 }
 
 
