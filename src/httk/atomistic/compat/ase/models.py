@@ -2,7 +2,7 @@
 
 The protocol deliberately describes only the four ASE ``Atoms`` methods needed for
 conversion. ASE is optional: duck-typed objects can be converted without installing
-ASE, while :class:`~httk.atomistic.models.structure.ase_view.ASEAtomsView` is available only when
+ASE, while :class:`~httk.atomistic.compat.ase.view.ASEAtomsView` is available only when
 ASE itself is installed.
 """
 
@@ -104,7 +104,7 @@ class ASEAtoms(StructureBackend):
 
 
 try:
-    from httk.atomistic.models.structure.ase_view import ASEAtomsView  # noqa: F401
+    from .view import ASEAtomsView  # noqa: F401
 except ImportError:
     _ase_available = False
 else:

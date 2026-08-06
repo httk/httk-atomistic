@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING
 
 from .api import StructureAPI
-from .ase import ASEAtoms, ASEAtomsProtocol
 from .asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from .backend import StructureBackend
 from .comparison import same_crystal
@@ -27,8 +26,6 @@ from .unitcell_view import UnitcellStructureView
 from .view import StructureView
 
 __all__ = [
-    "ASEAtoms",
-    "ASEAtomsProtocol",
     "ASUStructure",
     "ASUStructureView",
     "DatastreamStructure",
@@ -58,13 +55,6 @@ __all__ = [
 
 if TYPE_CHECKING:
     from .asu_view import ASUStructureView
-
-try:
-    from .ase_view import ASEAtomsView  # noqa: F401
-except ImportError:
-    pass
-else:
-    __all__.append("ASEAtomsView")
 
 
 def __getattr__(name: str) -> object:

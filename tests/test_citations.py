@@ -71,7 +71,7 @@ from httk.core import credits
 
 heading = "Structure interchange with the Atomic Simulation Environment (ASE)"
 assert heading not in credits.entries()
-import httk.atomistic.models.structure.ase_view
+import httk.atomistic.compat.ase.view
 assert heading in credits.entries()
 """
     )

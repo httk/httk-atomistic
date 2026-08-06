@@ -40,7 +40,7 @@ from httk.atomistic.models.species.plain import PlainSpecies
 from httk.atomistic.models.species.plain_view import PlainSpeciesView
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.species.view import SpeciesView
-from httk.atomistic.models.structure.ase import ASEAtoms
+from httk.atomistic.compat import ASEAtoms, ASEAtomsProtocol
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.asu_view import ASUStructureView
 from httk.atomistic.models.structure.backend import StructureBackend
@@ -112,6 +112,8 @@ ASUStructureView.__httk_storage_record__ = ASUStructureRecord
 
 __all__ = [
     "DEFAULT_TOLERANCE",
+    "ASEAtoms",
+    "ASEAtomsProtocol",
     "ASUStructure",
     "ASUStructureRecord",
     "ASUStructureView",
@@ -180,7 +182,7 @@ __all__ = [
 # ASE is optional. The view module subclasses ase.Atoms at class-definition time, so it
 # cannot be imported without ASE; guard it exactly like the optional numpy vector view.
 try:
-    from httk.atomistic.models.structure.ase_view import ASEAtomsView  # noqa: F401
+    from httk.atomistic.compat import ASEAtomsView  # noqa: F401
 except ImportError:
     pass
 else:

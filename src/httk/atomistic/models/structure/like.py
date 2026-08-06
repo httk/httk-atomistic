@@ -11,7 +11,7 @@ import httk.core
 import httk.core.datastream
 import httk.core.optimade
 
-import httk.atomistic.models.structure.ase
+import httk.atomistic.compat.ase.models
 import httk.atomistic.models.structure.asu
 import httk.atomistic.models.structure.backend
 import httk.atomistic.models.structure.unitcell
@@ -39,7 +39,7 @@ type StructureLike = (
     | httk.core.datastream.TextstreamView
     | httk.core.datastream.BytestreamBackend
     | httk.core.datastream.BytestreamView
-    | httk.atomistic.models.structure.ase.ASEAtomsProtocol
+    | httk.atomistic.compat.ase.models.ASEAtomsProtocol
     | tuple[httk.core.VectorLike, httk.core.VectorLike, Any]
     | list[Any]
 )
