@@ -59,6 +59,7 @@ trajectory_jsonl
 asu
 precision
 periodicity
+lattice-reduction
 examples/index
 notebooks/examples
 notebooks/disorder

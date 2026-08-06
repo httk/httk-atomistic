@@ -103,6 +103,13 @@ from .supercell import (
     cubic_supercell,
     orthogonal_supercell,
 )
+from .reduction import (
+    NiggliReducedStructureResult,
+    NiggliReductionResult,
+    is_niggli_reduced,
+    niggli_reduce,
+    niggli_reduced,
+)
 
 # Record backends first: they match their exact record classes by isinstance and
 # reject everything else instantly, so record inputs never fall through the
@@ -160,6 +167,8 @@ __all__ = [
     "FundamentalDomainStructureRecord",
     "JsonlTrajectory",
     "ModulatedStructure",
+    "NiggliReducedStructureResult",
+    "NiggliReductionResult",
     "NumericUnitcellStructureView",
     "ObservableSummaryRecord",
     "OptimadeStructure",
@@ -205,6 +214,9 @@ __all__ = [
     "cif_setting",
     "conventional_cell",
     "cubic_supercell",
+    "is_niggli_reduced",
+    "niggli_reduce",
+    "niggli_reduced",
     "orthogonal_supercell",
     "recognize_asu",
     "same_crystal",
