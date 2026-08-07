@@ -1,13 +1,14 @@
 """Exact, precision-aware chemical composition projection."""
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
-from functools import cached_property, reduce
-from math import gcd
+from functools import cached_property
 from types import MappingProxyType
 from typing import Any, Literal
 
+from httk.atomistic.models.formula.composition import Composition
+from httk.atomistic.models.formula.diagnostics import CompositionDiagnostic
 from httk.atomistic.models.species.species import Species
 
 from ._composition_values import as_fraction, as_precision, normalization
@@ -19,30 +20,10 @@ __all__ = [
     "Assembly",
     "ChemicalComposition",
     "CompositionDiagnostic",
-    "CompositionResult",
-    "anonymous_symbol",
     "derive_structure_features",
     "project_composition",
     "validate_assemblies",
 ]
-
-
-@dataclass(frozen=True)
-class CompositionDiagnostic:
-    """Record a non-fatal issue encountered while projecting composition.
-
-    :param code: The stable diagnostic code.
-    :param message: The human-readable diagnostic message.
-    :param subject: The composition subject involved, if any.
-    :param total: The calculated total, if applicable.
-    :param width: The precision width used for the diagnostic, if applicable.
-    """
-
-    code: str
-    message: str
-    subject: str | None = None
-    total: Fraction | None = None
-    width: Fraction | None = None
 
 
 def _normalization_diagnostic(
@@ -222,112 +203,6 @@ def validate_assemblies(assemblies: Iterable[Assembly], nsites: int | None = Non
     return values
 
 
-def anonymous_symbol(index: int) -> str:
-    """Return the unbounded OPTIMADE anonymous symbol for a zero-based index.
-
-    :param index: The non-negative zero-based symbol index.
-    :return: The generated anonymous symbol.
-    :raises ValueError: If ``index`` is not a non-negative integer.
-    """
-    if not isinstance(index, int) or isinstance(index, bool) or index < 0:
-        raise ValueError("anonymous symbol index must be a non-negative integer")
-    head = chr(ord("A") + index % 26)
-    tail_number = index // 26
-    tail: list[str] = []
-    while tail_number:
-        tail_number -= 1
-        tail.append(chr(ord("a") + tail_number % 26))
-        tail_number //= 26
-    return head + "".join(reversed(tail))
-
-
-@dataclass(frozen=True)
-class CompositionResult:
-    """Store an immutable projected composition and its formula diagnostics.
-
-    :param amounts: The projected elemental amounts in symbol order.
-    :param uncertainties: The corresponding amount precisions, if known.
-    :param complete: Whether the projection contains no unknown elemental content.
-    :param exact: Whether all projected amounts are exact.
-    :param normalized: Whether all contributing probabilities and concentrations normalize.
-    :param normalization_status: The combined normalization status.
-    :param diagnostics: The non-fatal issues found during projection.
-    """
-
-    amounts: tuple[tuple[str, Fraction], ...]
-    uncertainties: tuple[tuple[str, Fraction | None], ...]
-    complete: bool
-    exact: bool
-    normalized: bool
-    normalization_status: str
-    diagnostics: tuple[CompositionDiagnostic, ...] = ()
-
-    @property
-    def amount_mapping(self) -> Mapping[str, Fraction]:
-        """Return the projected amounts as a read-only mapping."""
-        return MappingProxyType(dict(self.amounts))
-
-    @property
-    def uncertainty_mapping(self) -> Mapping[str, Fraction | None]:
-        """Return the projected amount precisions as a read-only mapping."""
-        return MappingProxyType(dict(self.uncertainties))
-
-    @property
-    def elements(self) -> tuple[str, ...]:
-        """Return the projected element symbols in amount order."""
-        return tuple(element for element, _ in self.amounts)
-
-    @property
-    def nelements(self) -> int:
-        """Return the number of projected elements."""
-        return len(self.amounts)
-
-    @property
-    def elements_ratios(self) -> tuple[Fraction, ...]:
-        """Return the projected amounts normalized by their total."""
-        total = sum((amount for _, amount in self.amounts), Fraction())
-        return () if not total else tuple(amount / total for _, amount in self.amounts)
-
-    def _formula_coefficients(self) -> tuple[tuple[str, int], ...] | None:
-        if not self.complete or not self.amounts:
-            return None
-        ratios = self.elements_ratios
-        central = _integer_ratio(ratios)
-        return (
-            None if central is None else tuple((element, amount) for (element, _), amount in zip(self.amounts, central))
-        )
-
-    @property
-    def chemical_formula_reduced(self) -> str | None:
-        """Return the reduced chemical formula, if the composition is complete."""
-        coefficients = self._formula_coefficients()
-        if coefficients is None:
-            return None
-        return "".join(element + (str(amount) if amount != 1 else "") for element, amount in coefficients)
-
-    @property
-    def chemical_formula_anonymous(self) -> str | None:
-        """Return the anonymous formula, if the composition is complete."""
-        coefficients = self._formula_coefficients()
-        if coefficients is None:
-            return None
-        ordered = sorted(coefficients, key=lambda item: (-item[1], item[0]))
-        return "".join(
-            anonymous_symbol(index) + (str(amount) if amount != 1 else "") for index, (_, amount) in enumerate(ordered)
-        )
-
-
-def _integer_ratio(ratios: Sequence[Fraction]) -> tuple[int, ...] | None:
-    if not ratios:
-        return None
-    denominator = 1
-    for ratio in ratios:
-        denominator = denominator * ratio.denominator // gcd(denominator, ratio.denominator)
-    values = tuple(int(ratio * denominator) for ratio in ratios)
-    common = reduce(gcd, values)
-    return tuple(value // common for value in values)
-
-
 def _site_data(structure: Any) -> tuple[tuple[str, ...], tuple[Fraction, ...], tuple[Species, ...]]:
     species = tuple(structure.species)
     if hasattr(structure, "wyckoff_sites") and hasattr(structure, "multiplicities"):
@@ -363,7 +238,7 @@ def derive_structure_features(structure: Any) -> tuple[str, ...]:
     return tuple(sorted(features))
 
 
-def project_composition(structure: Any) -> CompositionResult:
+def project_composition(structure: Any) -> Composition:
     """Project a structure to exact elemental amounts without normalization.
 
     Site multiplicities, disorder, assemblies, attached elements, and explicit composition
@@ -458,7 +333,7 @@ def project_composition(structure: Any) -> CompositionResult:
         "outside_precision" if not normalized else ("within_precision" if "within_precision" in statuses else "exact")
     )
     exact = all(width is None for _, width in uncertainty)
-    return CompositionResult(
+    return Composition(
         ordered,
         uncertainty,
         complete,

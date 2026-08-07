@@ -19,9 +19,10 @@ from httk.core import (
 from httk.core.storage import IdentitySkip, StorageInfo, content_id
 
 from httk.atomistic._composition_values import as_fraction
-from httk.atomistic.composition import Assembly, ChemicalComposition, CompositionResult, validate_assemblies
+from httk.atomistic.composition import Assembly, ChemicalComposition, validate_assemblies
 from httk.atomistic.models._vector_guards import to_periodicity, to_precision
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
@@ -740,16 +741,16 @@ class NormalizedCompositionRecord:
         storage_name="atomistic_v3_normalized_composition_record",
         identity_name="atomistic_v3_normalized_composition_record",
     )
-    __httk_canonical_source__: ClassVar[type[CompositionResult]] = CompositionResult
+    __httk_canonical_source__: ClassVar[type[Composition]] = Composition
 
     amounts: tuple["NormalizedCompositionAmountRecord", ...]
     complete: bool
 
     @classmethod
-    def __httk_project__(cls, result: CompositionResult) -> Mapping[str, object]:
-        """Project a composition result into normalized durable fields.
+    def __httk_project__(cls, result: Composition) -> Mapping[str, object]:
+        """Project a composition into normalized durable fields.
 
-        :param result: The composition result to project.
+        :param result: The composition to project.
         :return: The projected normalized-composition fields.
         """
         precision = dict(result.uncertainties)
@@ -1382,16 +1383,14 @@ def _chemical_composition_from_record(record: ChemicalCompositionRecord) -> Chem
     )
 
 
-def _composition_result_from_record(record: NormalizedCompositionRecord) -> CompositionResult:
+def _composition_from_record(record: NormalizedCompositionRecord) -> Composition:
     amounts = tuple((value.element, value.amount) for value in record.amounts)
     uncertainties = tuple((value.element, value.precision) for value in record.amounts)
     exact = all(value.precision is None for value in record.amounts)
-    return CompositionResult(
-        amounts, uncertainties, record.complete, exact, True, "exact" if exact else "within_precision"
-    )
+    return Composition(amounts, uncertainties, record.complete, exact, True, "exact" if exact else "within_precision")
 
 
-def _normalized_composition_record_from_result(result: CompositionResult) -> NormalizedCompositionRecord:
+def _normalized_composition_record_from_result(result: Composition) -> NormalizedCompositionRecord:
     values = cast(dict[str, Any], NormalizedCompositionRecord.__httk_project__(result))
     amounts = tuple(NormalizedCompositionAmountRecord(*item) for item in values["amounts"])
     return NormalizedCompositionRecord(amounts, values["complete"])

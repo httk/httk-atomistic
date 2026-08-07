@@ -269,7 +269,7 @@ class Species(SpeciesBackend):
         """
         if self.normalized:
             return None
-        from httk.atomistic.composition import CompositionDiagnostic
+        from httk.atomistic.models.formula.diagnostics import CompositionDiagnostic
 
         _, _, total, width = normalization(self.concentration, self.concentration_precision or ())
         return CompositionDiagnostic(

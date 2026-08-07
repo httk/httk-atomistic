@@ -13,12 +13,12 @@ from typing import Any, ClassVar, Literal, cast
 from httk.atomistic.composition import (
     Assembly,
     ChemicalComposition,
-    CompositionResult,
     derive_structure_features,
     project_composition,
     validate_assemblies,
 )
 from httk.atomistic.elements import SYMBOLS
+from httk.atomistic.models.formula.composition import Composition
 
 OptimizationType = Literal["experimental", "hybrid", "global", "local", "none", "indeterminate", "other"]
 
@@ -340,7 +340,7 @@ def _formula_counts(formula: str) -> tuple[tuple[str, int], ...]:
     return tuple(values)
 
 
-def validate_hill_formula(formula: str | None, composition: CompositionResult | None) -> str | None:
+def validate_hill_formula(formula: str | None, composition: Composition | None) -> str | None:
     """Validate an explicitly assigned Hill formula without inventing its molecular scale.
 
     :param formula: The formula to validate, or ``None``.
@@ -494,8 +494,8 @@ class StructureSemanticsMixin:
         return _semantic_value(self, "chemical_composition", private_name="_chemical_composition")
 
     @property
-    def composition(self) -> CompositionResult:
-        """Project the structure into a composition result.
+    def composition(self) -> Composition:
+        """Project the structure into a composition.
 
         :return: The derived or supplied composition.
         """

@@ -5,21 +5,21 @@ from httk.core import FracVector
 
 from httk.atomistic import (
     Assembly,
-    WyckoffSite,
     ASUStructure,
     Cell,
+    PlainSpeciesView,
     Spacegroup,
     Species,
-    PlainSpeciesView,
     SpeciesView,
+    WyckoffSite,
 )
 from httk.atomistic.composition import (
     ChemicalComposition,
-    anonymous_symbol,
     derive_structure_features,
     project_composition,
     validate_assemblies,
 )
+from httk.atomistic.models.formula.notation import anonymous_symbol
 
 
 class _Structure:

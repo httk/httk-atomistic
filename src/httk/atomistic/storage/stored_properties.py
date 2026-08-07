@@ -26,11 +26,11 @@ from httk.core.storage import (
     StoredPropertyProjection,
 )
 
-from httk.atomistic.composition import anonymous_symbol
 from httk.atomistic.elements import SYMBOLS
 from httk.atomistic.entries._payloads import assemblies_payload, species_payload
 from httk.atomistic.entries.precision import PRECISION_PROPERTY_KEYS
 from httk.atomistic.entries.symmetry import SETTING_PROPERTY_KEYS
+from httk.atomistic.models.formula.notation import anonymous_symbol
 
 _ELEMENTS = frozenset(SYMBOLS)
 _ELEMENT_FORMULA_TOKEN = re.compile(r"([A-Z][a-z]?)([1-9][0-9]*)?")
@@ -98,9 +98,9 @@ def _normalized_composition_value(record: Any, name: str) -> object:
         return len(composition.amounts)
     if name == "elements_ratios":
         return [float(value.ratio) for value in composition.amounts]
-    from httk.atomistic.storage.records import _composition_result_from_record
+    from httk.atomistic.storage.records import _composition_from_record
 
-    result = _composition_result_from_record(composition)
+    result = _composition_from_record(composition)
     if name == "chemical_formula_reduced":
         return result.chemical_formula_reduced
     if name == "chemical_formula_anonymous":

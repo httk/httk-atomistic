@@ -33,15 +33,11 @@ from httk.core.optimade import (
 from httk.core.storage import stored_property
 
 from httk.atomistic._composition_values import normalization
-from httk.atomistic.composition import (
-    Assembly,
-    CompositionResult,
-    anonymous_symbol,
-    project_composition,
-    validate_assemblies,
-)
+from httk.atomistic.composition import Assembly, project_composition, validate_assemblies
 from httk.atomistic.entries.precision import precision_definitions
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.formula.composition import Composition
+from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
@@ -303,7 +299,7 @@ class OptimadeStructure(StructureBackend):
             ) from exc
 
     @cached_property
-    def _composition_from_sites(self) -> CompositionResult | None:
+    def _composition_from_sites(self) -> Composition | None:
         """Project a complete supplied unit-cell site model without requiring a view."""
 
         raw_species = self._raw_optional("species")
@@ -329,10 +325,10 @@ class OptimadeStructure(StructureBackend):
             raise IncompleteOptimadeResourceError(f"OPTIMADE supplied site composition is invalid: {exc}") from exc
 
     @cached_property
-    def composition(self) -> CompositionResult:
+    def composition(self) -> Composition:
         """Project the source-backed composition, retaining implicit or source-only ratios.
 
-        :return: The composition result.
+        :return: The projected composition.
         :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If source composition fields are inconsistent.
         """
 
@@ -361,7 +357,7 @@ class OptimadeStructure(StructureBackend):
         )
         exact = all(width is None for _, width in uncertainties)
         normalized, status, _, _ = normalization(ratios, tuple(width for _, width in uncertainties))
-        return CompositionResult(
+        return Composition(
             tuple(zip(elements, ratios)),
             uncertainties,
             True,
