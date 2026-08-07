@@ -1,0 +1,34 @@
+httk.atomistic.models.prototype.backend
+=======================================
+
+.. py:module:: httk.atomistic.models.prototype.backend
+
+.. autoapi-nested-parse::
+
+   The abstract backend for anonymous structures and prototypes.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.backend.AnonymousStructureBackend
+
+
+Module Contents
+---------------
+
+.. py:class:: AnonymousStructureBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`AnonymousStructureBackend`\ ], :py:obj:`httk.atomistic.models.prototype.api.AnonymousStructureAPI`
+
+
+   Backend root for the first PrototypeLike family.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+

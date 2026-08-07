@@ -1,0 +1,123 @@
+httk.atomistic.symmetry.recognition
+===================================
+
+.. py:module:: httk.atomistic.symmetry.recognition
+
+.. autoapi-nested-parse::
+
+   Recognizing the asymmetric unit of a full structure.
+
+   This is the direction where tolerance lives, and the only one. A measured or file-read
+   structure gives coordinates like ``0.3333`` that lie *near* a symmetric arrangement rather
+   than on one, so recognizing it means deciding which Wyckoff position each site is meant to
+   occupy. Once decided, the position supplies exact values for its fixed components and
+   everything downstream — expansion, comparison, round-tripping — is exact again.
+
+   The contract, stated once so the asymmetry is not a surprise:
+
+   * Expansion (:meth:`~httk.atomistic.FundamentalDomainStructure.expand_sites`) is **lossless**.
+   * Recognition is **lossy at the tolerance level**: it snaps a measured structure
+     onto an idealised symmetric one.
+   * Therefore ``expand -> recognize -> expand`` is idempotent, while
+     ``recognize -> expand`` is not the identity on the input coordinates and must not be
+     advertised as such.
+
+   A file's decimals are embedded as the exact rational they literally say — ``0.3333`` is
+   ``3333/10000``, never silently ``1/3``. Free parameters keep that value; only the fixed
+   components of the chosen position are replaced. Idealising the free parameters too is
+   available on request through ``limit_denominator``, but it is not the default, because
+   inventing ``1/3`` from a file that said ``0.3333`` is a claim about the data that only the
+   caller can make.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.recognition.DEFAULT_TOLERANCE
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.recognition.structure_tolerance
+   httk.atomistic.symmetry.recognition.recognize_asu
+
+
+Module Contents
+---------------
+
+.. py:data:: DEFAULT_TOLERANCE
+   :value: 0.001
+
+
+.. py:function:: structure_tolerance(structure, *, fallback = DEFAULT_TOLERANCE)
+
+   Derive a matching tolerance from how precisely the structure was stated.
+
+   This is the point of recording precision at all: instead of a constant somebody
+   guessed, the tolerance follows the data. Coordinates written to four decimals in a 5 A
+   cell are good to about ``5e-4``, and the tolerance comes out near ``1e-3``; the same
+   coordinates in a 30 A cell justify a tolerance six times larger, and coordinates written
+   to two decimals justify one a hundred times larger.
+
+   Returns ``fallback`` when the structure does not state a precision — a structure built
+   by hand, or read from a format that does not write its numbers to a definite number of
+   digits. A caller that needs to know whether that happened can compare the result against
+   the structure's own ``cartesian_precision()``.
+
+   The value is capped so that it can never reach half the smallest distance between two
+   sites, which is what would let genuinely distinct atoms be merged. Minimum separation
+   bounds a tolerance from above; treating it as precision could make a structure with
+   accidentally close atoms look far more precisely stated than it is.
+
+   :param structure: The structure whose stated precision determines the tolerance.
+   :param fallback: The tolerance to use when the structure has no stated precision.
+   :return: The Cartesian matching tolerance in the structure's cell units.
+
+
+.. py:function:: recognize_asu(structure, *, setting = None, standard = None, transform = None, tolerance = None, limit_denominator = None)
+
+   Build an :class:`~httk.atomistic.ASUStructure` from a full structure.
+
+   The space group can be supplied three ways, in decreasing order of preference:
+
+   * ``setting`` — the structure's own tabulated setting, as when a CIF names its group.
+     Nothing is searched for and spglib is not involved.
+   * ``standard`` together with ``transform`` — for a structure in a setting that appears
+     in no table. Also spglib-free.
+   * neither — the symmetry is found with spglib, which must be installed
+     (``pip install httk-atomistic[default]``).
+
+   ``tolerance`` is a Cartesian distance, measured in the real cell, so it means the same
+   thing along a short axis and a long one; a fractional tolerance would not. Left
+   unspecified it is **derived from how precisely the structure was stated** — see
+   :func:`structure_tolerance` — falling back to :data:`DEFAULT_TOLERANCE` for a structure
+   that does not say. Pass a value to override that.
+
+   Raises :class:`ValueError` if a site cannot be placed on any Wyckoff position within
+   the tolerance, or if the sites do not group into complete orbits — both of which mean
+   the structure does not actually have the symmetry it was said to have.
+
+   :param structure: The full structure to recognize.
+   :param setting: The structure's own tabulated setting, if known.
+   :param standard: The IT standard setting for an untabulated own setting.
+   :param transform: The stored standard-to-own transform for an untabulated setting.
+   :param tolerance: The Cartesian matching tolerance in the real cell, or ``None`` to
+       derive it from the structure's stated precision.
+   :param limit_denominator: The largest denominator allowed when idealising free
+       parameters, or ``None`` to retain their exact stated values.
+   :return: The recognized asymmetric-unit structure.
+   :raises ImportError: If symmetry must be searched and the optional spglib dependency is
+       unavailable.
+   :raises TypeError: If the supplied setting arguments are incomplete or mutually
+       exclusive.
+   :raises ValueError: If the structure is not fully periodic, the standard setting is
+       invalid, or the sites cannot be placed into complete Wyckoff orbits within the
+       tolerance.
+
+

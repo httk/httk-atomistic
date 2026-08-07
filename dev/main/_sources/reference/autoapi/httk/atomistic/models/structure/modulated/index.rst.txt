@@ -1,0 +1,123 @@
+httk.atomistic.models.structure.modulated
+=========================================
+
+.. py:module:: httk.atomistic.models.structure.modulated
+
+.. autoapi-nested-parse::
+
+   Holder for modulated mCIF blocks not representable by standard structures.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.modulated.ModulatedStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: ModulatedStructure(payload)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Retain raw mCIF data that standard structure classes cannot represent.
+
+   Future magnetic-structure support may interpret the modulation. Standard structure
+   properties raise :class:`ValueError`; the immutable source mapping remains available
+   through :attr:`payload`.
+
+   :param payload: The raw mCIF data to retain.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'modulated-mcif'
+
+
+
+   .. py:property:: payload
+      :type: collections.abc.Mapping[str, Any]
+
+
+      Expose the immutable raw mCIF payload.
+
+      :return: The source mapping.
+
+
+   .. py:property:: mod_dim
+      :type: Any
+
+
+      Expose the incommensurate modulation dimension when supplied.
+
+      :return: The raw ``mod_dim`` value, or ``None`` when absent.
+
+
+   .. py:property:: structural_q
+      :type: Any
+
+
+      Expose the structural modulation vector when supplied.
+
+      :return: The raw ``structural_q`` value, or ``None`` when absent.
+
+
+   .. py:property:: magnetic_q
+      :type: Any
+
+
+      Expose the magnetic modulation vector when supplied.
+
+      :return: The raw ``magnetic_q`` value, or ``None`` when absent.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Reject projection to a standard cell.
+
+      :raises ValueError: Always, because modulation is not representable here.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Reject projection to standard sites.
+
+      :raises ValueError: Always, because modulation is not representable here.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Reject projection to standard species.
+
+      :raises ValueError: Always, because modulation is not representable here.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Reject projection to standard site species.
+
+      :raises ValueError: Always, because modulation is not representable here.
+
+
+   .. py:property:: site_moments
+      :type: Any
+
+
+      Reject projection to standard site moments.
+
+      :raises ValueError: Always, because modulation is not representable here.
+
+

@@ -1,0 +1,129 @@
+httk.atomistic.models.species.api
+=================================
+
+.. py:module:: httk.atomistic.models.species.api
+
+.. autoapi-nested-parse::
+
+   The minimal canonical species interface for httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.species.api.SpeciesAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: SpeciesAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Abstract base class for the canonical single-species interface.
+
+   It declares the accessors mirroring the OPTIMADE ``species`` fields that every
+   species backend produces from its own native representation and every species view
+   builds its presentation from: ``name``, ``chemical_symbols``, ``concentration``,
+   and the optional ``mass``, ``attached``, ``nattached``, and ``original_name``.
+
+
+   .. py:property:: name
+      :type: str
+
+      :abstractmethod:
+
+
+
+   .. py:property:: chemical_symbols
+      :type: tuple[str, Ellipsis]
+
+      :abstractmethod:
+
+
+
+   .. py:property:: charges
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Assigned charge numbers for the constituents, or ``None`` if unstated.
+
+      A ``None`` element means the charge of that constituent is unstated; whole-
+      ``None`` means no constituent charges are stated. Values use elementary-charge
+      units, for example a formal oxidation state.
+
+      :return: The constituent charges, or ``None`` when unstated.
+
+
+   .. py:property:: spins
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Idealized signed spins assigned to the constituents, or ``None`` if unstated.
+
+      A ``None`` element means the spin of that constituent is unstated; whole-``None``
+      means no constituent spins are stated. This is distinct from a calculated site
+      magnetic moment.
+
+      :return: The constituent spins, or ``None`` when unstated.
+
+
+   .. py:property:: labels
+      :type: tuple[str | None, Ellipsis] | None
+
+
+      Free-form per-constituent labels, or ``None`` if unstated.
+
+      A ``None`` element means that constituent has no stated label; whole-``None``
+      means no constituent labels are stated.
+
+      :return: The constituent labels, or ``None`` when unstated.
+
+
+   .. py:property:: concentration
+      :type: tuple[fractions.Fraction, Ellipsis]
+
+      :abstractmethod:
+
+
+
+   .. py:property:: concentration_precision
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+      :abstractmethod:
+
+
+
+   .. py:property:: mass
+      :type: tuple[float, Ellipsis] | None
+
+      :abstractmethod:
+
+
+
+   .. py:property:: attached
+      :type: tuple[str, Ellipsis] | None
+
+      :abstractmethod:
+
+
+
+   .. py:property:: nattached
+      :type: tuple[int, Ellipsis] | None
+
+      :abstractmethod:
+
+
+
+   .. py:property:: original_name
+      :type: str | None
+
+      :abstractmethod:
+
+
+

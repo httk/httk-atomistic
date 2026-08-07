@@ -1,0 +1,706 @@
+httk.atomistic.models.formula
+=============================
+
+.. py:module:: httk.atomistic.models.formula
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/formula/anonymous/index
+   /reference/autoapi/httk/atomistic/models/formula/anonymous_string/index
+   /reference/autoapi/httk/atomistic/models/formula/anonymous_view/index
+   /reference/autoapi/httk/atomistic/models/formula/api/index
+   /reference/autoapi/httk/atomistic/models/formula/backend/index
+   /reference/autoapi/httk/atomistic/models/formula/composition/index
+   /reference/autoapi/httk/atomistic/models/formula/composition_view/index
+   /reference/autoapi/httk/atomistic/models/formula/diagnostics/index
+   /reference/autoapi/httk/atomistic/models/formula/formula/index
+   /reference/autoapi/httk/atomistic/models/formula/formula_string/index
+   /reference/autoapi/httk/atomistic/models/formula/formula_view/index
+   /reference/autoapi/httk/atomistic/models/formula/like/index
+   /reference/autoapi/httk/atomistic/models/formula/notation/index
+   /reference/autoapi/httk/atomistic/models/formula/plain/index
+   /reference/autoapi/httk/atomistic/models/formula/prototype/index
+   /reference/autoapi/httk/atomistic/models/formula/record/index
+   /reference/autoapi/httk/atomistic/models/formula/structure/index
+   /reference/autoapi/httk/atomistic/models/formula/view_base/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.AnonymousFormula
+   httk.atomistic.models.formula.AnonymousFormulaString
+   httk.atomistic.models.formula.AnonymousFormulaView
+   httk.atomistic.models.formula.ChemicalFormulaAPI
+   httk.atomistic.models.formula.ChemicalFormulaBackend
+   httk.atomistic.models.formula.Composition
+   httk.atomistic.models.formula.CompositionView
+   httk.atomistic.models.formula.CompositionDiagnostic
+   httk.atomistic.models.formula.ChemicalFormula
+   httk.atomistic.models.formula.FormulaString
+   httk.atomistic.models.formula.ChemicalFormulaView
+   httk.atomistic.models.formula.ChemicalFormulaViewBase
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.anonymous_symbol
+   httk.atomistic.models.formula.parse_anonymous_formula
+   httk.atomistic.models.formula.parse_reduced_formula
+   httk.atomistic.models.formula.reduced_coefficients
+   httk.atomistic.models.formula.render_anonymous
+   httk.atomistic.models.formula.render_reduced
+   httk.atomistic.models.formula.try_parse_anonymous
+   httk.atomistic.models.formula.try_parse_reduced
+
+
+Package Contents
+----------------
+
+.. py:class:: AnonymousFormula(backend, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`, :py:obj:`str`
+
+
+   Store a strictly canonical OPTIMADE anonymous chemical formula.
+
+   :param formula: The canonical anonymous formula text.
+
+
+   .. py:property:: is_anonymous
+      :type: bool
+
+
+      Return whether the formula uses anonymous labels.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+
+      Return the anonymous coefficients as exact amounts.
+
+
+.. py:class:: AnonymousFormulaString(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Wrap a canonical anonymous formula held as a plain string.
+
+   :param obj: The canonical anonymous formula text.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: is_anonymous
+      :type: bool
+
+
+      Return whether the formula uses anonymous labels.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+
+      Return the anonymous coefficients as exact amounts.
+
+
+   .. py:method:: unwrap()
+
+      Return the original formula text.
+
+
+
+.. py:class:: AnonymousFormulaView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.view_base.ChemicalFormulaViewBase`, :py:obj:`httk.atomistic.models.formula.anonymous.AnonymousFormula`
+
+
+   Present a complete composition as an eager canonical anonymous formula.
+
+   :param obj: The chemical-formula-like object to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: amounts
+
+      Return the presented amounts using anonymous labels.
+
+
+   .. py:property:: uncertainties
+
+      Return the presented amount precisions using anonymous labels.
+
+
+   .. py:property:: complete
+
+      Return whether the presented composition is complete.
+
+
+   .. py:property:: exact
+
+      Return whether the presented amounts are exact.
+
+
+   .. py:property:: normalized
+
+      Return whether the presented composition is normalized.
+
+
+   .. py:property:: normalization_status
+
+      Return the presented composition's normalization status.
+
+
+   .. py:property:: diagnostics
+
+      Return diagnostics associated with the presented composition.
+
+
+   .. py:property:: is_anonymous
+
+      Return whether this formula uses anonymous labels.
+
+
+   .. py:method:: unview()
+
+      Return the presented formula as a standalone value.
+
+      :return: The canonical anonymous formula value.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+.. py:class:: ChemicalFormulaAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Abstract base class for the canonical chemical-formula interface.
+
+   The concrete defaults keep backends that do not have provenance for optional
+   formula metadata interoperable without requiring them to implement every accessor.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+      :abstractmethod:
+
+
+      Ordered ``(label, exact amount)`` pairs for this chemical formula.
+
+      Labels are element symbols in alphabetical order unless ``is_anonymous``, in
+      which case they are OPTIMADE anonymous symbols in canonical
+      (descending-coefficient) order.
+
+
+   .. py:property:: is_anonymous
+      :type: bool
+
+
+      Whether the formula labels are OPTIMADE anonymous symbols.
+
+      A backend that carries anonymous notation overrides this; a backend without
+      that distinction inherits ``False``.
+
+
+   .. py:property:: uncertainties
+      :type: tuple[tuple[str, fractions.Fraction | None], Ellipsis]
+
+
+      Per-amount absolute uncertainties, or ``None`` where exactness is unstated.
+
+
+   .. py:property:: complete
+      :type: bool
+
+
+      Whether the formula accounts for all represented elemental material.
+
+
+   .. py:property:: exact
+      :type: bool
+
+
+      Whether all formula amounts are exact rather than precision-bounded.
+
+
+   .. py:property:: normalized
+      :type: bool
+
+
+      Whether the formula is normalized within the stated precision.
+
+
+   .. py:property:: normalization_status
+      :type: str
+
+
+      The formula's normalization status derived from exactness and normalization.
+
+
+   .. py:property:: diagnostics
+      :type: tuple[httk.atomistic.models.formula.diagnostics.CompositionDiagnostic, Ellipsis]
+
+
+      Non-fatal structured diagnostics associated with the formula.
+
+
+.. py:class:: ChemicalFormulaBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`ChemicalFormulaBackend`\ ], :py:obj:`httk.atomistic.models.formula.api.ChemicalFormulaAPI`
+
+
+   Abstract base class for all backends of chemical-formula data.
+
+   Concrete backends carry a native representation and produce the canonical
+   chemical-formula accessors declared by ``ChemicalFormulaAPI`` from it.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+
+.. py:class:: Composition(amounts, uncertainties = None, complete = True, exact = None, normalized = True, normalization_status = None, diagnostics = ())
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Store an immutable projected composition and its formula diagnostics.
+
+   :param amounts: The projected elemental amounts in symbol order.
+   :param uncertainties: The corresponding amount precisions, if known.
+   :param complete: Whether the projection contains no unknown elemental content.
+   :param exact: Whether all projected amounts are exact.
+   :param normalized: Whether all contributing probabilities and concentrations normalize.
+   :param normalization_status: The combined normalization status.
+   :param diagnostics: The non-fatal issues found during projection.
+
+
+   .. py:attribute:: amounts
+      :type:  tuple[tuple[str, fractions.Fraction], Ellipsis]
+      :value: ()
+
+
+      Ordered ``(label, exact amount)`` pairs for this chemical formula.
+
+      Labels are element symbols in alphabetical order unless ``is_anonymous``, in
+      which case they are OPTIMADE anonymous symbols in canonical
+      (descending-coefficient) order.
+
+
+   .. py:attribute:: uncertainties
+      :type:  tuple[tuple[str, fractions.Fraction | None], Ellipsis]
+      :value: ()
+
+
+      Per-amount absolute uncertainties, or ``None`` where exactness is unstated.
+
+
+   .. py:attribute:: complete
+      :type:  bool
+      :value: True
+
+
+      Whether the formula accounts for all represented elemental material.
+
+
+   .. py:attribute:: exact
+      :type:  bool
+      :value: True
+
+
+      Whether all formula amounts are exact rather than precision-bounded.
+
+
+   .. py:attribute:: normalized
+      :type:  bool
+      :value: True
+
+
+      Whether the formula is normalized within the stated precision.
+
+
+   .. py:attribute:: normalization_status
+      :type:  str
+      :value: 'exact'
+
+
+      The formula's normalization status derived from exactness and normalization.
+
+
+   .. py:attribute:: diagnostics
+      :type:  tuple[httk.atomistic.models.formula.diagnostics.CompositionDiagnostic, Ellipsis]
+      :value: ()
+
+
+      Non-fatal structured diagnostics associated with the formula.
+
+
+   .. py:property:: amount_mapping
+      :type: collections.abc.Mapping[str, fractions.Fraction]
+
+
+      Return the projected amounts as a read-only mapping.
+
+
+   .. py:property:: uncertainty_mapping
+      :type: collections.abc.Mapping[str, fractions.Fraction | None]
+
+
+      Return the projected amount precisions as a read-only mapping.
+
+
+   .. py:property:: elements
+      :type: tuple[str, Ellipsis]
+
+
+      Return the projected element symbols in amount order.
+
+
+   .. py:property:: nelements
+      :type: int
+
+
+      Return the number of projected elements.
+
+
+   .. py:property:: elements_ratios
+      :type: tuple[fractions.Fraction, Ellipsis]
+
+
+      Return the projected amounts normalized by their total.
+
+
+   .. py:property:: chemical_formula_reduced
+      :type: str | None
+
+
+      Return the reduced chemical formula, if the composition is complete.
+
+
+   .. py:property:: chemical_formula_anonymous
+      :type: str | None
+
+
+      Return the anonymous formula, if the composition is complete.
+
+
+.. py:class:: CompositionView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.view_base.ChemicalFormulaViewBase`, :py:obj:`httk.atomistic.models.formula.composition.Composition`
+
+
+   Present any chemical-formula backend as a lazy composition.
+
+   :param obj: The chemical-formula-like object to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+
+      Return the lazily materialized elemental amounts.
+
+
+   .. py:property:: uncertainties
+      :type: tuple[tuple[str, fractions.Fraction | None], Ellipsis]
+
+
+      Return the lazily materialized amount precisions.
+
+
+   .. py:property:: complete
+      :type: bool
+
+
+      Return whether the presented composition is complete.
+
+
+   .. py:property:: exact
+      :type: bool
+
+
+      Return whether the presented amounts are exact.
+
+
+   .. py:property:: normalized
+      :type: bool
+
+
+      Return whether the presented composition is normalized.
+
+
+   .. py:property:: normalization_status
+      :type: str
+
+
+      Return the presented composition's normalization status.
+
+
+   .. py:property:: diagnostics
+      :type: tuple[httk.atomistic.models.formula.diagnostics.CompositionDiagnostic, Ellipsis]
+
+
+      Return diagnostics associated with the presented composition.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the presented composition as a standalone value.
+
+      :return: The materialized composition value.
+
+
+
+.. py:class:: CompositionDiagnostic
+
+   Record a non-fatal issue encountered while projecting composition.
+
+   :param code: The stable diagnostic code.
+   :param message: The human-readable diagnostic message.
+   :param subject: The composition subject involved, if any.
+   :param total: The calculated total, if applicable.
+   :param width: The precision width used for the diagnostic, if applicable.
+
+
+   .. py:attribute:: code
+      :type:  str
+
+
+   .. py:attribute:: message
+      :type:  str
+
+
+   .. py:attribute:: subject
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: total
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+   .. py:attribute:: width
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+.. py:class:: ChemicalFormula(backend, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`, :py:obj:`str`
+
+
+   Store a strictly canonical reduced chemical formula.
+
+   :param formula: The alphabetical formula text with greatest common divisor one.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+
+      Return the formula coefficients as exact amounts.
+
+
+.. py:class:: FormulaString(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Wrap a canonical reduced formula held as a plain string.
+
+   :param obj: The canonical reduced formula text.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+
+      Return the formula coefficients as exact amounts.
+
+
+   .. py:method:: unwrap()
+
+      Return the original formula text.
+
+
+
+.. py:class:: ChemicalFormulaView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.view_base.ChemicalFormulaViewBase`, :py:obj:`httk.atomistic.models.formula.formula.ChemicalFormula`
+
+
+   Present a complete composition as an eager canonical reduced formula.
+
+   :param obj: The chemical-formula-like object to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: amounts
+
+      Return the presented elemental amounts.
+
+
+   .. py:property:: uncertainties
+
+      Return the presented amount precisions.
+
+
+   .. py:property:: complete
+
+      Return whether the presented composition is complete.
+
+
+   .. py:property:: exact
+
+      Return whether the presented amounts are exact.
+
+
+   .. py:property:: normalized
+
+      Return whether the presented composition is normalized.
+
+
+   .. py:property:: normalization_status
+
+      Return the presented composition's normalization status.
+
+
+   .. py:property:: diagnostics
+
+      Return diagnostics associated with the presented composition.
+
+
+   .. py:property:: is_anonymous
+
+      Return whether this formula uses anonymous labels.
+
+
+   .. py:method:: unview()
+
+      Return the presented formula as a standalone value.
+
+      :return: The canonical reduced formula value.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+.. py:function:: anonymous_symbol(index)
+
+   Return the unbounded OPTIMADE anonymous symbol for a zero-based index.
+
+   :param index: The non-negative zero-based symbol index.
+   :return: The generated anonymous symbol.
+   :raises ValueError: If ``index`` is not a non-negative integer.
+
+
+.. py:function:: parse_anonymous_formula(text)
+
+   Parse a strictly canonical OPTIMADE anonymous chemical formula.
+
+   :param text: The formula text to parse.
+   :return: The canonical anonymous-label and coefficient pairs.
+   :raises ValueError: If ``text`` is not a canonical anonymous formula.
+
+
+.. py:function:: parse_reduced_formula(text)
+
+   Parse a strictly canonical reduced OPTIMADE chemical formula.
+
+   The reduced and anonymous grammars are disjoint by construction: an anonymous
+   label may have an arbitrary lowercase tail, while an element symbol has at most one.
+
+   :param text: The formula text to parse.
+   :return: The canonical element and coefficient pairs.
+   :raises ValueError: If ``text`` is not a canonical reduced formula.
+
+
+.. py:function:: reduced_coefficients(ratios)
+
+   Return the least common integer coefficients for exact elemental ratios.
+
+   :param ratios: The exact elemental ratios in their desired output order.
+   :return: The reduced integer coefficients, or ``None`` for an empty sequence.
+
+
+.. py:function:: render_anonymous(counts)
+
+   Render descending-sorted integer counts using OPTIMADE anonymous symbols.
+
+   :param counts: The coefficients in descending order.
+   :return: The canonical anonymous formula text.
+
+
+.. py:function:: render_reduced(coefficients)
+
+   Render element symbols and reduced integer coefficients in the given order.
+
+   :param coefficients: The element and coefficient pairs to render.
+   :return: The canonical reduced formula text.
+
+
+.. py:function:: try_parse_anonymous(text)
+
+   Return canonical anonymous coefficients, or ``None`` when *text* is not one.
+
+   :param text: The formula text to test.
+   :return: The parsed coefficients, or ``None`` for invalid text.
+
+
+.. py:function:: try_parse_reduced(text)
+
+   Return canonical reduced coefficients, or ``None`` when *text* is not one.
+
+   :param text: The formula text to test.
+   :return: The parsed coefficients, or ``None`` for invalid text.
+
+
+.. py:class:: ChemicalFormulaViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`\ ]
+
+
+   Abstract base class for all views of chemical-formula data.
+
+

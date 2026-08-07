@@ -1,0 +1,81 @@
+httk.atomistic.models.structure.asu_view
+========================================
+
+.. py:module:: httk.atomistic.models.structure.asu_view
+
+.. autoapi-nested-parse::
+
+   A view presenting any structure as its asymmetric unit.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.asu_view.ASUStructureView
+
+
+Module Contents
+---------------
+
+.. py:class:: ASUStructureView(obj, **kwargs)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.view.StructureView`, :py:obj:`httk.atomistic.models.structure.asu.ASUStructure`
+
+
+   A view presenting an underlying structure backend as an :class:`~httk.atomistic.ASUStructure`.
+
+   This view is a genuine ASUStructure, so it can be passed anywhere one is accepted.
+
+   Unlike the other structure views, building it can require *work* rather than a change
+   of presentation: a backend that already carries an asymmetric unit is adopted as-is,
+   but a plain list of atoms has to have its symmetry recognized first. That step is
+   tolerant where everything else in this package is exact — see
+   :mod:`~httk.atomistic.symmetry.recognition` — and needs spglib unless the space group is
+   supplied through ``setting`` or ``standard``/``transform``.
+
+   ``tolerance`` left unspecified is derived from how precisely the structure was stated.
+
+   :param obj: The structure backend or source to recognize and present.
+   :param \**kwargs: Backend-selection, recognition, and metadata options passed to construction.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the retained representative sites.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose species names for the retained representative sites.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, Ellipsis] | None
+
+
+      Expose correlations among the retained domain sites.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw value wrapped by the backend.
+
+      :return: The original source value.
+
+
+
+   .. py:method:: unview()
+
+      Materialize this presentation as a standalone asymmetric-unit structure.
+
+      :return: The exact asymmetric-unit structure represented by this view.
+
+
+

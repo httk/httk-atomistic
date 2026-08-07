@@ -1,0 +1,52 @@
+httk.atomistic.models.sites.view
+================================
+
+.. py:module:: httk.atomistic.models.sites.view
+
+.. autoapi-nested-parse::
+
+   A view presenting any sites backend as a Sites object (the class representation).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.view.SitesView
+
+
+Module Contents
+---------------
+
+.. py:class:: SitesView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.view_base.SitesViewBase`, :py:obj:`httk.atomistic.models.sites.sites.Sites`
+
+
+   A view presenting an underlying sites backend as a ``Sites`` object.
+
+   This view is a genuine ``Sites``, so it can be passed anywhere a Sites is accepted.
+   Its state is built lazily on first access from the backend.
+
+   :param obj: The sites-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return this presentation as standalone exact sites.
+
+      :return: The exact sites representation.
+
+
+

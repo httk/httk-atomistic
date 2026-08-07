@@ -1,0 +1,111 @@
+httk.atomistic.models.cell.params_view
+======================================
+
+.. py:module:: httk.atomistic.models.cell.params_view
+
+.. autoapi-nested-parse::
+
+   A view presenting any cell backend as cell parameters (a, b, c, alpha, beta, gamma).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.params_view.CellParamsView
+
+
+Module Contents
+---------------
+
+.. py:class:: CellParamsView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.cell.view_base.CellViewBase`, :py:obj:`tuple`
+
+
+   A view presenting an underlying cell backend as cell parameters.
+
+   This view is a genuine flat 6-tuple ``(a, b, c, alpha, beta, gamma)`` with the
+   angles in degrees, built eagerly and immutable, with the elements also available
+   as the named properties ``a``/``b``/``c``/``alpha``/``beta``/``gamma``.
+   Parameters carry no orientation, so converting a cell to parameters is lossy:
+   reconstructing a cell from this view reproduces the lengths and angles, and reproduces volume
+   only for a fully periodic source. The reconstruction inherits the fully periodic default, so
+   this view discards the source periodicity as well as the original cell-vector orientation.
+
+   :param obj: The cell-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: a
+      :type: float
+
+
+      The length of the first cell vector.
+
+      :return: The first vector length.
+
+
+   .. py:property:: b
+      :type: float
+
+
+      The length of the second cell vector.
+
+      :return: The second vector length.
+
+
+   .. py:property:: c
+      :type: float
+
+
+      The length of the third cell vector.
+
+      :return: The third vector length.
+
+
+   .. py:property:: alpha
+      :type: float
+
+
+      The angle between the second and third cell vectors, in degrees.
+
+      :return: The alpha angle.
+
+
+   .. py:property:: beta
+      :type: float
+
+
+      The angle between the first and third cell vectors, in degrees.
+
+      :return: The beta angle.
+
+
+   .. py:property:: gamma
+      :type: float
+
+
+      The angle between the first and second cell vectors, in degrees.
+
+      :return: The gamma angle.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the presented parameters as a plain tuple.
+
+      :return: The six cell parameters.
+
+
+

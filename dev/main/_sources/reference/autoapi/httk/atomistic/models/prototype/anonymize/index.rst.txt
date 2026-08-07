@@ -1,0 +1,61 @@
+httk.atomistic.models.prototype.anonymize
+=========================================
+
+.. py:module:: httk.atomistic.models.prototype.anonymize
+
+.. autoapi-nested-parse::
+
+   Validation and canonical labelling helpers for anonymized structures.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.anonymize.dummy_species
+   httk.atomistic.models.prototype.anonymize.is_dummy_species
+   httk.atomistic.models.prototype.anonymize.canonical_dummy_assignment
+   httk.atomistic.models.prototype.anonymize.require_anonymizable
+
+
+Module Contents
+---------------
+
+.. py:function:: dummy_species(label)
+
+   Return the exact dummy species used by anonymous structures.
+
+   :param label: The anonymous symbol to use as the species name.
+   :return: The canonical dummy species.
+
+
+.. py:function:: is_dummy_species(species)
+
+   Return whether ``species`` has precisely the sanctioned dummy-species shape.
+
+   :param species: The species to inspect.
+   :return: Whether the species is a canonical dummy species.
+
+
+.. py:function:: canonical_dummy_assignment(amounts)
+
+   Map element-like keys to anonymous symbols by descending amount.
+
+   :param amounts: The keys and represented site counts.
+   :return: The deterministic key-to-anonymous-symbol assignment.
+
+
+.. py:function:: require_anonymizable(structure)
+
+   Reject structure features outside this phase's deliberate scope.
+
+   Only fully occupied, single-real-element site species are anonymized. Future phases may
+   add merge or label-preserving modes for decorated species; this mode intentionally refuses
+   those cases, as well as assemblies, stated compositions, and site moments.
+
+   :param structure: The structure whose representation is being anonymized.
+   :raises ValueError: If the structure contains unsupported composition features.
+
+

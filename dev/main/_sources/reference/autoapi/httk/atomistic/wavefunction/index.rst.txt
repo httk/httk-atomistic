@@ -1,0 +1,270 @@
+httk.atomistic.wavefunction
+===========================
+
+.. py:module:: httk.atomistic.wavefunction
+
+.. autoapi-nested-parse::
+
+   Provide NumPy-native plane-wave wavefunctions and VASP WAVECAR adapters.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.wavefunction.RYTOEV
+   httk.atomistic.wavefunction.AUTOA
+   httk.atomistic.wavefunction.PI
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.wavefunction.PlaneWaveFunctions
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.wavefunction.wavefunction_overlap
+   httk.atomistic.wavefunction.save_vesta
+
+
+Module Contents
+---------------
+
+.. py:data:: RYTOEV
+   :value: 13.605826
+
+
+.. py:data:: AUTOA
+   :value: 0.529177249
+
+
+.. py:data:: PI
+   :value: 3.141592653589793
+
+
+.. py:class:: PlaneWaveFunctions(source = None, *, cell = None, encut = None, kpoints = None, eigenvalues = None, occupations = None, coefficients = None, nplanewaves = None, double_precision = None, gamma_half = None)
+
+   Provide a zero-based, NumPy-native collection of plane-wave coefficients.
+
+   This is an eager NumPy representation, not a backend or view family. NumPy is required
+   at construction time; install the ``httk-atomistic[numpy]`` extra when it is absent.
+
+   A WAVECAR does not store whether gamma compression used the ``x`` or ``z``
+   half-space. The default interpretation is ``x``; pass ``gamma_half="z"``
+   to :func:`~httk.core.load` when loading a z-half gamma WAVECAR. Gamma compression is
+   detected from the k-point and plane-wave count during construction.
+
+   :param source: A WAVECAR source or neutral WAVECAR payload, or ``None`` for in-memory data.
+   :param cell: The real-space cell used by the in-memory coefficients.
+   :param encut: The plane-wave energy cutoff used to generate reciprocal vectors.
+   :param kpoints: The k-points used by the in-memory coefficients.
+   :param eigenvalues: The band eigenvalues.
+   :param occupations: The band occupations.
+   :param coefficients: The coefficient vectors keyed by zero-based spin, k-point, and band.
+   :param nplanewaves: The number of plane waves for each k-point, or ``None`` to infer it.
+   :param double_precision: Whether to retain double-precision complex coefficients.
+   :param gamma_half: The gamma-compression half-space, ``"x"`` or ``"z"``, if applicable.
+   :raises ImportError: If NumPy is unavailable.
+
+
+   .. py:property:: nspins
+      :type: int
+
+
+      Return the number of spin channels.
+
+
+   .. py:property:: nkpts
+      :type: int
+
+
+      Return the number of k-points.
+
+
+   .. py:property:: nbands
+      :type: int
+
+
+      Return the number of bands.
+
+
+   .. py:property:: encut
+      :type: float
+
+
+      Return the plane-wave energy cutoff.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the real-space cell.
+
+
+   .. py:property:: kpoints
+      :type: Any
+
+
+      Return the k-point coordinates.
+
+
+   .. py:property:: eigenvalues
+      :type: Any
+
+
+      Return the band eigenvalues.
+
+
+   .. py:property:: occupations
+      :type: Any
+
+
+      Return the band occupations.
+
+
+   .. py:property:: nplanewaves
+      :type: Any
+
+
+      Return the plane-wave count for each k-point.
+
+
+   .. py:property:: double_precision
+      :type: bool
+
+
+      Return whether coefficients use double precision.
+
+
+   .. py:property:: is_gamma
+      :type: bool
+
+
+      Return whether the coefficients use gamma compression.
+
+
+   .. py:property:: gamma_half
+      :type: str | None
+
+
+      Return the detected gamma-compression half-space, if applicable.
+
+
+   .. py:property:: kgrid_size
+      :type: Any
+
+
+      Return the reciprocal-grid dimensions used for transforms.
+
+
+   .. py:method:: close()
+
+      Close a file-backed source while retaining cached coefficients and metadata.
+
+
+
+   .. py:property:: closed
+      :type: bool
+
+
+      Report whether the file-backed source is closed.
+
+
+   .. py:method:: coefficients(spin, kpt, band, *, cache = True)
+
+      Return one coefficient vector, using an existing cache even when ``cache=False``.
+
+      An uncached source read occurs once and is not stored; cached coefficients remain
+      available after a file-backed source is closed.
+
+      :param spin: The zero-based spin index.
+      :param kpt: The zero-based k-point index.
+      :param band: The zero-based band index.
+      :param cache: Whether to cache a coefficient vector read from the source.
+      :return: The selected coefficient vector.
+      :raises ValueError: If an index is out of range or source coefficients have the wrong length.
+
+
+
+   .. py:method:: gvectors(kpt = 0, *, gamma = None, gamma_half = None)
+
+      Return the reciprocal grid vectors for a k-point.
+
+      :param kpt: The zero-based k-point index.
+      :param gamma: Whether to use gamma compression, or the construction default when ``None``.
+      :param gamma_half: The gamma-compression half-space, if gamma compression is requested.
+      :return: The reciprocal grid vectors selected by the cutoff.
+      :raises ValueError: If the k-point, gamma flag, or half-space is invalid.
+
+
+
+   .. py:method:: realspace_wave(spin, kpt, band, *, norm = True)
+
+      Transform coefficients to a real-space wave using NumPy FFTs.
+
+      The transform uses ``numpy.fft`` with ``norm="ortho"``. Gamma-compressed coefficients
+      are expanded according to the detected half-space before the transform.
+
+      :param spin: The zero-based spin index.
+      :param kpt: The zero-based k-point index.
+      :param band: The zero-based band index.
+      :param norm: Whether to normalize the resulting wave to unit norm.
+      :return: The real-space wave on the reciprocal grid.
+      :raises ValueError: If an index is out of range or the stored gamma metadata is invalid.
+
+
+
+   .. py:method:: select(spins = None, kpts = None, bands = None, *, format = None, gamma_half = 'x')
+
+      Select spins, k-points, and bands, optionally converting coefficient format.
+
+      Indices are zero-based and must be unique. Converting standard coefficients to gamma
+      format derives a signed real wave from the standard complex wave and therefore destroys
+      phase information; converting gamma coefficients to standard format expands the stored
+      half-space. A gamma selection must contain exactly one gamma-point k-point.
+
+      :param spins: The zero-based spin indices to retain, or all spins when ``None``.
+      :param kpts: The zero-based k-point indices to retain, or all k-points when ``None``.
+      :param bands: The zero-based band indices to retain, or all bands when ``None``.
+      :param format: The requested coefficient format, ``"std"``, ``"gamma"``, or ``None``.
+      :param gamma_half: The target gamma-compression half-space.
+      :return: A new in-memory collection containing the selected data.
+      :raises ValueError: If indices, format, gamma selection, or half-space conversion is invalid.
+
+
+
+.. py:function:: wavefunction_overlap(phi1, phi2)
+
+   Return the complex overlap of two wavefunctions.
+
+   :param phi1: The first wavefunction.
+   :param phi2: The second wavefunction.
+   :return: The conjugate-inner-product overlap.
+   :raises ValueError: If the wavefunctions do not have matching shapes.
+
+
+.. py:function:: save_vesta(basename, structure, wave, *, cols = 10)
+
+   Save real and imaginary wave components as VASP volumetric files.
+
+   The files are written as ``<basename>_r.vasp`` and ``<basename>_i.vasp``. This operation
+   requires the optional ``httk-io`` package.
+
+   :param basename: The output filename prefix.
+   :param structure: The structure supplying the volumetric-file cell and species metadata.
+   :param wave: The three-dimensional complex wave to write.
+   :param cols: The number of values written per output line.
+   :raises ImportError: If NumPy or ``httk-io`` is not installed.
+   :raises ValueError: If ``wave`` is not a three-dimensional complex array.
+
+

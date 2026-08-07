@@ -1,0 +1,46 @@
+httk.atomistic.models.formula.formula_string
+============================================
+
+.. py:module:: httk.atomistic.models.formula.formula_string
+
+.. autoapi-nested-parse::
+
+   Backend wrapping a raw canonical reduced formula string.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.formula_string.FormulaString
+
+
+Module Contents
+---------------
+
+.. py:class:: FormulaString(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Wrap a canonical reduced formula held as a plain string.
+
+   :param obj: The canonical reduced formula text.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+
+      Return the formula coefficients as exact amounts.
+
+
+   .. py:method:: unwrap()
+
+      Return the original formula text.
+
+
+

@@ -1,0 +1,39 @@
+httk.atomistic.models.formula.formula
+=====================================
+
+.. py:module:: httk.atomistic.models.formula.formula
+
+.. autoapi-nested-parse::
+
+   The canonical reduced chemical-formula value class.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.formula.ChemicalFormula
+
+
+Module Contents
+---------------
+
+.. py:class:: ChemicalFormula(backend, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`, :py:obj:`str`
+
+
+   Store a strictly canonical reduced chemical formula.
+
+   :param formula: The alphabetical formula text with greatest common divisor one.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+
+      Return the formula coefficients as exact amounts.
+
+

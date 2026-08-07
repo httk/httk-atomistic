@@ -1,0 +1,117 @@
+httk.atomistic.models.trajectory.record
+=======================================
+
+.. py:module:: httk.atomistic.models.trajectory.record
+
+.. autoapi-nested-parse::
+
+   Expose bounded trajectory storage records as backends.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.trajectory.record.RecordTrajectory
+
+
+Module Contents
+---------------
+
+.. py:class:: RecordTrajectory(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.trajectory.backend.TrajectoryBackend`
+
+
+   Expose only the bounded summary and stored reference frames.
+
+   Full frame data is deliberately absent from
+   :class:`httk.atomistic.storage.records.TrajectoryRecord`.
+   Callers must use ``source_locator`` to reopen the original source for any
+   frame that is not one of the stored reference frames.
+
+   :param obj: The bounded trajectory storage record.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Return the total number of source frames.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Return the stored distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Return the stored species name at each site.
+
+
+   .. py:property:: reference_frames
+      :type: tuple[int, Ellipsis]
+
+
+      Return the indexes of frames stored in the bounded record.
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, Ellipsis]
+
+
+      Return the names of summarized observables.
+
+
+   .. py:property:: observable_summaries
+      :type: tuple[httk.atomistic.storage.records.ObservableSummaryRecord, Ellipsis]
+
+
+      Return the stored per-observable summaries.
+
+
+   .. py:method:: frame(i)
+
+      Return a stored reference frame by source index.
+
+      :param i: Source frame index.
+      :return: The stored reference frame.
+      :raises IndexError: If the frame is not stored in the bounded record.
+      :raises TypeError: If the index is not an integer.
+
+
+
+   .. py:method:: frames()
+
+      Reject iteration because full frames are not stored.
+
+      :return: Never; reopen the source at ``source_locator`` instead.
+      :raises RuntimeError: Always, because the record stores no full frame sequence.
+
+
+
+   .. py:method:: observable(name)
+
+      Reject per-frame access to summarized observable values.
+
+      :param name: Observable name.
+      :return: Never; reopen the source at ``source_locator`` instead.
+      :raises KeyError: If the observable is unavailable.
+      :raises RuntimeError: If the observable is summarized but not stored per frame.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the bounded storage record.
+
+
+

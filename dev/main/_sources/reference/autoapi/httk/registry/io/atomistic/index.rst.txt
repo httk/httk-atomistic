@@ -1,0 +1,11 @@
+httk.registry.io.atomistic
+==========================
+
+.. py:module:: httk.registry.io.atomistic
+
+.. autoapi-nested-parse::
+
+   Register format adapters implemented by :mod:`httk.atomistic`.
+
+
+

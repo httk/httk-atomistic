@@ -1,0 +1,94 @@
+httk.atomistic.models.structure.api
+===================================
+
+.. py:module:: httk.atomistic.models.structure.api
+
+.. autoapi-nested-parse::
+
+   The minimal canonical structure interface for httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.api.StructureAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: StructureAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Define the canonical structure interface.
+
+   It declares the Unitcell quartet that every structure backend produces from its
+   own native representation and every structure view builds its presentation
+   from: ``cell``, ``sites``, ``species``, and ``species_at_sites``. This is the
+   single interchange format; there is no pairwise conversion between backends.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+      :abstractmethod:
+
+
+      Expose the structure's cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+      :abstractmethod:
+
+
+      Expose the structure's site coordinates.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+      :abstractmethod:
+
+
+      Expose the structure's distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+      :abstractmethod:
+
+
+      Expose the species occupying each site.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned net charge of the cell content.
+
+      ``None`` means unstated and is never derived from the species; it is distinct
+      from an explicit zero.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose optional per-site magnetic moments in ``sites`` order.
+
+      ``None`` means "nothing stated", not "zero moments".
+
+      :return: The site moments, or ``None`` when they are unstated.
+
+

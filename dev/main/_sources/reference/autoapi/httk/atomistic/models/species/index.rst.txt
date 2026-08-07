@@ -1,0 +1,546 @@
+httk.atomistic.models.species
+=============================
+
+.. py:module:: httk.atomistic.models.species
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/species/api/index
+   /reference/autoapi/httk/atomistic/models/species/backend/index
+   /reference/autoapi/httk/atomistic/models/species/like/index
+   /reference/autoapi/httk/atomistic/models/species/plain/index
+   /reference/autoapi/httk/atomistic/models/species/plain_view/index
+   /reference/autoapi/httk/atomistic/models/species/record/index
+   /reference/autoapi/httk/atomistic/models/species/species/index
+   /reference/autoapi/httk/atomistic/models/species/view/index
+   /reference/autoapi/httk/atomistic/models/species/view_base/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.species.SpeciesLike
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.species.SpeciesAPI
+   httk.atomistic.models.species.SpeciesBackend
+   httk.atomistic.models.species.PlainSpecies
+   httk.atomistic.models.species.PlainSpeciesView
+   httk.atomistic.models.species.Species
+   httk.atomistic.models.species.SpeciesView
+   httk.atomistic.models.species.SpeciesViewBase
+
+
+Package Contents
+----------------
+
+.. py:class:: SpeciesAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Abstract base class for the canonical single-species interface.
+
+   It declares the accessors mirroring the OPTIMADE ``species`` fields that every
+   species backend produces from its own native representation and every species view
+   builds its presentation from: ``name``, ``chemical_symbols``, ``concentration``,
+   and the optional ``mass``, ``attached``, ``nattached``, and ``original_name``.
+
+
+   .. py:property:: name
+      :type: str
+
+      :abstractmethod:
+
+
+
+   .. py:property:: chemical_symbols
+      :type: tuple[str, Ellipsis]
+
+      :abstractmethod:
+
+
+
+   .. py:property:: charges
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Assigned charge numbers for the constituents, or ``None`` if unstated.
+
+      A ``None`` element means the charge of that constituent is unstated; whole-
+      ``None`` means no constituent charges are stated. Values use elementary-charge
+      units, for example a formal oxidation state.
+
+      :return: The constituent charges, or ``None`` when unstated.
+
+
+   .. py:property:: spins
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Idealized signed spins assigned to the constituents, or ``None`` if unstated.
+
+      A ``None`` element means the spin of that constituent is unstated; whole-``None``
+      means no constituent spins are stated. This is distinct from a calculated site
+      magnetic moment.
+
+      :return: The constituent spins, or ``None`` when unstated.
+
+
+   .. py:property:: labels
+      :type: tuple[str | None, Ellipsis] | None
+
+
+      Free-form per-constituent labels, or ``None`` if unstated.
+
+      A ``None`` element means that constituent has no stated label; whole-``None``
+      means no constituent labels are stated.
+
+      :return: The constituent labels, or ``None`` when unstated.
+
+
+   .. py:property:: concentration
+      :type: tuple[fractions.Fraction, Ellipsis]
+
+      :abstractmethod:
+
+
+
+   .. py:property:: concentration_precision
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+      :abstractmethod:
+
+
+
+   .. py:property:: mass
+      :type: tuple[float, Ellipsis] | None
+
+      :abstractmethod:
+
+
+
+   .. py:property:: attached
+      :type: tuple[str, Ellipsis] | None
+
+      :abstractmethod:
+
+
+
+   .. py:property:: nattached
+      :type: tuple[int, Ellipsis] | None
+
+      :abstractmethod:
+
+
+
+   .. py:property:: original_name
+      :type: str | None
+
+      :abstractmethod:
+
+
+
+.. py:class:: SpeciesBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`SpeciesBackend`\ ], :py:obj:`httk.atomistic.models.species.api.SpeciesAPI`
+
+
+   Abstract base class for all backends of single-species data.
+
+   Concrete backends carry a native representation and produce the canonical OPTIMADE
+   species accessors declared by ``SpeciesAPI`` from it.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+
+.. py:type:: SpeciesLike
+   :canonical: httk.atomistic.models.species.backend.SpeciesBackend | httk.atomistic.models.species.view_base.SpeciesViewBase | httk.atomistic.models.species.species.Species | dict[str, Any] | str | int
+
+
+.. py:class:: PlainSpecies(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.species.backend.SpeciesBackend`
+
+
+   Backend for a species backed by an OPTIMADE species dict.
+
+   The native representation is a mapping with the OPTIMADE ``species`` fields; the
+   required ``name``/``chemical_symbols``/``concentration`` are validated conservatively
+   on construction. The accessors read the corresponding fields (optional fields absent
+   from the dict read as ``None``), and ``unwrap`` returns the original dict.
+
+   :param obj: The species mapping.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: name
+      :type: str
+
+
+      Return the species name.
+
+      :return: The species name.
+
+
+   .. py:property:: chemical_symbols
+      :type: tuple[str, Ellipsis]
+
+
+      Return the constituent symbols.
+
+      :return: The chemical symbols in constituent order.
+
+
+   .. py:property:: concentration
+      :type: tuple[fractions.Fraction, Ellipsis]
+
+
+      Return the constituent concentrations.
+
+      :return: The concentrations in constituent order.
+
+
+   .. py:property:: concentration_precision
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Return the concentration precision metadata.
+
+      :return: Per-constituent precision, or ``None`` when unavailable.
+
+
+   .. py:property:: mass
+      :type: tuple[float, Ellipsis] | None
+
+
+      Return the constituent masses, if stated.
+
+      :return: The masses, or ``None`` when unstated.
+
+
+   .. py:property:: attached
+      :type: tuple[str, Ellipsis] | None
+
+
+      Return the attached constituent symbols, if stated.
+
+      :return: The attached symbols, or ``None`` when unstated.
+
+
+   .. py:property:: nattached
+      :type: tuple[int, Ellipsis] | None
+
+
+      Return the attached counts, if stated.
+
+      :return: The attached counts, or ``None`` when unstated.
+
+
+   .. py:property:: original_name
+      :type: str | None
+
+
+      Return the original source name, if stated.
+
+      :return: The original name, or ``None`` when unstated.
+
+
+   .. py:property:: charges
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Return the constituent charges, if stated.
+
+      :return: The charges, or ``None`` when unstated.
+
+
+   .. py:property:: spins
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Return the constituent spins, if stated.
+
+      :return: The spins, or ``None`` when unstated.
+
+
+   .. py:property:: labels
+      :type: tuple[str | None, Ellipsis] | None
+
+
+      Return the constituent labels, if stated.
+
+      :return: The labels, or ``None`` when unstated.
+
+
+   .. py:method:: unwrap()
+
+      Return the original species mapping.
+
+      :return: The raw mapping.
+
+
+
+.. py:class:: PlainSpeciesView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.species.view_base.SpeciesViewBase`, :py:obj:`dict`
+
+
+   A view presenting an underlying species backend as an OPTIMADE species dict.
+
+   This view is a genuine ``dict`` carrying the OPTIMADE ``species`` fields (optional
+   fields that are ``None`` are omitted; list-valued fields are plain lists). Unlike the
+   immutable-subclass views, a dict is mutable, so this view is a detached copy: mutating
+   it does not affect the underlying backend.
+
+   :param obj: The species-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the presented species as a plain mapping.
+
+      :return: The detached presentation mapping.
+
+
+
+.. py:class:: Species(name, chemical_symbols, concentration, mass = None, original_name = None, attached = None, nattached = None, concentration_precision = None, charges = None, spins = None, labels = None)
+
+   Bases: :py:obj:`httk.atomistic.models.species.backend.SpeciesBackend`
+
+
+   A chemical species occupying one or more sites, mirroring the OPTIMADE ``species`` object.
+
+   A species has a ``name`` (unique within a structure; it need not be a chemical
+   symbol), a list of ``chemical_symbols`` composing it, and a matching list of
+   ``concentration`` values. Each chemical symbol is an element symbol, or one of
+   the pseudo-symbols ``"X"`` (unknown) or ``"vacancy"``. The optional ``mass``,
+   ``attached``, ``nattached``, and ``original_name`` fields carry the remaining
+   OPTIMADE species information; ``attached`` and ``nattached`` must be given
+   together and share their length.
+
+   ``charges``, ``spins``, and ``labels`` are optional aligned decorations. An
+   all-``None`` decoration is canonicalized to ``None``. Repeated chemical
+   symbols are accepted only when the complete decoration distinguishes them.
+
+   :param name: The species name.
+   :param chemical_symbols: The constituent chemical symbols.
+   :param concentration: The constituent occupancies.
+   :param mass: The constituent masses, if stated.
+   :param original_name: The source name, if stated.
+   :param attached: The attached constituent symbols, if stated.
+   :param nattached: The counts corresponding to ``attached``, if stated.
+   :param concentration_precision: The precision of each occupancy, if stated.
+   :param charges: The charge decoration, if stated.
+   :param spins: The spin decoration, if stated.
+   :param labels: The label decoration, if stated.
+
+
+   .. py:attribute:: name
+      :type:  str
+      :value: ''
+
+
+
+   .. py:attribute:: chemical_symbols
+      :type:  tuple[str, Ellipsis]
+      :value: ()
+
+
+
+   .. py:attribute:: concentration
+      :type:  tuple[fractions.Fraction, Ellipsis]
+      :value: ()
+
+
+
+   .. py:attribute:: mass
+      :type:  tuple[float, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: original_name
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: attached
+      :type:  tuple[str, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: nattached
+      :type:  tuple[int, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: concentration_precision
+      :type:  tuple[fractions.Fraction | None, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: charges
+      :type:  tuple[fractions.Fraction | None, Ellipsis] | None
+      :value: None
+
+
+      Assigned charge numbers for the constituents, or ``None`` if unstated.
+
+      A ``None`` element means the charge of that constituent is unstated; whole-
+      ``None`` means no constituent charges are stated. Values use elementary-charge
+      units, for example a formal oxidation state.
+
+      :return: The constituent charges, or ``None`` when unstated.
+
+
+   .. py:attribute:: spins
+      :type:  tuple[fractions.Fraction | None, Ellipsis] | None
+      :value: None
+
+
+      Idealized signed spins assigned to the constituents, or ``None`` if unstated.
+
+      A ``None`` element means the spin of that constituent is unstated; whole-``None``
+      means no constituent spins are stated. This is distinct from a calculated site
+      magnetic moment.
+
+      :return: The constituent spins, or ``None`` when unstated.
+
+
+   .. py:attribute:: labels
+      :type:  tuple[str | None, Ellipsis] | None
+      :value: None
+
+
+      Free-form per-constituent labels, or ``None`` if unstated.
+
+      A ``None`` element means that constituent has no stated label; whole-``None``
+      means no constituent labels are stated.
+
+      :return: The constituent labels, or ``None`` when unstated.
+
+
+   .. py:property:: normalized
+      :type: bool
+
+
+      Whether the stated concentration interval contains one.
+
+      :return: Whether the concentrations are normalized within their precision.
+
+
+   .. py:property:: normalization_status
+      :type: str
+
+
+      Report the concentration normalization status.
+
+      :return: ``exact``, ``within_precision``, or ``outside_precision``.
+
+
+   .. py:property:: normalization_diagnostic
+      :type: Any
+
+
+      Return a structured normalization diagnostic when needed.
+
+      :return: The diagnostic, or ``None`` when the concentrations are normalized.
+
+
+   .. py:property:: is_single_element
+      :type: bool
+
+
+      Whether this species is a single, unattached, real chemical element.
+
+      True only for a species composed of exactly one element symbol (not ``"X"``
+      or ``"vacancy"``) with no attached particles. Such species are the ones that
+      can be represented as a bare atomic number in the primitive representation.
+
+      :return: Whether this is a single real element.
+
+
+   .. py:method:: create(obj, **hints)
+      :classmethod:
+
+
+      Return a Species from an existing Species, bare symbol or atomic number, or
+      OPTIMADE species dict.
+
+      A bare element symbol, ``"X"``, or ``"vacancy"`` denotes a fully occupied
+      single-symbol species. A bare atomic number denotes the corresponding element.
+
+      :param obj: An existing species, symbol, atomic number, or species mapping.
+      :param \**hints: Backend-selection hints.
+      :return: The canonical species.
+      :raises ValueError: If an atomic number is boolean or the input is invalid.
+
+
+
+.. py:class:: SpeciesView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.species.view_base.SpeciesViewBase`, :py:obj:`httk.atomistic.models.species.species.Species`
+
+
+   A view presenting an underlying species backend as a ``Species``.
+
+   This view is a genuine frozen ``Species``, so it can be passed anywhere a Species is
+   accepted. Its fields are built eagerly from the backend on construction, with full
+   ``Species`` validation applied at that point.
+
+   :param obj: The species-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return this presentation as standalone species.
+
+      :return: The exact species representation.
+
+
+
+.. py:class:: SpeciesViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.species.backend.SpeciesBackend`\ ]
+
+
+   Abstract base class for all views of single-species data.
+
+

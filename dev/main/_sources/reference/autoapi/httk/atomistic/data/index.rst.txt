@@ -1,0 +1,163 @@
+httk.atomistic.data
+===================
+
+.. py:module:: httk.atomistic.data
+
+.. autoapi-nested-parse::
+
+   Provide lazy access to vendored crystallographic symmetry datasets.
+
+   Two datasets ship with *httk-atomistic*, both read through
+   :class:`~httk.core.DatasetLoader` and both licensed CC BY 4.0 (see the adjacent
+   ``LICENSE`` and ``README.md`` for the full attribution):
+
+   ``symmetry_basics.json.gz``
+       One record per space-group **setting** — 527 of them, of which 230 are flagged
+       ``is_reference_setting`` (the International Tables standard setting for their IT
+       number). Each record is self-contained *in its own setting*: its symmetry operations,
+       its Wyckoff table, and its asymmetric-unit region are all expressed in that setting's
+       coordinates. So SG 15 Wyckoff letter ``e`` reads ``0,y,1/4`` in the reference setting
+       ``15:b1`` but ``1/4,0,z`` in ``15:c1``.
+
+   ``spacegroup_setting_transforms.json.gz``
+       The change-of-basis operation taking each setting to its IT standard setting, keyed on
+       Hall entry, covering all 527 settings. See :func:`setting_transform` for the direction
+       convention, which is easy to get backwards.
+
+   Nothing here is read at import time. The first lookup triggers the load: ~0.4 s and
+   ~12 MB resident for ``symmetry_basics``, paid once per process and only if symmetry is
+   actually used. The transforms dataset is negligible.
+
+   Two field-choice traps worth stating once, because both fail silently:
+
+   * Use ``symops`` and ``orbit``, not ``symops_mod_centering`` and ``orbit_mod_centering``.
+     The former are the full sets with centering translations folded in, so
+     ``len(orbit) == multiplicity`` holds; the ``_mod_centering`` variants are the factored
+     forms and mixing the two in a set comparison misreports every centred group.
+   * ``orbit[0]`` follows the record's ``first_orbit``, which differs from
+     ``first_orbit_ita`` in 180 of the 3440 Wyckoff entries. Both describe the same orbit,
+     but only the latter matches what International Tables prints.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.data.spacegroup_settings
+   httk.atomistic.data.point_groups
+   httk.atomistic.data.spacegroup_setting
+   httk.atomistic.data.standard_spacegroup_setting
+   httk.atomistic.data.spglib_default_spacegroup_setting
+   httk.atomistic.data.standard_setting_it_numbers
+   httk.atomistic.data.setting_transform
+
+
+Package Contents
+----------------
+
+.. py:function:: spacegroup_settings()
+
+   Return every tabulated space-group setting, one record each.
+
+   The symmetry-basics dataset is loaded lazily on the first lookup.
+
+   :return: All tabulated space-group setting records.
+
+
+.. py:function:: point_groups()
+
+   Return the crystallographic point groups with their operations and character tables.
+
+   The symmetry-basics dataset is loaded lazily on the first lookup.
+
+   :return: All tabulated point-group records.
+
+
+.. py:function:: spacegroup_setting(*, hall_entry = None, setting_it_nc = None, hm_entry = None)
+
+   The setting record identified by exactly one of the given keys.
+
+   ``hall_entry`` is the normalized Hall symbol (``"-c_2yc"``), ``setting_it_nc`` the
+   IT number with coordinate-system code (``"15:c1"``), and ``hm_entry`` the
+   Hermann-Mauguin entry name (``"C 1 2/c 1"``). A Hall entry names a setting
+   unambiguously — symbol, axes and origin — which is why it is the key the transform
+   dataset uses.
+
+   Raises :class:`KeyError` if the key is unknown, and :class:`TypeError` unless exactly
+   one key is given.
+
+   :param hall_entry: The normalized Hall symbol identifying the setting.
+   :param setting_it_nc: The IT number and coordinate-system code identifying the setting.
+   :param hm_entry: The Hermann-Mauguin entry name identifying the setting.
+   :return: The matching space-group setting record.
+   :raises KeyError: If the selected key is unknown.
+   :raises TypeError: If zero or multiple keys are supplied.
+
+
+.. py:function:: standard_spacegroup_setting(it_number)
+
+   The IT standard (reference) setting for a space-group number, ``1 <= it_number <= 230``.
+
+   This is the setting flagged ``is_reference_setting`` and is the one
+   :func:`setting_transform` transforms to. Note it is **not** always spglib's default
+   setting: the two differ for the 24 space groups with two origin choices (48, 50, 59,
+   68, 70, 85, 86, 88, 125, 126, 129, 130, 133, 134, 137, 138, 141, 142, 201, 203, 222,
+   224, 227, 228) and agree for the other 206. Any interoperation with spglib must go
+   through an explicit transform rather than assuming the two coincide.
+
+   :param it_number: The International Tables space-group number.
+   :return: The reference setting record for the number.
+   :raises KeyError: If no reference setting has the requested number.
+
+
+.. py:function:: spglib_default_spacegroup_setting(it_number)
+
+   The setting spglib treats as its default for a space-group number.
+
+   This differs from :func:`standard_spacegroup_setting` for the 24 space groups with two
+   origin choices and coincides with it for the other 206, which is exactly why any code
+   that hands coordinates to or takes them from spglib must transform explicitly rather
+   than assume the two agree — the failure mode is a structure displaced by a fraction of
+   a cell that still passes a symmetry check.
+
+   :param it_number: The International Tables space-group number.
+   :return: The setting record selected by spglib for the number.
+   :raises KeyError: If spglib has no setting for the requested number.
+
+
+.. py:function:: standard_setting_it_numbers()
+
+   Return the IT numbers that have a tabulated standard setting.
+
+   :return: The available International Tables space-group numbers in ascending order.
+
+
+.. py:function:: setting_transform(hall_entry)
+
+   The change-of-basis operation between a setting and its IT standard setting.
+
+   The returned record's ``affine_transformation`` holds an exact rational ``matrix``
+   ``M`` and ``vector`` ``v``. **Direction matters and the field name is misleading**:
+   despite deriving from a table called ``hall_to_it_std_transform``, the pair maps
+   standard-setting coordinates *into* this setting, as column vectors::
+
+       x_own = M @ x_std + v
+
+   Under httk's row-vector convention that is ``f_own = f_std @ M.T + v``, with the
+   reverse ``f_std = (f_own - v) @ inv(M).T`` and cell basis rows transforming as
+   ``B_own = inv(M).T @ B_std``. Applying it backwards yields a structurally valid but
+   systematically wrong crystal.
+
+   ``M`` is unimodular for 520 of the 527 settings. The exceptions are the seven
+   rhombohedral-axes settings (IT numbers 146, 148, 155, 160, 161, 166, 167), where
+   ``det M == 3`` because the standard hexagonal cell has three times the volume of the
+   rhombohedral one — and correspondingly ``inv(M)`` has thirds, so nothing may assume
+   the reverse transform is integral.
+
+   :param hall_entry: The normalized Hall symbol identifying the setting.
+   :return: The setting-transform record mapping standard-setting coordinates into the named setting.
+   :raises KeyError: If no transform is tabulated for ``hall_entry``.
+
+

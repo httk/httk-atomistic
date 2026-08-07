@@ -1,0 +1,141 @@
+httk.atomistic.models.prototype.prototype
+=========================================
+
+.. py:module:: httk.atomistic.models.prototype.prototype
+
+.. autoapi-nested-parse::
+
+   The standard-setting dummy-species fundamental-domain value.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.prototype.Prototype
+
+
+Module Contents
+---------------
+
+.. py:class:: Prototype(cell, spacegroup, wyckoff_sites, species = None, coordinate_precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.backend.AnonymousStructureBackend`
+
+
+   Store a standard-setting fundamental domain with dummy species labels.
+
+   :param cell: The standard-setting cell geometry.
+   :param spacegroup: The standard-setting space group.
+   :param wyckoff_sites: The symmetry-distinct site definitions.
+   :param species: The distinct dummy species definitions.
+   :param coordinate_precision: The precision recorded for the reduced coordinates.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'prototype'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the standard-setting cell.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: wyckoff_sites
+      :type: tuple[httk.atomistic.models.structure.asu.WyckoffSite, Ellipsis]
+
+
+      Return the symmetry-distinct site definitions.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Return the distinct dummy species.
+
+
+   .. py:property:: coordinate_precision
+
+      Return the reduced-coordinate precision.
+
+
+   .. py:property:: basis_precision
+
+      Return the cell-basis precision.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Return the expanded standard-setting sites.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Return dummy species names in expanded site order.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Return the periodic directions.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int
+
+
+      Return the number of periodic directions.
+
+
+   .. py:property:: nsites
+      :type: int
+
+
+      Return the number of expanded sites.
+
+
+   .. py:method:: cartesian_sites()
+
+      Return the exact Cartesian expanded site positions.
+
+
+
+   .. py:method:: multiplicities()
+
+      Return the standard-setting multiplicity for each Wyckoff site.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the number of sites in the conventional cell.
+
+
+   .. py:property:: prototype
+      :type: Self
+
+
+      Return this prototype value.
+
+

@@ -1,0 +1,289 @@
+httk.atomistic.symmetry.spacegroup
+==================================
+
+.. py:module:: httk.atomistic.symmetry.spacegroup
+
+.. autoapi-nested-parse::
+
+   One identified space-group setting: its symbols, operations, and Wyckoff positions.
+
+   A :class:`Spacegroup` is a *setting*, not a space-group type. SG 15 has eighteen tabulated
+   settings, and they are genuinely different coordinate systems: Wyckoff letter ``e`` is
+   ``0,y,1/4`` in the reference setting ``15:b1`` but ``1/4,0,z`` in ``15:c1``. Everything a
+   ``Spacegroup`` exposes — its symmetry operations, its Wyckoff table — is expressed in its
+   own setting's coordinates.
+
+   :class:`~httk.atomistic.ASUStructure` holds its Wyckoff data against the IT **standard**
+   setting, obtained from :meth:`Spacegroup.standard`, and reaches any other setting through
+   a :class:`~httk.atomistic.SettingTransform`.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.spacegroup.wyckoff_letter_map
+
+
+Module Contents
+---------------
+
+.. py:class:: Spacegroup(record)
+
+   Represent a tabulated space-group setting from the vendored symmetry data.
+
+   :param record: The vendored record describing one space-group setting.
+
+
+   .. py:method:: standard(it_number)
+      :classmethod:
+
+
+      Return the IT standard setting for a space-group number.
+
+      :param it_number: The International Tables space-group number.
+      :return: The IT standard setting for ``it_number``.
+
+
+
+   .. py:method:: for_hall_entry(hall_entry)
+      :classmethod:
+
+
+      Return the setting named by a normalized Hall symbol.
+
+      For example, ``"-c_2yc"`` names one setting.
+
+      :param hall_entry: The normalized Hall symbol naming the setting.
+      :return: The corresponding space-group setting.
+
+
+
+   .. py:method:: for_setting(setting_it_nc)
+      :classmethod:
+
+
+      Return the setting named by an IT number and coordinate-system code.
+
+      For example, ``"15:c1"`` names one setting.
+
+      :param setting_it_nc: The IT setting identifier.
+      :return: The corresponding space-group setting.
+
+
+
+   .. py:method:: for_hm_entry(hm_entry)
+      :classmethod:
+
+
+      Return the setting named by a Hermann-Mauguin entry.
+
+      For example, ``"C 1 2/c 1"`` names one setting.
+
+      :param hm_entry: The Hermann-Mauguin symbol naming the setting.
+      :return: The corresponding space-group setting.
+
+
+
+   .. py:property:: record
+      :type: dict[str, Any]
+
+
+      Return the raw vendored record for fields this class does not model.
+
+      :return: The source record for this setting.
+
+
+   .. py:property:: it_number
+      :type: int
+
+
+      Return the International Tables space-group number.
+
+      :return: The space-group number from 1 through 230.
+
+
+   .. py:property:: setting
+      :type: str
+
+
+      Return the setting name, such as ``"15:c1"``.
+
+      :return: The IT number and coordinate-system code.
+
+
+   .. py:property:: hall_entry
+      :type: str
+
+
+      Return the normalized Hall symbol naming the setting unambiguously.
+
+      :return: The normalized Hall symbol.
+
+
+   .. py:property:: hall_symbol
+      :type: str
+
+
+      Return the Hall symbol as conventionally written.
+
+      :return: The conventional Hall symbol.
+
+
+   .. py:property:: hermann_mauguin
+      :type: str
+
+
+      Return the short Hermann-Mauguin symbol for this setting.
+
+      :return: The short Hermann-Mauguin symbol.
+
+
+   .. py:property:: hermann_mauguin_full
+      :type: str
+
+
+      Return the full Hermann-Mauguin symbol for this setting.
+
+      :return: The full Hermann-Mauguin symbol.
+
+
+   .. py:property:: crystal_system
+      :type: str
+
+
+      Return the crystal system, such as ``"monoclinic"``.
+
+      :return: The crystal-system name.
+
+
+   .. py:property:: centring_type
+      :type: str
+
+
+      Return the lattice centring letter, such as ``"P"``, ``"C"``, or ``"F"``.
+
+      :return: The centring letter.
+
+
+   .. py:property:: is_standard_setting
+      :type: bool
+
+
+      Report whether this is the IT standard setting for its space-group number.
+
+      :return: Whether this setting is the IT reference setting.
+
+
+   .. py:property:: symmetry_operations
+      :type: tuple[httk.atomistic.symmetry.affine_operation.AffineOperation, Ellipsis]
+
+
+      Return every symmetry operation of the group in this setting's coordinates.
+
+      The full set with centring translations already folded in, so its length is the
+      group order and no separate centring pass is needed.
+
+      :return: The complete tuple of symmetry operations.
+
+
+   .. py:property:: centering_translations
+      :type: tuple[httk.core.FracVector, Ellipsis]
+
+
+      Return the lattice centring translations, including zero.
+
+      :return: The centring translations in this setting.
+
+
+   .. py:property:: wyckoff
+      :type: tuple[httk.atomistic.symmetry.wyckoff.WyckoffPosition, Ellipsis]
+
+
+      Return the Wyckoff positions ordered most specific first.
+
+      Sorted by ``(free_count, multiplicity, letter)``, so identifying a coordinate by
+      walking this order returns the most specific position it lies on.
+
+      :return: The ordered Wyckoff positions for this setting.
+
+
+   .. py:method:: wyckoff_position(letter)
+
+      Return the Wyckoff position with the given letter.
+
+      For example, ``"e"`` selects the position with letter ``e``.
+
+      :param letter: The bare Wyckoff letter.
+      :return: The matching Wyckoff position.
+      :raises KeyError: If this setting has no position with ``letter``.
+
+
+
+   .. py:method:: identify_wyckoff(coordinate)
+
+      Identify the most specific Wyckoff position holding an exact coordinate.
+
+      Returns ``None`` when the coordinate lies on no position, which for a complete
+      table means the input was not an exact rational site of this group. Matching is
+      exact: an approximate coordinate must be snapped first (see
+      :class:`~httk.atomistic.ASUStructure`'s recognition path), never passed here in
+      the hope that it lands.
+
+      :param coordinate: The exact reduced coordinate to identify.
+      :return: The matching position and free parameters, or ``None`` when no position
+          matches exactly.
+
+
+
+   .. py:property:: transform_from_standard
+      :type: httk.atomistic.symmetry.setting_transform.SettingTransform
+
+
+      Return the change of basis from the IT standard setting to this one.
+
+      The identity exactly when this *is* the standard setting.
+
+      :return: The stored standard-to-own setting transform.
+
+
+   .. py:method:: standard_setting()
+
+      Return the IT standard setting for this space-group number.
+
+      :return: The IT standard setting.
+
+
+
+.. py:function:: wyckoff_letter_map(standard, target)
+
+   Map standard-setting Wyckoff letters to their names in another setting.
+
+   Almost always the identity — but not always, and the exception is silent. Across all
+   3210 non-reference ``(setting, letter)`` pairs in the vendored tables, exactly one
+   setting permutes letters: in ``224:1`` the standard setting's ``j`` is that setting's
+   ``i`` and vice versa. So a CIF that declares site ``24i`` in setting ``224:1`` does
+   *not* mean standard-setting letter ``i``, and taking the letter at face value across
+   a setting boundary produces the wrong structure with no error.
+
+   Computed rather than hard-coded, so it survives a data refresh: each standard position
+   is evaluated at generic parameters, mapped through the setting transform, and
+   identified in the target's own Wyckoff table.
+
+   :param standard: The IT standard setting whose letters are being mapped.
+   :param target: The setting receiving the mapped letters.
+   :return: A mapping from standard-setting letters to target-setting letters.
+   :raises ValueError: If the settings belong to different space groups or the mapping is
+       not bijective.
+
+

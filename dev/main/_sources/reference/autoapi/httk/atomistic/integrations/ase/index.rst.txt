@@ -1,0 +1,134 @@
+httk.atomistic.integrations.ase
+===============================
+
+.. py:module:: httk.atomistic.integrations.ase
+
+.. autoapi-nested-parse::
+
+   Expose optional ASE structure integrations.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/integrations/ase/models/index
+   /reference/autoapi/httk/atomistic/integrations/ase/view/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.ase.ASEAtoms
+   httk.atomistic.integrations.ase.ASEAtomsProtocol
+
+
+Package Contents
+----------------
+
+.. py:class:: ASEAtoms(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Import ASE ``Atoms`` and compatible duck-typed objects.
+
+   Conversion is eager because reading the four methods and normalizing their values is
+   real work. The original object remains available through :meth:`unwrap`.
+
+   Initial magnetic moments become site moments and nonzero initial charges become
+   charged single-element species. All-zero ASE defaults remain unstated.
+
+   :param obj: An ASE ``Atoms`` object or compatible duck-typed object.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the exact cell converted from native cell rows.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Return the exact reduced coordinates converted from native positions.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Return distinct single-element species in first-appearance order.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Return the species name occupying each site.
+
+
+   .. py:property:: site_moments
+      :type: Any
+
+
+      Return per-site moments, or ``None`` for absent and all-zero ASE defaults.
+
+
+   .. py:method:: unwrap()
+
+      Return the original ``Atoms``-like object.
+
+
+
+.. py:class:: ASEAtomsProtocol
+
+   Bases: :py:obj:`Protocol`
+
+
+   Describe the minimal method surface needed to read ASE ``Atoms``.
+
+   This is a runtime-checkable, duck-typed protocol. ASE is not required: any object
+   providing these four methods qualifies for :class:`ASEAtoms`.
+
+
+   .. py:method:: get_cell()
+
+      Return the cell vectors as rows.
+
+      :return: The native cell rows.
+
+
+
+   .. py:method:: get_scaled_positions()
+
+      Return the reduced positions.
+
+      :return: One reduced coordinate row per site.
+
+
+
+   .. py:method:: get_atomic_numbers()
+
+      Return one atomic number per site.
+
+      :return: The atomic numbers.
+
+
+
+   .. py:method:: get_pbc()
+
+      Return one periodicity flag per cell row.
+
+      :return: The periodicity flags.
+
+
+

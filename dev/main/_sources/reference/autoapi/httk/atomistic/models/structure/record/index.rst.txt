@@ -1,0 +1,189 @@
+httk.atomistic.models.structure.record
+======================================
+
+.. py:module:: httk.atomistic.models.structure.record
+
+.. autoapi-nested-parse::
+
+   UnitcellStructure backend for the three exact native storage records.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.record.RecordStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: RecordStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Expose a storage record through the existing structure view family.
+
+   Unit-cell records expose their stored components directly; fundamental-domain and
+   asymmetric-unit records expand through the native domain structure when a unit-cell
+   view is requested.
+
+   :param obj: The unit-cell, fundamental-domain, or asymmetric-unit record.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the record-backed cell.
+
+      :return: The cell, directly from a unit-cell record or from the expanded domain.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the record-backed sites.
+
+      :return: The sites, directly from a unit-cell record or from the expanded domain.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose the record-backed distinct species.
+
+      :return: The species referenced by the structure.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose the species occupying each record-backed site.
+
+      :return: Site species names in site order.
+
+
+   .. py:property:: site_moments
+      :type: Any
+
+
+      Expose optional record-backed site moments.
+
+      :return: Site moments, or ``None`` when they are unstated.
+
+
+   .. py:property:: charge
+      :type: Any
+
+
+      Expose the record's explicitly assigned charge.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Expose whether the record describes a molecular unit cell.
+
+      :return: Whether molecular semantics are enabled.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, Ellipsis] | None
+
+
+      Expose the record's site assemblies.
+
+      :return: Assemblies, or ``None`` when they are unstated.
+
+
+   .. py:property:: symmetry
+      :type: httk.atomistic.models.structure.semantics.StructureSymmetry | None
+
+
+      Expose the record's symmetry metadata.
+
+      :return: Symmetry metadata, or ``None`` when it is absent.
+
+
+   .. py:property:: chemical_composition
+      :type: Any
+
+
+      Expose the record's chemical composition.
+
+      :return: Chemical composition, or ``None`` when it is absent.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      Expose the record's descriptive chemical formula.
+
+      :return: The descriptive formula, or ``None`` when it is absent.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      Expose the record's Hill chemical formula.
+
+      :return: The Hill formula, or ``None`` when it is absent.
+
+
+   .. py:property:: optimization_type
+      :type: str | None
+
+
+      Expose the record's optimization provenance.
+
+      :return: The optimization type, or ``None`` when it is absent.
+
+
+   .. py:property:: immutable_id
+      :type: str | None
+
+
+      Expose the record's immutable source identifier.
+
+      :return: The identifier, or ``None`` when it is absent.
+
+
+   .. py:property:: last_modified
+      :type: Any
+
+
+      Expose the record's modification timestamp.
+
+      :return: The timestamp, or ``None`` when it is absent.
+
+
+   .. py:property:: asu
+      :type: httk.atomistic.models.structure.asu.ASUStructure | httk.atomistic.models.structure.asu.FundamentalDomainStructure | None
+
+
+      Expose the native domain structure when the record stores one.
+
+      :return: The native asymmetric or fundamental domain, or ``None`` for unit-cell records.
+
+
+   .. py:method:: unwrap()
+
+      Return the exact fetched record rather than a reconstructed structure.
+
+      :return: The original storage record.
+
+
+

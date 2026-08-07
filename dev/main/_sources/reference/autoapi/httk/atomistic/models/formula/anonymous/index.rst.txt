@@ -1,0 +1,46 @@
+httk.atomistic.models.formula.anonymous
+=======================================
+
+.. py:module:: httk.atomistic.models.formula.anonymous
+
+.. autoapi-nested-parse::
+
+   The canonical anonymous chemical-formula value class.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.anonymous.AnonymousFormula
+
+
+Module Contents
+---------------
+
+.. py:class:: AnonymousFormula(backend, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`, :py:obj:`str`
+
+
+   Store a strictly canonical OPTIMADE anonymous chemical formula.
+
+   :param formula: The canonical anonymous formula text.
+
+
+   .. py:property:: is_anonymous
+      :type: bool
+
+
+      Return whether the formula uses anonymous labels.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+
+      Return the anonymous coefficients as exact amounts.
+
+

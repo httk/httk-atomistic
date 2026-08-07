@@ -1,0 +1,473 @@
+httk.atomistic.models.structure.optimade
+========================================
+
+.. py:module:: httk.atomistic.models.structure.optimade
+
+.. autoapi-nested-parse::
+
+   Lazy, exact OPTIMADE-backed structure representation.
+
+   The transport spelling of an OPTIMADE property is deliberately never part of
+   the conversion contract.  The accompanying ``/info/structures`` snapshot maps
+   each spelling to a property-definition IRI; only that IRI selects a local
+   meaning.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.optimade.OptimadeStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: OptimadeStructure(obj = None, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent an OPTIMADE structure resource as a lazy structure backend.
+
+   Construction merely retains the resource.  The canonical structure quartet
+   is decoded one component at a time, so an incomplete remote resource is
+   still storable, inspectable, and round-trippable.
+
+   OPTIMADE dictionaries are presented through exact local values and converted to
+   floats only at presentation boundaries. Species dictionaries may retain the
+   ``_httk_charges``, ``_httk_spins``, and ``_httk_labels`` extensions.
+
+   :param obj: The OPTIMADE resource to retain.
+   :param \*\*hints: Backend-selection hints, including optional ``resource`` or ``kind``.
+
+
+   .. py:attribute:: resource
+      :type:  httk.core.optimade.OptimadeResource
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'optimade'
+
+
+
+   .. py:attribute:: entry_type_definition_id
+      :type:  ClassVar[str]
+      :value: 'https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures'
+
+
+
+   .. py:method:: unwrap()
+
+      Return the exact authoritative source resource by identity.
+
+      :return: The original OPTIMADE resource.
+
+
+
+   .. py:property:: raw
+      :type: collections.abc.Mapping[str, object]
+
+
+      Expose the immutable JSON API resource envelope.
+
+      :return: The decoded resource envelope, including source spelling and extensions.
+
+
+   .. py:property:: composition
+      :type: httk.atomistic.models.formula.composition.Composition
+
+
+      Project the source-backed composition, retaining implicit or source-only ratios.
+
+      :return: The projected composition.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If source composition fields are inconsistent.
+
+
+   .. py:property:: formula
+      :type: str
+
+
+      Present the reduced formula as an eager ``str`` formula view.
+
+      :return: The reduced formula as a
+          :class:`~httk.atomistic.models.formula.formula_view.ChemicalFormulaView`.
+      :raises ValueError: If the composition is incomplete or empty.
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the JSON API resource identifier without inferring it from a remote label.
+
+      :return: The resource identifier.
+
+
+   .. py:property:: type
+      :type: str
+
+
+      Expose the JSON API resource type identifier without inferring it from a remote label.
+
+      :return: The resource type.
+
+
+   .. py:property:: immutable_id
+      :type: str | None
+
+
+      Expose the portable immutable source identifier.
+
+      :return: The identifier, or ``None`` when absent.
+
+
+   .. py:property:: last_modified
+      :type: datetime.datetime | None
+
+
+      Expose the portable source modification timestamp.
+
+      :return: The timestamp, or ``None`` when absent.
+
+
+   .. py:property:: elements
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose the validated portable element symbols.
+
+      :return: Alphabetically ordered element symbols, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If related source composition fields disagree.
+
+
+   .. py:property:: nelements
+      :type: int | None
+
+
+      Expose the validated portable element count.
+
+      :return: The element count, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If related source composition fields disagree.
+
+
+   .. py:property:: elements_ratios
+      :type: tuple[fractions.Fraction, Ellipsis] | None
+
+
+      Expose exact portable element ratios.
+
+      :return: Non-negative ratios summing to one, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the ratios are invalid or inconsistent.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      Expose the validated descriptive chemical formula.
+
+      :return: The descriptive formula, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid.
+
+
+   .. py:property:: chemical_formula_reduced
+      :type: str | None
+
+
+      Expose the validated reduced chemical formula.
+
+      :return: The reduced formula, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid or inconsistent.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      Expose the validated Hill chemical formula.
+
+      :return: The Hill formula, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid or inconsistent.
+
+
+   .. py:property:: chemical_formula_anonymous
+      :type: str | None
+
+
+      Expose the validated anonymous chemical formula.
+
+      :return: The anonymous formula, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid or inconsistent.
+
+
+   .. py:property:: dimension_types
+      :type: tuple[int, Ellipsis] | None
+
+
+      Expose portable periodicity flags.
+
+      :return: Three ``0``/``1`` flags, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the flags are invalid or inconsistent.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int | None
+
+
+      Expose the portable periodic-dimension count.
+
+      :return: The count from zero through three, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the count is invalid or inconsistent.
+
+
+   .. py:property:: nsites
+      :type: int | None
+
+
+      Expose the portable site count.
+
+      :return: The non-negative site count, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If related arrays disagree with the count.
+
+
+   .. py:property:: structure_features
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose validated OPTIMADE structure-feature flags.
+
+      :return: Canonically ordered feature flags, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If flags are invalid or inconsistent.
+
+
+   .. py:property:: lattice_vectors
+      :type: tuple[tuple[fractions.Fraction, fractions.Fraction, fractions.Fraction] | None, Ellipsis] | None
+
+
+      Expose exact lattice vectors from the OPTIMADE source.
+
+      :return: Three vectors, with ``None`` for non-periodic directions, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If vectors conflict with periodicity.
+
+
+   .. py:property:: fractional_site_positions
+      :type: tuple[tuple[fractions.Fraction, fractions.Fraction, fractions.Fraction], Ellipsis] | None
+
+
+      Expose exact fractional site positions.
+
+      :return: Fractional positions, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If supplied coordinate arrays disagree.
+
+
+   .. py:property:: cartesian_site_positions
+      :type: tuple[tuple[fractions.Fraction, fractions.Fraction, fractions.Fraction], Ellipsis] | None
+
+
+      Expose exact Cartesian site positions.
+
+      :return: Cartesian positions, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If supplied coordinate arrays disagree.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the source coordinate span.
+
+      :return: The OPTIMADE coordinate-span value, defaulting to ``"unit_cell"``.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the span is invalid or lacks required symmetry.
+
+
+   .. py:property:: site_coordinate_span_description
+      :type: str | None
+
+
+      Expose the description for an ``"other"`` coordinate span.
+
+      :return: The span description, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If a description is invalid or used for another span.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Expose whether the native unit-cell projection carries molecular placement.
+
+      :return: Whether the coordinate span is ``"molecular_unit_cell"``.
+
+
+   .. py:property:: coordinate_precision
+      :type: fractions.Fraction | None
+
+
+      Expose the source precision for reduced coordinates.
+
+      :return: The fractional precision, or ``None`` when unavailable.
+
+
+   .. py:property:: basis_precision
+      :type: fractions.Fraction | None
+
+
+      Expose the source precision for lattice vectors.
+
+      :return: The basis precision, or ``None`` when unavailable.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.cartesian.CartesianSiteMoments | None
+
+
+      Expose source Cartesian site moments.
+
+      :return: Cartesian moments, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If moment rows are invalid or cannot be aligned to sites.
+
+
+   .. py:property:: symmetry
+      :type: httk.atomistic.models.structure.semantics.StructureSymmetry
+
+
+      Build typed source symmetry metadata for the common unit-cell view layer.
+
+      :return: Validated symmetry metadata.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If supplied symmetry fields are inconsistent.
+
+
+   .. py:property:: optimization_type
+      :type: str | None
+
+
+      Expose the source optimization provenance.
+
+      :return: The normalized optimization type, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source value is not a string.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, Ellipsis] | None
+
+
+      Expose validated source site assemblies.
+
+      :return: Assemblies, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If assemblies are invalid or inconsistent.
+
+
+   .. py:property:: space_group_symbol_hall
+      :type: str | None
+
+
+      Expose the source Hall space-group symbol.
+
+      :return: The symbol, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the symbol conflicts with source symmetry.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin
+      :type: str | None
+
+
+      Expose the source short Hermann–Mauguin symbol.
+
+      :return: The symbol, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the symbol conflicts with source symmetry.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin_extended
+      :type: str | None
+
+
+      Expose the source extended Hermann–Mauguin symbol.
+
+      :return: The symbol, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the symbol conflicts with source symmetry.
+
+
+   .. py:property:: space_group_it_number
+      :type: int | None
+
+
+      Expose the source International Tables space-group number.
+
+      :return: The number, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the number conflicts with source symmetry.
+
+
+   .. py:property:: space_group_symmetry_operations_xyz
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose the declared raw ``xyz`` symmetry-operation strings.
+
+      :return: The source operation strings, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If operations are invalid or inconsistent.
+
+
+   .. py:property:: wyckoff_positions
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose source Wyckoff letters aligned with the represented sites.
+
+      :return: Wyckoff letters, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If letters are invalid or misaligned.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the projected exact cell.
+
+      :return: The native cell projection.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source cannot project a unit cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the projected exact sites.
+
+      :return: The native site projection.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source cannot project site coordinates.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose decoded species definitions.
+
+      :return: Distinct species definitions.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If source species dictionaries are invalid.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose decoded species names for each site.
+
+      :return: Site species names in site order.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If names do not align with source sites.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the private exact charge extension.
+
+      :return: The assigned charge, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source charge is not numeric.
+
+

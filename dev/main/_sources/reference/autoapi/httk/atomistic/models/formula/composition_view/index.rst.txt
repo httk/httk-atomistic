@@ -1,0 +1,98 @@
+httk.atomistic.models.formula.composition_view
+==============================================
+
+.. py:module:: httk.atomistic.models.formula.composition_view
+
+.. autoapi-nested-parse::
+
+   Lazy composition presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.composition_view.CompositionView
+
+
+Module Contents
+---------------
+
+.. py:class:: CompositionView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.view_base.ChemicalFormulaViewBase`, :py:obj:`httk.atomistic.models.formula.composition.Composition`
+
+
+   Present any chemical-formula backend as a lazy composition.
+
+   :param obj: The chemical-formula-like object to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+
+      Return the lazily materialized elemental amounts.
+
+
+   .. py:property:: uncertainties
+      :type: tuple[tuple[str, fractions.Fraction | None], Ellipsis]
+
+
+      Return the lazily materialized amount precisions.
+
+
+   .. py:property:: complete
+      :type: bool
+
+
+      Return whether the presented composition is complete.
+
+
+   .. py:property:: exact
+      :type: bool
+
+
+      Return whether the presented amounts are exact.
+
+
+   .. py:property:: normalized
+      :type: bool
+
+
+      Return whether the presented composition is normalized.
+
+
+   .. py:property:: normalization_status
+      :type: str
+
+
+      Return the presented composition's normalization status.
+
+
+   .. py:property:: diagnostics
+      :type: tuple[httk.atomistic.models.formula.diagnostics.CompositionDiagnostic, Ellipsis]
+
+
+      Return diagnostics associated with the presented composition.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the presented composition as a standalone value.
+
+      :return: The materialized composition value.
+
+
+

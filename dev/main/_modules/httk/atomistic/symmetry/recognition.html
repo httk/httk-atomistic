@@ -1,0 +1,1205 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
+
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+        <title>httk.atomistic.symmetry.recognition - httk-atomistic dev:main documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/selector.css?v=626bada3" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     Development documentation (dev:main) — content may differ from any release. 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../../index.html"><div class="brand">httk-atomistic dev:main documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
+  
+  <span class="sidebar-brand-text">httk-atomistic dev:main documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../reference/index.html">Reference</a><input aria-label="Toggle navigation of Reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/index.html">httk.atomistic</a><input aria-label="Toggle navigation of httk.atomistic" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/cif_structures/index.html">httk.atomistic.cif_structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/composition/index.html">httk.atomistic.composition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/data/index.html">httk.atomistic.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/elements/index.html">httk.atomistic.elements</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/index.html">httk.atomistic.entries</a><input aria-label="Toggle navigation of httk.atomistic.entries" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/charge/index.html">httk.atomistic.entries.charge</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/definitions/index.html">httk.atomistic.entries.definitions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/moments/index.html">httk.atomistic.entries.moments</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/precision/index.html">httk.atomistic.entries.precision</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/structures/index.html">httk.atomistic.entries.structures</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/symmetry/index.html">httk.atomistic.entries.symmetry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/trajectories/index.html">httk.atomistic.entries.trajectories</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/index.html">httk.atomistic.integrations</a><input aria-label="Toggle navigation of httk.atomistic.integrations" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/ase/index.html">httk.atomistic.integrations.ase</a><input aria-label="Toggle navigation of httk.atomistic.integrations.ase" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/ase/models/index.html">httk.atomistic.integrations.ase.models</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/ase/view/index.html">httk.atomistic.integrations.ase.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/pymatgen/index.html">httk.atomistic.integrations.pymatgen</a><input aria-label="Toggle navigation of httk.atomistic.integrations.pymatgen" class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/pymatgen/models/index.html">httk.atomistic.integrations.pymatgen.models</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/pymatgen/view/index.html">httk.atomistic.integrations.pymatgen.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/vasp/index.html">httk.atomistic.integrations.vasp</a><input aria-label="Toggle navigation of httk.atomistic.integrations.vasp" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/vasp/structure/index.html">httk.atomistic.integrations.vasp.structure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/vasp/trajectory/index.html">httk.atomistic.integrations.vasp.trajectory</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/mcif_structures/index.html">httk.atomistic.mcif_structures</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/index.html">httk.atomistic.models</a><input aria-label="Toggle navigation of httk.atomistic.models" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/index.html">httk.atomistic.models.cell</a><input aria-label="Toggle navigation of httk.atomistic.models.cell" class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" role="switch" type="checkbox"/><label for="toctree-checkbox-9"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/api/index.html">httk.atomistic.models.cell.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/backend/index.html">httk.atomistic.models.cell.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/cell/index.html">httk.atomistic.models.cell.cell</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/like/index.html">httk.atomistic.models.cell.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/numeric/index.html">httk.atomistic.models.cell.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/numeric_view/index.html">httk.atomistic.models.cell.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/params/index.html">httk.atomistic.models.cell.params</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/params_view/index.html">httk.atomistic.models.cell.params_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/plain/index.html">httk.atomistic.models.cell.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/plain_view/index.html">httk.atomistic.models.cell.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/record/index.html">httk.atomistic.models.cell.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/view/index.html">httk.atomistic.models.cell.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/view_base/index.html">httk.atomistic.models.cell.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/index.html">httk.atomistic.models.formula</a><input aria-label="Toggle navigation of httk.atomistic.models.formula" class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" role="switch" type="checkbox"/><label for="toctree-checkbox-10"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/anonymous/index.html">httk.atomistic.models.formula.anonymous</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/anonymous_string/index.html">httk.atomistic.models.formula.anonymous_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/anonymous_view/index.html">httk.atomistic.models.formula.anonymous_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/api/index.html">httk.atomistic.models.formula.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/backend/index.html">httk.atomistic.models.formula.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/composition/index.html">httk.atomistic.models.formula.composition</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/composition_view/index.html">httk.atomistic.models.formula.composition_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/diagnostics/index.html">httk.atomistic.models.formula.diagnostics</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/formula/index.html">httk.atomistic.models.formula.formula</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/formula_string/index.html">httk.atomistic.models.formula.formula_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/formula_view/index.html">httk.atomistic.models.formula.formula_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/like/index.html">httk.atomistic.models.formula.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/notation/index.html">httk.atomistic.models.formula.notation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/plain/index.html">httk.atomistic.models.formula.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/prototype/index.html">httk.atomistic.models.formula.prototype</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/record/index.html">httk.atomistic.models.formula.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/structure/index.html">httk.atomistic.models.formula.structure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/view_base/index.html">httk.atomistic.models.formula.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/index.html">httk.atomistic.models.moments</a><input aria-label="Toggle navigation of httk.atomistic.models.moments" class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" role="switch" type="checkbox"/><label for="toctree-checkbox-11"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/api/index.html">httk.atomistic.models.moments.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/backend/index.html">httk.atomistic.models.moments.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/cartesian/index.html">httk.atomistic.models.moments.cartesian</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/cartesian_view/index.html">httk.atomistic.models.moments.cartesian_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/collinear/index.html">httk.atomistic.models.moments.collinear</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/crystalaxis/index.html">httk.atomistic.models.moments.crystalaxis</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/crystalaxis_view/index.html">httk.atomistic.models.moments.crystalaxis_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/like/index.html">httk.atomistic.models.moments.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/view_base/index.html">httk.atomistic.models.moments.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/index.html">httk.atomistic.models.protostructure</a><input aria-label="Toggle navigation of httk.atomistic.models.protostructure" class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" role="switch" type="checkbox"/><label for="toctree-checkbox-12"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/api/index.html">httk.atomistic.models.protostructure.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/backend/index.html">httk.atomistic.models.protostructure.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/like/index.html">httk.atomistic.models.protostructure.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/occupation/index.html">httk.atomistic.models.protostructure.occupation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/protostructure/index.html">httk.atomistic.models.protostructure.protostructure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/recognized/index.html">httk.atomistic.models.protostructure.recognized</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/view/index.html">httk.atomistic.models.protostructure.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/view_base/index.html">httk.atomistic.models.protostructure.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/index.html">httk.atomistic.models.prototype</a><input aria-label="Toggle navigation of httk.atomistic.models.prototype" class="toctree-checkbox" id="toctree-checkbox-13" name="toctree-checkbox-13" role="switch" type="checkbox"/><label for="toctree-checkbox-13"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/anonymize/index.html">httk.atomistic.models.prototype.anonymize</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/anonymized/index.html">httk.atomistic.models.prototype.anonymized</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/anonymous/index.html">httk.atomistic.models.prototype.anonymous</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/anonymous_view/index.html">httk.atomistic.models.prototype.anonymous_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/api/index.html">httk.atomistic.models.prototype.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/backend/index.html">httk.atomistic.models.prototype.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/like/index.html">httk.atomistic.models.prototype.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/prototype/index.html">httk.atomistic.models.prototype.prototype</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/prototype_view/index.html">httk.atomistic.models.prototype.prototype_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/view_base/index.html">httk.atomistic.models.prototype.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/index.html">httk.atomistic.models.sites</a><input aria-label="Toggle navigation of httk.atomistic.models.sites" class="toctree-checkbox" id="toctree-checkbox-14" name="toctree-checkbox-14" role="switch" type="checkbox"/><label for="toctree-checkbox-14"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/api/index.html">httk.atomistic.models.sites.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/backend/index.html">httk.atomistic.models.sites.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/like/index.html">httk.atomistic.models.sites.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/numeric/index.html">httk.atomistic.models.sites.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/numeric_view/index.html">httk.atomistic.models.sites.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/plain/index.html">httk.atomistic.models.sites.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/plain_view/index.html">httk.atomistic.models.sites.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/record/index.html">httk.atomistic.models.sites.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/sites/index.html">httk.atomistic.models.sites.sites</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/view/index.html">httk.atomistic.models.sites.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/view_base/index.html">httk.atomistic.models.sites.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/index.html">httk.atomistic.models.species</a><input aria-label="Toggle navigation of httk.atomistic.models.species" class="toctree-checkbox" id="toctree-checkbox-15" name="toctree-checkbox-15" role="switch" type="checkbox"/><label for="toctree-checkbox-15"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/api/index.html">httk.atomistic.models.species.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/backend/index.html">httk.atomistic.models.species.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/like/index.html">httk.atomistic.models.species.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/plain/index.html">httk.atomistic.models.species.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/plain_view/index.html">httk.atomistic.models.species.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/record/index.html">httk.atomistic.models.species.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/species/index.html">httk.atomistic.models.species.species</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/view/index.html">httk.atomistic.models.species.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/view_base/index.html">httk.atomistic.models.species.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/index.html">httk.atomistic.models.structure</a><input aria-label="Toggle navigation of httk.atomistic.models.structure" class="toctree-checkbox" id="toctree-checkbox-16" name="toctree-checkbox-16" role="switch" type="checkbox"/><label for="toctree-checkbox-16"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/api/index.html">httk.atomistic.models.structure.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/asu/index.html">httk.atomistic.models.structure.asu</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/asu_view/index.html">httk.atomistic.models.structure.asu_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/backend/index.html">httk.atomistic.models.structure.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/comparison/index.html">httk.atomistic.models.structure.comparison</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/datastream/index.html">httk.atomistic.models.structure.datastream</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/like/index.html">httk.atomistic.models.structure.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/modulated/index.html">httk.atomistic.models.structure.modulated</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/numeric/index.html">httk.atomistic.models.structure.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/numeric_view/index.html">httk.atomistic.models.structure.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/optimade/index.html">httk.atomistic.models.structure.optimade</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/plain/index.html">httk.atomistic.models.structure.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/plain_view/index.html">httk.atomistic.models.structure.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/record/index.html">httk.atomistic.models.structure.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/semantics/index.html">httk.atomistic.models.structure.semantics</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/symops/index.html">httk.atomistic.models.structure.symops</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/unitcell/index.html">httk.atomistic.models.structure.unitcell</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/unitcell_view/index.html">httk.atomistic.models.structure.unitcell_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/view/index.html">httk.atomistic.models.structure.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/index.html">httk.atomistic.models.trajectory</a><input aria-label="Toggle navigation of httk.atomistic.models.trajectory" class="toctree-checkbox" id="toctree-checkbox-17" name="toctree-checkbox-17" role="switch" type="checkbox"/><label for="toctree-checkbox-17"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/api/index.html">httk.atomistic.models.trajectory.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/backend/index.html">httk.atomistic.models.trajectory.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/jsonl/index.html">httk.atomistic.models.trajectory.jsonl</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/like/index.html">httk.atomistic.models.trajectory.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/plain/index.html">httk.atomistic.models.trajectory.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/record/index.html">httk.atomistic.models.trajectory.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/trajectory/index.html">httk.atomistic.models.trajectory.trajectory</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/view/index.html">httk.atomistic.models.trajectory.view</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/reduction/index.html">httk.atomistic.reduction</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/storage/index.html">httk.atomistic.storage</a><input aria-label="Toggle navigation of httk.atomistic.storage" class="toctree-checkbox" id="toctree-checkbox-18" name="toctree-checkbox-18" role="switch" type="checkbox"/><label for="toctree-checkbox-18"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/storage/records/index.html">httk.atomistic.storage.records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/storage/stored_properties/index.html">httk.atomistic.storage.stored_properties</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/supercell/index.html">httk.atomistic.supercell</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/index.html">httk.atomistic.symmetry</a><input aria-label="Toggle navigation of httk.atomistic.symmetry" class="toctree-checkbox" id="toctree-checkbox-19" name="toctree-checkbox-19" role="switch" type="checkbox"/><label for="toctree-checkbox-19"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/affine_operation/index.html">httk.atomistic.symmetry.affine_operation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/primitive/index.html">httk.atomistic.symmetry.primitive</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/recognition/index.html">httk.atomistic.symmetry.recognition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/setting_transform/index.html">httk.atomistic.symmetry.setting_transform</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/spacegroup/index.html">httk.atomistic.symmetry.spacegroup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/standardization/index.html">httk.atomistic.symmetry.standardization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/wyckoff/index.html">httk.atomistic.symmetry.wyckoff</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/xyz/index.html">httk.atomistic.symmetry.xyz</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/wavefunction/index.html">httk.atomistic.wavefunction</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../structures.html">Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../composition.html">Composition and formula families</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prototypes.html">Prototype families</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../wavefunctions.html">Plane-wave wavefunctions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../trajectory_jsonl.html">Trajectory JSON Lines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../asu.html">Asymmetric units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../precision.html">Data precision</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../periodicity.html">Periodicity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../lattice-reduction.html">Lattice reduction (Niggli)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../primitive-cells.html">Primitive cells</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../examples/index.html">Examples</a><input aria-label="Toggle navigation of Examples" class="toctree-checkbox" id="toctree-checkbox-20" name="toctree-checkbox-20" role="switch" type="checkbox"/><label for="toctree-checkbox-20"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/asu_from_cif.html">Asymmetric units: reading a CIF, expanding it, and going back again</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/build_a_structure.html">Building a UnitcellStructure three ways, and reading its geometry back out exactly</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/build_a_supercell.html">Build exact general, orthogonal, and cubic supercells</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/disorder_and_vacancies.html">Disorder, vacancies, and attached species: what a site can actually hold</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/load_from_poscar.html">Reading VASP POSCAR and CONTCAR files into a UnitcellStructure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/precision.html">Data precision: letting the file choose the tolerance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/serve_structures_as_optimade.html">Serving structures as OPTIMADE, with derived fields and custom properties</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../notebooks/examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../notebooks/disorder.html">Disorder, vacancies, and attached species</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../reference/autoapi/index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-21" name="toctree-checkbox-21" role="switch" type="checkbox"/><label for="toctree-checkbox-21"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/index.html">httk.atomistic</a><input aria-label="Toggle navigation of httk.atomistic" class="toctree-checkbox" id="toctree-checkbox-22" name="toctree-checkbox-22" role="switch" type="checkbox"/><label for="toctree-checkbox-22"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/cif_structures/index.html">httk.atomistic.cif_structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/composition/index.html">httk.atomistic.composition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/data/index.html">httk.atomistic.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/elements/index.html">httk.atomistic.elements</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/index.html">httk.atomistic.entries</a><input aria-label="Toggle navigation of httk.atomistic.entries" class="toctree-checkbox" id="toctree-checkbox-23" name="toctree-checkbox-23" role="switch" type="checkbox"/><label for="toctree-checkbox-23"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/charge/index.html">httk.atomistic.entries.charge</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/definitions/index.html">httk.atomistic.entries.definitions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/moments/index.html">httk.atomistic.entries.moments</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/precision/index.html">httk.atomistic.entries.precision</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/structures/index.html">httk.atomistic.entries.structures</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/symmetry/index.html">httk.atomistic.entries.symmetry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/entries/trajectories/index.html">httk.atomistic.entries.trajectories</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/index.html">httk.atomistic.integrations</a><input aria-label="Toggle navigation of httk.atomistic.integrations" class="toctree-checkbox" id="toctree-checkbox-24" name="toctree-checkbox-24" role="switch" type="checkbox"/><label for="toctree-checkbox-24"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/ase/index.html">httk.atomistic.integrations.ase</a><input aria-label="Toggle navigation of httk.atomistic.integrations.ase" class="toctree-checkbox" id="toctree-checkbox-25" name="toctree-checkbox-25" role="switch" type="checkbox"/><label for="toctree-checkbox-25"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/ase/models/index.html">httk.atomistic.integrations.ase.models</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/ase/view/index.html">httk.atomistic.integrations.ase.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/pymatgen/index.html">httk.atomistic.integrations.pymatgen</a><input aria-label="Toggle navigation of httk.atomistic.integrations.pymatgen" class="toctree-checkbox" id="toctree-checkbox-26" name="toctree-checkbox-26" role="switch" type="checkbox"/><label for="toctree-checkbox-26"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/pymatgen/models/index.html">httk.atomistic.integrations.pymatgen.models</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/pymatgen/view/index.html">httk.atomistic.integrations.pymatgen.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/vasp/index.html">httk.atomistic.integrations.vasp</a><input aria-label="Toggle navigation of httk.atomistic.integrations.vasp" class="toctree-checkbox" id="toctree-checkbox-27" name="toctree-checkbox-27" role="switch" type="checkbox"/><label for="toctree-checkbox-27"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/vasp/structure/index.html">httk.atomistic.integrations.vasp.structure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/integrations/vasp/trajectory/index.html">httk.atomistic.integrations.vasp.trajectory</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/mcif_structures/index.html">httk.atomistic.mcif_structures</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/index.html">httk.atomistic.models</a><input aria-label="Toggle navigation of httk.atomistic.models" class="toctree-checkbox" id="toctree-checkbox-28" name="toctree-checkbox-28" role="switch" type="checkbox"/><label for="toctree-checkbox-28"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/index.html">httk.atomistic.models.cell</a><input aria-label="Toggle navigation of httk.atomistic.models.cell" class="toctree-checkbox" id="toctree-checkbox-29" name="toctree-checkbox-29" role="switch" type="checkbox"/><label for="toctree-checkbox-29"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/api/index.html">httk.atomistic.models.cell.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/backend/index.html">httk.atomistic.models.cell.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/cell/index.html">httk.atomistic.models.cell.cell</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/like/index.html">httk.atomistic.models.cell.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/numeric/index.html">httk.atomistic.models.cell.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/numeric_view/index.html">httk.atomistic.models.cell.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/params/index.html">httk.atomistic.models.cell.params</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/params_view/index.html">httk.atomistic.models.cell.params_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/plain/index.html">httk.atomistic.models.cell.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/plain_view/index.html">httk.atomistic.models.cell.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/record/index.html">httk.atomistic.models.cell.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/view/index.html">httk.atomistic.models.cell.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/cell/view_base/index.html">httk.atomistic.models.cell.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/index.html">httk.atomistic.models.formula</a><input aria-label="Toggle navigation of httk.atomistic.models.formula" class="toctree-checkbox" id="toctree-checkbox-30" name="toctree-checkbox-30" role="switch" type="checkbox"/><label for="toctree-checkbox-30"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/anonymous/index.html">httk.atomistic.models.formula.anonymous</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/anonymous_string/index.html">httk.atomistic.models.formula.anonymous_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/anonymous_view/index.html">httk.atomistic.models.formula.anonymous_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/api/index.html">httk.atomistic.models.formula.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/backend/index.html">httk.atomistic.models.formula.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/composition/index.html">httk.atomistic.models.formula.composition</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/composition_view/index.html">httk.atomistic.models.formula.composition_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/diagnostics/index.html">httk.atomistic.models.formula.diagnostics</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/formula/index.html">httk.atomistic.models.formula.formula</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/formula_string/index.html">httk.atomistic.models.formula.formula_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/formula_view/index.html">httk.atomistic.models.formula.formula_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/like/index.html">httk.atomistic.models.formula.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/notation/index.html">httk.atomistic.models.formula.notation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/plain/index.html">httk.atomistic.models.formula.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/prototype/index.html">httk.atomistic.models.formula.prototype</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/record/index.html">httk.atomistic.models.formula.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/structure/index.html">httk.atomistic.models.formula.structure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/formula/view_base/index.html">httk.atomistic.models.formula.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/index.html">httk.atomistic.models.moments</a><input aria-label="Toggle navigation of httk.atomistic.models.moments" class="toctree-checkbox" id="toctree-checkbox-31" name="toctree-checkbox-31" role="switch" type="checkbox"/><label for="toctree-checkbox-31"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/api/index.html">httk.atomistic.models.moments.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/backend/index.html">httk.atomistic.models.moments.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/cartesian/index.html">httk.atomistic.models.moments.cartesian</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/cartesian_view/index.html">httk.atomistic.models.moments.cartesian_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/collinear/index.html">httk.atomistic.models.moments.collinear</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/crystalaxis/index.html">httk.atomistic.models.moments.crystalaxis</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/crystalaxis_view/index.html">httk.atomistic.models.moments.crystalaxis_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/like/index.html">httk.atomistic.models.moments.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/moments/view_base/index.html">httk.atomistic.models.moments.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/index.html">httk.atomistic.models.protostructure</a><input aria-label="Toggle navigation of httk.atomistic.models.protostructure" class="toctree-checkbox" id="toctree-checkbox-32" name="toctree-checkbox-32" role="switch" type="checkbox"/><label for="toctree-checkbox-32"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/api/index.html">httk.atomistic.models.protostructure.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/backend/index.html">httk.atomistic.models.protostructure.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/like/index.html">httk.atomistic.models.protostructure.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/occupation/index.html">httk.atomistic.models.protostructure.occupation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/protostructure/index.html">httk.atomistic.models.protostructure.protostructure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/recognized/index.html">httk.atomistic.models.protostructure.recognized</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/view/index.html">httk.atomistic.models.protostructure.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/protostructure/view_base/index.html">httk.atomistic.models.protostructure.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/index.html">httk.atomistic.models.prototype</a><input aria-label="Toggle navigation of httk.atomistic.models.prototype" class="toctree-checkbox" id="toctree-checkbox-33" name="toctree-checkbox-33" role="switch" type="checkbox"/><label for="toctree-checkbox-33"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/anonymize/index.html">httk.atomistic.models.prototype.anonymize</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/anonymized/index.html">httk.atomistic.models.prototype.anonymized</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/anonymous/index.html">httk.atomistic.models.prototype.anonymous</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/anonymous_view/index.html">httk.atomistic.models.prototype.anonymous_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/api/index.html">httk.atomistic.models.prototype.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/backend/index.html">httk.atomistic.models.prototype.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/like/index.html">httk.atomistic.models.prototype.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/prototype/index.html">httk.atomistic.models.prototype.prototype</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/prototype_view/index.html">httk.atomistic.models.prototype.prototype_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/prototype/view_base/index.html">httk.atomistic.models.prototype.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/index.html">httk.atomistic.models.sites</a><input aria-label="Toggle navigation of httk.atomistic.models.sites" class="toctree-checkbox" id="toctree-checkbox-34" name="toctree-checkbox-34" role="switch" type="checkbox"/><label for="toctree-checkbox-34"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/api/index.html">httk.atomistic.models.sites.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/backend/index.html">httk.atomistic.models.sites.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/like/index.html">httk.atomistic.models.sites.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/numeric/index.html">httk.atomistic.models.sites.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/numeric_view/index.html">httk.atomistic.models.sites.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/plain/index.html">httk.atomistic.models.sites.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/plain_view/index.html">httk.atomistic.models.sites.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/record/index.html">httk.atomistic.models.sites.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/sites/index.html">httk.atomistic.models.sites.sites</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/view/index.html">httk.atomistic.models.sites.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/sites/view_base/index.html">httk.atomistic.models.sites.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/index.html">httk.atomistic.models.species</a><input aria-label="Toggle navigation of httk.atomistic.models.species" class="toctree-checkbox" id="toctree-checkbox-35" name="toctree-checkbox-35" role="switch" type="checkbox"/><label for="toctree-checkbox-35"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/api/index.html">httk.atomistic.models.species.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/backend/index.html">httk.atomistic.models.species.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/like/index.html">httk.atomistic.models.species.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/plain/index.html">httk.atomistic.models.species.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/plain_view/index.html">httk.atomistic.models.species.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/record/index.html">httk.atomistic.models.species.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/species/index.html">httk.atomistic.models.species.species</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/view/index.html">httk.atomistic.models.species.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/species/view_base/index.html">httk.atomistic.models.species.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/index.html">httk.atomistic.models.structure</a><input aria-label="Toggle navigation of httk.atomistic.models.structure" class="toctree-checkbox" id="toctree-checkbox-36" name="toctree-checkbox-36" role="switch" type="checkbox"/><label for="toctree-checkbox-36"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/api/index.html">httk.atomistic.models.structure.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/asu/index.html">httk.atomistic.models.structure.asu</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/asu_view/index.html">httk.atomistic.models.structure.asu_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/backend/index.html">httk.atomistic.models.structure.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/comparison/index.html">httk.atomistic.models.structure.comparison</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/datastream/index.html">httk.atomistic.models.structure.datastream</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/like/index.html">httk.atomistic.models.structure.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/modulated/index.html">httk.atomistic.models.structure.modulated</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/numeric/index.html">httk.atomistic.models.structure.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/numeric_view/index.html">httk.atomistic.models.structure.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/optimade/index.html">httk.atomistic.models.structure.optimade</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/plain/index.html">httk.atomistic.models.structure.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/plain_view/index.html">httk.atomistic.models.structure.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/record/index.html">httk.atomistic.models.structure.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/semantics/index.html">httk.atomistic.models.structure.semantics</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/symops/index.html">httk.atomistic.models.structure.symops</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/unitcell/index.html">httk.atomistic.models.structure.unitcell</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/unitcell_view/index.html">httk.atomistic.models.structure.unitcell_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/structure/view/index.html">httk.atomistic.models.structure.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/index.html">httk.atomistic.models.trajectory</a><input aria-label="Toggle navigation of httk.atomistic.models.trajectory" class="toctree-checkbox" id="toctree-checkbox-37" name="toctree-checkbox-37" role="switch" type="checkbox"/><label for="toctree-checkbox-37"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/api/index.html">httk.atomistic.models.trajectory.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/backend/index.html">httk.atomistic.models.trajectory.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/jsonl/index.html">httk.atomistic.models.trajectory.jsonl</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/like/index.html">httk.atomistic.models.trajectory.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/plain/index.html">httk.atomistic.models.trajectory.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/record/index.html">httk.atomistic.models.trajectory.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/trajectory/index.html">httk.atomistic.models.trajectory.trajectory</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/models/trajectory/view/index.html">httk.atomistic.models.trajectory.view</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/reduction/index.html">httk.atomistic.reduction</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/storage/index.html">httk.atomistic.storage</a><input aria-label="Toggle navigation of httk.atomistic.storage" class="toctree-checkbox" id="toctree-checkbox-38" name="toctree-checkbox-38" role="switch" type="checkbox"/><label for="toctree-checkbox-38"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/storage/records/index.html">httk.atomistic.storage.records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/storage/stored_properties/index.html">httk.atomistic.storage.stored_properties</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/supercell/index.html">httk.atomistic.supercell</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/index.html">httk.atomistic.symmetry</a><input aria-label="Toggle navigation of httk.atomistic.symmetry" class="toctree-checkbox" id="toctree-checkbox-39" name="toctree-checkbox-39" role="switch" type="checkbox"/><label for="toctree-checkbox-39"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/affine_operation/index.html">httk.atomistic.symmetry.affine_operation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/primitive/index.html">httk.atomistic.symmetry.primitive</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/recognition/index.html">httk.atomistic.symmetry.recognition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/setting_transform/index.html">httk.atomistic.symmetry.setting_transform</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/spacegroup/index.html">httk.atomistic.symmetry.spacegroup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/standardization/index.html">httk.atomistic.symmetry.standardization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/wyckoff/index.html">httk.atomistic.symmetry.wyckoff</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/symmetry/xyz/index.html">httk.atomistic.symmetry.xyz</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/autoapi/httk/atomistic/wavefunction/index.html">httk.atomistic.wavefunction</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/autoapi/httk/registry/io/atomistic/index.html">httk.registry.io.atomistic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/autoapi/httk/registry/schemas/atomistic/index.html">httk.registry.schemas.atomistic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/autoapi/httk/registry/entries/atomistic/index.html">httk.registry.entries.atomistic</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for httk.atomistic.symmetry.recognition</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Recognizing the asymmetric unit of a full structure.</span>
+
+<span class="sd">This is the direction where tolerance lives, and the only one. A measured or file-read</span>
+<span class="sd">structure gives coordinates like ``0.3333`` that lie *near* a symmetric arrangement rather</span>
+<span class="sd">than on one, so recognizing it means deciding which Wyckoff position each site is meant to</span>
+<span class="sd">occupy. Once decided, the position supplies exact values for its fixed components and</span>
+<span class="sd">everything downstream — expansion, comparison, round-tripping — is exact again.</span>
+
+<span class="sd">The contract, stated once so the asymmetry is not a surprise:</span>
+
+<span class="sd">* Expansion (:meth:`~httk.atomistic.FundamentalDomainStructure.expand_sites`) is **lossless**.</span>
+<span class="sd">* Recognition is **lossy at the tolerance level**: it snaps a measured structure</span>
+<span class="sd">  onto an idealised symmetric one.</span>
+<span class="sd">* Therefore ``expand -&gt; recognize -&gt; expand`` is idempotent, while</span>
+<span class="sd">  ``recognize -&gt; expand`` is not the identity on the input coordinates and must not be</span>
+<span class="sd">  advertised as such.</span>
+
+<span class="sd">A file&#39;s decimals are embedded as the exact rational they literally say — ``0.3333`` is</span>
+<span class="sd">``3333/10000``, never silently ``1/3``. Free parameters keep that value; only the fixed</span>
+<span class="sd">components of the chosen position are replaced. Idealising the free parameters too is</span>
+<span class="sd">available on request through ``limit_denominator``, but it is not the default, because</span>
+<span class="sd">inventing ``1/3`` from a file that said ``0.3333`` is a claim about the data that only the</span>
+<span class="sd">caller can make.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">fractions</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">FracVector</span><span class="p">,</span> <span class="n">SurdVector</span><span class="p">,</span> <span class="n">register_citation</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.moments.backend</span><span class="w"> </span><span class="kn">import</span> <span class="n">SiteMomentsBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.moments.cartesian</span><span class="w"> </span><span class="kn">import</span> <span class="n">CartesianSiteMoments</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.moments.collinear</span><span class="w"> </span><span class="kn">import</span> <span class="n">CollinearSiteMoments</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.moments.crystalaxis</span><span class="w"> </span><span class="kn">import</span> <span class="n">CrystalAxisSiteMoments</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.asu</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASUStructure</span><span class="p">,</span> <span class="n">WyckoffSite</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.like</span><span class="w"> </span><span class="kn">import</span> <span class="n">StructureLike</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.symmetry._periodic_wrap</span><span class="w"> </span><span class="kn">import</span> <span class="n">wrap_periodic_half</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.symmetry._periodicity_guard</span><span class="w"> </span><span class="kn">import</span> <span class="n">require_full_periodicity</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.symmetry.setting_transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">SettingTransform</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.symmetry.spacegroup</span><span class="w"> </span><span class="kn">import</span> <span class="n">Spacegroup</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.symmetry.wyckoff</span><span class="w"> </span><span class="kn">import</span> <span class="n">WyckoffBranch</span><span class="p">,</span> <span class="n">WyckoffPosition</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;DEFAULT_TOLERANCE&quot;</span><span class="p">,</span> <span class="s2">&quot;recognize_asu&quot;</span><span class="p">,</span> <span class="s2">&quot;structure_tolerance&quot;</span><span class="p">]</span>
+
+<span class="c1">#: Fallback matching tolerance, as a Cartesian distance in the cell&#39;s own length units</span>
+<span class="c1">#: (angstrom for ordinary crystallographic data), used only when the structure does not say</span>
+<span class="c1">#: how precisely it was stated. Comfortably larger than the rounding in a CIF written to</span>
+<span class="c1">#: four decimals, and far smaller than any real interatomic distance.</span>
+<div class="viewcode-block" id="DEFAULT_TOLERANCE">
+<a class="viewcode-back" href="../../../../reference/autoapi/httk/atomistic/symmetry/recognition/index.html#httk.atomistic.DEFAULT_TOLERANCE">[docs]</a>
+<span class="n">DEFAULT_TOLERANCE</span> <span class="o">=</span> <span class="mf">1e-3</span></div>
+
+
+<span class="c1">#: How much room a tolerance is given beyond the stated precision. Two coordinates that</span>
+<span class="c1">#: should be equal are each rounded independently, so they can differ by twice the</span>
+<span class="c1">#: precision; a tolerance below that would reject data that is in fact consistent.</span>
+<span class="n">_SAFETY_FACTOR</span> <span class="o">=</span> <span class="mi">2</span>
+
+<span class="c1">#: A derived tolerance is only checked against the interatomic distances when it is large</span>
+<span class="c1">#: enough relative to the cell for merging to be a real risk. That check is quadratic in the</span>
+<span class="c1">#: number of sites, and for ordinary well-written data the tolerance is thousands of times</span>
+<span class="c1">#: smaller than any bond, so paying for it every time would be waste.</span>
+<span class="n">_CAP_TRIGGER</span> <span class="o">=</span> <span class="mf">0.05</span>
+
+
+<div class="viewcode-block" id="structure_tolerance">
+<a class="viewcode-back" href="../../../../reference/autoapi/httk/atomistic/symmetry/recognition/index.html#httk.atomistic.structure_tolerance">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">structure_tolerance</span><span class="p">(</span><span class="n">structure</span><span class="p">:</span> <span class="n">StructureLike</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">fallback</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DEFAULT_TOLERANCE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Derive a matching tolerance from how precisely the structure was stated.</span>
+
+<span class="sd">    This is the point of recording precision at all: instead of a constant somebody</span>
+<span class="sd">    guessed, the tolerance follows the data. Coordinates written to four decimals in a 5 A</span>
+<span class="sd">    cell are good to about ``5e-4``, and the tolerance comes out near ``1e-3``; the same</span>
+<span class="sd">    coordinates in a 30 A cell justify a tolerance six times larger, and coordinates written</span>
+<span class="sd">    to two decimals justify one a hundred times larger.</span>
+
+<span class="sd">    Returns ``fallback`` when the structure does not state a precision — a structure built</span>
+<span class="sd">    by hand, or read from a format that does not write its numbers to a definite number of</span>
+<span class="sd">    digits. A caller that needs to know whether that happened can compare the result against</span>
+<span class="sd">    the structure&#39;s own ``cartesian_precision()``.</span>
+
+<span class="sd">    The value is capped so that it can never reach half the smallest distance between two</span>
+<span class="sd">    sites, which is what would let genuinely distinct atoms be merged. Minimum separation</span>
+<span class="sd">    bounds a tolerance from above; treating it as precision could make a structure with</span>
+<span class="sd">    accidentally close atoms look far more precisely stated than it is.</span>
+
+<span class="sd">    :param structure: The structure whose stated precision determines the tolerance.</span>
+<span class="sd">    :param fallback: The tolerance to use when the structure has no stated precision.</span>
+<span class="sd">    :return: The Cartesian matching tolerance in the structure&#39;s cell units.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.unitcell_view</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnitcellStructureView</span>
+
+    <span class="n">view</span> <span class="o">=</span> <span class="n">UnitcellStructureView</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span>
+    <span class="n">precision</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">cartesian_precision</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">precision</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">fallback</span>
+
+    <span class="n">tolerance</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">precision</span><span class="p">)</span> <span class="o">*</span> <span class="n">_SAFETY_FACTOR</span>
+    <span class="n">shortest_edge</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">length</span><span class="o">.</span><span class="n">to_float</span><span class="p">()</span> <span class="k">for</span> <span class="n">length</span> <span class="ow">in</span> <span class="n">view</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">lengths</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tolerance</span> <span class="o">&lt;=</span> <span class="n">_CAP_TRIGGER</span> <span class="o">*</span> <span class="n">shortest_edge</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tolerance</span>
+
+    <span class="n">cap</span> <span class="o">=</span> <span class="n">_half_minimum_separation</span><span class="p">(</span><span class="n">view</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tolerance</span> <span class="k">if</span> <span class="n">cap</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">tolerance</span> <span class="o">&lt;</span> <span class="n">cap</span> <span class="k">else</span> <span class="n">cap</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_half_minimum_separation</span><span class="p">(</span><span class="n">view</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Half the shortest distance between two distinct sites, or ``None`` if there is one site.</span>
+
+<span class="sd">    Computed in floating point over the nearest-image difference of each pair: this bounds a</span>
+<span class="sd">    tolerance, so a fast approximate answer is the right kind of answer. The nearest-image</span>
+<span class="sd">    reduction is per component, which is exact for a cell with orthogonal axes and can</span>
+<span class="sd">    overestimate for a strongly oblique one — erring towards a looser cap rather than a</span>
+<span class="sd">    tighter one.</span>
+
+<span class="sd">    Only the periodic directions are reduced. Along a non-periodic one there is no other</span>
+<span class="sd">    image to be nearer, and folding it would report two well-separated atoms as close</span>
+<span class="sd">    neighbours — tightening the cap, and so the derived tolerance, below what the data</span>
+<span class="sd">    justifies.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">sites</span><span class="o">.</span><span class="n">reduced_coords</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">count</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">periodicity</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">periodicity</span>
+    <span class="n">basis</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">basis</span><span class="o">.</span><span class="n">to_floats</span><span class="p">()</span>
+    <span class="n">shortest</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">first</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">second</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">first</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">count</span><span class="p">):</span>
+            <span class="n">difference</span> <span class="o">=</span> <span class="n">wrap_periodic_half</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="n">first</span><span class="p">]</span> <span class="o">-</span> <span class="n">coords</span><span class="p">[</span><span class="n">second</span><span class="p">],</span> <span class="n">periodicity</span><span class="p">)</span><span class="o">.</span><span class="n">to_floats</span><span class="p">()</span>
+            <span class="n">cartesian</span> <span class="o">=</span> <span class="p">[</span><span class="nb">sum</span><span class="p">(</span><span class="n">difference</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">*</span> <span class="n">basis</span><span class="p">[</span><span class="n">axis</span><span class="p">][</span><span class="n">component</span><span class="p">]</span> <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span> <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+            <span class="n">distance</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">value</span> <span class="o">*</span> <span class="n">value</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">cartesian</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">distance</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="p">(</span><span class="n">shortest</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">distance</span> <span class="o">&lt;</span> <span class="n">shortest</span><span class="p">):</span>
+                <span class="n">shortest</span> <span class="o">=</span> <span class="n">distance</span>
+    <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">shortest</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">shortest</span> <span class="o">/</span> <span class="mi">2</span>
+
+
+<div class="viewcode-block" id="recognize_asu">
+<a class="viewcode-back" href="../../../../reference/autoapi/httk/atomistic/symmetry/recognition/index.html#httk.atomistic.recognize_asu">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">recognize_asu</span><span class="p">(</span>
+    <span class="n">structure</span><span class="p">:</span> <span class="n">StructureLike</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">setting</span><span class="p">:</span> <span class="n">Spacegroup</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">standard</span><span class="p">:</span> <span class="n">Spacegroup</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">transform</span><span class="p">:</span> <span class="n">SettingTransform</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">limit_denominator</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ASUStructure</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build an :class:`~httk.atomistic.ASUStructure` from a full structure.</span>
+
+<span class="sd">    The space group can be supplied three ways, in decreasing order of preference:</span>
+
+<span class="sd">    * ``setting`` — the structure&#39;s own tabulated setting, as when a CIF names its group.</span>
+<span class="sd">      Nothing is searched for and spglib is not involved.</span>
+<span class="sd">    * ``standard`` together with ``transform`` — for a structure in a setting that appears</span>
+<span class="sd">      in no table. Also spglib-free.</span>
+<span class="sd">    * neither — the symmetry is found with spglib, which must be installed</span>
+<span class="sd">      (``pip install httk-atomistic[default]``).</span>
+
+<span class="sd">    ``tolerance`` is a Cartesian distance, measured in the real cell, so it means the same</span>
+<span class="sd">    thing along a short axis and a long one; a fractional tolerance would not. Left</span>
+<span class="sd">    unspecified it is **derived from how precisely the structure was stated** — see</span>
+<span class="sd">    :func:`structure_tolerance` — falling back to :data:`DEFAULT_TOLERANCE` for a structure</span>
+<span class="sd">    that does not say. Pass a value to override that.</span>
+
+<span class="sd">    Raises :class:`ValueError` if a site cannot be placed on any Wyckoff position within</span>
+<span class="sd">    the tolerance, or if the sites do not group into complete orbits — both of which mean</span>
+<span class="sd">    the structure does not actually have the symmetry it was said to have.</span>
+
+<span class="sd">    :param structure: The full structure to recognize.</span>
+<span class="sd">    :param setting: The structure&#39;s own tabulated setting, if known.</span>
+<span class="sd">    :param standard: The IT standard setting for an untabulated own setting.</span>
+<span class="sd">    :param transform: The stored standard-to-own transform for an untabulated setting.</span>
+<span class="sd">    :param tolerance: The Cartesian matching tolerance in the real cell, or ``None`` to</span>
+<span class="sd">        derive it from the structure&#39;s stated precision.</span>
+<span class="sd">    :param limit_denominator: The largest denominator allowed when idealising free</span>
+<span class="sd">        parameters, or ``None`` to retain their exact stated values.</span>
+<span class="sd">    :return: The recognized asymmetric-unit structure.</span>
+<span class="sd">    :raises ImportError: If symmetry must be searched and the optional spglib dependency is</span>
+<span class="sd">        unavailable.</span>
+<span class="sd">    :raises TypeError: If the supplied setting arguments are incomplete or mutually</span>
+<span class="sd">        exclusive.</span>
+<span class="sd">    :raises ValueError: If the structure is not fully periodic, the standard setting is</span>
+<span class="sd">        invalid, or the sites cannot be placed into complete Wyckoff orbits within the</span>
+<span class="sd">        tolerance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.unitcell_view</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnitcellStructureView</span>
+
+    <span class="n">view</span> <span class="o">=</span> <span class="n">UnitcellStructureView</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span>
+    <span class="n">require_full_periodicity</span><span class="p">(</span><span class="n">view</span><span class="o">.</span><span class="n">cell</span><span class="p">,</span> <span class="s2">&quot;recognize_asu&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tolerance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">tolerance</span> <span class="o">=</span> <span class="n">structure_tolerance</span><span class="p">(</span><span class="n">view</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">setting</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">standard</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;recognize_asu() takes either &#39;setting&#39; or &#39;standard&#39;/&#39;transform&#39;, not both&quot;</span><span class="p">)</span>
+        <span class="n">standard</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">standard_setting</span><span class="p">()</span>
+        <span class="n">transform</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">transform_from_standard</span>
+    <span class="k">elif</span> <span class="n">standard</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">standard</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">transform</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;recognize_asu() needs both &#39;standard&#39; and &#39;transform&#39; when either is given&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">standard</span><span class="o">.</span><span class="n">is_standard_setting</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&#39;standard&#39; must be an IT standard setting, got </span><span class="si">{</span><span class="n">standard</span><span class="o">.</span><span class="n">setting</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">standard</span><span class="p">,</span> <span class="n">found</span> <span class="o">=</span> <span class="n">_find_symmetry</span><span class="p">(</span><span class="n">view</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">)</span>
+        <span class="c1"># At lattice index 1, spglib fixes the group but not the frame: its transformation is</span>
+        <span class="c1"># one of many that describe the structure correctly, differing by an element of the</span>
+        <span class="c1"># group&#39;s affine normalizer. All are faithful — the round trip holds either way — but</span>
+        <span class="c1"># they name different Wyckoff letters, so prefer the standard setting when the input</span>
+        <span class="c1"># already has that lattice. A non-unit index means the input is a super- or sub-cell of</span>
+        <span class="c1"># the standard lattice; trying identity there would hide that lattice relationship.</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">found</span><span class="o">.</span><span class="n">determinant</span><span class="p">())</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">_recognize</span><span class="p">(</span><span class="n">view</span><span class="p">,</span> <span class="n">standard</span><span class="p">,</span> <span class="n">SettingTransform</span><span class="o">.</span><span class="n">identity</span><span class="p">(),</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">limit_denominator</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="n">transform</span> <span class="o">=</span> <span class="n">found</span>
+
+    <span class="k">return</span> <span class="n">_recognize</span><span class="p">(</span><span class="n">view</span><span class="p">,</span> <span class="n">standard</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">limit_denominator</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_recognize</span><span class="p">(</span>
+    <span class="n">view</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">standard</span><span class="p">:</span> <span class="n">Spacegroup</span><span class="p">,</span>
+    <span class="n">transform</span><span class="p">:</span> <span class="n">SettingTransform</span><span class="p">,</span>
+    <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">limit_denominator</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ASUStructure</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Place every site on a Wyckoff position, then group the sites into orbits.&quot;&quot;&quot;</span>
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">cell</span>
+    <span class="n">own_coords</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">sites</span><span class="o">.</span><span class="n">reduced_coords</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
+    <span class="n">species_at_sites</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">view</span><span class="o">.</span><span class="n">species_at_sites</span><span class="p">)</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">species_at_sites</span><span class="p">)</span>
+
+    <span class="n">placed</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">WyckoffPosition</span><span class="p">,</span> <span class="n">FracVector</span><span class="p">,</span> <span class="n">FracVector</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
+        <span class="n">own_point</span> <span class="o">=</span> <span class="n">own_coords</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">standard_point</span> <span class="o">=</span> <span class="n">transform</span><span class="o">.</span><span class="n">to_standard</span><span class="p">(</span><span class="n">own_point</span><span class="p">)</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="n">_place_on_position</span><span class="p">(</span><span class="n">standard</span><span class="p">,</span> <span class="n">standard_point</span><span class="p">,</span> <span class="n">own_point</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;site </span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">own_point</span><span class="o">.</span><span class="n">to_fractions</span><span class="p">())</span><span class="si">}</span><span class="s2"> does not lie on any Wyckoff position of &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">standard</span><span class="o">.</span><span class="n">setting</span><span class="si">}</span><span class="s2"> within a tolerance of </span><span class="si">{</span><span class="n">tolerance</span><span class="si">}</span><span class="s2">; the structure does not have &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;the symmetry it was given&quot;</span>
+            <span class="p">)</span>
+        <span class="n">position</span><span class="p">,</span> <span class="n">branch</span><span class="p">,</span> <span class="n">parameters</span> <span class="o">=</span> <span class="n">match</span>
+        <span class="k">if</span> <span class="n">limit_denominator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">position</span><span class="o">.</span><span class="n">free_count</span><span class="p">:</span>
+            <span class="n">parameters</span> <span class="o">=</span> <span class="n">FracVector</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">value</span><span class="o">.</span><span class="n">limit_denominator</span><span class="p">(</span><span class="n">limit_denominator</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">to_fractions</span><span class="p">()]</span>
+            <span class="p">)</span>
+        <span class="n">snapped_own</span> <span class="o">=</span> <span class="n">transform</span><span class="o">.</span><span class="n">to_setting</span><span class="p">(</span><span class="n">branch</span><span class="o">.</span><span class="n">coordinate</span><span class="p">(</span><span class="n">parameters</span><span class="p">))</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
+        <span class="n">placed</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">position</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">snapped_own</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">_group_into_orbits</span><span class="p">(</span><span class="n">view</span><span class="p">,</span> <span class="n">standard</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">placed</span><span class="p">,</span> <span class="n">species_at_sites</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_place_on_position</span><span class="p">(</span>
+    <span class="n">standard</span><span class="p">:</span> <span class="n">Spacegroup</span><span class="p">,</span>
+    <span class="n">standard_point</span><span class="p">:</span> <span class="n">FracVector</span><span class="p">,</span>
+    <span class="n">own_point</span><span class="p">:</span> <span class="n">FracVector</span><span class="p">,</span>
+    <span class="n">cell</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">transform</span><span class="p">:</span> <span class="n">SettingTransform</span><span class="p">,</span>
+    <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">WyckoffPosition</span><span class="p">,</span> <span class="n">WyckoffBranch</span><span class="p">,</span> <span class="n">FracVector</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The most specific Wyckoff position within ``tolerance`` of a site.</span>
+
+<span class="sd">    Returns the position, the orbit branch the site sits on, and that branch&#39;s free</span>
+<span class="sd">    parameters. Positions are tried most specific first, so a site a hair away from a</span>
+<span class="sd">    special position is recognized as being on it rather than as a general-position site</span>
+<span class="sd">    that happens to sit there. The general position matches everything with zero</span>
+<span class="sd">    displacement, so the walk always terminates for a coordinate inside the cell.</span>
+
+<span class="sd">    The parameters are the matched *branch&#39;s*, not the representative branch&#39;s, and are</span>
+<span class="sd">    not translated between the two. They do not need to be: evaluating the whole position</span>
+<span class="sd">    at those parameters regenerates the orbit that contains this site either way, and</span>
+<span class="sd">    grouping is done by orbit membership rather than by comparing parameters.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">tolerance_squared</span> <span class="o">=</span> <span class="n">tolerance</span> <span class="o">*</span> <span class="n">tolerance</span>
+    <span class="k">for</span> <span class="n">position</span> <span class="ow">in</span> <span class="n">standard</span><span class="o">.</span><span class="n">wyckoff</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">branch</span> <span class="ow">in</span> <span class="n">position</span><span class="o">.</span><span class="n">branches</span><span class="p">:</span>
+            <span class="n">parameters</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">nearest_parameters</span><span class="p">(</span><span class="n">standard_point</span><span class="p">)</span>
+            <span class="n">candidate</span> <span class="o">=</span> <span class="n">transform</span><span class="o">.</span><span class="n">to_setting</span><span class="p">(</span><span class="n">branch</span><span class="o">.</span><span class="n">coordinate</span><span class="p">(</span><span class="n">parameters</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">_cartesian_distance_squared</span><span class="p">(</span><span class="n">own_point</span> <span class="o">-</span> <span class="n">candidate</span><span class="p">,</span> <span class="n">cell</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">tolerance_squared</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">position</span><span class="p">,</span> <span class="n">branch</span><span class="p">,</span> <span class="n">parameters</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cartesian_distance_squared</span><span class="p">(</span><span class="n">difference</span><span class="p">:</span> <span class="n">FracVector</span><span class="p">,</span> <span class="n">cell</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The squared length of a fractional difference, in the cell&#39;s real geometry.</span>
+
+<span class="sd">    Reduced to the shortest lattice representative first, so a site at ``0.999`` and one at</span>
+<span class="sd">    ``0.001`` count as neighbours rather than as a whole cell apart.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">shortest</span> <span class="o">=</span> <span class="n">SurdVector</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">difference</span><span class="o">.</span><span class="n">normalize_half</span><span class="p">())</span> <span class="o">*</span> <span class="n">cell</span><span class="o">.</span><span class="n">basis</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">shortest</span><span class="o">.</span><span class="n">lengthsqr</span><span class="p">()</span><span class="o">.</span><span class="n">to_float</span><span class="p">())</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_group_into_orbits</span><span class="p">(</span>
+    <span class="n">view</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">standard</span><span class="p">:</span> <span class="n">Spacegroup</span><span class="p">,</span>
+    <span class="n">transform</span><span class="p">:</span> <span class="n">SettingTransform</span><span class="p">,</span>
+    <span class="n">placed</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">WyckoffPosition</span><span class="p">,</span> <span class="n">FracVector</span><span class="p">,</span> <span class="n">FracVector</span><span class="p">]],</span>
+    <span class="n">species_at_sites</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+    <span class="n">cell</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ASUStructure</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Collapse symmetry-equivalent sites, keeping one representative each.</span>
+
+<span class="sd">    Grouping is by *orbit membership*, not by comparing recovered parameters: the orbit a</span>
+<span class="sd">    site belongs to is generated from one member and the remaining sites are matched</span>
+<span class="sd">    against it. That also verifies as it goes — an orbit that is not fully occupied, or is</span>
+<span class="sd">    occupied by more than one species, means the claimed symmetry is wrong, and says so</span>
+<span class="sd">    instead of quietly producing a structure with missing atoms.</span>
+
+<span class="sd">    Membership is tested within the tolerance rather than exactly. It has to be: in a</span>
+<span class="sd">    measured structure every member of an orbit carries its own rounding, so each recovers</span>
+<span class="sd">    a slightly different free parameter and generates a slightly different orbit. Exact</span>
+<span class="sd">    membership would then place each atom in an orbit of its own and report the structure</span>
+<span class="sd">    as having no symmetry at all. The representative&#39;s parameters are the ones kept, so the</span>
+<span class="sd">    idealised structure adopts one member&#39;s value for the whole orbit.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cosets</span> <span class="o">=</span> <span class="n">transform</span><span class="o">.</span><span class="n">lattice_cosets</span><span class="p">()</span>
+    <span class="n">consumed</span> <span class="o">=</span> <span class="p">[</span><span class="kc">False</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">placed</span><span class="p">)</span>
+    <span class="n">wyckoff_sites</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">WyckoffSite</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">site_moments</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">site_moments</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">site_moments</span><span class="p">,</span> <span class="n">CrystalAxisSiteMoments</span><span class="p">)</span> <span class="ow">and</span> <span class="n">site_moments</span><span class="o">.</span><span class="n">cell</span> <span class="o">!=</span> <span class="n">cell</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;recognize_asu cannot re-express crystal-axis site moments in the target cell; &quot;</span>
+            <span class="s2">&quot;convert them to Cartesian first&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="p">(</span><span class="n">position</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">_snapped</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">placed</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">consumed</span><span class="p">[</span><span class="n">index</span><span class="p">]:</span>
+            <span class="k">continue</span>
+        <span class="n">species</span> <span class="o">=</span> <span class="n">species_at_sites</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+
+        <span class="c1"># Deduplicated exactly, as expansion does: a transform onto a smaller cell — the</span>
+        <span class="c1"># rhombohedral settings, where det M == 3 — maps several standard-setting orbit</span>
+        <span class="c1"># points onto one. Leaving the repeats in would make a complete orbit look</span>
+        <span class="c1"># three-quarters empty and reject a perfectly symmetric structure.</span>
+        <span class="n">orbit</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">FracVector</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">position</span><span class="o">.</span><span class="n">coordinates</span><span class="p">(</span><span class="n">parameters</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">coset</span> <span class="ow">in</span> <span class="n">cosets</span><span class="p">:</span>
+                <span class="n">candidate</span> <span class="o">=</span> <span class="p">(</span><span class="n">transform</span><span class="o">.</span><span class="n">to_setting</span><span class="p">(</span><span class="n">point</span><span class="p">)</span> <span class="o">+</span> <span class="n">coset</span><span class="p">)</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">candidate</span><span class="o">.</span><span class="n">to_fractions</span><span class="p">())</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                    <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                    <span class="n">orbit</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
+
+        <span class="n">members</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">other</span>
+            <span class="k">for</span> <span class="n">other</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">placed</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">consumed</span><span class="p">[</span><span class="n">other</span><span class="p">]</span> <span class="ow">and</span> <span class="n">_lies_in_orbit</span><span class="p">(</span><span class="n">placed</span><span class="p">[</span><span class="n">other</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span> <span class="n">orbit</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">occupants</span> <span class="o">=</span> <span class="p">{</span><span class="n">species_at_sites</span><span class="p">[</span><span class="n">other</span><span class="p">]</span> <span class="k">for</span> <span class="n">other</span> <span class="ow">in</span> <span class="n">members</span><span class="p">}</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">occupants</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;the orbit of Wyckoff position </span><span class="si">{</span><span class="n">position</span><span class="o">.</span><span class="n">multiplicity</span><span class="si">}{</span><span class="n">position</span><span class="o">.</span><span class="n">letter</span><span class="si">}</span><span class="s2"> is occupied by &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;more than one species (</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">occupants</span><span class="p">))</span><span class="si">}</span><span class="s2">); a single orbit cannot be&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">members</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">orbit</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Wyckoff position </span><span class="si">{</span><span class="n">position</span><span class="o">.</span><span class="n">multiplicity</span><span class="si">}{</span><span class="n">position</span><span class="o">.</span><span class="n">letter</span><span class="si">}</span><span class="s2"> generates </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">orbit</span><span class="p">)</span><span class="si">}</span><span class="s2"> sites &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;but only </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">members</span><span class="p">)</span><span class="si">}</span><span class="s2"> of them are present; the structure is not symmetric under &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">standard</span><span class="o">.</span><span class="n">setting</span><span class="si">}</span><span class="s2"> as claimed&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">other</span> <span class="ow">in</span> <span class="n">members</span><span class="p">:</span>
+            <span class="n">consumed</span><span class="p">[</span><span class="n">other</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">moment</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">site_moments</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_orbit_moment</span><span class="p">(</span><span class="n">site_moments</span><span class="p">,</span> <span class="n">members</span><span class="p">,</span> <span class="n">species</span><span class="p">,</span> <span class="n">position</span><span class="p">,</span> <span class="n">cell</span><span class="p">)</span>
+        <span class="n">wyckoff_sites</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">WyckoffSite</span><span class="p">(</span><span class="n">position</span><span class="o">.</span><span class="n">letter</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">species</span><span class="p">,</span> <span class="n">moment</span><span class="o">=</span><span class="n">moment</span><span class="p">))</span>
+
+    <span class="c1"># The recognized ASU inherits the precision of the structure it came from: nothing</span>
+    <span class="c1"># about recognition sharpens the data, and dropping it here would mean the value had</span>
+    <span class="c1"># to be guessed again by everything downstream.</span>
+    <span class="k">return</span> <span class="n">ASUStructure</span><span class="p">(</span>
+        <span class="n">cell</span><span class="p">,</span> <span class="n">standard</span><span class="p">,</span> <span class="n">wyckoff_sites</span><span class="p">,</span> <span class="n">view</span><span class="o">.</span><span class="n">species</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">view</span><span class="o">.</span><span class="n">sites</span><span class="o">.</span><span class="n">precision</span><span class="p">,</span> <span class="n">charge</span><span class="o">=</span><span class="n">view</span><span class="o">.</span><span class="n">charge</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_orbit_moment</span><span class="p">(</span>
+    <span class="n">site_moments</span><span class="p">:</span> <span class="n">SiteMomentsBackend</span><span class="p">,</span>
+    <span class="n">members</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">species</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">position</span><span class="p">:</span> <span class="n">WyckoffPosition</span><span class="p">,</span>
+    <span class="n">cell</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SiteMomentsBackend</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Collapse one orbit&#39;s exact, uniform structure-level moment into one row.&quot;&quot;&quot;</span>
+    <span class="n">first</span> <span class="o">=</span> <span class="n">members</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">values</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">row</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">uniform</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">moment</span><span class="p">:</span> <span class="n">SiteMomentsBackend</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">site_moments</span><span class="p">,</span> <span class="n">CollinearSiteMoments</span><span class="p">):</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">site_moments</span><span class="o">.</span><span class="n">collinear_moments</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">_element</span><span class="p">((</span><span class="n">first</span><span class="p">,))</span>
+        <span class="n">uniform</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">_element</span><span class="p">((</span><span class="n">index</span><span class="p">,))</span> <span class="o">==</span> <span class="n">row</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">members</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="n">moment</span> <span class="o">=</span> <span class="n">CollinearSiteMoments</span><span class="p">([</span><span class="n">row</span><span class="p">],</span> <span class="n">precision</span><span class="o">=</span><span class="n">site_moments</span><span class="o">.</span><span class="n">precision</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">site_moments</span><span class="p">,</span> <span class="n">CartesianSiteMoments</span><span class="p">):</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">site_moments</span><span class="o">.</span><span class="n">cartesian_moments</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="p">[</span><span class="n">values</span><span class="o">.</span><span class="n">_element</span><span class="p">((</span><span class="n">first</span><span class="p">,</span> <span class="n">column</span><span class="p">))</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+        <span class="n">uniform</span> <span class="o">=</span> <span class="nb">all</span><span class="p">([</span><span class="n">values</span><span class="o">.</span><span class="n">_element</span><span class="p">((</span><span class="n">index</span><span class="p">,</span> <span class="n">column</span><span class="p">))</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span> <span class="o">==</span> <span class="n">row</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">members</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="n">moment</span> <span class="o">=</span> <span class="n">CartesianSiteMoments</span><span class="p">(</span><span class="n">SurdVector</span><span class="o">.</span><span class="n">_from_scalar_grid</span><span class="p">([</span><span class="n">row</span><span class="p">],</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span> <span class="n">precision</span><span class="o">=</span><span class="n">site_moments</span><span class="o">.</span><span class="n">precision</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">site_moments</span><span class="p">,</span> <span class="n">CrystalAxisSiteMoments</span><span class="p">):</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">site_moments</span><span class="o">.</span><span class="n">crystalaxis_moments</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="p">[</span><span class="n">values</span><span class="o">.</span><span class="n">_element</span><span class="p">((</span><span class="n">first</span><span class="p">,</span> <span class="n">column</span><span class="p">))</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+        <span class="n">uniform</span> <span class="o">=</span> <span class="nb">all</span><span class="p">([</span><span class="n">values</span><span class="o">.</span><span class="n">_element</span><span class="p">((</span><span class="n">index</span><span class="p">,</span> <span class="n">column</span><span class="p">))</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span> <span class="o">==</span> <span class="n">row</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">members</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="n">moment</span> <span class="o">=</span> <span class="n">CrystalAxisSiteMoments</span><span class="p">(</span>
+            <span class="n">SurdVector</span><span class="o">.</span><span class="n">_from_scalar_grid</span><span class="p">([</span><span class="n">row</span><span class="p">],</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span> <span class="n">cell</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="n">site_moments</span><span class="o">.</span><span class="n">precision</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unsupported SiteMomentsBackend kind: </span><span class="si">{</span><span class="nb">getattr</span><span class="p">(</span><span class="n">site_moments</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;kind&#39;</span><span class="p">,</span><span class="w"> </span><span class="kc">None</span><span class="p">)</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">uniform</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;orbit of </span><span class="si">{</span><span class="n">species</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">position</span><span class="o">.</span><span class="n">multiplicity</span><span class="si">}{</span><span class="n">position</span><span class="o">.</span><span class="n">letter</span><span class="si">}</span><span class="s2"> carries non-uniform site moments; &quot;</span>
+            <span class="s2">&quot;a fundamental domain cannot represent this magnetic structure — keep the unit cell&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">moment</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_lies_in_orbit</span><span class="p">(</span><span class="n">point</span><span class="p">:</span> <span class="n">FracVector</span><span class="p">,</span> <span class="n">orbit</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">FracVector</span><span class="p">],</span> <span class="n">cell</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Whether a site coincides with any point of an orbit, to within the tolerance.&quot;&quot;&quot;</span>
+    <span class="n">limit</span> <span class="o">=</span> <span class="n">tolerance</span> <span class="o">*</span> <span class="n">tolerance</span>
+    <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">_cartesian_distance_squared</span><span class="p">(</span><span class="n">point</span> <span class="o">-</span> <span class="n">other</span><span class="p">,</span> <span class="n">cell</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">limit</span> <span class="k">for</span> <span class="n">other</span> <span class="ow">in</span> <span class="n">orbit</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_symmetry</span><span class="p">(</span><span class="n">view</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Spacegroup</span><span class="p">,</span> <span class="n">SettingTransform</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find the space group of a structure that carries no symmetry information, via spglib.</span>
+
+<span class="sd">    This is the only place spglib is used, and the only path that needs it. Anything that</span>
+<span class="sd">    arrives with its symmetry already stated — a CIF, or a structure built from an ASU —</span>
+<span class="sd">    goes through the exact tabulated route instead.</span>
+
+<span class="sd">    Two conversions matter here and are easy to get wrong:</span>
+
+<span class="sd">    * spglib reports its transformation as floats. They are small rationals in practice, so</span>
+<span class="sd">      they are recovered exactly with a bounded denominator; the fixed coordinates in the</span>
+<span class="sd">      vendored tables all have denominators dividing 12.</span>
+<span class="sd">    * spglib standardizes to *its* default setting, which differs from the International</span>
+<span class="sd">      Tables standard setting for the 24 space groups with two origin choices. The two are</span>
+<span class="sd">      bridged explicitly through the tabulated spglib-default setting rather than assumed</span>
+<span class="sd">      to coincide, which would misplace a structure by a fraction of a cell while still</span>
+<span class="sd">      passing a symmetry check.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">spglib</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>  <span class="c1"># pragma: no cover - exercised only without the extra</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;recognizing the symmetry of a structure that does not carry any requires spglib; &quot;</span>
+            <span class="s2">&quot;install it with `pip install httk-atomistic[default]`, or supply the space group &quot;</span>
+            <span class="s2">&quot;explicitly via recognize_asu(..., setting=...)&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+    <span class="n">register_citation</span><span class="p">(</span>
+        <span class="n">applies_to</span><span class="o">=</span><span class="s2">&quot;Symmetry recognition uses spglib&quot;</span><span class="p">,</span>
+        <span class="n">references</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">&quot;authors&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Atsushi Togo&quot;</span><span class="p">},</span>
+                <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Kohei Shinohara&quot;</span><span class="p">},</span>
+                <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Isao Tanaka&quot;</span><span class="p">},</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Spglib: a software library for crystal symmetry search&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;journal&quot;</span><span class="p">:</span> <span class="s2">&quot;Science and Technology of Advanced Materials: Methods&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;volume&quot;</span><span class="p">:</span> <span class="s2">&quot;4&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;pages&quot;</span><span class="p">:</span> <span class="s2">&quot;2384822&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;year&quot;</span><span class="p">:</span> <span class="s2">&quot;2024&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;doi&quot;</span><span class="p">:</span> <span class="s2">&quot;10.1080/27660400.2024.2384822&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;bib_type&quot;</span><span class="p">:</span> <span class="s2">&quot;article&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="n">names</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">view</span><span class="o">.</span><span class="n">species_at_sites</span><span class="p">))</span>
+    <span class="n">cell</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">view</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">basis</span><span class="o">.</span><span class="n">to_floats</span><span class="p">(),</span>
+        <span class="n">view</span><span class="o">.</span><span class="n">sites</span><span class="o">.</span><span class="n">reduced_coords</span><span class="o">.</span><span class="n">to_floats</span><span class="p">(),</span>
+        <span class="p">[</span><span class="n">names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">view</span><span class="o">.</span><span class="n">species_at_sites</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">spglib</span><span class="o">.</span><span class="n">get_symmetry_dataset</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">symprec</span><span class="o">=</span><span class="n">tolerance</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dataset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;spglib could not determine the symmetry of this structure at symprec=</span><span class="si">{</span><span class="n">tolerance</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">standard</span> <span class="o">=</span> <span class="n">Spacegroup</span><span class="o">.</span><span class="n">standard</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">number</span><span class="p">))</span>
+
+    <span class="c1"># spglib&#39;s convention: x_spglib_std = P x_own + p.</span>
+    <span class="n">own_to_spglib</span> <span class="o">=</span> <span class="n">_exact_operation</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">transformation_matrix</span><span class="p">,</span> <span class="n">dataset</span><span class="o">.</span><span class="n">origin_shift</span><span class="p">)</span>
+    <span class="c1"># Ours: x_spglib_default = M x_standard + v, for the setting spglib treats as default.</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic</span><span class="w"> </span><span class="kn">import</span> <span class="n">data</span> <span class="k">as</span> <span class="n">symmetry_data</span>
+
+    <span class="n">spglib_default</span> <span class="o">=</span> <span class="n">symmetry_data</span><span class="o">.</span><span class="n">spglib_default_spacegroup_setting</span><span class="p">(</span><span class="n">standard</span><span class="o">.</span><span class="n">it_number</span><span class="p">)</span>
+    <span class="n">standard_to_spglib</span> <span class="o">=</span> <span class="n">SettingTransform</span><span class="o">.</span><span class="n">for_hall_entry</span><span class="p">(</span><span class="n">spglib_default</span><span class="p">[</span><span class="s2">&quot;hall_entry&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">operation</span>
+
+    <span class="n">standard_to_own</span> <span class="o">=</span> <span class="n">own_to_spglib</span><span class="o">.</span><span class="n">inverse</span><span class="p">()</span> <span class="o">*</span> <span class="n">standard_to_spglib</span>
+    <span class="k">return</span> <span class="n">standard</span><span class="p">,</span> <span class="n">SettingTransform</span><span class="p">(</span><span class="n">standard_to_own</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span> <span class="n">standard_to_own</span><span class="o">.</span><span class="n">vector</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_exact_operation</span><span class="p">(</span><span class="n">matrix</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">vector</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;An exact affine operation from spglib&#39;s floating-point transformation.&quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.symmetry.affine_operation</span><span class="w"> </span><span class="kn">import</span> <span class="n">AffineOperation</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">exact</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">))</span><span class="o">.</span><span class="n">limit_denominator</span><span class="p">(</span><span class="n">_SPGLIB_MAX_DENOMINATOR</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">AffineOperation</span><span class="p">(</span>
+        <span class="p">[[</span><span class="n">exact</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">row</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">matrix</span><span class="p">],</span>
+        <span class="p">[</span><span class="n">exact</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">vector</span><span class="p">],</span>
+    <span class="p">)</span>
+
+
+<span class="c1">#: Denominator bound when recovering spglib&#39;s floating-point transformation exactly.</span>
+<span class="c1">#: Change-of-basis entries and origin shifts between settings are built from halves,</span>
+<span class="c1">#: thirds, quarters, sixths and eighths; 48 leaves generous headroom without inventing</span>
+<span class="c1">#: precision that is not there.</span>
+<span class="n">_SPGLIB_MAX_DENOMINATOR</span> <span class="o">=</span> <span class="mi">48</span>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, The httk-atomistic AUTHORS
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../../_static/documentation_options.js?v=fe42cd0d"></script>
+    <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../_static/copybutton.js?v=fd10adb8"></script>
+    <script src="../../../../_static/selector.js?v=875006ce"></script>
+    <script>window.HTTK_DOCS_VERSIONING = {"channel":"dev","version":"dev:main","versionPathDepth":2};</script>
+    </body>
+</html>

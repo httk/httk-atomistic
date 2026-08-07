@@ -1,0 +1,31 @@
+httk.atomistic.models.prototype.like
+====================================
+
+.. py:module:: httk.atomistic.models.prototype.like
+
+.. autoapi-nested-parse::
+
+   The accepted-input union for anonymous structures.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.like.AnonymousStructureLike
+   httk.atomistic.models.prototype.like.PrototypeLike
+
+
+Module Contents
+---------------
+
+.. py:type:: AnonymousStructureLike
+   :canonical: httk.atomistic.models.prototype.backend.AnonymousStructureBackend | httk.atomistic.models.prototype.view_base.AnonymousStructureViewBase | httk.atomistic.models.prototype.anonymous.AnonymousStructure | httk.atomistic.models.prototype.prototype.Prototype
+
+
+.. py:type:: PrototypeLike
+   :canonical: AnonymousStructureLike | httk.atomistic.models.protostructure.like.ProtostructureLike
+
+

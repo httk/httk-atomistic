@@ -1,0 +1,108 @@
+httk.atomistic.models.prototype.anonymous
+=========================================
+
+.. py:module:: httk.atomistic.models.prototype.anonymous
+
+.. autoapi-nested-parse::
+
+   The dummy-species unit-cell value.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.anonymous.AnonymousStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: AnonymousStructure(cell, sites, species = None, species_at_sites = None)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.backend.AnonymousStructureBackend`
+
+
+   Store a unit cell whose site identities are consecutive dummy labels.
+
+   :param cell: The unit-cell geometry.
+   :param sites: The reduced coordinates of the sites.
+   :param species: The distinct dummy species definitions.
+   :param species_at_sites: The dummy species name occupying each site.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'anonymous'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the unit cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Return the reduced sites.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Return the distinct dummy species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Return dummy species names in site order.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Return the periodic directions.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int
+
+
+      Return the number of periodic directions.
+
+
+   .. py:property:: nsites
+      :type: int
+
+
+      Return the number of sites.
+
+
+   .. py:method:: cartesian_sites()
+
+      Return the exact Cartesian site positions.
+
+      :return: The Cartesian positions in the cell's exact vector representation.
+
+
+
+   .. py:property:: coordinate_precision
+
+      Return the reduced-coordinate precision.
+
+
+   .. py:property:: basis_precision
+
+      Return the cell-basis precision.
+
+

@@ -1,0 +1,30 @@
+httk.atomistic.models.prototype.view_base
+=========================================
+
+.. py:module:: httk.atomistic.models.prototype.view_base
+
+.. autoapi-nested-parse::
+
+   The abstract view base for anonymous structures.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.view_base.AnonymousStructureViewBase
+
+
+Module Contents
+---------------
+
+.. py:class:: AnonymousStructureViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.prototype.backend.AnonymousStructureBackend`\ ]
+
+
+   Base class for views presenting anonymous-structure backends.
+
+

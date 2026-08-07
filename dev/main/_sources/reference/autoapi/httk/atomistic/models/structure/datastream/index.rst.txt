@@ -1,0 +1,115 @@
+httk.atomistic.models.structure.datastream
+==========================================
+
+.. py:module:: httk.atomistic.models.structure.datastream
+
+.. autoapi-nested-parse::
+
+   Lazy structure loading from files, URLs, and open text streams.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.datastream.DatastreamStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: DatastreamStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent a structure source parsed only when its data is first accessed.
+
+   Requests are intentionally reader-only: an OPTIMADE-shaped Request is declined so
+   its headers are never lost by replacing it with ``fetch(url)``. Open streams are
+   one-shot sources; a failed parse is not cached, but consumed data cannot be replayed.
+   Network URL strings require core network consent; wrapping a URL in
+   :class:`~httk.core.DatastreamURL` supplies that consent explicitly.
+
+   :param obj: A path, URL, stream, request, or core datastream source.
+   :param \*\*hints: Backend-selection and reader-name hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'datastream'
+
+
+
+   .. py:method:: resolve()
+
+      Resolve and return the memoized native structure.
+
+      :return: The parsed native structure.
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the source structure's cell.
+
+      :return: The resolved cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the source structure's sites.
+
+      :return: The resolved sites.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose the source structure's species.
+
+      :return: The resolved distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose the species occupying each resolved site.
+
+      :return: Site species names in site order.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose optional moments from the resolved structure.
+
+      :return: Site moments, or ``None`` when they are unstated.
+
+
+   .. py:property:: charge
+      :type: Any
+
+
+      Expose the resolved structure's assigned charge.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:method:: unwrap()
+
+      Return the original lazy source.
+
+      :return: The path, URL, request, or stream supplied at construction.
+
+
+

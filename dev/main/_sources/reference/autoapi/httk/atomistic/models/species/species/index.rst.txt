@@ -1,0 +1,222 @@
+httk.atomistic.models.species.species
+=====================================
+
+.. py:module:: httk.atomistic.models.species.species
+
+.. autoapi-nested-parse::
+
+   Species definition for httk-atomistic, mirroring the OPTIMADE ``species`` entry.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.species.species.ExactInput
+   httk.atomistic.models.species.species.PrecisionInput
+   httk.atomistic.models.species.species.DecorationInput
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.species.species.Species
+
+
+Module Contents
+---------------
+
+.. py:type:: ExactInput
+   :canonical: fractions.Fraction | int | float | decimal.Decimal | str
+
+
+.. py:type:: PrecisionInput
+   :canonical: ExactInput | None
+
+
+.. py:type:: DecorationInput
+   :canonical: fractions.Fraction | int | str | None
+
+
+.. py:class:: Species(name, chemical_symbols, concentration, mass = None, original_name = None, attached = None, nattached = None, concentration_precision = None, charges = None, spins = None, labels = None)
+
+   Bases: :py:obj:`httk.atomistic.models.species.backend.SpeciesBackend`
+
+
+   A chemical species occupying one or more sites, mirroring the OPTIMADE ``species`` object.
+
+   A species has a ``name`` (unique within a structure; it need not be a chemical
+   symbol), a list of ``chemical_symbols`` composing it, and a matching list of
+   ``concentration`` values. Each chemical symbol is an element symbol, or one of
+   the pseudo-symbols ``"X"`` (unknown) or ``"vacancy"``. The optional ``mass``,
+   ``attached``, ``nattached``, and ``original_name`` fields carry the remaining
+   OPTIMADE species information; ``attached`` and ``nattached`` must be given
+   together and share their length.
+
+   ``charges``, ``spins``, and ``labels`` are optional aligned decorations. An
+   all-``None`` decoration is canonicalized to ``None``. Repeated chemical
+   symbols are accepted only when the complete decoration distinguishes them.
+
+   :param name: The species name.
+   :param chemical_symbols: The constituent chemical symbols.
+   :param concentration: The constituent occupancies.
+   :param mass: The constituent masses, if stated.
+   :param original_name: The source name, if stated.
+   :param attached: The attached constituent symbols, if stated.
+   :param nattached: The counts corresponding to ``attached``, if stated.
+   :param concentration_precision: The precision of each occupancy, if stated.
+   :param charges: The charge decoration, if stated.
+   :param spins: The spin decoration, if stated.
+   :param labels: The label decoration, if stated.
+
+
+   .. py:attribute:: name
+      :type:  str
+      :value: ''
+
+
+
+   .. py:attribute:: chemical_symbols
+      :type:  tuple[str, Ellipsis]
+      :value: ()
+
+
+
+   .. py:attribute:: concentration
+      :type:  tuple[fractions.Fraction, Ellipsis]
+      :value: ()
+
+
+
+   .. py:attribute:: mass
+      :type:  tuple[float, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: original_name
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: attached
+      :type:  tuple[str, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: nattached
+      :type:  tuple[int, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: concentration_precision
+      :type:  tuple[fractions.Fraction | None, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: charges
+      :type:  tuple[fractions.Fraction | None, Ellipsis] | None
+      :value: None
+
+
+      Assigned charge numbers for the constituents, or ``None`` if unstated.
+
+      A ``None`` element means the charge of that constituent is unstated; whole-
+      ``None`` means no constituent charges are stated. Values use elementary-charge
+      units, for example a formal oxidation state.
+
+      :return: The constituent charges, or ``None`` when unstated.
+
+
+   .. py:attribute:: spins
+      :type:  tuple[fractions.Fraction | None, Ellipsis] | None
+      :value: None
+
+
+      Idealized signed spins assigned to the constituents, or ``None`` if unstated.
+
+      A ``None`` element means the spin of that constituent is unstated; whole-``None``
+      means no constituent spins are stated. This is distinct from a calculated site
+      magnetic moment.
+
+      :return: The constituent spins, or ``None`` when unstated.
+
+
+   .. py:attribute:: labels
+      :type:  tuple[str | None, Ellipsis] | None
+      :value: None
+
+
+      Free-form per-constituent labels, or ``None`` if unstated.
+
+      A ``None`` element means that constituent has no stated label; whole-``None``
+      means no constituent labels are stated.
+
+      :return: The constituent labels, or ``None`` when unstated.
+
+
+   .. py:property:: normalized
+      :type: bool
+
+
+      Whether the stated concentration interval contains one.
+
+      :return: Whether the concentrations are normalized within their precision.
+
+
+   .. py:property:: normalization_status
+      :type: str
+
+
+      Report the concentration normalization status.
+
+      :return: ``exact``, ``within_precision``, or ``outside_precision``.
+
+
+   .. py:property:: normalization_diagnostic
+      :type: Any
+
+
+      Return a structured normalization diagnostic when needed.
+
+      :return: The diagnostic, or ``None`` when the concentrations are normalized.
+
+
+   .. py:property:: is_single_element
+      :type: bool
+
+
+      Whether this species is a single, unattached, real chemical element.
+
+      True only for a species composed of exactly one element symbol (not ``"X"``
+      or ``"vacancy"``) with no attached particles. Such species are the ones that
+      can be represented as a bare atomic number in the primitive representation.
+
+      :return: Whether this is a single real element.
+
+
+   .. py:method:: create(obj, **hints)
+      :classmethod:
+
+
+      Return a Species from an existing Species, bare symbol or atomic number, or
+      OPTIMADE species dict.
+
+      A bare element symbol, ``"X"``, or ``"vacancy"`` denotes a fully occupied
+      single-symbol species. A bare atomic number denotes the corresponding element.
+
+      :param obj: An existing species, symbol, atomic number, or species mapping.
+      :param \**hints: Backend-selection hints.
+      :return: The canonical species.
+      :raises ValueError: If an atomic number is boolean or the input is invalid.
+
+
+

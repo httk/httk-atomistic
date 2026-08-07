@@ -1,0 +1,387 @@
+httk.atomistic.models.prototype
+===============================
+
+.. py:module:: httk.atomistic.models.prototype
+
+.. autoapi-nested-parse::
+
+   The anonymous-structure and prototype family.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/prototype/anonymize/index
+   /reference/autoapi/httk/atomistic/models/prototype/anonymized/index
+   /reference/autoapi/httk/atomistic/models/prototype/anonymous/index
+   /reference/autoapi/httk/atomistic/models/prototype/anonymous_view/index
+   /reference/autoapi/httk/atomistic/models/prototype/api/index
+   /reference/autoapi/httk/atomistic/models/prototype/backend/index
+   /reference/autoapi/httk/atomistic/models/prototype/like/index
+   /reference/autoapi/httk/atomistic/models/prototype/prototype/index
+   /reference/autoapi/httk/atomistic/models/prototype/prototype_view/index
+   /reference/autoapi/httk/atomistic/models/prototype/view_base/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.AnonymousStructureLike
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.AnonymousStructure
+   httk.atomistic.models.prototype.AnonymousStructureAPI
+   httk.atomistic.models.prototype.AnonymousStructureBackend
+   httk.atomistic.models.prototype.Prototype
+   httk.atomistic.models.prototype.AnonymousStructureViewBase
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.canonical_dummy_assignment
+   httk.atomistic.models.prototype.dummy_species
+   httk.atomistic.models.prototype.is_dummy_species
+
+
+Package Contents
+----------------
+
+.. py:function:: canonical_dummy_assignment(amounts)
+
+   Map element-like keys to anonymous symbols by descending amount.
+
+   :param amounts: The keys and represented site counts.
+   :return: The deterministic key-to-anonymous-symbol assignment.
+
+
+.. py:function:: dummy_species(label)
+
+   Return the exact dummy species used by anonymous structures.
+
+   :param label: The anonymous symbol to use as the species name.
+   :return: The canonical dummy species.
+
+
+.. py:function:: is_dummy_species(species)
+
+   Return whether ``species`` has precisely the sanctioned dummy-species shape.
+
+   :param species: The species to inspect.
+   :return: Whether the species is a canonical dummy species.
+
+
+.. py:class:: AnonymousStructure(cell, sites, species = None, species_at_sites = None)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.backend.AnonymousStructureBackend`
+
+
+   Store a unit cell whose site identities are consecutive dummy labels.
+
+   :param cell: The unit-cell geometry.
+   :param sites: The reduced coordinates of the sites.
+   :param species: The distinct dummy species definitions.
+   :param species_at_sites: The dummy species name occupying each site.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'anonymous'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the unit cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Return the reduced sites.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Return the distinct dummy species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Return dummy species names in site order.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Return the periodic directions.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int
+
+
+      Return the number of periodic directions.
+
+
+   .. py:property:: nsites
+      :type: int
+
+
+      Return the number of sites.
+
+
+   .. py:method:: cartesian_sites()
+
+      Return the exact Cartesian site positions.
+
+      :return: The Cartesian positions in the cell's exact vector representation.
+
+
+
+   .. py:property:: coordinate_precision
+
+      Return the reduced-coordinate precision.
+
+
+   .. py:property:: basis_precision
+
+      Return the cell-basis precision.
+
+
+.. py:class:: AnonymousStructureAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   The common interface for dummy-species structures and prototypes.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+      :abstractmethod:
+
+
+      Return the structure cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+      :abstractmethod:
+
+
+      Return the reduced sites.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+      :abstractmethod:
+
+
+      Return the distinct dummy species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+      :abstractmethod:
+
+
+      Return dummy species names in site order.
+
+
+   .. py:property:: coordinate_precision
+      :type: fractions.Fraction | None
+
+
+      Return the reduced-coordinate precision, if known.
+
+
+   .. py:property:: basis_precision
+      :type: fractions.Fraction | None
+
+
+      Return the cell-basis precision, if known.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.anonymous_view.AnonymousFormulaView
+
+
+      Return the canonical anonymous formula at the represented site scale.
+
+
+   .. py:property:: is_canonical
+      :type: bool
+
+
+      Return whether site counts assign consecutive canonical anonymous labels.
+
+
+.. py:class:: AnonymousStructureBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`AnonymousStructureBackend`\ ], :py:obj:`httk.atomistic.models.prototype.api.AnonymousStructureAPI`
+
+
+   Backend root for the first PrototypeLike family.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+
+.. py:type:: AnonymousStructureLike
+   :canonical: httk.atomistic.models.prototype.backend.AnonymousStructureBackend | httk.atomistic.models.prototype.view_base.AnonymousStructureViewBase | httk.atomistic.models.prototype.anonymous.AnonymousStructure | httk.atomistic.models.prototype.prototype.Prototype
+
+
+.. py:class:: Prototype(cell, spacegroup, wyckoff_sites, species = None, coordinate_precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.backend.AnonymousStructureBackend`
+
+
+   Store a standard-setting fundamental domain with dummy species labels.
+
+   :param cell: The standard-setting cell geometry.
+   :param spacegroup: The standard-setting space group.
+   :param wyckoff_sites: The symmetry-distinct site definitions.
+   :param species: The distinct dummy species definitions.
+   :param coordinate_precision: The precision recorded for the reduced coordinates.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'prototype'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the standard-setting cell.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: wyckoff_sites
+      :type: tuple[httk.atomistic.models.structure.asu.WyckoffSite, Ellipsis]
+
+
+      Return the symmetry-distinct site definitions.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Return the distinct dummy species.
+
+
+   .. py:property:: coordinate_precision
+
+      Return the reduced-coordinate precision.
+
+
+   .. py:property:: basis_precision
+
+      Return the cell-basis precision.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Return the expanded standard-setting sites.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Return dummy species names in expanded site order.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Return the periodic directions.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int
+
+
+      Return the number of periodic directions.
+
+
+   .. py:property:: nsites
+      :type: int
+
+
+      Return the number of expanded sites.
+
+
+   .. py:method:: cartesian_sites()
+
+      Return the exact Cartesian expanded site positions.
+
+
+
+   .. py:method:: multiplicities()
+
+      Return the standard-setting multiplicity for each Wyckoff site.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the number of sites in the conventional cell.
+
+
+   .. py:property:: prototype
+      :type: Self
+
+
+      Return this prototype value.
+
+
+.. py:class:: AnonymousStructureViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.prototype.backend.AnonymousStructureBackend`\ ]
+
+
+   Base class for views presenting anonymous-structure backends.
+
+
