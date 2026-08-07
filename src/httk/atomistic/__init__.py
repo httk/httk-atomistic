@@ -106,6 +106,17 @@ from httk.atomistic.models.formula.like import ChemicalFormulaLike
 from httk.atomistic.models.formula.plain import PlainComposition
 from httk.atomistic.models.formula.record import RecordComposition
 from httk.atomistic.models.formula.structure import StructureComposition
+
+# Prototype imports follow both structure and formula imports: the prototype-to-formula
+# bridge and adapter deliberately depend on the completed lower-level family registrations.
+from httk.atomistic.models.prototype.anonymous import AnonymousStructure
+from httk.atomistic.models.prototype.anonymous_view import AnonymousStructureView
+from httk.atomistic.models.prototype.anonymized import AnonymizedStructure
+from httk.atomistic.models.prototype.backend import AnonymousStructureBackend
+from httk.atomistic.models.prototype.like import AnonymousStructureLike
+from httk.atomistic.models.prototype.prototype import Prototype
+from httk.atomistic.models.prototype.prototype_view import PrototypeView
+from httk.atomistic.models.formula.prototype import PrototypeComposition
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
 from httk.atomistic.symmetry.setting_transform import SettingTransform
@@ -137,10 +148,12 @@ from .reduction import (
 ChemicalFormulaBackend.backend_classes = [
     RecordComposition,
     StructureComposition,
+    PrototypeComposition,
     PlainComposition,
     FormulaString,
     AnonymousFormulaString,
 ]
+AnonymousStructureBackend.backend_classes = [AnonymizedStructure]
 register_coercer(view_class_coercer([ChemicalFormulaView, AnonymousFormulaView, CompositionView]), Any)
 StructureBackend.backend_classes = [
     RecordStructure,
@@ -179,6 +192,9 @@ __all__ = [
     "AffineOperation",
     "AnonymousFormula",
     "AnonymousFormulaView",
+    "AnonymousStructure",
+    "AnonymousStructureLike",
+    "AnonymousStructureView",
     "Assembly",
     "CartesianSiteMoments",
     "CartesianSiteMomentsView",
@@ -212,6 +228,8 @@ __all__ = [
     "PlainTrajectory",
     "PlaneWaveFunctions",
     "PrimitiveCellResult",
+    "Prototype",
+    "PrototypeView",
     "PymatgenStructure",
     "PymatgenStructureProtocol",
     "RecordTrajectory",

@@ -27,7 +27,14 @@ class AnonymousFormulaView(ChemicalFormulaViewBase, AnonymousFormula):
                 text = str(backend)
                 coefficients = backend._coefficients
             else:
-                coefficients = tuple((label, int(count)) for label, count in backend.amounts)
+                amounts = backend.amounts
+                if not amounts:
+                    raise ValueError("an empty composition cannot yield an anonymous formula")
+                reduced = cast(
+                    tuple[int, ...],
+                    reduced_coefficients(tuple(value for _, value in amounts)),
+                )
+                coefficients = tuple((label, count) for (label, _), count in zip(amounts, reduced))
                 text = render_anonymous(tuple(count for _, count in coefficients))
         else:
             if not backend.complete:
