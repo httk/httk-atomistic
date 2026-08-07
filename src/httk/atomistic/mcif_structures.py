@@ -19,7 +19,12 @@ __all__ = ["symops_structures_from_mcif"]
 
 
 def symops_structures_from_mcif(payload: Mapping[str, Any]) -> list[SymopsStructure | ModulatedStructure]:
-    """Build one magnetic structure per block in a neutral mCIF payload."""
+    """Build one magnetic structure per block in a neutral mCIF payload.
+
+    :param payload: The loaded whole-mCIF payload or one loaded mCIF block.
+    :return: One symmetry-operations or modulated structure for each data block.
+    :raises ValueError: If a block has invalid format, moments, or magnetic symmetry operations.
+    """
     blocks = payload.get("blocks")
     if blocks is None:
         return [_structure_from_mcif_block(payload, "mcif block")]

@@ -22,16 +22,19 @@ class CellAPI(ABC):
     @property
     @abstractmethod
     def basis(self) -> SurdVector:
+        """Return the scaled lattice vectors."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def scale(self) -> SurdScalar:
+        """Return the positive factor applied to ``unscaled_basis``."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def unscaled_basis(self) -> SurdVector:
+        """Return the lattice vectors before applying ``scale``."""
         raise NotImplementedError
 
     @property
@@ -40,6 +43,8 @@ class CellAPI(ABC):
 
         A backend that knows its source's precision overrides this; one that does not — a
         bare matrix of numbers with no provenance — inherits ``None``.
+
+        :return: The absolute basis precision, or ``None`` when it is unknown.
         """
         return None
 
@@ -50,5 +55,7 @@ class CellAPI(ABC):
         A backend that knows its periodicity overrides this; one that does not inherit
         ``(True, True, True)``. A cell described only by six lattice parameters or a bare
         matrix is interpreted as a fully periodic crystal.
+
+        :return: Flags identifying the periodic basis rows.
         """
         return (True, True, True)

@@ -1,4 +1,4 @@
-"""The abstract base class for trajectory backends."""
+"""Define the abstract base class for trajectory backends."""
 
 from typing import Any, ClassVar
 
@@ -8,6 +8,6 @@ from httk.atomistic.models.trajectory.api import TrajectoryAPI
 
 
 class TrajectoryBackend(Backend["TrajectoryBackend"], TrajectoryAPI):
-    """Base class for all trajectory representations."""
+    """Define the backend base for all trajectory representations."""
 
     backend_classes: ClassVar[list[type[Backend[Any]]]] = []

@@ -22,23 +22,35 @@ from httk.atomistic.models.structure.unitcell import UnitcellStructure
 
 @runtime_checkable
 class ASEAtomsProtocol(Protocol):
-    """The minimal method surface needed to treat an object as ASE ``Atoms``.
+    """Describe the minimal method surface needed to read ASE ``Atoms``.
 
     This is a runtime-checkable, duck-typed protocol. ASE is not required: any object
     providing these four methods qualifies for :class:`ASEAtoms`.
     """
 
     def get_cell(self) -> Any:
-        """Return the cell vectors as rows."""
+        """Return the cell vectors as rows.
+
+        :return: The native cell rows.
+        """
 
     def get_scaled_positions(self) -> Any:
-        """Return the reduced positions."""
+        """Return the reduced positions.
+
+        :return: One reduced coordinate row per site.
+        """
 
     def get_atomic_numbers(self) -> Any:
-        """Return one atomic number per site."""
+        """Return one atomic number per site.
+
+        :return: The atomic numbers.
+        """
 
     def get_pbc(self) -> Any:
-        """Return one periodicity flag per cell row."""
+        """Return one periodicity flag per cell row.
+
+        :return: The periodicity flags.
+        """
 
 
 def _float_rows(values: Any) -> list[list[float]]:
@@ -106,10 +118,16 @@ def _charge_species(symbols: tuple[str, ...], obj: Any) -> tuple[tuple[Species, 
 
 
 class ASEAtoms(StructureBackend):
-    """Backend for ASE ``Atoms`` and compatible duck-typed objects.
+    r"""Import ASE ``Atoms`` and compatible duck-typed objects.
 
     Conversion is eager because reading the four methods and normalizing their values is
     real work. The original object remains available through :meth:`unwrap`.
+
+    Initial magnetic moments become site moments and nonzero initial charges become
+    charged single-element species. All-zero ASE defaults remain unstated.
+
+    :param obj: An ASE ``Atoms`` object or compatible duck-typed object.
+    :param \**hints: Backend-selection hints.
     """
 
     _raw: Any
@@ -143,31 +161,31 @@ class ASEAtoms(StructureBackend):
 
     @property
     def cell(self) -> Cell:
-        """The exact cell converted from the native cell rows."""
+        """Return the exact cell converted from native cell rows."""
         return self._structure.cell
 
     @property
     def sites(self) -> Sites:
-        """The exact reduced coordinates converted from the native positions."""
+        """Return the exact reduced coordinates converted from native positions."""
         return self._structure.sites
 
     @property
     def species(self) -> tuple[Species, ...]:
-        """The distinct single-element species in first-appearance order."""
+        """Return distinct single-element species in first-appearance order."""
         return self._structure.species
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
-        """The species name occupying each site."""
+        """Return the species name occupying each site."""
         return self._structure.species_at_sites
 
     @property
     def site_moments(self) -> Any:
-        """The optional per-site moments; absent and all-zero ASE defaults are indistinguishable."""
+        """Return per-site moments, or ``None`` for absent and all-zero ASE defaults."""
         return self._structure.site_moments
 
     def unwrap(self) -> Any:
-        """Return the original Atoms-like object."""
+        """Return the original ``Atoms``-like object."""
         return self._raw
 
 

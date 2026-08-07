@@ -16,11 +16,14 @@ from httk.atomistic.models.cell.view_base import CellViewBase
 
 
 class CellView(CellViewBase, Cell):
-    """
+    r"""
     A view presenting an underlying cell backend as a ``Cell``.
 
     This view is a genuine ``Cell``, so it can be passed anywhere a Cell is accepted.
     Its state is built lazily on first access from the backend.
+
+    :param obj: The cell-like object to present.
+    :param \**hints: Backend-selection hints.
     """
 
     _backend: CellBackend
@@ -90,9 +93,17 @@ class CellView(CellViewBase, Cell):
         return self.__dict__["_periodicity"]
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> Cell:
+        """Return this presentation as a standalone cell.
+
+        :return: The exact cell representation.
+        """
         # The folded design makes a genuine Cell backend exactly the presented value: reuse it.
         backend = self._backend
         if type(backend) is Cell:

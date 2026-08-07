@@ -39,7 +39,10 @@ _PROBE_PARAMETERS = (
 
 
 class Spacegroup:
-    """A tabulated space-group setting, built from the vendored symmetry data."""
+    """Represent a tabulated space-group setting from the vendored symmetry data.
+
+    :param record: The vendored record describing one space-group setting.
+    """
 
     _record: dict[str, Any]
 
@@ -50,98 +53,157 @@ class Spacegroup:
 
     @classmethod
     def standard(cls, it_number: int) -> Self:
-        """The IT standard (reference) setting for a space-group number."""
+        """Return the IT standard setting for a space-group number.
+
+        :param it_number: The International Tables space-group number.
+        :return: The IT standard setting for ``it_number``.
+        """
         return cls(data.standard_spacegroup_setting(it_number))
 
     @classmethod
     def for_hall_entry(cls, hall_entry: str) -> Self:
-        """The setting named by a normalized Hall symbol, e.g. ``"-c_2yc"``."""
+        """Return the setting named by a normalized Hall symbol.
+
+        For example, ``"-c_2yc"`` names one setting.
+
+        :param hall_entry: The normalized Hall symbol naming the setting.
+        :return: The corresponding space-group setting.
+        """
         return cls(data.spacegroup_setting(hall_entry=hall_entry))
 
     @classmethod
     def for_setting(cls, setting_it_nc: str) -> Self:
-        """The setting named by IT number and coordinate-system code, e.g. ``"15:c1"``."""
+        """Return the setting named by an IT number and coordinate-system code.
+
+        For example, ``"15:c1"`` names one setting.
+
+        :param setting_it_nc: The IT setting identifier.
+        :return: The corresponding space-group setting.
+        """
         return cls(data.spacegroup_setting(setting_it_nc=setting_it_nc))
 
     @classmethod
     def for_hm_entry(cls, hm_entry: str) -> Self:
-        """The setting named by its Hermann-Mauguin entry, e.g. ``"C 1 2/c 1"``."""
+        """Return the setting named by a Hermann-Mauguin entry.
+
+        For example, ``"C 1 2/c 1"`` names one setting.
+
+        :param hm_entry: The Hermann-Mauguin symbol naming the setting.
+        :return: The corresponding space-group setting.
+        """
         return cls(data.spacegroup_setting(hm_entry=hm_entry))
 
     # --- identity ---
 
     @property
     def record(self) -> dict[str, Any]:
-        """The raw vendored record, for fields this class does not model."""
+        """Return the raw vendored record for fields this class does not model.
+
+        :return: The source record for this setting.
+        """
         return self._record
 
     @property
     def it_number(self) -> int:
-        """The International Tables space-group number, 1 to 230."""
+        """Return the International Tables space-group number.
+
+        :return: The space-group number from 1 through 230.
+        """
         return self._record["it_number"]
 
     @property
     def setting(self) -> str:
-        """The setting name — IT number plus coordinate-system code, e.g. ``"15:c1"``."""
+        """Return the setting name, such as ``"15:c1"``.
+
+        :return: The IT number and coordinate-system code.
+        """
         return self._record["setting_it_nc"]
 
     @property
     def hall_entry(self) -> str:
-        """The normalized Hall symbol, which names the setting unambiguously."""
+        """Return the normalized Hall symbol naming the setting unambiguously.
+
+        :return: The normalized Hall symbol.
+        """
         return self._record["hall_entry"]
 
     @property
     def hall_symbol(self) -> str:
-        """The Hall symbol as conventionally written."""
+        """Return the Hall symbol as conventionally written.
+
+        :return: The conventional Hall symbol.
+        """
         return self._record["hall"]
 
     @property
     def hermann_mauguin(self) -> str:
-        """The short Hermann-Mauguin symbol for this setting."""
+        """Return the short Hermann-Mauguin symbol for this setting.
+
+        :return: The short Hermann-Mauguin symbol.
+        """
         return self._record["hm_short"]
 
     @property
     def hermann_mauguin_full(self) -> str:
-        """The full Hermann-Mauguin symbol for this setting."""
+        """Return the full Hermann-Mauguin symbol for this setting.
+
+        :return: The full Hermann-Mauguin symbol.
+        """
         return self._record["hm_full"]
 
     @property
     def crystal_system(self) -> str:
-        """The crystal system, e.g. ``"monoclinic"``."""
+        """Return the crystal system, such as ``"monoclinic"``.
+
+        :return: The crystal-system name.
+        """
         return self._record["crystal_system"]
 
     @property
     def centring_type(self) -> str:
-        """The lattice centring letter, e.g. ``"P"``, ``"C"``, ``"F"``."""
+        """Return the lattice centring letter, such as ``"P"``, ``"C"``, or ``"F"``.
+
+        :return: The centring letter.
+        """
         return self._record["centring_type"]
 
     @property
     def is_standard_setting(self) -> bool:
-        """Whether this is the IT standard (reference) setting for its space-group number."""
+        """Report whether this is the IT standard setting for its space-group number.
+
+        :return: Whether this setting is the IT reference setting.
+        """
         return bool(self._record["is_reference_setting"])
 
     # --- symmetry ---
 
     @cached_property
     def symmetry_operations(self) -> tuple[AffineOperation, ...]:
-        """Every symmetry operation of the group, in this setting's coordinates.
+        """Return every symmetry operation of the group in this setting's coordinates.
 
         The full set with centring translations already folded in, so its length is the
         group order and no separate centring pass is needed.
+
+        :return: The complete tuple of symmetry operations.
         """
         return tuple(AffineOperation.from_record(entry) for entry in self._record["symops"])
 
     @cached_property
     def centering_translations(self) -> tuple[FracVector, ...]:
-        """The lattice centring translations, including the zero translation."""
+        """Return the lattice centring translations, including zero.
+
+        :return: The centring translations in this setting.
+        """
         return tuple(FracVector.create(entry) for entry in self._record["centering_translations"])
 
     @cached_property
     def wyckoff(self) -> tuple[WyckoffPosition, ...]:
-        """The Wyckoff positions, ordered most specific first.
+        """Return the Wyckoff positions ordered most specific first.
 
         Sorted by ``(free_count, multiplicity, letter)``, so identifying a coordinate by
         walking this order returns the most specific position it lies on.
+
+        :return: The ordered Wyckoff positions for this setting.
         """
         return wyckoff_positions(self._record)
 
@@ -150,7 +212,14 @@ class Spacegroup:
         return {position.letter: position for position in self.wyckoff}
 
     def wyckoff_position(self, letter: str) -> WyckoffPosition:
-        """The Wyckoff position with the given letter, e.g. ``"e"``."""
+        """Return the Wyckoff position with the given letter.
+
+        For example, ``"e"`` selects the position with letter ``e``.
+
+        :param letter: The bare Wyckoff letter.
+        :return: The matching Wyckoff position.
+        :raises KeyError: If this setting has no position with ``letter``.
+        """
         try:
             return self._wyckoff_by_letter[letter]
         except KeyError:
@@ -158,13 +227,17 @@ class Spacegroup:
             raise KeyError(f"space group {self.setting} has no Wyckoff letter {letter!r}; has {available}") from None
 
     def identify_wyckoff(self, coordinate: Any) -> tuple[WyckoffPosition, FracVector] | None:
-        """The most specific Wyckoff position holding an exact coordinate, and its parameters.
+        """Identify the most specific Wyckoff position holding an exact coordinate.
 
         Returns ``None`` when the coordinate lies on no position, which for a complete
         table means the input was not an exact rational site of this group. Matching is
         exact: an approximate coordinate must be snapped first (see
         :class:`~httk.atomistic.ASUStructure`'s recognition path), never passed here in
         the hope that it lands.
+
+        :param coordinate: The exact reduced coordinate to identify.
+        :return: The matching position and free parameters, or ``None`` when no position
+            matches exactly.
         """
         for position in self.wyckoff:
             parameters = position.parameters_of(coordinate)
@@ -176,14 +249,19 @@ class Spacegroup:
 
     @cached_property
     def transform_from_standard(self) -> SettingTransform:
-        """The change of basis taking the IT standard setting's coordinates into this one.
+        """Return the change of basis from the IT standard setting to this one.
 
         The identity exactly when this *is* the standard setting.
+
+        :return: The stored standard-to-own setting transform.
         """
         return SettingTransform.for_hall_entry(self.hall_entry)
 
     def standard_setting(self) -> "Spacegroup":
-        """The IT standard setting for this space-group number."""
+        """Return the IT standard setting for this space-group number.
+
+        :return: The IT standard setting.
+        """
         if self.is_standard_setting:
             return self
         return Spacegroup.standard(self.it_number)
@@ -203,7 +281,7 @@ class Spacegroup:
 
 
 def wyckoff_letter_map(standard: Spacegroup, target: Spacegroup) -> dict[str, str]:
-    """How Wyckoff letters of the standard setting name themselves in another setting.
+    """Map standard-setting Wyckoff letters to their names in another setting.
 
     Almost always the identity — but not always, and the exception is silent. Across all
     3210 non-reference ``(setting, letter)`` pairs in the vendored tables, exactly one
@@ -215,6 +293,12 @@ def wyckoff_letter_map(standard: Spacegroup, target: Spacegroup) -> dict[str, st
     Computed rather than hard-coded, so it survives a data refresh: each standard position
     is evaluated at generic parameters, mapped through the setting transform, and
     identified in the target's own Wyckoff table.
+
+    :param standard: The IT standard setting whose letters are being mapped.
+    :param target: The setting receiving the mapped letters.
+    :return: A mapping from standard-setting letters to target-setting letters.
+    :raises ValueError: If the settings belong to different space groups or the mapping is
+        not bijective.
     """
     if standard.it_number != target.it_number:
         raise ValueError(

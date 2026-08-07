@@ -12,8 +12,7 @@ from httk.atomistic.models.species.species import Species
 
 
 class StructureAPI(ABC):
-    """
-    Abstract base class for the canonical structure interface.
+    """Define the canonical structure interface.
 
     It declares the Unitcell quartet that every structure backend produces from its
     own native representation and every structure view builds its presentation
@@ -24,36 +23,44 @@ class StructureAPI(ABC):
     @property
     @abstractmethod
     def cell(self) -> Cell:
+        """Expose the structure's cell."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def sites(self) -> Sites:
+        """Expose the structure's site coordinates."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def species(self) -> tuple[Species, ...]:
+        """Expose the structure's distinct species."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def species_at_sites(self) -> tuple[str, ...]:
+        """Expose the species occupying each site."""
         raise NotImplementedError
 
     @property
     def charge(self) -> Fraction | None:
-        """Explicitly assigned net charge number of the structure's cell content.
+        """Expose the explicitly assigned net charge of the cell content.
 
         ``None`` means unstated and is never derived from the species; it is distinct
         from an explicit zero.
+
+        :return: The assigned charge, or ``None`` when it is unstated.
         """
         return None
 
     @property
     def site_moments(self) -> SiteMomentsBackend | None:
-        """Optional per-site magnetic moments, one entry per site in ``sites`` order.
+        """Expose optional per-site magnetic moments in ``sites`` order.
 
         ``None`` means "nothing stated", not "zero moments".
+
+        :return: The site moments, or ``None`` when they are unstated.
         """
         return None

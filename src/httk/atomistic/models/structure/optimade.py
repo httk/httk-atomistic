@@ -90,11 +90,18 @@ def _is_definition_iri(value: object) -> bool:
 
 @dataclass(frozen=True, init=False)
 class OptimadeStructure(StructureBackend):
-    """A structure backend whose exact source is an :class:`~httk.core.optimade.OptimadeResource`.
+    """Represent an OPTIMADE structure resource as a lazy structure backend.
 
     Construction merely retains the resource.  The canonical structure quartet
     is decoded one component at a time, so an incomplete remote resource is
     still storable, inspectable, and round-trippable.
+
+    OPTIMADE dictionaries are presented through exact local values and converted to
+    floats only at presentation boundaries. Species dictionaries may retain the
+    ``_httk_charges``, ``_httk_spins``, and ``_httk_labels`` extensions.
+
+    :param obj: The OPTIMADE resource to retain.
+    :param \\*\\*hints: Backend-selection hints, including optional ``resource`` or ``kind``.
     """
 
     resource: OptimadeResource
@@ -119,13 +126,19 @@ class OptimadeStructure(StructureBackend):
         object.__setattr__(self, "resource", resource)
 
     def unwrap(self) -> OptimadeResource:
-        """Return the exact authoritative source resource by identity."""
+        """Return the exact authoritative source resource by identity.
+
+        :return: The original OPTIMADE resource.
+        """
 
         return self.resource
 
     @property
     def raw(self) -> Mapping[str, object]:
-        """The immutable JSON API resource envelope, decoded only on access."""
+        """Expose the immutable JSON API resource envelope.
+
+        :return: The decoded resource envelope, including source spelling and extensions.
+        """
 
         return cast(Mapping[str, object], self.resource.unwrap())
 
@@ -317,7 +330,11 @@ class OptimadeStructure(StructureBackend):
 
     @cached_property
     def composition(self) -> CompositionResult:
-        """The source-backed composition, retaining implicit/source-only element ratios."""
+        """Project the source-backed composition, retaining implicit or source-only ratios.
+
+        :return: The composition result.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If source composition fields are inconsistent.
+        """
 
         site_result = self._composition_from_sites
         features = self.structure_features or ()
@@ -355,7 +372,10 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def formula(self) -> str | None:
-        """Source-declared reduced formula through the native convenience name."""
+        """Expose the source-declared reduced formula through the native convenience name.
+
+        :return: The reduced formula, or ``None`` when absent.
+        """
 
         return self.chemical_formula_reduced
 
@@ -421,26 +441,45 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def id(self) -> str:
-        """The JSON API resource identifier (not inferred from a remote label)."""
+        """Expose the JSON API resource identifier without inferring it from a remote label.
+
+        :return: The resource identifier.
+        """
 
         return self.resource.id
 
     @stored_property
     def type(self) -> str:
-        """The JSON API resource type identifier (not inferred from a remote label)."""
+        """Expose the JSON API resource type identifier without inferring it from a remote label.
+
+        :return: The resource type.
+        """
 
         return self.resource.type
 
     @stored_property
     def immutable_id(self) -> str | None:
+        """Expose the portable immutable source identifier.
+
+        :return: The identifier, or ``None`` when absent.
+        """
         return cast(str | None, self._portable_value("immutable_id"))
 
     @stored_property
     def last_modified(self) -> datetime.datetime | None:
+        """Expose the portable source modification timestamp.
+
+        :return: The timestamp, or ``None`` when absent.
+        """
         return cast(datetime.datetime | None, self._portable_value("last_modified"))
 
     @stored_property
     def elements(self) -> tuple[str, ...] | None:
+        """Expose the validated portable element symbols.
+
+        :return: Alphabetically ordered element symbols, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If related source composition fields disagree.
+        """
         value = self._portable_value("elements")
         if value is None:
             return None
@@ -475,6 +514,11 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def nelements(self) -> int | None:
+        """Expose the validated portable element count.
+
+        :return: The element count, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If related source composition fields disagree.
+        """
         value = self._portable_value("nelements")
         if value is None:
             return None
@@ -492,6 +536,11 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def elements_ratios(self) -> tuple[Fraction, ...] | None:
+        """Expose exact portable element ratios.
+
+        :return: Non-negative ratios summing to one, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the ratios are invalid or inconsistent.
+        """
         value = self._portable_value("elements_ratios")
         if value is None:
             return None
@@ -652,6 +701,11 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def chemical_formula_descriptive(self) -> str | None:
+        """Expose the validated descriptive chemical formula.
+
+        :return: The descriptive formula, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid.
+        """
         value = self._portable_value("chemical_formula_descriptive")
         try:
             return validate_descriptive_formula(cast(str | None, value))
@@ -662,18 +716,38 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def chemical_formula_reduced(self) -> str | None:
+        """Expose the validated reduced chemical formula.
+
+        :return: The reduced formula, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid or inconsistent.
+        """
         return self._formula("chemical_formula_reduced")
 
     @stored_property
     def chemical_formula_hill(self) -> str | None:
+        """Expose the validated Hill chemical formula.
+
+        :return: The Hill formula, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid or inconsistent.
+        """
         return self._formula("chemical_formula_hill")
 
     @stored_property
     def chemical_formula_anonymous(self) -> str | None:
+        """Expose the validated anonymous chemical formula.
+
+        :return: The anonymous formula, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid or inconsistent.
+        """
         return self._formula("chemical_formula_anonymous")
 
     @stored_property
     def dimension_types(self) -> tuple[int, ...] | None:
+        """Expose portable periodicity flags.
+
+        :return: Three ``0``/``1`` flags, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the flags are invalid or inconsistent.
+        """
         value = self._portable_value("dimension_types")
         if value is None:
             return None
@@ -694,6 +768,11 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def nperiodic_dimensions(self) -> int | None:
+        """Expose the portable periodic-dimension count.
+
+        :return: The count from zero through three, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the count is invalid or inconsistent.
+        """
         value = self._portable_value("nperiodic_dimensions")
         if value is None:
             return None
@@ -710,6 +789,11 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def nsites(self) -> int | None:
+        """Expose the portable site count.
+
+        :return: The non-negative site count, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If related arrays disagree with the count.
+        """
         value = self._portable_value("nsites")
         if value is None:
             return None
@@ -729,6 +813,11 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def structure_features(self) -> tuple[str, ...] | None:
+        """Expose validated OPTIMADE structure-feature flags.
+
+        :return: Canonically ordered feature flags, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If flags are invalid or inconsistent.
+        """
         value = self._portable_value("structure_features")
         if value is None:
             return None
@@ -765,6 +854,11 @@ class OptimadeStructure(StructureBackend):
 
     @cached_property
     def lattice_vectors(self) -> tuple[tuple[Fraction, Fraction, Fraction] | None, ...] | None:
+        """Expose exact lattice vectors from the OPTIMADE source.
+
+        :return: Three vectors, with ``None`` for non-periodic directions, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If vectors conflict with periodicity.
+        """
         value = self._decoded_optional("lattice_vectors")
         if value is None:
             return None
@@ -842,14 +936,29 @@ class OptimadeStructure(StructureBackend):
 
     @cached_property
     def fractional_site_positions(self) -> tuple[tuple[Fraction, Fraction, Fraction], ...] | None:
+        """Expose exact fractional site positions.
+
+        :return: Fractional positions, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If supplied coordinate arrays disagree.
+        """
         return self._coordinate_arrays[0]
 
     @cached_property
     def cartesian_site_positions(self) -> tuple[tuple[Fraction, Fraction, Fraction], ...] | None:
+        """Expose exact Cartesian site positions.
+
+        :return: Cartesian positions, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If supplied coordinate arrays disagree.
+        """
         return self._coordinate_arrays[1]
 
     @stored_property
     def site_coordinate_span(self) -> str:
+        """Expose the source coordinate span.
+
+        :return: The OPTIMADE coordinate-span value, defaulting to ``"unit_cell"``.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the span is invalid or lacks required symmetry.
+        """
         value = self._decoded_optional("site_coordinate_span")
         if value is None:
             return "unit_cell"
@@ -874,6 +983,11 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def site_coordinate_span_description(self) -> str | None:
+        """Expose the description for an ``"other"`` coordinate span.
+
+        :return: The span description, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If a description is invalid or used for another span.
+        """
         value = self._decoded_optional("site_coordinate_span_description")
         if value is None:
             return None
@@ -889,12 +1003,19 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def molecular(self) -> bool:
-        """Whether the native unit-cell projection carries molecular placement."""
+        """Expose whether the native unit-cell projection carries molecular placement.
+
+        :return: Whether the coordinate span is ``"molecular_unit_cell"``.
+        """
 
         return self.site_coordinate_span == "molecular_unit_cell"
 
     @stored_property
     def coordinate_precision(self) -> Fraction | None:
+        """Expose the source precision for reduced coordinates.
+
+        :return: The fractional precision, or ``None`` when unavailable.
+        """
         value = self._precision("_httk_coordinate_precision", component="sites")
         if value is not _MISSING:
             return Fraction(cast(Decimal | int, value))
@@ -903,6 +1024,10 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def basis_precision(self) -> Fraction | None:
+        """Expose the source precision for lattice vectors.
+
+        :return: The basis precision, or ``None`` when unavailable.
+        """
         value = self._precision("_httk_basis_precision", component="cell")
         if value is not _MISSING:
             return Fraction(cast(Decimal | int, value))
@@ -911,6 +1036,11 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def site_moments(self) -> CartesianSiteMoments | None:
+        """Expose source Cartesian site moments.
+
+        :return: Cartesian moments, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If moment rows are invalid or cannot be aligned to sites.
+        """
         raw = self._raw_site_moments()
         if raw is _MISSING or raw is None:
             return None
@@ -925,7 +1055,11 @@ class OptimadeStructure(StructureBackend):
 
     @cached_property
     def symmetry(self) -> StructureSymmetry:
-        """Typed source symmetry metadata used by the common unit-cell view layer."""
+        """Build typed source symmetry metadata for the common unit-cell view layer.
+
+        :return: Validated symmetry metadata.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If supplied symmetry fields are inconsistent.
+        """
 
         try:
             return StructureSymmetry(
@@ -952,6 +1086,11 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def optimization_type(self) -> str | None:
+        """Expose the source optimization provenance.
+
+        :return: The normalized optimization type, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source value is not a string.
+        """
         value = self._decoded_optional("optimization_type")
         if value is None:
             return None
@@ -965,6 +1104,11 @@ class OptimadeStructure(StructureBackend):
 
     @cached_property
     def assemblies(self) -> tuple[Assembly, ...] | None:
+        """Expose validated source site assemblies.
+
+        :return: Assemblies, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If assemblies are invalid or inconsistent.
+        """
         raw = self._raw_optional("assemblies")
         if raw is _MISSING or raw is None:
             return None
@@ -1099,30 +1243,60 @@ class OptimadeStructure(StructureBackend):
 
     @stored_property
     def space_group_symbol_hall(self) -> str | None:
+        """Expose the source Hall space-group symbol.
+
+        :return: The symbol, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the symbol conflicts with source symmetry.
+        """
         return self._symmetry_string("space_group_symbol_hall")
 
     @stored_property
     def space_group_symbol_hermann_mauguin(self) -> str | None:
+        """Expose the source short Hermann–Mauguin symbol.
+
+        :return: The symbol, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the symbol conflicts with source symmetry.
+        """
         return self._symmetry_string("space_group_symbol_hermann_mauguin")
 
     @stored_property
     def space_group_symbol_hermann_mauguin_extended(self) -> str | None:
+        """Expose the source extended Hermann–Mauguin symbol.
+
+        :return: The symbol, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the symbol conflicts with source symmetry.
+        """
         return self._symmetry_string("space_group_symbol_hermann_mauguin_extended")
 
     @stored_property
     def space_group_it_number(self) -> int | None:
+        """Expose the source International Tables space-group number.
+
+        :return: The number, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the number conflicts with source symmetry.
+        """
         value = self._space_group_it_number_value()
         _ = self.symmetry
         return value
 
     @stored_property
     def space_group_symmetry_operations_xyz(self) -> tuple[str, ...] | None:
+        """Expose the declared raw ``xyz`` symmetry-operation strings.
+
+        :return: The source operation strings, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If operations are invalid or inconsistent.
+        """
         value = self._space_group_operations_value()
         _ = self.symmetry
         return value
 
     @stored_property
     def wyckoff_positions(self) -> tuple[str, ...] | None:
+        """Expose source Wyckoff letters aligned with the represented sites.
+
+        :return: Wyckoff letters, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If letters are invalid or misaligned.
+        """
         value = self._wyckoff_positions_value()
         _ = self.symmetry
         return value
@@ -1155,6 +1329,11 @@ class OptimadeStructure(StructureBackend):
 
     @property
     def cell(self) -> Cell:
+        """Expose the projected exact cell.
+
+        :return: The native cell projection.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source cannot project a unit cell.
+        """
         return self._cell
 
     @cached_property
@@ -1188,6 +1367,11 @@ class OptimadeStructure(StructureBackend):
 
     @property
     def sites(self) -> Sites:
+        """Expose the projected exact sites.
+
+        :return: The native site projection.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source cannot project site coordinates.
+        """
         return self._sites
 
     @cached_property
@@ -1221,6 +1405,11 @@ class OptimadeStructure(StructureBackend):
 
     @property
     def species(self) -> tuple[Species, ...]:
+        """Expose decoded species definitions.
+
+        :return: Distinct species definitions.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If source species dictionaries are invalid.
+        """
         return self._decoded_species
 
     @cached_property
@@ -1252,10 +1441,20 @@ class OptimadeStructure(StructureBackend):
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Expose decoded species names for each site.
+
+        :return: Site species names in site order.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If names do not align with source sites.
+        """
         return self._species_at_sites
 
     @property
     def charge(self) -> Fraction | None:
+        """Expose the private exact charge extension.
+
+        :return: The assigned charge, or ``None`` when absent.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source charge is not numeric.
+        """
         attributes = self.raw.get("attributes")
         if not isinstance(attributes, Mapping):
             return None

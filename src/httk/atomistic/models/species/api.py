@@ -33,6 +33,8 @@ class SpeciesAPI(ABC):
         A ``None`` element means the charge of that constituent is unstated; whole-
         ``None`` means no constituent charges are stated. Values use elementary-charge
         units, for example a formal oxidation state.
+
+        :return: The constituent charges, or ``None`` when unstated.
         """
         return None
 
@@ -43,6 +45,8 @@ class SpeciesAPI(ABC):
         A ``None`` element means the spin of that constituent is unstated; whole-``None``
         means no constituent spins are stated. This is distinct from a calculated site
         magnetic moment.
+
+        :return: The constituent spins, or ``None`` when unstated.
         """
         return None
 
@@ -52,6 +56,8 @@ class SpeciesAPI(ABC):
 
         A ``None`` element means that constituent has no stated label; whole-``None``
         means no constituent labels are stated.
+
+        :return: The constituent labels, or ``None`` when unstated.
         """
         return None
 

@@ -30,6 +30,9 @@ class Sites(SitesBackend):
     reduced deterministically through the vector family's ``fractions`` hub (never raising on data);
     the exact Cartesian frame — where radicals belong — is obtained instead via
     :meth:`~httk.atomistic.UnitcellStructure.cartesian_sites`.
+
+    :param reduced_coords: The reduced coordinates, one site per row.
+    :param precision: The fractional precision carried from the source, if known.
     """
 
     _reduced_coords: FracVector
@@ -48,12 +51,25 @@ class Sites(SitesBackend):
         return self._reduced_coords
 
     def __len__(self) -> int:
+        """Return the number of sites.
+
+        :return: The number of coordinate rows.
+        """
         return len(self._reduced_coords)
 
     def __iter__(self) -> Iterator[FracVector]:
+        """Iterate over the reduced-coordinate rows.
+
+        :return: An iterator over the coordinate rows.
+        """
         return iter(self._reduced_coords)
 
     def __getitem__(self, index: int) -> FracVector:
+        """Return one reduced-coordinate row.
+
+        :param index: The row index.
+        :return: The selected coordinate row.
+        """
         return self._reduced_coords[index]
 
     @property
@@ -68,11 +84,17 @@ class Sites(SitesBackend):
 
         It is the *coarsest* precision among the coordinates, since a structure is only as
         precisely stated as its least precisely stated number. ``None`` means unknown.
+
+        :return: The fractional precision, or ``None`` when unknown.
         """
         return self._precision
 
     def numeric(self) -> "NumericSites":
-        """A plain-numpy presentation of these sites (requires the ``httk-atomistic[numpy]`` extra)."""
+        """Return a plain-numpy presentation of these sites.
+
+        :return: The numpy-backed presentation.
+        :raises ImportError: If numpy is unavailable.
+        """
         from httk.atomistic.models.sites.numeric import NumericSites
 
         return NumericSites(self)
@@ -82,6 +104,9 @@ class Sites(SitesBackend):
 
         The stated ``precision`` does not take part: the same coordinates recorded from a
         more carefully written file are still the same coordinates.
+
+        :param other: The object to compare with.
+        :return: Whether the coordinate values match.
         """
         if not isinstance(other, Sites):
             return NotImplemented

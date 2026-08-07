@@ -1,3 +1,5 @@
+"""Expose optional ASE structure integrations."""
+
 from .models import ASEAtoms, ASEAtomsProtocol
 
 __all__ = ["ASEAtoms", "ASEAtomsProtocol"]

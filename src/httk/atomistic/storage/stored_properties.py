@@ -906,7 +906,10 @@ def _common_queries(
 
 
 def unitcell_structure_properties() -> Mapping[str, StoredPropertyProjection]:
-    """Return the declaration map for :class:`httk.atomistic.UnitcellStructureRecord`."""
+    """Build the stored-property declarations for unit-cell records.
+
+    :return: The property declaration map for unit-cell structure records.
+    """
     projections = _base_projections("unitcell")
     _common_queries(
         projections,
@@ -958,19 +961,31 @@ def _domain_structure_properties(*, asymmetric_unit: bool) -> Mapping[str, Store
 
 
 def fundamental_domain_structure_properties() -> Mapping[str, StoredPropertyProjection]:
-    """Return the declaration map for fundamental-domain backings."""
+    """Build the stored-property declarations for fundamental-domain records.
+
+    :return: The property declaration map for fundamental-domain records.
+    """
     return _domain_structure_properties(asymmetric_unit=False)
 
 
 def asymmetric_unit_structure_properties() -> Mapping[str, StoredPropertyProjection]:
-    """Return the declaration map for asymmetric-unit backings."""
+    """Build the stored-property declarations for asymmetric-unit records.
+
+    :return: The property declaration map for asymmetric-unit records.
+    """
     return _domain_structure_properties(asymmetric_unit=True)
 
 
 def attach_structure_property_projections(
     unitcell: type[Any], fundamental_domain: type[Any], asymmetric_unit: type[Any]
 ) -> None:
-    """Attach exact-class declaration maps without importing a storage capability module."""
+    """Attach exact-class property declarations to structure record classes.
+
+    :param unitcell: The unit-cell record class to receive its declarations.
+    :param fundamental_domain: The fundamental-domain record class to receive its declarations.
+    :param asymmetric_unit: The asymmetric-unit record class to receive its declarations.
+    :return: ``None`` after attaching the declaration maps.
+    """
     unitcell.__httk_stored_properties__ = unitcell_structure_properties()
     fundamental_domain.__httk_stored_properties__ = fundamental_domain_structure_properties()
     asymmetric_unit.__httk_stored_properties__ = asymmetric_unit_structure_properties()

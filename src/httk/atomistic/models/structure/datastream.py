@@ -20,11 +20,16 @@ from httk.atomistic.models.structure.backend import StructureBackend
 
 
 class DatastreamStructure(StructureBackend):
-    """A structure source parsed only when its data is first accessed.
+    """Represent a structure source parsed only when its data is first accessed.
 
     Requests are intentionally reader-only: an OPTIMADE-shaped Request is declined so
     its headers are never lost by replacing it with ``fetch(url)``. Open streams are
     one-shot sources; a failed parse is not cached, but consumed data cannot be replayed.
+    Network URL strings require core network consent; wrapping a URL in
+    :class:`~httk.core.DatastreamURL` supplies that consent explicitly.
+
+    :param obj: A path, URL, stream, request, or core datastream source.
+    :param \\*\\*hints: Backend-selection and reader-name hints.
     """
 
     kind: ClassVar[str] = "datastream"
@@ -176,31 +181,58 @@ class DatastreamStructure(StructureBackend):
         return parsed
 
     def resolve(self) -> StructureBackend:
-        """Return the memoized native structure, resolving this source on demand."""
+        """Resolve and return the memoized native structure.
+
+        :return: The parsed native structure.
+        """
         return self._native()
 
     @property
     def cell(self) -> Cell:
+        """Expose the source structure's cell.
+
+        :return: The resolved cell.
+        """
         return self.resolve().cell
 
     @property
     def sites(self) -> Sites:
+        """Expose the source structure's sites.
+
+        :return: The resolved sites.
+        """
         return self.resolve().sites
 
     @property
     def species(self) -> tuple[Species, ...]:
+        """Expose the source structure's species.
+
+        :return: The resolved distinct species.
+        """
         return self.resolve().species
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Expose the species occupying each resolved site.
+
+        :return: Site species names in site order.
+        """
         return self.resolve().species_at_sites
 
     @property
     def site_moments(self) -> SiteMomentsBackend | None:
+        """Expose optional moments from the resolved structure.
+
+        :return: Site moments, or ``None`` when they are unstated.
+        """
         return self.resolve().site_moments
 
     @property
     def charge(self) -> Any:
+        """Expose the resolved structure's assigned charge.
+
+        :return: The assigned charge, or ``None`` when it is unstated.
+        """
         return self.resolve().charge
 
     def __getattr__(self, name: str) -> Any:
@@ -209,4 +241,8 @@ class DatastreamStructure(StructureBackend):
         return getattr(self.resolve(), name)
 
     def unwrap(self) -> Any:
+        """Return the original lazy source.
+
+        :return: The path, URL, request, or stream supplied at construction.
+        """
         return self._source

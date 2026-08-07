@@ -61,13 +61,16 @@ class Cell(CellBackend):
     regardless of ``a``. A cell built from an absolute basis simply has ``scale == 1``.
 
     Numbers embed exactly: rationals (and rational-valued floats) stay rational, and a
-    :class:`~httk.core.SurdVector` basis keeps its radicals. Derived quantities are exact whenever
-    the geometry is metric-rational (the crystallographic case): ``lengths`` come from
-    :meth:`~httk.core.SurdVector.sqrt_of` of the rational squared row lengths, ``angles`` (degrees)
-    from the exact reverse-Niven :meth:`~httk.core.SurdScalar.acos_degrees` where possible,
-    ``volume`` from the exact determinant, and ``metric`` is the exact rational Gram matrix. When a
-    squared length happens to be irrational, ``lengths``/``angles`` fall back to a deterministic
-    rational approximation (documented per accessor). Exact accessors return vector objects —
+    :class:`~httk.core.SurdVector` basis keeps its radicals. Derived quantities retain exact forms
+    where the underlying operation stays in the supported exact fields, including the usual
+    metric-rational crystallographic case: ``lengths`` use
+    :meth:`~httk.core.SurdVector.sqrt_of` for rational squared row lengths when the rational
+    radicand is a perfect square or stays below the deterministic small-radicand threshold,
+    ``angles`` (degrees) use the exact reverse-Niven :meth:`~httk.core.SurdScalar.acos_degrees`
+    where possible, ``volume`` comes from the exact determinant, and ``metric`` is the exact Gram
+    matrix, which may itself contain surds. For larger rational or irrational squared lengths,
+    ``lengths``/``angles`` fall back to a deterministic rational approximation (documented per
+    accessor). Exact accessors return vector objects —
     render them with ``.to_floats()`` (nested plain-float lists, numpy-free), ``float(...)`` on
     scalars, :meth:`numeric` (true numpy arrays), or a view of your choice.
 
@@ -75,6 +78,11 @@ class Cell(CellBackend):
     directions. Where it is not, the basis stops being purely a lattice and becomes partly a
     *coordinate frame*: see :attr:`periodicity` for what that means and
     :attr:`periodic_measure` for the quantity that replaces :attr:`volume`.
+
+    :param basis: The three cell vectors, one per row.
+    :param scale: The positive factor separated from ``basis``.
+    :param precision: The absolute precision carried from the source, if known.
+    :param periodicity: Flags identifying which basis rows are lattice translations.
     """
 
     _scale: SurdScalar
@@ -124,17 +132,26 @@ class Cell(CellBackend):
 
     @property
     def scale(self) -> SurdScalar:
-        """The overall (strictly positive) length factor, as an exact ``SurdScalar``."""
+        """The overall (strictly positive) length factor.
+
+        :return: The factor applied to ``unscaled_basis``.
+        """
         return self._scale
 
     @property
     def unscaled_basis(self) -> SurdVector:
-        """The 3x3 cell vectors before applying ``scale``, as an exact ``SurdVector``."""
+        """The 3x3 cell vectors before applying ``scale``.
+
+        :return: The unscaled lattice vectors.
+        """
         return self._unscaled_basis
 
     @property
     def basis(self) -> SurdVector:
-        """The 3x3 lattice vectors ``scale * unscaled_basis`` (one vector per row), exact."""
+        """The 3x3 lattice vectors ``scale * unscaled_basis``.
+
+        :return: The scaled lattice vectors.
+        """
         if self._basis_cache is None:
             self._basis_cache = self._scale * self._unscaled_basis
         return self._basis_cache
@@ -150,6 +167,8 @@ class Cell(CellBackend):
 
         ``None`` means unknown, which is not the same as exact. It is what a cell built by
         hand or from a bare matrix reports.
+
+        :return: The absolute precision, or ``None`` when it is unknown.
         """
         return self._precision
 
@@ -168,22 +187,34 @@ class Cell(CellBackend):
         unit vector simply means the coordinate along it *is* a length in the basis's units.
 
         This is the same notion, in the same order, as OPTIMADE's ``dimension_types``.
+
+        :return: Flags identifying the periodic basis rows.
         """
         return self._periodicity
 
     @property
     def nperiodic_dimensions(self) -> int:
-        """How many of the three directions are periodic, from 0 to 3."""
+        """How many of the three directions are periodic.
+
+        :return: The number of periodic directions.
+        """
         return sum(self._periodicity)
 
     def numeric(self) -> "NumericCell":
-        """A plain-numpy presentation of this cell (requires the ``httk-atomistic[numpy]`` extra)."""
+        """Return a plain-numpy presentation of this cell.
+
+        :return: The numpy-backed presentation.
+        :raises ImportError: If numpy is unavailable.
+        """
         from httk.atomistic.models.cell.numeric import NumericCell
 
         return NumericCell(self)
 
     def metric(self) -> SurdVector:
-        """The exact Gram matrix ``matrix * matrix^T`` (rational for a metric-rational cell)."""
+        """Return the exact, potentially surd-valued Gram matrix ``matrix * matrix^T``.
+
+        :return: The Gram matrix of the cell vectors.
+        """
         if self._metric_cache is None:
             m = self.basis
             self._metric_cache = m * m.T()
@@ -194,10 +225,12 @@ class Cell(CellBackend):
         """
         The lengths of the three cell vectors (the scaled row norms).
 
-        Exact via :meth:`~httk.core.SurdVector.sqrt_of` whenever the row's squared length is
-        rational (the crystallographic case); otherwise a deterministic rational-approximation
-        ``SurdScalar`` at ``_FALLBACK_PREC`` (the length would be a nested radical, outside the
-        surd field).
+        Exact via :meth:`~httk.core.SurdVector.sqrt_of` when the row's squared length is a
+        perfect-square rational or a rational with numerator times denominator at most
+        ``10**18``. Larger rational radicands and irrational squared lengths use a deterministic
+        rational approximation at ``_FALLBACK_PREC``.
+
+        :return: The three cell-vector lengths.
         """
         if self._lengths_cache is None:
             metric = self.metric()
@@ -215,6 +248,8 @@ class Cell(CellBackend):
         exactly in the surd field and reversed through the Niven table
         (:meth:`~httk.core.SurdScalar.acos_degrees`) for an exact answer; a non-Niven angle falls
         back to a deterministic :func:`~httk.core.exactmath.acos` at ``_FALLBACK_PREC``.
+
+        :return: ``(alpha, beta, gamma)`` in degrees.
         """
         if self._angles_cache is None:
             u = self._unscaled_basis
@@ -253,6 +288,9 @@ class Cell(CellBackend):
         so it is not a volume: it changes when a frame vector is rescaled, even though
         nothing about the material did. Any density or packing fraction derived from it
         would inherit that. See :attr:`periodic_measure` for the quantity that *is* defined.
+
+        :return: The absolute determinant of the basis.
+        :raises ValueError: If the cell is not periodic in all three directions.
         """
         if self._periodicity != (True, True, True):
             raise ValueError(
@@ -283,6 +321,8 @@ class Cell(CellBackend):
         :attr:`lengths` does, so they are exact whenever the squared measure is a rational
         with a small radicand and fall back to a deterministic rational approximation
         otherwise.
+
+        :return: The measure of the periodic sublattice.
         """
         rows = [index for index, periodic in enumerate(self._periodicity) if periodic]
         if len(rows) == 3:
@@ -311,6 +351,9 @@ class Cell(CellBackend):
         ``periodicity`` does take part, because it is not provenance — it says which rows
         are lattice vectors at all. A slab and a bulk crystal that happen to share a basis
         are different cells, and one of them has a volume while the other does not.
+
+        :param other: The object to compare with.
+        :return: Whether the basis and periodicity match.
         """
         if not isinstance(other, Cell):
             return NotImplemented

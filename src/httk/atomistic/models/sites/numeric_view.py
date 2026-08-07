@@ -16,12 +16,15 @@ from httk.atomistic.models.sites.view_base import SitesViewBase
 
 
 class SitesNumericView(SitesViewBase, NumericSites):
-    """
+    r"""
     A view presenting an underlying sites backend as a ``NumericSites`` object.
 
     This view is a genuine ``NumericSites``, so it can be passed anywhere one is accepted. Its exact
     ``Sites`` is built lazily from the backend on first access. Like a ``NumericSites`` it requires
     numpy (raising :class:`ImportError` otherwise).
+
+    :param obj: The sites-like object to present.
+    :param \**hints: Backend-selection hints.
     """
 
     _backend: SitesBackend
@@ -48,9 +51,17 @@ class SitesNumericView(SitesViewBase, NumericSites):
         return self.__dict__["_sites"]
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> NumericSites:
+        """Return this presentation as standalone numeric sites.
+
+        :return: The plain-numpy presentation.
+        """
         # A genuine NumericSites backend is exactly the presented value: reuse it.
         backend = self._backend
         if type(backend) is NumericSites:

@@ -131,7 +131,16 @@ def _validate_moment_fields(record: Any, record_name: str, *, nsites: int | None
 
 @dataclass(frozen=True)
 class SpeciesConstituentRecord:
-    """One aligned, optionally decorated constituent of a stored species."""
+    """Represent one aligned, optionally decorated species constituent.
+
+    :param chemical_symbol: The constituent's chemical symbol.
+    :param concentration: The constituent occupancy.
+    :param mass: The constituent mass, if stated.
+    :param charge: The constituent charge, if stated.
+    :param spin: The constituent spin, if stated.
+    :param label: The constituent label, if stated.
+    :param concentration_precision: The occupancy precision, if stated.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_v1_species_constituent_record",
@@ -165,7 +174,17 @@ class SpeciesConstituentRecord:
 
 @dataclass(frozen=True)
 class SpeciesRecord:
-    """The storable frozen snapshot of an atomistic :class:`~httk.atomistic.Species`; hand-built records are shape-checked and semantically validated at storage or explicitly."""
+    """Represent a frozen storable snapshot of an atomistic species.
+
+    Hand-built records are shape-checked on construction and semantically validated at the
+    storage boundary or explicitly through the validation hook.
+
+    :param name: The species name.
+    :param constituents: The aligned constituent records.
+    :param original_name: The source species name, if stated.
+    :param attached: The attached constituent symbols, if stated.
+    :param nattached: The counts corresponding to ``attached``, if stated.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_v4_species_record",
@@ -181,6 +200,11 @@ class SpeciesRecord:
 
     @classmethod
     def __httk_validate__(cls, record: "SpeciesRecord") -> None:
+        """Validate the semantic species record.
+
+        :param record: The record to validate.
+        :return: ``None`` after successful validation.
+        """
         _validate_species_record(record)
 
     def __post_init__(self) -> None:
@@ -209,39 +233,72 @@ class SpeciesRecord:
 
     @property
     def chemical_symbols(self) -> tuple[str, ...]:
+        """Expose the constituent chemical symbols.
+
+        :return: The chemical symbols in constituent order.
+        """
         return tuple(value.chemical_symbol for value in self.constituents)
 
     @property
     def concentration(self) -> tuple[fractions.Fraction, ...]:
+        """Expose the constituent occupancies.
+
+        :return: The concentrations in constituent order.
+        """
         return tuple(value.concentration for value in self.constituents)
 
     @property
     def mass(self) -> tuple[float, ...] | None:
+        """Expose the constituent masses.
+
+        :return: The masses in constituent order, or ``None`` when unstated.
+        """
         values = tuple(value.mass for value in self.constituents)
         return None if all(value is None for value in values) else cast(tuple[float, ...], values)
 
     @property
     def concentration_precision(self) -> tuple[fractions.Fraction | None, ...] | None:
+        """Expose the constituent occupancy precision.
+
+        :return: The precisions in constituent order, or ``None`` when unstated.
+        """
         values = tuple(value.concentration_precision for value in self.constituents)
         return None if all(value is None for value in values) else values
 
     @property
     def charges(self) -> tuple[fractions.Fraction | None, ...] | None:
+        """Expose the constituent charges.
+
+        :return: The charges in constituent order, or ``None`` when unstated.
+        """
         values = tuple(value.charge for value in self.constituents)
         return None if all(value is None for value in values) else values
 
     @property
     def spins(self) -> tuple[fractions.Fraction | None, ...] | None:
+        """Expose the constituent spins.
+
+        :return: The spins in constituent order, or ``None`` when unstated.
+        """
         values = tuple(value.spin for value in self.constituents)
         return None if all(value is None for value in values) else values
 
     @property
     def labels(self) -> tuple[str | None, ...] | None:
+        """Expose the constituent labels.
+
+        :return: The labels in constituent order, or ``None`` when unstated.
+        """
         values = tuple(value.label for value in self.constituents)
         return None if all(value is None for value in values) else values
 
     @classmethod
     def __httk_project__(cls, species: Species) -> Mapping[str, object]:
+        """Project a species into its durable record fields.
+
+        :param species: The species to project.
+        :return: The projected record fields.
+        """
         return {
             "name": species.name,
             "constituents": tuple(
@@ -266,7 +323,10 @@ class SpeciesRecord:
 
 @dataclass(frozen=True)
 class AssemblyGroupRecord:
-    """One exact site-index group in a stored assembly."""
+    """Represent one exact site-index group in a stored assembly.
+
+    :param sites: The distinct non-negative site indexes in the group.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_v3_assembly_group_record",
@@ -278,6 +338,11 @@ class AssemblyGroupRecord:
 
     @classmethod
     def __httk_project__(cls, group: tuple[Any, ...]) -> Mapping[str, object]:
+        """Project one site-index group into durable fields.
+
+        :param group: The site indexes to project.
+        :return: The projected group fields.
+        """
         return {"sites": group}
 
     def __post_init__(self) -> None:
@@ -291,7 +356,12 @@ class AssemblyGroupRecord:
 
 @dataclass(frozen=True)
 class AssemblyRecord:
-    """Exact durable form of :class:`~httk.atomistic.Assembly`, including per-value precision."""
+    """Represent the exact durable form of an assembly.
+
+    :param groups: The site-index groups.
+    :param group_probabilities: The probability of each group.
+    :param group_probabilities_precision: The probability precision, if stated.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_v3_assembly_record",
@@ -305,6 +375,10 @@ class AssemblyRecord:
 
     @property
     def sites_in_groups(self) -> tuple[tuple[int, ...], ...]:
+        """Expose the site indexes grouped by assembly value.
+
+        :return: The site indexes in group order.
+        """
         return tuple(group.sites for group in self.groups)
 
     def __post_init__(self) -> None:
@@ -337,6 +411,11 @@ class AssemblyRecord:
 
     @classmethod
     def __httk_project__(cls, assembly: Assembly) -> Mapping[str, object]:
+        """Project an assembly into durable fields.
+
+        :param assembly: The assembly to project.
+        :return: The projected assembly fields.
+        """
         precision = assembly.group_probabilities_precision or ()
         present = not all(value is None for value in precision)
         return {
@@ -350,9 +429,17 @@ class AssemblyRecord:
 
 @dataclass(frozen=True)
 class WyckoffSiteRecord:
-    """Exact Wyckoff/free-parameter site with its retained representative.
+    """Represent an exact Wyckoff site with its retained representative.
 
     The owning record's ``domain_sites`` field is storage-visible and deliberately unchanged.
+
+    :param wyckoff: The Wyckoff letter.
+    :param free_parameters: The exact free-parameter values.
+    :param species: The owning species name.
+    :param representative: The retained representative coordinate, if present.
+    :param moment_kind: The site-moment kind, if present.
+    :param moment: The flattened exact site-moment components, if present.
+    :param moment_precision: The site-moment precision, if present.
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
@@ -371,6 +458,11 @@ class WyckoffSiteRecord:
 
     @classmethod
     def __httk_project__(cls, site: WyckoffSite) -> Mapping[str, object]:
+        """Project a Wyckoff site into durable fields.
+
+        :param site: The Wyckoff site to project.
+        :return: The projected site fields.
+        """
         return {
             "wyckoff": site.wyckoff,
             "free_parameters": tuple(site.free_params.to_fractions()),
@@ -401,7 +493,15 @@ class WyckoffSiteRecord:
 
 @dataclass(frozen=True)
 class SettingTransformRecord:
-    """Exact durable standard-to-own setting transform; hand-built records are shape-checked and semantically validated at storage or explicitly."""
+    """Represent an exact standard-to-own setting transform.
+
+    Hand-built records are shape-checked on construction and semantically validated at the
+    storage boundary or explicitly through the validation hook.
+
+    :param matrix: The standard-to-own fractional coordinate matrix.
+    :param vector: The standard-to-own fractional origin shift.
+    :param hall_entry: The normalized Hall entry, if known.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_v3_setting_transform_record",
@@ -415,6 +515,11 @@ class SettingTransformRecord:
 
     @classmethod
     def __httk_validate__(cls, record: "SettingTransformRecord") -> None:
+        """Validate the semantic setting transform.
+
+        :param record: The record to validate.
+        :return: ``None`` after successful validation.
+        """
         _validate_setting_transform_record(record)
 
     def __post_init__(self) -> None:
@@ -431,6 +536,11 @@ class SettingTransformRecord:
 
     @classmethod
     def __httk_project__(cls, transform: SettingTransform) -> Mapping[str, object]:
+        """Project a setting transform into durable fields.
+
+        :param transform: The setting transform to project.
+        :return: The projected transform fields.
+        """
         return {
             "matrix": transform.matrix,
             "vector": tuple(transform.vector.to_fractions()),
@@ -440,7 +550,18 @@ class SettingTransformRecord:
 
 @dataclass(frozen=True)
 class SymmetryRecord:
-    """Typed optional symmetry metadata of an ordinary unit-cell structure; hand-built records are shape-checked and semantically validated at storage or explicitly."""
+    """Represent optional symmetry metadata for a unit-cell structure.
+
+    Hand-built records are shape-checked on construction and semantically validated at the
+    storage boundary or explicitly through the validation hook.
+
+    :param space_group_it_number: The International Tables space-group number, if known.
+    :param space_group_symbol_hall: The Hall symbol, if known.
+    :param space_group_symbol_hermann_mauguin: The Hermann-Mauguin symbol, if known.
+    :param space_group_symbol_hermann_mauguin_extended: The extended Hermann-Mauguin symbol, if known.
+    :param space_group_symmetry_operations_xyz: The symmetry operations in xyz form, if known.
+    :param wyckoff_positions: The Wyckoff position symbols, if known.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_symmetry_v3",
@@ -457,6 +578,11 @@ class SymmetryRecord:
 
     @classmethod
     def __httk_validate__(cls, record: "SymmetryRecord") -> None:
+        """Validate the semantic symmetry record.
+
+        :param record: The record to validate.
+        :return: ``None`` after successful validation.
+        """
         _validate_symmetry_record(record)
 
     def __post_init__(self) -> None:
@@ -493,6 +619,11 @@ class SymmetryRecord:
 
     @classmethod
     def __httk_project__(cls, symmetry: StructureSymmetry) -> Mapping[str, object]:
+        """Project symmetry metadata into durable fields.
+
+        :param symmetry: The symmetry metadata to project.
+        :return: The projected symmetry fields.
+        """
         return {
             "space_group_it_number": symmetry.space_group_it_number,
             "space_group_symbol_hall": symmetry.space_group_symbol_hall,
@@ -505,7 +636,12 @@ class SymmetryRecord:
 
 @dataclass(frozen=True)
 class CompositionAmountRecord:
-    """One exact declared element amount and its optional precision."""
+    """Represent one exact declared element amount.
+
+    :param element: The element symbol.
+    :param amount: The exact element amount.
+    :param precision: The amount precision, if stated.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_v3_composition_amount_record",
@@ -534,6 +670,12 @@ class CompositionAmountRecord:
 
     @classmethod
     def __httk_project__(cls, amount: tuple[Any, ...]) -> Mapping[str, object]:
+        """Project one composition amount into durable fields.
+
+        :param amount: The element, amount, and precision values to project.
+        :return: The projected amount fields.
+        :raises ValueError: If the projected tuple does not contain three values.
+        """
         if len(amount) != 3:
             raise ValueError("composition amount projection requires element, amount, and precision")
         return {"element": amount[0], "amount": amount[1], "precision": amount[2]}
@@ -541,7 +683,11 @@ class CompositionAmountRecord:
 
 @dataclass(frozen=True)
 class ChemicalCompositionRecord:
-    """Durable authoritative or implicit composition declaration."""
+    """Represent a durable authoritative or implicit composition declaration.
+
+    :param amounts: The exact element amounts.
+    :param mode: The composition declaration mode.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_v3_chemical_composition_record",
@@ -554,6 +700,11 @@ class ChemicalCompositionRecord:
 
     @classmethod
     def __httk_project__(cls, composition: ChemicalComposition) -> Mapping[str, object]:
+        """Project a chemical composition into durable fields.
+
+        :param composition: The chemical composition to project.
+        :return: The projected composition fields.
+        """
         precision = dict(composition.amounts_precision)
         return {
             "amounts": tuple((element, amount, precision[element]) for element, amount in composition.amounts),
@@ -574,12 +725,15 @@ class ChemicalCompositionRecord:
 
 @dataclass(frozen=True)
 class NormalizedCompositionRecord:
-    """Authoritative exact elemental composition projected from one structure.
+    """Represent the authoritative exact elemental composition of a structure.
 
     This relation is semantic normalized data, not a rendered-formula cache. It
     retains each exact central element amount together with its source precision,
     and makes the same complete-composition facts available to every durable
     structure backing for response construction and exact filtering.
+
+    :param amounts: The normalized element amounts.
+    :param complete: Whether the composition accounts for all structure content.
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
@@ -593,6 +747,11 @@ class NormalizedCompositionRecord:
 
     @classmethod
     def __httk_project__(cls, result: CompositionResult) -> Mapping[str, object]:
+        """Project a composition result into normalized durable fields.
+
+        :param result: The composition result to project.
+        :return: The projected normalized-composition fields.
+        """
         precision = dict(result.uncertainties)
         total = sum((amount for _, amount in result.amounts), fractions.Fraction())
         return {
@@ -622,7 +781,13 @@ class NormalizedCompositionRecord:
 
 @dataclass(frozen=True)
 class NormalizedCompositionAmountRecord:
-    """One exact normalized central ratio with the source amount and precision retained."""
+    """Represent one exact normalized composition ratio.
+
+    :param element: The element symbol.
+    :param ratio: The exact normalized element ratio.
+    :param amount: The exact source element amount.
+    :param precision: The source amount precision, if stated.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_v3_normalized_composition_amount_record",
@@ -656,6 +821,12 @@ class NormalizedCompositionAmountRecord:
 
     @classmethod
     def __httk_project__(cls, amount: tuple[Any, ...]) -> Mapping[str, object]:
+        """Project one normalized amount into durable fields.
+
+        :param amount: The element, ratio, amount, and precision values to project.
+        :return: The projected normalized amount fields.
+        :raises ValueError: If the projected tuple does not contain four values.
+        """
         if len(amount) != 4:
             raise ValueError("normalized composition amount projection requires element, ratio, amount, and precision")
         return {"element": amount[0], "ratio": amount[1], "amount": amount[2], "precision": amount[3]}
@@ -667,7 +838,15 @@ class NormalizedCompositionAmountRecord:
 
 @dataclass(frozen=True)
 class CellRecord:
-    """Exact durable cell basis, precision, and periodicity; hand-built records are shape-checked and semantically validated at storage or explicitly."""
+    """Represent an exact durable cell basis, precision, and periodicity.
+
+    Hand-built records are shape-checked on construction and semantically validated at the
+    storage boundary.
+
+    :param basis: The row-major exact cell basis values.
+    :param precision: The absolute basis precision, if stated.
+    :param periodicity: The flags identifying periodic basis rows.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_cell_v1",
@@ -681,6 +860,11 @@ class CellRecord:
 
     @classmethod
     def __httk_validate__(cls, record: "CellRecord") -> None:
+        """Validate the semantic cell record.
+
+        :param record: The record to validate.
+        :return: ``None`` after successful validation.
+        """
         _validate_cell_record(record)
 
     def __post_init__(self) -> None:
@@ -696,6 +880,11 @@ class CellRecord:
 
     @classmethod
     def __httk_project__(cls, cell: Cell) -> Mapping[str, object]:
+        """Project a cell into durable fields.
+
+        :param cell: The cell to project.
+        :return: The projected cell fields.
+        """
         return {
             "basis": tuple(_extract_surd_scalar(cell.basis, (row, column)) for row in range(3) for column in range(3)),
             "precision": cell.precision,
@@ -705,7 +894,11 @@ class CellRecord:
 
 @dataclass(frozen=True)
 class SitesRecord:
-    """Exact durable reduced coordinates and their stated precision."""
+    """Represent exact durable reduced coordinates and their stated precision.
+
+    :param reduced_coords: The exact reduced coordinates, one site per row.
+    :param precision: The fractional coordinate precision, if stated.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_sites_v1",
@@ -723,6 +916,11 @@ class SitesRecord:
 
     @classmethod
     def __httk_project__(cls, sites: Sites) -> Mapping[str, object]:
+        """Project site coordinates into durable fields.
+
+        :param sites: The sites to project.
+        :return: The projected sites fields.
+        """
         return {"reduced_coords": sites.reduced_coords, "precision": sites.precision}
 
 
@@ -845,7 +1043,31 @@ def _common_constructor_values(record: Any) -> _CommonConstructorValues:
 
 @dataclass(frozen=True)
 class UnitcellStructureRecord:
-    """Native durable backing for an explicit unit-cell structure; hand-built records are shape-checked and semantically validated at storage or explicitly."""
+    """Represent the native durable backing for an explicit unit-cell structure.
+
+    Hand-built records are shape-checked on construction and semantically validated at the
+    storage boundary or explicitly through the validation hook. The record's content identity
+    is independent of its storage layout.
+
+    :param cell: The durable cell record.
+    :param sites: The durable site-coordinate record.
+    :param species: The distinct durable species records.
+    :param species_at_sites: The species name occupying each site.
+    :param normalized_composition: The authoritative normalized composition.
+    :param charge: The explicitly assigned cell charge, if stated.
+    :param site_moments_kind: The site-moment kind, if stated.
+    :param site_moments: The flattened exact site-moment components, if stated.
+    :param site_moments_precision: The site-moment precision, if stated.
+    :param molecular: Whether the structure describes molecular entities.
+    :param assemblies: The site assemblies, if stated.
+    :param symmetry: The symmetry metadata, if stated.
+    :param chemical_composition: The chemical composition declaration, if stated.
+    :param chemical_formula_descriptive: The descriptive formula, if stated.
+    :param chemical_formula_hill: The Hill formula, if stated.
+    :param optimization_type: The optimization provenance, if stated.
+    :param immutable_id: The immutable source identifier, if stated.
+    :param last_modified: The source modification timestamp, if stated.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_unitcell_structure_v2",
@@ -875,14 +1097,27 @@ class UnitcellStructureRecord:
 
     @classmethod
     def __httk_validate__(cls, record: "UnitcellStructureRecord") -> None:
+        """Validate the semantic unit-cell record.
+
+        :param record: The record to validate.
+        :return: ``None`` after successful validation.
+        """
         validate_structure_record(record)
 
     @property
     def type(self) -> str:
+        """Expose the OPTIMADE entry type.
+
+        :return: ``structures``.
+        """
         return "structures"
 
     @property
     def id(self) -> str:
+        """Expose the layout-independent content identifier.
+
+        :return: The content identifier for this record.
+        """
         return content_id(self)
 
     def __post_init__(self) -> None:
@@ -904,6 +1139,11 @@ class UnitcellStructureRecord:
 
     @classmethod
     def __httk_project__(cls, structure: UnitcellStructure) -> Mapping[str, object]:
+        """Project a unit-cell structure into durable fields.
+
+        :param structure: The unit-cell structure to project.
+        :return: The projected structure fields.
+        """
         values = _project_common(structure)
         values.update(
             {
@@ -920,7 +1160,29 @@ class UnitcellStructureRecord:
 
 @dataclass(frozen=True)
 class FundamentalDomainStructureRecord:
-    """Native durable backing for a symmetry fundamental domain; hand-built records are shape-checked and semantically validated at storage or explicitly."""
+    """Represent the native durable backing for a symmetry fundamental domain.
+
+    Hand-built records are shape-checked on construction and semantically validated at the
+    storage boundary or explicitly through the validation hook. The record's content identity
+    is independent of its storage layout.
+
+    :param cell: The durable cell record.
+    :param domain_sites: The symmetry-distinct durable site records.
+    :param species: The distinct durable species records.
+    :param spacegroup_it_number: The International Tables space-group number.
+    :param setting_transform: The standard-to-own setting transform.
+    :param coordinate_precision: The reduced-coordinate precision, if stated.
+    :param normalized_composition: The authoritative normalized composition.
+    :param charge: The explicitly assigned cell charge, if stated.
+    :param molecular: Whether the structure describes molecular entities.
+    :param assemblies: The site assemblies, if stated.
+    :param chemical_composition: The chemical composition declaration, if stated.
+    :param chemical_formula_descriptive: The descriptive formula, if stated.
+    :param chemical_formula_hill: The Hill formula, if stated.
+    :param optimization_type: The optimization provenance, if stated.
+    :param immutable_id: The immutable source identifier, if stated.
+    :param last_modified: The source modification timestamp, if stated.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_fundamental_domain_structure_v2",
@@ -953,14 +1215,27 @@ class FundamentalDomainStructureRecord:
 
     @classmethod
     def __httk_validate__(cls, record: "FundamentalDomainStructureRecord") -> None:
+        """Validate the semantic fundamental-domain record.
+
+        :param record: The record to validate.
+        :return: ``None`` after successful validation.
+        """
         validate_structure_record(record)
 
     @property
     def type(self) -> str:
+        """Expose the OPTIMADE entry type.
+
+        :return: ``structures``.
+        """
         return "structures"
 
     @property
     def id(self) -> str:
+        """Expose the layout-independent content identifier.
+
+        :return: The content identifier for this record.
+        """
         return content_id(self)
 
     def __post_init__(self) -> None:
@@ -983,6 +1258,11 @@ class FundamentalDomainStructureRecord:
 
     @classmethod
     def __httk_project__(cls, structure: FundamentalDomainStructure) -> Mapping[str, object]:
+        """Project a fundamental-domain structure into durable fields.
+
+        :param structure: The fundamental-domain structure to project.
+        :return: The projected structure fields.
+        """
         values = _project_common(structure)
         values.update(
             {
@@ -997,7 +1277,11 @@ class FundamentalDomainStructureRecord:
 
 @dataclass(frozen=True)
 class ASUStructureRecord(FundamentalDomainStructureRecord):
-    """Native durable backing for an asserted asymmetric unit; hand-built records are shape-checked and semantically validated at storage or explicitly."""
+    """Represent the native durable backing for an asserted asymmetric unit.
+
+    Inherit the fundamental-domain constructor fields and validation contract while retaining
+    the asymmetric-unit record identity.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_asu_structure_v2",
@@ -1013,14 +1297,27 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
 
     @classmethod
     def __httk_validate__(cls, record: "FundamentalDomainStructureRecord") -> None:
+        """Validate the semantic asymmetric-unit record.
+
+        :param record: The record to validate.
+        :return: ``None`` after successful validation.
+        """
         validate_structure_record(record)
 
     @property
     def type(self) -> str:
+        """Expose the OPTIMADE entry type.
+
+        :return: ``structures``.
+        """
         return "structures"
 
     @property
     def id(self) -> str:
+        """Expose the layout-independent content identifier.
+
+        :return: The content identifier for this record.
+        """
         return content_id(self)
 
 
@@ -1163,7 +1460,13 @@ def _structure_from_record(
 def validate_structure_record(
     record: UnitcellStructureRecord | FundamentalDomainStructureRecord | ASUStructureRecord,
 ) -> None:
-    """Validate a hand-built root record by rebuilding its native structure semantics."""
+    """Validate a hand-built root record against native structure semantics.
+
+    :param record: The exact root structure record to validate.
+    :return: ``None`` after successful validation.
+    :raises TypeError: If ``record`` is not an exact supported root record.
+    :raises ValueError: If the record's normalized composition contradicts its native fields.
+    """
     if type(record) not in (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord):
         raise TypeError("validate_structure_record expects an exact root structure record")
     _validate_normalized_composition(record)
@@ -1225,7 +1528,14 @@ def _observable_summary(name: str, values: tuple[Any, ...]) -> "ObservableSummar
 
 @dataclass(frozen=True)
 class ObservableSummaryRecord:
-    """Bounded numeric summary for one trajectory observable."""
+    """Represent a bounded numeric summary for one trajectory observable.
+
+    :param name: The observable name.
+    :param first: The first finite value, if available.
+    :param last: The last finite value, if available.
+    :param minimum: The minimum finite value, if available.
+    :param maximum: The maximum finite value, if available.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_trajectory_observable_summary_v1",
@@ -1258,7 +1568,22 @@ def _validate_trajectory_record(record: "TrajectoryRecord") -> None:
 
 @dataclass(frozen=True)
 class TrajectoryRecord:
-    """Bounded trajectory identity and reference-frame summary; frame data is never stored."""
+    """Represent bounded trajectory identity and reference-frame summary.
+
+    Frame data is never stored in this record. Hand-built records are shape-checked on
+    construction and semantically validated at the storage boundary or explicitly through
+    the validation hook.
+
+    :param nframes: The total number of trajectory frames.
+    :param species: The distinct durable species records.
+    :param species_at_sites: The species name occupying each site.
+    :param reference_frame_indexes: The sorted indexes of retained reference frames.
+    :param reference_frame_structures: The retained reference-frame records.
+    :param observable_summaries: The summaries of trajectory observables.
+    :param source_locator: The source locator, if stated.
+    :param immutable_id: The immutable source identifier, if stated.
+    :param last_modified: The source modification timestamp, if stated.
+    """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_trajectory_v1",
@@ -1279,6 +1604,11 @@ class TrajectoryRecord:
 
     @classmethod
     def __httk_validate__(cls, record: "TrajectoryRecord") -> None:
+        """Validate the semantic trajectory record.
+
+        :param record: The record to validate.
+        :return: ``None`` after successful validation.
+        """
         _validate_trajectory_record(record)
 
     def __post_init__(self) -> None:
@@ -1326,14 +1656,30 @@ class TrajectoryRecord:
 
     @property
     def type(self) -> str:
+        """Expose the OPTIMADE entry type.
+
+        :return: ``trajectories``.
+        """
         return "trajectories"
 
     @property
     def id(self) -> str:
+        """Expose the layout-independent content identifier.
+
+        :return: The content identifier for this record.
+        """
         return content_id(self)
 
     @classmethod
     def __httk_project__(cls, trajectory: TrajectoryAPI) -> Mapping[str, object]:
+        """Project a trajectory into its bounded durable summary.
+
+        Reference frames default to the first and last frame when the source does not provide
+        an explicit reference list.
+
+        :param trajectory: The trajectory to project.
+        :return: The projected trajectory fields.
+        """
         declared = trajectory.reference_frames
         indexes = tuple(declared) if declared is not None else tuple(dict.fromkeys((0, trajectory.nframes - 1)))
         return {

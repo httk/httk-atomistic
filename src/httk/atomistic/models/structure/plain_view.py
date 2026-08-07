@@ -22,6 +22,9 @@ class PlainStructureView(StructureView, tuple):
     and immutable. Because the primitive representation carries only bare atomic
     numbers, every site's species must be a single, unattached chemical element
     (see ``Species.is_single_element``); otherwise a TypeError is raised.
+
+    :param obj: The structure backend or source to present.
+    :param \\*\\*hints: Backend-selection hints passed to structure coercion.
     """
 
     _backend: StructureBackend
@@ -54,8 +57,16 @@ class PlainStructureView(StructureView, tuple):
         super().__init__()
 
     def unwrap(self) -> Any:
+        """Return the raw value wrapped by the backend.
+
+        :return: The original source value.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> tuple:
+        """Return this presentation as an ordinary primitive triple.
+
+        :return: The lattice, positions, and atomic numbers.
+        """
         # The view IS its presentation (lattice, positions, numbers) triple; shed to a plain tuple.
         return tuple(self)

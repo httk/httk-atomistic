@@ -22,11 +22,15 @@ __all__ = ["same_crystal"]
 
 
 def same_crystal(first: StructureLike, second: StructureLike) -> bool:
-    """Whether two structures describe the same crystal.
+    """Compare two structures as crystallographic descriptions.
 
     True when they have the same cell and the same *multiset* of occupied sites, comparing
     each site by its species and its reduced coordinate wrapped into ``[0, 1)``. Site order
     is ignored, and so is which lattice translate of a site was written down.
+
+    The explicitly assigned cell charge and the site moments also participate in the
+    comparison. Recorded coordinate, basis, and moment precision do not, nor do other
+    semantic metadata such as formulas, assemblies, or source identifiers.
 
     The comparison is exact, not approximate: reduced coordinates are exact rationals and
     cell bases are exact, so two structures that differ by any amount at all compare
@@ -45,6 +49,10 @@ def same_crystal(first: StructureLike, second: StructureLike) -> bool:
     Accepts anything structure-like on either side, so a
     :class:`~httk.atomistic.UnitcellStructure` may be compared directly against an
     :class:`~httk.atomistic.ASUStructure` without expanding it by hand.
+
+    :param first: The first structure-like value.
+    :param second: The second structure-like value.
+    :return: Whether the structures describe the same crystal.
     """
     from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 

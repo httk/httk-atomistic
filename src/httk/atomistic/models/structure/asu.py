@@ -67,7 +67,7 @@ __all__ = ["ASUStructure", "FundamentalDomainStructure", "WyckoffSite"]
 
 @dataclass(frozen=True)
 class WyckoffSite:
-    """One symmetry-distinct site: a Wyckoff position, its free parameters, and a species.
+    """Represent one symmetry-distinct site.
 
     ``wyckoff`` is a bare letter (``"e"``, not ``"4e"``) naming a position of the
     **standard setting**, and ``free_params`` holds one exact value per degree of freedom
@@ -81,6 +81,12 @@ class WyckoffSite:
 
     Partial occupancy needs nothing special here: it lives in the referenced
     :class:`~httk.atomistic.Species`, which already carries a composition.
+
+    :param wyckoff: The Wyckoff letter in the standard setting.
+    :param free_params: The free values for the Wyckoff position.
+    :param species: The name of the owning structure's species.
+    :param representative: An optional retained representative coordinate.
+    :param moment: An optional moment assigned to the site.
     """
 
     wyckoff: str
@@ -115,11 +121,28 @@ class WyckoffSite:
 
 
 class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
-    """A crystal structure represented by one exact site per symmetry orbit.
+    """Represent a crystal structure by one exact site per symmetry orbit.
 
     Holds the cell in the structure's own setting, the space group as its **standard**
     setting, a transform from that standard setting to the structure's own, one
     :class:`WyckoffSite` per symmetry-distinct site, and the species they name.
+
+    :param cell: The cell in the structure's own setting.
+    :param spacegroup: The space group in its standard setting.
+    :param wyckoff_sites: The symmetry-distinct site definitions.
+    :param species: The species referenced by the site definitions.
+    :param transform: The change of basis from standard to the structure's setting.
+    :param coordinate_precision: The precision recorded for the reduced coordinates.
+    :param molecular: Whether the structure describes molecular entities.
+    :param assemblies: Optional correlations among domain sites.
+    :param chemical_composition: Optional chemical composition metadata.
+    :param chemical_formula_descriptive: Optional descriptive chemical formula.
+    :param chemical_formula_hill: Optional Hill chemical formula.
+    :param optimization_type: Optional optimization provenance.
+    :param immutable_id: Optional immutable source identifier.
+    :param last_modified: Optional source modification timestamp.
+    :param charge: An explicitly assigned charge for the expanded cell content; it is not
+        derived from the species.
     """
 
     _cell: Cell
@@ -213,37 +236,37 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
 
     @property
     def cell(self) -> Cell:
-        """The cell, in the structure's own setting."""
+        """Expose the cell in the structure's own setting."""
         return self._cell
 
     @property
     def spacegroup(self) -> Spacegroup:
-        """The space group, as its IT standard setting."""
+        """Expose the space group in its standard setting."""
         return self._spacegroup
 
     @property
     def transform(self) -> SettingTransform:
-        """The change of basis from the standard setting to this structure's own."""
+        """Expose the transform from standard to the structure's setting."""
         return self._transform
 
     @property
     def wyckoff_sites(self) -> tuple[WyckoffSite, ...]:
-        """The symmetry-distinct sites."""
+        """Expose the symmetry-distinct sites."""
         return self._wyckoff_sites
 
     @property
     def domain_sites(self) -> tuple[WyckoffSite, ...]:
-        """Representation-neutral name for the directly stored fundamental-domain sites."""
+        """Expose the directly stored fundamental-domain sites."""
         return self._wyckoff_sites
 
     @property
     def species(self) -> tuple[Species, ...]:
-        """The species referenced by the sites."""
+        """Expose the species referenced by the sites."""
         return self._species
 
     @property
     def coordinate_precision(self) -> fractions.Fraction | None:
-        """How precisely the coordinates behind this structure were stated, or ``None``.
+        """Expose the recorded precision of the reduced coordinates.
 
         Fractional, and expressed in **this structure's own setting** — the frame the data
         arrived in — so it needs no transforming on the way to the expanded sites. Recording
@@ -252,29 +275,34 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
 
         It is provenance, never an operating parameter: expansion remains exact and uses no
         tolerance at all.
+
+        :return: The fractional precision, or ``None`` when it is unknown.
         """
         return self._coordinate_precision
 
     @property
     def asu(self) -> "FundamentalDomainStructure":
-        """Self, so a view can recognize a backend that already holds an ASU and pass it through."""
+        """Expose this structure as its own fundamental domain."""
         return self
 
     @property
     def periodicity(self) -> tuple[bool, bool, bool]:
+        """Expose the cell's periodic directions."""
         return self._cell.periodicity
 
     @property
     def nperiodic_dimensions(self) -> int:
+        """Expose the number of periodic directions."""
         return self._cell.nperiodic_dimensions
 
     @property
     def molecular(self) -> bool:
+        """Expose whether molecular semantics are enabled."""
         return self._molecular
 
     @property
     def domain_species_at_sites(self) -> tuple[str, ...]:
-        """Species names of the directly represented domain sites."""
+        """Expose species names for the directly represented domain sites."""
         return tuple(site.species for site in self._wyckoff_sites)
 
     def _representatives_for_site(self, site: WyckoffSite) -> tuple[FracVector, ...]:
@@ -303,7 +331,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         return False
 
     def _representative_sites(self) -> Sites:
-        """Exact representative positions retained by the fundamental-domain representation."""
+        """Compute the exact representative positions retained by this representation."""
         coordinates = [
             site.representative.normalize()
             if site.representative is not None
@@ -314,39 +342,50 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
             FracVector.create([list(value.to_fractions()) for value in coordinates]), self._coordinate_precision
         )
 
-    def cartesian_sites(self) -> Any:
+    def cartesian_sites(self) -> SurdVector:
+        """Compute the exact Cartesian positions of the represented sites.
+
+        :return: The Cartesian representative positions in the exact surd representation.
+        """
         from httk.core import SurdVector
 
         return SurdVector.create(self._representative_sites().reduced_coords) * self._cell.basis
 
     @property
     def fractional_site_positions(self) -> list[list[float]]:
+        """Expose representative positions as floating-point coordinates."""
         return self._representative_sites().reduced_coords.to_floats()
 
     @property
     def nsites(self) -> int:
+        """Expose the number of directly represented sites."""
         return len(self._wyckoff_sites)
 
     @property
     def site_coordinate_span(self) -> str:
+        """Expose the fundamental-domain coordinate span."""
         return "molecular_fundamental_domain" if self._molecular else "fundamental_domain"
 
     @property
     def space_group_it_number(self) -> int:
+        """Expose the space group's International Tables number."""
         return self._spacegroup.it_number
 
     @property
     def space_group_symbol_hall(self) -> str | None:
+        """Expose the Hall symbol for the active setting."""
         setting = self.setting()
         return None if setting is None else setting.hall_symbol
 
     @property
     def space_group_symbol_hermann_mauguin(self) -> str | None:
+        """Expose the Hermann–Mauguin symbol for the active setting."""
         setting = self.setting()
         return None if setting is None else setting.hermann_mauguin
 
     @property
     def space_group_symbol_hermann_mauguin_extended(self) -> str | None:
+        """Expose the extended Hermann–Mauguin symbol for the active setting."""
         setting = self.setting()
         if setting is None:
             return None
@@ -355,6 +394,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
 
     @property
     def space_group_symmetry_operations_xyz(self) -> tuple[str, ...]:
+        """Expose the active setting's symmetry operations in ``xyz`` notation."""
         setting = self.setting()
         operations = (
             tuple(self._transform.symop_to_setting(value) for value in self._spacegroup.symmetry_operations)
@@ -365,6 +405,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
 
     @property
     def wyckoff_positions(self) -> tuple[str, ...] | None:
+        """Expose Wyckoff positions in the active setting."""
         setting = self.setting()
         if setting is None:
             return None
@@ -373,7 +414,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
 
     @property
     def is_standard_setting(self) -> bool:
-        """Whether the structure is written in the IT standard setting of its space group."""
+        """Expose whether the structure uses its space group's standard setting."""
         return self._transform.is_identity()
 
     def setting(self) -> Spacegroup | None:
@@ -387,6 +428,8 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         against the group's tabulated settings. An identity transform means the structure is
         in the standard setting, which is of course tabulated — reporting it as nameless
         would be simply wrong.
+
+        :return: The matching tabulated setting, or ``None`` when untabulated.
         """
         if self._transform.is_identity():
             return self._spacegroup
@@ -499,15 +542,23 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         setting's orbit is three times too large and the surplus points coincide exactly.
         The opposite case, a transform onto a larger cell, is covered by
         :meth:`~httk.atomistic.SettingTransform.lattice_cosets`.
+
+        :return: All unit-cell sites in the structure's exact setting.
         """
         return Sites(self._expansion[0], self._coordinate_precision)
 
     def expand_species_at_sites(self) -> tuple[str, ...]:
-        """The species name occupying each site produced by :meth:`expand_sites`, in order."""
+        """Expose the species names produced by :meth:`expand_sites`.
+
+        :return: Species names in expanded site order.
+        """
         return self._expansion[1]
 
     def expand_site_moments(self) -> SiteMomentsBackend | None:
-        """Return one exact structure-level moment for every represented site."""
+        """Expand one exact moment for every represented site.
+
+        :return: Expanded site moments, or ``None`` when moments are unstated.
+        """
         moments = tuple(site.moment for site in self._wyckoff_sites)
         if not moments or moments[0] is None:
             return None
@@ -549,30 +600,39 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         Usually the Wyckoff position's tabulated multiplicity, but not always: a setting
         transform that changes the cell volume changes the count too, by a factor of three
         for the rhombohedral-axes settings.
+
+        :return: The number of expanded sites generated by each domain site.
         """
         return self._expansion[2]
 
     @property
     def sites(self) -> Sites:
+        """Expose representative or expanded sites according to the semantics."""
         self._validate_expansion_semantics()
         return self._representative_sites() if self.molecular else self.expand_sites()
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Expose representative or expanded species names according to the semantics."""
         self._validate_expansion_semantics()
         return self.domain_species_at_sites if self.molecular else self.expand_species_at_sites()
 
     @property
     def site_moments(self) -> SiteMomentsBackend | None:
+        """Expose representative or expanded site moments."""
         return self.expand_site_moments()
 
     @property
     def charge(self) -> fractions.Fraction | None:
-        """The explicitly assigned exact charge of the full expanded cell, if stated."""
+        """Expose the explicitly assigned exact charge of the expanded cell.
+
+        :return: The assigned charge, or ``None`` when it is unstated.
+        """
         return self._charge
 
     @property
     def assemblies(self) -> tuple[Assembly, ...] | None:
+        """Expose correlations among the domain sites."""
         return self._assemblies
 
     # --- identity ---
@@ -612,8 +672,9 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
 
 
 class ASUStructure(FundamentalDomainStructure):
-    """A fundamental domain asserted by its creator to be a true asymmetric unit."""
+    """Assert that a fundamental domain is a true asymmetric unit."""
 
     @property
     def site_coordinate_span(self) -> str:
+        """Expose the asymmetric-unit coordinate span."""
         return "molecular_asymmetric_unit" if self._molecular else "asymmetric_unit"

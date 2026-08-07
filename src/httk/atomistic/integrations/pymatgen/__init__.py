@@ -1,3 +1,5 @@
+"""Expose optional pymatgen structure integrations."""
+
 from .models import PymatgenStructure, PymatgenStructureProtocol
 
 __all__ = ["PymatgenStructure", "PymatgenStructureProtocol"]

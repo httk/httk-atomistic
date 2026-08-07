@@ -1,4 +1,4 @@
-"""The native immutable trajectory representation."""
+"""Store the native immutable trajectory representation."""
 
 from collections.abc import Iterator, Mapping, Sequence
 from types import MappingProxyType
@@ -13,7 +13,15 @@ if TYPE_CHECKING:
 
 
 class Trajectory(TrajectoryBackend):
-    """An immutable trajectory holding eagerly coerced unit-cell frames."""
+    """Store an immutable trajectory in the native backend.
+
+    A trajectory requires at least one frame and keeps one constant composition
+    across all frames.
+
+    :param frames: Unit-cell structures to coerce and store.
+    :param observables: Optional per-frame observable values.
+    :param reference_frames: Optional indexes of bounded reference frames.
+    """
 
     kind: ClassVar[str] = "native"
     __httk_storage_record__: ClassVar[type[Any]]
@@ -61,31 +69,52 @@ class Trajectory(TrajectoryBackend):
 
     @property
     def nframes(self) -> int:
+        """Return the number of stored frames."""
         return len(self._frames)
 
     def frame(self, i: int) -> UnitcellStructure:
+        """Return one stored frame by index.
+
+        :param i: Frame index.
+        :return: The requested unit-cell structure.
+        :raises IndexError: If the index is out of range.
+        """
         return self._frames[i]
 
     def frames(self) -> Iterator[UnitcellStructure]:
+        """Iterate over the stored frames.
+
+        :return: An iterator of unit-cell structures.
+        """
         return iter(self._frames)
 
     @property
     def reference_frames(self) -> tuple[int, ...] | None:
+        """Return the bounded reference-frame indexes, or ``None``."""
         return self._reference_frames
 
     @property
     def species(self) -> tuple[Species, ...]:
+        """Return the constant distinct species."""
         return self._species
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Return the constant species name at each site."""
         return self._species_at_sites
 
     @property
     def observable_names(self) -> tuple[str, ...]:
+        """Return the names of stored observables."""
         return tuple(self._observables)
 
     def observable(self, name: str) -> tuple[Any, ...]:
+        """Return one observable's values in frame order.
+
+        :param name: Observable name.
+        :return: The observable values.
+        :raises KeyError: If the observable is unavailable.
+        """
         try:
             return self._observables[name]
         except KeyError:

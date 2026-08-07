@@ -34,12 +34,21 @@ from httk.atomistic.models.structure.view import StructureView
 
 
 class UnitcellStructureView(StructureView, UnitcellStructure):
-    """
+    r"""
     A view presenting an underlying structure backend as a ``UnitcellStructure``.
 
     This view is a genuine ``UnitcellStructure``, so it can be passed anywhere a UnitcellStructure
     is accepted. Each component is normalized lazily on first access. For an
     ASU-backed view, accessing ``cell`` or ``species`` never triggers expansion.
+
+    An ASU backend is expanded when unit-cell sites, species-at-sites, moments, or
+    assemblies are requested. Assembly correlations that cannot be mapped from the
+    fundamental domain to the full cell raise an error.
+
+    :param obj: The structure backend or source to present.
+    :param \**hints: Backend-selection and metadata options passed to construction.
+    :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source
+        declares a coordinate span that cannot be projected as a native unit cell.
     """
 
     _backend: StructureBackend
@@ -195,16 +204,26 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
 
     @property
     def site_moments(self) -> SiteMomentsBackend | None:
+        """Expose the site's magnetic moments."""
         return self._site_moments
 
     @property
     def charge(self) -> fractions.Fraction | None:
+        """Expose the explicitly assigned charge."""
         return self._effective_backend().charge
 
     def unwrap(self) -> Any:
+        """Return the raw value wrapped by the backend.
+
+        :return: The original source value.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> UnitcellStructure:
+        """Materialize this presentation as a standalone unit-cell structure.
+
+        :return: The exact unit-cell structure represented by this view.
+        """
         # A genuine UnitcellStructure backend carrying the same metadata is exactly the presented
         # value: reuse it. Otherwise (other backends, ASU expansion, or view-level metadata)
         # materialize a plain UnitcellStructure from the presented components.
@@ -234,29 +253,35 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
 
     @property
     def immutable_id(self) -> str | None:
+        """Expose the immutable source identifier."""
         self._effective_backend()
         return _semantic_value(self, "immutable_id", private_name="_immutable_id")
 
     @property
     def last_modified(self) -> Any:
+        """Expose the source modification timestamp."""
         self._effective_backend()
         return _semantic_value(self, "last_modified", private_name="_last_modified")
 
     @property
     def molecular(self) -> bool:
+        """Expose whether the presented structure is molecular."""
         return bool(self._metadata("molecular", False))
 
     @property
     def site_coordinate_span(self) -> str:
+        """Expose the unit-cell coordinate span."""
         self._effective_backend()
         return "molecular_unit_cell" if self.molecular else "unit_cell"
 
     @property
     def symmetry(self) -> Any:
+        """Expose the optional symmetry metadata."""
         return self._metadata("symmetry")
 
     @property
     def assemblies(self) -> tuple[Assembly, ...] | None:
+        """Expose site correlations in the presented unit cell."""
         backend = self._effective_backend()
         if "_assemblies" in self.__dict__:
             return _semantic_value(self, "assemblies", private_name="_assemblies")
@@ -266,47 +291,58 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
 
     @property
     def chemical_composition(self) -> Any:
+        """Expose the optional chemical composition metadata."""
         return self._metadata("chemical_composition")
 
     @property
     def chemical_formula_descriptive(self) -> str | None:
+        """Expose the optional descriptive chemical formula."""
         return self._metadata("chemical_formula_descriptive")
 
     @property
     def chemical_formula_hill(self) -> str | None:
+        """Expose the optional Hill chemical formula."""
         return self._metadata("chemical_formula_hill")
 
     @property
     def optimization_type(self) -> str | None:
+        """Expose the optional optimization provenance."""
         return self._metadata("optimization_type")
 
     @property
     def site_coordinate_span_description(self) -> str | None:
+        """Expose the optional coordinate-span description."""
         return self._metadata("site_coordinate_span_description")
 
     @property
     def space_group_it_number(self) -> int | None:
+        """Expose the optional space-group number."""
         return self._space_group_metadata("space_group_it_number")
 
     @property
     def space_group_symbol_hall(self) -> str | None:
+        """Expose the optional Hall symbol."""
         return self._space_group_metadata("space_group_symbol_hall")
 
     @property
     def space_group_symbol_hermann_mauguin(self) -> str | None:
+        """Expose the optional Hermann–Mauguin symbol."""
         return self._space_group_metadata("space_group_symbol_hermann_mauguin")
 
     @property
     def space_group_symbol_hermann_mauguin_extended(self) -> str | None:
+        """Expose the optional extended Hermann–Mauguin symbol."""
         return self._space_group_metadata("space_group_symbol_hermann_mauguin_extended")
 
     @property
     def space_group_symmetry_operations_xyz(self) -> tuple[str, ...] | None:
+        """Expose the optional symmetry operations in ``xyz`` notation."""
         value = self._space_group_metadata("space_group_symmetry_operations_xyz")
         return value if value is not None else (("x,y,z",) if self.nperiodic_dimensions else None)
 
     @property
     def wyckoff_positions(self) -> tuple[str, ...] | None:
+        """Expose the optional Wyckoff positions."""
         return self._space_group_metadata("wyckoff_positions")
 
     def _space_group_metadata(self, name: str) -> Any:

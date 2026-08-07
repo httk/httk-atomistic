@@ -32,11 +32,15 @@ _MAX_STEPS = 10_000
 
 @dataclass(frozen=True, slots=True)
 class NiggliReductionResult:
-    """A cell in exact Niggli-reduced form.
+    """Store a cell in exact Niggli-reduced form.
 
     ``transform`` uses the row-vector convention ``basis_reduced = transform * basis``.
     Its entries are integers and its determinant is +1. ``parameters`` contains the
     reduced ``(A, B, C, xi, eta, zeta)`` metric parameters as exact fractions.
+
+    :param cell: The reduced cell.
+    :param transform: The integer row-convention transform from the source basis.
+    :param parameters: The reduced exact metric parameters.
     """
 
     cell: Cell
@@ -46,10 +50,14 @@ class NiggliReductionResult:
 
 @dataclass(frozen=True, slots=True)
 class NiggliReducedStructureResult:
-    """A structure whose cell and fractional coordinates are in Niggli form.
+    """Store a structure whose cell and fractional coordinates are in Niggli form.
 
     ``transform`` uses the row-vector convention ``basis_reduced = transform * basis``;
     site coordinates are remapped by its exact inverse and wrapped into ``[0, 1)``.
+
+    :param structure: The structure expressed in the reduced cell.
+    :param cell: The reduced cell.
+    :param transform: The integer row-convention transform from the source basis.
     """
 
     structure: UnitcellStructure
@@ -206,6 +214,10 @@ def niggli_reduce(cell: CellLike) -> NiggliReductionResult:
 
     The calculation uses the rational Gram matrix with no tolerance. The returned integer
     transform follows ``basis_reduced = transform * basis`` and has determinant +1.
+
+    :param cell: The fully periodic cell to reduce.
+    :return: The reduced cell, transform, and exact metric parameters.
+    :raises ValueError: If the cell is not fully periodic or its Gram matrix is not rational.
     """
     source = _as_cell(cell)
     metric = _rational_metric(source)
@@ -233,7 +245,12 @@ def niggli_reduce(cell: CellLike) -> NiggliReductionResult:
 
 
 def is_niggli_reduced(cell: CellLike) -> bool:
-    """Return whether a fully periodic cell satisfies the complete exact Niggli conditions."""
+    """Return whether a fully periodic cell satisfies the complete exact Niggli conditions.
+
+    :param cell: The cell to inspect.
+    :return: Whether the cell satisfies the exact Niggli conditions.
+    :raises ValueError: If the cell is not fully periodic or its Gram matrix is not rational.
+    """
     source = _as_cell(cell)
     return _is_niggli_parameters(_parameters(_rational_metric(source)))
 
@@ -258,6 +275,10 @@ def niggli_reduced(structure: StructureLike) -> NiggliReducedStructureResult:
     and precision are carried unchanged or propagated. Symmetry is invalidated because
     its operations are basis-relative; immutable identifiers and last-modified metadata
     are invalidated because this operation creates a derived structure.
+
+    :param structure: The structure to express in a Niggli-reduced cell.
+    :return: The reduced structure and its exact reduction metadata.
+    :raises ValueError: If the structure cell is not fully periodic or its Gram matrix is not rational.
     """
     view = UnitcellStructureView(structure)
     reduction = niggli_reduce(view.cell)

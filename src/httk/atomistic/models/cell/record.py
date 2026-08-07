@@ -1,5 +1,6 @@
 """Backend for an exact stored cell record."""
 
+import fractions
 from typing import Any
 
 from httk.core import SurdScalar, SurdVector
@@ -9,6 +10,12 @@ from httk.atomistic.storage.records import CellRecord, _basis_vector
 
 
 class RecordCell(CellBackend):
+    r"""Backend for a cell stored in an exact record.
+
+    :param obj: The stored cell record.
+    :param \**hints: Backend-selection hints.
+    """
+
     _record: CellRecord
 
     def __new__(cls, obj: Any, **hints: Any) -> Any:
@@ -23,23 +30,47 @@ class RecordCell(CellBackend):
 
     @property
     def basis(self) -> SurdVector:
+        """Return the stored cell vectors.
+
+        :return: The scaled lattice vectors.
+        """
         return _basis_vector(self._record.basis)
 
     @property
     def scale(self) -> SurdScalar:
+        """Return the unit scale factor.
+
+        :return: The factor applied to ``unscaled_basis``.
+        """
         return SurdVector.one()
 
     @property
     def unscaled_basis(self) -> SurdVector:
+        """Return the stored basis before scaling.
+
+        :return: The cell vectors.
+        """
         return self.basis
 
     @property
-    def precision(self):
+    def precision(self) -> fractions.Fraction | None:
+        """Return the stored basis precision.
+
+        :return: The absolute precision, or ``None`` when unknown.
+        """
         return self._record.precision
 
     @property
     def periodicity(self) -> tuple[bool, bool, bool]:
+        """Return the stored periodicity flags.
+
+        :return: Flags identifying the periodic basis rows.
+        """
         return self._record.periodicity  # type: ignore[return-value]
 
     def unwrap(self) -> CellRecord:
+        """Return the stored cell record.
+
+        :return: The source record.
+        """
         return self._record

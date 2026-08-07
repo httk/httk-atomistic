@@ -1,5 +1,4 @@
-"""
-httk-atomistic: crystal structure representations for httk v2.
+"""Provide crystal structure representations for httk v2.
 
 Provides the UnitcellStructure domain and its component families (Cell, Sites, Species),
 each following the httk-core view/backend pattern. A UnitcellStructure holds a ``cell``, a

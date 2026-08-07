@@ -113,8 +113,7 @@ def _check_sites_length(sites: Sites, species_at_sites: Sequence[str]) -> None:
 
 
 class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
-    """
-    A crystal structure in the Unitcell representation.
+    """Represent a crystal structure in the Unitcell representation.
 
     A UnitcellStructure holds a ``cell`` (a ``Cell`` of 3x3 cell vectors), ``sites`` (a ``Sites``
     of Nx3 reduced coordinates), a list of ``species`` (each a ``Species``), and a
@@ -132,6 +131,24 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
     :meth:`cartesian_sites` returns the exact Cartesian positions. Pure magnitudes (bond-length
     comparisons) stay rational-exact via ``cell.metric()``. Floats appear only at the presentation
     and JSON boundaries.
+
+    :param cell: The unit-cell geometry.
+    :param sites: The reduced coordinates of the sites.
+    :param species: The distinct species definitions. Omit this to infer them from
+        ``species_at_sites``.
+    :param species_at_sites: The species name occupying each site; this value is required.
+    :param site_moments: Optional magnetic moments aligned with the sites.
+    :param molecular: Whether the structure describes a molecular unit cell.
+    :param assemblies: Optional correlations among sites.
+    :param symmetry: Optional symmetry metadata.
+    :param chemical_composition: Optional chemical composition metadata.
+    :param chemical_formula_descriptive: Optional descriptive chemical formula.
+    :param chemical_formula_hill: Optional Hill chemical formula.
+    :param optimization_type: Optional optimization provenance.
+    :param immutable_id: Optional immutable source identifier.
+    :param last_modified: Optional source modification timestamp.
+    :param charge: An explicitly assigned charge for the cell content; it is not derived
+        from the species, and an explicit zero remains distinct from an unstated charge.
     """
 
     _cell: Cell
@@ -198,77 +215,115 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
 
     @property
     def cell(self) -> Cell:
-        """The cell (3x3 cell vectors) as a ``Cell``."""
+        """Expose the cell geometry.
+
+        :return: The cell in the structure's exact representation.
+        """
         return self._cell
 
     @property
     def sites(self) -> Sites:
-        """The site coordinates (Nx3 reduced coordinates) as a ``Sites``."""
+        """Expose the reduced site coordinates.
+
+        :return: The sites in the structure's exact representation.
+        """
         return self._sites
 
     @property
     def species(self) -> tuple[Species, ...]:
-        """The distinct species of this structure."""
+        """Expose the distinct species.
+
+        :return: The species referenced by the structure.
+        """
         return self._species
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
-        """The species name occupying each site, in site order."""
+        """Expose the species name occupying each site.
+
+        :return: Site species names in site order.
+        """
         return self._species_at_sites
 
     @property
     def site_moments(self) -> SiteMomentsBackend | None:
-        """Optional per-site magnetic moments, in ``sites`` order."""
+        """Expose optional per-site magnetic moments in ``sites`` order.
+
+        :return: Site moments, or ``None`` when they are unstated.
+        """
         return self._site_moments
 
     @property
     def charge(self) -> fractions.Fraction | None:
-        """The explicitly assigned exact net charge of the full cell, if stated."""
+        """Expose the explicitly assigned exact charge of the cell.
+
+        :return: The assigned charge, or ``None`` when it is unstated.
+        """
         return self._charge
 
     @property
     def coordinate_precision(self) -> fractions.Fraction | None:
-        """How precisely the reduced coordinates were stated, in fractional units, or ``None``.
+        """Expose the precision recorded for the reduced coordinates.
 
         Read through from :attr:`sites`. Dimensionless — see :meth:`cartesian_precision`
         for the corresponding length.
+
+        :return: The fractional precision, or ``None`` when it is unknown.
         """
         return self._sites.precision
 
     @property
     def basis_precision(self) -> fractions.Fraction | None:
-        """How precisely the cell basis was stated, as an absolute length, or ``None``.
+        """Expose the precision recorded for the cell basis.
 
         Read through from :attr:`cell`.
+
+        :return: The absolute precision, or ``None`` when it is unknown.
         """
         return self._cell.precision
 
     @property
     def periodicity(self) -> tuple[bool, bool, bool]:
-        """Which of the three basis rows is a genuine lattice translation.
+        """Expose which cell directions are periodic.
 
         Read through from :attr:`cell`, where the full account lives. ``(True, True, True)``
         for an ordinary crystal, which is what a structure built without saying otherwise is.
+
+        :return: The periodicity flags for the cell directions.
         """
         return self._cell.periodicity
 
     @property
     def nperiodic_dimensions(self) -> int:
-        """How many of the three directions are periodic, from 0 to 3."""
+        """Expose the number of periodic directions.
+
+        :return: The number of periodic directions.
+        """
         return self._cell.nperiodic_dimensions
 
     @property
     def site_coordinate_span(self) -> str:
-        """The span asserted by this representation, independent of dimensionality."""
+        """Expose the coordinate span asserted by this representation.
+
+        :return: ``unit_cell`` or ``molecular_unit_cell``.
+        """
         molecular = _semantic_value(self, "molecular", False, "_molecular")
         return "molecular_unit_cell" if molecular else "unit_cell"
 
     @property
     def molecular(self) -> bool:
+        """Expose whether this structure describes a molecular unit cell.
+
+        :return: Whether molecular semantics are enabled.
+        """
         return bool(_semantic_value(self, "molecular", False, "_molecular"))
 
     @property
     def symmetry(self) -> StructureSymmetry | None:
+        """Expose the optional symmetry metadata.
+
+        :return: The symmetry metadata, or ``None`` when it is absent.
+        """
         return _semantic_value(self, "symmetry", private_name="_symmetry")
 
     def cartesian_precision(self) -> fractions.Fraction | None:
@@ -284,6 +339,9 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         produce along any axis. The cell's own precision is folded in as well, since a cell
         stated to ``1e-3`` cannot place an atom better than that however many digits the
         coordinates carry.
+
+        :return: The conservative Cartesian precision, or ``None`` when the coordinate
+            precision is unknown.
         """
         fractional = self._sites.precision
         if fractional is None:
@@ -294,19 +352,24 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         return cartesian if basis is None or basis < cartesian else basis
 
     def cartesian_sites(self) -> SurdVector:
-        """
-        The exact Cartesian site positions as an ``(N, 3)`` :class:`~httk.core.SurdVector`.
+        """Compute the exact Cartesian site positions.
 
         Under the row-vector convention this is ``reduced_coords * cell.basis`` (each Cartesian
         position is the sum over lattice vectors ``sum_k reduced[k] * basis[k]``). The reduced
         coordinates are rational (a ``FracVector``), the cell basis carries the radicals (a
         ``SurdVector``), so the product is exact in the surd field — the hexagonal ``sqrt(3)``
         survives into the Cartesian positions.
+
+        :return: The Cartesian positions in the exact surd representation.
         """
         return SurdVector.create(self._sites.reduced_coords) * self._cell.basis
 
     def numeric(self) -> "NumericUnitcellStructureView":
-        """A plain-numpy presentation of this structure (requires the ``httk-atomistic[numpy]`` extra)."""
+        """Create a plain-numpy presentation of this structure.
+
+        :return: The numpy-backed structure view.
+        :raises ImportError: If numpy is unavailable.
+        """
         from httk.atomistic.models.structure.numeric_view import NumericUnitcellStructureView
 
         return NumericUnitcellStructureView(self)
@@ -317,7 +380,12 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         *,
         max_sites: int | None = 100_000,
     ) -> "SupercellResult":
-        """Build an exact supercell from an integer 3x3 transformation."""
+        """Build an exact supercell from an integer transformation.
+
+        :param transformation: The lattice transformation to apply.
+        :param max_sites: The maximum permitted number of sites, or ``None`` for no limit.
+        :return: The generated supercell and transformation metadata.
+        """
         from httk.atomistic.supercell import build_supercell
 
         return build_supercell(self, transformation, max_sites=max_sites)
@@ -331,7 +399,15 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         search_radius: int = 1,
         max_sites: int | None = 100_000,
     ) -> "SupercellResult":
-        """Build a deterministically selected orthogonal supercell."""
+        """Build a deterministically selected orthogonal supercell.
+
+        :param multiplier: The requested volume multiplier, or ``None`` to search.
+        :param tolerance: The geometric tolerance used during the search.
+        :param max_multiplier: The largest multiplier considered when searching.
+        :param search_radius: The integer search radius for candidate transformations.
+        :param max_sites: The maximum permitted number of sites, or ``None`` for no limit.
+        :return: The generated supercell and transformation metadata.
+        """
         from httk.atomistic.supercell import orthogonal_supercell
 
         return orthogonal_supercell(
@@ -352,7 +428,15 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         search_radius: int = 1,
         max_sites: int | None = 100_000,
     ) -> "SupercellResult":
-        """Build a deterministically selected cubic supercell."""
+        """Build a deterministically selected cubic supercell.
+
+        :param multiplier: The requested volume multiplier, or ``None`` to search.
+        :param tolerance: The geometric tolerance used during the search.
+        :param max_multiplier: The largest multiplier considered when searching.
+        :param search_radius: The integer search radius for candidate transformations.
+        :param max_sites: The maximum permitted number of sites, or ``None`` for no limit.
+        :return: The generated supercell and transformation metadata.
+        """
         from httk.atomistic.supercell import cubic_supercell
 
         return cubic_supercell(
@@ -370,7 +454,13 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         tolerance: float | None = None,
         limit_denominator: int | None = None,
     ) -> "ConventionalCellResult":
-        """Express this structure in its space group's IT standard-setting conventional cell."""
+        """Express this structure in its conventional standard-setting cell.
+
+        :param tolerance: The tolerance used when standardizing the structure.
+        :param limit_denominator: The denominator limit used for rationalizing measured
+            coordinates.
+        :return: The standardized structure and its transformation metadata.
+        """
         from httk.atomistic.symmetry.standardization import conventional_cell
 
         return conventional_cell(

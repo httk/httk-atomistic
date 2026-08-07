@@ -5,7 +5,11 @@ from typing import Any
 
 
 def species_payload(species_like: Any) -> dict[str, object]:
-    """Render a Species or SpeciesRecord with the OPTIMADE species fields."""
+    """Render species fields for an OPTIMADE structure entry.
+
+    :param species_like: A species object exposing the stored species fields.
+    :return: A JSON-compatible species payload.
+    """
     payload: dict[str, object] = {
         "name": species_like.name,
         "chemical_symbols": list(species_like.chemical_symbols),
@@ -32,7 +36,11 @@ def species_payload(species_like: Any) -> dict[str, object]:
 
 
 def assemblies_payload(assemblies: Iterable[Any] | None) -> list[dict[str, object]] | None:
-    """Render Assembly or AssemblyRecord values without changing null semantics."""
+    """Render assembly fields without changing null semantics.
+
+    :param assemblies: The assemblies to render, or ``None`` when unstated.
+    :return: JSON-compatible assembly payloads, or ``None`` when unstated.
+    """
     if assemblies is None:
         return None
     return [

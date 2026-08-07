@@ -10,8 +10,7 @@ from httk.atomistic.models.structure.api import StructureAPI
 
 
 class StructureBackend(Backend["StructureBackend"], StructureAPI):
-    """
-    Abstract base class for all backends of crystal structure data.
+    """Define the base class for crystal-structure backends.
 
     Concrete backends carry a native representation and produce the canonical
     Unitcell quartet declared by ``StructureAPI`` from it.

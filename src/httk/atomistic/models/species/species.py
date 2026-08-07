@@ -31,7 +31,7 @@ def _normalize_decoration(
 
 @dataclass(frozen=True, eq=False, init=False)
 class Species(SpeciesBackend):
-    """
+    r"""
     A chemical species occupying one or more sites, mirroring the OPTIMADE ``species`` object.
 
     A species has a ``name`` (unique within a structure; it need not be a chemical
@@ -41,6 +41,22 @@ class Species(SpeciesBackend):
     ``attached``, ``nattached``, and ``original_name`` fields carry the remaining
     OPTIMADE species information; ``attached`` and ``nattached`` must be given
     together and share their length.
+
+    ``charges``, ``spins``, and ``labels`` are optional aligned decorations. An
+    all-``None`` decoration is canonicalized to ``None``. Repeated chemical
+    symbols are accepted only when the complete decoration distinguishes them.
+
+    :param name: The species name.
+    :param chemical_symbols: The constituent chemical symbols.
+    :param concentration: The constituent occupancies.
+    :param mass: The constituent masses, if stated.
+    :param original_name: The source name, if stated.
+    :param attached: The attached constituent symbols, if stated.
+    :param nattached: The counts corresponding to ``attached``, if stated.
+    :param concentration_precision: The precision of each occupancy, if stated.
+    :param charges: The charge decoration, if stated.
+    :param spins: The spin decoration, if stated.
+    :param labels: The label decoration, if stated.
     """
 
     name: str = ""  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -69,12 +85,6 @@ class Species(SpeciesBackend):
         spins: Sequence[DecorationInput] | None = None,
         labels: Sequence[str | None] | None = None,
     ) -> None:
-        """Create a Species from convenient numeric inputs and retain exact central values.
-
-        The input accepts fractions, integers, decimal strings (including CIF ESDs),
-        Decimals, and floats.  The public fields are canonical tuples after construction:
-        :attr:`concentration` always contains :class:`fractions.Fraction` values.
-        """
         if not isinstance(name, str):
             raise TypeError("Species name must be a string")
         if original_name is not None and not isinstance(original_name, str):
@@ -181,7 +191,11 @@ class Species(SpeciesBackend):
         object.__setattr__(self, "concentration_precision", precision)
 
     def __eq__(self, other: object) -> bool:
-        """Compare species values across the Species subclass/view family."""
+        """Compare species values across the Species subclass/view family.
+
+        :param other: The object to compare with.
+        :return: Whether all species fields match.
+        """
         if not isinstance(other, Species):
             return NotImplemented
         return (
@@ -211,7 +225,10 @@ class Species(SpeciesBackend):
         )
 
     def __hash__(self) -> int:
-        """Hash the same value fields used by :meth:`__eq__`."""
+        """Hash the same value fields used by :meth:`__eq__`.
+
+        :return: The species hash.
+        """
         return hash(
             (
                 self.name,
@@ -230,17 +247,26 @@ class Species(SpeciesBackend):
 
     @property
     def normalized(self) -> bool:
-        """Whether the stated concentration interval contains one, without changing it."""
+        """Whether the stated concentration interval contains one.
+
+        :return: Whether the concentrations are normalized within their precision.
+        """
         return normalization(self.concentration, self.concentration_precision or ())[0]
 
     @property
     def normalization_status(self) -> str:
-        """``exact``, ``within_precision``, or ``outside_precision``."""
+        """Report the concentration normalization status.
+
+        :return: ``exact``, ``within_precision``, or ``outside_precision``.
+        """
         return normalization(self.concentration, self.concentration_precision or ())[1]
 
     @property
     def normalization_diagnostic(self) -> Any:
-        """A lazy structured diagnostic, avoiding a composition-module import cycle."""
+        """Return a structured normalization diagnostic when needed.
+
+        :return: The diagnostic, or ``None`` when the concentrations are normalized.
+        """
         if self.normalized:
             return None
         from httk.atomistic.composition import CompositionDiagnostic
@@ -262,6 +288,8 @@ class Species(SpeciesBackend):
         True only for a species composed of exactly one element symbol (not ``"X"``
         or ``"vacancy"``) with no attached particles. Such species are the ones that
         can be represented as a bare atomic number in the primitive representation.
+
+        :return: Whether this is a single real element.
         """
         return (
             len(self.chemical_symbols) == 1
@@ -272,12 +300,17 @@ class Species(SpeciesBackend):
 
     @classmethod
     def create(cls, obj: "Species | dict[str, Any] | str | int", **hints: Any) -> "Species":
-        """
+        r"""
         Return a Species from an existing Species, bare symbol or atomic number, or
         OPTIMADE species dict.
 
         A bare element symbol, ``"X"``, or ``"vacancy"`` denotes a fully occupied
         single-symbol species. A bare atomic number denotes the corresponding element.
+
+        :param obj: An existing species, symbol, atomic number, or species mapping.
+        :param \**hints: Backend-selection hints.
+        :return: The canonical species.
+        :raises ValueError: If an atomic number is boolean or the input is invalid.
         """
         if isinstance(obj, Species):
             return obj

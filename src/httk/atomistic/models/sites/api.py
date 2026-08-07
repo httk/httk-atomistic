@@ -21,6 +21,7 @@ class SitesAPI(ABC):
     @property
     @abstractmethod
     def reduced_coords(self) -> FracVector:
+        """Return the reduced site coordinates."""
         raise NotImplementedError
 
     @property
@@ -33,5 +34,7 @@ class SitesAPI(ABC):
 
         Concrete rather than abstract, so a backend with no source of precision inherits
         ``None`` instead of breaking.
+
+        :return: The fractional precision, or ``None`` when unknown.
         """
         return None

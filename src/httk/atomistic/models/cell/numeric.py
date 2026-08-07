@@ -23,6 +23,8 @@ class NumericCell:
     The presentation is numpy-backed, so constructing a ``NumericCell`` **requires numpy** (the
     ``httk-atomistic[numpy]`` extra) and raises :class:`ImportError` eagerly when it is unavailable.
     The exact object is always one hop away via :attr:`exact`.
+
+    :param cell: The cell or cell-like object to present.
     """
 
     _cell: Cell
@@ -37,56 +39,90 @@ class NumericCell:
 
     @property
     def scale(self) -> float:
-        """The overall length factor as a plain ``float``."""
+        """The overall length factor.
+
+        :return: The scale as a floating-point value.
+        """
         return to_numeric_scalar(self._cell.scale)
 
     @property
     def precision(self) -> float | None:
-        """The exact cell precision as a plain float, or ``None`` if unknown."""
+        """The cell precision, or ``None`` if unknown.
+
+        :return: The absolute precision as a floating-point value.
+        """
         return None if self._cell.precision is None else float(self._cell.precision)
 
     @property
     def periodicity(self) -> tuple[bool, bool, bool]:
-        """Which of the three basis rows is a genuine lattice translation."""
+        """Which of the three basis rows is a genuine lattice translation.
+
+        :return: Flags identifying the periodic basis rows.
+        """
         return self._cell.periodicity
 
     @property
     def nperiodic_dimensions(self) -> int:
-        """How many of the three directions are periodic, from 0 to 3."""
+        """How many of the three directions are periodic.
+
+        :return: The number of periodic directions.
+        """
         return self._cell.nperiodic_dimensions
 
     @property
     def unscaled_basis(self) -> NumericVector:
-        """The 3x3 cell vectors before applying ``scale`` as a ``float64`` numpy array."""
+        """The 3x3 cell vectors before applying ``scale``.
+
+        :return: The unscaled lattice vectors as floating-point values.
+        """
         return to_numeric(self._cell.unscaled_basis)
 
     @property
     def basis(self) -> NumericVector:
-        """The 3x3 lattice vectors ``scale * unscaled_basis`` as a ``float64`` numpy array."""
+        """The 3x3 lattice vectors ``scale * unscaled_basis``.
+
+        :return: The scaled lattice vectors as floating-point values.
+        """
         return to_numeric(self._cell.basis)
 
     @property
     def lengths(self) -> NumericVector:
-        """The three cell-vector lengths as a ``(3,)`` ``float64`` numpy array."""
+        """The three cell-vector lengths.
+
+        :return: The lengths as floating-point values.
+        """
         return self._vector(self._cell.lengths)
 
     @property
     def angles(self) -> NumericVector:
-        """The cell angles ``(alpha, beta, gamma)`` in degrees as a ``(3,)`` ``float64`` numpy array."""
+        """The cell angles ``(alpha, beta, gamma)`` in degrees.
+
+        :return: The angles as floating-point values.
+        """
         return self._vector(self._cell.angles)
 
     @property
     def volume(self) -> float:
-        """The cell volume as a plain ``float``."""
+        """The cell volume.
+
+        :return: The volume as a floating-point value.
+        :raises ValueError: If the exact cell is not periodic in all three directions.
+        """
         return to_numeric_scalar(self._cell.volume)
 
     def metric(self) -> NumericVector:
-        """The Gram matrix ``basis * basis^T`` as a ``float64`` numpy array."""
+        """The Gram matrix ``basis * basis^T``.
+
+        :return: The Gram matrix as floating-point values.
+        """
         return to_numeric(self._cell.metric())
 
     @property
     def exact(self) -> Cell:
-        """The exact :class:`~httk.atomistic.Cell` this presentation wraps."""
+        """The exact cell this presentation wraps.
+
+        :return: The exact cell.
+        """
         return self._cell
 
     def __repr__(self) -> str:

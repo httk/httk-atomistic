@@ -10,9 +10,7 @@ from httk.atomistic.models.structure.backend import StructureBackend
 
 
 class StructureView(View[StructureBackend]):
-    """
-    Abstract base class for all views of crystal structure data.
-    """
+    """Define the base class for crystal-structure views."""
 
     _backend_base_cls: ClassVar[type[StructureBackend]] = StructureBackend  # type: ignore[type-abstract]
     _view_base_cls: ClassVar[type[Self]]

@@ -13,15 +13,19 @@ from httk.atomistic.models.cell.view_base import CellViewBase
 
 
 class CellParamsView(CellViewBase, tuple):
-    """
+    r"""
     A view presenting an underlying cell backend as cell parameters.
 
     This view is a genuine flat 6-tuple ``(a, b, c, alpha, beta, gamma)`` with the
     angles in degrees, built eagerly and immutable, with the elements also available
     as the named properties ``a``/``b``/``c``/``alpha``/``beta``/``gamma``.
     Parameters carry no orientation, so converting a cell to parameters is lossy:
-    reconstructing a cell from this view reproduces the lengths, angles, and volume,
-    but not the original cell-vector orientation.
+    reconstructing a cell from this view reproduces the lengths and angles, and reproduces volume
+    only for a fully periodic source. The reconstruction inherits the fully periodic default, so
+    this view discards the source periodicity as well as the original cell-vector orientation.
+
+    :param obj: The cell-like object to present.
+    :param \**hints: Backend-selection hints.
     """
 
     _backend: CellBackend
@@ -47,37 +51,63 @@ class CellParamsView(CellViewBase, tuple):
 
     @property
     def a(self) -> float:
-        """The length of the first cell vector."""
+        """The length of the first cell vector.
+
+        :return: The first vector length.
+        """
         return self[0]
 
     @property
     def b(self) -> float:
-        """The length of the second cell vector."""
+        """The length of the second cell vector.
+
+        :return: The second vector length.
+        """
         return self[1]
 
     @property
     def c(self) -> float:
-        """The length of the third cell vector."""
+        """The length of the third cell vector.
+
+        :return: The third vector length.
+        """
         return self[2]
 
     @property
     def alpha(self) -> float:
-        """The angle between the second and third cell vectors, in degrees."""
+        """The angle between the second and third cell vectors, in degrees.
+
+        :return: The alpha angle.
+        """
         return self[3]
 
     @property
     def beta(self) -> float:
-        """The angle between the first and third cell vectors, in degrees."""
+        """The angle between the first and third cell vectors, in degrees.
+
+        :return: The beta angle.
+        """
         return self[4]
 
     @property
     def gamma(self) -> float:
-        """The angle between the first and second cell vectors, in degrees."""
+        """The angle between the first and second cell vectors, in degrees.
+
+        :return: The gamma angle.
+        """
         return self[5]
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
-    def unview(self) -> tuple:
+    def unview(self) -> tuple[float, ...]:
+        """Return the presented parameters as a plain tuple.
+
+        :return: The six cell parameters.
+        """
         # The view IS its presentation 6-tuple; shed to a plain tuple.
         return tuple(self)

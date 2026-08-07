@@ -53,7 +53,17 @@ def _parse_linear_expression(
 def parse_linear_expression(
     expression: str, allowed_vars: Sequence[str] = _SUPERSPACE_VARS
 ) -> tuple[tuple[int, ...], Fraction]:
-    """Parse one superspace linear expression into integer coefficients and a translation."""
+    """Parse one superspace linear expression into integer coefficients and a translation.
+
+    The parser accepts the six superspace variables ``x1`` through ``x6`` by default and
+    preserves an exact rational translation.
+
+    :param expression: The linear expression to parse.
+    :param allowed_vars: The variable names accepted in ``expression``.
+    :return: The integer coefficients in ``allowed_vars`` and the exact translation.
+    :raises ValueError: If the expression is empty, malformed, or has a non-integer
+        variable coefficient.
+    """
     coefficients, constant = _parse_linear_expression(expression, allowed_vars, integer_coefficients=True)
     return tuple(coefficient.numerator for coefficient in coefficients), constant
 
@@ -69,7 +79,13 @@ def _operation(parts: Sequence[str]) -> AffineOperation:
 
 
 def operation_from_xyz(operation: str) -> AffineOperation:
-    """Parse an exact three-coordinate crystallographic operation."""
+    """Parse an exact three-coordinate crystallographic operation.
+
+    :param operation: The comma-separated ``x,y,z`` operation string.
+    :return: The exact affine operation.
+    :raises ValueError: If the operation does not contain three valid coordinate
+        expressions.
+    """
     parts = tuple(part.strip() for part in operation.split(","))
     if len(parts) != 3:
         raise ValueError(f"Expected three coordinates in symmetry operation: {operation!r}")
@@ -77,7 +93,16 @@ def operation_from_xyz(operation: str) -> AffineOperation:
 
 
 def operation_from_xyzt(operation: str) -> tuple[AffineOperation, int]:
-    """Parse an exact magnetic operation and return ``(operation, time_reversal)``."""
+    """Parse an exact magnetic operation and return its time-reversal flag.
+
+    The first three comma-separated fields use crystallographic ``x,y,z`` grammar; the
+    fourth field must be ``+1`` or ``-1``.
+
+    :param operation: The comma-separated ``x,y,z,time-reversal`` operation string.
+    :return: The affine operation and its time-reversal sign.
+    :raises ValueError: If the operation does not contain three coordinate expressions and
+        a valid time-reversal flag.
+    """
     parts = tuple(part.strip() for part in operation.split(","))
     if len(parts) != 4:
         raise ValueError(f"Expected three coordinates and a time-reversal flag: {operation!r}")

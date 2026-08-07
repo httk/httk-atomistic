@@ -26,7 +26,15 @@ from httk.atomistic.storage.records import (
 
 
 class RecordStructure(StructureBackend):
-    """Expose a concrete record through the existing structure view family."""
+    """Expose a storage record through the existing structure view family.
+
+    Unit-cell records expose their stored components directly; fundamental-domain and
+    asymmetric-unit records expand through the native domain structure when a unit-cell
+    view is requested.
+
+    :param obj: The unit-cell, fundamental-domain, or asymmetric-unit record.
+    :param \\*\\*hints: Backend-selection hints.
+    """
 
     _record: UnitcellStructureRecord | FundamentalDomainStructureRecord | ASUStructureRecord
 
@@ -62,12 +70,20 @@ class RecordStructure(StructureBackend):
 
     @cached_property
     def cell(self) -> Cell:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """Expose the record-backed cell.
+
+        :return: The cell, directly from a unit-cell record or from the expanded domain.
+        """
         # These wrap sites hold record components by construction, so the kind
         # hint selects the record backend without probing the raw-input ones.
         return CellView(cast(Any, self._record.cell), kind="record") if self._is_unitcell else self._native.cell
 
     @cached_property
     def sites(self) -> Sites:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """Expose the record-backed sites.
+
+        :return: The sites, directly from a unit-cell record or from the expanded domain.
+        """
         return (
             SitesView(cast(Any, self._record.sites), kind="record")
             if isinstance(self._record, UnitcellStructureRecord)
@@ -76,6 +92,10 @@ class RecordStructure(StructureBackend):
 
     @cached_property
     def species(self) -> tuple[Species, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """Expose the record-backed distinct species.
+
+        :return: The species referenced by the structure.
+        """
         return (
             tuple(SpeciesView(cast(Any, value), kind="record") for value in self._record.species)
             if self._is_unitcell
@@ -84,6 +104,10 @@ class RecordStructure(StructureBackend):
 
     @cached_property
     def species_at_sites(self) -> tuple[str, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """Expose the species occupying each record-backed site.
+
+        :return: Site species names in site order.
+        """
         return (
             self._record.species_at_sites
             if isinstance(self._record, UnitcellStructureRecord)
@@ -92,6 +116,10 @@ class RecordStructure(StructureBackend):
 
     @cached_property
     def site_moments(self) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """Expose optional record-backed site moments.
+
+        :return: Site moments, or ``None`` when they are unstated.
+        """
         if isinstance(self._record, UnitcellStructureRecord):
             return _moment_from_record(
                 self._record.site_moments_kind,
@@ -103,14 +131,26 @@ class RecordStructure(StructureBackend):
 
     @property
     def charge(self) -> Any:
+        """Expose the record's explicitly assigned charge.
+
+        :return: The assigned charge, or ``None`` when it is unstated.
+        """
         return getattr(self._record, "charge", None)
 
     @property
     def molecular(self) -> bool:
+        """Expose whether the record describes a molecular unit cell.
+
+        :return: Whether molecular semantics are enabled.
+        """
         return self._record.molecular
 
     @property
     def assemblies(self) -> tuple[Assembly, ...] | None:
+        """Expose the record's site assemblies.
+
+        :return: Assemblies, or ``None`` when they are unstated.
+        """
         if self._is_unitcell:
             return (
                 None
@@ -121,6 +161,10 @@ class RecordStructure(StructureBackend):
 
     @property
     def symmetry(self) -> StructureSymmetry | None:
+        """Expose the record's symmetry metadata.
+
+        :return: Symmetry metadata, or ``None`` when it is absent.
+        """
         if isinstance(self._record, UnitcellStructureRecord):
             return None if self._record.symmetry is None else _symmetry_from_record(self._record.symmetry)
         native = self._native
@@ -142,6 +186,10 @@ class RecordStructure(StructureBackend):
 
     @property
     def chemical_composition(self) -> Any:
+        """Expose the record's chemical composition.
+
+        :return: Chemical composition, or ``None`` when it is absent.
+        """
         return (
             None
             if self._record.chemical_composition is None
@@ -150,30 +198,57 @@ class RecordStructure(StructureBackend):
 
     @property
     def chemical_formula_descriptive(self) -> str | None:
+        """Expose the record's descriptive chemical formula.
+
+        :return: The descriptive formula, or ``None`` when it is absent.
+        """
         return self._record.chemical_formula_descriptive
 
     @property
     def chemical_formula_hill(self) -> str | None:
+        """Expose the record's Hill chemical formula.
+
+        :return: The Hill formula, or ``None`` when it is absent.
+        """
         return self._record.chemical_formula_hill
 
     @property
     def optimization_type(self) -> str | None:
+        """Expose the record's optimization provenance.
+
+        :return: The optimization type, or ``None`` when it is absent.
+        """
         return self._record.optimization_type
 
     @property
     def immutable_id(self) -> str | None:
+        """Expose the record's immutable source identifier.
+
+        :return: The identifier, or ``None`` when it is absent.
+        """
         return self._record.immutable_id
 
     @property
     def last_modified(self) -> Any:
+        """Expose the record's modification timestamp.
+
+        :return: The timestamp, or ``None`` when it is absent.
+        """
         return self._record.last_modified
 
     @property
     def asu(self) -> ASUStructure | FundamentalDomainStructure | None:
+        """Expose the native domain structure when the record stores one.
+
+        :return: The native asymmetric or fundamental domain, or ``None`` for unit-cell records.
+        """
         if isinstance(self._record, (ASUStructureRecord, FundamentalDomainStructureRecord)):
             return self._native
         return None
 
     def unwrap(self) -> UnitcellStructureRecord | FundamentalDomainStructureRecord | ASUStructureRecord:
-        """Return the exact fetched record rather than a reconstructed structure."""
+        """Return the exact fetched record rather than a reconstructed structure.
+
+        :return: The original storage record.
+        """
         return self._record

@@ -39,13 +39,16 @@ _DEFINITION_IDS = {
 
 
 def load_httk_definitions(names: Mapping[str, str]) -> dict[str, PropertyDefinition]:
-    """Load vendored definitions, given a map of served name to definition file stem.
+    """Load vendored property definitions by served name.
 
     Each document is loaded verbatim, ``$id`` included. Note that a definition's own
     ``x-optimade-definition.name`` stays the unprefixed name it was published under, which
     will differ from the prefixed name httk serves it as — that is correct, and rewriting a
     published document to match a local naming choice would defeat the point of pointing at
     it.
+
+    :param names: A map from served property name to vendored definition stem.
+    :return: The loaded definitions keyed by served property name.
     """
     return {
         served_name: PropertyDefinition.from_optimade(

@@ -30,8 +30,7 @@ def _is_primitive_triple(obj: Any) -> bool:
 
 
 class PlainStructure(StructureBackend):
-    """
-    Backend for a crystal structure backed by an spglib-like triple.
+    """Represent a crystal structure backed by an spglib-like triple.
 
     The native representation is a length-3 ``(lattice, positions, numbers)`` list
     or tuple, where ``lattice`` is 3x3, ``positions`` is Nx3 reduced coordinates,
@@ -39,6 +38,8 @@ class PlainStructure(StructureBackend):
     derived lazily and cached: ``cell`` is a ``Cell``, ``sites`` a ``Sites``,
     ``species`` one single-element ``Species`` per distinct atomic number, and
     ``unwrap`` returns the original triple.
+    :param obj: The primitive structure triple to wrap.
+    :param \\*\\*hints: Backend-selection hints.
     """
 
     _raw: Any
@@ -71,18 +72,21 @@ class PlainStructure(StructureBackend):
 
     @property
     def cell(self) -> Cell:
+        """Expose the cell derived from the lattice."""
         if self._cell_cache is None:
             self._cell_cache = Cell(self._lattice)
         return self._cell_cache
 
     @property
     def sites(self) -> Sites:
+        """Expose the reduced coordinates derived from the positions."""
         if self._sites_cache is None:
             self._sites_cache = Sites(self._positions)
         return self._sites_cache
 
     @property
     def species(self) -> tuple[Species, ...]:
+        """Expose one species definition for each distinct atomic number."""
         if self._species_cache is None:
             distinct: list[int] = []
             seen: set[int] = set()
@@ -97,9 +101,14 @@ class PlainStructure(StructureBackend):
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Expose the species name occupying each site."""
         if self._species_at_sites_cache is None:
             self._species_at_sites_cache = tuple(symbol_of(z) for z in self._numbers)
         return self._species_at_sites_cache
 
     def unwrap(self) -> Any:
+        """Return the original primitive structure triple.
+
+        :return: The wrapped lattice, positions, and atomic numbers.
+        """
         return self._raw

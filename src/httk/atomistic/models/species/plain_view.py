@@ -12,13 +12,16 @@ from httk.atomistic.models.species.view_base import SpeciesViewBase
 
 
 class PlainSpeciesView(SpeciesViewBase, dict):
-    """
+    r"""
     A view presenting an underlying species backend as an OPTIMADE species dict.
 
     This view is a genuine ``dict`` carrying the OPTIMADE ``species`` fields (optional
     fields that are ``None`` are omitted; list-valued fields are plain lists). Unlike the
     immutable-subclass views, a dict is mutable, so this view is a detached copy: mutating
     it does not affect the underlying backend.
+
+    :param obj: The species-like object to present.
+    :param \**hints: Backend-selection hints.
     """
 
     _backend: SpeciesBackend
@@ -67,8 +70,16 @@ class PlainSpeciesView(SpeciesViewBase, dict):
         pass
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
-    def unview(self) -> dict:
+    def unview(self) -> dict[str, Any]:
+        """Return the presented species as a plain mapping.
+
+        :return: The detached presentation mapping.
+        """
         # The view IS its presentation dict (already a detached copy); shed to a plain dict.
         return dict(self)

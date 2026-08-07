@@ -1,4 +1,4 @@
-"""Numpy-backed plane-wave wavefunctions and VASP WAVECAR adapters."""
+"""Provide NumPy-native plane-wave wavefunctions and VASP WAVECAR adapters."""
 
 import math
 from collections.abc import Mapping, Sequence
@@ -161,11 +161,27 @@ def _validate_indices(indices: Any, size: int, name: str) -> Any:
 
 
 class PlaneWaveFunctions:
-    """A zero-based, numpy-native collection of plane-wave coefficients.
+    """Provide a zero-based, NumPy-native collection of plane-wave coefficients.
+
+    This is an eager NumPy representation, not a backend or view family. NumPy is required
+    at construction time; install the ``httk-atomistic[numpy]`` extra when it is absent.
 
     A WAVECAR does not store whether gamma compression used the ``x`` or ``z``
     half-space. The default interpretation is ``x``; pass ``gamma_half="z"``
-    to :func:`httk.core.load` when loading a z-half gamma WAVECAR.
+    to :func:`~httk.core.load` when loading a z-half gamma WAVECAR. Gamma compression is
+    detected from the k-point and plane-wave count during construction.
+
+    :param source: A WAVECAR source or neutral WAVECAR payload, or ``None`` for in-memory data.
+    :param cell: The real-space cell used by the in-memory coefficients.
+    :param encut: The plane-wave energy cutoff used to generate reciprocal vectors.
+    :param kpoints: The k-points used by the in-memory coefficients.
+    :param eigenvalues: The band eigenvalues.
+    :param occupations: The band occupations.
+    :param coefficients: The coefficient vectors keyed by zero-based spin, k-point, and band.
+    :param nplanewaves: The number of plane waves for each k-point, or ``None`` to infer it.
+    :param double_precision: Whether to retain double-precision complex coefficients.
+    :param gamma_half: The gamma-compression half-space, ``"x"`` or ``"z"``, if applicable.
+    :raises ImportError: If NumPy is unavailable.
     """
 
     def __init__(
@@ -331,58 +347,71 @@ class PlaneWaveFunctions:
 
     @property
     def nspins(self) -> int:
+        """Return the number of spin channels."""
         return self._nspins
 
     @property
     def nkpts(self) -> int:
+        """Return the number of k-points."""
         return self._nkpts
 
     @property
     def nbands(self) -> int:
+        """Return the number of bands."""
         return self._nbands
 
     @property
     def encut(self) -> float:
+        """Return the plane-wave energy cutoff."""
         return self._encut
 
     @property
     def cell(self) -> Cell:
+        """Return the real-space cell."""
         return self._cell
 
     @property
     def kpoints(self) -> Any:
+        """Return the k-point coordinates."""
         return self._kpoints
 
     @property
     def eigenvalues(self) -> Any:
+        """Return the band eigenvalues."""
         return self._eigenvalues
 
     @property
     def occupations(self) -> Any:
+        """Return the band occupations."""
         return self._occupations
 
     @property
     def nplanewaves(self) -> Any:
+        """Return the plane-wave count for each k-point."""
         return self._nplanewaves
 
     @property
     def double_precision(self) -> bool:
+        """Return whether coefficients use double precision."""
         return self._double_precision
 
     @property
     def is_gamma(self) -> bool:
+        """Return whether the coefficients use gamma compression."""
         return self._is_gamma
 
     @property
     def gamma_half(self) -> str | None:
+        """Return the detected gamma-compression half-space, if applicable."""
         return self._gamma_half
 
     @property
     def kgrid_size(self) -> Any:
+        """Return the reciprocal-grid dimensions used for transforms."""
         return self._kgrid_size
 
     def close(self) -> None:
-        """Close a file-backed source; cached coefficients and metadata remain available."""
+        """Close a file-backed source while retaining cached coefficients and metadata."""
         if self._source is not None:
             close = getattr(self._source, "close", None)
             if callable(close):
@@ -390,13 +419,17 @@ class PlaneWaveFunctions:
 
     @property
     def closed(self) -> bool:
-        """Whether the file-backed source is closed; in-memory objects are never closed."""
+        """Report whether the file-backed source is closed."""
         if self._source is None:
             return False
         return bool(getattr(self._source, "closed", False))
 
     def __enter__(self) -> Self:
-        """Enter an open wavefunction source and close it when the context exits."""
+        """Enter an open wavefunction source for context-managed use.
+
+        :return: This wavefunction collection.
+        :raises ValueError: If the source is already closed.
+        """
         if self.closed:
             raise ValueError("Cannot enter a closed PlaneWaveFunctions.")
         return self
@@ -407,7 +440,7 @@ class PlaneWaveFunctions:
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        """Close the source; cached coefficients and metadata remain available afterward."""
+        """Close the source while retaining cached coefficients and metadata."""
         self.close()
 
     def _check_index(self, value: Any, size: int, name: str) -> int:
@@ -422,6 +455,13 @@ class PlaneWaveFunctions:
 
         An uncached source read occurs once and is not stored; cached coefficients remain
         available after a file-backed source is closed.
+
+        :param spin: The zero-based spin index.
+        :param kpt: The zero-based k-point index.
+        :param band: The zero-based band index.
+        :param cache: Whether to cache a coefficient vector read from the source.
+        :return: The selected coefficient vector.
+        :raises ValueError: If an index is out of range or source coefficients have the wrong length.
         """
         spin = self._check_index(spin, self._nspins, "spin")
         kpt = self._check_index(kpt, self._nkpts, "k-point")
@@ -439,6 +479,14 @@ class PlaneWaveFunctions:
         return values
 
     def gvectors(self, kpt: int = 0, *, gamma: bool | None = None, gamma_half: str | None = None) -> Any:
+        """Return the reciprocal grid vectors for a k-point.
+
+        :param kpt: The zero-based k-point index.
+        :param gamma: Whether to use gamma compression, or the construction default when ``None``.
+        :param gamma_half: The gamma-compression half-space, if gamma compression is requested.
+        :return: The reciprocal grid vectors selected by the cutoff.
+        :raises ValueError: If the k-point, gamma flag, or half-space is invalid.
+        """
         kpt = self._check_index(kpt, self._nkpts, "k-point")
         requested_gamma = self._is_gamma if gamma is None else gamma
         if not isinstance(requested_gamma, bool):
@@ -456,6 +504,18 @@ class PlaneWaveFunctions:
         return values
 
     def realspace_wave(self, spin: int, kpt: int, band: int, *, norm: bool = True) -> Any:
+        """Transform coefficients to a real-space wave using NumPy FFTs.
+
+        The transform uses ``numpy.fft`` with ``norm="ortho"``. Gamma-compressed coefficients
+        are expanded according to the detected half-space before the transform.
+
+        :param spin: The zero-based spin index.
+        :param kpt: The zero-based k-point index.
+        :param band: The zero-based band index.
+        :param norm: Whether to normalize the resulting wave to unit norm.
+        :return: The real-space wave on the reciprocal grid.
+        :raises ValueError: If an index is out of range or the stored gamma metadata is invalid.
+        """
         return _to_real_wave(
             self.coefficients(spin, kpt, band),
             self._kgrid_size,
@@ -474,6 +534,21 @@ class PlaneWaveFunctions:
         format: str | None = None,
         gamma_half: str = "x",
     ) -> "PlaneWaveFunctions":
+        """Select spins, k-points, and bands, optionally converting coefficient format.
+
+        Indices are zero-based and must be unique. Converting standard coefficients to gamma
+        format derives a signed real wave from the standard complex wave and therefore destroys
+        phase information; converting gamma coefficients to standard format expands the stored
+        half-space. A gamma selection must contain exactly one gamma-point k-point.
+
+        :param spins: The zero-based spin indices to retain, or all spins when ``None``.
+        :param kpts: The zero-based k-point indices to retain, or all k-points when ``None``.
+        :param bands: The zero-based band indices to retain, or all bands when ``None``.
+        :param format: The requested coefficient format, ``"std"``, ``"gamma"``, or ``None``.
+        :param gamma_half: The target gamma-compression half-space.
+        :return: A new in-memory collection containing the selected data.
+        :raises ValueError: If indices, format, gamma selection, or half-space conversion is invalid.
+        """
         import numpy
 
         spin_indices = numpy.arange(self._nspins) if spins is None else _validate_indices(spins, self._nspins, "spins")
@@ -525,6 +600,13 @@ class PlaneWaveFunctions:
 
 
 def wavefunction_overlap(phi1: Any, phi2: Any) -> complex:
+    """Return the complex overlap of two wavefunctions.
+
+    :param phi1: The first wavefunction.
+    :param phi2: The second wavefunction.
+    :return: The conjugate-inner-product overlap.
+    :raises ValueError: If the wavefunctions do not have matching shapes.
+    """
     import numpy
 
     first, second = numpy.asarray(phi1), numpy.asarray(phi2)
@@ -566,6 +648,18 @@ def _planewaves_from_payload(payload: Mapping[str, Any]) -> PlaneWaveFunctions:
 
 
 def save_vesta(basename: str, structure: Any, wave: Any, *, cols: int = 10) -> None:
+    """Save real and imaginary wave components as VASP volumetric files.
+
+    The files are written as ``<basename>_r.vasp`` and ``<basename>_i.vasp``. This operation
+    requires the optional ``httk-io`` package.
+
+    :param basename: The output filename prefix.
+    :param structure: The structure supplying the volumetric-file cell and species metadata.
+    :param wave: The three-dimensional complex wave to write.
+    :param cols: The number of values written per output line.
+    :raises ImportError: If NumPy or ``httk-io`` is not installed.
+    :raises ValueError: If ``wave`` is not a three-dimensional complex array.
+    """
     require_numpy()
     import numpy
     from httk.core.register import format_serializers

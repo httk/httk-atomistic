@@ -70,7 +70,7 @@ def _params_to_basis(params: tuple[fractions.Fraction, ...]) -> SurdVector:
 
 
 class CellParams(CellBackend):
-    """
+    r"""
     Backend for a cell backed by cell parameters ``(a, b, c, alpha, beta, gamma)``.
 
     The native representation is a flat length-6 vector-like of the cell-vector lengths
@@ -80,9 +80,14 @@ class CellParams(CellBackend):
     cached using the standard crystallographic orientation convention (first cell vector along x,
     second in the xy-plane); for the common Niven angles it is exact (radicals intact). Since
     parameters carry no separate length factor, ``scale`` is the exact ``1`` and
-    ``unscaled_basis == basis``. Parameters carry no orientation, so a cell → parameters → cell
-    round-trip reproduces lengths, angles, and volume, but not the original orientation.
+    ``unscaled_basis == basis``. Parameters carry neither orientation nor periodicity, so a cell
+    → parameters → cell round-trip reproduces lengths and angles, and reproduces volume only for
+    a fully periodic source. Reconstruction uses the fully periodic default and therefore discards
+    any non-3D periodicity as well as the original orientation.
     ``unwrap`` returns the original raw object.
+
+    :param obj: The six cell parameters in crystallographic order.
+    :param \**hints: Backend-selection hints.
     """
 
     _raw: Any
@@ -126,22 +131,41 @@ class CellParams(CellBackend):
 
     @property
     def basis(self) -> SurdVector:
+        """Return the basis derived from the stored parameters.
+
+        :return: The standard-orientation cell vectors.
+        """
         if self._basis_cache is None:
             self._basis_cache = _params_to_basis(self._params)
         return self._basis_cache
 
     @property
     def scale(self) -> SurdScalar:
+        """Return the unit scale factor.
+
+        :return: The factor applied to ``unscaled_basis``.
+        """
         return SurdVector.one()
 
     @property
     def unscaled_basis(self) -> SurdVector:
+        """Return the parameter-derived basis before scaling.
+
+        :return: The cell vectors.
+        """
         return self.basis
 
     @property
     def params(self) -> tuple[fractions.Fraction, ...]:
-        """The stored ``(a, b, c, alpha, beta, gamma)`` as exact Fractions (angles in degrees)."""
+        """The stored ``(a, b, c, alpha, beta, gamma)`` in degrees.
+
+        :return: The exact cell parameters.
+        """
         return self._params
 
     def unwrap(self) -> Any:
+        """Return the original parameter object.
+
+        :return: The raw parameter representation.
+        """
         return self._raw

@@ -24,6 +24,8 @@ class NumericSites:
     The presentation is numpy-backed, so constructing a ``NumericSites`` **requires numpy** (the
     ``httk-atomistic[numpy]`` extra) and raises :class:`ImportError` eagerly when it is unavailable.
     The exact object is always one hop away via :attr:`exact`.
+
+    :param sites: The sites or sites-like object to present.
     """
 
     _sites: Sites
@@ -34,27 +36,49 @@ class NumericSites:
 
     @property
     def precision(self) -> float | None:
-        """The exact fractional coordinate precision as a plain float, or ``None``."""
+        """The fractional coordinate precision, or ``None`` if unknown.
+
+        :return: The precision as a floating-point value.
+        """
         return None if self._sites.precision is None else float(self._sites.precision)
 
     @property
     def reduced_coords(self) -> NumericVector:
-        """The Nx3 reduced site coordinates as a ``float64`` numpy array."""
+        """The Nx3 reduced site coordinates.
+
+        :return: The coordinates as floating-point values.
+        """
         return to_numeric(self._sites.reduced_coords)
 
     def __len__(self) -> int:
+        """Return the number of sites.
+
+        :return: The number of coordinate rows.
+        """
         return len(self._sites)
 
     def __iter__(self) -> Iterator[NumericVector]:
+        """Iterate over the reduced-coordinate rows.
+
+        :yield: Each coordinate row.
+        """
         for row in self._sites:
             yield to_numeric(row)
 
     def __getitem__(self, index: int) -> NumericVector:
+        """Return one reduced-coordinate row.
+
+        :param index: The row index.
+        :return: The selected coordinate row.
+        """
         return to_numeric(self._sites[index])
 
     @property
     def exact(self) -> Sites:
-        """The exact :class:`~httk.atomistic.Sites` this presentation wraps."""
+        """The exact sites this presentation wraps.
+
+        :return: The exact sites.
+        """
         return self._sites
 
     def __repr__(self) -> str:

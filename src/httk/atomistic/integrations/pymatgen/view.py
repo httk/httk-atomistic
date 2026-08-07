@@ -41,7 +41,18 @@ if TYPE_CHECKING:
 
 
 class PymatgenStructureView(StructureView, pymatgen.core.Structure):
-    """Present any structure-like value as a pymatgen ``Structure``."""
+    r"""Present a structure-like value as a pymatgen ``Structure``.
+
+    Charges, spins, partial occupancy, dummy labels, and structure charge are
+    exported, with structure charge passed as an exact ``Fraction``. Vacancy
+    constituents created for occupancy shortfall are omitted because pymatgen
+    represents the shortfall directly. Masses, labels on elements, attached species,
+    assemblies, and declared chemical composition are rejected rather than discarded;
+    :meth:`unwrap` recovers the original value behind the backend.
+
+    :param obj: A structure-like value to present as ``Structure``.
+    :param \**hints: Backend-selection hints.
+    """
 
     _backend: StructureBackend
     _raw: Any
@@ -132,9 +143,14 @@ class PymatgenStructureView(StructureView, pymatgen.core.Structure):
         pass
 
     def unwrap(self) -> Any:
+        """Return the original value represented by the underlying backend."""
         return self._raw
 
     def unview(self) -> pymatgen.core.Structure:
+        """Return a base ``Structure`` copy preserving exported properties.
+
+        :return: A standalone pymatgen ``Structure`` object.
+        """
         try:
             labels = self.labels
         except ValueError:

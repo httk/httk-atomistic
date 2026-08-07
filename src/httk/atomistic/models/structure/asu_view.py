@@ -1,6 +1,6 @@
 """A view presenting any structure as its asymmetric unit."""
 
-from typing import Any, Self, cast
+from typing import TYPE_CHECKING, Any, Self, cast
 
 from httk.core import unwrap
 
@@ -13,9 +13,13 @@ from httk.atomistic.symmetry.recognition import recognize_asu
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
+if TYPE_CHECKING:
+    from httk.atomistic.composition import Assembly
+    from httk.atomistic.models.sites.sites import Sites
+
 
 class ASUStructureView(StructureView, ASUStructure):
-    """A view presenting an underlying structure backend as an :class:`~httk.atomistic.ASUStructure`.
+    r"""A view presenting an underlying structure backend as an :class:`~httk.atomistic.ASUStructure`.
 
     This view is a genuine ASUStructure, so it can be passed anywhere one is accepted.
 
@@ -27,6 +31,9 @@ class ASUStructureView(StructureView, ASUStructure):
     supplied through ``setting`` or ``standard``/``transform``.
 
     ``tolerance`` left unspecified is derived from how precisely the structure was stated.
+
+    :param obj: The structure backend or source to recognize and present.
+    :param \**kwargs: Backend-selection, recognition, and metadata options passed to construction.
     """
 
     _backend: StructureBackend
@@ -110,21 +117,32 @@ class ASUStructureView(StructureView, ASUStructure):
         pass
 
     @property
-    def sites(self):
+    def sites(self) -> "Sites":
+        """Expose the retained representative sites."""
         return self._representative_sites()
 
     @property
-    def species_at_sites(self):
+    def species_at_sites(self) -> tuple[str, ...]:
+        """Expose species names for the retained representative sites."""
         return self.domain_species_at_sites
 
     @property
-    def assemblies(self):
+    def assemblies(self) -> tuple["Assembly", ...] | None:
+        """Expose correlations among the retained domain sites."""
         return self._assemblies
 
     def unwrap(self) -> Any:
+        """Return the raw value wrapped by the backend.
+
+        :return: The original source value.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> ASUStructure:
+        """Materialize this presentation as a standalone asymmetric-unit structure.
+
+        :return: The exact asymmetric-unit structure represented by this view.
+        """
         # A genuine ASUStructure backend carrying the same metadata is exactly the presented
         # value: reuse it. Otherwise materialize a plain ASUStructure from the view's own
         # (eagerly initialized) state.

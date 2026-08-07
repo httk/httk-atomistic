@@ -16,11 +16,14 @@ from httk.atomistic.models.sites.view_base import SitesViewBase
 
 
 class SitesView(SitesViewBase, Sites):
-    """
+    r"""
     A view presenting an underlying sites backend as a ``Sites`` object.
 
     This view is a genuine ``Sites``, so it can be passed anywhere a Sites is accepted.
     Its state is built lazily on first access from the backend.
+
+    :param obj: The sites-like object to present.
+    :param \**hints: Backend-selection hints.
     """
 
     _backend: SitesBackend
@@ -58,9 +61,17 @@ class SitesView(SitesViewBase, Sites):
         return self.__dict__["_precision"]
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> Sites:
+        """Return this presentation as standalone exact sites.
+
+        :return: The exact sites representation.
+        """
         # The folded design makes a genuine Sites backend exactly the presented value: reuse it.
         backend = self._backend
         if type(backend) is Sites:

@@ -1,4 +1,4 @@
-"""Trajectory models and views."""
+"""Expose trajectory models and views."""
 
 from typing import TYPE_CHECKING
 

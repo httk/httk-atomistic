@@ -1,4 +1,4 @@
-"""Vendored crystallographic symmetry datasets and their lookups.
+"""Provide lazy access to vendored crystallographic symmetry datasets.
 
 Two datasets ship with *httk-atomistic*, both read through
 :class:`~httk.core.DatasetLoader` and both licensed CC BY 4.0 (see the adjacent
@@ -115,12 +115,22 @@ def _lookup_index(loader: DatasetLoader, dataset: str, name: str) -> dict[str, i
 
 
 def spacegroup_settings() -> list[dict[str, Any]]:
-    """Every tabulated space-group setting, one record each (527 of them)."""
+    """Return every tabulated space-group setting, one record each.
+
+    The symmetry-basics dataset is loaded lazily on the first lookup.
+
+    :return: All tabulated space-group setting records.
+    """
     return _basics().data.spacegroups
 
 
 def point_groups() -> list[dict[str, Any]]:
-    """The 32 crystallographic point groups, with their symmetry operations and character tables."""
+    """Return the crystallographic point groups with their operations and character tables.
+
+    The symmetry-basics dataset is loaded lazily on the first lookup.
+
+    :return: All tabulated point-group records.
+    """
     return _basics().data.pointgroups
 
 
@@ -140,6 +150,13 @@ def spacegroup_setting(
 
     Raises :class:`KeyError` if the key is unknown, and :class:`TypeError` unless exactly
     one key is given.
+
+    :param hall_entry: The normalized Hall symbol identifying the setting.
+    :param setting_it_nc: The IT number and coordinate-system code identifying the setting.
+    :param hm_entry: The Hermann-Mauguin entry name identifying the setting.
+    :return: The matching space-group setting record.
+    :raises KeyError: If the selected key is unknown.
+    :raises TypeError: If zero or multiple keys are supplied.
     """
     given = {
         "hall_entry": hall_entry,
@@ -168,6 +185,10 @@ def standard_spacegroup_setting(it_number: int) -> dict[str, Any]:
     68, 70, 85, 86, 88, 125, 126, 129, 130, 133, 134, 137, 138, 141, 142, 201, 203, 222,
     224, 227, 228) and agree for the other 206. Any interoperation with spglib must go
     through an explicit transform rather than assuming the two coincide.
+
+    :param it_number: The International Tables space-group number.
+    :return: The reference setting record for the number.
+    :raises KeyError: If no reference setting has the requested number.
     """
     index = _lookup_index(_basics(), "symmetry_basics", "index_it_number_to_std_spacegroups")
     try:
@@ -185,6 +206,10 @@ def spglib_default_spacegroup_setting(it_number: int) -> dict[str, Any]:
     that hands coordinates to or takes them from spglib must transform explicitly rather
     than assume the two agree — the failure mode is a structure displaced by a fraction of
     a cell that still passes a symmetry check.
+
+    :param it_number: The International Tables space-group number.
+    :return: The setting record selected by spglib for the number.
+    :raises KeyError: If spglib has no setting for the requested number.
     """
     index = _lookup_index(_basics(), "symmetry_basics", "index_it_number_to_spglib_default_spacegroups")
     try:
@@ -195,7 +220,10 @@ def spglib_default_spacegroup_setting(it_number: int) -> dict[str, Any]:
 
 
 def standard_setting_it_numbers() -> list[int]:
-    """The IT numbers that have a tabulated standard setting: ``[1, ..., 230]``."""
+    """Return the IT numbers that have a tabulated standard setting.
+
+    :return: The available International Tables space-group numbers in ascending order.
+    """
     return sorted(int(key) for key in _lookup_index(_basics(), "symmetry_basics", "index_it_number_to_std_spacegroups"))
 
 
@@ -219,6 +247,10 @@ def setting_transform(hall_entry: str) -> dict[str, Any]:
     ``det M == 3`` because the standard hexagonal cell has three times the volume of the
     rhombohedral one — and correspondingly ``inv(M)`` has thirds, so nothing may assume
     the reverse transform is integral.
+
+    :param hall_entry: The normalized Hall symbol identifying the setting.
+    :return: The setting-transform record mapping standard-setting coordinates into the named setting.
+    :raises KeyError: If no transform is tabulated for ``hall_entry``.
     """
     index = _lookup_index(
         _transforms(), "spacegroup_setting_transforms", "index_hall_entry_to_spacegroup_setting_transforms"

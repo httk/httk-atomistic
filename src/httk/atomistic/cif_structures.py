@@ -33,7 +33,7 @@ __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
 
 
 def asu_structures_from_cif(payload: Mapping[str, Any], **options: Any) -> list[ASUStructure]:
-    """Every structure in a loaded CIF payload, one per data block that describes one.
+    r"""Return every structure in a loaded CIF payload, one per structural data block.
 
     Accepts either a whole loaded payload (with ``blocks``) or a single block.
 
@@ -41,6 +41,11 @@ def asu_structures_from_cif(payload: Mapping[str, Any], **options: Any) -> list[
     but *asking it for structures* is not. If the file yielded none, the reasons the
     reader recorded are raised here rather than returning an empty list, so a file that
     could not be interpreted does not read as a file that contained nothing.
+
+    :param payload: The loaded whole-CIF payload or one loaded CIF block.
+    :param \*\*options: Options forwarded to :func:`asu_structure_from_cif`.
+    :return: One asymmetric-unit structure for each structural data block.
+    :raises ValueError: If the payload has no interpretable structural data or a block is invalid.
     """
     blocks = payload.get("blocks")
     if blocks is None:
@@ -88,6 +93,13 @@ def asu_structure_from_cif(
     ``trust_declared_symmetry=False`` ignores the file's declared Hall symbol or space-group
     number and identifies the setting from its symmetry operations alone; see
     :func:`cif_setting` for when that is the right thing to do.
+
+    :param data: One loaded CIF data block.
+    :param tolerance: The Cartesian matching tolerance, or ``None`` to derive it from the CIF.
+    :param limit_denominator: The maximum denominator for snapped free parameters, if supplied.
+    :param trust_declared_symmetry: Whether to validate the declared symmetry before matching operations.
+    :return: The exact asymmetric-unit structure.
+    :raises ValueError: If the block format, symmetry, coordinates, occupancies, or Wyckoff matches are invalid.
     """
     fmt = data.get("format")
     if fmt != "cif":
@@ -208,6 +220,11 @@ def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True
     last case the transform to the standard setting genuinely cannot be *derived* — infinitely
     many are equally valid and they describe different crystals — so such a file has to be
     built with an explicit :class:`~httk.atomistic.SettingTransform`.
+
+    :param data: The loaded CIF data block.
+    :param trust_declared_symmetry: Whether to check the declared Hall symbol or IT number.
+    :return: The tabulated space-group setting matching the block's operations.
+    :raises ValueError: If operations are absent, inconsistent with the declaration, or unknown.
     """
     operations = data.get("symops_xyz")
     if not operations:

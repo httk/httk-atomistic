@@ -23,6 +23,9 @@ class NumericUnitcellStructure(StructureBackend):
     passed through the vector family into ``Cell`` and ``Sites``. That last route is
     exact embedding of the floats: their binary float64 values, rather than their
     decimal spellings, become the exact values.
+
+    :param obj: The numeric structure presentation to wrap.
+    :param \\*\\*hints: Backend-selection hints.
     """
 
     _object: Any
@@ -82,26 +85,27 @@ class NumericUnitcellStructure(StructureBackend):
 
     @property
     def cell(self) -> Cell:
-        """The exact cell quartet component."""
+        """Expose the exact cell quartet component."""
         return self._structure.cell
 
     @property
     def sites(self) -> Sites:
-        """The exact sites quartet component."""
+        """Expose the exact sites quartet component."""
         return self._structure.sites
 
     @property
     def species(self) -> tuple[Species, ...]:
-        """The exact structure's distinct species."""
+        """Expose the exact structure's distinct species."""
         return self._structure.species
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
-        """The exact species name for each site."""
+        """Expose the exact species name for each site."""
         return self._structure.species_at_sites
 
     @property
     def charge(self) -> Fraction | None:
+        """Expose the explicitly assigned exact charge."""
         return self._structure.charge
 
     def unwrap(self) -> Any:

@@ -47,7 +47,7 @@ _ROW_CENTRING_MATRICES = {letter: matrix.T() for letter, matrix in _COLUMN_CENTR
 
 @dataclass(frozen=True, slots=True)
 class PrimitiveCellResult:
-    """A structure in the fixed primitive cell of its standard-setting conventional cell.
+    """Store a structure in the fixed primitive cell of its conventional cell.
 
     ``transform`` is the row-convention matrix actually applied to the conventional basis:
     ``basis_primitive = transform * basis_conventional``. The matrices are the transposes of
@@ -57,6 +57,12 @@ class PrimitiveCellResult:
     <https://spglib.readthedocs.io/en/latest/definition.html#transformation-to-the-primitive-cell>`_.
 
     ``multiplier`` is the exact ratio of primitive-cell site count to input site count.
+
+    :param structure: The resulting primitive-cell structure.
+    :param spacegroup: The space group of the standardized input.
+    :param conventional: The conventional-cell result used as input.
+    :param transform: The row-convention matrix applied to the conventional basis.
+    :param multiplier: The exact ratio of result site count to input site count.
     """
 
     structure: UnitcellStructure
@@ -103,6 +109,17 @@ def primitive_cell(
     applied exactly. Site moments and assemblies are refused because this operation cannot yet
     transform their frame or preserve correlated site groups through the centring collapse.
     This operation does not perform Niggli reduction.
+
+    :param structure: The structure to express in a primitive cell.
+    :param tolerance: The Cartesian recognition tolerance, or ``None`` to derive it.
+    :param limit_denominator: The maximum denominator for idealised free parameters, or
+        ``None`` to retain their exact stated values.
+    :return: The primitive-cell structure and transform metadata.
+    :raises ImportError: If recognition is needed and the optional spglib dependency is
+        unavailable.
+    :raises ValueError: If recognition arguments are invalid for the input, the structure
+        has unsupported moments or assemblies, is not fully periodic, or has an unsupported
+        centring type.
     """
     original = UnitcellStructureView(structure)
     asu = _as_existing_asu(structure)

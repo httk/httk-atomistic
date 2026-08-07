@@ -149,7 +149,19 @@ def declared_spacegroup_settings(
     hermann_mauguin_extended: str | None,
     operation_group: frozenset[Any] | None,
 ) -> tuple[dict[str, Any], ...]:
-    """Return tabulated settings consistent with the supplied symmetry metadata."""
+    """Return tabulated settings consistent with supplied symmetry metadata.
+
+    Raw ``xyz`` operation strings are parsed only for validation and matching; callers
+    retain the declared strings at their API boundaries.
+
+    :param it_number: Optional International Tables space-group number.
+    :param hall: Optional Hall symbol.
+    :param hermann_mauguin: Optional short Hermann–Mauguin symbol.
+    :param hermann_mauguin_extended: Optional extended Hermann–Mauguin symbol.
+    :param operation_group: Optional normalized operation group to match.
+    :return: Matching tabulated settings.
+    :raises ValueError: If supplied identifiers or operations are inconsistent.
+    """
     identifiers = any(value is not None for value in (it_number, hall, hermann_mauguin, hermann_mauguin_extended))
     if not identifiers and operation_group is None:
         return ()
@@ -199,7 +211,17 @@ def declared_spacegroup_settings(
 
 @dataclass(frozen=True)
 class StructureSymmetry:
-    """Optional, explicitly supplied symmetry metadata for a unit-cell structure."""
+    """Store optional, explicitly supplied symmetry metadata for a unit-cell structure.
+
+    :param space_group_it_number: Optional International Tables space-group number.
+    :param space_group_symbol_hall: Optional Hall symbol.
+    :param space_group_symbol_hermann_mauguin: Optional short Hermann–Mauguin symbol.
+    :param space_group_symbol_hermann_mauguin_extended: Optional extended Hermann–Mauguin symbol.
+    :param space_group_symmetry_operations_xyz: Optional declared raw ``xyz`` operations.
+    :param wyckoff_positions: Optional Wyckoff letters aligned with represented sites.
+    :raises TypeError: If a symbol is not a string.
+    :raises ValueError: If the metadata is invalid or mutually inconsistent.
+    """
 
     space_group_it_number: int | None = None
     space_group_symbol_hall: str | None = None
@@ -278,6 +300,12 @@ class StructureSymmetry:
 
 
 def validate_optimization_type(value: str | None) -> str | None:
+    """Validate an OPTIMADE optimization type.
+
+    :param value: The optimization type to validate, or ``None``.
+    :return: The validated value.
+    :raises ValueError: If the value is not one of the supported optimization types.
+    """
     if value is None:
         return None
     if not isinstance(value, str) or value not in _OPTIMIZATION_TYPES:
@@ -313,7 +341,13 @@ def _formula_counts(formula: str) -> tuple[tuple[str, int], ...]:
 
 
 def validate_hill_formula(formula: str | None, composition: CompositionResult | None) -> str | None:
-    """Validate an explicitly assigned Hill formula without inventing its molecular scale."""
+    """Validate an explicitly assigned Hill formula without inventing its molecular scale.
+
+    :param formula: The formula to validate, or ``None``.
+    :param composition: Optional complete composition to cross-check.
+    :return: The unchanged formula, or ``None``.
+    :raises ValueError: If the formula syntax, order, elements, or ratios are invalid.
+    """
     if formula is None:
         return None
     counts = _formula_counts(formula)
@@ -330,7 +364,12 @@ def validate_hill_formula(formula: str | None, composition: CompositionResult | 
 
 
 def validate_descriptive_formula(formula: str | None) -> str | None:
-    """Validate the permissive OPTIMADE descriptive-formula token and bracket grammar."""
+    """Validate the permissive OPTIMADE descriptive-formula token and bracket grammar.
+
+    :param formula: The formula to validate, or ``None``.
+    :return: The unchanged formula, or ``None``.
+    :raises ValueError: If the formula is empty, malformed, or contains unknown tokens.
+    """
 
     if formula is None:
         return None
@@ -392,7 +431,7 @@ def _semantic_value(
 
 
 class StructureSemanticsMixin:
-    """Properties shared by unit-cell, fundamental-domain, and ASU structures."""
+    """Provide semantics shared by unit-cell, fundamental-domain, and ASU structures."""
 
     __httk_storage_record__: ClassVar[type[Any]]
     _assemblies: tuple[Assembly, ...] | None
@@ -406,124 +445,234 @@ class StructureSemanticsMixin:
 
     @property
     def type(self) -> str:
-        """The logical OPTIMADE entry family."""
+        """Expose the logical OPTIMADE entry family.
+
+        :return: ``"structures"``.
+        """
         return "structures"
 
     @property
     def id(self) -> str:
-        """The stable content identity of this exact representation."""
+        """Expose the stable content identity of this exact representation.
+
+        :return: The content identifier.
+        """
         from httk.core.storage import content_id
 
         return content_id(self)
 
     @property
     def immutable_id(self) -> str | None:
+        """Expose the immutable source identifier.
+
+        :return: The identifier, or ``None`` when it is unstated.
+        """
         return _semantic_value(self, "immutable_id", private_name="_immutable_id")
 
     @property
     def last_modified(self) -> datetime.datetime | None:
+        """Expose the source modification timestamp.
+
+        :return: The timestamp, or ``None`` when it is unstated.
+        """
         return _semantic_value(self, "last_modified", private_name="_last_modified")
 
     @property
     def assemblies(self) -> tuple[Assembly, ...] | None:
+        """Expose site assemblies.
+
+        :return: The assemblies, or ``None`` when they are unstated.
+        """
         return _semantic_value(self, "assemblies", private_name="_assemblies")
 
     @property
     def chemical_composition(self) -> ChemicalComposition | None:
+        """Expose the supplied chemical composition.
+
+        :return: The composition, or ``None`` when it is unstated.
+        """
         return _semantic_value(self, "chemical_composition", private_name="_chemical_composition")
 
     @property
     def composition(self) -> CompositionResult:
+        """Project the structure into a composition result.
+
+        :return: The derived or supplied composition.
+        """
         return project_composition(self)
 
     @property
     def elements(self) -> tuple[str, ...]:
+        """Expose the composition's element symbols.
+
+        :return: Element symbols in composition order.
+        """
         return self.composition.elements
 
     @property
     def nelements(self) -> int:
+        """Expose the number of composition elements.
+
+        :return: The number of distinct elements.
+        """
         return self.composition.nelements
 
     @property
     def elements_ratios(self) -> tuple[Fraction, ...]:
+        """Expose normalized composition element ratios.
+
+        :return: Element ratios in :attr:`elements` order.
+        """
         return self.composition.elements_ratios
 
     @property
     def chemical_formula_reduced(self) -> str | None:
+        """Expose the reduced composition formula.
+
+        :return: The reduced formula, or ``None`` when unavailable.
+        """
         return self.composition.chemical_formula_reduced
 
     @property
     def formula(self) -> str | None:
-        """Convenient native alias for :attr:`chemical_formula_reduced`."""
+        """Expose a convenient alias for :attr:`chemical_formula_reduced`.
+
+        :return: The reduced formula, or ``None`` when unavailable.
+        """
         return self.chemical_formula_reduced
 
     @property
     def chemical_formula_anonymous(self) -> str | None:
+        """Expose the anonymous composition formula.
+
+        :return: The anonymous formula, or ``None`` when unavailable.
+        """
         return self.composition.chemical_formula_anonymous
 
     @property
     def chemical_formula_descriptive(self) -> str | None:
+        """Expose the descriptive chemical formula.
+
+        :return: The formula, or ``None`` when it is unstated.
+        """
         return _semantic_value(self, "chemical_formula_descriptive", private_name="_chemical_formula_descriptive")
 
     @property
     def chemical_formula_hill(self) -> str | None:
+        """Expose the Hill chemical formula.
+
+        :return: The formula, or ``None`` when it is unstated.
+        """
         return _semantic_value(self, "chemical_formula_hill", private_name="_chemical_formula_hill")
 
     @property
     def optimization_type(self) -> str | None:
+        """Expose the optimization provenance.
+
+        :return: The optimization type, or ``None`` when it is unstated.
+        """
         return _semantic_value(self, "optimization_type", private_name="_optimization_type")
 
     @property
     def dimension_types(self) -> tuple[int, int, int]:
+        """Expose periodicity as OPTIMADE dimension flags.
+
+        :return: Three ``0``/``1`` flags for the cell directions.
+        """
         owner = cast(Any, self)
         return cast(tuple[int, int, int], tuple(1 if value else 0 for value in owner.periodicity))
 
     @property
     def lattice_vectors(self) -> list[list[float]]:
+        """Expose the cell basis at the float presentation boundary.
+
+        :return: The three lattice vectors as float rows.
+        """
         return cast(Any, self).cell.basis.to_floats()
 
     @property
     def fractional_site_positions(self) -> list[list[float]]:
+        """Expose reduced site positions at the float presentation boundary.
+
+        :return: Fractional positions as float rows.
+        """
         return cast(Any, self).sites.reduced_coords.to_floats()
 
     @property
     def cartesian_site_positions(self) -> list[list[float]]:
+        """Expose Cartesian site positions at the float presentation boundary.
+
+        :return: Cartesian positions as float rows.
+        """
         return cast(Any, self).cartesian_sites().to_floats()
 
     @property
     def nsites(self) -> int:
+        """Expose the number of represented sites.
+
+        :return: The site count.
+        """
         return len(cast(Any, self).species_at_sites)
 
     @property
     def structure_features(self) -> tuple[str, ...]:
+        """Expose derived OPTIMADE structure-feature flags.
+
+        :return: Feature flags in canonical order.
+        """
         return derive_structure_features(self)
 
     @property
     def site_coordinate_span_description(self) -> str | None:
+        """Expose the optional description for a non-standard coordinate span.
+
+        :return: The span description, or ``None`` when unavailable.
+        """
         return None
 
     @property
     def space_group_it_number(self) -> int | None:
+        """Expose the International Tables space-group number.
+
+        :return: The number, or ``None`` when symmetry is unstated.
+        """
         symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         return None if symmetry is None else symmetry.space_group_it_number
 
     @property
     def space_group_symbol_hall(self) -> str | None:
+        """Expose the Hall space-group symbol.
+
+        :return: The Hall symbol, or ``None`` when symmetry is unstated.
+        """
         symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         return None if symmetry is None else symmetry.space_group_symbol_hall
 
     @property
     def space_group_symbol_hermann_mauguin(self) -> str | None:
+        """Expose the short Hermann–Mauguin symbol.
+
+        :return: The symbol, or ``None`` when symmetry is unstated.
+        """
         symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         return None if symmetry is None else symmetry.space_group_symbol_hermann_mauguin
 
     @property
     def space_group_symbol_hermann_mauguin_extended(self) -> str | None:
+        """Expose the extended Hermann–Mauguin symbol.
+
+        :return: The symbol, or ``None`` when symmetry is unstated.
+        """
         symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         return None if symmetry is None else symmetry.space_group_symbol_hermann_mauguin_extended
 
     @property
     def space_group_symmetry_operations_xyz(self) -> tuple[str, ...] | None:
+        """Expose the declared raw ``xyz`` symmetry operations.
+
+        :return: The operation strings, or the identity for a periodic structure without
+            explicit operations.
+        """
         symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         if symmetry is not None and symmetry.space_group_symmetry_operations_xyz is not None:
             return symmetry.space_group_symmetry_operations_xyz
@@ -531,6 +680,10 @@ class StructureSemanticsMixin:
 
     @property
     def wyckoff_positions(self) -> tuple[str, ...] | None:
+        """Expose the site-aligned Wyckoff positions.
+
+        :return: Wyckoff letters, or ``None`` when they are unstated.
+        """
         symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         return None if symmetry is None else symmetry.wyckoff_positions
 
@@ -588,6 +741,22 @@ def initialize_semantics(
     immutable_id: str | None = None,
     last_modified: datetime.datetime | None = None,
 ) -> None:
+    """Validate and store shared structure semantics on an owner.
+
+    :param owner: The structure receiving the semantic fields.
+    :param nsites: The number of represented sites.
+    :param molecular: Whether the structure describes a molecular unit cell.
+    :param assemblies: Optional site assemblies.
+    :param symmetry: Optional structure symmetry metadata.
+    :param chemical_composition: Optional supplied chemical composition.
+    :param chemical_formula_descriptive: Optional descriptive formula.
+    :param chemical_formula_hill: Optional Hill formula.
+    :param optimization_type: Optional optimization provenance.
+    :param immutable_id: Optional immutable source identifier.
+    :param last_modified: Optional timezone-aware source timestamp.
+    :raises TypeError: If a supplied semantic value has the wrong kind.
+    :raises ValueError: If supplied semantics are invalid or inconsistent.
+    """
     if not isinstance(molecular, bool):
         raise TypeError("molecular must be a bool")
     if symmetry is not None and not isinstance(symmetry, StructureSymmetry):

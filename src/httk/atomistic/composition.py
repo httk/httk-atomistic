@@ -29,7 +29,14 @@ __all__ = [
 
 @dataclass(frozen=True)
 class CompositionDiagnostic:
-    """A machine-readable non-fatal issue encountered while projecting composition."""
+    """Record a non-fatal issue encountered while projecting composition.
+
+    :param code: The stable diagnostic code.
+    :param message: The human-readable diagnostic message.
+    :param subject: The composition subject involved, if any.
+    :param total: The calculated total, if applicable.
+    :param width: The precision width used for the diagnostic, if applicable.
+    """
 
     code: str
     message: str
@@ -60,7 +67,12 @@ def _normalization_diagnostic(
 
 @dataclass(frozen=True)
 class Assembly:
-    """One site-disorder assembly, without silently normalizing its probabilities."""
+    """Represent one site-disorder assembly without normalizing its probabilities.
+
+    :param sites_in_groups: The non-overlapping site-index groups in the assembly.
+    :param group_probabilities: The probability assigned to each group.
+    :param group_probabilities_precision: The precision of each group probability, if known.
+    """
 
     sites_in_groups: tuple[tuple[int, ...], ...]
     group_probabilities: tuple[Fraction, ...]
@@ -107,20 +119,31 @@ class Assembly:
 
     @property
     def normalized(self) -> bool:
+        """Whether the group probabilities sum to one within their precision."""
         return self._normalization[0]
 
     @property
     def normalization_status(self) -> str:
+        """Return the probability normalization status."""
         return self._normalization[1]
 
     @property
     def normalization_diagnostic(self) -> CompositionDiagnostic | None:
+        """Return the normalization diagnostic, if the probabilities are outside precision."""
         return self._normalization[2]
 
 
 @dataclass(frozen=True, init=False)
 class ChemicalComposition:
-    """Explicit elemental amounts, either additional (``implicit``) or authoritative (``full``)."""
+    """Store explicit elemental amounts as additional or authoritative composition.
+
+    ``implicit`` amounts supplement the site-derived composition; ``full`` amounts replace it
+    while still recording a mismatch diagnostic when the two disagree.
+
+    :param amounts: The positive amounts for named chemical elements.
+    :param mode: Whether the amounts are ``"implicit"`` or authoritative ``"full"`` values.
+    :param amounts_precision: The precision of the stated amounts, if known.
+    """
 
     amounts: tuple[tuple[str, Fraction], ...]
     amounts_precision: tuple[tuple[str, Fraction | None], ...]
@@ -161,19 +184,29 @@ class ChemicalComposition:
 
     @property
     def elements(self) -> tuple[str, ...]:
+        """Return the element symbols in the stored amount order."""
         return tuple(element for element, _ in self.amounts)
 
     @property
     def amount_mapping(self) -> Mapping[str, Fraction]:
+        """Return the elemental amounts as a read-only mapping."""
         return MappingProxyType(dict(self.amounts))
 
     @property
     def precision_mapping(self) -> Mapping[str, Fraction | None]:
+        """Return the amount precisions as a read-only mapping."""
         return MappingProxyType(dict(self.amounts_precision))
 
 
 def validate_assemblies(assemblies: Iterable[Assembly], nsites: int | None = None) -> tuple[Assembly, ...]:
-    """Validate global assembly site ownership for a future UnitcellStructure constructor."""
+    """Validate global assembly site ownership for a structure.
+
+    :param assemblies: The assemblies to validate.
+    :param nsites: The structure site count used to bound site indices, if supplied.
+    :return: The validated assemblies in their input order.
+    :raises TypeError: If an item is not an :class:`Assembly`.
+    :raises ValueError: If a site index is out of bounds or occurs in multiple assemblies.
+    """
     values = tuple(assemblies)
     seen: set[int] = set()
     for assembly in values:
@@ -190,7 +223,12 @@ def validate_assemblies(assemblies: Iterable[Assembly], nsites: int | None = Non
 
 
 def anonymous_symbol(index: int) -> str:
-    """The unbounded OPTIMADE anonymous symbol for zero-based *index*."""
+    """Return the unbounded OPTIMADE anonymous symbol for a zero-based index.
+
+    :param index: The non-negative zero-based symbol index.
+    :return: The generated anonymous symbol.
+    :raises ValueError: If ``index`` is not a non-negative integer.
+    """
     if not isinstance(index, int) or isinstance(index, bool) or index < 0:
         raise ValueError("anonymous symbol index must be a non-negative integer")
     head = chr(ord("A") + index % 26)
@@ -205,7 +243,16 @@ def anonymous_symbol(index: int) -> str:
 
 @dataclass(frozen=True)
 class CompositionResult:
-    """The immutable projected elemental composition and formula diagnostics."""
+    """Store an immutable projected composition and its formula diagnostics.
+
+    :param amounts: The projected elemental amounts in symbol order.
+    :param uncertainties: The corresponding amount precisions, if known.
+    :param complete: Whether the projection contains no unknown elemental content.
+    :param exact: Whether all projected amounts are exact.
+    :param normalized: Whether all contributing probabilities and concentrations normalize.
+    :param normalization_status: The combined normalization status.
+    :param diagnostics: The non-fatal issues found during projection.
+    """
 
     amounts: tuple[tuple[str, Fraction], ...]
     uncertainties: tuple[tuple[str, Fraction | None], ...]
@@ -217,22 +264,27 @@ class CompositionResult:
 
     @property
     def amount_mapping(self) -> Mapping[str, Fraction]:
+        """Return the projected amounts as a read-only mapping."""
         return MappingProxyType(dict(self.amounts))
 
     @property
     def uncertainty_mapping(self) -> Mapping[str, Fraction | None]:
+        """Return the projected amount precisions as a read-only mapping."""
         return MappingProxyType(dict(self.uncertainties))
 
     @property
     def elements(self) -> tuple[str, ...]:
+        """Return the projected element symbols in amount order."""
         return tuple(element for element, _ in self.amounts)
 
     @property
     def nelements(self) -> int:
+        """Return the number of projected elements."""
         return len(self.amounts)
 
     @property
     def elements_ratios(self) -> tuple[Fraction, ...]:
+        """Return the projected amounts normalized by their total."""
         total = sum((amount for _, amount in self.amounts), Fraction())
         return () if not total else tuple(amount / total for _, amount in self.amounts)
 
@@ -247,6 +299,7 @@ class CompositionResult:
 
     @property
     def chemical_formula_reduced(self) -> str | None:
+        """Return the reduced chemical formula, if the composition is complete."""
         coefficients = self._formula_coefficients()
         if coefficients is None:
             return None
@@ -254,6 +307,7 @@ class CompositionResult:
 
     @property
     def chemical_formula_anonymous(self) -> str | None:
+        """Return the anonymous formula, if the composition is complete."""
         coefficients = self._formula_coefficients()
         if coefficients is None:
             return None
@@ -286,7 +340,11 @@ def _site_data(structure: Any) -> tuple[tuple[str, ...], tuple[Fraction, ...], t
 
 
 def derive_structure_features(structure: Any) -> tuple[str, ...]:
-    """The exact-composition structure features, alphabetically ordered."""
+    """Return the exact-composition features present on a structure.
+
+    :param structure: The structure whose composition-related features are inspected.
+    :return: The feature names in alphabetical order.
+    """
     names, _, species = _site_data(structure)
     by_name = {value.name: value for value in species}
     used = tuple(by_name[name] for name in names if name in by_name)
@@ -306,7 +364,16 @@ def derive_structure_features(structure: Any) -> tuple[str, ...]:
 
 
 def project_composition(structure: Any) -> CompositionResult:
-    """Project a UnitcellStructure or ASUStructure to exact elemental amounts without normalization."""
+    """Project a structure to exact elemental amounts without normalization.
+
+    Site multiplicities, disorder, assemblies, attached elements, and explicit composition
+    semantics are combined without silently renormalizing their stated values.
+
+    :param structure: The unit-cell or asymmetric-unit structure to project.
+    :return: The projected composition and its completeness, precision, and diagnostics.
+    :raises TypeError: If the structure has an invalid explicit chemical composition.
+    :raises ValueError: If a structure site refers to an unknown species or has invalid assemblies.
+    """
     names, factors, species = _site_data(structure)
     by_name = {value.name: value for value in species}
     assemblies = validate_assemblies(getattr(structure, "assemblies", ()) or (), len(names))

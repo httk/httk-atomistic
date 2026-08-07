@@ -1,4 +1,4 @@
-"""External-library integration bridges."""
+"""Expose external-library integration bridges."""
 
 from .ase import ASEAtoms, ASEAtomsProtocol
 from .pymatgen import PymatgenStructure, PymatgenStructureProtocol

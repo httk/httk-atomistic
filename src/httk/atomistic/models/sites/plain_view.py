@@ -13,11 +13,14 @@ from httk.atomistic.models.sites.view_base import SitesViewBase
 
 
 class PlainSitesView(SitesViewBase, tuple):
-    """
+    r"""
     A view presenting an underlying sites backend as a raw Nx3 matrix of floats.
 
     This view is a genuine tuple of reduced-coordinate rows (rendered to floats from the exact
     ``reduced_coords``), built eagerly and immutable.
+
+    :param obj: The sites-like object to present.
+    :param \**hints: Backend-selection hints.
     """
 
     _backend: SitesBackend
@@ -34,8 +37,16 @@ class PlainSitesView(SitesViewBase, tuple):
         super().__init__()
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
-    def unview(self) -> tuple:
+    def unview(self) -> tuple[tuple[float, ...], ...]:
+        """Return the presented coordinates as a plain tuple.
+
+        :return: The reduced-coordinate rows.
+        """
         # The view IS its presentation tuple; shed to a plain tuple (rows shared).
         return tuple(self)

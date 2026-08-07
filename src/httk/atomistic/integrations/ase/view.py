@@ -49,12 +49,20 @@ if TYPE_CHECKING:
 
 
 class ASEAtomsView(StructureView, ase.Atoms):
-    """Present a :data:`~httk.atomistic.models.structure.like.StructureLike` as ASE ``Atoms``.
+    r"""Present a structure-like value as ASE ``Atoms``.
 
     The conversion carries the structure quartet: cell, reduced positions, atomic
     numbers, and periodicity. ASE must be installed to construct this view. Mixed or
     attached species cannot be represented by ASE atomic numbers and raise
     :class:`TypeError`.
+
+    Site moments map to ``initial_magmoms`` and species charges map to
+    ``initial_charges``. Structure charge, species spins, labels, masses, assemblies,
+    declared chemical composition, and non-element species are rejected rather than
+    discarded; :meth:`unwrap` recovers the original value behind the backend.
+
+    :param obj: A structure-like value to present as ``Atoms``.
+    :param \**hints: Backend-selection hints.
     """
 
     _backend: StructureBackend
@@ -120,10 +128,14 @@ class ASEAtomsView(StructureView, ase.Atoms):
         pass
 
     def unwrap(self) -> Any:
-        """Return the raw object represented by the underlying structure backend."""
+        """Return the original value represented by the underlying backend."""
         return unwrap(self._backend)
 
     def unview(self) -> ase.Atoms:
+        """Return a base ``Atoms`` copy of this view.
+
+        :return: A standalone ASE ``Atoms`` object.
+        """
         # ase.Atoms(other) builds a base-class copy of the presented atoms.
         return ase.Atoms(self)
 

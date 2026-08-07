@@ -82,13 +82,20 @@ def _moment_vector(value: Any) -> list[float] | None:
 
 
 class PymatgenStructure(StructureBackend):
-    """Eager pymatgen backend.
+    r"""Import a pymatgen-compatible structure eagerly.
 
     Pymatgen ``properties``, site labels, and site properties other than ``magmom`` are
     intentionally discarded because they have no exact httk structure-family counterpart.
     Pymatgen ``DummySpecies`` values with the default zero oxidation state are imported
     with an unstated charge because pymatgen cannot distinguish that default from an
     explicitly supplied zero; nonzero dummy oxidation states remain exact charges.
+
+    Partial occupancy and its exact ``Fraction`` values are retained. An occupancy
+    shortfall becomes an explicit vacancy constituent, which views omit when exporting
+    to pymatgen. The original object remains available through :meth:`unwrap`.
+
+    :param obj: A pymatgen ``Structure`` object or compatible duck-typed object.
+    :param \**hints: Backend-selection hints.
     """
 
     kind: ClassVar[str] = "pymatgen"
@@ -175,29 +182,36 @@ class PymatgenStructure(StructureBackend):
 
     @property
     def cell(self) -> Cell:
+        """Return the converted cell and periodicity."""
         return self._structure.cell
 
     @property
     def sites(self) -> Sites:
+        """Return the converted reduced coordinates."""
         return self._structure.sites
 
     @property
     def species(self) -> tuple[Species, ...]:
+        """Return the imported distinct species and occupancies."""
         return self._structure.species
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Return the imported species name at each site."""
         return self._structure.species_at_sites
 
     @property
     def site_moments(self) -> Any:
+        """Return imported collinear or Cartesian site moments, if present."""
         return self._structure.site_moments
 
     @property
     def charge(self) -> fractions.Fraction | None:
+        """Return the exact structure charge, or ``None`` when unstated."""
         return self._structure.charge
 
     def unwrap(self) -> Any:
+        """Return the original pymatgen-compatible object."""
         return self._raw
 
 

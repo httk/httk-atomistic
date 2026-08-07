@@ -1,4 +1,4 @@
-"""An OPTIMADE trajectories property-mapping backend."""
+"""Map OPTIMADE trajectory properties to a backend."""
 
 from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, ClassVar
@@ -73,11 +73,14 @@ _COMPACTABLE = frozenset(
 
 
 class PlainTrajectory(TrajectoryBackend):
-    """Backend for a mapping whose structure properties have a frame axis.
+    r"""Represent a mapping whose structure properties have a frame axis.
 
     A compact constant property is represented by a one-element leading axis,
     e.g. ``nelements=[2]`` for any number of frames. Only properties declaring
     ``constant`` on that axis accept this compact form.
+
+    :param obj: A trajectory property mapping.
+    :param \**hints: Backend-selection hints.
     """
 
     kind: ClassVar[str] = "plain"
@@ -160,6 +163,15 @@ class PlainTrajectory(TrajectoryBackend):
         return i
 
     def frame(self, i: int) -> UnitcellStructure:
+        """Return one frame from the property mapping.
+
+        :param i: Frame index; negative indexes count from the end.
+        :return: The requested unit-cell structure.
+        :raises IndexError: If the frame index is out of range.
+        :raises KeyError: If a required trajectory property is absent.
+        :raises TypeError: If the frame index is not an integer.
+        :raises ValueError: If the frame cannot be represented as a structure.
+        """
         i = self._index(i)
         fractional = self._value("fractional_site_positions", i) if "fractional_site_positions" in self._raw else None
         cartesian = self._value("cartesian_site_positions", i) if "cartesian_site_positions" in self._raw else None
@@ -194,32 +206,48 @@ class PlainTrajectory(TrajectoryBackend):
         )
 
     def frames(self) -> Iterator[UnitcellStructure]:
+        """Iterate over all frames in source order.
+
+        :return: An iterator of unit-cell structures.
+        """
         return (self.frame(i) for i in range(self._nframes))
 
     @property
     def nframes(self) -> int:
+        """Return the number of frames."""
         return self._nframes
 
     @property
     def reference_frames(self) -> tuple[int, ...] | None:
+        """Return normalized reference-frame indexes, or ``None``."""
         return self._reference_frames
 
     @property
     def species(self) -> tuple[Species, ...]:
+        """Return the constant distinct species from the first frame."""
         return self.frame(0).species
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Return the constant species name at each site."""
         return self.frame(0).species_at_sites
 
     @property
     def observable_names(self) -> tuple[str, ...]:
+        """Return names outside the recognized trajectory and structure properties."""
         return self._observable_names
 
     def observable(self, name: str) -> tuple[Any, ...]:
+        """Return one mapped observable's values in frame order.
+
+        :param name: Observable property name.
+        :return: The observable values.
+        :raises KeyError: If the property is not an observable.
+        """
         if name not in self._observable_names:
             raise KeyError(name)
         return self._values(name)
 
     def unwrap(self) -> Mapping[str, Any]:
+        """Return the original property mapping."""
         return self._raw

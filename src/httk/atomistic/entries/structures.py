@@ -78,7 +78,7 @@ _STANDARD_STRUCTURE_NAMES = _STANDARD_PROPERTY_NAMES[4:]
 
 
 class StructureEntry:
-    """Non-instantiable logical family for OPTIMADE structure entries."""
+    """Define the non-instantiable OPTIMADE structure entry family."""
 
     type = "structures"
     definition_id = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
@@ -88,7 +88,10 @@ class StructureEntry:
 
     @classmethod
     def entry_type_definition(cls) -> EntryTypeDefinition:
-        """Return the standard structure definition extended by atomistic properties."""
+        """Load the standard structure definition with atomistic extensions.
+
+        :return: The extended OPTIMADE ``structures`` definition.
+        """
         return (
             _structures_definition()
             .extended(setting_definitions())
@@ -225,6 +228,11 @@ class StructureEntryProvider(EntryProvider):
 
     Custom properties may extend the schema, but standard OPTIMADE fields are a pure
     projection of the entry and structure and cannot be replaced by custom values.
+
+    :param entries: Entries keyed by explicit ids, or entries whose ids are derived from their
+        representations; explicit entries may be ``None``.
+    :param extra_definitions: Additional property definitions to expose.
+    :param properties: Per-entry custom property values validated against the definition.
     """
 
     def __init__(
@@ -284,9 +292,19 @@ class StructureEntryProvider(EntryProvider):
         return definition
 
     def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+        """Return the structure entry type served by this provider.
+
+        :return: The ``structures`` entry-type definition.
+        """
         return {"structures": self._definition()}
 
     def property_keys(self, entry_type: str) -> Mapping[str, str]:
+        """Map served structure properties to storage keys.
+
+        :param entry_type: The entry type to inspect.
+        :return: Served-property to storage-key mappings.
+        :raises KeyError: If ``entry_type`` is not ``structures``.
+        """
         if entry_type != "structures":
             raise KeyError("StructureEntryProvider serves only the 'structures' entry type.")
         property_keys = {name: ("__id" if name == "id" else name) for name in _STANDARD_PROPERTY_NAMES}
@@ -298,6 +316,14 @@ class StructureEntryProvider(EntryProvider):
         return property_keys
 
     def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+        """Project the provider's structures into OPTIMADE records.
+
+        ``None`` entries produce rows with null structure properties.
+
+        :param entry_type: The entry type to project.
+        :return: The projected records.
+        :raises KeyError: If ``entry_type`` is not ``structures``.
+        """
         if entry_type != "structures":
             raise KeyError("StructureEntryProvider serves only the 'structures' entry type.")
         records: list[dict[str, Any]] = []

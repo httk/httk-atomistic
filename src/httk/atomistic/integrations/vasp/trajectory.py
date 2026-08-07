@@ -64,12 +64,19 @@ def _potcar_symbol(title: str) -> str:
 
 
 class VASPTrajectory(TrajectoryBackend):
-    """A lazy trajectory backed by VASP OUTCAR and/or XDATCAR data.
+    r"""Read VASP OUTCAR and/or XDATCAR data lazily.
 
     XDATCAR supplies geometry when present.  OUTCAR observables use the
     per-frame ``energy_sigma0``, parsed as a float, plus temperature and
     ``stress_gpa_voigt()``.  One bounded pass caches those three scalar/6-tuple
     sequences; frame geometry is never cached.
+
+    XDATCAR geometry is preferred when both files are available. Cartesian coordinates
+    are reduced exactly against the frame cell. A mismatch between OUTCAR and XDATCAR
+    frame counts raises an error.
+
+    :param source: A VASP trajectory path, directory, payload, or VASP-outputs-like object.
+    :param \**hints: Backend-selection hints.
     """
 
     kind: ClassVar[str] = "vasp"
@@ -186,6 +193,7 @@ class VASPTrajectory(TrajectoryBackend):
 
     @property
     def nframes(self) -> int:
+        """Return the validated number of frames."""
         self._ensure_counts()
         assert self._nframes is not None
         return self._nframes
@@ -272,14 +280,17 @@ class VASPTrajectory(TrajectoryBackend):
 
     @property
     def species(self) -> tuple[Any, ...]:
+        """Return the composition inferred from POSCAR, XDATCAR, or OUTCAR."""
         return self._header_structure().species
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Return the species name at each site."""
         return self._header_structure().species_at_sites
 
     @property
     def reference_frames(self) -> None:
+        """Return ``None`` because VASP frames are not bounded references."""
         return None
 
     def _from_xdatcar(self, frame: Mapping[str, Any]) -> UnitcellStructure:
@@ -302,6 +313,13 @@ class VASPTrajectory(TrajectoryBackend):
         return UnitcellStructure(cell, Sites(reduced), header.species, header.species_at_sites)
 
     def frame(self, i: int) -> UnitcellStructure:
+        """Read one VASP frame by index.
+
+        :param i: Frame index; negative indexes count from the end.
+        :return: The requested unit-cell structure.
+        :raises IndexError: If the frame index is out of range.
+        :raises ValueError: If the source has no complete frame geometry.
+        """
         count = self.nframes
         index = i if i >= 0 else count + i
         if index < 0 or index >= count:
@@ -319,6 +337,10 @@ class VASPTrajectory(TrajectoryBackend):
         return self._from_outcar(item)
 
     def frames(self) -> Iterator[UnitcellStructure]:
+        """Stream VASP frame geometry without caching full frames.
+
+        :yields: Unit-cell structures in source order.
+        """
         self._ensure_counts()
         if self._xdatcar is not None:
             yield from (self._from_xdatcar(frame) for frame in self._xdatcar.frames())
@@ -351,10 +373,17 @@ class VASPTrajectory(TrajectoryBackend):
 
     @property
     def observable_names(self) -> tuple[str, ...]:
+        """Return available OUTCAR observable names."""
         self._ensure_observables()
         return self._observable_names
 
     def observable(self, name: str) -> tuple[Any, ...]:
+        """Return one OUTCAR observable in frame order.
+
+        :param name: Observable name.
+        :return: The observable values.
+        :raises KeyError: If the observable is unavailable.
+        """
         self._ensure_observables()
         if name not in self._observable_names:
             raise KeyError(name)
@@ -362,10 +391,12 @@ class VASPTrajectory(TrajectoryBackend):
         return self._observable_cache[name]
 
     def unwrap(self) -> Any:
+        """Return the original VASP trajectory source."""
         return self._source
 
     @property
     def source_locator(self) -> str | None:
+        """Return the source path, if one is available."""
         if isinstance(self._source, os.PathLike | str):
             return os.fsdecode(os.fspath(self._source))
         self._ensure_sources()

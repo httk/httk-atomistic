@@ -18,10 +18,18 @@ from httk.atomistic.models.structure.view import StructureView
 
 
 class VASPStructure(StructureBackend):
-    """A lazy VASP POSCAR structure.
+    r"""Load a VASP POSCAR structure lazily.
 
     This backend is explicitly constructed because a generic structure source should not
     silently claim every POSCAR path without the optional httk-io reader.
+
+    It is not registered in ``backend_classes``. Constructing it from a view whose
+    unwrapped value is already a ``VASPStructure`` returns that backend by identity.
+    The payload's ``raw`` channel preserves the source representation for byte-exact
+    saving.
+
+    :param obj: A POSCAR path, neutral payload, or serializer-supported source.
+    :param \**hints: Backend-selection hints.
     """
 
     kind: ClassVar[str] = "vasp"
@@ -84,14 +92,19 @@ class VASPStructure(StructureBackend):
 
     @property
     def comment(self) -> Any:
+        """Return the POSCAR comment, if present."""
         return self.payload.get("comment")
 
     @property
     def selective_dynamics(self) -> Any:
+        """Return selective-dynamics flags, if present."""
         return self.payload.get("selective_dynamics")
 
     def resolve(self) -> UnitcellStructure:
-        """Build and memoize the canonical structure from the POSCAR payload."""
+        """Build and memoize the canonical structure from the POSCAR payload.
+
+        :return: The resolved unit-cell structure.
+        """
         if self._resolved is None:
             from httk.atomistic._loading import _structure_from_poscar
 
@@ -100,26 +113,32 @@ class VASPStructure(StructureBackend):
 
     @property
     def cell(self) -> Cell:
+        """Return the resolved cell."""
         return self.resolve().cell
 
     @property
     def sites(self) -> Sites:
+        """Return the resolved reduced coordinates."""
         return self.resolve().sites
 
     @property
     def species(self) -> tuple[Species, ...]:
+        """Return the resolved distinct species."""
         return self.resolve().species
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Return the resolved species name at each site."""
         return self.resolve().species_at_sites
 
     @property
     def site_moments(self) -> SiteMomentsBackend | None:
+        """Return resolved site moments, or ``None``."""
         return self.resolve().site_moments
 
     @property
     def charge(self) -> Any:
+        """Return the resolved structure charge, if present."""
         return self.resolve().charge
 
     def __getattr__(self, name: str) -> Any:
@@ -128,4 +147,5 @@ class VASPStructure(StructureBackend):
         return getattr(self.resolve(), name)
 
     def unwrap(self) -> Any:
+        """Return the original POSCAR source."""
         return self._source

@@ -63,7 +63,7 @@ _CAP_TRIGGER = 0.05
 
 
 def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_TOLERANCE) -> float:
-    """A matching tolerance derived from how precisely the structure was stated.
+    """Derive a matching tolerance from how precisely the structure was stated.
 
     This is the point of recording precision at all: instead of a constant somebody
     guessed, the tolerance follows the data. Coordinates written to four decimals in a 5 A
@@ -80,6 +80,10 @@ def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_T
     sites, which is what would let genuinely distinct atoms be merged. Minimum separation
     bounds a tolerance from above; treating it as precision could make a structure with
     accidentally close atoms look far more precisely stated than it is.
+
+    :param structure: The structure whose stated precision determines the tolerance.
+    :param fallback: The tolerance to use when the structure has no stated precision.
+    :return: The Cartesian matching tolerance in the structure's cell units.
     """
     from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
@@ -158,6 +162,23 @@ def recognize_asu(
     Raises :class:`ValueError` if a site cannot be placed on any Wyckoff position within
     the tolerance, or if the sites do not group into complete orbits — both of which mean
     the structure does not actually have the symmetry it was said to have.
+
+    :param structure: The full structure to recognize.
+    :param setting: The structure's own tabulated setting, if known.
+    :param standard: The IT standard setting for an untabulated own setting.
+    :param transform: The stored standard-to-own transform for an untabulated setting.
+    :param tolerance: The Cartesian matching tolerance in the real cell, or ``None`` to
+        derive it from the structure's stated precision.
+    :param limit_denominator: The largest denominator allowed when idealising free
+        parameters, or ``None`` to retain their exact stated values.
+    :return: The recognized asymmetric-unit structure.
+    :raises ImportError: If symmetry must be searched and the optional spglib dependency is
+        unavailable.
+    :raises TypeError: If the supplied setting arguments are incomplete or mutually
+        exclusive.
+    :raises ValueError: If the structure is not fully periodic, the standard setting is
+        invalid, or the sites cannot be placed into complete Wyckoff orbits within the
+        tolerance.
     """
     from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 

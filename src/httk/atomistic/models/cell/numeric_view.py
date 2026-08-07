@@ -16,12 +16,15 @@ from httk.atomistic.models.cell.view_base import CellViewBase
 
 
 class CellNumericView(CellViewBase, NumericCell):
-    """
+    r"""
     A view presenting an underlying cell backend as a ``NumericCell``.
 
     This view is a genuine ``NumericCell``, so it can be passed anywhere one is accepted. Its exact
     ``Cell`` is built lazily from the backend on first access, preserving the scale/unscaled split.
     Like a ``NumericCell`` it requires numpy (raising :class:`ImportError` otherwise).
+
+    :param obj: The cell-like object to present.
+    :param \**hints: Backend-selection hints.
     """
 
     _backend: CellBackend
@@ -56,9 +59,17 @@ class CellNumericView(CellViewBase, NumericCell):
         return self.__dict__["_cell"]
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> NumericCell:
+        """Return this presentation as a standalone numeric cell.
+
+        :return: The plain-numpy presentation.
+        """
         # A genuine NumericCell backend is exactly the presented value: reuse it.
         backend = self._backend
         if type(backend) is NumericCell:

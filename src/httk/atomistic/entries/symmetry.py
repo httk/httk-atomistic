@@ -66,21 +66,26 @@ SETTING_PROPERTY_KEYS: dict[str, str] = {
 
 @cache
 def setting_definitions() -> dict[str, PropertyDefinition]:
-    """The vendored setting definitions, keyed by their served name.
+    """Load the vendored symmetry-setting definitions.
 
     Loaded verbatim, so each keeps the ``$id`` under ``schemas.httk.org`` that makes it
     resolvable. Cached, since the documents are immutable.
+
+    :return: Definitions keyed by their served names.
     """
     return load_httk_definitions(SETTING_PROPERTY_KEYS)
 
 
 def symmetry_properties(structure: Any) -> dict[str, Any]:
-    """Every symmetry property for one structure, standard and provider-specific alike.
+    """Project standard and provider-specific symmetry properties.
 
     A structure that is not an :class:`~httk.atomistic.ASUStructure` carries no symmetry, so
     everything but ``fractional_site_positions`` serves null. That is the honest answer:
     inferring a space group here would mean running a symmetry search behind the caller's
     back, with a tolerance nobody chose, on every record served.
+
+    :param structure: The structure to project, or ``None`` for an empty entry.
+    :return: All supported symmetry properties, with unavailable values as ``None``.
     """
     values: dict[str, Any] = {name: None for name in SYMMETRY_PROPERTY_KEYS}
     values.update({name: None for name in SETTING_PROPERTY_KEYS})

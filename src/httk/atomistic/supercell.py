@@ -51,12 +51,18 @@ _MAX_SEARCH_RADIUS = 2
 
 @dataclass(frozen=True, slots=True)
 class SupercellResult:
-    """A materialized supercell together with its exact construction metadata.
+    """Store a materialized supercell with its exact construction metadata.
 
     ``orthogonality_score`` is the sum of the squared pairwise cosines between
     cell vectors. ``cubicity_score`` is the squared Frobenius distance between
     the trace-normalized Gram matrix and the identity. Both are exact
     :class:`~httk.core.SurdScalar` values; zero proves the ideal shape exactly.
+
+    :param structure: The resulting full-periodic unit-cell structure.
+    :param transformation: The integer row-convention transformation applied to the source basis.
+    :param multiplier: The exact number of source cells represented in the result.
+    :param orthogonality_score: The exact orthogonality score of the result.
+    :param cubicity_score: The exact cubicity score of the result.
     """
 
     structure: UnitcellStructure
@@ -206,12 +212,21 @@ def build_supercell(
     :class:`~httk.atomistic.models.structure.unitcell.UnitcellStructure`.
     Crystal-axis site moments are converted to Cartesian moments because the supercell has
     new crystal axes; Cartesian and collinear moments retain their representation.
+    Structure charge and explicit composition amounts are scaled by the exact cell-content
+    multiplier.
 
     Requires a fully 3D-periodic structure. Repeating a slab within its own plane is a
     perfectly sensible operation, but it is not this one: the transformation matrix here
     mixes all three rows and the coordinates are wrapped in all three directions, so applied
     to a reduced-periodicity cell it would generate images along a direction that has no
     lattice translation. Refused rather than half-supported.
+
+    :param structure: The structure to replicate.
+    :param transformation: A nonsingular integer transformation matrix, or a positive
+        integer selecting a diagonal repetition.
+    :param max_sites: The maximum allowed resulting site count, or ``None`` for no limit.
+    :return: The materialized supercell and its exact construction metadata.
+    :raises ValueError: If the transformation, site limit, cell, or periodicity is invalid.
     """
     matrix, multiplier = _integer_transformation(transformation)
     view = UnitcellStructureView(structure)
@@ -477,6 +492,15 @@ def orthogonal_supercell(
     and vary each integer entry by at most ``search_radius`` (0--2); diagonal
     factorizations provide guaranteed determinant-matching fallbacks. Exact
     orthogonality is ranked first and cubicity breaks equal-shape ties.
+
+    :param structure: The structure to replicate.
+    :param multiplier: The exact positive cell-content multiplier, or ``None`` to search.
+    :param tolerance: The maximum orthogonality score, or ``None`` to use ``multiplier``.
+    :param max_multiplier: The largest multiplier considered during a tolerance search.
+    :param search_radius: The integer-entry radius around the ideal candidate transform.
+    :param max_sites: The maximum resulting site count, or ``None`` for no limit.
+    :return: The selected supercell and its exact construction metadata.
+    :raises ValueError: If the arguments are inconsistent, invalid, or no candidate meets the bound.
     """
     if (multiplier is None) == (tolerance is None):
         raise ValueError("provide exactly one of multiplier or tolerance")
@@ -511,6 +535,15 @@ def cubic_supercell(
     Candidate matrices are centered on the ideal cubic real-valued transform
     and vary each integer entry by at most ``search_radius`` (0--2); diagonal
     factorizations provide guaranteed determinant-matching fallbacks.
+
+    :param structure: The structure to replicate.
+    :param multiplier: The exact positive cell-content multiplier, or ``None`` to search.
+    :param tolerance: The maximum cubicity score, or ``None`` to use ``multiplier``.
+    :param max_multiplier: The largest multiplier considered during a tolerance search.
+    :param search_radius: The integer-entry radius around the ideal candidate transform.
+    :param max_sites: The maximum resulting site count, or ``None`` for no limit.
+    :return: The selected supercell and its exact construction metadata.
+    :raises ValueError: If the arguments are inconsistent, invalid, or no candidate meets the bound.
     """
     if (multiplier is None) == (tolerance is None):
         raise ValueError("provide exactly one of multiplier or tolerance")

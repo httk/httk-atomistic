@@ -31,7 +31,10 @@ _STANDARD_PROPERTY_SET = frozenset((*_STANDARD_PROPERTY_NAMES, "nframes", "refer
 
 
 def trajectory_definitions() -> dict[str, PropertyDefinition]:
-    """Return the vendored httk trajectory properties keyed by served name."""
+    """Load the vendored trajectory property definitions.
+
+    :return: Definitions keyed by served name.
+    """
     return load_httk_definitions(_HTTK_PROPERTY_KEYS)
 
 
@@ -40,7 +43,7 @@ def _trajectories_definition() -> EntryTypeDefinition:
 
 
 class TrajectoryEntry:
-    """Non-instantiable logical family for OPTIMADE trajectory entries."""
+    """Define the non-instantiable OPTIMADE trajectory entry family."""
 
     type = "trajectories"
     definition_id = _TRAJECTORIES_DEFINITION_ID
@@ -50,6 +53,10 @@ class TrajectoryEntry:
 
     @classmethod
     def entry_type_definition(cls) -> EntryTypeDefinition:
+        """Load the trajectory definition with httk extensions.
+
+        :return: The extended OPTIMADE ``trajectories`` definition.
+        """
         return _trajectories_definition().extended(trajectory_definitions())
 
 
@@ -151,8 +158,13 @@ class TrajectoryEntryProvider(EntryProvider):
     :data:`httk.atomistic.entries.trajectories.TRAJECTORY_FRAME_MATERIALIZATION_LIMIT`
     (100) frames. Larger or
     record-backed trajectories still serve the entry, frame count, references,
-    and null frame properties; the full JSONL/OPTIMADE partial-data path remains
-    the recovery mechanism for those frames.
+    and null frame properties. Recover their frame data by re-reading the original source
+    files or the JSONL container; partial-data serving is planned.
+
+    :param entries: Entries keyed by explicit ids, or entries whose ids are derived from their
+        representations; explicit entries may be ``None``.
+    :param extra_definitions: Additional property definitions to expose.
+    :param properties: Per-entry custom property values validated against the definition.
     """
 
     def __init__(
@@ -211,9 +223,19 @@ class TrajectoryEntryProvider(EntryProvider):
         return definition
 
     def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+        """Return the trajectory entry type served by this provider.
+
+        :return: The ``trajectories`` entry-type definition.
+        """
         return {"trajectories": self._definition()}
 
     def property_keys(self, entry_type: str) -> Mapping[str, str]:
+        """Map served trajectory properties to storage keys.
+
+        :param entry_type: The entry type to inspect.
+        :return: Served-property to storage-key mappings.
+        :raises KeyError: If ``entry_type`` is not ``trajectories``.
+        """
         if entry_type != "trajectories":
             raise KeyError("TrajectoryEntryProvider serves only the 'trajectories' entry type.")
         property_keys = {
@@ -225,6 +247,15 @@ class TrajectoryEntryProvider(EntryProvider):
         return property_keys
 
     def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+        """Project trajectories into OPTIMADE records.
+
+        Native frame lists are served only for trajectories up to the materialization limit;
+        larger and record-backed trajectories serve null frame properties.
+
+        :param entry_type: The entry type to project.
+        :return: The projected records.
+        :raises KeyError: If ``entry_type`` is not ``trajectories``.
+        """
         if entry_type != "trajectories":
             raise KeyError("TrajectoryEntryProvider serves only the 'trajectories' entry type.")
         definition = self._definition()

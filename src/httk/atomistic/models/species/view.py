@@ -13,12 +13,15 @@ from httk.atomistic.models.species.view_base import SpeciesViewBase
 
 
 class SpeciesView(SpeciesViewBase, Species):
-    """
+    r"""
     A view presenting an underlying species backend as a ``Species``.
 
     This view is a genuine frozen ``Species``, so it can be passed anywhere a Species is
     accepted. Its fields are built eagerly from the backend on construction, with full
     ``Species`` validation applied at that point.
+
+    :param obj: The species-like object to present.
+    :param \**hints: Backend-selection hints.
     """
 
     _backend: SpeciesBackend
@@ -52,9 +55,17 @@ class SpeciesView(SpeciesViewBase, Species):
         pass
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> Species:
+        """Return this presentation as standalone species.
+
+        :return: The exact species representation.
+        """
         # The folded design makes a genuine Species backend exactly the presented value: reuse it.
         backend = self._backend
         if type(backend) is Species:

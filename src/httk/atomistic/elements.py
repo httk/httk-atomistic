@@ -133,11 +133,13 @@ _NUMBER_OF: dict[str, int] = {symbol: z for z, symbol in enumerate(SYMBOLS, star
 
 
 def atomic_number(symbol: str) -> int:
-    """
-    Return the atomic number (1-118) of an element symbol.
+    """Return the atomic number of an element symbol.
 
-    Raises ValueError for anything that is not one of the 118 element symbols
-    (in particular for the ``"X"`` and ``"vacancy"`` pseudo-symbols).
+    The pseudo-symbols ``"X"`` and ``"vacancy"`` are not elements here.
+
+    :param symbol: The IUPAC element symbol.
+    :return: The element's atomic number.
+    :raises ValueError: If ``symbol`` is not one of the 118 element symbols.
     """
     try:
         return _NUMBER_OF[symbol]
@@ -146,10 +148,11 @@ def atomic_number(symbol: str) -> int:
 
 
 def symbol_of(z: int) -> str:
-    """
-    Return the element symbol for the atomic number z (1-118).
+    """Return the element symbol for an atomic number.
 
-    Raises ValueError for atomic numbers outside the 1-118 range.
+    :param z: The atomic number in the range 1 through 118.
+    :return: The corresponding IUPAC element symbol.
+    :raises ValueError: If ``z`` is outside the range 1 through 118.
     """
     if not 1 <= z <= len(SYMBOLS):
         raise ValueError(f"Unknown atomic number: {z!r}")

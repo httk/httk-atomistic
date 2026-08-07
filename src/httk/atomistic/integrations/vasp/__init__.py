@@ -1,4 +1,4 @@
-"""VASP structure integration."""
+"""Expose VASP structure and trajectory integrations."""
 
 from .structure import VASPStructure
 from .trajectory import VASPTrajectory

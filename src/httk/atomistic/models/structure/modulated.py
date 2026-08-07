@@ -13,7 +13,14 @@ __all__ = ["ModulatedStructure"]
 
 
 class ModulatedStructure(StructureBackend):
-    """Raw mCIF data; future httk-magnetism work will interpret the modulation."""
+    """Retain raw mCIF data that standard structure classes cannot represent.
+
+    Future magnetic-structure support may interpret the modulation. Standard structure
+    properties raise :class:`ValueError`; the immutable source mapping remains available
+    through :attr:`payload`.
+
+    :param payload: The raw mCIF data to retain.
+    """
 
     kind: ClassVar[str] = "modulated-mcif"
 
@@ -22,18 +29,34 @@ class ModulatedStructure(StructureBackend):
 
     @property
     def payload(self) -> Mapping[str, Any]:
+        """Expose the immutable raw mCIF payload.
+
+        :return: The source mapping.
+        """
         return self._payload
 
     @property
     def mod_dim(self) -> Any:
+        """Expose the incommensurate modulation dimension when supplied.
+
+        :return: The raw ``mod_dim`` value, or ``None`` when absent.
+        """
         return self._incomm_value("mod_dim")
 
     @property
     def structural_q(self) -> Any:
+        """Expose the structural modulation vector when supplied.
+
+        :return: The raw ``structural_q`` value, or ``None`` when absent.
+        """
         return self._incomm_value("structural_q")
 
     @property
     def magnetic_q(self) -> Any:
+        """Expose the magnetic modulation vector when supplied.
+
+        :return: The raw ``magnetic_q`` value, or ``None`` when absent.
+        """
         return self._incomm_value("magnetic_q")
 
     def _incomm_value(self, name: str) -> Any:
@@ -48,20 +71,40 @@ class ModulatedStructure(StructureBackend):
 
     @property
     def cell(self) -> Cell:
+        """Reject projection to a standard cell.
+
+        :raises ValueError: Always, because modulation is not representable here.
+        """
         raise self._unavailable("cell")
 
     @property
     def sites(self) -> Sites:
+        """Reject projection to standard sites.
+
+        :raises ValueError: Always, because modulation is not representable here.
+        """
         raise self._unavailable("sites")
 
     @property
     def species(self) -> tuple[Species, ...]:
+        """Reject projection to standard species.
+
+        :raises ValueError: Always, because modulation is not representable here.
+        """
         raise self._unavailable("species")
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Reject projection to standard site species.
+
+        :raises ValueError: Always, because modulation is not representable here.
+        """
         raise self._unavailable("species_at_sites")
 
     @property
     def site_moments(self) -> Any:
+        """Reject projection to standard site moments.
+
+        :raises ValueError: Always, because modulation is not representable here.
+        """
         raise self._unavailable("site_moments")

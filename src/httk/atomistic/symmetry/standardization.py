@@ -37,7 +37,7 @@ __all__ = ["ConventionalCellResult", "conventional_cell"]
 
 @dataclass(frozen=True, slots=True)
 class ConventionalCellResult:
-    """A structure in its space group's IT standard-setting conventional cell.
+    """Store a structure in its space group's IT standard-setting conventional cell.
 
     ``asu`` is the new standard-setting ASU that was expanded to make ``structure``.
     ``transform`` is the standard-to-own transform from the ASU that was supplied to, or
@@ -46,6 +46,12 @@ class ConventionalCellResult:
     conventional-cell site count to input-cell site count. For the 527 vendored settings
     it is at least one; an untabulated, caller-supplied supercell transform may still
     produce a ratio below one.
+
+    :param structure: The resulting full conventional-cell structure.
+    :param asu: The resulting asymmetric-unit structure in the standard setting.
+    :param spacegroup: The space group represented by the result.
+    :param transform: The standard-to-own transform used for the input structure.
+    :param multiplier: The exact ratio of result site count to input site count.
     """
 
     structure: UnitcellStructure
@@ -81,6 +87,16 @@ def conventional_cell(
     ``M.T()`` and coordinate precision by the maximum absolute column sum of
     ``inv(M.T())``; unknown precision remains unknown. Requires a fully 3D-periodic
     structure.
+
+    :param structure: The structure or asymmetric-unit structure to standardize.
+    :param tolerance: The Cartesian recognition tolerance, or ``None`` to derive it.
+    :param limit_denominator: The maximum denominator for idealised free parameters, or
+        ``None`` to retain their exact stated values.
+    :return: The standardized structure and transform metadata.
+    :raises ImportError: If recognition is needed and the optional spglib dependency is
+        unavailable.
+    :raises ValueError: If recognition arguments are supplied for an existing ASU, the
+        structure is not fully periodic, or unsupported site moments are present.
     """
     original = UnitcellStructureView(structure)
     asu = _as_existing_asu(structure)

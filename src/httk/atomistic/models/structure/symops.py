@@ -81,12 +81,30 @@ def _transform_lattice_moment(row: tuple[Any, ...], operation: AffineOperation, 
 
 
 class SymopsStructure(StructureBackend, StructureSemanticsMixin):
-    """A magCIF cell, listed sites, and the file's complete symmetry-operation list.
+    """Represent a magCIF cell, listed sites, and its complete symmetry-operation list.
 
     The operations are taken as declared. They are not checked for group closure: magCIF
     lists complete coset representatives, and an incomplete list consequently under-expands.
     Expansion is exact and deduplicates only by normalized fractional coordinates, species,
     and exact transformed moments.
+
+    :param cell: The cell geometry.
+    :param sites: The listed site coordinates.
+    :param species: The distinct species definitions.
+    :param species_at_sites: The species name occupying each listed site.
+    :param symops: The declared spatial or magnetic symmetry operations.
+    :param site_moments: Optional moments aligned with the listed sites.
+    :param bns_number: Optional Belov–Neronova–Smirnova number.
+    :param bns_label: Optional Belov–Neronova–Smirnova label.
+    :param chemical_composition: Optional chemical composition metadata.
+    :param chemical_formula_descriptive: Optional descriptive chemical formula.
+    :param chemical_formula_hill: Optional Hill chemical formula.
+    :param optimization_type: Optional optimization provenance.
+    :param immutable_id: Optional immutable source identifier.
+    :param last_modified: Optional source modification timestamp.
+    :param charge: An explicitly assigned charge for the cell content.
+    :raises TypeError: If an input component or magnetic label has the wrong kind.
+    :raises ValueError: If component lengths, operations, or semantic values are invalid.
     """
 
     kind: ClassVar[str] = "symops"
@@ -158,65 +176,129 @@ class SymopsStructure(StructureBackend, StructureSemanticsMixin):
 
     @property
     def cell(self) -> Cell:
+        """Expose the cell geometry.
+
+        :return: The exact cell.
+        """
         return self._cell
 
     @property
     def listed_sites(self) -> Sites:
+        """Expose the sites before symmetry expansion.
+
+        :return: The listed site coordinates.
+        """
         return self._listed_sites
 
     @property
     def listed_species_at_sites(self) -> tuple[str, ...]:
+        """Expose species names before symmetry expansion.
+
+        :return: Listed site species names in input order.
+        """
         return self._listed_species_at_sites
 
     @property
     def listed_site_moments(self) -> SiteMomentsBackend | None:
+        """Expose moments before symmetry expansion.
+
+        :return: Listed site moments, or ``None`` when unstated.
+        """
         return self._listed_site_moments
 
     @property
     def symops(self) -> tuple[tuple[AffineOperation, int], ...]:
+        """Expose normalized spatial and time-reversal operations.
+
+        :return: Operation and time-reversal pairs in declaration order.
+        """
         return self._symops
 
     @property
     def bns_number(self) -> str | None:
+        """Expose the Belov–Neronova–Smirnova number.
+
+        :return: The BNS number, or ``None`` when unstated.
+        """
         return self._bns_number
 
     @property
     def bns_label(self) -> str | None:
+        """Expose the Belov–Neronova–Smirnova label.
+
+        :return: The BNS label, or ``None`` when unstated.
+        """
         return self._bns_label
 
     @property
     def species(self) -> tuple[Species, ...]:
+        """Expose the distinct species.
+
+        :return: Species referenced by the listed sites.
+        """
         return self._species
 
     @property
     def coordinate_precision(self) -> Any:
+        """Expose the listed-coordinate precision.
+
+        :return: The fractional coordinate precision.
+        """
         return self._listed_sites.precision
 
     @property
     def basis_precision(self) -> Any:
+        """Expose the cell-basis precision.
+
+        :return: The basis precision.
+        """
         return self._cell.precision
 
     @property
     def periodicity(self) -> tuple[bool, bool, bool]:
+        """Expose the cell periodicity flags.
+
+        :return: Periodicity flags for the three cell directions.
+        """
         return self._cell.periodicity
 
     @property
     def nperiodic_dimensions(self) -> int:
+        """Expose the number of periodic directions.
+
+        :return: The number of periodic directions.
+        """
         return self._cell.nperiodic_dimensions
 
     @property
     def molecular(self) -> bool:
+        """Expose whether the structure is molecular.
+
+        :return: Always ``False`` for this backend.
+        """
         return False
 
     @property
     def site_coordinate_span(self) -> str:
+        """Expose the coordinate span of the listed sites.
+
+        :return: ``"unit_cell"``.
+        """
         return "unit_cell"
 
     @property
     def charge(self) -> fractions.Fraction | None:
+        """Expose the explicitly assigned charge.
+
+        :return: The charge, or ``None`` when unstated.
+        """
         return self._charge
 
     def cartesian_sites(self) -> SurdVector:
+        """Compute exact Cartesian positions for the expanded sites.
+
+        :return: Cartesian positions in the exact surd representation.
+        """
         return SurdVector.create(self.sites.reduced_coords) * self._cell.basis
 
     @cached_property
@@ -277,12 +359,24 @@ class SymopsStructure(StructureBackend, StructureSemanticsMixin):
 
     @property
     def sites(self) -> Sites:
+        """Expose the symmetry-expanded sites.
+
+        :return: Expanded site coordinates.
+        """
         return self._expansion[0]
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Expose species names for the expanded sites.
+
+        :return: Expanded site species names in site order.
+        """
         return self._expansion[1]
 
     @property
     def site_moments(self) -> SiteMomentsBackend | None:
+        """Expose moments transformed onto the expanded sites.
+
+        :return: Expanded site moments, or ``None`` when moments were unstated.
+        """
         return self._expansion[2]

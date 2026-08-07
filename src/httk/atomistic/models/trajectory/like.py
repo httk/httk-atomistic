@@ -1,4 +1,4 @@
-"""Accepted trajectory inputs."""
+"""Define accepted trajectory inputs."""
 
 from collections.abc import Mapping
 from typing import Any

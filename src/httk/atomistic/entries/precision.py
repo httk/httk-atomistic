@@ -30,12 +30,15 @@ PRECISION_PROPERTY_KEYS: dict[str, str] = {
 
 @cache
 def precision_definitions() -> dict[str, PropertyDefinition]:
-    """The vendored precision definitions, keyed by their served name."""
+    """Load the vendored coordinate and basis precision definitions.
+
+    :return: Definitions keyed by their served names.
+    """
     return load_httk_definitions(PRECISION_PROPERTY_KEYS)
 
 
 def precision_properties(structure: Any) -> dict[str, Any]:
-    """How precisely this structure's coordinates and cell were stated.
+    """Project the stated coordinate and basis precision.
 
     Both are ``null`` for a structure that does not say — one built by hand, or read from a
     source that does not write its numbers to a definite number of digits. That is the
@@ -43,6 +46,9 @@ def precision_properties(structure: Any) -> dict[str, Any]:
 
     Rendered as floats, since that is what a JSON consumer will use them as; they are held
     exactly on the structure itself.
+
+    :param structure: The structure to project, or ``None`` for an empty entry.
+    :return: The ``_httk_coordinate_precision`` and ``_httk_basis_precision`` values.
     """
     values: dict[str, Any] = {name: None for name in PRECISION_PROPERTY_KEYS}
     if structure is None:
