@@ -113,10 +113,19 @@ from httk.atomistic.models.prototype.anonymous import AnonymousStructure
 from httk.atomistic.models.prototype.anonymous_view import AnonymousStructureView
 from httk.atomistic.models.prototype.anonymized import AnonymizedStructure
 from httk.atomistic.models.prototype.backend import AnonymousStructureBackend
-from httk.atomistic.models.prototype.like import AnonymousStructureLike
+from httk.atomistic.models.prototype.like import AnonymousStructureLike, PrototypeLike
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.prototype.prototype_view import PrototypeView
 from httk.atomistic.models.formula.prototype import PrototypeComposition
+
+# Protostructure imports follow the prototype block: the geometry-free family bridges
+# through the completed formula and structure registrations above.
+from httk.atomistic.models.protostructure.backend import ProtostructureBackend
+from httk.atomistic.models.protostructure.like import ProtostructureLike
+from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
+from httk.atomistic.models.protostructure.protostructure import Protostructure
+from httk.atomistic.models.protostructure.recognized import RecognizedProtostructure
+from httk.atomistic.models.protostructure.view import ProtostructureView
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
 from httk.atomistic.symmetry.setting_transform import SettingTransform
@@ -154,6 +163,7 @@ ChemicalFormulaBackend.backend_classes = [
     AnonymousFormulaString,
 ]
 AnonymousStructureBackend.backend_classes = [AnonymizedStructure]
+ProtostructureBackend.backend_classes = [RecognizedProtostructure]
 register_coercer(view_class_coercer([ChemicalFormulaView, AnonymousFormulaView, CompositionView]), Any)
 StructureBackend.backend_classes = [
     RecordStructure,
@@ -228,7 +238,11 @@ __all__ = [
     "PlainTrajectory",
     "PlaneWaveFunctions",
     "PrimitiveCellResult",
+    "Protostructure",
+    "ProtostructureLike",
+    "ProtostructureView",
     "Prototype",
+    "PrototypeLike",
     "PrototypeView",
     "PymatgenStructure",
     "PymatgenStructureProtocol",
@@ -259,6 +273,7 @@ __all__ = [
     "UnitcellStructureView",
     "VASPStructure",
     "VASPTrajectory",
+    "WyckoffOccupation",
     "WyckoffPosition",
     "WyckoffSite",
     "asu_structure_from_cif",

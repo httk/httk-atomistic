@@ -1,5 +1,6 @@
 """The accepted-input union for anonymous structures."""
 
+import httk.atomistic.models.protostructure.like
 import httk.atomistic.models.prototype.anonymous
 import httk.atomistic.models.prototype.backend
 import httk.atomistic.models.prototype.prototype
@@ -11,3 +12,5 @@ type AnonymousStructureLike = (
     | httk.atomistic.models.prototype.anonymous.AnonymousStructure
     | httk.atomistic.models.prototype.prototype.Prototype
 )
+
+type PrototypeLike = AnonymousStructureLike | httk.atomistic.models.protostructure.like.ProtostructureLike

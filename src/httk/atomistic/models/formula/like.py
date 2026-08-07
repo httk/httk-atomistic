@@ -11,6 +11,9 @@ import httk.atomistic.models.formula.backend
 import httk.atomistic.models.formula.composition
 import httk.atomistic.models.formula.formula
 import httk.atomistic.models.formula.view_base
+import httk.atomistic.models.protostructure.backend
+import httk.atomistic.models.protostructure.protostructure
+import httk.atomistic.models.protostructure.view_base
 import httk.atomistic.models.prototype.anonymous
 import httk.atomistic.models.prototype.backend
 import httk.atomistic.models.prototype.prototype
@@ -29,6 +32,9 @@ type ChemicalFormulaLike = (
     | httk.atomistic.models.prototype.view_base.AnonymousStructureViewBase
     | httk.atomistic.models.prototype.anonymous.AnonymousStructure
     | httk.atomistic.models.prototype.prototype.Prototype
+    | httk.atomistic.models.protostructure.backend.ProtostructureBackend
+    | httk.atomistic.models.protostructure.view_base.ProtostructureViewBase
+    | httk.atomistic.models.protostructure.protostructure.Protostructure
     | httk.atomistic.storage.records.NormalizedCompositionRecord
     | httk.atomistic.models.structure.backend.StructureBackend
     | httk.atomistic.models.structure.view.StructureView
