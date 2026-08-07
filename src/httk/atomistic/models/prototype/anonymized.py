@@ -15,7 +15,11 @@ from httk.atomistic.models.structure.view import StructureView
 
 
 class AnonymizedStructure(AnonymousStructureBackend):
-    """A lazy anonymous projection retaining an ordinary structure as its source."""
+    r"""Project an ordinary structure lazily to anonymous species.
+
+    :param obj: The ordinary structure to anonymize.
+    :param \*\*hints: Backend-selection hints.
+    """
 
     _structure: StructureBackend
     kind = "structure"
@@ -67,27 +71,34 @@ class AnonymizedStructure(AnonymousStructureBackend):
 
     @property
     def cell(self):
+        """Return the source cell."""
         return self._derived.cell
 
     @property
     def sites(self):
+        """Return the source reduced sites."""
         return self._derived.sites
 
     @property
     def species(self):
+        """Return the canonical dummy species."""
         return self._derived.species
 
     @property
     def species_at_sites(self):
+        """Return dummy species names in site order."""
         return self._derived.species_at_sites
 
     @property
     def coordinate_precision(self):
+        """Return the source coordinate precision."""
         return self._derived.coordinate_precision
 
     @property
     def basis_precision(self):
+        """Return the source basis precision."""
         return self._derived.basis_precision
 
     def unwrap(self) -> Any:
+        """Return the original ordinary structure."""
         return unwrap(self._structure)

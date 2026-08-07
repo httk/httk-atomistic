@@ -9,11 +9,14 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
 class Protostructure(ProtostructureBackend):
-    """A standard-setting space group and its occupied Wyckoff positions.
+    """Store a standard-setting space group and its occupied Wyckoff positions.
 
     This is a provenance-independent value: multiplicities, composition, and formula
     derivations are defined at the standard-setting conventional-cell scale, even when
     the source used to recognize it was stored in a volume-scaled setting.
+
+    :param spacegroup: The standard-setting space group or its IT number.
+    :param occupations: The occupied Wyckoff positions and their species.
     """
 
     _spacegroup: Spacegroup
@@ -54,10 +57,12 @@ class Protostructure(ProtostructureBackend):
 
     @property
     def spacegroup(self) -> Spacegroup:
+        """Return the standard-setting space group."""
         return self._spacegroup
 
     @property
     def occupations(self) -> tuple[WyckoffOccupation, ...]:
+        """Return the canonical occupied Wyckoff positions."""
         return self._occupations
 
     def __eq__(self, other: object) -> bool:

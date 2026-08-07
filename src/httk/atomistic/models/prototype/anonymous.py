@@ -22,7 +22,13 @@ from httk.atomistic.models.structure.unitcell import (
 
 
 class AnonymousStructure(AnonymousStructureBackend):
-    """A unit cell whose site identities are consecutive dummy labels."""
+    """Store a unit cell whose site identities are consecutive dummy labels.
+
+    :param cell: The unit-cell geometry.
+    :param sites: The reduced coordinates of the sites.
+    :param species: The distinct dummy species definitions.
+    :param species_at_sites: The dummy species name occupying each site.
+    """
 
     _cell: Cell
     _sites: Sites
@@ -65,43 +71,56 @@ class AnonymousStructure(AnonymousStructureBackend):
 
     @property
     def cell(self) -> Cell:
+        """Return the unit cell."""
         return self._cell
 
     @property
     def sites(self) -> Sites:
+        """Return the reduced sites."""
         return self._sites
 
     @property
     def species(self) -> tuple[Species, ...]:
+        """Return the distinct dummy species."""
         return self._species
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Return dummy species names in site order."""
         return self._species_at_sites
 
     @property
     def periodicity(self) -> tuple[bool, bool, bool]:
+        """Return the periodic directions."""
         return self._cell.periodicity
 
     @property
     def nperiodic_dimensions(self) -> int:
+        """Return the number of periodic directions."""
         return self._cell.nperiodic_dimensions
 
     @property
     def nsites(self) -> int:
+        """Return the number of sites."""
         return len(self._sites)
 
     def cartesian_sites(self) -> Any:
+        """Return the exact Cartesian site positions.
+
+        :return: The Cartesian positions in the cell's exact vector representation.
+        """
         from httk.core import SurdVector
 
         return SurdVector.create(self._sites.reduced_coords) * self._cell.basis
 
     @property
     def coordinate_precision(self):
+        """Return the reduced-coordinate precision."""
         return self._sites.precision
 
     @property
     def basis_precision(self):
+        """Return the cell-basis precision."""
         return self._cell.precision
 
     def __eq__(self, other: object) -> bool:

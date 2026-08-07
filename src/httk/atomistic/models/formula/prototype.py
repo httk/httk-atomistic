@@ -19,7 +19,14 @@ from httk.atomistic.models.prototype.view_base import AnonymousStructureViewBase
 
 
 class PrototypeComposition(ChemicalFormulaBackend):
-    """The canonical anonymous composition of an anonymous-structure backend."""
+    r"""Represent the canonical composition of a prototype-like backend.
+
+    Anonymous-structure inputs use dummy labels; protostructure inputs retain their real
+    elemental composition at the standard conventional-cell scale.
+
+    :param obj: The anonymous structure or protostructure to present.
+    :param \*\*hints: Backend-selection hints.
+    """
 
     _prototype: Any
     kind = "prototype"
@@ -68,6 +75,7 @@ class PrototypeComposition(ChemicalFormulaBackend):
 
     @property
     def is_anonymous(self) -> bool:
+        """Return whether this composition uses anonymous labels."""
         return not self._is_protostructure
 
     @cached_property
@@ -80,33 +88,44 @@ class PrototypeComposition(ChemicalFormulaBackend):
 
     @property
     def amounts(self) -> tuple[tuple[str, Fraction], ...]:
+        """Return the canonical composition amounts."""
         return self._amounts
 
     @property
     def uncertainties(self) -> tuple[tuple[str, Fraction | None], ...]:
+        """Return the composition amount precisions."""
         if self._is_protostructure:
             return self._projected.uncertainties
         return super().uncertainties
 
     @property
     def complete(self) -> bool:
+        """Return whether all represented elemental material is known."""
         return self._projected.complete if self._is_protostructure else True
 
     @property
     def exact(self) -> bool:
+        """Return whether all composition amounts are exact."""
         return self._projected.exact if self._is_protostructure else super().exact
 
     @property
     def normalized(self) -> bool:
+        """Return whether the composition is normalized within precision."""
         return self._projected.normalized if self._is_protostructure else super().normalized
 
     @property
     def normalization_status(self) -> str:
+        """Return the composition's normalization status."""
         return self._projected.normalization_status if self._is_protostructure else super().normalization_status
 
     @property
     def diagnostics(self):
+        """Return non-fatal diagnostics associated with the composition."""
         return self._projected.diagnostics if self._is_protostructure else super().diagnostics
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the prototype backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._prototype)

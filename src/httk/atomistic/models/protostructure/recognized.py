@@ -19,7 +19,11 @@ from httk.atomistic.symmetry.recognition import recognize_asu
 
 
 class RecognizedProtostructure(ProtostructureBackend):
-    """A lazy protostructure projection retaining an ordinary structure source."""
+    r"""Project an ordinary structure lazily to a protostructure.
+
+    :param obj: The ordinary structure to recognize.
+    :param \*\*hints: Backend-selection hints.
+    """
 
     kind = "structure"
     _structure: StructureBackend
@@ -81,11 +85,14 @@ class RecognizedProtostructure(ProtostructureBackend):
 
     @property
     def spacegroup(self):
+        """Return the recognized standard-setting space group."""
         return self._derived.spacegroup
 
     @property
     def occupations(self) -> tuple[WyckoffOccupation, ...]:
+        """Return the recognized occupied Wyckoff positions."""
         return self._derived.occupations
 
     def unwrap(self) -> Any:
+        """Return the original ordinary structure."""
         return unwrap(self._structure)

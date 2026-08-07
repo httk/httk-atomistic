@@ -15,7 +15,11 @@ from httk.atomistic.models.structure.view import StructureView
 
 
 class StructureComposition(ChemicalFormulaBackend):
-    """Backend for a structure, projected only when composition data is accessed."""
+    r"""Project a structure only when composition data is accessed.
+
+    :param obj: The structure to adapt.
+    :param \*\*hints: Backend-selection hints.
+    """
 
     _structure: StructureBackend
 
@@ -37,31 +41,39 @@ class StructureComposition(ChemicalFormulaBackend):
 
     @property
     def amounts(self) -> tuple[tuple[str, Fraction], ...]:
+        """Return the projected elemental amounts."""
         return self._composition.amounts
 
     @property
     def uncertainties(self) -> tuple[tuple[str, Fraction | None], ...]:
+        """Return the projected amount precisions."""
         return self._composition.uncertainties
 
     @property
     def complete(self) -> bool:
+        """Return whether all represented elemental material is known."""
         return self._composition.complete
 
     @property
     def exact(self) -> bool:
+        """Return whether the projected amounts are exact."""
         return self._composition.exact
 
     @property
     def normalized(self) -> bool:
+        """Return whether the projected composition is normalized."""
         return self._composition.normalized
 
     @property
     def normalization_status(self) -> str:
+        """Return the projected composition's normalization status."""
         return self._composition.normalization_status
 
     @property
     def diagnostics(self) -> tuple[CompositionDiagnostic, ...]:
+        """Return diagnostics produced during projection."""
         return self._composition.diagnostics
 
     def unwrap(self) -> Any:
+        """Return the original structure."""
         return unwrap(self._structure)

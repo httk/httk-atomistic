@@ -14,7 +14,12 @@ _ELEMENTS = frozenset(SYMBOLS)
 
 
 def anonymous_symbol(index: int) -> str:
-    """The unbounded OPTIMADE anonymous symbol for zero-based *index*."""
+    """Return the unbounded OPTIMADE anonymous symbol for a zero-based index.
+
+    :param index: The non-negative zero-based symbol index.
+    :return: The generated anonymous symbol.
+    :raises ValueError: If ``index`` is not a non-negative integer.
+    """
     if not isinstance(index, int) or isinstance(index, bool) or index < 0:
         raise ValueError("anonymous symbol index must be a non-negative integer")
     head = chr(ord("A") + index % 26)
@@ -28,7 +33,11 @@ def anonymous_symbol(index: int) -> str:
 
 
 def reduced_coefficients(ratios: Sequence[Fraction]) -> tuple[int, ...] | None:
-    """Return the least common integer coefficients for exact elemental ratios."""
+    """Return the least common integer coefficients for exact elemental ratios.
+
+    :param ratios: The exact elemental ratios in their desired output order.
+    :return: The reduced integer coefficients, or ``None`` for an empty sequence.
+    """
     if not ratios:
         return None
     denominator = 1
@@ -40,12 +49,20 @@ def reduced_coefficients(ratios: Sequence[Fraction]) -> tuple[int, ...] | None:
 
 
 def render_reduced(coefficients: Sequence[tuple[str, int]]) -> str:
-    """Render element symbols and reduced integer coefficients in the given order."""
+    """Render element symbols and reduced integer coefficients in the given order.
+
+    :param coefficients: The element and coefficient pairs to render.
+    :return: The canonical reduced formula text.
+    """
     return "".join(element + (str(amount) if amount != 1 else "") for element, amount in coefficients)
 
 
 def render_anonymous(counts: Sequence[int]) -> str:
-    """Render descending-sorted integer counts using OPTIMADE anonymous symbols."""
+    """Render descending-sorted integer counts using OPTIMADE anonymous symbols.
+
+    :param counts: The coefficients in descending order.
+    :return: The canonical anonymous formula text.
+    """
     return "".join(anonymous_symbol(index) + (str(count) if count != 1 else "") for index, count in enumerate(counts))
 
 
@@ -54,6 +71,10 @@ def parse_reduced_formula(text: str) -> tuple[tuple[str, int], ...]:
 
     The reduced and anonymous grammars are disjoint by construction: an anonymous
     label may have an arbitrary lowercase tail, while an element symbol has at most one.
+
+    :param text: The formula text to parse.
+    :return: The canonical element and coefficient pairs.
+    :raises ValueError: If ``text`` is not a canonical reduced formula.
     """
     if not isinstance(text, str) or not text:
         raise ValueError("reduced formula must be a non-empty string")
@@ -84,7 +105,12 @@ def parse_reduced_formula(text: str) -> tuple[tuple[str, int], ...]:
 
 
 def parse_anonymous_formula(text: str) -> tuple[tuple[str, int], ...]:
-    """Parse a strictly canonical OPTIMADE anonymous chemical formula."""
+    """Parse a strictly canonical OPTIMADE anonymous chemical formula.
+
+    :param text: The formula text to parse.
+    :return: The canonical anonymous-label and coefficient pairs.
+    :raises ValueError: If ``text`` is not a canonical anonymous formula.
+    """
     if not isinstance(text, str) or not text:
         raise ValueError("anonymous formula must be a non-empty string")
     result: list[tuple[str, int]] = []
@@ -113,7 +139,11 @@ def parse_anonymous_formula(text: str) -> tuple[tuple[str, int], ...]:
 
 
 def try_parse_reduced(text: str) -> tuple[tuple[str, int], ...] | None:
-    """Return canonical reduced coefficients, or ``None`` when *text* is not one."""
+    """Return canonical reduced coefficients, or ``None`` when *text* is not one.
+
+    :param text: The formula text to test.
+    :return: The parsed coefficients, or ``None`` for invalid text.
+    """
     try:
         return parse_reduced_formula(text)
     except ValueError:
@@ -121,7 +151,11 @@ def try_parse_reduced(text: str) -> tuple[tuple[str, int], ...] | None:
 
 
 def try_parse_anonymous(text: str) -> tuple[tuple[str, int], ...] | None:
-    """Return canonical anonymous coefficients, or ``None`` when *text* is not one."""
+    """Return canonical anonymous coefficients, or ``None`` when *text* is not one.
+
+    :param text: The formula text to test.
+    :return: The parsed coefficients, or ``None`` for invalid text.
+    """
     try:
         return parse_anonymous_formula(text)
     except ValueError:

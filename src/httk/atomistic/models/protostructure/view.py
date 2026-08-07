@@ -19,7 +19,14 @@ def _occupations(asu: FundamentalDomainStructure) -> tuple[WyckoffOccupation, ..
 
 
 class ProtostructureView(ProtostructureViewBase, Protostructure):
-    """An eager standard-setting protostructure view."""
+    r"""Recognize an eager standard-setting protostructure view.
+
+    Recognition accepts optional ``setting``, ``standard``, ``transform``, ``tolerance``,
+    and ``limit_denominator`` values through the recognition hints.
+
+    :param obj: The structure-like or protostructure-like source.
+    :param \*\*hints: Backend-selection and recognition hints.
+    """
 
     _backend: ProtostructureBackend
 
@@ -88,9 +95,17 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
         pass
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> Protostructure:
+        """Return the recognized protostructure as a standalone value.
+
+        :return: The protostructure value.
+        """
         if type(self._backend) is Protostructure:
             return self._backend
         return Protostructure(self.spacegroup, self.occupations)

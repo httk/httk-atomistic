@@ -16,7 +16,11 @@ if TYPE_CHECKING:
 
 
 class CompositionView(ChemicalFormulaViewBase, Composition):
-    """A lazy composition view over any chemical-formula backend."""
+    r"""Present any chemical-formula backend as a lazy composition.
+
+    :param obj: The chemical-formula-like object to present.
+    :param \*\*hints: Backend-selection hints.
+    """
 
     _backend: ChemicalFormulaBackend
 
@@ -45,42 +49,49 @@ class CompositionView(ChemicalFormulaViewBase, Composition):
 
     @cached_property
     def amounts(self) -> tuple[tuple[str, Fraction], ...]:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Return the lazily materialized elemental amounts."""
         if "amounts" not in self.__dict__:
             self._fill()
         return self.__dict__["amounts"]
 
     @cached_property
     def uncertainties(self) -> tuple[tuple[str, Fraction | None], ...]:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Return the lazily materialized amount precisions."""
         if "amounts" not in self.__dict__:
             self._fill()
         return self.__dict__["uncertainties"]
 
     @cached_property
     def complete(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Return whether the presented composition is complete."""
         if "amounts" not in self.__dict__:
             self._fill()
         return self.__dict__["complete"]
 
     @cached_property
     def exact(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Return whether the presented amounts are exact."""
         if "amounts" not in self.__dict__:
             self._fill()
         return self.__dict__["exact"]
 
     @cached_property
     def normalized(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Return whether the presented composition is normalized."""
         if "amounts" not in self.__dict__:
             self._fill()
         return self.__dict__["normalized"]
 
     @cached_property
     def normalization_status(self) -> str:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Return the presented composition's normalization status."""
         if "amounts" not in self.__dict__:
             self._fill()
         return self.__dict__["normalization_status"]
 
     @cached_property
     def diagnostics(self) -> tuple[CompositionDiagnostic, ...]:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Return diagnostics associated with the presented composition."""
         if "amounts" not in self.__dict__:
             self._fill()
         return self.__dict__["diagnostics"]
@@ -89,9 +100,17 @@ class CompositionView(ChemicalFormulaViewBase, Composition):
         _ = self.amounts
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> Composition:
+        """Return the presented composition as a standalone value.
+
+        :return: The materialized composition value.
+        """
         backend = self._backend
         if type(backend) is Composition:
             return backend

@@ -8,7 +8,10 @@ from httk.atomistic.models.formula.notation import parse_anonymous_formula
 
 
 class AnonymousFormula(ChemicalFormulaBackend, str):
-    """A strictly canonical OPTIMADE anonymous chemical formula."""
+    """Store a strictly canonical OPTIMADE anonymous chemical formula.
+
+    :param formula: The canonical anonymous formula text.
+    """
 
     _coefficients: tuple[tuple[str, int], ...]
 
@@ -22,8 +25,10 @@ class AnonymousFormula(ChemicalFormulaBackend, str):
 
     @property
     def is_anonymous(self) -> bool:
+        """Return whether the formula uses anonymous labels."""
         return True
 
     @property
     def amounts(self) -> tuple[tuple[str, Fraction], ...]:
+        """Return the anonymous coefficients as exact amounts."""
         return tuple((label, Fraction(count)) for label, count in self._coefficients)

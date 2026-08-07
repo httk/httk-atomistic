@@ -8,7 +8,11 @@ from httk.atomistic.models.formula.notation import try_parse_anonymous
 
 
 class AnonymousFormulaString(ChemicalFormulaBackend):
-    """Backend for a canonical anonymous formula held as a plain string."""
+    r"""Wrap a canonical anonymous formula held as a plain string.
+
+    :param obj: The canonical anonymous formula text.
+    :param \*\*hints: Backend-selection hints.
+    """
 
     _raw: str
     _coefficients: tuple[tuple[str, int], ...]
@@ -28,11 +32,14 @@ class AnonymousFormulaString(ChemicalFormulaBackend):
 
     @property
     def is_anonymous(self) -> bool:
+        """Return whether the formula uses anonymous labels."""
         return True
 
     @property
     def amounts(self) -> tuple[tuple[str, Fraction], ...]:
+        """Return the anonymous coefficients as exact amounts."""
         return tuple((label, Fraction(count)) for label, count in self._coefficients)
 
     def unwrap(self) -> str:
+        """Return the original formula text."""
         return self._raw

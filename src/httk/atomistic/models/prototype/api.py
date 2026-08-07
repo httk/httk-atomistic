@@ -20,39 +20,47 @@ class AnonymousStructureAPI(ABC):
     @property
     @abstractmethod
     def cell(self) -> Cell:
+        """Return the structure cell."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def sites(self) -> Sites:
+        """Return the reduced sites."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def species(self) -> tuple[Species, ...]:
+        """Return the distinct dummy species."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def species_at_sites(self) -> tuple[str, ...]:
+        """Return dummy species names in site order."""
         raise NotImplementedError
 
     @property
     def coordinate_precision(self) -> Fraction | None:
+        """Return the reduced-coordinate precision, if known."""
         return None
 
     @property
     def basis_precision(self) -> Fraction | None:
+        """Return the cell-basis precision, if known."""
         return None
 
     @property
     def anonymous_formula(self) -> AnonymousFormulaView:
+        """Return the canonical anonymous formula at the represented site scale."""
         # The API root is only ever hosted by a backend in this family; the formula bridge
         # accepts that backend root rather than the abstract API protocol itself.
         return AnonymousFormulaView(cast("AnonymousStructureBackend", self))
 
     @property
     def is_canonical(self) -> bool:
+        """Return whether site counts assign consecutive canonical anonymous labels."""
         counts: dict[str, int] = {}
         for label in self.species_at_sites:
             counts[label] = counts.get(label, 0) + 1

@@ -21,7 +21,14 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
 class Prototype(AnonymousStructureBackend):
-    """A standard-setting fundamental domain with dummy species labels."""
+    """Store a standard-setting fundamental domain with dummy species labels.
+
+    :param cell: The standard-setting cell geometry.
+    :param spacegroup: The standard-setting space group.
+    :param wyckoff_sites: The symmetry-distinct site definitions.
+    :param species: The distinct dummy species definitions.
+    :param coordinate_precision: The precision recorded for the reduced coordinates.
+    """
 
     _cell: Cell
     _spacegroup: Spacegroup
@@ -84,26 +91,32 @@ class Prototype(AnonymousStructureBackend):
 
     @property
     def cell(self) -> Cell:
+        """Return the standard-setting cell."""
         return self._cell
 
     @property
     def spacegroup(self) -> Spacegroup:
+        """Return the standard-setting space group."""
         return self._spacegroup
 
     @property
     def wyckoff_sites(self) -> tuple[WyckoffSite, ...]:
+        """Return the symmetry-distinct site definitions."""
         return self._wyckoff_sites
 
     @property
     def species(self) -> tuple[Species, ...]:
+        """Return the distinct dummy species."""
         return self._species
 
     @property
     def coordinate_precision(self):
+        """Return the reduced-coordinate precision."""
         return self._coordinate_precision
 
     @property
     def basis_precision(self):
+        """Return the cell-basis precision."""
         return self._cell.precision
 
     @cached_property
@@ -119,36 +132,45 @@ class Prototype(AnonymousStructureBackend):
 
     @property
     def sites(self) -> Sites:
+        """Return the expanded standard-setting sites."""
         return self._domain.sites
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:
+        """Return dummy species names in expanded site order."""
         return self._domain.species_at_sites
 
     @property
     def periodicity(self) -> tuple[bool, bool, bool]:
+        """Return the periodic directions."""
         return self._cell.periodicity
 
     @property
     def nperiodic_dimensions(self) -> int:
+        """Return the number of periodic directions."""
         return self._cell.nperiodic_dimensions
 
     @property
     def nsites(self) -> int:
+        """Return the number of expanded sites."""
         return len(self.sites)
 
     def cartesian_sites(self) -> Any:
+        """Return the exact Cartesian expanded site positions."""
         return self._domain.cartesian_sites()
 
     def multiplicities(self) -> tuple[int, ...]:
+        """Return the standard-setting multiplicity for each Wyckoff site."""
         return self._domain.multiplicities()
 
     @property
     def nsites_conventional(self) -> int:
+        """Return the number of sites in the conventional cell."""
         return sum(self.multiplicities())
 
     @property
     def prototype(self) -> Self:
+        """Return this prototype value."""
         return self
 
     def __eq__(self, other: object) -> bool:

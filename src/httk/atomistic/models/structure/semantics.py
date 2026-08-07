@@ -549,7 +549,8 @@ class StructureSemanticsMixin:
 
         ``unwrap()`` recovers this structure.
 
-        :return: The reduced formula as a :class:`ChemicalFormulaView`.
+        :return: The reduced formula as a
+            :class:`~httk.atomistic.models.formula.formula_view.ChemicalFormulaView`.
         :raises ValueError: If the composition is incomplete (including any ``"X"``
             species) or empty.
         """

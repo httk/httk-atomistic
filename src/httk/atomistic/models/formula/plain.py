@@ -13,7 +13,11 @@ _ELEMENTS = frozenset(SYMBOLS)
 
 
 class PlainComposition(ChemicalFormulaBackend):
-    """Backend for a mapping of real element symbols to composition amounts."""
+    r"""Wrap a mapping of real element symbols to composition amounts.
+
+    :param obj: The elemental amount mapping.
+    :param \*\*hints: Backend-selection hints.
+    """
 
     _raw: Mapping[str, Any]
     _composition: Composition
@@ -31,31 +35,39 @@ class PlainComposition(ChemicalFormulaBackend):
 
     @property
     def amounts(self) -> tuple[tuple[str, Fraction], ...]:
+        """Return the elemental amounts in canonical symbol order."""
         return self._composition.amounts
 
     @property
     def uncertainties(self) -> tuple[tuple[str, Fraction | None], ...]:
+        """Return the amount precisions in canonical symbol order."""
         return self._composition.uncertainties
 
     @property
     def complete(self) -> bool:
+        """Return whether all represented elemental material is known."""
         return self._composition.complete
 
     @property
     def exact(self) -> bool:
+        """Return whether all elemental amounts are exact."""
         return self._composition.exact
 
     @property
     def normalized(self) -> bool:
+        """Return whether the composition is normalized within precision."""
         return self._composition.normalized
 
     @property
     def normalization_status(self) -> str:
+        """Return the composition's normalization status."""
         return self._composition.normalization_status
 
     @property
     def diagnostics(self) -> tuple[CompositionDiagnostic, ...]:
+        """Return non-fatal diagnostics associated with the composition."""
         return self._composition.diagnostics
 
     def unwrap(self) -> Mapping[str, Any]:
+        """Return the original elemental amount mapping."""
         return self._raw

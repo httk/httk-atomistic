@@ -459,7 +459,11 @@ def _composition_known(context: QueryContext) -> QueryExpression:
 
 
 def _formula_known(context: QueryContext) -> QueryExpression:
-    """A formula exists only for a complete non-empty elemental composition."""
+    """Build the predicate for a complete non-empty elemental composition.
+
+    :param context: The query context used to build the expression.
+    :return: The expression identifying records with a formula.
+    """
     amounts = _composition_scope(context).scope("amounts")
     return context.and_(
         _composition_known(context),
@@ -468,6 +472,13 @@ def _formula_known(context: QueryContext) -> QueryExpression:
 
 
 def _formula_tokens(literal: object, *, anonymous: bool) -> tuple[tuple[str, int], ...]:
+    """Parse and validate a formula query literal.
+
+    :param literal: The formula literal supplied by the query.
+    :param anonymous: Whether to apply anonymous-label syntax and ordering rules.
+    :return: The parsed labels and integer coefficients.
+    :raises httk.core.storage.QueryLiteralError: If the literal is not canonical formula text.
+    """
     if not isinstance(literal, str) or not literal:
         raise QueryLiteralError("chemical formula equality requires a non-empty formula string")
     token = _ANONYMOUS_FORMULA_TOKEN if anonymous else _ELEMENT_FORMULA_TOKEN
@@ -498,6 +509,11 @@ def _formula_tokens(literal: object, *, anonymous: bool) -> tuple[tuple[str, int
 
 
 def _formula_query(*, anonymous: bool) -> Callable[[QueryContext, str, object], QueryExpression]:
+    """Build the exact-equality query handler for one formula property.
+
+    :param anonymous: Whether to query anonymous rather than named formula notation.
+    :return: A query handler accepting a context, operator, and literal.
+    """
     property_name = "chemical_formula_anonymous" if anonymous else "chemical_formula_reduced"
 
     def query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
@@ -523,7 +539,13 @@ def _formula_query(*, anonymous: bool) -> Callable[[QueryContext, str, object], 
 def _reduced_formula_predicate(
     context: QueryContext, composition: QueryScope, tokens: tuple[tuple[str, int], ...]
 ) -> QueryExpression:
-    """Match named formula coefficients against canonical exact ratios."""
+    """Match named formula coefficients against canonical exact ratios.
+
+    :param context: The query context used to build the expression.
+    :param composition: The composition query scope.
+    :param tokens: The canonical element and coefficient pairs to match.
+    :return: The exact-ratio matching expression.
+    """
     amounts = composition.scope("amounts")
     predicates: list[QueryExpression] = [
         context.compare(context.count(amounts), "=", context.constant(len(tokens))),
@@ -545,7 +567,13 @@ def _reduced_formula_predicate(
 def _anonymous_formula_predicate(
     context: QueryContext, composition: QueryScope, coefficients: tuple[int, ...]
 ) -> QueryExpression:
-    """Match an anonymous coefficient multiset against canonical exact ratios."""
+    """Match an anonymous coefficient multiset against canonical exact ratios.
+
+    :param context: The query context used to build the expression.
+    :param composition: The composition query scope.
+    :param coefficients: The anonymous formula coefficients to match.
+    :return: The exact-ratio matching expression.
+    """
     amounts = composition.scope("amounts")
     predicates: list[QueryExpression] = [
         context.compare(context.count(amounts), "=", context.constant(len(coefficients))),

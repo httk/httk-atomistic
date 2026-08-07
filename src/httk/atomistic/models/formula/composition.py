@@ -21,7 +21,16 @@ _ELEMENTS = frozenset(SYMBOLS)
 
 @dataclass(frozen=True, init=False, eq=False)
 class Composition(ChemicalFormulaBackend):
-    """The immutable projected elemental composition and formula diagnostics."""
+    """Store an immutable projected composition and its formula diagnostics.
+
+    :param amounts: The projected elemental amounts in symbol order.
+    :param uncertainties: The corresponding amount precisions, if known.
+    :param complete: Whether the projection contains no unknown elemental content.
+    :param exact: Whether all projected amounts are exact.
+    :param normalized: Whether all contributing probabilities and concentrations normalize.
+    :param normalization_status: The combined normalization status.
+    :param diagnostics: The non-fatal issues found during projection.
+    """
 
     amounts: tuple[tuple[str, Fraction], ...] = ()  # pyright: ignore[reportIncompatibleMethodOverride]
     uncertainties: tuple[tuple[str, Fraction | None], ...] = ()  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -99,22 +108,27 @@ class Composition(ChemicalFormulaBackend):
 
     @property
     def amount_mapping(self) -> Mapping[str, Fraction]:
+        """Return the projected amounts as a read-only mapping."""
         return MappingProxyType(dict(self.amounts))
 
     @property
     def uncertainty_mapping(self) -> Mapping[str, Fraction | None]:
+        """Return the projected amount precisions as a read-only mapping."""
         return MappingProxyType(dict(self.uncertainties))
 
     @property
     def elements(self) -> tuple[str, ...]:
+        """Return the projected element symbols in amount order."""
         return tuple(element for element, _ in self.amounts)
 
     @property
     def nelements(self) -> int:
+        """Return the number of projected elements."""
         return len(self.amounts)
 
     @property
     def elements_ratios(self) -> tuple[Fraction, ...]:
+        """Return the projected amounts normalized by their total."""
         total = sum((amount for _, amount in self.amounts), Fraction())
         return () if not total else tuple(amount / total for _, amount in self.amounts)
 
@@ -128,11 +142,13 @@ class Composition(ChemicalFormulaBackend):
 
     @property
     def chemical_formula_reduced(self) -> str | None:
+        """Return the reduced chemical formula, if the composition is complete."""
         coefficients = self._formula_coefficients()
         return None if coefficients is None else render_reduced(coefficients)
 
     @property
     def chemical_formula_anonymous(self) -> str | None:
+        """Return the anonymous formula, if the composition is complete."""
         coefficients = self._formula_coefficients()
         if coefficients is None:
             return None

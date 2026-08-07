@@ -8,7 +8,10 @@ from httk.atomistic.models.formula.notation import parse_reduced_formula
 
 
 class ChemicalFormula(ChemicalFormulaBackend, str):
-    """A strictly canonical reduced chemical formula (alphabetical, GCD 1)."""
+    """Store a strictly canonical reduced chemical formula.
+
+    :param formula: The alphabetical formula text with greatest common divisor one.
+    """
 
     _coefficients: tuple[tuple[str, int], ...]
 
@@ -22,4 +25,5 @@ class ChemicalFormula(ChemicalFormulaBackend, str):
 
     @property
     def amounts(self) -> tuple[tuple[str, Fraction], ...]:
+        """Return the formula coefficients as exact amounts."""
         return tuple((element, Fraction(count)) for element, count in self._coefficients)

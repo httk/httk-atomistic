@@ -371,7 +371,8 @@ class OptimadeStructure(StructureBackend):
     def formula(self) -> str:
         """Present the reduced formula as an eager ``str`` formula view.
 
-        :return: The reduced formula as a :class:`ChemicalFormulaView`.
+        :return: The reduced formula as a
+            :class:`~httk.atomistic.models.formula.formula_view.ChemicalFormulaView`.
         :raises ValueError: If the composition is incomplete or empty.
         """
 

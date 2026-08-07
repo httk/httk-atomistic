@@ -18,7 +18,11 @@ if TYPE_CHECKING:
 
 
 class AnonymousStructureView(AnonymousStructureViewBase, AnonymousStructure):
-    """A lazy view presenting an anonymous structure or ordinary structure."""
+    r"""Present an anonymous or ordinary structure lazily as an anonymous structure.
+
+    :param obj: The anonymous-structure-like or structure-like object to present.
+    :param \*\*hints: Backend-selection hints.
+    """
 
     _backend: AnonymousStructureBackend
 
@@ -67,33 +71,47 @@ class AnonymousStructureView(AnonymousStructureViewBase, AnonymousStructure):
 
     @property
     def periodicity(self):
+        """Return the presented periodic directions."""
         return self.cell.periodicity
 
     @property
     def nperiodic_dimensions(self):
+        """Return the number of presented periodic directions."""
         return self.cell.nperiodic_dimensions
 
     @property
     def nsites(self):
+        """Return the number of presented sites."""
         return len(self.sites)
 
     def cartesian_sites(self):
+        """Return the exact Cartesian presented site positions."""
         from httk.core import SurdVector
 
         return SurdVector.create(self.sites.reduced_coords) * self.cell.basis
 
     @property
     def coordinate_precision(self):
+        """Return the presented coordinate precision."""
         return self.sites.precision
 
     @property
     def basis_precision(self):
+        """Return the presented basis precision."""
         return self.cell.precision
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> AnonymousStructure:
+        """Return the presented structure as a standalone value.
+
+        :return: The anonymous structure value.
+        """
         if type(self._backend) is AnonymousStructure:
             return self._backend
         return AnonymousStructure(self.cell, self.sites, self.species, self.species_at_sites)

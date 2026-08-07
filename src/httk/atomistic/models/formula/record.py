@@ -14,7 +14,11 @@ from httk.atomistic.storage.records import (
 
 
 class RecordComposition(ChemicalFormulaBackend):
-    """Backend for a :class:`NormalizedCompositionRecord`."""
+    r"""Read a composition from a :class:`NormalizedCompositionRecord`.
+
+    :param obj: The normalized-composition record to wrap.
+    :param \*\*hints: Backend-selection hints.
+    """
 
     _record: NormalizedCompositionRecord
 
@@ -34,31 +38,39 @@ class RecordComposition(ChemicalFormulaBackend):
 
     @property
     def amounts(self) -> tuple[tuple[str, Fraction], ...]:
+        """Return the stored elemental amounts."""
         return self._composition.amounts
 
     @property
     def uncertainties(self) -> tuple[tuple[str, Fraction | None], ...]:
+        """Return the stored amount precisions."""
         return self._composition.uncertainties
 
     @property
     def complete(self) -> bool:
+        """Return whether the stored composition is complete."""
         return self._composition.complete
 
     @property
     def exact(self) -> bool:
+        """Return whether the stored amounts are exact."""
         return self._composition.exact
 
     @property
     def normalized(self) -> bool:
+        """Return whether the stored composition is normalized."""
         return self._composition.normalized
 
     @property
     def normalization_status(self) -> str:
+        """Return the stored composition's normalization status."""
         return self._composition.normalization_status
 
     @property
     def diagnostics(self) -> tuple[CompositionDiagnostic, ...]:
+        """Return diagnostics stored with the composition."""
         return self._composition.diagnostics
 
     def unwrap(self) -> NormalizedCompositionRecord:
+        """Return the original normalized-composition record."""
         return self._record

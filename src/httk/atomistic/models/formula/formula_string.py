@@ -8,7 +8,11 @@ from httk.atomistic.models.formula.notation import try_parse_reduced
 
 
 class FormulaString(ChemicalFormulaBackend):
-    """Backend for a canonical reduced formula held as a plain string."""
+    r"""Wrap a canonical reduced formula held as a plain string.
+
+    :param obj: The canonical reduced formula text.
+    :param \*\*hints: Backend-selection hints.
+    """
 
     _raw: str
     _coefficients: tuple[tuple[str, int], ...]
@@ -28,7 +32,9 @@ class FormulaString(ChemicalFormulaBackend):
 
     @property
     def amounts(self) -> tuple[tuple[str, Fraction], ...]:
+        """Return the formula coefficients as exact amounts."""
         return tuple((element, Fraction(count)) for element, count in self._coefficients)
 
     def unwrap(self) -> str:
+        """Return the original formula text."""
         return self._raw

@@ -19,7 +19,11 @@ if TYPE_CHECKING:
 
 
 class AnonymousFormulaView(ChemicalFormulaViewBase, AnonymousFormula):
-    """An eager canonical anonymous-formula view over any complete composition."""
+    r"""Present a complete composition as an eager canonical anonymous formula.
+
+    :param obj: The chemical-formula-like object to present.
+    :param \*\*hints: Backend-selection hints.
+    """
 
     _backend: ChemicalFormulaBackend
 
@@ -68,6 +72,7 @@ class AnonymousFormulaView(ChemicalFormulaViewBase, AnonymousFormula):
 
     @property
     def amounts(self):
+        """Return the presented amounts using anonymous labels."""
         backend = self._backend
         if backend.is_anonymous:
             return backend.amounts
@@ -76,6 +81,7 @@ class AnonymousFormulaView(ChemicalFormulaViewBase, AnonymousFormula):
 
     @property
     def uncertainties(self):
+        """Return the presented amount precisions using anonymous labels."""
         backend = self._backend
         if backend.is_anonymous:
             return backend.uncertainties
@@ -85,33 +91,47 @@ class AnonymousFormulaView(ChemicalFormulaViewBase, AnonymousFormula):
 
     @property
     def complete(self):
+        """Return whether the presented composition is complete."""
         return self._backend.complete
 
     @property
     def exact(self):
+        """Return whether the presented amounts are exact."""
         return self._backend.exact
 
     @property
     def normalized(self):
+        """Return whether the presented composition is normalized."""
         return self._backend.normalized
 
     @property
     def normalization_status(self):
+        """Return the presented composition's normalization status."""
         return self._backend.normalization_status
 
     @property
     def diagnostics(self):
+        """Return diagnostics associated with the presented composition."""
         return self._backend.diagnostics
 
     @property
     def is_anonymous(self):
+        """Return whether this formula uses anonymous labels."""
         return True
 
     def unview(self) -> AnonymousFormula:
+        """Return the presented formula as a standalone value.
+
+        :return: The canonical anonymous formula value.
+        """
         backend = self._backend
         if type(backend) is AnonymousFormula:
             return backend
         return AnonymousFormula(str(self))
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)

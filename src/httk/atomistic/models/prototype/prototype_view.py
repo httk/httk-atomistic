@@ -36,7 +36,14 @@ def _relabel_sites(
 
 
 class PrototypeView(AnonymousStructureViewBase, Prototype):
-    """An eager standard-setting prototype view recognized from a structure."""
+    r"""Recognize an eager standard-setting prototype view from a structure.
+
+    Recognition accepts optional ``tolerance`` and ``limit_denominator`` values through
+    the recognition hints.
+
+    :param obj: The anonymous-structure-like or structure-like source.
+    :param \*\*hints: Backend-selection and recognition hints.
+    """
 
     _backend: AnonymousStructureBackend
 
@@ -113,9 +120,17 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
         pass
 
     def unwrap(self) -> Any:
+        """Return the raw object behind the backend.
+
+        :return: The unwrapped source object.
+        """
         return unwrap(self._backend)
 
     def unview(self) -> Prototype:
+        """Return the recognized prototype as a standalone value.
+
+        :return: The prototype value.
+        """
         if type(self._backend) is Prototype:
             return self._backend
         return Prototype(

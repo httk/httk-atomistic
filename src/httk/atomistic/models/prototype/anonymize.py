@@ -9,12 +9,20 @@ from httk.atomistic.models.species.species import Species
 
 
 def dummy_species(label: str) -> Species:
-    """Return the exact dummy species used by anonymous structures."""
+    """Return the exact dummy species used by anonymous structures.
+
+    :param label: The anonymous symbol to use as the species name.
+    :return: The canonical dummy species.
+    """
     return Species(label, ("X",), (1,), labels=(label,))
 
 
 def is_dummy_species(species: Species) -> bool:
-    """Whether ``species`` has precisely the sanctioned dummy-species shape."""
+    """Return whether ``species`` has precisely the sanctioned dummy-species shape.
+
+    :param species: The species to inspect.
+    :return: Whether the species is a canonical dummy species.
+    """
     return (
         species.name == (species.labels[0] if species.labels is not None and len(species.labels) == 1 else None)
         and species.chemical_symbols == ("X",)
@@ -31,7 +39,11 @@ def is_dummy_species(species: Species) -> bool:
 
 
 def canonical_dummy_assignment(amounts: Sequence[tuple[str, Fraction | int]]) -> dict[str, str]:
-    """Map element-like keys to anonymous symbols by descending amount."""
+    """Map element-like keys to anonymous symbols by descending amount.
+
+    :param amounts: The keys and represented site counts.
+    :return: The deterministic key-to-anonymous-symbol assignment.
+    """
     ordered = sorted(amounts, key=lambda item: (-item[1], item[0]))
     return {element: anonymous_symbol(index) for index, (element, _) in enumerate(ordered)}
 
@@ -42,6 +54,9 @@ def require_anonymizable(structure: Any) -> None:
     Only fully occupied, single-real-element site species are anonymized. Future phases may
     add merge or label-preserving modes for decorated species; this mode intentionally refuses
     those cases, as well as assemblies, stated compositions, and site moments.
+
+    :param structure: The structure whose representation is being anonymized.
+    :raises ValueError: If the structure contains unsupported composition features.
     """
     names = tuple(structure.species_at_sites)
     by_name = {species.name: species for species in structure.species}

@@ -7,7 +7,11 @@ from httk.atomistic.models.species.species import Species
 
 @dataclass(frozen=True)
 class WyckoffOccupation:
-    """One Wyckoff orbit occupied by one (possibly disordered) species."""
+    """Store one Wyckoff orbit occupied by one possibly disordered species.
+
+    :param wyckoff: The Wyckoff letter in the standard setting.
+    :param species: The real species occupying the orbit.
+    """
 
     wyckoff: str
     species: Species
