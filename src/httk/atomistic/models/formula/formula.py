@@ -1,0 +1,25 @@
+"""The canonical reduced chemical-formula value class."""
+
+from fractions import Fraction
+from typing import Self
+
+from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
+from httk.atomistic.models.formula.notation import parse_reduced_formula
+
+
+class ChemicalFormula(ChemicalFormulaBackend, str):
+    """A strictly canonical reduced chemical formula (alphabetical, GCD 1)."""
+
+    _coefficients: tuple[tuple[str, int], ...]
+
+    def __new__(cls, formula: str) -> Self:
+        if isinstance(formula, cls):
+            return formula
+        coefficients = parse_reduced_formula(formula)
+        instance = super().__new__(cls, formula)
+        instance._coefficients = coefficients
+        return instance
+
+    @property
+    def amounts(self) -> tuple[tuple[str, Fraction], ...]:
+        return tuple((element, Fraction(count)) for element, count in self._coefficients)

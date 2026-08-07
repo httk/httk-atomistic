@@ -1,0 +1,154 @@
+from fractions import Fraction
+
+import pytest
+from httk.core import coerce, coerce_view
+
+from httk.atomistic import (
+    AnonymousFormula,
+    AnonymousFormulaView,
+    ASUStructure,
+    ChemicalFormula,
+    ChemicalFormulaBackend,
+    ChemicalFormulaView,
+    Composition,
+    CompositionView,
+    FundamentalDomainStructure,
+    Spacegroup,
+    Species,
+    UnitcellStructure,
+    UnitcellStructureView,
+    WyckoffSite,
+)
+from httk.atomistic.composition import project_composition
+from httk.atomistic.models.formula.anonymous_string import AnonymousFormulaString
+from httk.atomistic.models.formula.formula_string import FormulaString
+from httk.atomistic.models.formula.notation import parse_anonymous_formula, parse_reduced_formula
+from httk.atomistic.models.formula.plain import PlainComposition
+from httk.atomistic.models.formula.record import RecordComposition
+from httk.atomistic.models.formula.structure import StructureComposition
+from httk.atomistic.storage.records import _normalized_composition_record_from_result
+
+
+def _unitcell() -> UnitcellStructure:
+    return UnitcellStructure(
+        [[3, 0, 0], [0, 3, 0], [0, 0, 3]],
+        [[0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]],
+        [Species("Al", ("Al",), (1,)), Species("O", ("O",), (1,))],
+        ["Al", "O"],
+    )
+
+
+def _asu(cls: type[FundamentalDomainStructure] = ASUStructure) -> FundamentalDomainStructure:
+    return cls(
+        [[3, 0, 0], [0, 3, 0], [0, 0, 3]],
+        Spacegroup.standard(225),
+        (WyckoffSite("a", (), "Al"), WyckoffSite("b", (), "O")),
+        (Species("Al", ("Al",), (1,)), Species("O", ("O",), (1,))),
+    )
+
+
+def test_value_and_view_construction_and_string_behavior() -> None:
+    formula = ChemicalFormulaView("Al2O3")
+    assert formula == "Al2O3"
+    assert isinstance(formula, str)
+    assert hash(formula) == hash("Al2O3")
+    assert f"{formula}" == "Al2O3"
+    assert CompositionView({"Al": 2, "O": 3}).amounts == (("Al", Fraction(2)), ("O", Fraction(3)))
+    assert AnonymousFormulaView("A3B2") == "A3B2"
+    with pytest.raises(TypeError):
+        ChemicalFormulaView("not a formula")
+
+
+def test_backend_kinds_and_round_trips() -> None:
+    assert isinstance(ChemicalFormulaBackend.create({"Al": 2}, kind="plain"), PlainComposition)
+    assert isinstance(ChemicalFormulaBackend.create("Al2O3", kind="formula"), FormulaString)
+    assert isinstance(ChemicalFormulaBackend.create("A3B2", kind="anonymous"), AnonymousFormulaString)
+    record = _normalized_composition_record_from_result(Composition({"Al": 2, "O": 3}))
+    assert isinstance(ChemicalFormulaBackend.create(record), RecordComposition)
+    structure = _unitcell()
+    view = CompositionView(structure)
+    assert isinstance(view._backend, StructureComposition)
+    assert view.unwrap() is structure
+    assert ChemicalFormulaView(view)._backend is view._backend
+    assert type(ChemicalFormulaView(view).unview()) is ChemicalFormula
+    assert type(view.unview()) is Composition
+    value = ChemicalFormula("Al2O3")
+    assert ChemicalFormulaView(value).unview() is value
+    assert CompositionView(Composition({"Al": 2, "O": 3})).unview() is not None
+
+
+@pytest.mark.parametrize("structure", [_unitcell(), _asu(FundamentalDomainStructure), _asu(ASUStructure)])
+def test_structure_projection_includes_wyckoff_multiplicities(structure: FundamentalDomainStructure) -> None:
+    view = CompositionView(structure)
+    assert view == project_composition(structure)
+    assert view.amounts == project_composition(structure).amounts
+
+
+def test_record_and_structure_laziness() -> None:
+    structure = _unitcell()
+    view = CompositionView(structure)
+    assert "amounts" not in view.__dict__
+    assert view.amounts == project_composition(structure).amounts
+    assert "amounts" in view.__dict__
+    record = _normalized_composition_record_from_result(Composition({"Al": 2, "O": 3}))
+    assert CompositionView(record) == Composition({"Al": 2, "O": 3})
+
+
+def test_formula_directionality_and_validation() -> None:
+    with pytest.raises(ValueError, match="anonymous"):
+        ChemicalFormulaView(AnonymousFormula("A2B"))
+    with pytest.raises(ValueError, match="anonymous"):
+        CompositionView(AnonymousFormula("A2B"))
+    assert AnonymousFormulaView(ChemicalFormula("Al2O3")) == "A3B2"
+    assert AnonymousFormulaView(Composition({"O": 2, "Al": 2})) == "AB"
+    incomplete = UnitcellStructure(
+        [[3, 0, 0], [0, 3, 0], [0, 0, 3]],
+        [[0, 0, 0]],
+        [Species("unknown", ("X",), (1,))],
+        ["unknown"],
+    )
+    incomplete_view = CompositionView(incomplete)
+    with pytest.raises(ValueError, match="incomplete"):
+        ChemicalFormulaView(incomplete_view)
+    with pytest.raises(ValueError, match="incomplete"):
+        AnonymousFormulaView(incomplete_view)
+    assert incomplete_view.complete is False
+    with pytest.raises(ValueError, match="empty"):
+        ChemicalFormulaView(Composition({}))
+    with pytest.raises(ValueError, match="empty"):
+        AnonymousFormulaView(Composition({}))
+
+
+@pytest.mark.parametrize("text", ["Al2O2", "H2", "OAl", "Al1O", "", "Aluminum"])
+def test_reduced_parser_is_strict(text: str) -> None:
+    with pytest.raises(ValueError):
+        parse_reduced_formula(text)
+
+
+@pytest.mark.parametrize("text", ["B2C", "A2B3", "A1B"])
+def test_anonymous_parser_is_strict(text: str) -> None:
+    with pytest.raises(ValueError):
+        parse_anonymous_formula(text)
+
+
+def test_anonymous_parser_accepts_canonical_forms() -> None:
+    assert parse_anonymous_formula("A") == (("A", 1),)
+    assert parse_anonymous_formula("AB") == (("A", 1), ("B", 1))
+    assert parse_anonymous_formula("A2B2C") == (("A", 2), ("B", 2), ("C", 1))
+
+
+def test_coercion_and_datastream_guard() -> None:
+    structure = _unitcell()
+    assert isinstance(coerce_view(structure, ChemicalFormulaView), ChemicalFormulaView)
+    result = coerce(structure, ChemicalFormula)
+    assert type(result) is ChemicalFormula
+    incomplete = UnitcellStructure(
+        [[3, 0, 0], [0, 3, 0], [0, 0, 3]],
+        [[0, 0, 0]],
+        [Species("unknown", ("X",), (1,))],
+        ["unknown"],
+    )
+    with pytest.raises(TypeError):
+        coerce(incomplete, ChemicalFormula)
+    with pytest.raises(TypeError):
+        UnitcellStructureView(ChemicalFormulaView("Al2O3"))

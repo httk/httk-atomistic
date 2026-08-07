@@ -13,6 +13,8 @@ from httk.core.datastream.network_policy import require_network_consent
 from httk.core.optimade import is_optimade_entry_url, redact_optimade_url
 
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
+from httk.atomistic.models.formula.view_base import ChemicalFormulaViewBase
 from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
@@ -61,6 +63,8 @@ class DatastreamStructure(StructureBackend):
 
     def __new__(cls, obj: Any, **hints: Any) -> Any:
         if hints.get("kind", cls.kind) != cls.kind:
+            return None
+        if isinstance(obj, (ChemicalFormulaBackend, ChemicalFormulaViewBase)):
             return None
         name = cls._source_name(obj, hints)
         if name is None:

@@ -14,6 +14,10 @@ The underlying tables ship in :mod:`httk.atomistic.data`.
 
 # ruff: noqa: I001
 
+from typing import Any
+
+from httk.core.views import register_coercer, view_class_coercer
+
 from httk.atomistic.models.cell.backend import CellBackend
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.like import CellLike
@@ -86,6 +90,22 @@ from httk.atomistic.models.cell.record import RecordCell
 from httk.atomistic.models.sites.record import RecordSites
 from httk.atomistic.models.species.record import RecordSpecies
 from httk.atomistic.models.structure.record import RecordStructure
+
+# Formula imports must follow the structure imports: formula record/like modules pull in
+# the storage stack, whose integration bridges depend on a fully initialized structure family.
+from httk.atomistic.models.formula.anonymous import AnonymousFormula
+from httk.atomistic.models.formula.anonymous_string import AnonymousFormulaString
+from httk.atomistic.models.formula.anonymous_view import AnonymousFormulaView
+from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
+from httk.atomistic.models.formula.composition import Composition
+from httk.atomistic.models.formula.composition_view import CompositionView
+from httk.atomistic.models.formula.formula import ChemicalFormula
+from httk.atomistic.models.formula.formula_string import FormulaString
+from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
+from httk.atomistic.models.formula.like import ChemicalFormulaLike
+from httk.atomistic.models.formula.plain import PlainComposition
+from httk.atomistic.models.formula.record import RecordComposition
+from httk.atomistic.models.formula.structure import StructureComposition
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
 from httk.atomistic.symmetry.setting_transform import SettingTransform
@@ -114,6 +134,14 @@ from .reduction import (
 # Record backends first: they match their exact record classes by isinstance and
 # reject everything else instantly, so record inputs never fall through the
 # parse-and-raise probes of the raw-input backends (and raw inputs lose nothing).
+ChemicalFormulaBackend.backend_classes = [
+    RecordComposition,
+    StructureComposition,
+    PlainComposition,
+    FormulaString,
+    AnonymousFormulaString,
+]
+register_coercer(view_class_coercer([ChemicalFormulaView, AnonymousFormulaView, CompositionView]), Any)
 StructureBackend.backend_classes = [
     RecordStructure,
     OptimadeStructure,
@@ -149,6 +177,8 @@ __all__ = [
     "ASUStructureRecord",
     "ASUStructureView",
     "AffineOperation",
+    "AnonymousFormula",
+    "AnonymousFormulaView",
     "Assembly",
     "CartesianSiteMoments",
     "CartesianSiteMomentsView",
@@ -158,7 +188,12 @@ __all__ = [
     "CellParamsView",
     "CellView",
     "ChemicalComposition",
+    "ChemicalFormula",
+    "ChemicalFormulaLike",
+    "ChemicalFormulaView",
     "CollinearSiteMoments",
+    "Composition",
+    "CompositionView",
     "ConventionalCellResult",
     "CrystalAxisSiteMoments",
     "CrystalAxisSiteMomentsView",
