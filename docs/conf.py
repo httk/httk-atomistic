@@ -143,6 +143,10 @@ nitpick_ignore = [
     # The protocol property ``type`` is indexed through both its defining
     # module and the package re-export; qualified member links stay available.
     ("py:obj", "type"),
+    # AutoAPI renders this TYPE_CHECKING-only record annotation without its
+    # module qualification; the concrete record remains documented in the
+    # storage records module.
+    ("py:class", "NormalizedCompositionRecord"),
 ]
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True

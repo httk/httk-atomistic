@@ -54,6 +54,8 @@ lattice, positions, numbers = PlainStructureView(structure)
 
 reference/index
 structures
+composition
+prototypes
 wavefunctions
 trajectory_jsonl
 asu

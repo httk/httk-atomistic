@@ -325,7 +325,10 @@ an exact multiplier in v2.
 Besides the core structural fields it auto-derives the standard composition
 fields for a fully ordered structure (every species a single, unattached
 element): `nperiodic_dimensions`, `dimension_types`, `elements_ratios`, and the
-`chemical_formula_reduced` / `_anonymous` / `_descriptive` strings. It also
+`chemical_formula_reduced` / `_anonymous` / `_descriptive` strings. The
+`structure.formula` convenience is an eager reduced-formula `str` view and
+raises for incomplete compositions; use `chemical_formula_reduced` when the
+documented `str | None` result is required. It also
 accepts `None` for a known entry that has no structure (structural properties then
 serve null), and can serve custom database-specific properties via an extended
 definition:
