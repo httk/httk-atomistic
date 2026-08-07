@@ -37,6 +37,7 @@ from httk.atomistic.composition import Assembly, project_composition, validate_a
 from httk.atomistic.entries.precision import precision_definitions
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.formula.composition import Composition
+from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
 from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.sites.sites import Sites
@@ -367,13 +368,14 @@ class OptimadeStructure(StructureBackend):
         )
 
     @stored_property
-    def formula(self) -> str | None:
-        """Expose the source-declared reduced formula through the native convenience name.
+    def formula(self) -> str:
+        """Present the reduced formula as an eager ``str`` formula view.
 
-        :return: The reduced formula, or ``None`` when absent.
+        :return: The reduced formula as a :class:`ChemicalFormulaView`.
+        :raises ValueError: If the composition is incomplete or empty.
         """
 
-        return self.chemical_formula_reduced
+        return ChemicalFormulaView(self)
 
     def _precision(self, name: str, *, component: str) -> Decimal | int | object:
         definition_id = precision_definitions()[name].definition_id

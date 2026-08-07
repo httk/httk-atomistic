@@ -1,3 +1,5 @@
+from fractions import Fraction as F
+
 import pytest
 from httk.core import FracVector, unwrap
 
@@ -155,6 +157,16 @@ def test_unitcell_structure_view_fills_components_on_first_access() -> None:
     _ = view.sites
     _ = view.sites
     assert probe.calls == {"cell": 1, "sites": 1, "species": 1, "species_at_sites": 1}
+
+
+def test_unitcell_structure_composition_view_defers_projection() -> None:
+    probe = CountingStructureBackend()
+    view = UnitcellStructureView(probe)
+
+    composition = view.composition
+    assert "amounts" not in composition.__dict__
+    assert composition.amounts == (("Cl", F(1)), ("Na", F(1)))
+    assert "amounts" in composition.__dict__
 
 
 def test_asu_unitcell_view_does_not_expand_until_sites() -> None:

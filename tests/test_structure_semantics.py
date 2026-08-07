@@ -1,6 +1,8 @@
 from fractions import Fraction as F
+from pathlib import Path
 
 import pytest
+from httk.core import load, unwrap
 
 from httk.atomistic import (
     Assembly,
@@ -13,9 +15,11 @@ from httk.atomistic import (
     Spacegroup,
     Species,
     UnitcellStructure,
+    UnitcellStructureView,
 )
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.composition import ChemicalComposition
+from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
 from httk.atomistic.models.structure.semantics import StructureSymmetry
 
 
@@ -32,6 +36,9 @@ def _structure(**kwargs):
 def test_structure_exposes_common_optimade_semantics() -> None:
     structure = _structure(optimization_type="experimental")
     assert structure.formula == structure.chemical_formula_reduced == "B3O2Tl"
+    assert isinstance(structure.formula, ChemicalFormulaView)
+    assert isinstance(structure.formula, str)
+    assert structure.formula.unwrap() is structure
     assert structure.chemical_formula_descriptive is None
     assert structure.chemical_formula_hill is None
     assert structure.elements == ("B", "O", "Tl")
@@ -121,6 +128,8 @@ def test_fundamental_domain_and_asu_spans_and_representatives() -> None:
     assert domain.fractional_site_positions == [[0.0, 0.0, 0.0]]
     assert domain.wyckoff_positions == ("a",)
     assert domain != asu
+    assert domain.formula == domain.chemical_formula_reduced
+    assert asu.formula == asu.chemical_formula_reduced
     assert domain != FundamentalDomainStructure(cell, group, (site,), species, coordinate_precision=F(1, 100))
     with pytest.raises(ValueError, match="cannot promote"):
         ASUStructureView(domain)
@@ -131,6 +140,41 @@ def test_fundamental_domain_and_asu_spans_and_representatives() -> None:
             (WyckoffSite("a", (), "Cs", representative=(F(1, 4), 0, 0)),),
             species,
         )
+
+
+def test_formula_uses_multiplicity_weighted_asymmetric_unit_composition() -> None:
+    structure = FundamentalDomainStructure(
+        Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]),
+        Spacegroup.standard(221),
+        (WyckoffSite("a", (), "B"), WyckoffSite("c", (), "O")),
+        (Species("B", ("B",), (1,)), Species("O", ("O",), (1,))),
+    )
+
+    assert structure.multiplicities() == (1, 3)
+    assert len(structure.wyckoff_sites) == 2
+    assert structure.formula == structure.chemical_formula_reduced == "BO3"
+
+
+def test_incomplete_structure_formula_raises_but_reduced_formula_stays_nullable() -> None:
+    structure = UnitcellStructure(
+        Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]),
+        Sites([[0, 0, 0]]),
+        (Species("unknown", ("X",), (1,)),),
+        ("unknown",),
+    )
+
+    with pytest.raises(ValueError, match="incomplete"):
+        _ = structure.formula
+    assert structure.chemical_formula_reduced is None
+
+
+def test_loaded_structure_view_formula_round_trips_to_loaded_backend() -> None:
+    pytest.importorskip("httk.io")
+    loaded = load(str(Path(__file__).with_name("fixtures") / "magnetic_centered.mcif"))
+    view = UnitcellStructureView(loaded)
+
+    assert view.formula == view.chemical_formula_reduced == "Fe"
+    assert view.formula.unwrap() is unwrap(loaded)
 
 
 def test_semantic_input_validation() -> None:

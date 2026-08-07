@@ -8,7 +8,7 @@ import math
 import re
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Any, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
 from httk.atomistic.composition import (
     Assembly,
@@ -19,6 +19,12 @@ from httk.atomistic.composition import (
 )
 from httk.atomistic.elements import SYMBOLS
 from httk.atomistic.models.formula.composition import Composition
+from httk.atomistic.models.formula.composition_view import CompositionView
+from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
+
+if TYPE_CHECKING:
+    from httk.atomistic.models.structure.backend import StructureBackend
+    from httk.atomistic.models.structure.view import StructureView
 
 OptimizationType = Literal["experimental", "hybrid", "global", "local", "none", "indeterminate", "other"]
 
@@ -494,12 +500,16 @@ class StructureSemanticsMixin:
         return _semantic_value(self, "chemical_composition", private_name="_chemical_composition")
 
     @property
-    def composition(self) -> Composition:
-        """Project the structure into a composition.
+    def composition(self) -> CompositionView:
+        """Present a lazy view over this structure's projected composition.
 
-        :return: The derived or supplied composition.
+        ``isinstance(self.composition, Composition)`` holds, and projection runs
+        on first data access.
+
+        :return: The lazy composition view of this structure.
         """
-        return project_composition(self)
+        # This mixin is only mixed into structure backends/views, which the formula family accepts.
+        return CompositionView(cast("StructureBackend | StructureView", self))
 
     @property
     def elements(self) -> tuple[str, ...]:
@@ -534,12 +544,16 @@ class StructureSemanticsMixin:
         return self.composition.chemical_formula_reduced
 
     @property
-    def formula(self) -> str | None:
-        """Expose a convenient alias for :attr:`chemical_formula_reduced`.
+    def formula(self) -> ChemicalFormulaView:
+        """Present the reduced formula as a genuine ``str`` subclass view.
 
-        :return: The reduced formula, or ``None`` when unavailable.
+        ``unwrap()`` recovers this structure.
+
+        :return: The reduced formula as a :class:`ChemicalFormulaView`.
+        :raises ValueError: If the composition is incomplete (including any ``"X"``
+            species) or empty.
         """
-        return self.chemical_formula_reduced
+        return ChemicalFormulaView(cast("StructureBackend | StructureView", self))
 
     @property
     def chemical_formula_anonymous(self) -> str | None:

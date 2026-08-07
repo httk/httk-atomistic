@@ -23,6 +23,8 @@ from httk.atomistic import (
 )
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.cell.plain_view import PlainCellView
+from httk.atomistic.models.formula.composition import Composition
+from httk.atomistic.models.formula.formula import ChemicalFormula
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.cartesian_view import CartesianSiteMomentsView
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
@@ -113,6 +115,13 @@ def test_plain_species_view_unview_is_a_plain_dict() -> None:
 def test_unitcell_structure_view_unview_reuses_the_backend() -> None:
     structure = _structure()
     assert unview(UnitcellStructureView(structure)) is structure
+
+
+def test_structure_formula_and_composition_views_unview_to_plain_values() -> None:
+    structure = _structure()
+
+    assert type(unview(structure.formula)) is ChemicalFormula
+    assert type(unview(structure.composition)) is Composition
 
 
 def test_unitcell_structure_view_unview_with_view_metadata_materializes() -> None:

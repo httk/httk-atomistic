@@ -30,11 +30,13 @@ from httk.atomistic.elements import SYMBOLS
 from httk.atomistic.entries._payloads import assemblies_payload, species_payload
 from httk.atomistic.entries.precision import PRECISION_PROPERTY_KEYS
 from httk.atomistic.entries.symmetry import SETTING_PROPERTY_KEYS
-from httk.atomistic.models.formula.notation import anonymous_symbol
+from httk.atomistic.models.formula.notation import (
+    parse_reduced_formula,
+    try_parse_anonymous,
+    try_parse_reduced,
+)
 
 _ELEMENTS = frozenset(SYMBOLS)
-_ELEMENT_FORMULA_TOKEN = re.compile(r"([A-Z][a-z]?)([1-9][0-9]*)?")
-_ANONYMOUS_FORMULA_TOKEN = re.compile(r"([A-Z][a-z]*)([1-9][0-9]*)?")
 _RFC3339_TIMESTAMP = re.compile(
     r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})\Z",
     re.IGNORECASE,
@@ -470,31 +472,20 @@ def _formula_known(context: QueryContext) -> QueryExpression:
 def _formula_tokens(literal: object, *, anonymous: bool) -> tuple[tuple[str, int], ...]:
     if not isinstance(literal, str) or not literal:
         raise QueryLiteralError("chemical formula equality requires a non-empty formula string")
-    token = _ANONYMOUS_FORMULA_TOKEN if anonymous else _ELEMENT_FORMULA_TOKEN
-    position = 0
-    values: list[tuple[str, int]] = []
-    while position < len(literal):
-        match = token.match(literal, position)
-        if match is None:
-            raise QueryLiteralError("chemical formula has invalid syntax")
-        symbol = match.group(1)
-        coefficient = int(match.group(2) or 1)
-        values.append((symbol, coefficient))
-        position = match.end()
+    values = try_parse_anonymous(literal) if anonymous else try_parse_reduced(literal)
+    if values is not None:
+        return values
     if anonymous:
-        expected = tuple(anonymous_symbol(index) for index in range(len(values)))
-        if tuple(symbol for symbol, _ in values) != expected:
-            raise QueryLiteralError("anonymous chemical formula must use consecutive anonymous symbols")
-        coefficients = tuple(value for _, value in values)
-        if tuple(sorted(coefficients, reverse=True)) != coefficients:
-            raise QueryLiteralError("anonymous chemical formula coefficients must be sorted descending")
-    else:
-        elements = tuple(symbol for symbol, _ in values)
-        if any(element not in _ELEMENTS for element in elements):
-            raise QueryLiteralError("chemical formula contains an unknown element")
-        if elements != tuple(sorted(elements)) or len(elements) != len(set(elements)):
-            raise QueryLiteralError("reduced chemical formula elements must be unique and alphabetical")
-    return tuple(values)
+        raise QueryLiteralError("chemical formula has invalid syntax")
+    try:
+        parse_reduced_formula(literal)
+    except ValueError as error:
+        message = str(error)
+        if "unknown element symbol" in message:
+            raise QueryLiteralError("chemical formula contains an unknown element") from error
+        if "repeats element symbol" in message or "strictly alphabetical" in message:
+            raise QueryLiteralError("reduced chemical formula elements must be unique and alphabetical") from error
+    raise QueryLiteralError("chemical formula has invalid syntax")
 
 
 def _formula_query(*, anonymous: bool) -> Callable[[QueryContext, str, object], QueryExpression]:
