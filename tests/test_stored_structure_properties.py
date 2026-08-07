@@ -285,6 +285,32 @@ def test_formula_and_precision_queries_construct_exact_normalized_predicates() -
     assert _Value("constant", Fraction(3, 2)) in _walk(charge_expression)
 
 
+def test_formula_queries_keep_permissive_positive_count_literals() -> None:
+    record = _unitcell_record(_unitcell())
+    projections = stored_property_projections(UnitcellStructureRecord)
+    context = cast(QueryContext, _ProbeContext())
+
+    assert projections["chemical_formula_reduced"].response(record) == "ClNa"
+    assert projections["chemical_formula_anonymous"].response(record) == "AB"
+    for property_name, literals in (
+        ("chemical_formula_reduced", ("Cl1Na1", "Cl2Na2")),
+        ("chemical_formula_anonymous", ("A1B1", "A2B2")),
+    ):
+        query = projections[property_name].query
+        assert query is not None
+        for literal in literals:
+            expression = query(context, "=", literal)
+            assert _Value("constant", Fraction(1, 2)) in _walk(expression)
+
+    reduced = projections["chemical_formula_reduced"].query
+    anonymous = projections["chemical_formula_anonymous"].query
+    assert reduced is not None
+    assert anonymous is not None
+    for literal in ("Cl0Na", "Cl01Na"):
+        with pytest.raises(QueryLiteralError):
+            reduced(context, "=", literal)
+
+
 def test_empty_complete_composition_keeps_formulas_unknown_but_elements_known() -> None:
     source = UnitcellStructure([[3, 0, 0], [0, 3, 0], [0, 0, 3]], [], (), ())
     record = _unitcell_record(source)

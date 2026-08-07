@@ -22,6 +22,8 @@ class AnonymizedStructure(AnonymousStructureBackend):
 
     # Cannot type annotate __new__ as `Self | None` for some reason
     def __new__(cls, obj: Any, **hints: Any) -> Any:
+        if hints and hints.get("kind", "structure") != "structure":
+            return None
         if isinstance(obj, AnonymousStructureBackend):
             return None
         if isinstance(obj, StructureView):
@@ -31,8 +33,11 @@ class AnonymizedStructure(AnonymousStructureBackend):
         else:
             try:
                 backend = StructureBackend.create(obj)
-            except TypeError:
-                return None
+            except TypeError as exc:
+                # Only the backend factory's own no-match error means this probe should fall through.
+                if str(exc) == f"Cannot represent {type(obj)} as StructureBackend":
+                    return None
+                raise
         require_anonymizable(UnitcellStructureView(backend))
         return super().__new__(cls)
 

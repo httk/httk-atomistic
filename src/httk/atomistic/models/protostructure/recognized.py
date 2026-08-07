@@ -26,6 +26,8 @@ class RecognizedProtostructure(ProtostructureBackend):
 
     # Cannot type annotate __new__ as `Self | None` for some reason
     def __new__(cls, obj: Any, **hints: Any) -> Any:
+        if hints and hints.get("kind", "structure") != "structure":
+            return None
         if isinstance(obj, (AnonymousStructureBackend, AnonymousStructureViewBase)):
             return None
         if isinstance(obj, (ChemicalFormulaBackend, ChemicalFormulaViewBase)):
@@ -37,8 +39,12 @@ class RecognizedProtostructure(ProtostructureBackend):
         else:
             try:
                 backend = StructureBackend.create(obj)
-            except TypeError:
-                return None
+            except TypeError as exc:
+                # Only StructureBackend.create's own no-match error means this probe declines;
+                # TypeErrors raised after a structure adapter matched are real input errors.
+                if str(exc) == f"Cannot represent {type(obj)} as StructureBackend":
+                    return None
+                raise
         for species in backend.species:
             if "X" in species.chemical_symbols or "X" in (species.attached or ()):
                 raise ValueError(

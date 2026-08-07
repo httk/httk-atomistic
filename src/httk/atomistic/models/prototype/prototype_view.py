@@ -49,6 +49,8 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
         **hints: Any,
     ) -> Self:
         if isinstance(obj, cls):
+            if any(value is not None for value in (tolerance, limit_denominator)) or hints:
+                raise ValueError("PrototypeView rewrapping does not accept recognition arguments")
             return obj
         forbidden = {name for name in ("setting", "standard", "transform") if name in hints}
         if forbidden:

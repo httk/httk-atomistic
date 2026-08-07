@@ -62,6 +62,9 @@ def dummy(label: str) -> Species:
 def test_exact_asu_path_and_expansion() -> None:
     asu = _rocksalt_asu()
     prototype = PrototypeView(asu)
+    assert PrototypeView(asu, kind="structure") == prototype
+    with pytest.raises(TypeError):
+        PrototypeView(asu, kind="bogus")
     assert prototype.spacegroup.is_standard_setting
     assert prototype.multiplicities() == (4, 4)
     assert len(AnonymousStructureView(prototype).sites) == prototype.nsites_conventional
@@ -73,6 +76,18 @@ def test_exact_asu_path_and_expansion() -> None:
         CompositionView(prototype)
     with pytest.raises(ValueError):
         ChemicalFormulaView(prototype)
+    with pytest.raises(TypeError):
+        ChemicalFormulaView(prototype, kind="bogus")
+
+
+def test_prototype_view_rewrap_rejects_arguments() -> None:
+    view = PrototypeView(_rocksalt_asu())
+    with pytest.raises(ValueError):
+        PrototypeView(view, tolerance=0.123)
+    with pytest.raises(ValueError):
+        PrototypeView(view, setting="bogus")
+    with pytest.raises(ValueError):
+        PrototypeView(view, kind="bogus")
 
 
 def test_anonymous_prototype_source_uses_original_labels() -> None:

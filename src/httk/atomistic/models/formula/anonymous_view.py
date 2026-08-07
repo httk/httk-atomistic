@@ -6,7 +6,12 @@ from httk.core import unwrap
 
 from httk.atomistic.models.formula.anonymous import AnonymousFormula
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
-from httk.atomistic.models.formula.notation import anonymous_symbol, reduced_coefficients, render_anonymous
+from httk.atomistic.models.formula.notation import (
+    anonymous_symbol,
+    parse_anonymous_formula,
+    reduced_coefficients,
+    render_anonymous,
+)
 from httk.atomistic.models.formula.view_base import ChemicalFormulaViewBase
 
 if TYPE_CHECKING:
@@ -35,7 +40,8 @@ class AnonymousFormulaView(ChemicalFormulaViewBase, AnonymousFormula):
                     reduced_coefficients(tuple(value for _, value in amounts)),
                 )
                 coefficients = tuple((label, count) for (label, _), count in zip(amounts, reduced))
-                text = render_anonymous(tuple(count for _, count in coefficients))
+                text = "".join(label + (str(count) if count != 1 else "") for label, count in coefficients)
+                coefficients = parse_anonymous_formula(text)
         else:
             if not backend.complete:
                 raise ValueError(
@@ -45,9 +51,13 @@ class AnonymousFormulaView(ChemicalFormulaViewBase, AnonymousFormula):
             if not amounts:
                 raise ValueError("an empty composition cannot yield a formula")
             reduced = cast(tuple[int, ...], reduced_coefficients(tuple(value for _, value in amounts)))
-            ordered = sorted(zip((element for element, _ in amounts), reduced), key=lambda item: (-item[1], item[0]))
-            coefficients = tuple((anonymous_symbol(index), count) for index, (_, count) in enumerate(ordered))
+            reduced_by_element = dict(zip((element for element, _ in amounts), reduced))
+            ordered = sorted(amounts, key=lambda item: (-item[1], item[0]))
+            coefficients = tuple(
+                (anonymous_symbol(index), reduced_by_element[element]) for index, (element, _) in enumerate(ordered)
+            )
             text = render_anonymous(tuple(count for _, count in coefficients))
+            coefficients = parse_anonymous_formula(text)
         instance = str.__new__(cls, text)
         instance._coefficients = coefficients
         instance._backend = backend
@@ -55,6 +65,47 @@ class AnonymousFormulaView(ChemicalFormulaViewBase, AnonymousFormula):
 
     def __init__(self, obj: "ChemicalFormulaLike", **hints: Any) -> None:
         pass
+
+    @property
+    def amounts(self):
+        backend = self._backend
+        if backend.is_anonymous:
+            return backend.amounts
+        ordered = sorted(backend.amounts, key=lambda item: (-item[1], item[0]))
+        return tuple((anonymous_symbol(index), amount) for index, (_, amount) in enumerate(ordered))
+
+    @property
+    def uncertainties(self):
+        backend = self._backend
+        if backend.is_anonymous:
+            return backend.uncertainties
+        uncertainties = dict(backend.uncertainties)
+        ordered = sorted(backend.amounts, key=lambda item: (-item[1], item[0]))
+        return tuple((anonymous_symbol(index), uncertainties[element]) for index, (element, _) in enumerate(ordered))
+
+    @property
+    def complete(self):
+        return self._backend.complete
+
+    @property
+    def exact(self):
+        return self._backend.exact
+
+    @property
+    def normalized(self):
+        return self._backend.normalized
+
+    @property
+    def normalization_status(self):
+        return self._backend.normalization_status
+
+    @property
+    def diagnostics(self):
+        return self._backend.diagnostics
+
+    @property
+    def is_anonymous(self):
+        return True
 
     def unview(self) -> AnonymousFormula:
         backend = self._backend

@@ -6,7 +6,7 @@ from httk.core import unwrap
 
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.formula import ChemicalFormula
-from httk.atomistic.models.formula.notation import reduced_coefficients, render_reduced
+from httk.atomistic.models.formula.notation import parse_reduced_formula, reduced_coefficients, render_reduced
 from httk.atomistic.models.formula.view_base import ChemicalFormulaViewBase
 
 if TYPE_CHECKING:
@@ -41,6 +41,7 @@ class ChemicalFormulaView(ChemicalFormulaViewBase, ChemicalFormula):
             )
             coefficients = tuple((element, count) for (element, _), count in zip(amounts, reduced))
             text = render_reduced(coefficients)
+            coefficients = parse_reduced_formula(text)
         instance = str.__new__(cls, text)
         instance._coefficients = coefficients
         instance._backend = backend
@@ -48,6 +49,38 @@ class ChemicalFormulaView(ChemicalFormulaViewBase, ChemicalFormula):
 
     def __init__(self, obj: "ChemicalFormulaLike", **hints: Any) -> None:
         pass
+
+    @property
+    def amounts(self):
+        return self._backend.amounts
+
+    @property
+    def uncertainties(self):
+        return self._backend.uncertainties
+
+    @property
+    def complete(self):
+        return self._backend.complete
+
+    @property
+    def exact(self):
+        return self._backend.exact
+
+    @property
+    def normalized(self):
+        return self._backend.normalized
+
+    @property
+    def normalization_status(self):
+        return self._backend.normalization_status
+
+    @property
+    def diagnostics(self):
+        return self._backend.diagnostics
+
+    @property
+    def is_anonymous(self):
+        return False
 
     def unview(self) -> ChemicalFormula:
         backend = self._backend

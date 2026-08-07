@@ -4,7 +4,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 from types import MappingProxyType
-from typing import Any
+from typing import Any, cast
 
 from httk.atomistic._composition_values import as_fraction, as_precision
 from httk.atomistic.elements import SYMBOLS
@@ -41,7 +41,16 @@ class Composition(ChemicalFormulaBackend):
         normalization_status: str | None = None,
         diagnostics: Iterable[CompositionDiagnostic] = (),
     ) -> None:
-        raw_amounts = dict(amounts)
+        if isinstance(amounts, Mapping):
+            raw_amounts = dict(cast(Mapping[str, Any], amounts))
+        else:
+            amount_pairs = list(amounts)
+            seen_amount_labels: set[str] = set()
+            for element, _ in amount_pairs:
+                if element in seen_amount_labels:
+                    raise ValueError(f"Composition amount pairs contain duplicate label {element!r}")
+                seen_amount_labels.add(element)
+            raw_amounts = dict(amount_pairs)
         converted: dict[str, Fraction] = {}
         inferred: dict[str, Fraction | None] = {}
         for element, value in raw_amounts.items():
@@ -57,7 +66,16 @@ class Composition(ChemicalFormulaBackend):
         if uncertainties is None:
             ordered_uncertainties = tuple((element, inferred[element]) for element, _ in ordered)
         else:
-            supplied = dict(uncertainties)
+            if isinstance(uncertainties, Mapping):
+                supplied = dict(cast(Mapping[str, Any], uncertainties))
+            else:
+                uncertainty_pairs = list(uncertainties)
+                seen_uncertainty_labels: set[str] = set()
+                for element, _ in uncertainty_pairs:
+                    if element in seen_uncertainty_labels:
+                        raise ValueError(f"Composition uncertainty pairs contain duplicate label {element!r}")
+                    seen_uncertainty_labels.add(element)
+                supplied = dict(uncertainty_pairs)
             if set(supplied) != set(converted):
                 raise ValueError("Composition uncertainty keys must match amount keys")
             ordered_uncertainties = tuple(

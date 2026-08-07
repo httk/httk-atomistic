@@ -28,6 +28,13 @@ def test_composition_accepts_mappings_and_pairs_and_sorts_alphabetically() -> No
         Composition({"Al": -1})
 
 
+def test_composition_rejects_duplicate_amount_and_uncertainty_pairs() -> None:
+    with pytest.raises(ValueError, match="duplicate label.*Na"):
+        Composition((("Na", 1), ("Na", 2)))
+    with pytest.raises(ValueError, match="duplicate label.*Na"):
+        Composition({"Na": 1}, (("Na", 1), ("Na", 2)))
+
+
 def test_composition_positional_projection_shape_round_trips() -> None:
     source = Composition(
         (("Ge", Fraction(5, 8)), ("Si", Fraction(3, 8))),

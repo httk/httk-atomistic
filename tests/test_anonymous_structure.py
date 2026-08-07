@@ -74,3 +74,31 @@ def test_anonymous_structures_are_not_structure_like() -> None:
     value = AnonymousStructure(CELL, [[0, 0, 0]], species_at_sites=("A",))
     with pytest.raises(TypeError):
         UnitcellStructureView(value)
+
+
+def test_anonymization_rejects_unused_species_and_contradictory_kind() -> None:
+    structure = UnitcellStructure(
+        CELL,
+        [[0, 0, 0]],
+        (Species("Na1", ("Na",), (1,)), Species("Na2", ("Na",), (1,))),
+        ("Na1",),
+    )
+    with pytest.raises(ValueError, match="Na2"):
+        AnonymousStructureView(structure)
+    with pytest.raises(TypeError):
+        AnonymousStructureView(structure, kind="bogus")
+
+
+def test_matched_numeric_structure_re_raises_species_backend_errors() -> None:
+    pytest.importorskip("numpy")
+    from httk.atomistic.models.cell.numeric import NumericCell
+    from httk.atomistic.models.sites.numeric import NumericSites
+
+    class NumericObject:
+        cell = NumericCell(CELL)
+        sites = NumericSites([[0, 0, 0]])
+        species = ({"not": "a species"},)
+        species_at_sites = ("invalid",)
+
+    with pytest.raises(TypeError, match="SpeciesBackend"):
+        AnonymousStructureView(NumericObject())

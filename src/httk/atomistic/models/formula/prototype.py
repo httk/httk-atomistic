@@ -25,6 +25,8 @@ class PrototypeComposition(ChemicalFormulaBackend):
     kind = "prototype"
 
     def __new__(cls, obj: Any, **hints: Any) -> Any:
+        if hints and hints.get("kind", "prototype") != "prototype":
+            return None
         if isinstance(
             obj,
             (

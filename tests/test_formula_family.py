@@ -21,12 +21,35 @@ from httk.atomistic import (
 )
 from httk.atomistic.composition import project_composition
 from httk.atomistic.models.formula.anonymous_string import AnonymousFormulaString
+from httk.atomistic.models.formula.diagnostics import CompositionDiagnostic
 from httk.atomistic.models.formula.formula_string import FormulaString
 from httk.atomistic.models.formula.notation import parse_anonymous_formula, parse_reduced_formula
 from httk.atomistic.models.formula.plain import PlainComposition
 from httk.atomistic.models.formula.record import RecordComposition
 from httk.atomistic.models.formula.structure import StructureComposition
 from httk.atomistic.storage.records import _normalized_composition_record_from_result
+
+
+class _MalformedReducedBackend(ChemicalFormulaBackend):
+    def __init__(self) -> None:
+        pass
+
+    @property
+    def amounts(self):
+        return (("O", Fraction(1)), ("Al", Fraction(1)))
+
+
+class _MalformedAnonymousBackend(ChemicalFormulaBackend):
+    def __init__(self) -> None:
+        pass
+
+    @property
+    def amounts(self):
+        return (("B", Fraction(2)), ("A", Fraction(1)))
+
+    @property
+    def is_anonymous(self):
+        return True
 
 
 def _unitcell() -> UnitcellStructure:
@@ -117,6 +140,41 @@ def test_formula_directionality_and_validation() -> None:
         ChemicalFormulaView(Composition({}))
     with pytest.raises(ValueError, match="empty"):
         AnonymousFormulaView(Composition({}))
+
+
+def test_eager_formula_views_preserve_backend_hubs() -> None:
+    diagnostic = CompositionDiagnostic("test", "preserved")
+    backend = Composition(
+        {"Al": 4, "O": 6},
+        uncertainties={"Al": Fraction(1, 10), "O": Fraction(1, 5)},
+        exact=False,
+        normalized=False,
+        diagnostics=(diagnostic,),
+    )
+    reduced = ChemicalFormulaView(backend)
+    assert str(reduced) == "Al2O3"
+    assert reduced.amounts == backend.amounts
+    assert reduced.uncertainties == backend.uncertainties
+    assert reduced.exact is False
+    assert reduced.normalized is False
+    assert reduced.normalization_status == backend.normalization_status
+    assert reduced.diagnostics == (diagnostic,)
+
+    anonymous = AnonymousFormulaView(backend)
+    assert str(anonymous) == "A3B2"
+    assert anonymous.amounts == (("A", Fraction(6)), ("B", Fraction(4)))
+    assert anonymous.uncertainties == (("A", Fraction(1, 5)), ("B", Fraction(1, 10)))
+    assert anonymous.exact is False
+    assert anonymous.normalized is False
+    assert anonymous.normalization_status == backend.normalization_status
+    assert anonymous.diagnostics == (diagnostic,)
+
+
+def test_synthesized_formula_text_is_parser_validated() -> None:
+    with pytest.raises(ValueError):
+        ChemicalFormulaView(_MalformedReducedBackend())
+    with pytest.raises(ValueError):
+        AnonymousFormulaView(_MalformedAnonymousBackend())
 
 
 @pytest.mark.parametrize("text", ["Al2O2", "H2", "OAl", "Al1O", "", "Aluminum"])

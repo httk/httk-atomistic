@@ -45,6 +45,9 @@ def require_anonymizable(structure: Any) -> None:
     """
     names = tuple(structure.species_at_sites)
     by_name = {species.name: species for species in structure.species}
+    unused = sorted(set(by_name) - set(names))
+    if unused:
+        raise ValueError(f"cannot anonymize structure: species {unused[0]!r} is unused")
     used: list[Species] = []
     for name in names:
         try:

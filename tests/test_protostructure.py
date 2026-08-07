@@ -1,6 +1,7 @@
 """Tests for standard-setting, geometry-free protostructures."""
 
 from fractions import Fraction
+from types import SimpleNamespace
 
 import pytest
 from httk.core import FracVector
@@ -25,6 +26,8 @@ from httk.atomistic import (
     WyckoffOccupation,
     WyckoffSite,
 )
+from httk.atomistic.models.cell.numeric import NumericCell
+from httk.atomistic.models.sites.numeric import NumericSites
 
 
 CELL = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
@@ -113,10 +116,46 @@ def test_exact_paths_preserve_species_and_match_structure_formula() -> None:
         ProtostructureView(value, tolerance=1e-5)
 
 
+def test_transform_scaled_source_uses_standard_conventional_scale() -> None:
+    transform = Spacegroup.for_setting("166:R").transform_from_standard
+    bi = Species("Bi", ("Bi",), (1,))
+    oxygen = Species("O", ("O",), (1,))
+    asu = ASUStructure(
+        CELL,
+        166,
+        (WyckoffSite("a", EMPTY, "Bi"), WyckoffSite("b", EMPTY, "O")),
+        (bi, oxygen),
+        transform=transform,
+    )
+    source = UnitcellStructureView(asu)
+    value = ProtostructureView(asu)
+    direct = Protostructure(166, [("a", bi), ("b", oxygen)])
+
+    assert value == direct
+    assert CompositionView(value).elements_ratios == source.elements_ratios
+    assert CompositionView(value).amounts == (("Bi", Fraction(3)), ("O", Fraction(3)))
+    assert CompositionView(source).amounts == (("Bi", Fraction(1)), ("O", Fraction(1)))
+    assert value.formula == source.chemical_formula_reduced
+
+
+def test_recognition_probe_re_raises_errors_from_a_matched_structure_backend() -> None:
+    pytest.importorskip("numpy")
+    raw = SimpleNamespace(
+        cell=NumericCell(CELL),
+        sites=NumericSites([[0, 0, 0]]),
+        species=(object(),),
+        species_at_sites=("invalid",),
+    )
+    with pytest.raises(TypeError, match="SpeciesBackend"):
+        ProtostructureView(raw)
+
+
 def test_recognition_path_and_rejections() -> None:
     pytest.importorskip("spglib")
     asu = _rocksalt_asu()
     assert ProtostructureView(UnitcellStructureView(asu)) == ProtostructureView(asu)
+    with pytest.raises(TypeError):
+        ProtostructureView(asu, kind="bogus")
 
     anonymous = AnonymousStructure(CELL, [[0, 0, 0]], species_at_sites=("A",))
     with pytest.raises(TypeError, match="dummy species"):

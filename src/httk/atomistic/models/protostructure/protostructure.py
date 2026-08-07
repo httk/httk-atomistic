@@ -9,7 +9,12 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
 class Protostructure(ProtostructureBackend):
-    """A standard-setting space group and its occupied Wyckoff positions."""
+    """A standard-setting space group and its occupied Wyckoff positions.
+
+    This is a provenance-independent value: multiplicities, composition, and formula
+    derivations are defined at the standard-setting conventional-cell scale, even when
+    the source used to recognize it was stored in a volume-scaled setting.
+    """
 
     _spacegroup: Spacegroup
     _occupations: tuple[WyckoffOccupation, ...]
