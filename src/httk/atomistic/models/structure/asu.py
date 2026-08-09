@@ -98,9 +98,9 @@ class WyckoffSite:
     def __post_init__(self) -> None:
         object.__setattr__(self, "wyckoff", str(self.wyckoff))
         object.__setattr__(self, "species", str(self.species))
-        object.__setattr__(self, "free_params", FracVector.create(self.free_params))
+        object.__setattr__(self, "free_params", FracVector(self.free_params))
         if self.representative is not None:
-            representative = FracVector.create(self.representative)
+            representative = FracVector(self.representative)
             if representative.dim != (3,):
                 raise ValueError("WyckoffSite representative must be a three-dimensional coordinate")
             object.__setattr__(self, "representative", representative)
@@ -338,9 +338,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
             else self._representatives_for_site(site)[0]
             for site in self._wyckoff_sites
         ]
-        return Sites(
-            FracVector.create([list(value.to_fractions()) for value in coordinates]), self._coordinate_precision
-        )
+        return Sites(FracVector([list(value.to_fractions()) for value in coordinates]), self._coordinate_precision)
 
     def cartesian_sites(self) -> SurdVector:
         """Compute the exact Cartesian positions of the represented sites.
@@ -349,7 +347,7 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
         """
         from httk.core import SurdVector
 
-        return SurdVector.create(self._representative_sites().reduced_coords) * self._cell.basis
+        return SurdVector(self._representative_sites().reduced_coords) * self._cell.basis
 
     @property
     def fractional_site_positions(self) -> list[list[float]]:
@@ -529,8 +527,8 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
                 species_at_sites.append(site.species)
 
         if not coordinates:
-            return FracVector.create(()), (), tuple(counts)
-        return FracVector.create([list(point) for point in coordinates]), tuple(species_at_sites), tuple(counts)
+            return FracVector(()), (), tuple(counts)
+        return FracVector([list(point) for point in coordinates]), tuple(species_at_sites), tuple(counts)
 
     def expand_sites(self) -> Sites:
         """Every site of the unit cell, as exact reduced coordinates in this structure's setting.

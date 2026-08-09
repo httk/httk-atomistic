@@ -3,7 +3,8 @@ Shared vector-family acceptance guards and normalizers for the atomistic backend
 
 The cell/sites/structure backends accept an input if it can be built through the httk-core
 exact-vector family (:class:`~httk.core.FracVector` / :class:`~httk.core.SurdVector`) at the
-required shape. Acceptance uses ``SurdVector.create`` and validates the resulting ``dim``.
+required shape. Acceptance converts through the ``SurdVector`` constructor and validates the
+resulting ``dim``.
 This uniformly admits :class:`~fractions.Fraction`, rational strings (``"1/3"``),
 ``FracVector``, ``SurdVector``, and numpy arrays alongside plain nested lists or tuples of
 numbers.
@@ -32,7 +33,7 @@ def to_surdvector(obj: Any) -> SurdVector:
     """Normalize any vector-like input into an exact :class:`~httk.core.SurdVector`."""
     if isinstance(obj, SurdVector):
         return obj
-    return SurdVector.create(obj)
+    return SurdVector(obj)
 
 
 def try_surdvector(obj: Any) -> SurdVector | None:
@@ -54,8 +55,8 @@ def to_fracvector(obj: Any) -> FracVector:
     if isinstance(obj, FracVector):
         return obj
     if isinstance(obj, SurdVector):
-        return FracVector.create(VectorFracView(obj))
-    return FracVector.create(obj)
+        return FracVector(VectorFracView(obj))
+    return FracVector(obj)
 
 
 def to_surdscalar(obj: Any) -> SurdScalar:

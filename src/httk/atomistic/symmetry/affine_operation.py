@@ -45,8 +45,8 @@ class AffineOperation:
     _inverse_cache: "AffineOperation | None"
 
     def __init__(self, matrix: Any, vector: Any = (0, 0, 0)) -> None:
-        self._matrix = FracVector.create(matrix)
-        self._vector = FracVector.create(vector)
+        self._matrix = FracVector(matrix)
+        self._vector = FracVector(vector)
         if self._matrix.dim != (3, 3):
             raise ValueError(f"AffineOperation matrix must be 3x3, got dim {self._matrix.dim}")
         if self._vector.dim != (3,):
@@ -134,12 +134,12 @@ class AffineOperation:
         :raises ValueError: If ``coords`` is neither a length-three coordinate nor an
             ``(N, 3)`` block.
         """
-        reduced = FracVector.create(coords)
+        reduced = FracVector(coords)
         if reduced.dim == (3,):
             return reduced * self._transposed + self._vector
         if len(reduced.dim) == 2 and reduced.dim[1] == 3:
             # Broadcasting the translation over rows keeps this a single exact expression.
-            return reduced * self._transposed + FracVector.create([self._vector.to_fractions()] * reduced.dim[0])
+            return reduced * self._transposed + FracVector([self._vector.to_fractions()] * reduced.dim[0])
         raise ValueError(f"expected a (3,) coordinate or an (N, 3) block, got dim {reduced.dim}")
 
     def apply_wrapped(self, coords: Any) -> FracVector:
@@ -163,7 +163,7 @@ class AffineOperation:
         if self._inverse_cache is None:
             inverse_matrix = self._matrix.inv()
             # x = W^-1 (x' - w)  =>  matrix W^-1, translation -W^-1 w
-            inverse_vector = FracVector.create([0, 0, 0]) - self._vector * inverse_matrix.T()
+            inverse_vector = FracVector([0, 0, 0]) - self._vector * inverse_matrix.T()
             self._inverse_cache = AffineOperation(inverse_matrix, inverse_vector)
         return self._inverse_cache
 

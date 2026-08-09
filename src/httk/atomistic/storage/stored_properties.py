@@ -298,7 +298,7 @@ def _response_value(record: Any, name: str, backing: str) -> object:
             from httk.atomistic.models.cell.view import CellView
             from httk.atomistic.models.sites.view import SitesView
 
-            return (SurdVector.create(SitesView(record.sites).reduced_coords) * CellView(record.cell).basis).to_floats()
+            return (SurdVector(SitesView(record.sites).reduced_coords) * CellView(record.cell).basis).to_floats()
         from httk.atomistic.storage.records import _domain_structure_from_record
 
         return _domain_structure_from_record(record).cartesian_site_positions

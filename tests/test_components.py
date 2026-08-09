@@ -42,7 +42,7 @@ TOL = 1e-9
 def test_cell_construction_and_validation() -> None:
     cell = Cell(ORTHO)
     # The exact matrix is a SurdVector; rational floats embed exactly and render back identically.
-    assert cell.basis == SurdVector.create(ORTHO)
+    assert cell.basis == SurdVector(ORTHO)
     assert cell.basis.to_floats() == [[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 4.0]]
     with pytest.raises(ValueError):
         Cell([[1.0, 0.0], [0.0, 1.0]])
@@ -54,12 +54,12 @@ def test_cell_derived_quantities_orthorhombic() -> None:
     cell = Cell(ORTHO)
     # Orthorhombic from exact (rational) data: lengths, angles and volume are all exact.
     assert cell.lengths == (
-        SurdVector.create(2),
-        SurdVector.create(3),
-        SurdVector.create(4),
+        SurdVector(2),
+        SurdVector(3),
+        SurdVector(4),
     )
     assert cell.angles == (F(90), F(90), F(90))
-    assert cell.volume == SurdVector.create(24)
+    assert cell.volume == SurdVector(24)
 
 
 def test_cell_derived_quantities_hexagonal() -> None:
@@ -110,7 +110,7 @@ def test_cell_views_class_and_primitive() -> None:
         [0.0, 3.0, 0.0],
         [0.0, 0.0, 4.0],
     ]
-    assert class_view.volume == SurdVector.create(24)
+    assert class_view.volume == SurdVector(24)
 
     # Plain view from a Cell (class backend).
     primitive_view = PlainCellView(Cell(ORTHO))
@@ -397,5 +397,5 @@ def test_structure_from_cell_params() -> None:
         species_at_sites=["Fe"],
     )
     assert isinstance(structure.cell, Cell)
-    assert structure.cell.volume == SurdVector.create(64)
+    assert structure.cell.volume == SurdVector(64)
     assert tuple(CellParamsView(structure.cell)) == pytest.approx((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))

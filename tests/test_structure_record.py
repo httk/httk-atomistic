@@ -82,8 +82,8 @@ def _domain(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         225,
         (
-            WyckoffSite("a", FracVector.create(()), "Na"),
-            WyckoffSite("b", FracVector.create(()), "Cl"),
+            WyckoffSite("a", FracVector(()), "Na"),
+            WyckoffSite("b", FracVector(()), "Cl"),
         ),
         _species(),
         **metadata,
@@ -565,7 +565,7 @@ def test_asu_record_preserves_cross_orbit_deduplicated_composition() -> None:
     source = ASUStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         225,
-        (WyckoffSite("a", FracVector.create(()), "Na"), WyckoffSite("a", FracVector.create(()), "Na")),
+        (WyckoffSite("a", FracVector(()), "Na"), WyckoffSite("a", FracVector(()), "Na")),
         (Species("Na", ("Na",), (1,)),),
     )
     assert source.multiplicities() == (4, 0)

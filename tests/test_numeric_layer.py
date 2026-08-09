@@ -127,7 +127,7 @@ def test_numeric_unitcell_structure_view_of_structure_and_triple() -> None:
 
 
 def test_numeric_asu_assemblies_use_expanded_indices() -> None:
-    no_parameters = FracVector.create(())
+    no_parameters = FracVector(())
     asu = ASUStructure(
         [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
         221,

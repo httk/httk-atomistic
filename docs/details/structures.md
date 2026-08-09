@@ -184,7 +184,7 @@ assert cell.volume == SurdVector.from_radicand_map({3: F(45, 2)})
 # and the volume scales as scale**3. Angles are scale-independent.
 scaled = Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]], scale=4)
 assert scaled.basis == Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]).basis
-assert scaled.volume == SurdVector.create(64)
+assert scaled.volume == SurdVector(64)
 
 # Exact Cartesian positions: reduced (rational) coordinates times the surd cell basis.
 structure = UnitcellStructure(
@@ -197,9 +197,9 @@ cartesian = structure.cartesian_sites()                 # an exact (N, 3) SurdVe
 assert 3 in cartesian.radicands                         # the sqrt(3) survives into Cartesian space
 
 # A bond squared-length is rational-exact; the exact-Cartesian and rational-metric routes agree.
-diff = FracVector.create([F(1, 3), F(1, 3), F(0)])
-bond_sqr_cartesian = (SurdVector.create(diff) * cell.basis).lengthsqr()
-bond_sqr_metric = (SurdVector.create(diff) * cell.metric()).dot(SurdVector.create(diff))
+diff = FracVector([F(1, 3), F(1, 3), F(0)])
+bond_sqr_cartesian = (SurdVector(diff) * cell.basis).lengthsqr()
+bond_sqr_metric = (SurdVector(diff) * cell.metric()).dot(SurdVector(diff))
 assert bond_sqr_cartesian == bond_sqr_metric
 assert bond_sqr_cartesian.is_rational
 

@@ -362,7 +362,7 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
 
         :return: The Cartesian positions in the exact surd representation.
         """
-        return SurdVector.create(self._sites.reduced_coords) * self._cell.basis
+        return SurdVector(self._sites.reduced_coords) * self._cell.basis
 
     def numeric(self) -> "NumericUnitcellStructureView":
         """Create a plain-numpy presentation of this structure.

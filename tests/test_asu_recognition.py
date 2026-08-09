@@ -30,7 +30,7 @@ from httk.atomistic import (
 
 F = fractions.Fraction
 
-NO_PARAMETERS = FracVector.create(())
+NO_PARAMETERS = FracVector(())
 CUBIC = [[5.64, 0, 0], [0, 5.64, 0], [0, 0, 5.64]]
 ORTHO = [[5, 0, 0], [0, 6, 0], [0, 0, 7]]
 HEXAGONAL = [[4, 0, 0], [0, 4, 0], [0, 0, 12]]
@@ -52,7 +52,7 @@ def _monoclinic(setting: str = "15:b1") -> ASUStructure:
     return ASUStructure(
         ORTHO,
         15,
-        [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
+        [WyckoffSite("e", FracVector(["1/3"]), "Si")],
         _species("Si"),
         transform=spacegroup.transform_from_standard,
     )
@@ -116,7 +116,7 @@ def test_recognition_recovers_the_original_wyckoff_description() -> None:
 
     monoclinic = recognize_asu(UnitcellStructureView(_monoclinic()), setting=Spacegroup.standard(15))
     assert monoclinic.wyckoff_sites[0].wyckoff == "e"
-    assert monoclinic.wyckoff_sites[0].free_params == FracVector.create([F(1, 3)])
+    assert monoclinic.wyckoff_sites[0].free_params == FracVector([F(1, 3)])
 
 
 # --- tolerance, and the lossy direction ---
@@ -177,7 +177,7 @@ def test_limit_denominator_idealises_free_parameters_on_request() -> None:
     assert faithful.wyckoff_sites[0].free_params.to_fractions()[0] != F(1, 3)
 
     idealised = recognize_asu(noisy, setting=Spacegroup.standard(15), limit_denominator=12)
-    assert idealised.wyckoff_sites[0].free_params == FracVector.create([F(1, 3)])
+    assert idealised.wyckoff_sites[0].free_params == FracVector([F(1, 3)])
 
 
 def test_a_structure_without_the_claimed_symmetry_is_rejected() -> None:

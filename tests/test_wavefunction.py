@@ -88,7 +88,7 @@ def test_vector_adoption_and_exact_input():
         PlaneWaveFunctions(
             cell=[[4, 0, 0], [0, 4, 0], [0, 0, 4]],
             encut=100,
-            kpoints=FracVector.create([[0, 0, 0], ["1/4", 0, 0]]),
+            kpoints=FracVector([[0, 0, 0], ["1/4", 0, 0]]),
             eigenvalues=[[[1], [2]]],
             occupations=[[[1], [1]]],
             coefficients={(0, 0, 0): numpy.ones(147, complex), (0, 1, 0): numpy.ones(155, complex)},

@@ -46,11 +46,11 @@ def test_a_diagonal_supercell_is_built_exactly_in_cell_major_order() -> None:
 
     assert isinstance(result, SupercellResult)
     assert result.multiplier == 6
-    assert result.transformation == FracVector.create([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
-    assert result.structure.cell.basis == FracVector.create([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
+    assert result.transformation == FracVector([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
+    assert result.structure.cell.basis == FracVector([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
     assert len(result.structure.sites) == 12
     assert result.structure.species_at_sites == ("Na", "Cl") * 6
-    assert result.structure.sites.reduced_coords == FracVector.create(
+    assert result.structure.sites.reduced_coords == FracVector(
         [
             [0, 0, 0],
             [F(1, 2), F(1, 4), F(1, 6)],
@@ -75,9 +75,9 @@ def test_shears_and_negative_determinants_are_supported() -> None:
 
     assert sheared.multiplier == 2
     assert len(sheared.structure.sites) == 4
-    assert sheared.structure.cell.basis == FracVector.create([[2, 1, 0], [0, 1, 0], [0, 0, 1]])
+    assert sheared.structure.cell.basis == FracVector([[2, 1, 0], [0, 1, 0], [0, 0, 1]])
     assert reflected.multiplier == 1
-    assert reflected.structure.cell.basis == FracVector.create([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    assert reflected.structure.cell.basis == FracVector([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])
     assert reflected.structure.sites.reduced_coords == _binary_structure().sites.reduced_coords
 
 
@@ -185,7 +185,7 @@ def test_supercell_preserves_formula_annotations_and_remaps_assemblies() -> None
 
 
 def test_non_simple_inputs_expand_to_a_plain_structure() -> None:
-    no_parameters = FracVector.create(())
+    no_parameters = FracVector(())
     asu = ASUStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         221,
@@ -210,7 +210,7 @@ def test_cubic_search_finds_the_exact_two_by_two_by_two_cell() -> None:
     structure = _single_site([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
     result = cubic_supercell(structure, 8)
 
-    assert result.transformation == FracVector.create([[2, 0, 0], [0, 2, 0], [0, 0, 2]])
+    assert result.transformation == FracVector([[2, 0, 0], [0, 2, 0], [0, 0, 2]])
     assert result.multiplier == 8
     assert result.orthogonality_score == 0
     assert result.cubicity_score == 0
@@ -236,7 +236,7 @@ def test_orthogonal_search_recovers_the_tutorial_cells_exact_rectangle() -> None
     )
 
     result = orthogonal_supercell(structure, 2)
-    assert result.transformation == FracVector.create([[1, 0, 0], [0, 1, 0], [-1, -1, 2]])
+    assert result.transformation == FracVector([[1, 0, 0], [0, 1, 0], [-1, -1, 2]])
     assert result.orthogonality_score == 0
 
 
@@ -248,7 +248,7 @@ def test_orthogonal_tolerance_finds_the_smallest_exact_hexagonal_supercell() -> 
 
     # The in-plane (1, 0), (1, 2) transform makes the 120-degree pair orthogonal.
     assert result.multiplier == 2
-    assert result.transformation == FracVector.create([[1, 0, 0], [1, 2, 0], [0, 0, 1]])
+    assert result.transformation == FracVector([[1, 0, 0], [1, 2, 0], [0, 0, 1]])
     assert result.orthogonality_score.is_zero()
 
 
@@ -259,7 +259,7 @@ def test_orthogonal_tolerance_stops_at_an_already_orthogonal_cell() -> None:
     result = structure.orthogonal_supercell(tolerance=0.01)
 
     assert result.multiplier == 1
-    assert result.transformation == FracVector.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    assert result.transformation == FracVector([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
     assert result.orthogonality_score.is_zero()
 
 
@@ -271,7 +271,7 @@ def test_cubic_tolerance_finds_the_smallest_exact_tetragonal_supercell() -> None
 
     # Two cells stacked along c turn c=1 into the same length as a=b=2.
     assert result.multiplier == 2
-    assert result.transformation == FracVector.create([[1, 0, 0], [0, 1, 0], [0, 0, 2]])
+    assert result.transformation == FracVector([[1, 0, 0], [0, 1, 0], [0, 0, 2]])
     assert result.cubicity_score.is_zero()
 
 

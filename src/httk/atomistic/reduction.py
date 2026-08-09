@@ -116,7 +116,7 @@ def _sign(value: fractions.Fraction) -> int:
 
 
 def _diagonal(values: tuple[int, int, int]) -> FracVector:
-    return FracVector.create([[values[0], 0, 0], [0, values[1], 0], [0, 0, values[2]]])
+    return FracVector([[values[0], 0, 0], [0, values[1], 0], [0, 0, values[2]]])
 
 
 def _is_identity(matrix: FracVector) -> bool:
@@ -127,9 +127,9 @@ def _step_matrix(parameters: tuple[fractions.Fraction, ...]) -> FracVector | Non
     a, b, c, xi, eta, zeta = parameters
 
     if a > b or (a == b and abs(xi) > abs(eta)):
-        return FracVector.create([[0, -1, 0], [-1, 0, 0], [0, 0, -1]])
+        return FracVector([[0, -1, 0], [-1, 0, 0], [0, 0, -1]])
     if b > c or (b == c and abs(eta) > abs(zeta)):
-        return FracVector.create([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])
+        return FracVector([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])
 
     product = xi * eta * zeta
     if product > _ZERO:
@@ -168,16 +168,16 @@ def _niggli_step(parameters: tuple[fractions.Fraction, ...]) -> FracVector | Non
 
     if abs(xi) > b or (xi == b and 2 * eta < zeta) or (xi == -b and zeta < _ZERO):
         sign = _sign(xi)
-        return FracVector.create([[1, 0, 0], [0, 1, 0], [0, -sign, 1]])
+        return FracVector([[1, 0, 0], [0, 1, 0], [0, -sign, 1]])
     if abs(eta) > a or (eta == a and 2 * xi < zeta) or (eta == -a and zeta < _ZERO):
         sign = _sign(eta)
-        return FracVector.create([[1, 0, 0], [0, 1, 0], [-sign, 0, 1]])
+        return FracVector([[1, 0, 0], [0, 1, 0], [-sign, 0, 1]])
     if abs(zeta) > a or (zeta == a and 2 * xi < eta) or (zeta == -a and eta < _ZERO):
         sign = _sign(zeta)
-        return FracVector.create([[1, 0, 0], [-sign, 1, 0], [0, 0, 1]])
+        return FracVector([[1, 0, 0], [-sign, 1, 0], [0, 0, 1]])
     total = xi + eta + zeta + a + b
     if total < _ZERO or (total == _ZERO and 2 * (a + eta) + zeta > _ZERO):
-        return FracVector.create([[1, 0, 0], [0, 1, 0], [1, 1, 1]])
+        return FracVector([[1, 0, 0], [0, 1, 0], [1, 1, 1]])
     return None
 
 
@@ -221,7 +221,7 @@ def niggli_reduce(cell: CellLike) -> NiggliReductionResult:
     """
     source = _as_cell(cell)
     metric = _rational_metric(source)
-    transform = FracVector.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    transform = FracVector([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
     for _ in range(_MAX_STEPS):
         matrix = _niggli_step(_parameters(metric))
         if matrix is None:
@@ -236,7 +236,7 @@ def niggli_reduce(cell: CellLike) -> NiggliReductionResult:
     assert _is_niggli_parameters(parameters)
     new_precision = _scaled_precision(source.precision, _matrix_row_sum_factor(transform))
     new_cell = Cell(
-        SurdVector.create(transform) * source.unscaled_basis,
+        SurdVector(transform) * source.unscaled_basis,
         scale=source.scale,
         precision=new_precision,
         periodicity=source.periodicity,

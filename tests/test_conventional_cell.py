@@ -26,7 +26,7 @@ from httk.atomistic import (
 from httk.atomistic.composition import ChemicalComposition
 
 F = fractions.Fraction
-NO_PARAMETERS = FracVector.create(())
+NO_PARAMETERS = FracVector(())
 CUBIC = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
 ORTHO = [[5, 0, 0], [0, 6, 0], [0, 0, 7]]
 
@@ -50,7 +50,7 @@ def _monoclinic() -> tuple[ASUStructure, SettingTransform]:
         ASUStructure(
             ORTHO,
             15,
-            [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
+            [WyckoffSite("e", FracVector(["1/3"]), "Si")],
             _species("Si"),
             transform=transform,
         ),
@@ -60,11 +60,11 @@ def _monoclinic() -> tuple[ASUStructure, SettingTransform]:
 
 def _hexagonal_basis_pair() -> tuple[SurdVector, SurdVector]:
     """Literal own/standard bases for the SG 166 rhombohedral setting."""
-    zero = SurdVector.create(0)._as_scalar()
-    two = SurdVector.create(2)._as_scalar()
-    four = SurdVector.create(4)._as_scalar()
-    minus_two = SurdVector.create(-2)._as_scalar()
-    twelve = SurdVector.create(12)._as_scalar()
+    zero = SurdVector(0)._as_scalar()
+    two = SurdVector(2)._as_scalar()
+    four = SurdVector(4)._as_scalar()
+    minus_two = SurdVector(-2)._as_scalar()
+    twelve = SurdVector(12)._as_scalar()
     root_three = SurdVector.sqrt_of(3)
     standard = SurdVector._from_scalar_grid(
         [
@@ -237,7 +237,7 @@ def test_precision_is_scaled_by_the_exact_induced_matrix_norms() -> None:
 
     result = conventional_cell(asu)
 
-    assert result.structure.cell.basis == SurdVector.create([[5, 0, 0], [0, 5, 0], [0, 0, 5]])
+    assert result.structure.cell.basis == SurdVector([[5, 0, 0], [0, 5, 0], [0, 0, 5]])
     assert result.structure.cell.precision == F(3, 50)
     assert result.asu.coordinate_precision == F(1, 200)
 

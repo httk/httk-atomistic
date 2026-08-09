@@ -257,7 +257,7 @@ def test_an_asu_structure_carries_and_propagates_its_precision() -> None:
     asu = ASUStructure(
         Cell(CUBIC, 1, BASIS_PRECISION),
         225,
-        [WyckoffSite("a", FracVector.create(()), "Na")],
+        [WyckoffSite("a", FracVector(()), "Na")],
         _species(),
         coordinate_precision=COORD_PRECISION,
     )

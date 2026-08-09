@@ -176,7 +176,7 @@ def show_a_non_standard_setting() -> None:
     print("Same position, different coordinates — the settings are different frames.")
 
     silicon = [Species(name="Si", chemical_symbols=("Si",), concentration=(1.0,))]
-    site = [WyckoffSite("e", FracVector.create(["1/3"]), "Si")]
+    site = [WyckoffSite("e", FracVector(["1/3"]), "Si")]
     cell = [[5, 0, 0], [0, 6, 0], [0, 0, 7]]
 
     in_standard = ASUStructure(cell, 15, site, silicon)
@@ -201,14 +201,14 @@ def show_that_recognition_is_the_lossy_direction() -> None:
     exact = ASUStructure(
         [[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         15,
-        [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
+        [WyckoffSite("e", FracVector(["1/3"]), "Si")],
         silicon,
     )
     expanded = UnitcellStructureView(exact)
 
     # Nudge every coordinate, as a refinement would.
     nudged = [
-        [value + FracVector.create(f"{index + 1}/100000").to_fraction() for value in row]
+        [value + FracVector(f"{index + 1}/100000").to_fraction() for value in row]
         for index, row in enumerate(expanded.sites.reduced_coords.to_fractions())
     ]
     measured = UnitcellStructure(expanded.cell, nudged, expanded.species, expanded.species_at_sites)

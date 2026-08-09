@@ -903,8 +903,8 @@ class OptimadeStructure(StructureBackend):
                 )
             lattice = self.lattice_vectors
             if lattice is not None and all(vector is not None for vector in lattice):
-                expected = SurdVector.create(fractional) * SurdVector.create(lattice)
-                actual = SurdVector.create(cartesian)
+                expected = SurdVector(fractional) * SurdVector(lattice)
+                actual = SurdVector(cartesian)
                 difference = (expected - actual).to_fractions_approx(Fraction(1, 10**24))
                 cartesian_width = self._decimal_precision(self._raw_optional("cartesian_site_positions")) or Fraction()
                 fractional_width = (
@@ -1357,7 +1357,7 @@ class OptimadeStructure(StructureBackend):
         if precision is _MISSING:
             precision = self._fractional_cartesian_precision(self._raw_optional("cartesian_site_positions"))
         try:
-            reduced = SurdVector.create(cast(Any, cartesian)) * self.cell.basis.inv()
+            reduced = SurdVector(cast(Any, cartesian)) * self.cell.basis.inv()
             return Sites(reduced, precision=None if precision is _MISSING else precision)
         except (TypeError, ValueError) as exc:
             raise IncompleteOptimadeResourceError(

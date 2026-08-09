@@ -289,7 +289,7 @@ def test_complete_standard_projection_and_assembly_null_semantics() -> None:
 
 
 def test_asymmetric_unit_is_projected_without_unit_cell_expansion() -> None:
-    no_parameters = FracVector.create(())
+    no_parameters = FracVector(())
     asu = ASUStructure(
         [[5.64, 0, 0], [0, 5.64, 0], [0, 0, 5.64]],
         225,

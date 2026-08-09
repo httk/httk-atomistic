@@ -194,7 +194,7 @@ class Spacegroup:
 
         :return: The centring translations in this setting.
         """
-        return tuple(FracVector.create(entry) for entry in self._record["centering_translations"])
+        return tuple(FracVector(entry) for entry in self._record["centering_translations"])
 
     @cached_property
     def wyckoff(self) -> tuple[WyckoffPosition, ...]:

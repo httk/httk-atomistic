@@ -63,7 +63,7 @@ def test_affine_operation_applies_composes_and_inverts_exactly() -> None:
     assert operation.to_xyz() == "-x+1/2,y+1/2,-z+1/2"
     assert operation.determinant() == F(1)
 
-    assert operation.apply(("1/3", "1/4", "1/5")) == FracVector.create([F(1, 6), F(3, 4), F(3, 10)])
+    assert operation.apply(("1/3", "1/4", "1/5")) == FracVector([F(1, 6), F(3, 4), F(3, 10)])
     assert (operation * operation.inverse()).is_identity()
     assert operation.conjugated_by(AffineOperation.identity()) == operation
 
@@ -75,7 +75,7 @@ def test_affine_operation_applies_composes_and_inverts_exactly() -> None:
 
 def test_affine_operation_wrapping_and_hashing() -> None:
     operation = AffineOperation(FracVector.eye((3, 3)), ["3/2", 0, 0])
-    assert operation.wrapped().vector == FracVector.create([F(1, 2), F(0), F(0)])
+    assert operation.wrapped().vector == FracVector([F(1, 2), F(0), F(0)])
     # Equality is exact, not modulo the lattice; wrapping is what makes them comparable.
     assert operation != operation.wrapped()
     assert len({operation.wrapped(), operation.wrapped()}) == 1
@@ -145,7 +145,7 @@ def test_only_rhombohedral_settings_change_the_cell_volume() -> None:
 @pytest.mark.parametrize("setting", SAMPLE_SETTINGS)
 def test_setting_transform_round_trips_coordinates(setting: str) -> None:
     transform = Spacegroup.for_setting(setting).transform_from_standard
-    point = FracVector.create(["1/7", "2/11", "3/13"])
+    point = FracVector(["1/7", "2/11", "3/13"])
     assert transform.to_standard(transform.to_setting(point)) == point
     assert transform.inverse().inverse() == transform
 
@@ -159,15 +159,15 @@ def test_setting_transform_preserves_cartesian_positions(setting: str) -> None:
     rule that the symop test would not.
     """
     transform = Spacegroup.for_setting(setting).transform_from_standard
-    standard_basis = SurdVector.create([[3, 0, 0], [0, 5, 0], [0, 0, 7]])
+    standard_basis = SurdVector([[3, 0, 0], [0, 5, 0], [0, 0, 7]])
     own_basis = transform.basis_to_setting(standard_basis)
 
-    standard_point = FracVector.create(["1/7", "2/11", "3/13"])
+    standard_point = FracVector(["1/7", "2/11", "3/13"])
     # The origin shift moves the origin, so compare a difference vector, which is
     # independent of it.
-    other_point = FracVector.create(["1/3", "1/5", "1/9"])
-    standard_delta = SurdVector.create(standard_point - other_point) * standard_basis
-    own_delta = SurdVector.create(transform.to_setting(standard_point) - transform.to_setting(other_point)) * own_basis
+    other_point = FracVector(["1/3", "1/5", "1/9"])
+    standard_delta = SurdVector(standard_point - other_point) * standard_basis
+    own_delta = SurdVector(transform.to_setting(standard_point) - transform.to_setting(other_point)) * own_basis
     assert standard_delta == own_delta
 
     assert transform.basis_to_standard(own_basis) == standard_basis
@@ -179,7 +179,7 @@ def test_lattice_cosets_are_trivial_for_every_tabulated_setting() -> None:
     The generic code path exists for a caller-supplied transform into a supercell setting;
     this records that the shipped data never exercises it.
     """
-    zero = FracVector.create((0, 0, 0))
+    zero = FracVector((0, 0, 0))
     for record in data.spacegroup_settings():
         transform = SettingTransform.for_hall_entry(record["hall_entry"])
         assert transform.lattice_cosets() == (zero,)
@@ -190,8 +190,8 @@ def test_lattice_cosets_found_for_a_supercell_transform() -> None:
     transform = SettingTransform([["1/2", 0, 0], [0, 1, 0], [0, 0, 1]])
     assert transform.determinant() == F(1, 2)
     assert transform.lattice_cosets() == (
-        FracVector.create((0, 0, 0)),
-        FracVector.create((F(1, 2), 0, 0)),
+        FracVector((0, 0, 0)),
+        FracVector((F(1, 2), 0, 0)),
     )
 
 
@@ -214,7 +214,7 @@ def test_wyckoff_forward_evaluation_is_exact() -> None:
     assert position.multiplicity == 4
     assert position.free == (1,)
     assert position.site_symmetry == "2"
-    assert position.coordinates(["1/3"]) == FracVector.create(
+    assert position.coordinates(["1/3"]) == FracVector(
         [
             [F(0), F(1, 3), F(1, 4)],
             [F(0), F(-1, 3), F(3, 4)],
@@ -259,7 +259,7 @@ def test_wyckoff_rejects_coordinates_that_are_not_on_the_position() -> None:
     spacegroup = Spacegroup.for_setting("15:b1")
     special = spacegroup.wyckoff_position("e")
     general = spacegroup.wyckoff_position("f")
-    off_position = FracVector.create(["1/7", "2/11", "3/13"])
+    off_position = FracVector(["1/7", "2/11", "3/13"])
 
     assert special.parameters_of(off_position) is None
     assert general.parameters_of(off_position) is not None
@@ -270,7 +270,7 @@ def test_identify_wyckoff_returns_the_most_specific_position() -> None:
     spacegroup = Spacegroup.for_setting("15:b1")
     # The origin is Wyckoff a, which is more specific than the general position it also
     # trivially satisfies as a point of the cell.
-    identified = spacegroup.identify_wyckoff(FracVector.create((0, 0, 0)))
+    identified = spacegroup.identify_wyckoff(FracVector((0, 0, 0)))
     assert identified is not None
     assert identified[0].letter == "a"
 
@@ -278,15 +278,15 @@ def test_identify_wyckoff_returns_the_most_specific_position() -> None:
     identified_e = spacegroup.identify_wyckoff(on_e)
     assert identified_e is not None
     assert identified_e[0].letter == "e"
-    assert identified_e[1] == FracVector.create([F(1, 3)])
+    assert identified_e[1] == FracVector([F(1, 3)])
 
-    assert spacegroup.identify_wyckoff(FracVector.create(["1/7", "2/11", "3/13"]))[0].letter == "f"
+    assert spacegroup.identify_wyckoff(FracVector(["1/7", "2/11", "3/13"]))[0].letter == "f"
 
 
 def test_fixed_positions_take_no_parameters() -> None:
     position = Spacegroup.for_setting("15:b1").wyckoff_position("a")
     assert position.free_count == 0
-    assert position.coordinates([])[0] == FracVector.create((0, 0, 0))
+    assert position.coordinates([])[0] == FracVector((0, 0, 0))
     with pytest.raises(ValueError):
         position.representative.coordinate(["1/3"])
 

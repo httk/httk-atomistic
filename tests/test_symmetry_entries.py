@@ -29,7 +29,7 @@ from httk.atomistic.entries.symmetry import (
 
 F = fractions.Fraction
 
-NO_PARAMETERS = FracVector.create(())
+NO_PARAMETERS = FracVector(())
 CUBIC = [[5.64, 0, 0], [0, 5.64, 0], [0, 0, 5.64]]
 
 
@@ -104,7 +104,7 @@ def test_symbols_and_letters_describe_the_setting_the_structure_is_in() -> None:
     asu = ASUStructure(
         [[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         15,
-        [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
+        [WyckoffSite("e", FracVector(["1/3"]), "Si")],
         _species("Si"),
         transform=setting.transform_from_standard,
     )
@@ -129,7 +129,7 @@ def test_wyckoff_letters_are_translated_across_the_setting_boundary() -> None:
     asu = ASUStructure(
         [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
         224,
-        [WyckoffSite("j", FracVector.create(["1/7"]), "O")],
+        [WyckoffSite("j", FracVector(["1/7"]), "O")],
         _species("O"),
         transform=setting.transform_from_standard,
     )
@@ -184,7 +184,7 @@ def test_the_setting_transform_is_served_as_exact_rationals() -> None:
     asu = ASUStructure(
         [[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         15,
-        [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
+        [WyckoffSite("e", FracVector(["1/3"]), "Si")],
         _species("Si"),
         transform=setting.transform_from_standard,
     )

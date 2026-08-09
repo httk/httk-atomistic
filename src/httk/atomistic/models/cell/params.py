@@ -44,10 +44,10 @@ def _params_to_basis(params: tuple[fractions.Fraction, ...]) -> SurdVector:
         cy = ((cos_a - cos_b * cos_g) / sin_g)._as_scalar()
         cz_sq = (SurdVector.one() - cos_b * cos_b - cy * cy)._as_scalar()
         if cz_sq.is_rational:
-            zero = SurdScalar({}, ())
-            av = SurdVector.create(a)._as_scalar()
-            bv = SurdVector.create(b)._as_scalar()
-            cv = SurdVector.create(c)._as_scalar()
+            zero = SurdScalar.from_components({}, ())
+            av = SurdVector(a)._as_scalar()
+            bv = SurdVector(b)._as_scalar()
+            cv = SurdVector(c)._as_scalar()
             cz = (cv * SurdVector.sqrt_of(cz_sq._rational_fraction()))._as_scalar()
             grid = [
                 [av, zero, zero],
@@ -66,7 +66,7 @@ def _params_to_basis(params: tuple[fractions.Fraction, ...]) -> SurdVector:
         [b * cg, b * sg, fractions.Fraction(0)],
         [c * cb, c * cy_r, cz_r],
     ]
-    return SurdVector.create(rows)
+    return SurdVector(rows)
 
 
 class CellParams(CellBackend):

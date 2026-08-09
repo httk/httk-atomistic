@@ -44,9 +44,9 @@ def test_hexagonal_crystalaxis_cartesian_conversion_round_trips_exactly() -> Non
     crystal = CrystalAxisSiteMoments([[1, 2, 3]], cell)
     cartesian = crystal.cartesian_moments
 
-    assert cartesian._element((0, 0)) == SurdVector.create(0)._as_scalar()
+    assert cartesian._element((0, 0)) == SurdVector(0)._as_scalar()
     assert cartesian._element((0, 1)) == SurdVector.sqrt_of(3)
-    assert cartesian._element((0, 2)) == SurdVector.create(3)._as_scalar()
+    assert cartesian._element((0, 2)) == SurdVector(3)._as_scalar()
     assert (
         CrystalAxisSiteMomentsView(
             CartesianSiteMomentsView(
@@ -63,7 +63,7 @@ def test_hexagonal_crystalaxis_cartesian_conversion_round_trips_exactly() -> Non
 
 def test_orthorhombic_unit_axes_are_the_expected_cartesian_directions() -> None:
     moments = CrystalAxisSiteMoments([[1, 2, 3]], _orthorhombic_cell())
-    assert moments.cartesian_moments == SurdVector.create([[1, 2, 3]])
+    assert moments.cartesian_moments == SurdVector([[1, 2, 3]])
 
 
 def test_collinear_moments_have_no_fabricated_cartesian_axis() -> None:
@@ -85,7 +85,7 @@ def test_crystalaxis_view_cell_hints_are_checked_eagerly() -> None:
         CrystalAxisSiteMomentsView(CrystalAxisSiteMoments([[1, 2, 3]], cell), cell=_hexagonal_cell())
 
     view = CrystalAxisSiteMomentsView(moments, cell=cell)
-    assert view.crystalaxis_moments == SurdVector.create([[1, 2, 3]])
+    assert view.crystalaxis_moments == SurdVector([[1, 2, 3]])
     assert view.cell == cell
 
 

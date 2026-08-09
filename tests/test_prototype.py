@@ -23,7 +23,7 @@ from httk.atomistic import (
 )
 
 CELL = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
-EMPTY = FracVector.create(())
+EMPTY = FracVector(())
 
 
 def _rocksalt_asu() -> ASUStructure:
@@ -42,17 +42,17 @@ def test_prototype_standard_setting_and_canonical_site_order() -> None:
     assert first == second
     with pytest.raises(ValueError, match="standard setting"):
         Prototype(
-            CELL, Spacegroup.for_setting("15:c1"), (WyckoffSite("e", FracVector.create([1, 3]), "A"),), (species[0],)
+            CELL, Spacegroup.for_setting("15:c1"), (WyckoffSite("e", FracVector([1, 3]), "A"),), (species[0],)
         )
 
 
 def test_prototype_rejects_representatives_moments_and_bad_free_count() -> None:
     with pytest.raises(ValueError, match="representative"):
         Prototype(
-            CELL, 225, (WyckoffSite("a", EMPTY, "A", representative=FracVector.create([0, 0, 0])),), (dummy("A"),)
+            CELL, 225, (WyckoffSite("a", EMPTY, "A", representative=FracVector([0, 0, 0])),), (dummy("A"),)
         )
     with pytest.raises(ValueError, match="free parameter"):
-        Prototype(CELL, 225, (WyckoffSite("a", FracVector.create([1]), "A"),), (dummy("A"),))
+        Prototype(CELL, 225, (WyckoffSite("a", FracVector([1]), "A"),), (dummy("A"),))
 
 
 def dummy(label: str) -> Species:

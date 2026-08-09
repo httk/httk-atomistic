@@ -50,7 +50,7 @@ def test_charge_survives_asu_recognition_and_expansion() -> None:
     asu = ASUStructure(
         [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
         225,
-        [WyckoffSite("a", FracVector.create(()), "Si")],
+        [WyckoffSite("a", FracVector(()), "Si")],
         [Species("Si", ("Si",), (1,))],
         charge="2",
     )
@@ -70,10 +70,10 @@ def test_supercell_scales_charge() -> None:
 
 
 def test_conventional_cell_scales_charge_by_exact_site_multiplier() -> None:
-    zero = SurdVector.create(0)._as_scalar()
-    two = SurdVector.create(2)._as_scalar()
-    four = SurdVector.create(4)._as_scalar()
-    minus_two = SurdVector.create(-2)._as_scalar()
+    zero = SurdVector(0)._as_scalar()
+    two = SurdVector(2)._as_scalar()
+    four = SurdVector(4)._as_scalar()
+    minus_two = SurdVector(-2)._as_scalar()
     root_three = SurdVector.sqrt_of(3)
     rhombohedral_basis = SurdVector._from_scalar_grid(
         [
@@ -86,7 +86,7 @@ def test_conventional_cell_scales_charge_by_exact_site_multiplier() -> None:
     asu = ASUStructure(
         rhombohedral_basis,
         166,
-        [WyckoffSite("a", FracVector.create(()), "Bi")],
+        [WyckoffSite("a", FracVector(()), "Bi")],
         [Species("Bi", ("Bi",), (1,))],
         transform=Spacegroup.for_setting("166:R").transform_from_standard,
         charge="2",
@@ -156,14 +156,14 @@ def test_fundamental_domain_equality_includes_charge() -> None:
     first = ASUStructure(
         [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
         225,
-        [WyckoffSite("a", FracVector.create(()), "Si")],
+        [WyckoffSite("a", FracVector(()), "Si")],
         species,
         charge=0,
     )
     second = ASUStructure(
         [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
         225,
-        [WyckoffSite("a", FracVector.create(()), "Si")],
+        [WyckoffSite("a", FracVector(()), "Si")],
         species,
         charge=1,
     )

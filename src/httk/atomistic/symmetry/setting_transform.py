@@ -193,7 +193,7 @@ class SettingTransform:
         :param basis: The standard-setting cell basis with lattice vectors as rows.
         :return: The own-setting cell basis with lattice vectors as rows.
         """
-        return SurdVector.create(self.matrix.T().inv()) * SurdVector.create(basis)
+        return SurdVector(self.matrix.T().inv()) * SurdVector(basis)
 
     def basis_to_standard(self, basis: Any) -> SurdVector:
         """Map this setting's cell basis into the standard setting.
@@ -201,7 +201,7 @@ class SettingTransform:
         :param basis: The own-setting cell basis with lattice vectors as rows.
         :return: The standard-setting cell basis with lattice vectors as rows.
         """
-        return SurdVector.create(self.matrix.T()) * SurdVector.create(basis)
+        return SurdVector(self.matrix.T()) * SurdVector(basis)
 
     # --- lattice change ---
 

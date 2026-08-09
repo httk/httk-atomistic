@@ -40,7 +40,7 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
         raise ValueError(f"_structure_from_poscar expected a 'vasp-poscar' mapping, got format={fmt!r}.")
 
     cell_rows = data["cell"]
-    raw_basis = SurdVector.create(cell_rows)
+    raw_basis = SurdVector(cell_rows)
 
     scale_str = data.get("scale")
     volume_str = data.get("volume")
@@ -50,7 +50,7 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
         abs_det = abs(_to_fraction(raw_basis.det()))
         if abs_det == 0:
             raise ValueError("Cannot volume-scale a degenerate cell (zero determinant).")
-        target_volume = _to_fraction(SurdVector.create(volume_str)._as_scalar())
+        target_volume = _to_fraction(SurdVector(volume_str)._as_scalar())
         scale = _cube_root(target_volume / abs_det)
     else:
         scale = 1
@@ -59,7 +59,7 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
 
     if data["cartesian"]:
         # reduced = cart * basis^-1 (row-vector convention); the universal scale cancels.
-        reduced: Any = SurdVector.create(data["coords"]) * raw_basis.inv()
+        reduced: Any = SurdVector(data["coords"]) * raw_basis.inv()
     else:
         reduced = data["coords"]
     sites = Sites(reduced, _coordinate_precision(data, raw_basis))

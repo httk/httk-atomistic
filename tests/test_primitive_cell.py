@@ -24,7 +24,7 @@ from httk.atomistic import (
 )
 
 F = fractions.Fraction
-NO_PARAMETERS = FracVector.create(())
+NO_PARAMETERS = FracVector(())
 
 
 def _species(*names: str) -> list[Species]:
@@ -32,10 +32,10 @@ def _species(*names: str) -> list[Species]:
 
 
 def _hexagonal_basis() -> SurdVector:
-    zero = SurdVector.create(0)._as_scalar()
-    two = SurdVector.create(2)._as_scalar()
-    four = SurdVector.create(4)._as_scalar()
-    twelve = SurdVector.create(12)._as_scalar()
+    zero = SurdVector(0)._as_scalar()
+    two = SurdVector(2)._as_scalar()
+    four = SurdVector(4)._as_scalar()
+    twelve = SurdVector(12)._as_scalar()
     root_three = SurdVector.sqrt_of(3)
     return SurdVector._from_scalar_grid(
         [
@@ -53,7 +53,7 @@ def _fixture(it_number: int, *, two_species: bool = False) -> ASUStructure:
         if it_number == 166
         else ([[5, 0, 0], [0, 6, 0], [2, 0, 7]] if it_number in (12, 38) else [[5, 0, 0], [0, 5, 0], [0, 0, 5]])
     )
-    free_params = FracVector.create(["1/4"]) if it_number == 38 else NO_PARAMETERS
+    free_params = FracVector(["1/4"]) if it_number == 38 else NO_PARAMETERS
     sites = [WyckoffSite("a", free_params, "Na" if two_species else "C")]
     species = _species("Na", "Cl") if two_species else _species("C")
     if two_species:
@@ -97,7 +97,7 @@ EXPECTED_ROW_TRANSFORMS = {
 def test_vendored_transform_volume_and_exact_centering_collapse(it_number: int) -> None:
     result = primitive_cell(_fixture(it_number))
     centring = result.spacegroup.centring_type
-    expected = FracVector.create(EXPECTED_ROW_TRANSFORMS[centring])
+    expected = FracVector(EXPECTED_ROW_TRANSFORMS[centring])
     n = len(result.spacegroup.centering_translations)
 
     assert result.transform == expected

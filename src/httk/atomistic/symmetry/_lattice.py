@@ -13,10 +13,10 @@ def finite_translation_cosets(generators: Iterable[Any]) -> tuple[FracVector, ..
     component-wise into ``[0, 1)`` and sorted lexicographically, which puts the zero
     translation first.
     """
-    zero = FracVector.create((0, 0, 0))
+    zero = FracVector((0, 0, 0))
     normalized: list[FracVector] = []
     for value in generators:
-        generator = FracVector.create(value)
+        generator = FracVector(value)
         if generator.dim != (3,):
             raise ValueError(f"a lattice translation generator must have 3 elements, got {generator.dim}")
         generator = generator.normalize()

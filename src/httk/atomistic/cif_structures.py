@@ -155,9 +155,7 @@ def asu_structure_from_cif(
             )
         letter, parameters = match
         if limit_denominator is not None and parameters.dim not in ((), (0,)):
-            parameters = FracVector.create(
-                [value.limit_denominator(limit_denominator) for value in parameters.to_fractions()]
-            )
+            parameters = FracVector([value.limit_denominator(limit_denominator) for value in parameters.to_fractions()])
         wyckoff_sites.append(WyckoffSite(letter, parameters, name, coordinate.normalize()))
 
     return ASUStructure(
@@ -329,7 +327,7 @@ def _exact_positions(data: Mapping[str, Any]) -> list[FracVector]:
     """
     exact = data.get("positions_exact")
     if exact is not None:
-        return [FracVector.create([fractions.Fraction(value) for value in row]) for row in exact]
+        return [FracVector([fractions.Fraction(value) for value in row]) for row in exact]
     raise ValueError("CIF payload has no exact fractional-coordinate channel")
 
 

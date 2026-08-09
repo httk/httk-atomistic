@@ -34,7 +34,7 @@ from httk.atomistic.models.sites.plain_view import PlainSitesView
 F = fractions.Fraction
 
 CUBIC = [[4, 0, 0], [0, 4, 0], [0, 0, 4]]
-NO_PARAMETERS = FracVector.create(())
+NO_PARAMETERS = FracVector(())
 
 
 def _cell() -> Cell:

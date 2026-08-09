@@ -75,8 +75,8 @@ class SupercellResult:
 def _integer_transformation(transformation: VectorLike | int) -> tuple[FracVector, int]:
     if isinstance(transformation, int) and not isinstance(transformation, bool):
         value = _positive_integer(transformation, "supercell multiplier")
-        return FracVector.create([[value, 0, 0], [0, value, 0], [0, 0, value]]), value**3
-    matrix = FracVector.create(transformation).simplify()
+        return FracVector([[value, 0, 0], [0, value, 0], [0, 0, value]]), value**3
+    matrix = FracVector(transformation).simplify()
     if matrix.dim != (3, 3):
         raise ValueError(f"a supercell transformation must be 3x3, got {matrix.dim}")
     if matrix.denom != 1:
@@ -257,7 +257,7 @@ def build_supercell(
         view.sites.precision,
         _coordinate_precision_factor(inverse),
     )
-    new_unscaled_basis = SurdVector.create(matrix) * view.cell.unscaled_basis
+    new_unscaled_basis = SurdVector(matrix) * view.cell.unscaled_basis
     new_cell = Cell(new_unscaled_basis, view.cell.scale, new_basis_precision)
     new_sites = Sites(transformed_coords, new_coordinate_precision)
     new_site_moments = _replicated_site_moments(view.site_moments, multiplier)
@@ -403,8 +403,8 @@ def _search_transformation(
         if values in seen or _determinant(values) != multiplier:
             continue
         seen.add(values)
-        matrix = FracVector.create((values[0:3], values[3:6], values[6:9]))
-        transformed_metric = SurdVector.create(matrix) * cell.metric() * SurdVector.create(matrix.T())
+        matrix = FracVector((values[0:3], values[3:6], values[6:9]))
+        transformed_metric = SurdVector(matrix) * cell.metric() * SurdVector(matrix.T())
         orthogonality, cubicity = _shape_scores(transformed_metric)
         ideal_distance = sum(
             (decimal.Decimal(value) - target_value) ** 2 for value, target_value in zip(values, ideal_flat, strict=True)
@@ -420,11 +420,11 @@ def _search_transformation(
 
     if best_values is None:
         raise RuntimeError("internal supercell search error: no determinant-matching candidate was generated")
-    return FracVector.create((best_values[0:3], best_values[3:6], best_values[6:9]))
+    return FracVector((best_values[0:3], best_values[3:6], best_values[6:9]))
 
 
 def _transformation_scores(cell: Cell, transformation: FracVector) -> tuple[SurdScalar, SurdScalar]:
-    transformed_metric = SurdVector.create(transformation) * cell.metric() * SurdVector.create(transformation.T())
+    transformed_metric = SurdVector(transformation) * cell.metric() * SurdVector(transformation.T())
     return _shape_scores(transformed_metric)
 
 

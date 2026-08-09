@@ -108,7 +108,7 @@ def test_poscar_expands_asymmetric_unit() -> None:
     structure = ASUStructure(
         CELL,
         225,
-        [WyckoffSite("a", FracVector.create(()), "Na")],
+        [WyckoffSite("a", FracVector(()), "Na")],
         [sodium],
     )
     payload = _poscar_payload_from_structure(structure)

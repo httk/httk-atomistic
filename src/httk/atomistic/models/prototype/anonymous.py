@@ -111,7 +111,7 @@ class AnonymousStructure(AnonymousStructureBackend):
         """
         from httk.core import SurdVector
 
-        return SurdVector.create(self._sites.reduced_coords) * self._cell.basis
+        return SurdVector(self._sites.reduced_coords) * self._cell.basis
 
     @property
     def coordinate_precision(self):

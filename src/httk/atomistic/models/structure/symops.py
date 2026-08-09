@@ -299,7 +299,7 @@ class SymopsStructure(StructureBackend, StructureSemanticsMixin):
 
         :return: Cartesian positions in the exact surd representation.
         """
-        return SurdVector.create(self.sites.reduced_coords) * self._cell.basis
+        return SurdVector(self.sites.reduced_coords) * self._cell.basis
 
     @cached_property
     def _expansion(self) -> tuple[Sites, tuple[str, ...], SiteMomentsBackend | None]:
@@ -332,7 +332,7 @@ class SymopsStructure(StructureBackend, StructureSemanticsMixin):
                 block.append((position_key, species, moment))
             generated.extend(sorted(block, key=lambda item: item[0]))
 
-        coordinates = FracVector.create([list(item[0]) for item in generated])
+        coordinates = FracVector([list(item[0]) for item in generated])
         sites = Sites(coordinates, self._listed_sites.precision)
         species_at_sites = tuple(item[1] for item in generated)
         moments: SiteMomentsBackend | None

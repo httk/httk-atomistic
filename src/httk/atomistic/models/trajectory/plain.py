@@ -182,7 +182,7 @@ class PlainTrajectory(TrajectoryBackend):
         if fractional is None:
             if cartesian is None:
                 raise ValueError("PlainTrajectory frame requires fractional_site_positions or cartesian_site_positions")
-            sites = Sites(SurdVector.create(cartesian) * cell.basis.inv())
+            sites = Sites(SurdVector(cartesian) * cell.basis.inv())
         else:
             sites = Sites(fractional)
         names = self._value("species_at_sites", i)

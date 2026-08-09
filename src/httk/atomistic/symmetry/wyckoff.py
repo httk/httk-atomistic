@@ -56,9 +56,9 @@ class WyckoffBranch:
         rank = len(self._free)
         if rank:
             pivot = [[self._echelon[row][column].to_fraction() for column in range(rank)] for row in range(rank)]
-            self._pivot_inverse = FracVector.create(_invert_small(pivot))
+            self._pivot_inverse = FracVector(_invert_small(pivot))
         else:
-            self._pivot_inverse = FracVector.create(())
+            self._pivot_inverse = FracVector(())
 
     @property
     def operation(self) -> AffineOperation:
@@ -87,7 +87,7 @@ class WyckoffBranch:
         :raises ValueError: If the number of parameters does not match the branch.
         """
         placed = [fractions.Fraction(0)] * 3
-        values = FracVector.create(parameters)
+        values = FracVector(parameters)
         if not self._free:
             # A fixed position has no parameters. FracVector has no zero-length shape, so
             # "no parameters" is the empty vector, whose dim reads as () or (0,).
@@ -119,7 +119,7 @@ class WyckoffBranch:
         :return: The normalized free parameters, or ``None`` when the coordinate is not on
             this branch.
         """
-        point = FracVector.create(coordinate)
+        point = FracVector(coordinate)
         rank = len(self._free)
         mapped = (point - self._operation.vector) * self._unimodular.T()
 
@@ -152,7 +152,7 @@ class WyckoffBranch:
         :param coordinate: The reduced coordinate to approximate.
         :return: The normalized free parameters for the nearest branch point.
         """
-        point = FracVector.create(coordinate)
+        point = FracVector(coordinate)
         mapped = (point - self._operation.vector) * self._unimodular.T()
         return self._parameters_from_mapped(mapped)
 
@@ -160,8 +160,8 @@ class WyckoffBranch:
         """Back-substitute the free parameters out of ``U * (point - b)``."""
         rank = len(self._free)
         if rank == 0:
-            return FracVector.create(())
-        head = FracVector.create([mapped[row].to_fraction() for row in range(rank)])
+            return FracVector(())
+        head = FracVector([mapped[row].to_fraction() for row in range(rank)])
         return (head * self._pivot_inverse.T()).normalize()
 
 
@@ -265,7 +265,7 @@ class WyckoffPosition:
         :return: The unwrapped coordinates of all orbit branches.
         :raises ValueError: If the number of parameters does not match a branch.
         """
-        return FracVector.create([branch.coordinate(parameters).to_fractions() for branch in self._branches])
+        return FracVector([branch.coordinate(parameters).to_fractions() for branch in self._branches])
 
     def parameters_of(self, coordinate: Any) -> FracVector | None:
         """Recover free parameters placing some branch on ``coordinate``, if possible.
@@ -361,4 +361,4 @@ def _row_hermite(matrix: FracVector, free: Sequence[int]) -> tuple[FracVector, F
         if pivot_row == 3:
             break
 
-    return FracVector.create(unimodular), FracVector.create(rows)
+    return FracVector(unimodular), FracVector(rows)

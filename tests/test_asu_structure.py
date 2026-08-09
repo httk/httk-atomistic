@@ -30,7 +30,7 @@ F = fractions.Fraction
 
 CUBIC = [[5.64, 0, 0], [0, 5.64, 0], [0, 0, 5.64]]
 HEXAGONAL = [[4, 0, 0], [0, 4, 0], [0, 0, 12]]
-NO_PARAMETERS = FracVector.create(())
+NO_PARAMETERS = FracVector(())
 
 
 def _species(*names: str) -> list[Species]:
@@ -59,7 +59,7 @@ def test_rocksalt_expands_to_the_exact_face_centred_cell() -> None:
     structure = UnitcellStructureView(_rocksalt())
     assert len(structure.sites) == 8
     assert structure.species_at_sites == ("Na", "Na", "Na", "Na", "Cl", "Cl", "Cl", "Cl")
-    assert structure.sites.reduced_coords == FracVector.create(
+    assert structure.sites.reduced_coords == FracVector(
         [
             [F(0), F(0), F(0)],
             [F(0), F(1, 2), F(1, 2)],
@@ -93,7 +93,7 @@ def test_a_free_parameter_places_a_whole_orbit() -> None:
     asu = ASUStructure(
         cell=[[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         spacegroup=15,
-        wyckoff_sites=[WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
+        wyckoff_sites=[WyckoffSite("e", FracVector(["1/3"]), "Si")],
         species=_species("Si"),
     )
     assert asu.multiplicities() == (4,)
@@ -181,7 +181,7 @@ def test_a_tabulated_setting_reports_itself() -> None:
     asu = ASUStructure(
         [[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         15,
-        [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
+        [WyckoffSite("e", FracVector(["1/3"]), "Si")],
         _species("Si"),
         transform=Spacegroup.for_setting("15:c1").transform_from_standard,
     )
@@ -202,7 +202,7 @@ def test_asu_structure_rejects_inconsistent_input() -> None:
 
     with pytest.raises(ValueError, match="free parameter"):
         # Wyckoff a of SG 225 is a fixed position and takes no parameters.
-        ASUStructure(CUBIC, 225, [WyckoffSite("a", FracVector.create(["1/3"]), "Na")], _species("Na"))
+        ASUStructure(CUBIC, 225, [WyckoffSite("a", FracVector(["1/3"]), "Na")], _species("Na"))
 
     with pytest.raises(ValueError, match="unique"):
         ASUStructure(CUBIC, 225, [WyckoffSite("a", NO_PARAMETERS, "Na")], _species("Na") + _species("Na"))
@@ -255,7 +255,7 @@ def test_symmetry_reduced_expansion_rejects_ambiguous_molecular_placement() -> N
     molecular = ASUStructure(
         CUBIC,
         225,
-        [WyckoffSite("a", NO_PARAMETERS, "Na", FracVector.create([0, 0, 0]))],
+        [WyckoffSite("a", NO_PARAMETERS, "Na", FracVector([0, 0, 0]))],
         _species("Na"),
         molecular=True,
     )
@@ -264,7 +264,7 @@ def test_symmetry_reduced_expansion_rejects_ambiguous_molecular_placement() -> N
 
 
 def test_symmetry_reduced_expansion_retains_unambiguous_molecular_representative() -> None:
-    point = FracVector.create([F(1, 7), F(2, 7), F(3, 7)])
+    point = FracVector([F(1, 7), F(2, 7), F(3, 7)])
     molecular = ASUStructure(
         CUBIC,
         1,
@@ -273,7 +273,7 @@ def test_symmetry_reduced_expansion_retains_unambiguous_molecular_representative
         molecular=True,
     )
     expanded = UnitcellStructureView(molecular)
-    assert expanded.sites.reduced_coords == FracVector.create([[F(1, 7), F(2, 7), F(3, 7)]])
+    assert expanded.sites.reduced_coords == FracVector([[F(1, 7), F(2, 7), F(3, 7)]])
     assert expanded.site_coordinate_span == "molecular_unit_cell"
 
 

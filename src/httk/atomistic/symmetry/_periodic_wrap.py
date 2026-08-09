@@ -35,7 +35,7 @@ def wrap_periodic_half(coords: Any, periodicity: tuple[bool, bool, bool]) -> Fra
 
 
 def _wrap(coords: Any, periodicity: tuple[bool, bool, bool], *, half: bool) -> FracVector:
-    exact = coords if isinstance(coords, FracVector) else FracVector.create(coords)
+    exact = coords if isinstance(coords, FracVector) else FracVector(coords)
     wrapped = exact.normalize_half() if half else exact.normalize()
     if all(periodicity):
         return wrapped
@@ -46,8 +46,8 @@ def _wrap(coords: Any, periodicity: tuple[bool, bool, bool], *, half: bool) -> F
     rows = exact.to_fractions()
     wrapped_rows = wrapped.to_fractions()
     if exact.dim == (3,):
-        return FracVector.create([wrapped_rows[i] if periodicity[i] else rows[i] for i in range(3)])
-    return FracVector.create(
+        return FracVector([wrapped_rows[i] if periodicity[i] else rows[i] for i in range(3)])
+    return FracVector(
         [
             [wrapped_row[i] if periodicity[i] else row[i] for i in range(3)]
             for row, wrapped_row in zip(rows, wrapped_rows)

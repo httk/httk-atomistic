@@ -40,12 +40,12 @@ def _scalar_length(lsq: SurdScalar) -> SurdScalar:
         num, den = q.numerator, q.denominator
         root_num, root_den = integer_sqrt(num), integer_sqrt(den)
         if root_num * root_num == num and root_den * root_den == den:
-            return SurdVector.create(fractions.Fraction(root_num, root_den))._as_scalar()
+            return SurdVector(fractions.Fraction(root_num, root_den))._as_scalar()
         if num * den <= _MAX_EXACT_RADICAND:
             return SurdVector.sqrt_of(q)
-        return SurdVector.create(exactmath.sqrt(q, prec=_FALLBACK_PREC, limit=True))._as_scalar()
+        return SurdVector(exactmath.sqrt(q, prec=_FALLBACK_PREC, limit=True))._as_scalar()
     approx = lsq.to_fractions_approx(_FALLBACK_PREC)
-    return SurdVector.create(exactmath.sqrt(approx, prec=_FALLBACK_PREC, limit=True))._as_scalar()
+    return SurdVector(exactmath.sqrt(approx, prec=_FALLBACK_PREC, limit=True))._as_scalar()
 
 
 class Cell(CellBackend):
@@ -328,7 +328,7 @@ class Cell(CellBackend):
         if len(rows) == 3:
             return self._unchecked_volume
         if not rows:
-            return SurdVector.create(1)._as_scalar()
+            return SurdVector(1)._as_scalar()
         if len(rows) == 1:
             return self.lengths[rows[0]]
         # The k-dimensional measure of the sublattice is sqrt(det(G)) over the Gram matrix of

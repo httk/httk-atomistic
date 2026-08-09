@@ -88,7 +88,7 @@ class AnonymousStructureView(AnonymousStructureViewBase, AnonymousStructure):
         """Return the exact Cartesian presented site positions."""
         from httk.core import SurdVector
 
-        return SurdVector.create(self.sites.reduced_coords) * self.cell.basis
+        return SurdVector(self.sites.reduced_coords) * self.cell.basis
 
     @property
     def coordinate_precision(self):

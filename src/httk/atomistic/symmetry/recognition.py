@@ -241,9 +241,7 @@ def _recognize(
             )
         position, branch, parameters = match
         if limit_denominator is not None and position.free_count:
-            parameters = FracVector.create(
-                [value.limit_denominator(limit_denominator) for value in parameters.to_fractions()]
-            )
+            parameters = FracVector([value.limit_denominator(limit_denominator) for value in parameters.to_fractions()])
         snapped_own = transform.to_setting(branch.coordinate(parameters)).normalize()
         placed.append((position, parameters, snapped_own))
 
@@ -287,7 +285,7 @@ def _cartesian_distance_squared(difference: FracVector, cell: Any) -> float:
     Reduced to the shortest lattice representative first, so a site at ``0.999`` and one at
     ``0.001`` count as neighbours rather than as a whole cell apart.
     """
-    shortest = SurdVector.create(difference.normalize_half()) * cell.basis
+    shortest = SurdVector(difference.normalize_half()) * cell.basis
     return float(shortest.lengthsqr().to_float())
 
 

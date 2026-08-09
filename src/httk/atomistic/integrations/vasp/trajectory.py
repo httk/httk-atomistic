@@ -301,7 +301,7 @@ class VASPTrajectory(TrajectoryBackend):
         cell = self._xdatcar_cell(raw_rows, frame.get("scale"))
         coords = frame["coords"]
         if frame.get("cartesian", False):
-            coords = SurdVector.create(coords) * SurdVector.create(raw_rows).inv()
+            coords = SurdVector(coords) * SurdVector(raw_rows).inv()
         return UnitcellStructure(cell, Sites(coords), header.species, header.species_at_sites)
 
     def _from_outcar(self, frame: Any) -> UnitcellStructure:
@@ -309,7 +309,7 @@ class VASPTrajectory(TrajectoryBackend):
         if frame.positions is None:
             raise ValueError(f"OUTCAR frame {frame.index} has no Cartesian positions.")
         cell = header.cell if frame.cell is None else Cell(frame.cell)
-        reduced = SurdVector.create(frame.positions) * cell.basis.inv()
+        reduced = SurdVector(frame.positions) * cell.basis.inv()
         return UnitcellStructure(cell, Sites(reduced), header.species, header.species_at_sites)
 
     def frame(self, i: int) -> UnitcellStructure:

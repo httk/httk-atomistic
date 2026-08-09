@@ -173,7 +173,7 @@ def test_asu_unitcell_view_does_not_expand_until_sites() -> None:
     asu = ASUStructure(
         CUBE,
         225,
-        [WyckoffSite("a", FracVector.create(()), "Na")],
+        [WyckoffSite("a", FracVector(()), "Na")],
         [Species("Na", ("Na",), (1.0,))],
     )
     view = UnitcellStructureView(asu)

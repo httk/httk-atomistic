@@ -91,7 +91,7 @@ def test_cif_save_uses_standard_decimals_and_exact_companions(tmp_path):
     original = ASUStructure(
         cell,
         221,
-        [WyckoffSite("e", FracVector.create(["1/3"]), "Si")],
+        [WyckoffSite("e", FracVector(["1/3"]), "Si")],
         [Species("Si", ("Si",), (1,))],
     )
     destination = tmp_path / "sg221.cif"

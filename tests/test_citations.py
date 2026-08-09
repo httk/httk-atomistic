@@ -47,7 +47,7 @@ from httk.atomistic import ASUStructure, Species, UnitcellStructureView, Wyckoff
 
 heading = "Symmetry recognition uses spglib"
 assert heading not in credits.entries()
-no_parameters = FracVector.create(())
+no_parameters = FracVector(())
 structure = ASUStructure(
     [[5.64, 0, 0], [0, 5.64, 0], [0, 0, 5.64]],
     225,

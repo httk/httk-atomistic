@@ -31,7 +31,7 @@ from httk.atomistic.models.sites.numeric import NumericSites
 
 
 CELL = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
-EMPTY = FracVector.create(())
+EMPTY = FracVector(())
 
 
 def _species() -> tuple[Species, Species]:

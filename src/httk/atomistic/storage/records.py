@@ -79,7 +79,7 @@ _SITE_MOMENT_KINDS = frozenset(("cartesian", "crystalaxis", "collinear"))
 
 def _moment_components(moment: Any) -> tuple[SurdScalar, ...]:
     if moment.kind == "collinear":
-        return tuple(SurdVector.create(value)._as_scalar() for value in moment.collinear_moments.to_fractions())
+        return tuple(SurdVector(value)._as_scalar() for value in moment.collinear_moments.to_fractions())
     values = moment.cartesian_moments if moment.kind == "cartesian" else moment.crystalaxis_moments
     return tuple(values._element(index) for index in itertools.product(*[range(size) for size in values.dim]))
 
@@ -119,7 +119,7 @@ def _validate_moment_fields(record: Any, record_name: str, *, nsites: int | None
     if components is None:
         raise ValueError(f"{record_name} moment kind requires components")
     components = tuple(
-        value if isinstance(value, SurdScalar) else SurdVector.create(value)._as_scalar() for value in components
+        value if isinstance(value, SurdScalar) else SurdVector(value)._as_scalar() for value in components
     )
     expected = (
         (nsites if kind == "collinear" else 3 * nsites) if nsites is not None else (1 if kind == "collinear" else 3)
@@ -524,7 +524,7 @@ class SettingTransformRecord:
         _validate_setting_transform_record(record)
 
     def __post_init__(self) -> None:
-        matrix = FracVector.create(self.matrix)
+        matrix = FracVector(self.matrix)
         vector = tuple(as_fraction(value, field="SettingTransformRecord vector")[0] for value in self.vector)
         if matrix.dim != (3, 3):
             raise ValueError(f"AffineOperation matrix must be 3x3, got dim {matrix.dim}")
@@ -1416,9 +1416,9 @@ def _domain_structure_from_record(
         tuple(
             WyckoffSite(
                 value.wyckoff,
-                FracVector.create(value.free_parameters),
+                FracVector(value.free_parameters),
                 value.species,
-                None if value.representative is None else FracVector.create(value.representative),
+                None if value.representative is None else FracVector(value.representative),
                 moment=_moment_from_record(
                     value.moment_kind,
                     value.moment,

@@ -54,7 +54,7 @@ def _domain(record_type: type[Any], *, molecular: bool = False) -> FundamentalDo
     return record_type(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         225,
-        (WyckoffSite("a", FracVector.create(()), "Na"), WyckoffSite("b", FracVector.create(()), "Cl")),
+        (WyckoffSite("a", FracVector(()), "Na"), WyckoffSite("b", FracVector(()), "Cl")),
         _species(),
         molecular=molecular,
     )
@@ -65,8 +65,8 @@ def _duplicate_a_orbit_asu() -> ASUStructure:
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         225,
         (
-            WyckoffSite("a", FracVector.create(()), "Na"),
-            WyckoffSite("a", FracVector.create(()), "Na"),
+            WyckoffSite("a", FracVector(()), "Na"),
+            WyckoffSite("a", FracVector(()), "Na"),
         ),
         (Species("Na", ("Na",), (1,)),),
     )

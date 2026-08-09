@@ -34,12 +34,12 @@ __all__ = ["PrimitiveCellResult", "primitive_cell"]
 
 # These are the exact column-vector matrices from the spglib definition. For the source and
 # citation, see https://spglib.readthedocs.io/en/latest/definition.html#transformation-to-the-primitive-cell.
-P = FracVector.create([["1", "0", "0"], ["0", "1", "0"], ["0", "0", "1"]])
-A = FracVector.create([["1", "0", "0"], ["0", "1/2", "-1/2"], ["0", "1/2", "1/2"]])
-C = FracVector.create([["1/2", "1/2", "0"], ["-1/2", "1/2", "0"], ["0", "0", "1"]])
-R = FracVector.create([["2/3", "-1/3", "-1/3"], ["1/3", "1/3", "-2/3"], ["1/3", "1/3", "1/3"]])
-I = FracVector.create([["-1/2", "1/2", "1/2"], ["1/2", "-1/2", "1/2"], ["1/2", "1/2", "-1/2"]])
-F = FracVector.create([["0", "1/2", "1/2"], ["1/2", "0", "1/2"], ["1/2", "1/2", "0"]])
+P = FracVector([["1", "0", "0"], ["0", "1", "0"], ["0", "0", "1"]])
+A = FracVector([["1", "0", "0"], ["0", "1/2", "-1/2"], ["0", "1/2", "1/2"]])
+C = FracVector([["1/2", "1/2", "0"], ["-1/2", "1/2", "0"], ["0", "0", "1"]])
+R = FracVector([["2/3", "-1/3", "-1/3"], ["1/3", "1/3", "-2/3"], ["1/3", "1/3", "1/3"]])
+I = FracVector([["-1/2", "1/2", "1/2"], ["1/2", "-1/2", "1/2"], ["1/2", "1/2", "-1/2"]])
+F = FracVector([["0", "1/2", "1/2"], ["1/2", "0", "1/2"], ["1/2", "1/2", "0"]])
 
 _COLUMN_CENTRING_MATRICES = {"P": P, "A": A, "C": C, "I": I, "F": F, "R": R}
 _ROW_CENTRING_MATRICES = {letter: matrix.T() for letter, matrix in _COLUMN_CENTRING_MATRICES.items()}
@@ -160,7 +160,7 @@ def primitive_cell(
         _matrix_column_sum_factor(coordinate_matrix),
     )
     primitive_cell_value = Cell(
-        SurdVector.create(transform) * conventional.structure.cell.unscaled_basis,
+        SurdVector(transform) * conventional.structure.cell.unscaled_basis,
         scale=conventional.structure.cell.scale,
         precision=cell_precision,
         periodicity=conventional.structure.cell.periodicity,

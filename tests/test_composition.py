@@ -173,7 +173,7 @@ def test_assembly_validation_and_asu_multiplicity_projection() -> None:
     asu = ASUStructure(
         Cell([[5, 0, 0], [0, 5, 0], [0, 0, 5]]),
         Spacegroup.standard(225),
-        (WyckoffSite("a", FracVector.create(()), "Ge"),),
+        (WyckoffSite("a", FracVector(()), "Ge"),),
         (Species("Ge", ("Ge",), (1,)),),
     )
     assert asu.multiplicities() == (4,)

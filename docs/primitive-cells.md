@@ -82,7 +82,7 @@ Cell and coordinate precision metadata is widened by the corresponding exact mat
 >>> carbon = [{"name": "C", "chemical_symbols": ["C"], "concentration": [1.0]}]
 >>> asu = ASUStructure(
 ...     [[5, 0, 0], [0, 5, 0], [0, 0, 5]], 229,
-...     [WyckoffSite("a", FracVector.create(()), "C")], carbon,
+...     [WyckoffSite("a", FracVector(()), "C")], carbon,
 ... )
 >>> result = primitive_cell(asu)
 >>> result.multiplier

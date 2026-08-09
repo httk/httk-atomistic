@@ -33,7 +33,7 @@ def _metric_fractions(cell: Cell) -> FracVector:
 
 
 def _identity() -> FracVector:
-    return FracVector.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    return FracVector([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
 
 def _fixture_cells() -> dict[str, Cell]:
@@ -120,11 +120,11 @@ def test_cell_parameter_backend_is_accepted_as_a_cell_like_input() -> None:
 )
 def test_unimodular_premixes_reduce_to_the_same_metric(transform: list[list[int]]) -> None:
     source = _fixture_cells()["triclinic"]
-    premix = FracVector.create(transform)
+    premix = FracVector(transform)
     assert premix.det().to_fraction() == F(1)
 
     expected = _metric_fractions(niggli_reduce(source).cell)
-    actual = _metric_fractions(niggli_reduce(Cell(SurdVector.create(premix) * source.basis)).cell)
+    actual = _metric_fractions(niggli_reduce(Cell(SurdVector(premix) * source.basis)).cell)
     assert actual == expected
 
 
@@ -164,8 +164,8 @@ def test_hand_fixture_remaps_coordinates_using_the_actual_final_transform() -> N
 
     expected = (source.sites[1] * inverse).normalize()
     assert result.structure.sites[1] == expected
-    assert result.structure.sites[1] == FracVector.create([0, F(1, 2), F(1, 2)])
-    assert _metric_fractions(result.cell) == FracVector.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    assert result.structure.sites[1] == FracVector([0, F(1, 2), F(1, 2)])
+    assert _metric_fractions(result.cell) == FracVector([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
     _round_trip(source, result)
 
 
@@ -227,8 +227,8 @@ def test_niggli_reduce_preserves_cell_scale_factoring() -> None:
     result = niggli_reduce(source)
 
     assert result.cell.scale == source.scale
-    assert result.cell.basis == SurdVector.create(result.transform) * source.basis
-    assert result.cell.unscaled_basis == (SurdVector.create(result.transform) * source.unscaled_basis)
+    assert result.cell.basis == SurdVector(result.transform) * source.basis
+    assert result.cell.unscaled_basis == (SurdVector(result.transform) * source.unscaled_basis)
 
 
 def test_reduction_refuses_non_three_dimensional_periodicity() -> None:
@@ -250,7 +250,7 @@ def test_spglib_niggli_cross_check_full_gram_on_fixtures_and_seeded_random_bases
     rng = random.Random(20260806)
     while len(sources) < len(_fixture_cells()) + 100:
         candidate = [[rng.randint(-5, 5) for _ in range(3)] for _ in range(3)]
-        if abs(FracVector.create(candidate).det().to_fraction()) <= F(1, 2):
+        if abs(FracVector(candidate).det().to_fraction()) <= F(1, 2):
             continue
         sources.append(Cell(candidate))
 
