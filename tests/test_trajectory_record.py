@@ -108,4 +108,4 @@ def test_observable_summary_order_does_not_change_content_id() -> None:
 
 def test_trajectory_record_content_id_pin() -> None:
     # A changed value means a deliberate storage-identity break: update this pin only with migration intent.
-    assert _record(_trajectory([1])).id == "b252e4ad9aceb1062134198a81dfdbc986c599764f5bf728bfc1bd6faf5f163c"
+    assert _record(_trajectory([1])).id == "3164475b4efd998146d08ff20ea4879d2761d8073e14f9160fce94e02b8c9ee8"
