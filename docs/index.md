@@ -9,15 +9,22 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 :class: tip
 
 - **API reference**: {doc}`reference/index`
-- **UnitcellStructure guide**: {doc}`structures`
+- **Structures**: {doc}`structures`
+- **Composition and formulas**: {doc}`composition`
+- **Structure prototypes**: {doc}`prototypes`
 - **Asymmetric units**: {doc}`asu`
 - **Data precision**: {doc}`precision`
 - **Periodicity (slabs, wires, molecules)**: {doc}`periodicity`
+- **Lattice reduction**: {doc}`lattice-reduction`
+- **Primitive cells**: {doc}`primitive-cells`
 - **Plane-wave wavefunctions**: {doc}`wavefunctions`
 - **Trajectory JSON Lines**: {doc}`trajectory_jsonl`
 - **Runnable examples**: {doc}`examples/index`
 - **Examples notebook**: {doc}`notebooks/examples`
 - **Disorder walkthrough**: {doc}`notebooks/disorder`
+
+The topic pages above are short and practical; the ones with a full guide link
+onward to it in the **Details** section of the sidebar.
 ````
 
 ## Install
@@ -66,4 +73,14 @@ primitive-cells
 examples/index
 notebooks/examples
 notebooks/disorder
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Details
+
+details/structures
+details/asu
+details/precision
+details/periodicity
 ```
