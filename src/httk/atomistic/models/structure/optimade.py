@@ -367,7 +367,7 @@ class OptimadeStructure(StructureBackend):
             status,
         )
 
-    @stored_property
+    @property
     def formula(self) -> str:
         """Present the reduced formula as an eager ``str`` formula view.
 
@@ -1033,7 +1033,7 @@ class OptimadeStructure(StructureBackend):
         lattice = self._raw_optional("lattice_vectors")
         return None if lattice is _MISSING else self._decimal_precision(lattice)
 
-    @stored_property
+    @property
     def site_moments(self) -> CartesianSiteMoments | None:
         """Expose source Cartesian site moments.
 
