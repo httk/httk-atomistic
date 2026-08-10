@@ -13,7 +13,7 @@ import fractions
 from pathlib import Path
 
 import pytest
-from httk.core import load
+from httk.core import decimal_precision, load
 
 from httk.atomistic import (
     ASUStructure,
@@ -80,6 +80,16 @@ def _rocksalt_cif(tmp_path: Path) -> Path:
     )
 
 
+def _rocksalt_integer_cif(tmp_path: Path) -> Path:
+    return _write_cif(
+        tmp_path / "nacl-integer.cif",
+        Spacegroup.standard(225).setting,
+        (5.64, 5.64, 5.64, 90, 90, 90),
+        [("Na1", "Na", ("0", "0", "0"), "1"), ("Cl1", "Cl", ("0.5", "0.5", "0.5"), "1")],
+        name="NaClInteger",
+    )
+
+
 # --- reading ---
 
 
@@ -102,6 +112,16 @@ def test_cif_expands_to_the_full_cell(tmp_path: Path) -> None:
         (F(1, 2), F(0), F(0)),
         (F(1, 2), F(1, 2), F(1, 2)),
     }
+
+
+@pytest.mark.skipif(
+    decimal_precision("0") is not None,
+    reason="requires httk-core integer-literals-are-exact (unreleased)",
+)
+def test_integer_coordinate_tokens_do_not_swallow_the_second_rocksalt_orbit(tmp_path: Path) -> None:
+    asu = load(str(_rocksalt_integer_cif(tmp_path)))
+    assert [(site.wyckoff, site.species) for site in asu.wyckoff_sites] == [("a", "Na"), ("b", "Cl")]
+    assert len(UnitcellStructureView(asu).sites) == 8
 
 
 def test_loading_fidelity_oracle(tmp_path: Path) -> None:
