@@ -64,6 +64,7 @@ COMPATIBLE_CRYSTAL_SYSTEMS: dict[str, frozenset[str]] = {
 }
 
 _MAX_SOLVER_BRANCHES = 200_000
+_MAX_FOURIER_MOTZKIN_INEQUALITIES = 20_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,8 +168,88 @@ def _integer_options(row: tuple[Fraction, ...], constant: Fraction) -> range:
     return range(_ceil_fraction(low), math.floor(high) + 1)
 
 
+@dataclass(frozen=True, slots=True)
+class _Inequality:
+    coefficients: tuple[Fraction, ...]
+    bound: Fraction
+    strict: bool
+
+
+def _fourier_motzkin(inequalities: tuple[_Inequality, ...]) -> tuple[_Inequality, ...]:
+    """Eliminate the first variable from a rational inequality system exactly."""
+    positive = [item for item in inequalities if item.coefficients[0] > 0]
+    negative = [item for item in inequalities if item.coefficients[0] < 0]
+    zero = [
+        _Inequality(item.coefficients[1:], item.bound, item.strict) for item in inequalities if not item.coefficients[0]
+    ]
+    result = list(zero)
+    for upper in positive:
+        for lower in negative:
+            upper_coefficient = upper.coefficients[0]
+            lower_coefficient = lower.coefficients[0]
+            result.append(
+                _Inequality(
+                    tuple(
+                        -lower_coefficient * a + upper_coefficient * b
+                        for a, b in zip(upper.coefficients[1:], lower.coefficients[1:], strict=True)
+                    ),
+                    -lower_coefficient * upper.bound + upper_coefficient * lower.bound,
+                    upper.strict or lower.strict,
+                )
+            )
+    if len(result) > _MAX_FOURIER_MOTZKIN_INEQUALITIES:
+        # ponytail: capped FM; replace with a polyhedral package only if table dimensions grow materially.
+        raise ValueError("Fourier-Motzkin inequality cap exceeded")
+    return tuple(result)
+
+
+def _inequality_feasible(inequalities: tuple[_Inequality, ...]) -> bool:
+    return all((0 < item.bound if item.strict else 0 <= item.bound) for item in inequalities)
+
+
+def _choose_feasible_free_values(inequalities: tuple[_Inequality, ...], free_count: int) -> tuple[Fraction, ...] | None:
+    stages = [inequalities]
+    for _ in range(free_count):
+        stages.append(_fourier_motzkin(stages[-1]))
+    if not _inequality_feasible(stages[-1]):
+        return None
+    chosen: list[Fraction] = []
+    for stage in reversed(stages[:-1]):
+        lower: tuple[Fraction, bool] | None = None
+        upper: tuple[Fraction, bool] | None = None
+        for inequality in stage:
+            coefficient = inequality.coefficients[0]
+            remainder = sum(value * chosen[index] for index, value in enumerate(inequality.coefficients[1:]))
+            bound = inequality.bound - remainder
+            if coefficient > 0:
+                candidate = (bound / coefficient, inequality.strict)
+                if upper is None or candidate[0] < upper[0] or (candidate[0] == upper[0] and candidate[1]):
+                    upper = candidate
+            elif coefficient < 0:
+                candidate = (bound / coefficient, inequality.strict)
+                if lower is None or candidate[0] > lower[0] or (candidate[0] == lower[0] and candidate[1]):
+                    lower = candidate
+            elif (
+                inequality.strict
+                and not remainder < inequality.bound
+                or not inequality.strict
+                and not remainder <= inequality.bound
+            ):
+                return None
+        if lower is None or upper is None:
+            return None
+        if lower[0] > upper[0] or (lower[0] == upper[0] and (lower[1] or upper[1])):
+            return None
+        chosen.append(lower[0] if lower[0] == upper[0] else (lower[0] + upper[0]) / 2)
+    chosen.reverse()
+    return tuple(chosen)
+
+
 def _linear_solve(matrix: tuple[tuple[Fraction, ...], ...], rhs: tuple[Fraction, ...]) -> tuple[Fraction, ...] | None:
-    """Return one solution of a rational linear system, or ``None`` if inconsistent."""
+    """Return a deterministic exact solution of a boxed rational linear system.
+
+    Free variables are selected at the midpoint of their exact Fourier--Motzkin-feasible interval.
+    """
     rows = [list(row) + [value] for row, value in zip(matrix, rhs)]
     if not rows:
         return ()
@@ -193,9 +274,31 @@ def _linear_solve(matrix: tuple[tuple[Fraction, ...], ...], rhs: tuple[Fraction,
             break
     if any(not any(row[:width]) and row[width] for row in rows):
         return None
-    solution = [Fraction(0)] * width
+    free_columns = tuple(column for column in range(width) if column not in pivot_columns)
+    if len(free_columns) > 12:
+        raise ValueError("Fourier-Motzkin free-variable cap exceeded")
+    inequalities: list[_Inequality] = []
+    for index in range(len(free_columns)):
+        coefficients = [Fraction(0)] * len(free_columns)
+        coefficients[index] = Fraction(-1)
+        inequalities.append(_Inequality(tuple(coefficients), Fraction(0), False))
+        coefficients[index] = Fraction(1)
+        inequalities.append(_Inequality(tuple(coefficients), Fraction(1), True))
     for row, column in enumerate(pivot_columns):
-        solution[column] = rows[row][width]
+        pivot_coefficients = tuple(-rows[row][free_column] for free_column in free_columns)
+        constant = rows[row][width]
+        inequalities.append(_Inequality(tuple(-value for value in pivot_coefficients), constant, False))
+        inequalities.append(_Inequality(pivot_coefficients, Fraction(1) - constant, True))
+    free_values = _choose_feasible_free_values(tuple(inequalities), len(free_columns))
+    if free_values is None:
+        return None
+    solution = [Fraction(0)] * width
+    for column, value in zip(free_columns, free_values, strict=True):
+        solution[column] = value
+    for row, column in enumerate(pivot_columns):
+        solution[column] = rows[row][width] - sum(
+            rows[row][free_column] * solution[free_column] for free_column in free_columns
+        )
     if any(value < 0 or value >= 1 for value in solution):
         return None
     return tuple(solution)
@@ -400,7 +503,7 @@ def _cell_for_transform(structure: ASUStructure, transform: SubgroupTransform, t
     if not equal_lengths and not fixed_angles:
         return _MetricCell(measured, 0.0, Fraction(0))
     metric = measured.metric()
-    exact = all(metric._element(pair) == metric._element((pair[1], pair[1])) for pair in equal_lengths)
+    exact = all(metric._element((pair[0], pair[0])) == metric._element((pair[1], pair[1])) for pair in equal_lengths)
     exact = exact and all(measured.angles[index] == angle for index, angle in fixed_angles)
     if exact:
         return _MetricCell(measured, 0.0, Fraction(0))
@@ -433,10 +536,10 @@ def _cell_for_transform(structure: ASUStructure, transform: SubgroupTransform, t
         fractional = max(fractional, abs(measured_angle - angle) / Fraction(180))
     if cartesian > tolerance:
         return None
+    if any(not length.is_rational for length in lengths):
+        return None
 
-    params = [
-        length._rational_fraction() if length.is_rational else length.to_fractions_approx() for length in lengths
-    ] + list(measured.angles)
+    params = [length._rational_fraction() for length in lengths] + list(measured.angles)
     for first, second in equal_lengths:
         params[second] = params[first]
     for index, angle in fixed_angles:
@@ -447,6 +550,16 @@ def _cell_for_transform(structure: ASUStructure, transform: SubgroupTransform, t
         periodicity=structure.cell.periodicity,
     )
     return _MetricCell(snapped, cartesian, fractional)
+
+
+def _parent_charge(structure: ASUStructure, transform: SubgroupTransform) -> Fraction | None:
+    """Undo descent's exact child/parent content scaling for one hop."""
+    if structure.charge is None:
+        return None
+    multiplier = abs(transform.operation.determinant())
+    if not multiplier:
+        raise ValueError(f"singular subgroup transform {transform.parent.setting} -> {transform.subgroup.setting}")
+    return structure.charge / multiplier
 
 
 def _translation_cosets(transform: SubgroupTransform) -> tuple[FracVector, ...]:
@@ -601,7 +714,9 @@ def _canonical_result_key(result: LiftResult) -> tuple[Any, ...]:
         )
     )
     path_key = tuple((transform.index, transform.subgroup_type) for transform in result.path)
-    return (sites, tuple(result.shift.to_fractions()), path_key)
+    metric = result.asu.cell.metric()
+    gram = tuple(metric._element((row, column)) for row in range(3) for column in range(3))
+    return (sites, tuple(result.shift.to_fractions()), gram, path_key)
 
 
 def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, tolerance: float) -> tuple[LiftResult, ...]:
@@ -669,7 +784,7 @@ def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, toler
                     structure.species,
                     transform=SettingTransform.identity(),
                     coordinate_precision=structure.coordinate_precision,
-                    charge=structure.charge,
+                    charge=_parent_charge(structure, transform),
                 )
             except ValueError:
                 return
@@ -712,7 +827,7 @@ def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, toler
                         structure.species,
                         transform=SettingTransform.identity(),
                         coordinate_precision=structure.coordinate_precision,
-                        charge=structure.charge,
+                        charge=_parent_charge(structure, transform),
                     )
                 except ValueError:
                     alternate_asu = None
@@ -796,9 +911,10 @@ def _apply_normalizer_operation(structure: ASUStructure, operation: AffineOperat
         if expected != actual:
             return None
         sites.append(WyckoffSite(first_position.letter, first_parameters, site.species))
+    basis = SurdVector(operation.matrix.T().inv()) * structure.cell.basis
     try:
         return ASUStructure(
-            structure.cell,
+            Cell(basis, precision=structure.cell.precision, periodicity=structure.cell.periodicity),
             structure.spacegroup,
             sites,
             structure.species,
@@ -817,7 +933,6 @@ def _normalizer_retries(structure: ASUStructure, target: Spacegroup, tolerance: 
         return ()
     transforms = subgroup_transforms(target, structure.spacegroup)
     results: list[LiftResult] = []
-    original_signature = _structure_signature(structure)
     images: dict[tuple[Any, ...], ASUStructure | None] = {}
     for transform in transforms:
         if not _multiplicity_possible(structure, transform):
@@ -832,22 +947,30 @@ def _normalizer_retries(structure: ASUStructure, target: Spacegroup, tolerance: 
             image = images[image_key]
             if image is None:
                 continue
-            if _structure_signature(image) == original_signature:
-                continue
             matches = tuple(
                 result
                 for result in _lift_transform(image, transform, tolerance)
                 if result.path and result.path[0] == transform
             )
-            if matches:
-                operation = AffineOperation.from_record(coset)
-                restored = _apply_normalizer_operation(matches[0].asu, operation.inverse())
+            operation = AffineOperation.from_record(coset)
+            correction = transform.operation * operation.inverse() * transform.operation.inverse()
+            for match in matches:
+                restored = _apply_normalizer_operation(match.asu, correction)
                 if restored is None:
                     continue
-                results.append(
-                    LiftResult(restored, matches[0].spacegroup, matches[0].path, matches[0].shift, matches[0].residual)
-                )
-                break
+                results.append(LiftResult(restored, match.spacegroup, match.path, match.shift, match.residual))
+    deduplicated: dict[tuple[Any, ...], LiftResult] = {}
+    for result in results:
+        deduplicated.setdefault(_canonical_result_key(result), result)
+    return tuple(deduplicated[key] for key in sorted(deduplicated))
+
+
+def _raw_lifts(structure: ASUStructure, target: Spacegroup, tolerance: float) -> tuple[LiftResult, ...]:
+    if structure.spacegroup.crystal_system not in COMPATIBLE_CRYSTAL_SYSTEMS[target.crystal_system]:
+        return ()
+    results: list[LiftResult] = []
+    for transform in subgroup_transforms(target, structure.spacegroup):
+        results.extend(_lift_transform(structure, transform, tolerance))
     deduplicated: dict[tuple[Any, ...], LiftResult] = {}
     for result in results:
         deduplicated.setdefault(_canonical_result_key(result), result)
@@ -885,13 +1008,12 @@ def backward_lift(
     if target.it_number not in minimal_supergroups(current.spacegroup):
         raise ValueError(f"space group {target.setting} is not a minimal supergroup of {current.spacegroup.setting}")
     accepted_tolerance = structure_tolerance(current) if tolerance is None else float(tolerance)
-    allowed = COMPATIBLE_CRYSTAL_SYSTEMS[target.crystal_system]
-    if current.spacegroup.crystal_system not in allowed:
-        return ()
-    results: list[LiftResult] = []
-    for transform in subgroup_transforms(target, current.spacegroup):
-        results.extend(_lift_transform(current, transform, accepted_tolerance))
-    return tuple(sorted(results, key=_canonical_result_key))
+    results = list(_raw_lifts(current, target, accepted_tolerance))
+    results.extend(_normalizer_retries(current, target, accepted_tolerance))
+    deduplicated: dict[tuple[Any, ...], LiftResult] = {}
+    for result in results:
+        deduplicated.setdefault(_canonical_result_key(result), result)
+    return tuple(deduplicated[key] for key in sorted(deduplicated))
 
 
 def lift_candidates(structure: ASUStructure, *, tolerance: float | None = None) -> tuple[LiftResult, ...]:
@@ -919,13 +1041,21 @@ def _highest_lifts(structure: ASUStructure, tolerance: float) -> tuple[LiftResul
     for parent_number in minimal_supergroups(structure.spacegroup):
         transforms = subgroup_transforms(parent_number, structure.spacegroup)
         indices = {transform: index for index, transform in enumerate(transforms)}
-        raw = backward_lift(structure, parent_number, tolerance=tolerance)
-        candidates = raw or _normalizer_retries(structure, Spacegroup.standard(parent_number), tolerance)
+        target = Spacegroup.standard(parent_number)
+        raw = _raw_lifts(structure, target, tolerance)
+        candidates = raw + _normalizer_retries(structure, target, tolerance)
         for result in candidates:
             if result.path and result.path[0] in indices:
                 results.append((parent_number, indices[result.path[0]], result))
+    deduplicated: dict[tuple[Any, ...], tuple[int, int, LiftResult]] = {}
+    for parent_number, table_index, result in results:
+        key = (parent_number, table_index, _canonical_result_key(result))
+        deduplicated.setdefault(key, (parent_number, table_index, result))
     return tuple(
-        result for _, _, result in sorted(results, key=lambda item: (item[0], item[1], _canonical_result_key(item[2])))
+        result
+        for _, _, result in sorted(
+            deduplicated.values(), key=lambda item: (item[0], item[1], _canonical_result_key(item[2]))
+        )
     )
 
 
@@ -935,7 +1065,9 @@ def _structure_signature(structure: ASUStructure) -> tuple[Any, ...]:
         position = structure.spacegroup.wyckoff_position(site.wyckoff)
         orbit = tuple(sorted(_wrapped_tuple(point) for point in position.coordinates(site.free_params)))
         sites.append((site.species, site.wyckoff, orbit))
-    return tuple(sorted(sites))
+    metric = structure.cell.metric()
+    gram = tuple(metric._element((row, column)) for row in range(3) for column in range(3))
+    return tuple(sorted(sites)), gram
 
 
 def _terminal_result(
