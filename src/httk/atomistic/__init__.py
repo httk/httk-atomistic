@@ -132,6 +132,12 @@ from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 from httk.atomistic.symmetry.primitive import PrimitiveCellResult, primitive_cell
 from httk.atomistic.symmetry.standardization import ConventionalCellResult, conventional_cell
+from httk.atomistic.symmetry.subgroups import (
+    maximal_subgroups,
+    minimal_supergroups,
+    subgroup_closure,
+    supergroup_closure,
+)
 from httk.atomistic.symmetry.wyckoff import WyckoffPosition, wyckoff_positions
 
 from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
@@ -284,6 +290,8 @@ __all__ = [
     "conventional_cell",
     "cubic_supercell",
     "is_niggli_reduced",
+    "maximal_subgroups",
+    "minimal_supergroups",
     "niggli_reduce",
     "niggli_reduced",
     "orthogonal_supercell",
@@ -292,6 +300,8 @@ __all__ = [
     "same_crystal",
     "save_vesta",
     "structure_tolerance",
+    "subgroup_closure",
+    "supergroup_closure",
     "symbol_of",
     "validate_structure_record",
     "wavefunction_overlap",

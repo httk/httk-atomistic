@@ -17,6 +17,9 @@ triggers the load.
 | `spacegroup_subgroups.json.gz` | 316 KB | per-IT-number Bärnighausen subgroup transformations and continuous-normalizer bases, for all 230 |
 | `affine_normalizer_cosets.json.gz` | 41 KB | affine-normalizer cosets for all 527 Hall entries |
 
+The split-affine records map parent standard-setting coordinates directly to child
+standard-setting coordinates, as pinned by `tests/test_subgroups.py`.
+
 ## What is in `symmetry_basics.json.gz`
 
 One record per space-group *setting*, not per space-group *type* — so all 527 settings,
