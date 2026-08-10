@@ -250,7 +250,7 @@ def test_content_id_is_layout_independent_without_sqlalchemy() -> None:
 
 def test_sql_store_unitcell_rename_preserves_content_id() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.data.db import Database, SqlStore
+    from httk.store.db import Database, SqlStore
 
     source = _unitcell()
     with Database.sqlite() as database:
@@ -262,7 +262,7 @@ def test_sql_store_unitcell_rename_preserves_content_id() -> None:
 
 def test_sql_store_round_trips_site_moments() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.data.db import Database, SqlStore
+    from httk.store.db import Database, SqlStore
 
     source = _unitcell(site_moments=CartesianSiteMoments([[1, 2, 3], [-1, 0, 1]], precision=Fraction(1, 100)))
     with Database.sqlite() as database:
@@ -364,7 +364,7 @@ def test_mixed_species_precision_survives_record_and_sql_views() -> None:
     assert UnitcellStructureView(record).species[0].concentration_precision == expected
 
     pytest.importorskip("sqlalchemy")
-    from httk.data.db import Database, SqlStore
+    from httk.store.db import Database, SqlStore
 
     with Database.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
@@ -403,7 +403,7 @@ def test_decorated_repeated_species_and_structure_charge_round_trip(dialect: str
     pytest.importorskip("sqlalchemy")
     if dialect == "duckdb":
         pytest.importorskip("duckdb_engine")
-    from httk.data.db import Database, SqlStore
+    from httk.store.db import Database, SqlStore
 
     database = Database.duckdb() if dialect == "duckdb" else Database.sqlite()
     with database:
@@ -536,7 +536,7 @@ def test_record_construction_defers_normalized_composition_validation() -> None:
         validate_structure_record(record)
 
     pytest.importorskip("sqlalchemy")
-    from httk.data.db import Database, SqlStore
+    from httk.store.db import Database, SqlStore
 
     with Database.sqlite() as database, pytest.raises(ValueError, match="normalized_composition contradicts"):
         SqlStore(database, entry_records={}).save(record)
@@ -544,7 +544,7 @@ def test_record_construction_defers_normalized_composition_validation() -> None:
 
 def test_sql_fetch_of_a_root_record_does_not_reconstruct_structure(monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.data.db import Database, SqlStore
+    from httk.store.db import Database, SqlStore
 
     import httk.atomistic.storage.records as structure_record_module
 
@@ -626,7 +626,7 @@ def test_sql_fetched_root_records_keep_identity_and_metadata(
     view_type: type[UnitcellStructureView] | type[ASUStructureView],
 ) -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.data.db import Database, SqlStore
+    from httk.store.db import Database, SqlStore
 
     with Database.sqlite() as database:
         store = SqlStore(
@@ -651,7 +651,7 @@ def test_sql_fetched_root_records_keep_identity_and_metadata(
 
 def test_unitcell_record_view_keeps_unread_cursor_fields_lazy() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.data.db import Database, ExpiredCursorRowError, SqlStore
+    from httk.store.db import Database, ExpiredCursorRowError, SqlStore
 
     with Database.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})

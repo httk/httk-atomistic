@@ -6,11 +6,11 @@ from typing import Any
 
 import pytest
 
-pytest.importorskip("httk.data.db")
+pytest.importorskip("httk.store.db")
 
 from httk.core import FracVector
-from httk.data.db import Database, SqlStore, stored_property_sql_plan
-from httk.data.query.optimade_filters import FilterTranslationError
+from httk.store.db import Database, SqlStore, stored_property_sql_plan
+from httk.store.query.optimade_filters import FilterTranslationError
 
 from httk.atomistic import (
     WyckoffSite,

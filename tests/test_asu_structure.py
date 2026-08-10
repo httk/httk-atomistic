@@ -333,7 +333,7 @@ def test_native_assemblies_are_servable_without_expansion() -> None:
     assert entry["assemblies"] == [{"sites_in_groups": [[0]], "group_probabilities": [1.0]}]
 
     pytest.importorskip("sqlalchemy")
-    from httk.data.db import Database, SqlStore
+    from httk.store.db import Database, SqlStore
 
     with Database.sqlite() as database:
         SqlStore(database, entry_records={}).save(correlated)

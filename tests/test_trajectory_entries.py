@@ -100,8 +100,8 @@ def test_record_trajectory_serves_identity_metadata() -> None:
 
 
 def test_trajectory_provider_rows_validate_against_extended_definition() -> None:
-    pytest.importorskip("httk.data")
-    from httk.data.validation import validate_record
+    pytest.importorskip("httk.store")
+    from httk.store.validation import validate_record
 
     provider = TrajectoryEntryProvider({"md": _trajectory()}, properties={"md": {"_httk_time_step": 1.0}})
     validate_record(provider.entry_types()["trajectories"], _served(provider))

@@ -59,9 +59,9 @@ def test_site_moment_definition_is_vendored_and_extended() -> None:
     assert set(MOMENT_PROPERTY_KEYS) <= set(extended.properties)
 
 
-def test_moment_record_validates_when_httk_data_is_available() -> None:
-    pytest.importorskip("httk.data")
-    from httk.data.validation import validate_record
+def test_moment_record_validates_when_httk_store_is_available() -> None:
+    pytest.importorskip("httk.store")
+    from httk.store.validation import validate_record
 
     provider = StructureEntryProvider({"x": _structure(CartesianSiteMoments([[1, 2, 3], [-1, 0, 1]]))})
     keys = provider.property_keys("structures")

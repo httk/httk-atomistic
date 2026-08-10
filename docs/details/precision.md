@@ -147,7 +147,7 @@ inside a unit definition — so these carry the `_httk_` prefix OPTIMADE require
 database-specific property name, while the definitions keep their own `$id`.
 
 Storing precision needs nothing special: `float` and `Fraction` are already first-class
-scalar kinds in httk-data.
+scalar kinds in httk-store.
 
 ## See also
 

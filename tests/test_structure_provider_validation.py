@@ -26,8 +26,8 @@ def _structure(
 
 
 def test_structure_provider_rows_validate_against_served_definition() -> None:
-    pytest.importorskip("httk.data")
-    from httk.data.validation import PropertyValidationError, validate_record
+    pytest.importorskip("httk.store")
+    from httk.store.validation import PropertyValidationError, validate_record
 
     energy = PropertyDefinition.from_simple("_httk_total_energy", description="E", fulltype="float")
     provider = StructureEntryProvider(
