@@ -3,8 +3,9 @@
 import itertools
 from dataclasses import dataclass
 from fractions import Fraction
+from functools import cache
 
-from httk.core import FracVector, SurdVector
+from httk.core import FracVector, SurdVector, register_citation
 
 from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
@@ -30,6 +31,27 @@ __all__ = [
 ]
 
 _MAX_PAIRING_PERMUTATIONS = 40_320
+
+
+@cache
+def _register_subgroup_matching_citation() -> None:
+    """Register the subgroup-matching thesis citation, once per process."""
+    register_citation(
+        applies_to=(
+            "The structure-matching and symmetry-path features (represent_like, "
+            "common_subgroup_representation, interpolate_structures) build on Edvard "
+            "Valentin's subgroup-matching work for httk v1"
+        ),
+        references={
+            "authors": ({"name": "Edvard Valentin"},),
+            "title": "Connecting Crystal Structures by Symmetry via Subgroup Matching",
+            "school": "Linköping University",
+            "year": "2024",
+            "note": "Master's thesis, urn:nbn:se:liu:diva-207867",
+            "url": "https://urn.kb.se/resolve?urn=urn:nbn:se:liu:diva-207867",
+            "bib_type": "mastersthesis",
+        },
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,6 +269,7 @@ def represent_like(
     :raises ValueError: If the groups are unrelated, signatures differ, or the input is
         unsupported by the exact symmetry machinery.
     """
+    _register_subgroup_matching_citation()
     return _aligned(structure, reference, tolerance=tolerance).structure
 
 
@@ -269,6 +292,7 @@ def common_subgroup_representation(
     :return: The two aligned structures and their selected common subgroup.
     :raises ValueError: If no common subgroup can represent both structures.
     """
+    _register_subgroup_matching_citation()
     _validate(first, "common_subgroup_representation")
     _validate(second, "common_subgroup_representation")
     common = set(subgroup_closure(first.spacegroup, include_self=True)) & set(
@@ -313,6 +337,7 @@ def interpolate_structures(
     :raises ValueError: If endpoints cannot be aligned, charges differ, or an intermediate
         frame is invalid.
     """
+    _register_subgroup_matching_citation()
     if steps < 2:
         raise ValueError("interpolate_structures requires steps >= 2")
     _validate(start, "interpolate_structures")

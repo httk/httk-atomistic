@@ -91,14 +91,27 @@ assert heading in credits.entries()
     )
 
 
-def test_asymmetric_unit_credit_is_registered_with_atomistic_import() -> None:
+def test_subgroup_matching_credit_is_lazy_and_deduplicated() -> None:
     _run_isolated(
         """
-from httk.core import credits
+from fractions import Fraction
 
-heading = "The symmetry and asymmetric-unit structure handling was informed by Edvard Valentin's subgroup-matching work for httk v1"
+from httk.core import FracVector, credits
+from httk.atomistic import ASUStructure, Cell, Species, WyckoffSite, represent_like
+
+heading = "The structure-matching and symmetry-path features (represent_like, common_subgroup_representation, interpolate_structures) build on Edvard Valentin's subgroup-matching work for httk v1"
 assert heading not in credits.entries()
-import httk.atomistic
+structure = ASUStructure(
+    Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7))),
+    15,
+    [WyckoffSite("e", FracVector([Fraction(1, 3)]), "Si")],
+    [Species(name="Si", chemical_symbols=("Si",), concentration=(1.0,))],
+)
+structure.expand_sites()
+assert heading not in credits.entries()
+represent_like(structure, structure)
+represent_like(structure, structure)
 assert heading in credits.entries()
+assert len(credits.entries()[heading]) == 1
 """
     )
