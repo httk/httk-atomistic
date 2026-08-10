@@ -9,11 +9,13 @@ from .xyz import operation_from_xyz, operation_from_xyzt, parse_linear_expressio
 __all__ = [
     "DEFAULT_TOLERANCE",
     "AffineOperation",
+    "CommonSubgroupResult",
     "ConventionalCellResult",
     "LiftResult",
     "PrimitiveCellResult",
     "SettingTransform",
     "Spacegroup",
+    "StructurePath",
     "SubgroupRepresentationResult",
     "SubgroupTransform",
     "WyckoffBranch",
@@ -21,8 +23,10 @@ __all__ = [
     "WyckoffSplitPiece",
     "backward_lift",
     "canonicalize",
+    "common_subgroup_representation",
     "conventional_cell",
     "highest_symmetry",
+    "interpolate_structures",
     "lift_candidates",
     "maximal_subgroups",
     "minimal_supergroups",
@@ -31,6 +35,7 @@ __all__ = [
     "parse_linear_expression",
     "primitive_cell",
     "recognize_asu",
+    "represent_like",
     "rerepresent",
     "structure_tolerance",
     "subgroup_closure",
@@ -42,6 +47,13 @@ __all__ = [
 
 if TYPE_CHECKING:
     from .lift import LiftResult, backward_lift, canonicalize, highest_symmetry, lift_candidates, rerepresent
+    from .paths import (
+        CommonSubgroupResult,
+        StructurePath,
+        common_subgroup_representation,
+        interpolate_structures,
+        represent_like,
+    )
     from .primitive import PrimitiveCellResult, primitive_cell
     from .recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
     from .standardization import ConventionalCellResult, conventional_cell
@@ -71,6 +83,29 @@ def __getattr__(name: str) -> object:
         from .standardization import ConventionalCellResult, conventional_cell
 
         globals().update(ConventionalCellResult=ConventionalCellResult, conventional_cell=conventional_cell)
+        return globals()[name]
+    if name in {
+        "CommonSubgroupResult",
+        "StructurePath",
+        "common_subgroup_representation",
+        "interpolate_structures",
+        "represent_like",
+    }:
+        from .paths import (
+            CommonSubgroupResult,
+            StructurePath,
+            common_subgroup_representation,
+            interpolate_structures,
+            represent_like,
+        )
+
+        globals().update(
+            CommonSubgroupResult=CommonSubgroupResult,
+            StructurePath=StructurePath,
+            common_subgroup_representation=common_subgroup_representation,
+            interpolate_structures=interpolate_structures,
+            represent_like=represent_like,
+        )
         return globals()[name]
     if name in {"PrimitiveCellResult", "primitive_cell"}:
         from .primitive import PrimitiveCellResult, primitive_cell

@@ -148,6 +148,7 @@ from httk.atomistic.symmetry.lift import (
     lift_candidates,
     rerepresent,
 )
+from httk.atomistic.symmetry.paths import StructurePath, interpolate_structures, represent_like
 from httk.atomistic.symmetry.wyckoff import WyckoffPosition, wyckoff_positions
 
 from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
@@ -276,6 +277,7 @@ __all__ = [
     "StructureEntry",
     "StructureEntryProvider",
     "StructureLike",
+    "StructurePath",
     "StructureSymmetry",
     "SubgroupRepresentationResult",
     "SupercellResult",
@@ -304,6 +306,7 @@ __all__ = [
     "conventional_cell",
     "cubic_supercell",
     "highest_symmetry",
+    "interpolate_structures",
     "is_niggli_reduced",
     "lift_candidates",
     "maximal_subgroups",
@@ -313,6 +316,7 @@ __all__ = [
     "orthogonal_supercell",
     "primitive_cell",
     "recognize_asu",
+    "represent_like",
     "rerepresent",
     "same_crystal",
     "save_vesta",

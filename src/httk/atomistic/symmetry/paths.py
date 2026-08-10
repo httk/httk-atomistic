@@ -1,0 +1,371 @@
+"""Exact symmetry-preserving structure alignment and interpolation."""
+
+import itertools
+from dataclasses import dataclass
+from fractions import Fraction
+
+from httk.core import FracVector, SurdVector
+
+from httk.atomistic import data
+from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
+from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
+from httk.atomistic.symmetry._standardization_common import (
+    _matrix_column_sum_factor,
+    _matrix_row_sum_factor,
+    _scaled_precision,
+)
+from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.lift import _apply_normalizer_operation, _wrapped, rerepresent
+from httk.atomistic.symmetry.setting_transform import SettingTransform
+from httk.atomistic.symmetry.spacegroup import Spacegroup
+from httk.atomistic.symmetry.subgroups import _standard_input, subgroup_closure
+
+__all__ = [
+    "CommonSubgroupResult",
+    "StructurePath",
+    "common_subgroup_representation",
+    "interpolate_structures",
+    "represent_like",
+]
+
+_MAX_PAIRING_PERMUTATIONS = 40_320
+
+
+@dataclass(frozen=True, slots=True)
+class CommonSubgroupResult:
+    """Two aligned structures in their highest common subgroup.
+
+    :param first: The first input represented in the common subgroup's standard setting.
+    :param second: The second input represented and aligned to ``first``.
+    :param spacegroup: The selected highest common subgroup in standard setting.
+    """
+
+    first: ASUStructure
+    second: ASUStructure
+    spacegroup: Spacegroup
+
+
+@dataclass(frozen=True, slots=True)
+class StructurePath:
+    """A finite exact interpolation path between two aligned asymmetric units.
+
+    :param frames: The endpoint-inclusive asymmetric-unit frames.
+    :param spacegroup: The shared space group and setting of all frames.
+    :param start: The first frame.
+    :param end: The last frame.
+    """
+
+    frames: tuple[ASUStructure, ...]
+    spacegroup: Spacegroup
+    start: ASUStructure
+    end: ASUStructure
+
+
+@dataclass(frozen=True, slots=True)
+class _Alignment:
+    structure: ASUStructure
+    pairs: tuple[tuple[int, int], ...]
+
+
+def _validate(structure: ASUStructure, operation: str) -> None:
+    require_full_periodicity(structure.cell, operation)
+    if any(site.moment is not None for site in structure.wyckoff_sites):
+        raise ValueError(f"{operation} does not support structures with site moments")
+    if structure.assemblies is not None:
+        raise ValueError(f"{operation} does not support structures with assemblies")
+    if structure.molecular:
+        raise ValueError(f"{operation} does not support molecular structures")
+
+
+def _signature(structure: ASUStructure) -> tuple[tuple[str, str, int], ...]:
+    return tuple(
+        sorted(
+            (
+                site.species,
+                site.wyckoff,
+                structure.spacegroup.wyckoff_position(site.wyckoff).multiplicity,
+            )
+            for site in structure.wyckoff_sites
+        )
+    )
+
+
+def _site_key(site: WyckoffSite) -> tuple[str, str, tuple[Fraction, ...]]:
+    return site.species, site.wyckoff, tuple(Fraction(value) for value in site.free_params.to_fractions())
+
+
+def _canonical_sites(sites: tuple[WyckoffSite, ...]) -> tuple[tuple[str, str, tuple[Fraction, ...]], ...]:
+    return tuple(sorted(_site_key(site) for site in sites))
+
+
+def _classes(structure: ASUStructure) -> dict[tuple[str, str], tuple[int, ...]]:
+    result: dict[tuple[str, str], list[int]] = {}
+    for index, site in enumerate(structure.wyckoff_sites):
+        result.setdefault((site.species, site.wyckoff), []).append(index)
+    return {key: tuple(value) for key, value in result.items()}
+
+
+def _pair_score(candidate: ASUStructure, reference: ASUStructure) -> tuple[Fraction, tuple[tuple[int, int], ...]]:
+    candidate_classes = _classes(candidate)
+    reference_classes = _classes(reference)
+    if candidate_classes.keys() != reference_classes.keys():
+        raise ValueError("structures have incompatible site classes")
+
+    score = Fraction(0)
+    pairs: list[tuple[int, int]] = []
+    for key in sorted(reference_classes):
+        reference_indices = reference_classes[key]
+        candidate_indices = candidate_classes[key]
+        if len(reference_indices) != len(candidate_indices):
+            raise ValueError("structures have incompatible site classes")
+        if len(reference_indices) > 1 and len(reference_indices) > _MAX_PAIRING_PERMUTATIONS:
+            raise ValueError(f"pairing permutation bound exceeded for {key!r}; maximum is {_MAX_PAIRING_PERMUTATIONS}")
+        best: tuple[Fraction, tuple[tuple[Fraction, ...], ...], tuple[int, ...]] | None = None
+        for permutation in itertools.permutations(candidate_indices):
+            distance = Fraction(0)
+            parameter_key: list[tuple[Fraction, ...]] = []
+            for reference_index, candidate_index in zip(reference_indices, permutation, strict=True):
+                reference_params = reference.wyckoff_sites[reference_index].free_params.to_fractions()
+                candidate_params = candidate.wyckoff_sites[candidate_index].free_params.to_fractions()
+                distance += sum(
+                    (
+                        _wrapped(Fraction(right) - Fraction(left)) ** 2
+                        for left, right in zip(reference_params, candidate_params)
+                    ),
+                    Fraction(0),
+                )
+                parameter_key.append(tuple(Fraction(value) for value in candidate_params))
+            choice = (distance, tuple(parameter_key), tuple(permutation))
+            if best is None or choice < best:
+                best = choice
+        assert best is not None
+        score += best[0]
+        pairs.extend(zip(reference_indices, best[2], strict=True))
+    return score, tuple(pairs)
+
+
+def _reference_setting(candidate: ASUStructure, reference: ASUStructure) -> ASUStructure:
+    transform = reference.transform
+    basis_matrix = transform.matrix.T().inv()
+    cell = Cell(
+        transform.basis_to_setting(candidate.cell.basis),
+        precision=_scaled_precision(candidate.cell.precision, _matrix_row_sum_factor(basis_matrix)),
+        periodicity=candidate.cell.periodicity,
+    )
+    return ASUStructure(
+        cell,
+        reference.spacegroup,
+        candidate.wyckoff_sites,
+        candidate.species,
+        transform=transform,
+        coordinate_precision=_scaled_precision(
+            candidate.coordinate_precision,
+            _matrix_column_sum_factor(transform.matrix.T()),
+        ),
+        charge=candidate.charge,
+    )
+
+
+def _normalizer_image(structure: ASUStructure, operation: AffineOperation) -> ASUStructure | None:
+    image = _apply_normalizer_operation(structure, operation)
+    if image is None:
+        return None
+    basis_matrix = operation.matrix.T().inv()
+    cell = Cell(
+        SurdVector(basis_matrix) * SurdVector(image.cell.basis),
+        precision=_scaled_precision(image.cell.precision, _matrix_row_sum_factor(basis_matrix)),
+        periodicity=image.cell.periodicity,
+    )
+    return ASUStructure(
+        cell,
+        image.spacegroup,
+        image.wyckoff_sites,
+        image.species,
+        transform=SettingTransform.identity(),
+        coordinate_precision=_scaled_precision(
+            image.coordinate_precision,
+            _matrix_column_sum_factor(operation.matrix.T()),
+        ),
+        charge=image.charge,
+    )
+
+
+def _aligned(end: ASUStructure, reference: ASUStructure, *, tolerance: float | None) -> _Alignment:
+    _validate(end, "represent_like")
+    _validate(reference, "represent_like")
+    represented = rerepresent(end, reference.spacegroup, tolerance=tolerance)
+    represented = _standard_input(represented)
+    reference_signature = _signature(reference)
+    represented_signature = _signature(represented)
+    if represented_signature != reference_signature:
+        raise ValueError(
+            f"structures are not representable alike: signatures {represented_signature!r} and {reference_signature!r}"
+        )
+
+    candidates: dict[tuple[tuple[str, str, tuple[Fraction, ...]], ...], ASUStructure] = {
+        _canonical_sites(represented.wyckoff_sites): represented
+    }
+    try:
+        record = data.affine_normalizer_coset_record(represented.spacegroup.hall_entry)
+    except KeyError:
+        record = {}
+    for coset in record.get("affine_normalizer_cosets", ()):
+        if represented.spacegroup.crystal_system not in coset["compatible_systems"]:
+            continue
+        image = _normalizer_image(represented, AffineOperation.from_record(coset))
+        if image is not None:
+            candidates.setdefault(_canonical_sites(image.wyckoff_sites), image)
+
+    best: (
+        tuple[Fraction, tuple[tuple[str, str, tuple[Fraction, ...]], ...], ASUStructure, tuple[tuple[int, int], ...]]
+        | None
+    ) = None
+    for candidate in candidates.values():
+        try:
+            score, pairs = _pair_score(candidate, reference)
+        except ValueError:
+            continue
+        choice = (score, _canonical_sites(candidate.wyckoff_sites), candidate, pairs)
+        if best is None or choice[:2] < best[:2]:
+            best = choice
+    assert best is not None
+    aligned = _reference_setting(best[2], reference)
+    return _Alignment(aligned, best[3])
+
+
+def represent_like(
+    structure: ASUStructure,
+    reference: ASUStructure,
+    *,
+    tolerance: float | None = None,
+) -> ASUStructure:
+    """Represent a structure in a reference's group and setting.
+
+    The input is first sent through :func:`rerepresent`, then equivalent affine-normalizer
+    coset images of that one descent realization are scored against the reference. This is
+    deliberately bounded: tabulated variants of alternate multi-hop descent paths are not
+    enumerated because :func:`rerepresent` exposes only its deterministic selected realization.
+    Site pairing is brute force and capped at 40,320 permutations per class; larger classes
+    require a future assignment solver.
+
+    :param structure: The structure to represent.
+    :param reference: The structure supplying the group, setting, and alignment target.
+    :param tolerance: Cartesian tolerance passed to upward rerepresentation.
+    :return: The input represented in the reference's group and setting.
+    :raises ValueError: If the groups are unrelated, signatures differ, or the input is
+        unsupported by the exact symmetry machinery.
+    """
+    return _aligned(structure, reference, tolerance=tolerance).structure
+
+
+def common_subgroup_representation(
+    first: ASUStructure,
+    second: ASUStructure,
+    *,
+    tolerance: float | None = None,
+) -> CommonSubgroupResult:
+    """Represent two structures in their highest common subgroup.
+
+    Common subgroups are ordered by descending symmetry-operation count and then descending
+    International Tables number. The first group for which both exact descents succeed is
+    selected; the second structure is then aligned to the first by :func:`represent_like`.
+
+    :param first: The first structure.
+    :param second: The second structure.
+    :param tolerance: Cartesian tolerance passed to upward rerepresentation.
+    :return: The two aligned structures and their selected common subgroup.
+    :raises ValueError: If no common subgroup can represent both structures.
+    """
+    _validate(first, "common_subgroup_representation")
+    _validate(second, "common_subgroup_representation")
+    common = set(subgroup_closure(first.spacegroup, include_self=True)) & set(
+        subgroup_closure(second.spacegroup, include_self=True)
+    )
+    ordered = sorted(
+        common,
+        key=lambda number: (-len(Spacegroup.standard(number).symmetry_operations), -number),
+    )
+    for number in ordered:
+        target = Spacegroup.standard(number)
+        try:
+            first_child = _standard_input(rerepresent(first, target, tolerance=tolerance))
+            second_child = _standard_input(rerepresent(second, target, tolerance=tolerance))
+            second_aligned = represent_like(second_child, first_child, tolerance=tolerance)
+        except ValueError:
+            continue
+        return CommonSubgroupResult(first_child, second_aligned, target)
+    raise ValueError("no common subgroup representation succeeded")
+
+
+def interpolate_structures(
+    start: ASUStructure,
+    end: ASUStructure,
+    *,
+    steps: int,
+    tolerance: float | None = None,
+) -> StructurePath:
+    """Build an exact symmetry-preserving linear interpolation.
+
+    Free parameters follow the wrapped shortest rational displacement and cell bases are
+    linearly interpolated in the shared setting. Every intermediate frame is expanded so a
+    collision with an already occupied orbit is reported with its step index. Frames carry
+    the start structure's setting transform, while their Wyckoff parameters remain standard-
+    setting values.
+
+    :param start: The first endpoint.
+    :param end: The second endpoint.
+    :param steps: Number of endpoint-inclusive frames, at least two.
+    :param tolerance: Cartesian tolerance passed to upward rerepresentation.
+    :return: The exact interpolation path.
+    :raises ValueError: If endpoints cannot be aligned, charges differ, or an intermediate
+        frame is invalid.
+    """
+    if steps < 2:
+        raise ValueError("interpolate_structures requires steps >= 2")
+    _validate(start, "interpolate_structures")
+    _validate(end, "interpolate_structures")
+    start_standard = rerepresent(start, start.spacegroup, tolerance=tolerance)
+    alignment = _aligned(end, start_standard, tolerance=tolerance)
+    end_aligned = alignment.structure
+    if start_standard.charge != end_aligned.charge:
+        raise ValueError("interpolation requires equal charges or both charges to be None")
+
+    pairs = alignment.pairs
+    frames: list[ASUStructure] = []
+    last = steps - 1
+    for index in range(steps):
+        if index == 0:
+            frames.append(start_standard)
+            continue
+        if index == last:
+            frames.append(end_aligned)
+            continue
+        weight = Fraction(index, last)
+        sites: list[WyckoffSite] = []
+        for start_index, end_index in pairs:
+            left = start_standard.wyckoff_sites[start_index]
+            right = end_aligned.wyckoff_sites[end_index]
+            parameters = [
+                Fraction(left_value) + weight * _wrapped(Fraction(right_value) - Fraction(left_value))
+                for left_value, right_value in zip(
+                    left.free_params.to_fractions(), right.free_params.to_fractions(), strict=True
+                )
+            ]
+            sites.append(WyckoffSite(left.wyckoff, FracVector(parameters), left.species))
+        basis = (SurdVector(start_standard.cell.basis) * (1 - weight)) + (SurdVector(end_aligned.cell.basis) * weight)
+        try:
+            frame = ASUStructure(
+                Cell(basis, periodicity=start_standard.cell.periodicity),
+                start_standard.spacegroup,
+                sites,
+                start_standard.species,
+                transform=start_standard.transform,
+                coordinate_precision=start_standard.coordinate_precision,
+                charge=start_standard.charge,
+            )
+            frame.expand_sites()
+        except ValueError as error:
+            raise ValueError(f"interpolation step {index}: {error}") from error
+        frames.append(frame)
+    return StructurePath(tuple(frames), start_standard.spacegroup, start_standard, end_aligned)
