@@ -58,6 +58,92 @@ def _rank3(m: list[list[F]]) -> int:
 # --- dataset shape ---
 
 
+def test_spacegroup_subgroup_records_cover_all_it_numbers() -> None:
+    records = [data.spacegroup_subgroup_record(it_number) for it_number in range(1, 231)]
+    assert len(records) == 230
+    assert all(set(record) == {"it_number", "baernighausen", "continuous_normalizer"} for record in records)
+    assert [record["it_number"] for record in records] == list(range(1, 231))
+    with pytest.raises(KeyError):
+        data.spacegroup_subgroup_record(0)
+    with pytest.raises(KeyError):
+        data.spacegroup_subgroup_record(231)
+
+
+def test_baernighausen_references_valid_it_numbers_and_subgroup_types() -> None:
+    for it_number in range(1, 231):
+        for subgroup in data.spacegroup_subgroup_record(it_number)["baernighausen"]:
+            assert 1 <= subgroup["target_it_number"] <= 230
+            for transform in subgroup["transforms"]:
+                assert transform["subgroup_type"] in {"t", "k"}
+                if transform["subgroup_type"] == "k":
+                    assert transform["k_subtype"]
+
+
+def test_subgroup_affine_data_is_exact_and_nonsingular() -> None:
+    for it_number in range(1, 231):
+        record = data.spacegroup_subgroup_record(it_number)
+        for subgroup in record["baernighausen"]:
+            for transform in subgroup["transforms"]:
+                for splitting in transform["wyckoff_splitting"]:
+                    for split in splitting["splits"]:
+                        affine = split["affine"]
+                        assert len(affine) == 3
+                        assert all(len(row) == 4 for row in affine)
+                        assert all(isinstance(value, str) for row in affine for value in row)
+                        for row in affine:
+                            [F(value) for value in row]
+
+                affine = transform["affine_transformation"]
+                matrix = affine["matrix"]
+                vector = affine["vector"]
+                assert len(matrix) == 3
+                assert all(len(row) == 3 for row in matrix)
+                assert len(vector) == 3
+                assert all(isinstance(value, str) for row in matrix for value in row)
+                assert all(isinstance(value, str) for value in vector)
+                assert _det3(_rational_matrix(matrix)) != 0
+                [F(value) for value in vector]
+
+
+def test_baernighausen_letters_match_standard_settings() -> None:
+    for it_number in range(1, 231):
+        parent_letters = {entry["letter"] for entry in data.standard_spacegroup_setting(it_number)["wyckoff"]}
+        for subgroup in data.spacegroup_subgroup_record(it_number)["baernighausen"]:
+            child_letters = {
+                entry["letter"] for entry in data.standard_spacegroup_setting(subgroup["target_it_number"])["wyckoff"]
+            }
+            for transform in subgroup["transforms"]:
+                for splitting in transform["wyckoff_splitting"]:
+                    assert {splitting["parent"]} <= parent_letters
+                    assert {split["letter"] for split in splitting["splits"]} <= child_letters
+
+
+def test_continuous_normalizers_are_exact_fractional_bases() -> None:
+    for it_number in range(1, 231):
+        normalizer = data.spacegroup_subgroup_record(it_number)["continuous_normalizer"]
+        assert normalizer["dimension"] in {0, 1, 2, 3}
+        assert normalizer["coordinate_system"] == "fractional"
+        assert len(normalizer["basis_vectors"]) == normalizer["dimension"]
+        for vector in normalizer["basis_vectors"]:
+            assert len(vector) == 3
+            assert all(isinstance(value, str) for value in vector)
+            [F(value) for value in vector]
+
+
+def test_affine_normalizer_cosets_cover_reference_settings() -> None:
+    hall_entries = [data.standard_spacegroup_setting(it_number)["hall_entry"] for it_number in range(1, 231)]
+    assert len(set(hall_entries)) == 230
+    for hall_entry in hall_entries:
+        assert data.affine_normalizer_coset_record(hall_entry)["hall_entry"] == hall_entry
+
+    systems = {"triclinic", "monoclinic", "orthorhombic", "tetragonal", "trigonal", "hexagonal", "cubic"}
+    sample = data.affine_normalizer_coset_record(hall_entries[0])
+    cosets = sample["orthogonal_affine_normalizer_cosets"] + sample["affine_normalizer_cosets"]
+    assert {system for coset in cosets for system in coset["compatible_systems"]} <= systems
+    with pytest.raises(KeyError):
+        data.affine_normalizer_coset_record("not_a_hall_symbol")
+
+
 def test_settings_and_reference_settings_are_complete() -> None:
     settings = data.spacegroup_settings()
     assert len(settings) == 527

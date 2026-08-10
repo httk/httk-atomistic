@@ -14,6 +14,8 @@ triggers the load.
 | --- | --- | --- |
 | `symmetry_basics.json.gz` | 621 KB | 527 space-group **setting** records (230 of them reference settings) + the 32 point groups |
 | `spacegroup_setting_transforms.json.gz` | 8 KB | change-of-basis operation from each setting to its IT standard setting, for all 527 |
+| `spacegroup_subgroups.json.gz` | 316 KB | per-IT-number Bärnighausen subgroup transformations and continuous-normalizer bases, for all 230 |
+| `affine_normalizer_cosets.json.gz` | 41 KB | affine-normalizer cosets for all 527 Hall entries |
 
 ## What is in `symmetry_basics.json.gz`
 
@@ -76,6 +78,8 @@ Source repository: <https://github.com/httk/data-generator>
 | --- | --- | --- |
 | `symmetry_basics.json.gz` | 0.1.0 | data-generators commit `de1f495b9e9231c8223cb20423f0d8b69b376a55`, copied byte-for-byte |
 | `spacegroup_setting_transforms.json.gz` | 0.1.0 | subset of the same commit's `transformations_hm_entry` dataset |
+| `spacegroup_subgroups.json.gz` | 0.1.0 | subset of the `transformations_std` dataset in the data-generators checkout used for this refresh |
+| `affine_normalizer_cosets.json.gz` | 0.1.0 | `affine_normalizer_cosets` dataset in the data-generators checkout used for this refresh, copied byte-for-byte |
 
 The transforms file is a **derived subset**, not an upstream artifact. Upstream
 `transformations_hm_entry.json.gz` is 5.2 MB compressed but 133 MB decompressed and takes
@@ -83,14 +87,17 @@ about four seconds to parse, of which httk needs only the per-setting
 `hall_to_it_std_transform` record. `tools/vendor_symmetry_data.py` extracts that one field
 into a document of the same JSON-LD shape, carrying the source document's `@context`,
 `creator`, `dcterms:license`, and `prov:wasGeneratedBy` header forward unchanged so the
-attribution chain is unbroken. No values are altered. The remaining upstream sections
-(`euclidean_normalizer`, `affine_normalizer`, `isomorphic_subgroups`, `baernighausen`)
-are not currently used by httk; the slice can be widened later without disturbing
-anything.
+attribution chain is unbroken. No values are altered. The `baernighausen` and
+`continuous_normalizer` sections are now vendored in `spacegroup_subgroups.json.gz`.
+The remaining sections of the `transformations_std.json.gz` source
+(`same_space_group_affine_images_std`,
+`isomorphic_subgroups`, `backward_lift_criteria`, `euclidean_normalizer`, and the full
+`orthogonal_affine_normalizer`/`affine_normalizer` sections) remain deliberately
+un-vendored: they are unused by the runtime and are 40+ MB raw.
 
 ## License
 
-Both datasets are distributed under the Creative Commons Attribution 4.0 International
+All four datasets are distributed under the Creative Commons Attribution 4.0 International
 License (CC BY 4.0); see the adjacent [`LICENSE`](./LICENSE) for the required attribution.
 This differs from the httk source code, which is AGPL — see the repository root.
 
@@ -100,7 +107,8 @@ This differs from the httk source code, which is AGPL — see the repository roo
 make symmetry-data DATA_GENERATORS=/path/to/data-generators
 ```
 
-This copies `symmetry_basics.json.gz` and regenerates the transforms slice. It is offline:
+This copies `symmetry_basics.json.gz` and `affine_normalizer_cosets.json.gz`, and regenerates
+the two slices. It is offline:
 it reads a local data-generators checkout rather than the network, unlike `make
 optimade-defs`. The slice is written with a fixed gzip mtime so the output is
 byte-reproducible. After a refresh, review the diff and re-commit only intended version

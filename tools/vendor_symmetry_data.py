@@ -2,7 +2,7 @@
 
 Run via ``make symmetry-data DATA_GENERATORS=<path to data-generators checkout>``.
 
-Two files are produced:
+Four files are produced:
 
 ``symmetry_basics.json.gz``
     Copied byte-for-byte from the data-generators output. It is used as-is.
@@ -15,6 +15,13 @@ Two files are produced:
     field into a document of the same JSON-LD shape, carrying the source document's
     licence, creator, and provenance header forward unchanged so that the CC BY 4.0
     attribution chain is unbroken.
+
+``spacegroup_subgroups.json.gz``
+    A derived subset of ``transformations_std.json.gz`` containing only the per-IT-number
+    Bärnighausen and continuous-normalizer sections.
+
+``affine_normalizer_cosets.json.gz``
+    Copied byte-for-byte from the data-generators output.
 
 Nothing here runs at build or test time; the checked-in copies are authoritative.
 """
@@ -92,6 +99,38 @@ def build_transform_slice(source: Path) -> dict[str, Any]:
     return sliced
 
 
+def build_subgroup_slice(source: Path) -> dict[str, Any]:
+    """Extract the subgroup and continuous-normalizer sections per IT number."""
+    with gzip.open(source, "rt", encoding="utf-8") as handle:
+        document = json.load(handle)
+
+    records = [
+        {
+            "it_number": entry["it_number"],
+            "baernighausen": entry["baernighausen"],
+            "continuous_normalizer": entry["continuous_normalizer"],
+        }
+        for entry in document["data"]["transformations_per_it_number"]
+    ]
+    records.sort(key=lambda record: record["it_number"])
+    index = {str(record["it_number"]): position for position, record in enumerate(records)}
+
+    sliced = {key: document[key] for key in PROVENANCE_KEYS if key in document}
+    sliced["@id"] = "urn:httk-atomistic:spacegroup_subgroups/0.1.0"
+    sliced["dcterms:title"] = "Space-group subgroup transformations and continuous normalizers"
+    sliced["rdfs:comment"] = (
+        "A verbatim per-IT-number subset of the transformations_std dataset, retaining only "
+        "the baernighausen and continuous_normalizer sections. This dataset is extracted by "
+        "httk-atomistic/tools/vendor_symmetry_data.py; no values are altered. Direction and "
+        "convention documentation is intentionally deferred to the data README. The data in "
+        "this file was generated using [cctbx](https://cctbx.github.io/)."
+    )
+    sliced["dcterms:source"] = document.get("@id")
+    sliced["data"] = {"spacegroup_subgroups": records}
+    sliced["indicies"] = {"index_it_number_to_spacegroup_subgroups": index}
+    return sliced
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -104,7 +143,9 @@ def main() -> None:
     source_dir = args.data_generators / "data"
     basics = source_dir / "symmetry_basics.json.gz"
     transforms = source_dir / "transformations_hm_entry.json.gz"
-    for path in (basics, transforms):
+    subgroups = source_dir / "transformations_std.json.gz"
+    cosets = source_dir / "affine_normalizer_cosets.json.gz"
+    for path in (basics, transforms, subgroups, cosets):
         if not path.is_file():
             raise SystemExit(f"missing source dataset: {path}")
 
@@ -120,6 +161,17 @@ def main() -> None:
         handle.write(json.dumps(sliced, separators=(",", ":"), sort_keys=False).encode("utf-8"))
     count = len(sliced["data"]["spacegroup_setting_transforms"])
     print(f"wrote {target.name} ({count} settings, {target.stat().st_size} bytes)")
+
+    sliced = build_subgroup_slice(subgroups)
+    target = VENDOR_DIR / "spacegroup_subgroups.json.gz"
+    with gzip.GzipFile(target, "wb", mtime=0) as handle:
+        handle.write(json.dumps(sliced, separators=(",", ":"), sort_keys=False).encode("utf-8"))
+    count = len(sliced["data"]["spacegroup_subgroups"])
+    print(f"wrote {target.name} ({count} IT numbers, {target.stat().st_size} bytes)")
+
+    target = VENDOR_DIR / "affine_normalizer_cosets.json.gz"
+    shutil.copyfile(cosets, target)
+    print(f"copied {cosets.name} ({target.stat().st_size} bytes)")
 
 
 if __name__ == "__main__":
