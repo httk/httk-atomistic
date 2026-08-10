@@ -21,6 +21,7 @@ from httk.atomistic import (
 from httk.atomistic.composition import Assembly
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.symmetry import common_subgroup_representation, subgroup_closure
+from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.lift import _apply_normalizer
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -59,6 +60,15 @@ def _child_two(value: F, *, charge: F | None = None) -> ASUStructure:
     )
 
 
+def _same_named_species_structure(symbol: str, value: F) -> ASUStructure:
+    return ASUStructure(
+        Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7))),
+        2,
+        [WyckoffSite("i", FracVector([F(1, 5), F(1, 6), value]), "site")],
+        [Species(name="site", chemical_symbols=(symbol,), concentration=(1,))],
+    )
+
+
 def test_represent_like_recovers_a_normalizer_coset_image() -> None:
     parent = _parent(5, [WyckoffSite("a", FracVector([F(2, 17)]), "Si")], ((5, 0, 0), (0, 6, 0), (0, 0, 7)))
     original = subgroup_representation(parent, 3).asu
@@ -73,6 +83,25 @@ def test_represent_like_recovers_a_normalizer_coset_image() -> None:
     assert tuple(site.free_params.to_fractions() for site in result.wyckoff_sites) == tuple(
         site.free_params.to_fractions() for site in original.wyckoff_sites
     )
+
+
+def test_non_involutory_normalizer_transforms_the_cell_once() -> None:
+    species = Species(name="site", chemical_symbols=("C",), concentration=(1,))
+    source = ASUStructure(
+        Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7))),
+        143,
+        [WyckoffSite("d", FracVector([F(1, 7), F(2, 11), F(3, 13)]), "site")],
+        [species],
+    )
+    coset = data.affine_normalizer_coset_record(source.spacegroup.hall_entry)["affine_normalizer_cosets"][0]
+    operation = AffineOperation.from_record(coset)
+    assert operation.matrix * operation.matrix != FracVector.eye((3, 3))
+    reference = _apply_normalizer(source, coset)
+    assert reference is not None
+
+    result = represent_like(source, reference)
+
+    assert result.cell.basis == reference.cell.basis
 
 
 def test_represent_like_descends_and_rejects_unrelated_or_mismatched_inputs() -> None:
@@ -128,6 +157,17 @@ def test_interpolation_is_exact_and_keeps_the_shared_setting() -> None:
 def test_interpolation_wraps_the_short_way() -> None:
     path = interpolate_structures(_child_two(F(1, 10)), _child_two(F(9, 10)), steps=3)
     assert path.frames[1].wyckoff_sites[0].free_params.to_fractions()[-1] == F(0)
+
+
+def test_same_name_different_species_definitions_are_rejected() -> None:
+    carbon = _same_named_species_structure("C", F(1, 10))
+    oxygen = _same_named_species_structure("O", F(1, 8))
+
+    with pytest.raises(ValueError, match="signatures"):
+        represent_like(oxygen, carbon)
+    with pytest.raises(ValueError, match="signatures"):
+        interpolate_structures(carbon, oxygen, steps=3)
+    assert len(interpolate_structures(carbon, _same_named_species_structure("C", F(1, 9)), steps=3).frames) == 3
 
 
 def test_interpolation_rejects_steps_charges_and_orbit_collision() -> None:

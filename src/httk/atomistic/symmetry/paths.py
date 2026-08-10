@@ -8,6 +8,7 @@ from httk.core import FracVector, SurdVector
 
 from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
 from httk.atomistic.symmetry._standardization_common import (
@@ -17,7 +18,6 @@ from httk.atomistic.symmetry._standardization_common import (
 )
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.lift import _apply_normalizer_operation, _wrapped, rerepresent
-from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 from httk.atomistic.symmetry.subgroups import _standard_input, subgroup_closure
 
@@ -78,17 +78,27 @@ def _validate(structure: ASUStructure, operation: str) -> None:
         raise ValueError(f"{operation} does not support molecular structures")
 
 
-def _signature(structure: ASUStructure) -> tuple[tuple[str, str, int], ...]:
+def _species_by_name(structure: ASUStructure) -> dict[str, Species]:
+    return {species.name: species for species in structure.species}
+
+
+def _species_signature(structure: ASUStructure) -> tuple[tuple[str, Species], ...]:
     return tuple(
-        sorted(
-            (
-                site.species,
-                site.wyckoff,
-                structure.spacegroup.wyckoff_position(site.wyckoff).multiplicity,
-            )
-            for site in structure.wyckoff_sites
-        )
+        sorted(((species.name, species) for species in structure.species), key=lambda item: (item[0], repr(item[1])))
     )
+
+
+def _signature(structure: ASUStructure) -> tuple[tuple[Species, str, int], ...]:
+    species = _species_by_name(structure)
+    entries = [
+        (
+            species[site.species],
+            site.wyckoff,
+            structure.spacegroup.wyckoff_position(site.wyckoff).multiplicity,
+        )
+        for site in structure.wyckoff_sites
+    ]
+    return tuple(sorted(entries, key=lambda item: (item[0].name, item[1], item[2], repr(item[0]))))
 
 
 def _site_key(site: WyckoffSite) -> tuple[str, str, tuple[Fraction, ...]]:
@@ -99,10 +109,11 @@ def _canonical_sites(sites: tuple[WyckoffSite, ...]) -> tuple[tuple[str, str, tu
     return tuple(sorted(_site_key(site) for site in sites))
 
 
-def _classes(structure: ASUStructure) -> dict[tuple[str, str], tuple[int, ...]]:
-    result: dict[tuple[str, str], list[int]] = {}
+def _classes(structure: ASUStructure) -> dict[tuple[Species, str], tuple[int, ...]]:
+    species = _species_by_name(structure)
+    result: dict[tuple[Species, str], list[int]] = {}
     for index, site in enumerate(structure.wyckoff_sites):
-        result.setdefault((site.species, site.wyckoff), []).append(index)
+        result.setdefault((species[site.species], site.wyckoff), []).append(index)
     return {key: tuple(value) for key, value in result.items()}
 
 
@@ -114,7 +125,7 @@ def _pair_score(candidate: ASUStructure, reference: ASUStructure) -> tuple[Fract
 
     score = Fraction(0)
     pairs: list[tuple[int, int]] = []
-    for key in sorted(reference_classes):
+    for key in sorted(reference_classes, key=lambda item: (item[0].name, item[1], repr(item[0]))):
         reference_indices = reference_classes[key]
         candidate_indices = candidate_classes[key]
         if len(reference_indices) != len(candidate_indices):
@@ -168,27 +179,7 @@ def _reference_setting(candidate: ASUStructure, reference: ASUStructure) -> ASUS
 
 
 def _normalizer_image(structure: ASUStructure, operation: AffineOperation) -> ASUStructure | None:
-    image = _apply_normalizer_operation(structure, operation)
-    if image is None:
-        return None
-    basis_matrix = operation.matrix.T().inv()
-    cell = Cell(
-        SurdVector(basis_matrix) * SurdVector(image.cell.basis),
-        precision=_scaled_precision(image.cell.precision, _matrix_row_sum_factor(basis_matrix)),
-        periodicity=image.cell.periodicity,
-    )
-    return ASUStructure(
-        cell,
-        image.spacegroup,
-        image.wyckoff_sites,
-        image.species,
-        transform=SettingTransform.identity(),
-        coordinate_precision=_scaled_precision(
-            image.coordinate_precision,
-            _matrix_column_sum_factor(operation.matrix.T()),
-        ),
-        charge=image.charge,
-    )
+    return _apply_normalizer_operation(structure, operation)
 
 
 def _aligned(end: ASUStructure, reference: ASUStructure, *, tolerance: float | None) -> _Alignment:
@@ -198,7 +189,7 @@ def _aligned(end: ASUStructure, reference: ASUStructure, *, tolerance: float | N
     represented = _standard_input(represented)
     reference_signature = _signature(reference)
     represented_signature = _signature(represented)
-    if represented_signature != reference_signature:
+    if _species_signature(represented) != _species_signature(reference) or represented_signature != reference_signature:
         raise ValueError(
             f"structures are not representable alike: signatures {represented_signature!r} and {reference_signature!r}"
         )
@@ -242,10 +233,10 @@ def represent_like(
 ) -> ASUStructure:
     """Represent a structure in a reference's group and setting.
 
-    The input is first sent through :func:`rerepresent`, then equivalent affine-normalizer
+    The input is first sent through :func:`~httk.atomistic.symmetry.lift.rerepresent`, then equivalent affine-normalizer
     coset images of that one descent realization are scored against the reference. This is
     deliberately bounded: tabulated variants of alternate multi-hop descent paths are not
-    enumerated because :func:`rerepresent` exposes only its deterministic selected realization.
+    enumerated because :func:`~httk.atomistic.symmetry.lift.rerepresent` exposes only its deterministic selected realization.
     Site pairing is brute force and capped at 40,320 permutations per class; larger classes
     require a future assignment solver.
 
@@ -269,7 +260,8 @@ def common_subgroup_representation(
 
     Common subgroups are ordered by descending symmetry-operation count and then descending
     International Tables number. The first group for which both exact descents succeed is
-    selected; the second structure is then aligned to the first by :func:`represent_like`.
+    selected; the second structure is then aligned to the first by
+    :func:`~httk.atomistic.symmetry.paths.represent_like`.
 
     :param first: The first structure.
     :param second: The second structure.
@@ -328,6 +320,8 @@ def interpolate_structures(
     start_standard = rerepresent(start, start.spacegroup, tolerance=tolerance)
     alignment = _aligned(end, start_standard, tolerance=tolerance)
     end_aligned = alignment.structure
+    if set(start_standard.species) != set(end_aligned.species):
+        raise ValueError("interpolation requires identical species definitions at both endpoints")
     if start_standard.charge != end_aligned.charge:
         raise ValueError("interpolation requires equal charges or both charges to be None")
 
