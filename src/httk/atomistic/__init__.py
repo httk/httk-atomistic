@@ -135,7 +135,9 @@ from httk.atomistic.symmetry.standardization import ConventionalCellResult, conv
 from httk.atomistic.symmetry.subgroups import (
     maximal_subgroups,
     minimal_supergroups,
+    SubgroupRepresentationResult,
     subgroup_closure,
+    subgroup_representation,
     supergroup_closure,
 )
 from httk.atomistic.symmetry.wyckoff import WyckoffPosition, wyckoff_positions
@@ -266,6 +268,7 @@ __all__ = [
     "StructureEntryProvider",
     "StructureLike",
     "StructureSymmetry",
+    "SubgroupRepresentationResult",
     "SupercellResult",
     "SymopsStructure",
     "Trajectory",
@@ -301,6 +304,7 @@ __all__ = [
     "save_vesta",
     "structure_tolerance",
     "subgroup_closure",
+    "subgroup_representation",
     "supergroup_closure",
     "symbol_of",
     "validate_structure_record",

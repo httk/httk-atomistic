@@ -6,8 +6,12 @@ tabulated; closures and the inverted supergroup graph are derived here.
 
 The split-affine convention pinned by ``tests/test_subgroups.py`` is that a
 :class:`WyckoffSplitPiece` operation maps a parent standard-setting coordinate directly
-to a child standard-setting coordinate. A :class:`SubgroupTransform` operation is the
-tabulated affine basis change between the parent and child standard settings.
+to a child standard-setting coordinate. The tabulated
+:class:`SubgroupTransform` operation has matrix ``M`` with the child basis on the
+left: ``B_child = M.T() * B_parent``. At the affine-coordinate level it maps child
+coordinates into parent coordinates, ``f_parent = f_child * M.T() + v``; its inverse
+matrix is the coordinate basis change used by the split operations (up to their listed
+origin translations).
 """
 
 from collections import deque
@@ -18,11 +22,23 @@ from functools import cache
 from types import MappingProxyType
 from typing import Any
 
+from httk.core import SurdVector
+
 from httk.atomistic import data
+from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
+from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
+from httk.atomistic.symmetry._standardization_common import (
+    _matrix_column_sum_factor,
+    _matrix_row_sum_factor,
+    _scaled_precision,
+)
 from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 __all__ = [
+    "SubgroupRepresentationResult",
     "SubgroupTransform",
     "WyckoffSplitPiece",
     "maximal_subgroups",
@@ -31,6 +47,22 @@ __all__ = [
     "subgroup_transforms",
     "supergroup_closure",
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class SubgroupRepresentationResult:
+    """Store an exact asymmetric-unit representation in a subgroup.
+
+    :param asu: The subgroup-standard-setting asymmetric unit with identity transform.
+    :param spacegroup: The subgroup space group in its standard setting.
+    :param path: The selected maximal-subgroup transforms, in parent-first order.
+    :param multiplier: The exact child-to-parent cell-content ratio.
+    """
+
+    asu: ASUStructure
+    spacegroup: Spacegroup
+    path: tuple["SubgroupTransform", ...]
+    multiplier: Fraction
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,8 +89,9 @@ class SubgroupTransform:
     :param index: The tabulated subgroup index ``[G:H]``.
     :param subgroup_type: The tabulated relation type, ``"t"`` or ``"k"``.
     :param k_subtype: The tabulated ``k`` subtype, or ``None`` for a ``t`` relation.
-    :param operation: The exact tabulated affine basis change mapping parent
-        standard-setting coordinates into subgroup standard-setting coordinates.
+    :param operation: The exact tabulated affine basis change from child to parent
+        coordinates. If its matrix is ``M`` and vector is ``v``, it evaluates as
+        ``f_parent = f_child * M.T() + v``; the child basis is ``M.T() * parent_basis``.
     :param splittings: An immutable mapping from parent Wyckoff letters to child pieces.
     """
 
@@ -243,3 +276,174 @@ def subgroup_transforms(parent: Spacegroup | int, subgroup: Spacegroup | int) ->
                 )
             )
     return tuple(result)
+
+
+def _wrapped_coordinate_key(coordinate: Any) -> tuple[Fraction, ...]:
+    """Return one exact wrapped coordinate as a hashable tuple."""
+    return tuple(coordinate.normalize().to_fractions())
+
+
+def _orbit_key(position: Any, parameters: Any) -> frozenset[tuple[Fraction, ...]]:
+    """Return the exact wrapped coordinate set naming one child orbit."""
+    return frozenset(_wrapped_coordinate_key(point) for point in position.coordinates(parameters))
+
+
+def _standard_input(structure: ASUStructure) -> ASUStructure:
+    """Normalize an ASU cell to its standard frame while retaining exact metadata."""
+    transform = structure.transform
+    basis_matrix = transform.matrix.T()
+    new_cell = Cell(
+        transform.basis_to_standard(structure.cell.basis),
+        precision=_scaled_precision(structure.cell.precision, _matrix_row_sum_factor(basis_matrix)),
+        periodicity=structure.cell.periodicity,
+    )
+    return ASUStructure(
+        new_cell,
+        structure.spacegroup,
+        tuple(WyckoffSite(site.wyckoff, site.free_params, site.species) for site in structure.wyckoff_sites),
+        structure.species,
+        transform=SettingTransform.identity(),
+        coordinate_precision=_scaled_precision(
+            structure.coordinate_precision,
+            _matrix_column_sum_factor(basis_matrix.inv()),
+        ),
+        charge=structure.charge,
+    )
+
+
+def _child_sites(parent: ASUStructure, transform: SubgroupTransform) -> tuple[WyckoffSite, ...]:
+    """Map every parent ASU site through one tabulated split entry."""
+    sites: list[WyckoffSite] = []
+    seen: set[frozenset[tuple[Fraction, ...]]] = set()
+    for site in parent.wyckoff_sites:
+        pieces = transform.splittings.get(site.wyckoff)
+        if pieces is None:
+            raise ValueError(f"no splitting for parent Wyckoff site {site.wyckoff!r}")
+        parent_point = parent.spacegroup.wyckoff_position(site.wyckoff).representative.coordinate(site.free_params)
+        for piece in pieces:
+            child_point = piece.operation.apply_wrapped(parent_point)
+            identified = transform.subgroup.identify_wyckoff(child_point)
+            if identified is None:
+                raise ValueError(f"parent site {site!r} maps to an unidentified child point")
+            position, parameters = identified
+            orbit = _orbit_key(position, parameters)
+            if orbit in seen:
+                continue
+            seen.add(orbit)
+            sites.append(WyckoffSite(position.letter, parameters, site.species))
+    return tuple(sites)
+
+
+def _hop(
+    parent: ASUStructure,
+    subgroup: Spacegroup,
+) -> tuple[ASUStructure, SubgroupTransform]:
+    """Apply the first table entry that exactly recognizes all parent sites."""
+    last_error: ValueError | None = None
+    for transform in subgroup_transforms(parent.spacegroup, subgroup):
+        try:
+            sites = _child_sites(parent, transform)
+        except ValueError as error:
+            last_error = error
+            continue
+        matrix = transform.operation.matrix.T()
+        child_cell = Cell(
+            SurdVector(matrix) * SurdVector(parent.cell.basis),
+            precision=_scaled_precision(parent.cell.precision, _matrix_row_sum_factor(matrix)),
+            periodicity=parent.cell.periodicity,
+        )
+        child = ASUStructure(
+            child_cell,
+            transform.subgroup,
+            sites,
+            parent.species,
+            transform=SettingTransform.identity(),
+            coordinate_precision=_scaled_precision(
+                parent.coordinate_precision,
+                _matrix_column_sum_factor(matrix.inv()),
+            ),
+            charge=parent.charge,
+        )
+        return child, transform
+    detail = "" if last_error is None else f": {last_error}"
+    raise ValueError(
+        f"no subgroup transform from {parent.spacegroup.setting} to {subgroup.setting} maps every site{detail}"
+    )
+
+
+def _shortest_subgroup_path(source: int, target: int) -> tuple[int, ...]:
+    """Return the deterministic shortest IT-number path, excluding the source."""
+    pending: deque[tuple[int, tuple[int, ...]]] = deque()
+    pending.append((source, ()))
+    visited = {source}
+    while pending:
+        current, path = pending.popleft()
+        for child in maximal_subgroups(current):
+            if child in visited:
+                continue
+            next_path = path + (child,)
+            if child == target:
+                return next_path
+            visited.add(child)
+            pending.append((child, next_path))
+    raise ValueError(f"space group {target} is not in the subgroup closure of space group {source}")
+
+
+def subgroup_representation(
+    structure: ASUStructure,
+    subgroup: Spacegroup | int,
+) -> SubgroupRepresentationResult:
+    """Express an exact ASU in a subgroup's IT standard setting.
+
+    :param structure: The fully periodic parent asymmetric-unit structure.
+    :param subgroup: The target subgroup space group or IT number.
+    :return: The child ASU, selected maximal-subgroup path, and exact multiplier.
+    :raises TypeError: If ``structure`` is not an :class:`ASUStructure`.
+    :raises ValueError: If the structure is not fully periodic, carries site moments,
+        assemblies, or molecular semantics, or if the target is not reachable.
+    """
+    if not isinstance(structure, ASUStructure):
+        raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")
+    require_full_periodicity(structure.cell, "subgroup_representation")
+    if any(site.moment is not None for site in structure.wyckoff_sites):
+        raise ValueError("subgroup_representation does not support structures with site moments")
+    if structure.assemblies is not None:
+        raise ValueError("subgroup_representation does not support structures with assemblies")
+    if structure.molecular:
+        raise ValueError("subgroup_representation does not support molecular structures")
+
+    target_number = _it_number(subgroup)
+    current = _standard_input(structure)
+    if current.spacegroup.it_number == target_number:
+        return SubgroupRepresentationResult(current, current.spacegroup, (), Fraction(1))
+
+    path_numbers = _shortest_subgroup_path(current.spacegroup.it_number, target_number)
+    path: list[SubgroupTransform] = []
+    multiplier = Fraction(1)
+    for child_number in path_numbers:
+        child_group = Spacegroup.standard(child_number)
+        parent_count = len(current.expand_sites())
+        child, transform = _hop(current, child_group)
+        child_count = len(child.expand_sites())
+        if parent_count == 0:
+            raise ValueError("subgroup_representation cannot determine a multiplier for an empty ASU")
+        hop_multiplier = Fraction(child_count, parent_count)
+        if child.cell.periodic_measure != current.cell.periodic_measure * hop_multiplier:
+            raise ValueError(
+                f"subgroup table multiplier mismatch for {current.spacegroup.setting} -> {child_group.setting}"
+            )
+        multiplier *= hop_multiplier
+        child_charge = None if current.charge is None else current.charge * hop_multiplier
+        if child_charge is not None:
+            child = ASUStructure(
+                child.cell,
+                child.spacegroup,
+                child.wyckoff_sites,
+                child.species,
+                transform=SettingTransform.identity(),
+                coordinate_precision=child.coordinate_precision,
+                charge=child_charge,
+            )
+        current = child
+        path.append(transform)
+    return SubgroupRepresentationResult(current, current.spacegroup, tuple(path), multiplier)

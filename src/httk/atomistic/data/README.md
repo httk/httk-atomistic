@@ -19,6 +19,10 @@ triggers the load.
 
 The split-affine records map parent standard-setting coordinates directly to child
 standard-setting coordinates, as pinned by `tests/test_subgroups.py`.
+For an entry `affine_transformation` with matrix `M`, the basis convention is
+`B_child = M.T @ B_parent`. The full entry affine map is child-to-parent,
+`f_parent = f_child @ M.T + v`; the inverse matrix is the parent-to-child coordinate
+basis change used by the split operations.
 
 ## What is in `symmetry_basics.json.gz`
 

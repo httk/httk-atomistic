@@ -13,6 +13,7 @@ __all__ = [
     "PrimitiveCellResult",
     "SettingTransform",
     "Spacegroup",
+    "SubgroupRepresentationResult",
     "SubgroupTransform",
     "WyckoffBranch",
     "WyckoffPosition",
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
     from .recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
     from .standardization import ConventionalCellResult, conventional_cell
     from .subgroups import (
+        SubgroupRepresentationResult,
         SubgroupTransform,
         WyckoffSplitPiece,
         maximal_subgroups,
@@ -69,6 +71,7 @@ def __getattr__(name: str) -> object:
         globals().update(PrimitiveCellResult=PrimitiveCellResult, primitive_cell=primitive_cell)
         return globals()[name]
     if name in {
+        "SubgroupRepresentationResult",
         "SubgroupTransform",
         "WyckoffSplitPiece",
         "maximal_subgroups",
@@ -78,6 +81,7 @@ def __getattr__(name: str) -> object:
         "supergroup_closure",
     }:
         from .subgroups import (
+            SubgroupRepresentationResult,
             SubgroupTransform,
             WyckoffSplitPiece,
             maximal_subgroups,
@@ -88,6 +92,7 @@ def __getattr__(name: str) -> object:
         )
 
         globals().update(
+            SubgroupRepresentationResult=SubgroupRepresentationResult,
             SubgroupTransform=SubgroupTransform,
             WyckoffSplitPiece=WyckoffSplitPiece,
             maximal_subgroups=maximal_subgroups,
