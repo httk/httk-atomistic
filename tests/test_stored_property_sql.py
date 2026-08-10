@@ -20,6 +20,7 @@ from httk.atomistic import (
     FundamentalDomainStructure,
     FundamentalDomainStructureRecord,
     Sites,
+    Spacegroup,
     Species,
     UnitcellStructure,
     StructureEntry,
@@ -60,15 +61,14 @@ def _domain(record_type: type[Any], *, molecular: bool = False) -> FundamentalDo
     )
 
 
-def _duplicate_a_orbit_asu() -> ASUStructure:
+def _collapsed_orbit_asu() -> ASUStructure:
+    rhombohedral = Spacegroup.for_setting("166:R")
     return ASUStructure(
-        [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
-        225,
-        (
-            WyckoffSite("a", FracVector(()), "Na"),
-            WyckoffSite("a", FracVector(()), "Na"),
-        ),
-        (Species("Na", ("Na",), (1,)),),
+        [[4, 0, 0], [0, 4, 0], [0, 0, 12]],
+        166,
+        (WyckoffSite("a", FracVector(()), "Bi"),),
+        (Species("Bi", ("Bi",), (1,)),),
+        transform=rhombohedral.transform_from_standard,
     )
 
 
@@ -333,13 +333,13 @@ def test_exact_precision_filter_retains_the_full_decimal_literal(long_precision_
 
 
 @pytest.mark.parametrize("dialect", ("sqlite", "duckdb"))
-def test_natural_duplicate_asu_orbits_preserve_the_deduplicated_composition(dialect):
+def test_natural_collapsed_asu_orbit_preserves_expanded_composition(dialect):
     if dialect == "duckdb":
         pytest.importorskip("duckdb_engine")
         database = Database.duckdb()
     else:
         database = Database.sqlite()
-    source = _duplicate_a_orbit_asu()
+    source = _collapsed_orbit_asu()
     with database:
         store = SqlStore(database, entry_records={StructureEntry: ASUStructureRecord})
         store.save(source)
@@ -348,12 +348,12 @@ def test_natural_duplicate_asu_orbits_preserve_the_deduplicated_composition(dial
         searcher.output(variable, "record")
         (fetched,), _names = next(iter(searcher))
         assert tuple((value.element, value.amount) for value in fetched.normalized_composition.amounts) == (
-            ("Na", Fraction(4)),
+            ("Bi", Fraction(1)),
         )
         served = next(iter(StructureEntryProvider({fetched.id: fetched}).records("structures")))
-        assert served["elements"] == ["Na"]
+        assert served["elements"] == ["Bi"]
         assert served["elements_ratios"] == [1.0]
-        assert served["chemical_formula_reduced"] == "Na"
+        assert served["chemical_formula_reduced"] == "Bi"
 
 
 def test_zero_site_composition_keeps_elements_known_but_formulas_unknown(zero_site_plan):

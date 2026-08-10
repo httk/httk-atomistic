@@ -116,6 +116,31 @@ def test_partial_occupancy_survives_expansion() -> None:
     assert structure.species[0].concentration == (0.5,)
 
 
+@pytest.mark.parametrize("structure_type", [FundamentalDomainStructure, ASUStructure])
+def test_redundant_wyckoff_site_raises(structure_type: type[FundamentalDomainStructure]) -> None:
+    asu = structure_type(
+        CUBIC,
+        225,
+        [WyckoffSite("a", NO_PARAMETERS, "Na"), WyckoffSite("a", NO_PARAMETERS, "Cl")],
+        _species("Na", "Cl"),
+    )
+    assert isinstance(asu, structure_type)
+
+    with pytest.raises(ValueError, match=r"WyckoffSite\('Cl' at a\).*duplicates an earlier site's orbit"):
+        _ = UnitcellStructureView(asu).sites
+
+
+def test_distinct_sites_same_letter_do_not_raise() -> None:
+    asu = ASUStructure(
+        [[5, 0, 0], [0, 6, 0], [0, 0, 7]],
+        15,
+        [WyckoffSite("e", FracVector(["1/3"]), "Si"), WyckoffSite("e", FracVector(["1/4"]), "Ge")],
+        _species("Si", "Ge"),
+    )
+
+    assert all(count > 0 for count in asu.multiplicities())
+
+
 # --- settings ---
 
 

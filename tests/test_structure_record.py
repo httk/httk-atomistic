@@ -16,6 +16,7 @@ from httk.atomistic import (
     FundamentalDomainStructure,
     FundamentalDomainStructureRecord,
     SettingTransform,
+    Spacegroup,
     Species,
     StructureEntry,
     UnitcellStructure,
@@ -560,22 +561,36 @@ def test_sql_fetch_of_a_root_record_does_not_reconstruct_structure(monkeypatch: 
         assert fetched.id == source.id
 
 
-def test_asu_record_preserves_cross_orbit_deduplicated_composition() -> None:
-    """The normalized relation must follow ASU expansion's exact global deduplication."""
+def test_asu_record_composition_follows_collapsed_orbit_expansion() -> None:
+    """The normalized relation follows an orbit's exact within-site collapse."""
+    rhombohedral = Spacegroup.for_setting("166:R")
+    source = ASUStructure(
+        [[4, 0, 0], [0, 4, 0], [0, 0, 12]],
+        166,
+        (WyckoffSite("a", FracVector(()), "Bi"),),
+        (Species("Bi", ("Bi",), (1,)),),
+        transform=rhombohedral.transform_from_standard,
+    )
+    assert source.multiplicities() == (1,)
+    record = _domain_record(source)
+
+    assert isinstance(record, ASUStructureRecord)
+    assert tuple((value.element, value.amount) for value in record.normalized_composition.amounts) == (
+        ("Bi", Fraction(1)),
+    )
+    assert UnitcellStructureView(record).composition.amounts == (("Bi", Fraction(1)),)
+
+
+def test_asu_record_rejects_redundant_duplicate_orbit() -> None:
     source = ASUStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         225,
         (WyckoffSite("a", FracVector(()), "Na"), WyckoffSite("a", FracVector(()), "Na")),
         (Species("Na", ("Na",), (1,)),),
     )
-    assert source.multiplicities() == (4, 0)
-    record = _domain_record(source)
 
-    assert isinstance(record, ASUStructureRecord)
-    assert tuple((value.element, value.amount) for value in record.normalized_composition.amounts) == (
-        ("Na", Fraction(4)),
-    )
-    assert UnitcellStructureView(record).composition.amounts == (("Na", Fraction(4)),)
+    with pytest.raises(ValueError, match="duplicates an earlier site's orbit"):
+        _domain_record(source)
 
 
 def test_normalized_composition_record_requires_ratios_to_normalize_amounts() -> None:

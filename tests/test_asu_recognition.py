@@ -11,6 +11,7 @@ returns the input only when the input was already exact.
 """
 
 import fractions
+import sys
 
 import pytest
 from httk.core import FracVector, unwrap
@@ -228,6 +229,30 @@ def test_view_recognizes_a_plain_structure() -> None:
 
 
 # --- spglib ---
+
+
+def test_asu_view_no_arguments_uses_spglib() -> None:
+    pytest.importorskip("spglib")
+    expanded = UnitcellStructureView(_rocksalt())
+    structure = UnitcellStructure(
+        expanded.cell, expanded.sites.reduced_coords, expanded.species, expanded.species_at_sites
+    )
+
+    view = ASUStructureView(structure)
+
+    assert view.spacegroup.it_number == 225
+    assert same_crystal(structure, UnitcellStructureView(view))
+
+
+def test_asu_view_without_spglib_raises_importerror(monkeypatch: pytest.MonkeyPatch) -> None:
+    expanded = UnitcellStructureView(_rocksalt())
+    structure = UnitcellStructure(
+        expanded.cell, expanded.sites.reduced_coords, expanded.species, expanded.species_at_sites
+    )
+    monkeypatch.setitem(sys.modules, "spglib", None)
+
+    with pytest.raises(ImportError, match=r"spglib.*httk-atomistic\[default\]"):
+        ASUStructureView(structure)
 
 
 def test_spglib_finds_the_symmetry_of_a_structure_that_carries_none() -> None:
