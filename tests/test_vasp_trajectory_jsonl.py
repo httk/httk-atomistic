@@ -7,7 +7,7 @@ import httk.core
 import pytest
 from httk.core.storage import project_storage_record
 
-from httk.atomistic import JsonlTrajectory, TrajectoryRecord, VASPTrajectory
+from httk.atomistic import JsonlTrajectory, TrajectoryRecord, UnitcellStructureView, VASPStructure, VASPTrajectory
 
 POSCAR = """Synthetic POSCAR
 1.0
@@ -53,6 +53,58 @@ def test_vasp_trajectory_jsonl_round_trip(tmp_path: Path) -> None:
     assert record.source_locator == str(destination)
     adapted_record = TrajectoryRecord(**project_storage_record(TrajectoryRecord, loaded))
     assert adapted_record.source_locator == str(destination)
+
+
+@pytest.mark.parametrize("backend", [VASPTrajectory, JsonlTrajectory])
+def test_trajectory_identity_adoption_does_not_reinitialize(
+    backend: type, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_dir = tmp_path / "vasp"
+    source_dir.mkdir()
+    (source_dir / "POSCAR").write_text(POSCAR, encoding="utf-8")
+    (source_dir / "XDATCAR").write_text(XDATCAR, encoding="utf-8")
+    source = VASPTrajectory(source_dir)
+    destination = tmp_path / "vasp.traj.jsonl"
+    httk.core.save(source, destination)
+
+    if backend is VASPTrajectory:
+        existing = source
+        initialized = "_vasp_trajectory_initialized"
+    else:
+        existing = JsonlTrajectory(destination)
+        initialized = "_jsonl_initialized"
+    nframes = existing.nframes
+
+    assert getattr(existing, initialized) is True
+    assert backend(existing) is existing
+    assert backend(existing, kind="something-else") is existing
+    assert getattr(existing, initialized) is True
+    assert existing.nframes == nframes
+
+    init_calls: list[None] = []
+    original_init = backend.__init__
+
+    def counting_init(self: object, *args: object, **kwargs: object) -> None:
+        init_calls.append(None)
+        original_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(backend, "__init__", counting_init)
+    assert backend._backend_adopt(existing) is existing
+    assert init_calls == []
+    assert backend._backend_adopt(existing, kind="other") is None
+
+
+def test_vasp_structure_view_kind_dispatch(tmp_path: Path) -> None:
+    source = tmp_path / "POSCAR"
+    source.write_text(POSCAR, encoding="utf-8")
+    backend = VASPStructure(source)
+
+    with pytest.raises(TypeError):
+        UnitcellStructureView(backend, kind="plain")
+
+    view = UnitcellStructureView(backend, kind=VASPStructure.kind)
+    assert view._backend is backend
+    assert view.unwrap() is source
 
 
 AL_300K = Path(__file__).parents[2] / "electronic-structure-example-data" / "MD" / "VASP" / "Al_300K"
