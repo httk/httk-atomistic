@@ -10,6 +10,7 @@ __all__ = [
     "DEFAULT_TOLERANCE",
     "AffineOperation",
     "ConventionalCellResult",
+    "LiftResult",
     "PrimitiveCellResult",
     "SettingTransform",
     "Spacegroup",
@@ -18,7 +19,11 @@ __all__ = [
     "WyckoffBranch",
     "WyckoffPosition",
     "WyckoffSplitPiece",
+    "backward_lift",
+    "canonicalize",
     "conventional_cell",
+    "highest_symmetry",
+    "lift_candidates",
     "maximal_subgroups",
     "minimal_supergroups",
     "operation_from_xyz",
@@ -26,6 +31,7 @@ __all__ = [
     "parse_linear_expression",
     "primitive_cell",
     "recognize_asu",
+    "rerepresent",
     "structure_tolerance",
     "subgroup_closure",
     "subgroup_transforms",
@@ -35,6 +41,7 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
+    from .lift import LiftResult, backward_lift, canonicalize, highest_symmetry, lift_candidates, rerepresent
     from .primitive import PrimitiveCellResult, primitive_cell
     from .recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
     from .standardization import ConventionalCellResult, conventional_cell
@@ -100,6 +107,18 @@ def __getattr__(name: str) -> object:
             subgroup_closure=subgroup_closure,
             subgroup_transforms=subgroup_transforms,
             supergroup_closure=supergroup_closure,
+        )
+        return globals()[name]
+    if name in {"LiftResult", "backward_lift", "canonicalize", "highest_symmetry", "lift_candidates", "rerepresent"}:
+        from .lift import LiftResult, backward_lift, canonicalize, highest_symmetry, lift_candidates, rerepresent
+
+        globals().update(
+            LiftResult=LiftResult,
+            backward_lift=backward_lift,
+            canonicalize=canonicalize,
+            highest_symmetry=highest_symmetry,
+            lift_candidates=lift_candidates,
+            rerepresent=rerepresent,
         )
         return globals()[name]
     raise AttributeError(name)

@@ -140,6 +140,14 @@ from httk.atomistic.symmetry.subgroups import (
     subgroup_representation,
     supergroup_closure,
 )
+from httk.atomistic.symmetry.lift import (
+    LiftResult,
+    backward_lift,
+    canonicalize,
+    highest_symmetry,
+    lift_candidates,
+    rerepresent,
+)
 from httk.atomistic.symmetry.wyckoff import WyckoffPosition, wyckoff_positions
 
 from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
@@ -235,6 +243,7 @@ __all__ = [
     "FundamentalDomainStructure",
     "FundamentalDomainStructureRecord",
     "JsonlTrajectory",
+    "LiftResult",
     "ModulatedStructure",
     "NiggliReducedStructureResult",
     "NiggliReductionResult",
@@ -288,11 +297,15 @@ __all__ = [
     "asu_structure_from_cif",
     "asu_structures_from_cif",
     "atomic_number",
+    "backward_lift",
     "build_supercell",
+    "canonicalize",
     "cif_setting",
     "conventional_cell",
     "cubic_supercell",
+    "highest_symmetry",
     "is_niggli_reduced",
+    "lift_candidates",
     "maximal_subgroups",
     "minimal_supergroups",
     "niggli_reduce",
@@ -300,6 +313,7 @@ __all__ = [
     "orthogonal_supercell",
     "primitive_cell",
     "recognize_asu",
+    "rerepresent",
     "same_crystal",
     "save_vesta",
     "structure_tolerance",
