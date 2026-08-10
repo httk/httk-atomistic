@@ -3,7 +3,7 @@
 import fractions
 import logging
 from collections.abc import Sequence
-from typing import Any, ClassVar, Protocol, runtime_checkable
+from typing import Any, ClassVar, Protocol, Self, runtime_checkable
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
@@ -102,14 +102,21 @@ class PymatgenStructure(StructureBackend):
     _raw: Any
     _structure: UnitcellStructure
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a pymatgen-compatible structure.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints.get("kind", "pymatgen") != "pymatgen":
             return None
         if isinstance(obj, (UnitcellStructure, StructureBackend, StructureView)):
             return None
         if not isinstance(obj, PymatgenStructureProtocol):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: PymatgenStructureProtocol, **hints: Any) -> None:
         species_by_key: dict[tuple[Any, ...], tuple[str, Species]] = {}

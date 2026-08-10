@@ -1,7 +1,7 @@
 """Map OPTIMADE trajectory properties to a backend."""
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self
 
 from httk.core import SurdVector
 
@@ -89,10 +89,17 @@ class PlainTrajectory(TrajectoryBackend):
     _reference_frames: tuple[int, ...] | None
     _observable_names: tuple[str, ...]
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a plain trajectory mapping.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints and hints.get("kind", cls.kind) != cls.kind:
             return None
-        return super().__new__(cls) if isinstance(obj, Mapping) else None
+        return cls(obj, **hints) if isinstance(obj, Mapping) else None
 
     def __init__(self, obj: Mapping[str, Any], **hints: Any) -> None:
         nframes = obj.get("nframes")

@@ -4,7 +4,7 @@ from collections import Counter
 from fractions import Fraction
 from functools import cached_property
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Self
 
 from httk.core import unwrap
 
@@ -31,7 +31,14 @@ class PrototypeComposition(ChemicalFormulaBackend):
     _prototype: Any
     kind = "prototype"
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a prototype-like backend.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints and hints.get("kind", "prototype") != "prototype":
             return None
         if isinstance(
@@ -43,7 +50,7 @@ class PrototypeComposition(ChemicalFormulaBackend):
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
             ),
         ):
-            return super().__new__(cls)
+            return cls(obj, **hints)
         return None
 
     def __init__(self, obj: Any, **hints: Any) -> None:

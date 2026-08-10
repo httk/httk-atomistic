@@ -1,5 +1,5 @@
 import fractions
-from typing import Any
+from typing import Any, Self
 
 from httk.core import FracVector
 
@@ -16,12 +16,19 @@ class RecordSites(SitesBackend):
 
     _record: SitesRecord
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a sites record.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints and hints.get("kind", "record") != "record":
             return None
         if not isinstance(obj, SitesRecord):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: SitesRecord, **hints: Any) -> None:
         self._record = obj

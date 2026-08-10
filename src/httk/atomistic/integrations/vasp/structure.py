@@ -3,7 +3,7 @@
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self
 
 import httk.core
 from httk.core.register import format_serializers
@@ -38,7 +38,26 @@ class VASPStructure(StructureBackend):
     _resolved: UnitcellStructure | None
     _vasp_initialized: bool
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    def __new__(cls, obj: Any, **hints: Any) -> Self:
+        if isinstance(obj, cls):
+            return obj
+        if isinstance(obj, StructureView):
+            unwrapped = httk.core.unwrap(obj)
+            if isinstance(unwrapped, cls):
+                return unwrapped
+            backend = getattr(obj, "_backend", None)
+            if isinstance(backend, cls):
+                return backend
+        return super().__new__(cls)
+
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a VASP structure source.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints.get("kind", cls.kind) != cls.kind:
             return None
         if isinstance(obj, cls):
@@ -50,7 +69,7 @@ class VASPStructure(StructureBackend):
             backend = getattr(obj, "_backend", None)
             if isinstance(backend, cls):
                 return backend
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: Any, **hints: Any) -> None:
         if getattr(self, "_vasp_initialized", False):

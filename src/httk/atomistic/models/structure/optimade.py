@@ -14,7 +14,7 @@ from decimal import Decimal
 from fractions import Fraction
 from functools import cached_property
 from types import MappingProxyType, SimpleNamespace
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, Self, cast
 from urllib.parse import urlsplit
 
 from httk.core import (
@@ -106,13 +106,20 @@ class OptimadeStructure(StructureBackend):
     kind: ClassVar[str] = "optimade"
     entry_type_definition_id: ClassVar[str] = _STRUCTURES_DEFINITION_ID
 
-    def __new__(cls, obj: Any = None, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any = None, **hints: Any) -> Self | None:
+        r"""Adopt an OPTIMADE resource.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints, including an optional resource.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         resource = hints.get("resource", obj)
         if not isinstance(resource, OptimadeResource):
             return None
         if hints and hints.get("kind", cls.kind) != cls.kind:
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: OptimadeResource | None = None, **hints: Any) -> None:
         resource = hints.get("resource", obj)

@@ -2,7 +2,7 @@
 
 import os
 from collections.abc import Iterator, Mapping
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self
 
 import httk.core
 
@@ -24,16 +24,28 @@ class JsonlTrajectory(TrajectoryBackend):
 
     kind: ClassVar[str] = "jsonl"
 
-    def __new__(cls, source: Any, **hints: Any) -> Any:
-        if hints.get("kind", cls.kind) != cls.kind:
-            return None
+    def __new__(cls, source: Any, **hints: Any) -> Self:
         if isinstance(source, cls):
             return source
-        if isinstance(source, Mapping) and source.get("format") not in (None, "httk-trajectory-jsonl"):
-            return None
-        if not isinstance(source, (Mapping, str, os.PathLike)):
-            return None
         return super().__new__(cls)
+
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a trajectory JSONL source.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
+        if hints.get("kind", cls.kind) != cls.kind:
+            return None
+        if isinstance(obj, cls):
+            return obj
+        if isinstance(obj, Mapping) and obj.get("format") not in (None, "httk-trajectory-jsonl"):
+            return None
+        if not isinstance(obj, (Mapping, str, os.PathLike)):
+            return None
+        return cls(obj, **hints)
 
     def __init__(self, source: Any, **hints: Any) -> None:
         if getattr(self, "_jsonl_initialized", False):

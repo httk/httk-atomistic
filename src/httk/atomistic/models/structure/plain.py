@@ -2,7 +2,7 @@
 Backend wrapping an spglib-like (lattice, positions, numbers) triple.
 """
 
-from typing import Any
+from typing import Any, Self
 
 from httk.atomistic.elements import symbol_of
 from httk.atomistic.models._vector_guards import is_basis_3x3, is_coords_nx3, try_surdvector
@@ -51,13 +51,19 @@ class PlainStructure(StructureBackend):
     _species_cache: tuple[Species, ...] | None
     _species_at_sites_cache: tuple[str, ...] | None
 
-    # Cannot type annotate __new__ as `Self | None` for some reason
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a primitive structure triple.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints and hints.get("kind", "plain") != "plain":
             return None
         if not _is_primitive_triple(obj):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: Any, **hints: Any) -> None:
         lattice, positions, numbers = obj

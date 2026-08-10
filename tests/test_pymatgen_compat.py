@@ -63,7 +63,7 @@ def test_fake_pymatgen_backend_and_declines() -> None:
     assert backend.unwrap() is fake
     assert backend.cell.periodicity == (True, True, False)
     assert backend.species_at_sites == ("Na",)
-    assert PymatgenStructure(UnitcellStructureView(fake)) is None
+    assert PymatgenStructure._backend_adopt(UnitcellStructureView(fake)) is None
 
 
 def test_pymatgen_absence_keeps_backend_importable() -> None:

@@ -9,7 +9,7 @@ import re
 from collections.abc import Iterator, Mapping
 from itertools import islice
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self
 
 import httk.core
 from httk.core import SurdVector
@@ -81,12 +81,24 @@ class VASPTrajectory(TrajectoryBackend):
 
     kind: ClassVar[str] = "vasp"
 
-    def __new__(cls, source: Any, **hints: Any) -> Any:
-        if hints.get("kind", cls.kind) != cls.kind:
-            return None
+    def __new__(cls, source: Any, **hints: Any) -> Self:
         if isinstance(source, cls):
             return source
         return super().__new__(cls)
+
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a VASP trajectory source.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
+        if hints.get("kind", cls.kind) != cls.kind:
+            return None
+        if isinstance(obj, cls):
+            return obj
+        return cls(obj, **hints)
 
     def __init__(self, source: Any, **hints: Any) -> None:
         if getattr(self, "_vasp_trajectory_initialized", False):

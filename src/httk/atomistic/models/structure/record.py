@@ -1,7 +1,7 @@
 """UnitcellStructure backend for the three exact native storage records."""
 
 from functools import cached_property
-from typing import Any, cast
+from typing import Any, Self, cast
 
 from httk.atomistic.composition import Assembly
 from httk.atomistic.models.cell.cell import Cell
@@ -38,12 +38,19 @@ class RecordStructure(StructureBackend):
 
     _record: UnitcellStructureRecord | FundamentalDomainStructureRecord | ASUStructureRecord
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a structure record.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints and hints.get("kind", "record") != "record":
             return None
         if not isinstance(obj, (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord)):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(
         self,

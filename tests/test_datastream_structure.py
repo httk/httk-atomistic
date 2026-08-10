@@ -186,7 +186,7 @@ def test_optimade_request_is_declined_to_preserve_headers() -> None:
         "https://example.test/v1/structures/fixture-1",
         headers={"Authorization": "Bearer secret"},
     )
-    assert DatastreamStructure(request) is None
+    assert DatastreamStructure._backend_adopt(request) is None
 
 
 def test_optimade_request_with_loader_collision_is_actionable() -> None:
@@ -208,7 +208,7 @@ def test_bytes_are_rejected_by_structure_backend() -> None:
 
 def test_url_stream_view_without_loader_is_declined() -> None:
     source = TextstreamURLView("https://example.test/v1/structures/fixture-1")
-    assert DatastreamStructure(source) is None
+    assert DatastreamStructure._backend_adopt(source) is None
 
 
 def test_pathlike_colon_name_is_local(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -3,7 +3,7 @@ Backend wrapping cell parameters (a, b, c, alpha, beta, gamma).
 """
 
 import fractions
-from typing import Any
+from typing import Any, Self
 
 from httk.core import SurdScalar, SurdVector, exactmath
 
@@ -94,13 +94,19 @@ class CellParams(CellBackend):
     _params: tuple[fractions.Fraction, ...]
     _basis_cache: SurdVector | None
 
-    # Cannot type annotate __new__ as `Self | None` for some reason
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt six cell parameters.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints and hints.get("kind", "params") != "params":
             return None
         if not is_params6(obj):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: Any, **hints: Any) -> None:
         params = tuple(to_fracvector(obj).to_fractions())

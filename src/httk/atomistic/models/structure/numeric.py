@@ -1,7 +1,7 @@
 """Backend for numeric unitcell structure presentations."""
 
 from fractions import Fraction
-from typing import Any
+from typing import Any, Self
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.numeric import NumericCell
@@ -31,7 +31,14 @@ class NumericUnitcellStructure(StructureBackend):
     _object: Any
     _structure: UnitcellStructure
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a numeric structure presentation.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints.get("kind", "numeric") != "numeric":
             return None
         try:
@@ -43,7 +50,7 @@ class NumericUnitcellStructure(StructureBackend):
             return None
         if not isinstance(cell, NumericCell) or not isinstance(sites, NumericSites):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: Any, **hints: Any) -> None:
         self._object = obj

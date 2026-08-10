@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator
 from functools import cached_property
-from typing import Any, cast
+from typing import Any, Self, cast
 
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.species.view import SpeciesView
@@ -29,12 +29,19 @@ class RecordTrajectory(TrajectoryBackend):
 
     _record: TrajectoryRecord
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a trajectory record.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints and hints.get("kind", "record") != "record":
             return None
         if not isinstance(obj, TrajectoryRecord):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: TrajectoryRecord, **hints: Any) -> None:
         self._record = obj

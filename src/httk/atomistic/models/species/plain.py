@@ -3,7 +3,7 @@ Backend wrapping a validated OPTIMADE species dict.
 """
 
 from fractions import Fraction
-from typing import Any
+from typing import Any, Self
 
 from httk.atomistic._composition_values import as_fraction, as_precision
 from httk.atomistic.models.species.backend import SpeciesBackend
@@ -42,13 +42,19 @@ class PlainSpecies(SpeciesBackend):
 
     _raw: dict[str, Any]
 
-    # Cannot type annotate __new__ as `Self | None` for some reason
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt an OPTIMADE species mapping.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints and hints.get("kind", "plain") != "plain":
             return None
         if not _is_optimade_species_dict(obj):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: dict[str, Any], **hints: Any) -> None:
         self._raw = obj

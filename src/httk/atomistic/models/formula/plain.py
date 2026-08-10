@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from fractions import Fraction
-from typing import Any
+from typing import Any, Self
 
 from httk.atomistic.elements import SYMBOLS
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
@@ -22,12 +22,19 @@ class PlainComposition(ChemicalFormulaBackend):
     _raw: Mapping[str, Any]
     _composition: Composition
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a plain composition mapping.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints and hints.get("kind", "plain") != "plain":
             return None
         if not isinstance(obj, Mapping) or not all(isinstance(key, str) and key in _ELEMENTS for key in obj):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: Mapping[str, Any], **hints: Any) -> None:
         self._raw = obj

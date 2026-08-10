@@ -2,7 +2,7 @@
 
 from fractions import Fraction
 from functools import cached_property
-from typing import Any
+from typing import Any, Self
 
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.composition import Composition
@@ -22,12 +22,19 @@ class RecordComposition(ChemicalFormulaBackend):
 
     _record: NormalizedCompositionRecord
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a normalized composition record.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints and hints.get("kind", "record") != "record":
             return None
         if not isinstance(obj, NormalizedCompositionRecord):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: NormalizedCompositionRecord, **hints: Any) -> None:
         self._record = obj

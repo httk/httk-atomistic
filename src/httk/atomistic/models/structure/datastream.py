@@ -4,7 +4,7 @@ import io
 import os
 import urllib.request
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self
 from urllib.parse import urlsplit
 
 import httk.core
@@ -61,7 +61,14 @@ class DatastreamStructure(StructureBackend):
             ),
         )
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a datastream-backed structure source.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints.get("kind", cls.kind) != cls.kind:
             return None
         if isinstance(obj, (ChemicalFormulaBackend, ChemicalFormulaViewBase)):
@@ -72,13 +79,13 @@ class DatastreamStructure(StructureBackend):
         url = cls._url(obj)
         optimade = url is not None and cls._is_optimade_url(url)
         if isinstance(obj, urllib.request.Request) and optimade:
-            return super().__new__(cls) if httk.core.has_reader_for(name) else None
+            return cls(obj, **hints) if httk.core.has_reader_for(name) else None
         if httk.core.has_reader_for(name):
-            return super().__new__(cls)
+            return cls(obj, **hints)
         if (
             isinstance(obj, str) and not cls._is_stream_source(obj) or isinstance(obj, httk.core.DatastreamURL)
         ) and optimade:
-            return super().__new__(cls)
+            return cls(obj, **hints)
         return None
 
     def __init__(self, obj: Any, **hints: Any) -> None:

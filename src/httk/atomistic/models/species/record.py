@@ -1,7 +1,7 @@
 """Backend for an exact stored species record."""
 
 from fractions import Fraction
-from typing import Any
+from typing import Any, Self
 
 from httk.atomistic.models.species.backend import SpeciesBackend
 from httk.atomistic.storage.records import SpeciesRecord, _concentration_precision_from_record
@@ -16,12 +16,19 @@ class RecordSpecies(SpeciesBackend):
 
     _record: SpeciesRecord
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt a species record.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints and hints.get("kind", "record") != "record":
             return None
         if not isinstance(obj, SpeciesRecord):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: SpeciesRecord, **hints: Any) -> None:
         self._record = obj

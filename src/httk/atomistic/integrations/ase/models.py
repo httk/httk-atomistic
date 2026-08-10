@@ -8,7 +8,7 @@ ASE itself is installed.
 
 import fractions
 from collections.abc import Iterable
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, Self, runtime_checkable
 
 from httk.atomistic.elements import symbol_of
 from httk.atomistic.models.cell.cell import Cell
@@ -133,7 +133,14 @@ class ASEAtoms(StructureBackend):
     _raw: Any
     _structure: UnitcellStructure
 
-    def __new__(cls, obj: Any, **hints: Any) -> Any:
+    @classmethod
+    def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
+        r"""Adopt an ASE-compatible structure.
+
+        :param obj: The source object to adopt.
+        :param \**hints: Backend-selection hints.
+        :return: An initialized backend, or ``None`` when this backend declines ``obj``.
+        """
         if hints.get("kind", "ase") != "ase":
             return None
         # Existing structure-family objects must remain represented by their own backend;
@@ -142,7 +149,7 @@ class ASEAtoms(StructureBackend):
             return None
         if not isinstance(obj, ASEAtomsProtocol):
             return None
-        return super().__new__(cls)
+        return cls(obj, **hints)
 
     def __init__(self, obj: ASEAtomsProtocol, **hints: Any) -> None:
         symbols = tuple(symbol_of(int(number)) for number in obj.get_atomic_numbers())
