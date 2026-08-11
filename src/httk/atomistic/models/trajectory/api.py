@@ -1,6 +1,7 @@
 """Define the canonical trajectory interface for httk-atomistic."""
 
 from abc import ABC, abstractmethod
+from collections import deque
 from collections.abc import Iterator
 from typing import Any
 
@@ -19,7 +20,8 @@ class TrajectoryAPI(ABC):
     def nframes(self) -> int:
         """Count frames by streaming them in O(n) time.
 
-        Random-access backends override this default.
+        Each call requires ``frames()`` to provide a fresh traversal; a one-shot backend must
+        override this default or cache its frames. Random-access backends override this default.
 
         :return: The number of frames.
         """
@@ -28,24 +30,33 @@ class TrajectoryAPI(ABC):
     def frame(self, i: int) -> UnitcellStructure:
         """Stream to and return one frame in O(n) time.
 
-        Random-access backends override this default.
+        Each call requires ``frames()`` to provide a fresh traversal; a one-shot backend must
+        override this default or cache its frames. Random-access backends override this default.
 
         :param i: Frame index.
         :return: The requested :class:`~httk.atomistic.models.structure.unitcell.UnitcellStructure`.
-        :raises IndexError: If ``i`` is negative or past the end.
+        :raises IndexError: If ``i`` is before the first frame or past the end.
+        :raises TypeError: If ``i`` is not an integer.
         """
+        if not isinstance(i, int) or isinstance(i, bool):
+            raise TypeError("Trajectory frame index must be an integer")
         if i < 0:
-            raise IndexError(f"Trajectory frame index {i} out of range")
-        for index, frame in enumerate(self.frames()):
-            if index == i:
-                return frame
+            tail = deque(self.frames(), maxlen=-i)
+            if len(tail) == -i:
+                return tail[0]
+        else:
+            for index, frame in enumerate(self.frames()):
+                if index == i:
+                    return frame
         raise IndexError(f"Trajectory frame index {i} out of range")
 
     @abstractmethod
     def frames(self) -> Iterator[UnitcellStructure]:
-        """Iterate over the frames.
+        """Iterate over the frames with a fresh traversal on every call.
 
-        :return: An iterator of unit-cell structures.
+        A one-shot backend must override the streaming defaults or cache its frames.
+
+        :return: A fresh iterator of unit-cell structures.
         """
         raise NotImplementedError
 

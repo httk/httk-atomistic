@@ -108,7 +108,7 @@ class CellAPI(ABC):
 
     @property
     def lengths(self) -> tuple[SurdScalar, ...]:
-        """Return the exact lengths of the three scaled basis vectors.
+        """Return exact lengths where representable, with a deterministic rational fallback otherwise.
 
         :return: The three cell-vector lengths.
         """
@@ -117,7 +117,7 @@ class CellAPI(ABC):
 
     @property
     def angles(self) -> tuple[fractions.Fraction, ...]:
-        """Return ``(alpha, beta, gamma)`` in exact degrees.
+        """Return ``(alpha, beta, gamma)`` exactly where representable, with a deterministic rational fallback otherwise.
 
         :return: The crystallographic angles in degrees.
         """

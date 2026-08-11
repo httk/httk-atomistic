@@ -111,7 +111,7 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
     @property
     def nperiodic_dimensions(self) -> int:
         """Expose the number of periodic directions."""
-        return self._exact.nperiodic_dimensions
+        return cast(int, self._exact.nperiodic_dimensions)
 
     @property
     def site_coordinate_span(self) -> str:

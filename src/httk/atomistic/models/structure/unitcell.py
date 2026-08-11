@@ -112,7 +112,7 @@ def _check_sites_length(sites: Sites, species_at_sites: Sequence[str]) -> None:
         raise ValueError("UnitcellStructure species_at_sites must have the same length as sites")
 
 
-class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
+class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
     """Represent a crystal structure in the Unitcell representation.
 
     A UnitcellStructure holds a ``cell`` (a ``Cell`` of 3x3 cell vectors), ``sites`` (a ``Sites``
@@ -292,14 +292,6 @@ class UnitcellStructure(StructureBackend, StructureSemanticsMixin):
         :return: The periodicity flags for the cell directions.
         """
         return self._cell.periodicity
-
-    @property
-    def nperiodic_dimensions(self) -> int:
-        """Expose the number of periodic directions.
-
-        :return: The number of periodic directions.
-        """
-        return self._cell.nperiodic_dimensions
 
     @property
     def site_coordinate_span(self) -> str:

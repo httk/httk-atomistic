@@ -6,6 +6,8 @@ from typing import Any, Self, cast
 from httk.atomistic.composition import Assembly
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.view import CellView
+from httk.atomistic.models.formula.composition_view import CompositionView
+from httk.atomistic.models.formula.record import RecordComposition
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.sites.view import SitesView
 from httk.atomistic.models.species.species import Species
@@ -58,6 +60,11 @@ class RecordStructure(StructureBackend):
         **hints: Any,
     ) -> None:
         self._record = obj
+
+    @cached_property
+    def composition(self) -> CompositionView:
+        """Expose the record's authoritative normalized composition."""
+        return CompositionView(RecordComposition(self._record.normalized_composition))
 
     @cached_property
     def _native(self) -> Any:

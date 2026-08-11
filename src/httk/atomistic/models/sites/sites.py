@@ -27,8 +27,7 @@ class Sites(SitesBackend):
 
     Inputs embed exactly: rationals (and rational-valued floats), rational strings, and numpy arrays
     all land on their exact rational value. An irrational :class:`~httk.core.SurdVector` input is
-    reduced deterministically through the vector family's ``fractions`` hub (never raising on data);
-    the exact Cartesian frame — where radicals belong — is obtained instead via
+    rejected; the exact Cartesian frame — where radicals belong — is obtained instead via
     :meth:`~httk.atomistic.UnitcellStructure.cartesian_sites`.
 
     :param reduced_coords: The reduced coordinates, one site per row.

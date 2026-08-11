@@ -2,7 +2,7 @@ import fractions
 import math
 
 import pytest
-from httk.core import SurdVector, unwrap
+from httk.core import FracVector, SurdVector, unwrap
 from httk.core.storage import project_storage_record
 
 from httk.atomistic import (
@@ -20,10 +20,11 @@ from httk.atomistic import (
     SpeciesView,
     UnitcellStructure,
 )
+from httk.atomistic.models._vector_guards import to_fracvector
 from httk.atomistic.models.cell.backend import CellBackend
 from httk.atomistic.models.cell.plain_view import PlainCellView
-from httk.atomistic.models.sites.plain_view import PlainSitesView
 from httk.atomistic.models.sites.backend import SitesBackend
+from httk.atomistic.models.sites.plain_view import PlainSitesView
 from httk.atomistic.models.species.backend import SpeciesBackend
 from httk.atomistic.storage.records import CellRecord, SitesRecord, SpeciesRecord
 
@@ -37,6 +38,12 @@ TOL = 1e-9
 
 
 # --- Cell class ---
+
+
+def test_fracvector_rejects_irrational_surd_input() -> None:
+    assert to_fracvector(SurdVector(3)) == FracVector(3)
+    with pytest.raises(TypeError):
+        to_fracvector(SurdVector.sqrt_of(2))
 
 
 def test_cell_construction_and_validation() -> None:

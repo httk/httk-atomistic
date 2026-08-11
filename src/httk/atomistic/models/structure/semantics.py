@@ -8,6 +8,7 @@ import math
 import re
 from dataclasses import dataclass
 from fractions import Fraction
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
 from httk.atomistic.composition import (
@@ -499,7 +500,7 @@ class StructureSemanticsMixin:
         """
         return _semantic_value(self, "chemical_composition", private_name="_chemical_composition")
 
-    @property
+    @cached_property
     def composition(self) -> CompositionView:
         """Present a lazy view over this structure's projected composition.
 

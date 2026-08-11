@@ -80,7 +80,7 @@ def _transform_lattice_moment(row: tuple[Any, ...], operation: AffineOperation, 
     )
 
 
-class SymopsStructure(StructureBackend, StructureSemanticsMixin):
+class SymopsStructure(StructureSemanticsMixin, StructureBackend):
     """Represent a magCIF cell, listed sites, and its complete symmetry-operation list.
 
     The operations are taken as declared. They are not checked for group closure: magCIF
@@ -261,14 +261,6 @@ class SymopsStructure(StructureBackend, StructureSemanticsMixin):
         :return: Periodicity flags for the three cell directions.
         """
         return self._cell.periodicity
-
-    @property
-    def nperiodic_dimensions(self) -> int:
-        """Expose the number of periodic directions.
-
-        :return: The number of periodic directions.
-        """
-        return self._cell.nperiodic_dimensions
 
     @property
     def molecular(self) -> bool:

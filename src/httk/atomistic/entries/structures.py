@@ -155,17 +155,19 @@ def _structure_projection(structure: Any) -> dict[str, Any]:
         return [None if row is None else [float(item) for item in row] for row in value]
 
     composition = structure.composition
+    # Provider-backed fields are authoritative at this boundary; ``composition`` only
+    # decides whether the composition block is complete enough to serve.
     composition_values = (
         {
-            "elements": list(composition.elements),
-            "nelements": composition.nelements,
+            "elements": list(structure.elements) if structure.elements is not None else None,
+            "nelements": structure.nelements,
             # Preserve a source backend's accepted central values at the response
             # boundary.  ``composition.elements_ratios`` is normalized for formula
             # derivation and exact query comparison, but normalizing an imprecise
             # remote OPTIMADE value here would silently rewrite its measurement.
             "elements_ratios": [float(value) for value in structure.elements_ratios],
-            "chemical_formula_reduced": composition.chemical_formula_reduced,
-            "chemical_formula_anonymous": composition.chemical_formula_anonymous,
+            "chemical_formula_reduced": structure.chemical_formula_reduced,
+            "chemical_formula_anonymous": structure.chemical_formula_anonymous,
         }
         if composition.complete
         else {

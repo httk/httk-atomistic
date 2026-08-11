@@ -4,11 +4,16 @@ The minimal canonical structure interface for httk-atomistic.
 
 from abc import ABC, abstractmethod
 from fractions import Fraction
+from functools import cached_property
+from typing import TYPE_CHECKING, cast
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
+
+if TYPE_CHECKING:
+    from httk.atomistic.models.formula.composition import Composition
 
 
 class StructureAPI(ABC):
@@ -64,3 +69,70 @@ class StructureAPI(ABC):
         :return: The site moments, or ``None`` when they are unstated.
         """
         return None
+
+    @cached_property
+    def composition(self) -> "Composition":
+        """Project the canonical components into an elemental composition."""
+        from httk.atomistic.composition import project_composition
+
+        return project_composition(self)
+
+    @property
+    def elements(self) -> tuple[str, ...] | None:
+        """Expose the complete composition's element symbols, if available."""
+        composition = self.composition
+        return composition.elements if composition.complete else None
+
+    @property
+    def nelements(self) -> int | None:
+        """Expose the complete composition's element count, if available."""
+        composition = self.composition
+        return composition.nelements if composition.complete else None
+
+    @property
+    def elements_ratios(self) -> tuple[Fraction, ...] | None:
+        """Expose complete composition ratios, if available."""
+        composition = self.composition
+        return composition.elements_ratios if composition.complete else None
+
+    @property
+    def chemical_formula_reduced(self) -> str | None:
+        """Expose the reduced formula derived from a complete composition."""
+        return self.composition.chemical_formula_reduced
+
+    @property
+    def chemical_formula_anonymous(self) -> str | None:
+        """Expose the anonymous formula derived from a complete composition."""
+        return self.composition.chemical_formula_anonymous
+
+    @property
+    def chemical_formula_descriptive(self) -> str | None:
+        """Expose an explicitly supplied descriptive formula, when available."""
+        return None
+
+    @property
+    def chemical_formula_hill(self) -> str | None:
+        """Expose an explicitly supplied Hill formula, when available."""
+        return None
+
+    @property
+    def dimension_types(self) -> tuple[int, ...] | None:
+        """Expose cell periodicity as OPTIMADE dimension flags."""
+        return cast(tuple[int, int, int], tuple(1 if value else 0 for value in self.cell.periodicity))
+
+    @property
+    def nperiodic_dimensions(self) -> int | None:
+        """Expose the number of periodic cell directions."""
+        return self.cell.nperiodic_dimensions
+
+    @property
+    def nsites(self) -> int | None:
+        """Expose the number of canonical site-coordinate rows."""
+        return self.sites.num_sites
+
+    @property
+    def structure_features(self) -> tuple[str, ...] | None:
+        """Expose composition-related features derived from canonical components."""
+        from httk.atomistic.composition import derive_structure_features
+
+        return derive_structure_features(self)

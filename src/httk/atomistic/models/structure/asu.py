@@ -107,7 +107,7 @@ class WyckoffSite:
         return 0 if self.free_params.dim in ((), (0,)) else self.free_params.dim[0]
 
 
-class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
+class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     """Represent a crystal structure by one exact site per symmetry orbit.
 
     Holds the cell in the structure's own setting, the space group as its **standard**
@@ -278,11 +278,6 @@ class FundamentalDomainStructure(StructureBackend, StructureSemanticsMixin):
     def periodicity(self) -> tuple[bool, bool, bool]:
         """Expose the cell's periodic directions."""
         return self._cell.periodicity
-
-    @property
-    def nperiodic_dimensions(self) -> int:
-        """Expose the number of periodic directions."""
-        return self._cell.nperiodic_dimensions
 
     @property
     def molecular(self) -> bool:

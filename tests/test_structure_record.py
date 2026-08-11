@@ -15,6 +15,7 @@ from httk.atomistic import (
     ASUStructureView,
     FundamentalDomainStructure,
     FundamentalDomainStructureRecord,
+    RecordStructure,
     SettingTransform,
     Spacegroup,
     Species,
@@ -540,6 +541,23 @@ def test_record_construction_defers_normalized_composition_validation() -> None:
 
     with Database.sqlite() as database, pytest.raises(ValueError, match="normalized_composition contradicts"):
         SqlStore(database, entry_records={}).save(record)
+
+
+def test_record_structure_serves_stored_normalized_composition() -> None:
+    source = _unitcell()
+    values = _common(source)
+    values["normalized_composition"] = NormalizedCompositionRecord(
+        (NormalizedCompositionAmountRecord("Na", Fraction(1), Fraction(2), None),),
+        True,
+    )
+    record = UnitcellStructureRecord(
+        **values,
+        sites=SitesRecord(**project_storage_record(SitesRecord, source.sites)),
+        species_at_sites=source.species_at_sites,
+        symmetry=None,
+    )
+
+    assert RecordStructure(record).composition.amounts == (("Na", Fraction(2)),)
 
 
 def test_sql_fetch_of_a_root_record_does_not_reconstruct_structure(monkeypatch: pytest.MonkeyPatch) -> None:

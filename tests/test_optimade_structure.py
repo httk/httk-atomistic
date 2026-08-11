@@ -539,7 +539,9 @@ def test_source_composition_uses_precision_interval_and_provider_named_projectio
     assert backend.composition.normalized
     assert backend.composition.normalization_status == "within_precision"
     record = next(iter(StructureEntryProvider({"remote": backend}).records("structures")))
-    assert record["elements_ratios"] == pytest.approx([0.3333, 0.6666])
+    assert record["elements"] == ["Cl", "Na"]
+    assert record["nelements"] == 2
+    assert record["elements_ratios"] == [0.3333, 0.6666]
     assert record["chemical_formula_reduced"] == "ClNa2"
     assert record["chemical_formula_anonymous"] == "A2B"
 
