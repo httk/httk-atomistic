@@ -71,8 +71,9 @@ def _structure() -> UnitcellStructure:
     )
 
 
-def _coarse_cif(tmp_path: Path, cell_length: str) -> Path:
+def _cif_with_sites(tmp_path: Path, cell_length: str, sites: list[tuple[str, ...]]) -> Path:
     path = tmp_path / f"coarse-{cell_length.replace('.', '_')}.cif"
+    rows = "".join(" ".join(site) + "\n" for site in sites)
     path.write_text(
         "data_x\n"
         f"_cell_length_a {cell_length}\n_cell_length_b {cell_length}\n_cell_length_c {cell_length}\n"
@@ -80,11 +81,14 @@ def _coarse_cif(tmp_path: Path, cell_length: str) -> Path:
         "_space_group_IT_number 1\n"
         "loop_\n_space_group_symop_operation_xyz\n'x,y,z'\n"
         "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
-        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
-        "Si1 Si 0.3 0.11 0.07\n",
+        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n" + rows,
         encoding="utf-8",
     )
     return path
+
+
+def _coarse_cif(tmp_path: Path, cell_length: str) -> Path:
+    return _cif_with_sites(tmp_path, cell_length, [("Si1", "Si", "0.3", "0.11", "0.07")])
 
 
 # --- storing it ---
@@ -400,7 +404,8 @@ def test_cif_positional_uncertainty_warns_at_the_warning_threshold(tmp_path: Pat
     assert len(structure.sites) == 1
     assert len(collection.records) == 1
     assert collection.records[0].context == "cif"
-    assert "0.3" in collection.records[0].getMessage()
+    assert "1 site(s)" in collection.records[0].getMessage()
+    assert "maximum is" in collection.records[0].getMessage()
     assert CIF_POSITIONAL_UNCERTAINTY_WARNING == F(1, 10)
 
 
@@ -413,9 +418,54 @@ def test_cif_positional_uncertainty_below_warning_threshold_is_silent(tmp_path: 
 
 def test_cif_positional_uncertainty_raises_at_error_threshold(tmp_path: Path) -> None:
     path = _coarse_cif(tmp_path, "5.0")
-    with pytest.raises(ValueError, match=r"token '0\.3'.*1 Å.*allow_large_cif_uncertainty=True"):
+    with pytest.raises(ValueError, match=r"token '0\.3'.*1\.00995 Å.*allow_large_cif_uncertainty=True"):
         load(str(path))
 
     overridden = load(str(path), allow_large_cif_uncertainty=True)
     assert len(overridden.sites) == 1
     assert CIF_POSITIONAL_UNCERTAINTY_ERROR == F(1)
+
+
+def test_cif_esd_precision_is_preserved_and_projected(tmp_path: Path) -> None:
+    path = _cif_with_sites(tmp_path, "0.5", [("Si1", "Si", "0.3000(2000)", "0.3000", "0.3000")])
+    with collect_reports(level="warning") as collection:
+        load(str(path))
+
+    assert len(collection.records) == 1
+    assert "0.2 Å" in collection.records[0].getMessage()
+
+    path = _cif_with_sites(tmp_path, "5", [("Si1", "Si", "0.3000(2000)", "0.3000", "0.3000")])
+    with pytest.raises(ValueError, match=r"token '0\.3000\(2000\)'.*2 Å"):
+        load(str(path))
+
+
+def test_cif_uncertainty_uses_the_cubic_corner_norm(tmp_path: Path) -> None:
+    path = _cif_with_sites(tmp_path, "0.5", [("Si1", "Si", "0.1", "0.1", "0.1")])
+    with collect_reports(level="warning") as collection:
+        load(str(path))
+
+    assert "0.173205" in collection.records[0].getMessage()
+
+
+def test_cif_uncertainty_warning_is_aggregated_per_block(tmp_path: Path) -> None:
+    path = _cif_with_sites(
+        tmp_path,
+        "0.5",
+        [(f"Si{index}", "Si", "0.3", f"0.{index + 1}", "0.07") for index in range(1, 4)],
+    )
+    with collect_reports(level="warning") as collection:
+        load(str(path))
+
+    assert len(collection.records) == 1
+    assert "3 site(s)" in collection.records[0].getMessage()
+
+
+def test_cif_uncertainty_thresholds_are_inclusive(tmp_path: Path) -> None:
+    warning_path = _cif_with_sites(tmp_path, "0.5", [("Si1", "Si", "0.1", "1/3", "1/3")])
+    with collect_reports(level="warning") as collection:
+        load(str(warning_path))
+    assert len(collection.records) == 1
+
+    error_path = _cif_with_sites(tmp_path, "5", [("Si1", "Si", "0.1", "1/3", "1/3")])
+    with pytest.raises(ValueError, match=r"projected positional uncertainty of 1 Å"):
+        load(str(error_path))

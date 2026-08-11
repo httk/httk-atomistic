@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from httk.core import decimal_precision, load
+from httk.core.report import collect_reports
 
 from httk.atomistic import (
     ASUStructure,
@@ -401,8 +402,39 @@ def test_a_multi_block_cif_yields_one_structure_per_block(tmp_path: Path) -> Non
     with pytest.raises(ValueError, match="holds 2 structures"):
         load(str(combined))
 
-    with pytest.raises(ValueError, match="holds 2 structures"):
-        load(str(combined))
+
+def test_precision_stays_with_valid_block_after_unparsed_block(tmp_path: Path) -> None:
+    invalid = """data_invalid
+_cell_length_a 0.5
+_cell_length_b 0.5
+_cell_length_c 0.5
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Si_bad Si 0.9(9) 0.9 0.9
+"""
+    valid = _write_cif(
+        tmp_path / "valid.cif",
+        Spacegroup.standard(1).setting,
+        (0.5, 0.5, 0.5, 90, 90, 90),
+        [("Si1", "Si", ("0.1", "1/3", "1/3"), "1")],
+        name="valid",
+    ).read_text(encoding="utf-8")
+    path = tmp_path / "mixed.cif"
+    path.write_text(invalid + valid, encoding="utf-8")
+
+    with collect_reports(level="warning") as collection:
+        structure = load(str(path))
+
+    assert len(structure.sites) == 1
+    assert len(collection.records) == 1
+    assert "maximum is 0.1 Å" in collection.records[0].getMessage()
 
 
 def test_a_non_cif_payload_is_refused(tmp_path: Path) -> None:

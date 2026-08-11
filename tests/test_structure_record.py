@@ -4,9 +4,10 @@ import datetime
 import math
 from dataclasses import fields
 from fractions import Fraction
+from pathlib import Path
 
 import pytest
-from httk.core import FracVector
+from httk.core import FracVector, load
 from httk.core.storage import content_id, project_storage_record, storage_identity_name
 
 from httk.atomistic import (
@@ -212,6 +213,14 @@ def test_domain_site_moments_round_trip_exactly() -> None:
     assert rebuilt.domain_sites == source.domain_sites
     assert all(site.moment.precision == Fraction(1, 100) for site in rebuilt.domain_sites if site.moment is not None)
     assert UnitcellStructureView(record).site_moments == UnitcellStructureView(source).site_moments
+
+
+def test_cif_ingestion_canonicalizes_before_storage_round_trip() -> None:
+    path = Path(__file__).with_name("fixtures") / "redundant_cif_sites.cif"
+    source = load(str(path))
+    restored = _domain_structure_from_record(_domain_record(source))
+
+    assert len(restored.sites) == 1
 
 
 @pytest.mark.parametrize(

@@ -1,10 +1,9 @@
 """Build an exact :class:`~httk.atomistic.ASUStructure` from a neutral CIF mapping.
 
 :func:`asu_structure_from_cif` consumes the plain, string-preserving mapping produced by
-``httk.io.cif`` (format tag ``"cif"``) and turns it into an exact ASU representation. It
-imports nothing from *httk-io* — it only understands the neutral mapping shape — keeping
-the parsing capability and the domain model decoupled, exactly as
-the private POSCAR adapter already does for POSCAR files.
+``httk.io.cif`` (format tag ``"cif"``) and turns it into an exact ASU representation. The
+conversion only understands the neutral mapping shape, keeping the parser and domain model
+decoupled; the private reader bridge below adds precision metadata needed by this adapter.
 
 A CIF is the natural source for an ASU: it lists one site per orbit and states the symmetry
 operations that generate the rest. That means no symmetry *search* is needed, and spglib is
@@ -14,7 +13,7 @@ rather than silently reinterpreted.
 """
 
 import fractions
-import logging
+import math
 import re
 from collections.abc import Mapping
 from typing import Any
@@ -40,7 +39,6 @@ _TYPE_SYMBOL = re.compile(r"^(?P<symbol>[A-Z][a-z]?)(?:(?P<magnitude>\d+)?(?P<si
 
 CIF_POSITIONAL_UNCERTAINTY_WARNING = fractions.Fraction(1, 10)
 CIF_POSITIONAL_UNCERTAINTY_ERROR = fractions.Fraction(1)
-_CIF_LOGGER = logging.getLogger(__name__)
 
 
 def asu_structures_from_cif(payload: Mapping[str, Any], **options: Any) -> list[ASUStructure]:
@@ -141,6 +139,7 @@ def asu_structure_from_cif(
 
     species_by_name: dict[str, Species] = {}
     wyckoff_sites: list[WyckoffSite] = []
+    warning_uncertainties: list[Any] = []
     for index, coordinate in enumerate(coordinates):
         if occupancies_exact is not None and occupancies_exact[index] is not None:
             occupancy = occupancies_exact[index]
@@ -165,6 +164,8 @@ def asu_structure_from_cif(
             )
 
         standard_point = transform.to_standard(coordinate).normalize()
+        exact_match = _exact_wyckoff_match(standard, standard_point)
+        uncertainty = _site_uncertainty(data, index, cell) if derived_tolerance else None
         match = _snap(
             standard,
             standard_point,
@@ -172,7 +173,8 @@ def asu_structure_from_cif(
             cell,
             transform,
             tolerance,
-            uncertainty=_site_uncertainty(data, index, cell) if derived_tolerance else None,
+            uncertainty=uncertainty,
+            exact_match=exact_match,
             allow_large_cif_uncertainty=allow_large_cif_uncertainty,
         )
         if match is None:
@@ -185,16 +187,58 @@ def asu_structure_from_cif(
         if limit_denominator is not None and parameters.dim not in ((), (0,)):
             parameters = FracVector([value.limit_denominator(limit_denominator) for value in parameters.to_fractions()])
         wyckoff_sites.append(WyckoffSite(letter, parameters, name, coordinate.normalize()))
+        if exact_match is None and uncertainty is not None and uncertainty[0] >= CIF_POSITIONAL_UNCERTAINTY_WARNING**2:
+            warning_uncertainties.append(uncertainty[0])
+
+    if warning_uncertainties:
+        maximum = max(warning_uncertainties)
+        _cif_warning(
+            f"CIF block has {len(warning_uncertainties)} site(s) with projected positional uncertainty; "
+            f"maximum is {math.sqrt(maximum.to_float()):.6g} Å"
+        )
 
     return ASUStructure(
         cell,
         standard,
-        wyckoff_sites,
+        _deduplicate_wyckoff_sites(standard, transform, wyckoff_sites, species_by_name),
         list(species_by_name.values()),
         transform,
         data.get("coordinate_precision"),
-        _deduplicate_redundant_sites=True,
     )
+
+
+def _deduplicate_wyckoff_sites(
+    spacegroup: Spacegroup,
+    transform: Any,
+    sites: list[WyckoffSite],
+    species_by_name: Mapping[str, Species],
+) -> list[WyckoffSite]:
+    """Remove redundant identical-species CIF orbits before building the ASU."""
+    seen: dict[tuple[fractions.Fraction, ...], tuple[str, WyckoffSite]] = {}
+    cosets = transform.lattice_cosets()
+    canonical: list[WyckoffSite] = []
+    for site in sites:
+        position = spacegroup.wyckoff_position(site.wyckoff)
+        keys = {
+            tuple((transform.to_setting(point) + coset).normalize().to_fractions())
+            for point in position.coordinates(site.free_params)
+            for coset in cosets
+        }
+        overlaps: list[tuple[tuple[fractions.Fraction, ...], tuple[str, WyckoffSite]]] = []
+        for key in keys:
+            previous = seen.get(key)
+            if previous is None:
+                continue
+            if species_by_name[previous[0]] != species_by_name[site.species]:
+                raise ValueError(f"{site!r} coincides with {previous[1]!r} at {key} but has a different species")
+            overlaps.append((key, previous))
+        if overlaps:
+            if len(overlaps) == len(keys):
+                continue
+            raise ValueError(f"{site!r} partially overlaps an earlier orbit; the CIF is not a valid ASU")
+        canonical.append(site)
+        seen.update({key: (site.species, site) for key in keys})
+    return canonical
 
 
 def _tolerance_from_cif(data: Mapping[str, Any], cell: Cell) -> float:
@@ -223,18 +267,59 @@ def _tolerance_from_cif(data: Mapping[str, Any], cell: Cell) -> float:
 
 def _site_uncertainty(data: Mapping[str, Any], index: int, cell: Cell) -> tuple[Any, str] | None:
     """Return one site's exact Cartesian uncertainty and the token causing it."""
-    positions = data.get("positions_exact")
-    if positions is None:
+    precisions = data.get("position_precisions")
+    tokens = data.get("positions_exact")
+    raw_tokens = data.get("position_tokens", tokens)
+    if tokens is None:
         return None
-    precisions = [(decimal_precision(token), str(token)) for token in positions[index]]
-    stated = [(precision, token) for precision, token in precisions if precision is not None]
+    if precisions is None:
+        stated_precision = data.get("coordinate_precision")
+        if stated_precision is not None:
+            precisions = tuple(tuple(stated_precision for _ in row) for row in tokens)
+        else:
+            precisions = tuple(tuple(decimal_precision(token) for token in row) for row in tokens)
+    stated = [
+        (precision, component, str(token))
+        for component, (precision, token) in enumerate(zip(precisions[index], tokens[index]))
+        if precision is not None and token is not None
+    ]
     if not stated:
         return None
-    precision, token = max(stated, key=lambda item: item[0])
-    longest = max(cell.lengths)
+    _, component, token = max(stated, key=lambda item: item[0])
+    if raw_tokens is not None:
+        token = str(raw_tokens[index][component])
+    from itertools import product
+
     from httk.atomistic.symmetry.recognition import _SAFETY_FACTOR
 
-    return precision * longest * _SAFETY_FACTOR, token
+    corners = []
+    for signs in product((-1, 1), repeat=3):
+        fractional = FracVector([sign * (precision or 0) for sign, precision in zip(signs, precisions[index])])
+        vector = cell.basis.T() * fractional
+        corners.append((vector.lengthsqr(), vector))
+    # Keep the exact squared norm: nested radicals can be impractical for triclinic cells,
+    # while threshold comparisons remain exact and the square root is only for diagnostics.
+    squared = max(corners, key=lambda item: item[0])[0]
+    return squared * _SAFETY_FACTOR**2, token
+
+
+def _cif_warning(message: str) -> None:
+    """Send one CIF warning through httk-core's report channel."""
+    import logging
+
+    logging.getLogger(__name__).warning(message, extra={"context": "cif"})
+
+
+def _exact_wyckoff_match(standard: Spacegroup, standard_point: FracVector) -> tuple[str, FracVector] | None:
+    """Return an exact match for a special Wyckoff position, excluding the general position."""
+    for position in standard.wyckoff:
+        if position.free_count == 3:
+            continue
+        for branch in position.branches:
+            parameters = branch.parameters_of(standard_point)
+            if parameters is not None:
+                return position.letter, parameters
+    return None
 
 
 def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True) -> Spacegroup:
@@ -410,12 +495,61 @@ def _parse_type_symbol(symbol: str) -> tuple[str, fractions.Fraction | None]:
 
 def _read_cif_for_atomistic(source: Any, *, allow_large_cif_uncertainty: bool = False) -> Mapping[str, Any]:
     """Read CIF through httk-io and carry the atomistic override to its adapter."""
-    from httk.io.cif import read_cif_asus
+    from httk.io.cif import read_cif
+    from httk.io.cif.cif_parser import cifblock_to_asu
 
-    payload = read_cif_asus(source)
+    raw_blocks, header = read_cif(source, allow_cif2=False)
+    blocks = []
+    unparsed = []
+    for name, raw_block in raw_blocks:
+        if "atom_site_label" not in raw_block:
+            continue
+        try:
+            block = cifblock_to_asu(raw_block)
+        except Exception as error:
+            unparsed.append({"block": name, "reason": f"{type(error).__name__}: {error}"})
+        else:
+            blocks.append(
+                {
+                    **block,
+                    "position_precisions": _position_precisions(raw_block),
+                    "position_tokens": _position_tokens(raw_block),
+                }
+            )
+    payload = {"format": "cif", "blocks": blocks, "unparsed": unparsed, "header": header}
     if not allow_large_cif_uncertainty:
         return payload
     return {**payload, _ALLOW_LARGE_CIF_UNCERTAINTY: True}
+
+
+def _position_precisions(block: Mapping[str, Any]) -> list[tuple[fractions.Fraction | None, ...]]:
+    """Preserve per-component CIF digit/ESD precision for the compatibility reader bridge."""
+    from httk.core import combined_precision
+    from httk.io.cif.cif_parser import cif_exact_token, parse_cif_float
+
+    columns = [block[f"atom_site_fract_{axis}"] for axis in "xyz"]
+    companions = [block.get(f"httk_atom_site_fract_{axis}_exact") for axis in "xyz"]
+    has_companion = any(value is not None for value in companions)
+    result = []
+    for index, values in enumerate(zip(*columns)):
+        row: list[fractions.Fraction | None] = []
+        for axis, value in enumerate(values):
+            companion = companions[axis]
+            companion_value = companion[index] if isinstance(companion, list) and index < len(companion) else None
+            if (companion_value is not None and cif_exact_token(companion_value) is not None) or (
+                has_companion and cif_exact_token(value) in {"0", "1"}
+            ):
+                row.append(None)
+            else:
+                meta = parse_cif_float(value, meta=True)[1]
+                row.append(combined_precision((meta["precision"], meta["esd"])))
+        result.append(tuple(row))
+    return result
+
+
+def _position_tokens(block: Mapping[str, Any]) -> list[tuple[str, ...]]:
+    """Preserve raw CIF coordinate tokens for precise uncertainty diagnostics."""
+    return list(zip(*(block[f"atom_site_fract_{axis}"] for axis in "xyz")))
 
 
 def _snap(
@@ -427,36 +561,22 @@ def _snap(
     tolerance: float,
     *,
     uncertainty: tuple[Any, str] | None = None,
+    exact_match: tuple[str, FracVector] | None = None,
     allow_large_cif_uncertainty: bool = False,
 ) -> tuple[str, FracVector] | None:
     """The most specific Wyckoff position within ``tolerance``, and its free parameters."""
     from httk.atomistic.symmetry.recognition import _cartesian_distance_squared
 
-    # Exact coordinates must win over the precision-derived fallback.  CIFs commonly write
-    # special positions as ``0.``; that records one decimal place, not a one-tenth-cell error.
-    for position in standard.wyckoff:
-        if position.free_count == 3:
-            continue
-        for branch in position.branches:
-            parameters = branch.parameters_of(standard_point)
-            if parameters is not None:
-                return position.letter, parameters
+    if exact_match is not None:
+        return exact_match
 
     if uncertainty is not None:
         projected, token = uncertainty
-        if projected >= CIF_POSITIONAL_UNCERTAINTY_ERROR and not allow_large_cif_uncertainty:
+        if projected >= CIF_POSITIONAL_UNCERTAINTY_ERROR**2 and not allow_large_cif_uncertainty:
             raise ValueError(
                 f"CIF coordinate token {token!r} implies a projected positional uncertainty of "
-                f"{projected.to_float():.6g} Å; pass allow_large_cif_uncertainty=True to override"
+                f"{math.sqrt(projected.to_float()):.6g} Å; pass allow_large_cif_uncertainty=True to override"
             )
-        if projected >= CIF_POSITIONAL_UNCERTAINTY_WARNING:
-            _CIF_LOGGER.warning(
-                "CIF coordinate token %r implies a projected positional uncertainty of %.6g Å",
-                token,
-                projected.to_float(),
-                extra={"context": "cif"},
-            )
-
     limit = tolerance * tolerance
     for position in standard.wyckoff:
         for branch in position.branches:
