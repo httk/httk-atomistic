@@ -298,6 +298,29 @@ class Species(SpeciesBackend):
             and self.attached is None
         )
 
+    def without_charges(self) -> "Species":
+        """Return an EXPLICIT lossy projection that drops declared oxidation states.
+
+        The other species fields, including spins and labels, are preserved. A species
+        without declared charges is returned by identity.
+
+        :return: A charge-free species, or this species when already charge-free.
+        """
+        if self.charges is None:
+            return self
+        return Species(
+            name=self.name,
+            chemical_symbols=self.chemical_symbols,
+            concentration=self.concentration,
+            mass=self.mass,
+            original_name=self.original_name,
+            attached=self.attached,
+            nattached=self.nattached,
+            concentration_precision=self.concentration_precision,
+            spins=self.spins,
+            labels=self.labels,
+        )
+
     @classmethod
     def create(cls, obj: "Species | dict[str, Any] | str | int", **hints: Any) -> "Species":
         r"""

@@ -23,7 +23,12 @@ def require_bare_atomic_projection(backend: Any, target: str) -> None:
     for item in species:
         for field in ("charges", "spins", "labels"):
             if getattr(item, field, None) is not None:
-                raise ValueError(f"This structure cannot be represented as {target} because species has {field}")
+                remedy = (
+                    "; use structure.without_charges() to project them away explicitly" if field == "charges" else ""
+                )
+                raise ValueError(
+                    f"This structure cannot be represented as {target} because species has {field}{remedy}"
+                )
 
 
 __all__ = ["require_bare_atomic_projection"]

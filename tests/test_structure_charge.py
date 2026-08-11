@@ -43,6 +43,20 @@ def test_charge_is_exact_and_none_is_not_zero() -> None:
     assert _structure("3/2").numeric().charge == 1.5
     exact = _structure(Fraction(1, 3))
     assert same_crystal(exact, StructureBackend.create(exact.numeric()))
+
+
+def test_without_charges_preserves_other_species_decorations() -> None:
+    species = Species("Fe", ("Fe",), (1,), charges=(2,), spins=("1/2",), labels=("host",))
+    structure = UnitcellStructure(_structure().cell, [[0, 0, 0]], [species], ["Fe"])
+
+    projected = structure.without_charges()
+
+    assert projected is not structure
+    assert projected.species[0].charges is None
+    assert projected.species[0].spins == (Fraction(1, 2),)
+    assert projected.species[0].labels == ("host",)
+    plain = _structure()
+    assert plain.without_charges() is plain
     assert same_crystal(_structure(), _structure(0)) is False
 
 

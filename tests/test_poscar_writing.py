@@ -1,4 +1,5 @@
 from fractions import Fraction
+from pathlib import Path
 
 import pytest
 from httk.core import FracVector
@@ -86,6 +87,27 @@ def test_poscar_keeps_distinct_same_symbol_species_groups() -> None:
 def test_poscar_refuses_disordered_or_partial_species(species: Species) -> None:
     structure = UnitcellStructure(CELL, [[0, 0, 0]], [species], [species.name])
     with pytest.raises(ValueError, match="disorder/partial occupancy"):
+        _poscar_payload_from_structure(structure)
+
+
+def test_charge_bearing_cif_can_be_projected_to_poscar(tmp_path: Path) -> None:
+    pytest.importorskip("httk.io")
+    from httk.core import load, save
+
+    charged = load(str(Path(__file__).with_name("fixtures") / "oxidation_states.cif"))
+    projected = charged.without_charges()
+    destination = tmp_path / "POSCAR"
+
+    save(projected, destination)
+
+    assert all(species.charges is None for species in projected.species)
+    assert load(destination).species
+
+
+def test_poscar_charge_refusal_names_explicit_projection() -> None:
+    structure = UnitcellStructure(CELL, [[0, 0, 0]], [Species("Fe", ("Fe",), (1,), charges=(2,))], ["Fe"])
+
+    with pytest.raises(ValueError, match=r"structure\.without_charges\(\)"):
         _poscar_payload_from_structure(structure)
 
 

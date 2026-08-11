@@ -23,6 +23,18 @@ def test_decorations_normalize_and_canonicalize() -> None:
     assert Species("Fe", ("Fe",), (1,), labels=(None,)).labels is None
 
 
+def test_without_charges_drops_only_charges() -> None:
+    species = Species("Fe", ("Fe",), (1,), charges=(2,), spins=("1/2",), labels=("host",))
+
+    projected = species.without_charges()
+
+    assert projected.charges is None
+    assert projected.spins == (Fraction(1, 2),)
+    assert projected.labels == ("host",)
+    plain = Species("Fe", ("Fe",), (1,))
+    assert plain.without_charges() is plain
+
+
 @pytest.mark.parametrize("field", ["charges", "spins", "labels"])
 def test_decorations_must_align(field: str) -> None:
     with pytest.raises(ValueError, match=f"Species {field} must have the same length"):

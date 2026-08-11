@@ -70,6 +70,37 @@ class StructureAPI(ABC):
         """
         return None
 
+    def without_charges(self) -> "StructureAPI":
+        """Return an EXPLICIT lossy projection that drops declared oxidation states.
+
+        The canonical structure components and semantic metadata are preserved. A structure
+        without species charges is returned by identity; charged structures are rebuilt in the
+        canonical unit-cell family.
+
+        :return: A charge-free structure, or this structure when already charge-free.
+        """
+        if not any(species.charges is not None for species in self.species):
+            return self
+        from httk.atomistic.models.structure.unitcell import UnitcellStructure
+
+        return UnitcellStructure(
+            self.cell,
+            self.sites,
+            tuple(species.without_charges() for species in self.species),
+            self.species_at_sites,
+            site_moments=self.site_moments,
+            molecular=getattr(self, "molecular", False),
+            assemblies=getattr(self, "assemblies", None),
+            symmetry=getattr(self, "symmetry", None),
+            chemical_composition=getattr(self, "chemical_composition", None),
+            chemical_formula_descriptive=getattr(self, "chemical_formula_descriptive", None),
+            chemical_formula_hill=getattr(self, "chemical_formula_hill", None),
+            optimization_type=getattr(self, "optimization_type", None),
+            immutable_id=getattr(self, "immutable_id", None),
+            last_modified=getattr(self, "last_modified", None),
+            charge=self.charge,
+        )
+
     @cached_property
     def composition(self) -> "Composition":
         """Project the canonical components into an elemental composition."""
