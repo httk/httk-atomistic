@@ -124,9 +124,7 @@ def test_optimade_charge_is_read_from_private_attribute() -> None:
 
 
 def test_writers_reject_charge_after_optimade_conversion() -> None:
-    schema = load_entry_type_definition(
-        "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
-    )
+    schema = load_entry_type_definition("https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures")
     names = {
         "lattice_vectors": "remote_lattice",
         "fractional_site_positions": "remote_fractional",
@@ -134,9 +132,7 @@ def test_writers_reject_charge_after_optimade_conversion() -> None:
         "species_at_sites": "remote_site_species",
         "dimension_types": "remote_dimensions",
     }
-    properties = {
-        remote: {"$id": schema.properties[name].definition_id} for name, remote in names.items()
-    }
+    properties = {remote: {"$id": schema.properties[name].definition_id} for name, remote in names.items()}
     attributes = {
         names["lattice_vectors"]: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
         names["fractional_site_positions"]: [[0, 0, 0]],

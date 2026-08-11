@@ -115,6 +115,23 @@ def test_plain_cif_symbols_leave_charges_unstated(tmp_path: Path) -> None:
     assert {species.name: species.charges for species in structure.species} == {"Na": None, "Cl": None}
 
 
+def test_redundant_identical_cif_sites_are_deduplicated() -> None:
+    structure = load(str(Path(__file__).with_name("fixtures") / "redundant_cif_sites.cif"))
+    assert len(structure.sites) == 1
+
+
+def test_coincident_cif_sites_with_different_species_are_rejected(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "conflict.cif",
+        Spacegroup.standard(1).setting,
+        (1, 1, 1, 90, 90, 90),
+        [("Ca1", "Ca2+", ("0", "0", "0"), "1"), ("O1", "O2-", ("0", "0", "0"), "1")],
+        name="Conflict",
+    )
+    with pytest.raises(ValueError, match="different species"):
+        _ = load(str(path)).sites
+
+
 # --- reading ---
 
 

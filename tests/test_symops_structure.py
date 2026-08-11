@@ -83,9 +83,7 @@ def test_hexagonal_lattice_frame_moment_math_is_exact() -> None:
         cell=cell,
     )
     rows = _moment_rows(structure.site_moments)
-    expected = {
-        tuple(SurdVector(value)._as_scalar() for value in row) for row in ((1, 2, 3), (-2, -1, 3), (1, -1, 3))
-    }
+    expected = {tuple(SurdVector(value)._as_scalar() for value in row) for row in ((1, 2, 3), (-2, -1, 3), (1, -1, 3))}
 
     assert set(rows) == expected
     assert (1, 2, 3) in rows

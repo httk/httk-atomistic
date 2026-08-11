@@ -40,3 +40,18 @@ register_format_adapter(
     adapter="httk.atomistic._loading:_trajectory_from_payload",
     formats=("vasp-outcar", "vasp-xdatcar", "httk-trajectory-jsonl"),
 )
+
+# httk-core sends load kwargs to readers, not format adapters. The CIF bridge keeps the
+# atomistic reader option available without changing httk-io's neutral reader contract.
+try:
+    from httk.registry.io import io as _httk_io_registration  # noqa: F401
+except ImportError:
+    pass
+else:
+    from httk.core.register import readers
+
+    readers.register(
+        key=".cif",
+        handler="httk.atomistic.cif_structures:_read_cif_for_atomistic",
+        name="atomistic-cif",
+    )

@@ -14,11 +14,12 @@ rather than silently reinterpreted.
 """
 
 import fractions
+import logging
 import re
 from collections.abc import Mapping
 from typing import Any
 
-from httk.core import FracVector
+from httk.core import FracVector, decimal_precision
 
 from httk.atomistic.elements import SYMBOLS
 from httk.atomistic.models.cell.cell import Cell
@@ -33,7 +34,13 @@ from ._composition_values import as_fraction
 
 __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
 
+_ALLOW_LARGE_CIF_UNCERTAINTY = "_httk_atomistic_allow_large_cif_uncertainty"
+
 _TYPE_SYMBOL = re.compile(r"^(?P<symbol>[A-Z][a-z]?)(?:(?P<magnitude>\d+)?(?P<sign>[+-])|(?P<neutral>0))?$")
+
+CIF_POSITIONAL_UNCERTAINTY_WARNING = fractions.Fraction(1, 10)
+CIF_POSITIONAL_UNCERTAINTY_ERROR = fractions.Fraction(1)
+_CIF_LOGGER = logging.getLogger(__name__)
 
 
 def asu_structures_from_cif(payload: Mapping[str, Any], **options: Any) -> list[ASUStructure]:
@@ -51,6 +58,7 @@ def asu_structures_from_cif(payload: Mapping[str, Any], **options: Any) -> list[
     :return: One asymmetric-unit structure for each structural data block.
     :raises ValueError: If the payload has no interpretable structural data or a block is invalid.
     """
+    options.setdefault("allow_large_cif_uncertainty", bool(payload.get(_ALLOW_LARGE_CIF_UNCERTAINTY, False)))
     blocks = payload.get("blocks")
     if blocks is None:
         return [asu_structure_from_cif(payload, **options)]
@@ -71,6 +79,7 @@ def asu_structure_from_cif(
     tolerance: float | None = None,
     limit_denominator: int | None = None,
     trust_declared_symmetry: bool = True,
+    allow_large_cif_uncertainty: bool = False,
 ) -> ASUStructure:
     """Build an exact :class:`~httk.atomistic.ASUStructure` from a neutral CIF mapping.
 
@@ -102,6 +111,7 @@ def asu_structure_from_cif(
     :param tolerance: The Cartesian matching tolerance, or ``None`` to derive it from the CIF.
     :param limit_denominator: The maximum denominator for snapped free parameters, if supplied.
     :param trust_declared_symmetry: Whether to validate the declared symmetry before matching operations.
+    :param allow_large_cif_uncertainty: Whether to allow positional uncertainty at or above one angstrom.
     :return: The exact asymmetric-unit structure.
     :raises ValueError: If the block format, symmetry, coordinates, occupancies, or Wyckoff matches are invalid.
     """
@@ -114,11 +124,13 @@ def asu_structure_from_cif(
     transform = setting.transform_from_standard
     cell = _cell_from_cif(data)
 
-    if tolerance is None:
+    derived_tolerance = tolerance is None
+    if derived_tolerance:
         # Derived from the digits the file itself wrote, rather than a constant. The sites
         # are the asymmetric unit rather than a full cell, which is all this needs: the
         # tolerance depends on the precision and the cell, not on how many atoms there are.
         tolerance = _tolerance_from_cif(data, cell)
+    assert tolerance is not None
 
     coordinates = _exact_positions(data)
     symbols = list(data["symbols"])
@@ -153,7 +165,16 @@ def asu_structure_from_cif(
             )
 
         standard_point = transform.to_standard(coordinate).normalize()
-        match = _snap(standard, standard_point, coordinate, cell, transform, tolerance)
+        match = _snap(
+            standard,
+            standard_point,
+            coordinate,
+            cell,
+            transform,
+            tolerance,
+            uncertainty=_site_uncertainty(data, index, cell) if derived_tolerance else None,
+            allow_large_cif_uncertainty=allow_large_cif_uncertainty,
+        )
         if match is None:
             raise ValueError(
                 f"CIF site {labels[index]!r} at {tuple(coordinate.to_fractions())} does not lie on any "
@@ -172,6 +193,7 @@ def asu_structure_from_cif(
         list(species_by_name.values()),
         transform,
         data.get("coordinate_precision"),
+        _deduplicate_redundant_sites=True,
     )
 
 
@@ -197,6 +219,22 @@ def _tolerance_from_cif(data: Mapping[str, Any], cell: Cell) -> float:
     if basis_precision is not None:
         cartesian = max(cartesian, float(basis_precision))
     return cartesian * _SAFETY_FACTOR
+
+
+def _site_uncertainty(data: Mapping[str, Any], index: int, cell: Cell) -> tuple[Any, str] | None:
+    """Return one site's exact Cartesian uncertainty and the token causing it."""
+    positions = data.get("positions_exact")
+    if positions is None:
+        return None
+    precisions = [(decimal_precision(token), str(token)) for token in positions[index]]
+    stated = [(precision, token) for precision, token in precisions if precision is not None]
+    if not stated:
+        return None
+    precision, token = max(stated, key=lambda item: item[0])
+    longest = max(cell.lengths)
+    from httk.atomistic.symmetry.recognition import _SAFETY_FACTOR
+
+    return precision * longest * _SAFETY_FACTOR, token
 
 
 def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True) -> Spacegroup:
@@ -370,6 +408,16 @@ def _parse_type_symbol(symbol: str) -> tuple[str, fractions.Fraction | None]:
     return element, charge if sign == "+" else -charge
 
 
+def _read_cif_for_atomistic(source: Any, *, allow_large_cif_uncertainty: bool = False) -> Mapping[str, Any]:
+    """Read CIF through httk-io and carry the atomistic override to its adapter."""
+    from httk.io.cif import read_cif_asus
+
+    payload = read_cif_asus(source)
+    if not allow_large_cif_uncertainty:
+        return payload
+    return {**payload, _ALLOW_LARGE_CIF_UNCERTAINTY: True}
+
+
 def _snap(
     standard: Spacegroup,
     standard_point: FracVector,
@@ -377,9 +425,37 @@ def _snap(
     cell: Cell,
     transform: Any,
     tolerance: float,
+    *,
+    uncertainty: tuple[Any, str] | None = None,
+    allow_large_cif_uncertainty: bool = False,
 ) -> tuple[str, FracVector] | None:
     """The most specific Wyckoff position within ``tolerance``, and its free parameters."""
     from httk.atomistic.symmetry.recognition import _cartesian_distance_squared
+
+    # Exact coordinates must win over the precision-derived fallback.  CIFs commonly write
+    # special positions as ``0.``; that records one decimal place, not a one-tenth-cell error.
+    for position in standard.wyckoff:
+        if position.free_count == 3:
+            continue
+        for branch in position.branches:
+            parameters = branch.parameters_of(standard_point)
+            if parameters is not None:
+                return position.letter, parameters
+
+    if uncertainty is not None:
+        projected, token = uncertainty
+        if projected >= CIF_POSITIONAL_UNCERTAINTY_ERROR and not allow_large_cif_uncertainty:
+            raise ValueError(
+                f"CIF coordinate token {token!r} implies a projected positional uncertainty of "
+                f"{projected.to_float():.6g} Å; pass allow_large_cif_uncertainty=True to override"
+            )
+        if projected >= CIF_POSITIONAL_UNCERTAINTY_WARNING:
+            _CIF_LOGGER.warning(
+                "CIF coordinate token %r implies a projected positional uncertainty of %.6g Å",
+                token,
+                projected.to_float(),
+                extra={"context": "cif"},
+            )
 
     limit = tolerance * tolerance
     for position in standard.wyckoff:

@@ -41,16 +41,12 @@ def test_prototype_standard_setting_and_canonical_site_order() -> None:
     second = Prototype(CELL, 225, tuple(reversed(first.wyckoff_sites)), species)
     assert first == second
     with pytest.raises(ValueError, match="standard setting"):
-        Prototype(
-            CELL, Spacegroup.for_setting("15:c1"), (WyckoffSite("e", FracVector([1, 3]), "A"),), (species[0],)
-        )
+        Prototype(CELL, Spacegroup.for_setting("15:c1"), (WyckoffSite("e", FracVector([1, 3]), "A"),), (species[0],))
 
 
 def test_prototype_rejects_representatives_moments_and_bad_free_count() -> None:
     with pytest.raises(ValueError, match="representative"):
-        Prototype(
-            CELL, 225, (WyckoffSite("a", EMPTY, "A", representative=FracVector([0, 0, 0])),), (dummy("A"),)
-        )
+        Prototype(CELL, 225, (WyckoffSite("a", EMPTY, "A", representative=FracVector([0, 0, 0])),), (dummy("A"),))
     with pytest.raises(ValueError, match="free parameter"):
         Prototype(CELL, 225, (WyckoffSite("a", FracVector([1]), "A"),), (dummy("A"),))
 

@@ -31,18 +31,23 @@ pytest.importorskip("httk.io", reason="the readers live in httk-io")
 import io
 
 from httk.core import load
+from httk.core.report import collect_reports
 from httk.io.vasp import read_poscar
 
 from httk.atomistic import (
     DEFAULT_TOLERANCE,
-    WyckoffSite,
     ASUStructure,
     Spacegroup,
+    WyckoffSite,
+    _loading,
     recognize_asu,
     structure_tolerance,
 )
-from httk.atomistic.cif_structures import asu_structure_from_cif
-from httk.atomistic import _loading
+from httk.atomistic.cif_structures import (
+    CIF_POSITIONAL_UNCERTAINTY_ERROR,
+    CIF_POSITIONAL_UNCERTAINTY_WARNING,
+    asu_structure_from_cif,
+)
 
 build_poscar = getattr(_loading, "_" + "structure_" + "from_poscar")
 
@@ -64,6 +69,22 @@ def _structure() -> UnitcellStructure:
         _species(),
         ["Na", "Na"],
     )
+
+
+def _coarse_cif(tmp_path: Path, cell_length: str) -> Path:
+    path = tmp_path / f"coarse-{cell_length.replace('.', '_')}.cif"
+    path.write_text(
+        "data_x\n"
+        f"_cell_length_a {cell_length}\n_cell_length_b {cell_length}\n_cell_length_c {cell_length}\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 90\n"
+        "_space_group_IT_number 1\n"
+        "loop_\n_space_group_symop_operation_xyz\n'x,y,z'\n"
+        "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
+        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        "Si1 Si 0.3 0.11 0.07\n",
+        encoding="utf-8",
+    )
+    return path
 
 
 # --- storing it ---
@@ -369,3 +390,32 @@ def test_a_coarsely_written_file_is_matched_at_the_precision_it_claims(tmp_path:
     derived = asu_structure_from_cif(block)
     assert derived.wyckoff_sites[0].wyckoff == "e"
     assert len(UnitcellStructureView(derived).sites) == 4
+
+
+def test_cif_positional_uncertainty_warns_at_the_warning_threshold(tmp_path: Path) -> None:
+    path = _coarse_cif(tmp_path, "0.5")
+    with collect_reports(level="warning") as collection:
+        structure = load(str(path))
+
+    assert len(structure.sites) == 1
+    assert len(collection.records) == 1
+    assert collection.records[0].context == "cif"
+    assert "0.3" in collection.records[0].getMessage()
+    assert CIF_POSITIONAL_UNCERTAINTY_WARNING == F(1, 10)
+
+
+def test_cif_positional_uncertainty_below_warning_threshold_is_silent(tmp_path: Path) -> None:
+    with collect_reports(level="warning") as collection:
+        load(str(_coarse_cif(tmp_path, "0.49")))
+
+    assert collection.records == []
+
+
+def test_cif_positional_uncertainty_raises_at_error_threshold(tmp_path: Path) -> None:
+    path = _coarse_cif(tmp_path, "5.0")
+    with pytest.raises(ValueError, match=r"token '0\.3'.*1 Å.*allow_large_cif_uncertainty=True"):
+        load(str(path))
+
+    overridden = load(str(path), allow_large_cif_uncertainty=True)
+    assert len(overridden.sites) == 1
+    assert CIF_POSITIONAL_UNCERTAINTY_ERROR == F(1)

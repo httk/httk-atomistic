@@ -12,17 +12,17 @@ from httk.core import FracVector, unwrap
 
 from httk.atomistic import (
     Assembly,
-    WyckoffSite,
     ASUStructure,
     Cell,
     FundamentalDomainStructure,
     SettingTransform,
     Spacegroup,
     Species,
-    UnitcellStructure,
     StructureBackend,
     StructureEntryProvider,
+    UnitcellStructure,
     UnitcellStructureView,
+    WyckoffSite,
     same_crystal,
 )
 
@@ -126,7 +126,7 @@ def test_redundant_wyckoff_site_raises(structure_type: type[FundamentalDomainStr
     )
     assert isinstance(asu, structure_type)
 
-    with pytest.raises(ValueError, match=r"WyckoffSite\('Cl' at a\).*duplicates an earlier site's orbit"):
+    with pytest.raises(ValueError, match=r"WyckoffSite\('Cl' at a\).*different species"):
         _ = UnitcellStructureView(asu).sites
 
 

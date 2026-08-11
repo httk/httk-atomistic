@@ -25,9 +25,7 @@ def _trajectory(nframes: int) -> Trajectory:
 
 
 def test_adapter_from_providers_filters_trajectory_nframes() -> None:
-    adapter = adapter_from_providers(
-        [TrajectoryEntryProvider({"short": _trajectory(2), "long": _trajectory(3)})]
-    )
+    adapter = adapter_from_providers([TrajectoryEntryProvider({"short": _trajectory(2), "long": _trajectory(3)})])
     results = list(
         execute_query(
             adapter,
