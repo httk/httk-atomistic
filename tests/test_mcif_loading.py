@@ -66,3 +66,13 @@ def test_mcif_without_symops_is_rejected() -> None:
 
     with pytest.raises(ValueError, match="mcif block.*symops_xyz"):
         symops_structures_from_mcif(block)
+
+
+def test_mcif_type_symbols_preserve_oxidation_states() -> None:
+    payload = load(str(FIXTURES / "magnetic_centered.mcif"), raw=True)
+    block = dict(payload["blocks"][0])
+    block["symbols"] = ["Fe2+"]
+    structure = symops_structures_from_mcif({"format": "mcif", "blocks": [block]})[0]
+
+    assert structure.species[0].chemical_symbols == ("Fe",)
+    assert structure.species[0].charges == (2,)

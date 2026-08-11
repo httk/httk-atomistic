@@ -13,7 +13,7 @@ from httk.atomistic.models.structure.symops import SymopsStructure
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.xyz import operation_from_xyz, operation_from_xyzt
 
-from .cif_structures import _cell_from_cif, _exact_positions, _species_name
+from .cif_structures import _cell_from_cif, _exact_positions, _parse_type_symbol, _species_name
 
 __all__ = ["symops_structures_from_mcif"]
 
@@ -76,15 +76,18 @@ def _species(data: Mapping[str, Any], symbols: list[str], labels: list[str]) -> 
             raise ValueError(f"mCIF occupancy is missing for site {label!r}")
         else:
             occupancy = occupancies[index]
-        name = _species_name(symbol, label, occupancy)
+        raw_symbol = symbol
+        symbol, charge = _parse_type_symbol(raw_symbol)
+        name = _species_name(raw_symbol, label, occupancy)
         if name not in by_name:
             precision = None if occupancy_precisions is None else occupancy_precisions[index]
             by_name[name] = Species(
                 name=name,
                 chemical_symbols=(symbol,),
                 concentration=(occupancy,),
-                original_name=None if label == symbol else label,
+                original_name=None if label == raw_symbol else label,
                 concentration_precision=(precision,) if occupancy_precisions is not None else None,
+                charges=(charge,) if charge is not None else None,
             )
         species_at_sites.append(name)
     return list(by_name.values()), species_at_sites

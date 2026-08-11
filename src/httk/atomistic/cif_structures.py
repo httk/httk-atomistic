@@ -14,11 +14,13 @@ rather than silently reinterpreted.
 """
 
 import fractions
+import re
 from collections.abc import Mapping
 from typing import Any
 
 from httk.core import FracVector
 
+from httk.atomistic.elements import SYMBOLS
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.species.species import Species
@@ -30,6 +32,8 @@ from . import data as symmetry_data
 from ._composition_values import as_fraction
 
 __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
+
+_TYPE_SYMBOL = re.compile(r"^(?P<symbol>[A-Z][a-z]?)(?:(?P<magnitude>\d+)?(?P<sign>[+-])|(?P<neutral>0))?$")
 
 
 def asu_structures_from_cif(payload: Mapping[str, Any], **options: Any) -> list[ASUStructure]:
@@ -135,14 +139,17 @@ def asu_structure_from_cif(
         else:
             occupancy = occupancies[index]
         occupancy_precision = None if occupancy_precisions is None else occupancy_precisions[index]
-        name = _species_name(symbols[index], labels[index], occupancy)
+        raw_symbol = symbols[index]
+        symbol, charge = _parse_type_symbol(raw_symbol)
+        name = _species_name(raw_symbol, labels[index], occupancy)
         if name not in species_by_name:
             species_by_name[name] = Species(
                 name=name,
-                chemical_symbols=(symbols[index],),
+                chemical_symbols=(symbol,),
                 concentration=(occupancy,),
                 original_name=None if labels[index] == symbols[index] else labels[index],
                 concentration_precision=(occupancy_precision,) if occupancy_precisions is not None else None,
+                charges=(charge,) if charge is not None else None,
             )
 
         standard_point = transform.to_standard(coordinate).normalize()
@@ -339,6 +346,28 @@ def _species_name(symbol: str, label: str, occupancy: Any) -> str:
     of the same element can carry different occupancies and would otherwise collide.
     """
     return symbol if as_fraction(occupancy, field="CIF occupancy")[0] == 1 else label
+
+
+def _parse_type_symbol(symbol: str) -> tuple[str, fractions.Fraction | None]:
+    """Split a CIF type symbol into an element symbol and an optional charge.
+
+    :param symbol: The raw ``_atom_site_type_symbol`` value.
+    :return: The element symbol and its explicit charge, if the value is decorated.
+    """
+    match = _TYPE_SYMBOL.fullmatch(symbol)
+    if match is None:
+        return symbol, None
+    element = match.group("symbol")
+    if element not in SYMBOLS:
+        return symbol, None
+    magnitude = match.group("magnitude")
+    sign = match.group("sign")
+    if match.group("neutral") is not None:
+        return element, fractions.Fraction(0)
+    if sign is None:
+        return element, None
+    charge = fractions.Fraction(1 if magnitude is None else int(magnitude))
+    return element, charge if sign == "+" else -charge
 
 
 def _snap(

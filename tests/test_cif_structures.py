@@ -23,6 +23,7 @@ from httk.atomistic import (
     asu_structures_from_cif,
     cif_setting,
 )
+from httk.atomistic.cif_structures import _parse_type_symbol
 
 F = fractions.Fraction
 
@@ -88,6 +89,30 @@ def _rocksalt_integer_cif(tmp_path: Path) -> Path:
         [("Na1", "Na", ("0", "0", "0"), "1"), ("Cl1", "Cl", ("0.5", "0.5", "0.5"), "1")],
         name="NaClInteger",
     )
+
+
+@pytest.mark.parametrize(
+    ("raw", "symbol", "charge"),
+    [("Ca2+", "Ca", F(2)), ("O2-", "O", F(-2)), ("Cu+", "Cu", F(1)), ("Ti0", "Ti", F(0)), ("Ti", "Ti", None)],
+)
+def test_cif_type_symbol_parsing(raw: str, symbol: str, charge: fractions.Fraction | None) -> None:
+    assert _parse_type_symbol(raw) == (symbol, charge)
+
+
+def test_decorated_cif_symbols_load_as_species_charges() -> None:
+    structure = load(str(Path(__file__).with_name("fixtures") / "oxidation_states.cif"))
+
+    assert {species.name: species.charges for species in structure.species} == {
+        "Ca2+": (F(2),),
+        "O2-": (F(-2),),
+        "Cu+": (F(1),),
+        "Ti0": (F(0),),
+    }
+
+
+def test_plain_cif_symbols_leave_charges_unstated(tmp_path: Path) -> None:
+    structure = load(str(_rocksalt_cif(tmp_path)))
+    assert {species.name: species.charges for species in structure.species} == {"Na": None, "Cl": None}
 
 
 # --- reading ---
