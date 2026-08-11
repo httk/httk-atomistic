@@ -16,19 +16,30 @@ class TrajectoryAPI(ABC):
     """
 
     @property
-    @abstractmethod
     def nframes(self) -> int:
-        """Return the number of frames."""
-        raise NotImplementedError
+        """Count frames by streaming them in O(n) time.
 
-    @abstractmethod
+        Random-access backends override this default.
+
+        :return: The number of frames.
+        """
+        return sum(1 for _ in self.frames())
+
     def frame(self, i: int) -> UnitcellStructure:
-        """Return one frame by index.
+        """Stream to and return one frame in O(n) time.
+
+        Random-access backends override this default.
 
         :param i: Frame index.
-        :return: The requested unit-cell structure.
+        :return: The requested :class:`~httk.atomistic.models.structure.unitcell.UnitcellStructure`.
+        :raises IndexError: If ``i`` is negative or past the end.
         """
-        raise NotImplementedError
+        if i < 0:
+            raise IndexError(f"Trajectory frame index {i} out of range")
+        for index, frame in enumerate(self.frames()):
+            if index == i:
+                return frame
+        raise IndexError(f"Trajectory frame index {i} out of range")
 
     @abstractmethod
     def frames(self) -> Iterator[UnitcellStructure]:

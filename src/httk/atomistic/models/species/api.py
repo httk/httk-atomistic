@@ -67,6 +67,14 @@ class SpeciesAPI(ABC):
         raise NotImplementedError
 
     @property
+    def is_ordered(self) -> bool:
+        """Return whether every constituent has unit concentration.
+
+        :return: ``True`` when all concentrations are exactly ``Fraction(1)``.
+        """
+        return all(value == Fraction(1) for value in self.concentration)
+
+    @property
     @abstractmethod
     def concentration_precision(self) -> tuple[Fraction | None, ...] | None:
         raise NotImplementedError

@@ -25,6 +25,15 @@ class SitesAPI(ABC):
         raise NotImplementedError
 
     @property
+    def num_sites(self) -> int:
+        """Return the number of coordinate rows.
+
+        :return: The number of sites.
+        """
+        coordinates = self.reduced_coords
+        return 0 if not coordinates.dim else coordinates.dim[0]
+
+    @property
     def precision(self) -> fractions.Fraction | None:
         """How precisely the coordinates were stated, in fractional units, or ``None``.
 

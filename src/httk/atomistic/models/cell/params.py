@@ -162,6 +162,22 @@ class CellParams(CellBackend):
         return self.basis
 
     @property
+    def lengths(self) -> tuple[SurdScalar, ...]:
+        """Return the natively stored cell-vector lengths.
+
+        :return: The exact stored ``a``, ``b``, and ``c`` lengths.
+        """
+        return tuple(SurdVector(value)._as_scalar() for value in self._params[:3])
+
+    @property
+    def angles(self) -> tuple[fractions.Fraction, ...]:
+        """Return the natively stored cell angles in degrees.
+
+        :return: The exact stored ``alpha``, ``beta``, and ``gamma`` angles.
+        """
+        return self._params[3:]
+
+    @property
     def params(self) -> tuple[fractions.Fraction, ...]:
         """The stored ``(a, b, c, alpha, beta, gamma)`` in degrees.
 

@@ -5,47 +5,14 @@ The Cell class for httk-atomistic.
 import fractions
 from typing import TYPE_CHECKING, Any
 
-from httk.core import SurdScalar, SurdVector, VectorLike, exactmath
-from httk.core.exactmath import integer_sqrt
+from httk.core import SurdScalar, SurdVector, VectorLike
 
 from httk.atomistic.models._vector_guards import to_periodicity, to_precision, to_surdscalar, to_surdvector
+from httk.atomistic.models.cell.api import _scalar_length
 from httk.atomistic.models.cell.backend import CellBackend
 
 if TYPE_CHECKING:
     from httk.atomistic.models.cell.numeric import NumericCell
-
-# Deterministic precision for the fallbacks where a length or angle is not exact in the surd field
-# (a non-Niven angle, or an irrational squared length outside the crystallographic metric-rational
-# case). Matches the exactmath default accuracy.
-_FALLBACK_PREC = exactmath.default_accuracy
-
-# Above this size the exact-surd square root (which factors the radicand via trial division up to
-# its cube root) is skipped in favour of a deterministic rational approximation. Exact
-# crystallographic data has tiny radicands (well under this); the only values that exceed it are the
-# huge binary rationals produced by embedding an irrational float, for which no exact surd root is
-# wanted anyway. A perfect square is always taken exactly (a cheap integer-sqrt test, any size).
-_MAX_EXACT_RADICAND = 10**18
-
-
-def _scalar_length(lsq: SurdScalar) -> SurdScalar:
-    """
-    The exact length ``sqrt(lsq)`` as a ``SurdScalar``, with a deterministic fallback.
-
-    Exact when ``lsq`` is a rational perfect square (any size) or a rational with a small radicand
-    (the crystallographic case). Otherwise — a huge float-derived rational, or an irrational squared
-    length — a deterministic rational approximation at ``_FALLBACK_PREC``.
-    """
-    if lsq.is_rational:
-        q = lsq._rational_fraction()
-        num, den = q.numerator, q.denominator
-        root_num, root_den = integer_sqrt(num), integer_sqrt(den)
-        if root_num * root_num == num and root_den * root_den == den:
-            return SurdVector(fractions.Fraction(root_num, root_den))._as_scalar()
-        if num * den <= _MAX_EXACT_RADICAND:
-            return SurdVector.sqrt_of(q)
-        return SurdVector(exactmath.sqrt(q, prec=_FALLBACK_PREC, limit=True))._as_scalar()
-    approx = lsq.to_fractions_approx(_FALLBACK_PREC)
-    return SurdVector(exactmath.sqrt(approx, prec=_FALLBACK_PREC, limit=True))._as_scalar()
 
 
 class Cell(CellBackend):
@@ -216,8 +183,7 @@ class Cell(CellBackend):
         :return: The Gram matrix of the cell vectors.
         """
         if self._metric_cache is None:
-            m = self.basis
-            self._metric_cache = m * m.T()
+            self._metric_cache = super().metric()
         return self._metric_cache
 
     @property
@@ -233,8 +199,7 @@ class Cell(CellBackend):
         :return: The three cell-vector lengths.
         """
         if self._lengths_cache is None:
-            metric = self.metric()
-            self._lengths_cache = tuple(_scalar_length(metric._element((i, i))) for i in range(3))
+            self._lengths_cache = super().lengths
         return self._lengths_cache
 
     @property
@@ -252,32 +217,8 @@ class Cell(CellBackend):
         :return: ``(alpha, beta, gamma)`` in degrees.
         """
         if self._angles_cache is None:
-            u = self._unscaled_basis
-            gram = u * u.T()
-            self._angles_cache = (
-                self._angle_from_gram(gram, 1, 2),
-                self._angle_from_gram(gram, 0, 2),
-                self._angle_from_gram(gram, 0, 1),
-            )
+            self._angles_cache = super().angles
         return self._angles_cache
-
-    @staticmethod
-    def _angle_from_gram(gram: SurdVector, i: int, j: int) -> fractions.Fraction:
-        dot = gram._element((i, j))
-        li = _scalar_length(gram._element((i, i)))
-        lj = _scalar_length(gram._element((j, j)))
-        cosine = (dot * (li * lj)._as_scalar()._inverse())._as_scalar()
-        try:
-            exact = cosine.acos_degrees()
-        except ValueError:
-            exact = None
-        if exact is not None:
-            return exact
-        cos_value = max(
-            fractions.Fraction(-1),
-            min(fractions.Fraction(1), cosine.to_fractions_approx(_FALLBACK_PREC)),
-        )
-        return fractions.Fraction(exactmath.acos(cos_value, degrees=True, prec=_FALLBACK_PREC, limit=False))
 
     @property
     def volume(self) -> SurdScalar:
@@ -293,11 +234,7 @@ class Cell(CellBackend):
         :raises ValueError: If the cell is not periodic in all three directions.
         """
         if self._periodicity != (True, True, True):
-            raise ValueError(
-                "volume is defined only for a fully 3D-periodic cell; this one is periodic in "
-                f"{self.nperiodic_dimensions} of 3 directions ({self._periodicity}). "
-                "Use periodic_measure for the area, length or volume of the periodic sublattice."
-            )
+            return super().volume
         return self._unchecked_volume
 
     @property
