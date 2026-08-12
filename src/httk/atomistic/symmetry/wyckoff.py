@@ -22,7 +22,7 @@ Everything is expressed in the coordinates of whichever setting the record came 
 """
 
 import fractions
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, Self
 
 from httk.core import FracVector
@@ -177,7 +177,7 @@ class WyckoffPosition:
     _free: tuple[int, ...]
     _branches: tuple[WyckoffBranch, ...]
 
-    def __init__(self, record: dict[str, Any]) -> None:
+    def __init__(self, record: Mapping[str, Any]) -> None:
         self._letter = record["letter"]
         self._multiplicity = record["multiplicity"]
         self._site_symmetry = record["sitesym"]
@@ -190,7 +190,7 @@ class WyckoffPosition:
             )
 
     @classmethod
-    def from_record(cls, record: dict[str, Any]) -> Self:
+    def from_record(cls, record: Mapping[str, Any]) -> Self:
         """Build a Wyckoff position from a vendored record.
 
         :param record: The vendored Wyckoff-position record.
@@ -288,7 +288,7 @@ class WyckoffPosition:
         return f"WyckoffPosition({self._multiplicity}{self._letter}, sitesym={self._site_symmetry!r})"
 
 
-def wyckoff_positions(record: dict[str, Any]) -> tuple[WyckoffPosition, ...]:
+def wyckoff_positions(record: Mapping[str, Any]) -> tuple[WyckoffPosition, ...]:
     """Build the Wyckoff positions of a setting record, most specific first.
 
     Ordered by ``(free_count, multiplicity, letter)`` so that the first match found when

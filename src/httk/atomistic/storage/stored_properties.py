@@ -162,10 +162,10 @@ def _coordinate_span(record: Any, backing: str) -> str:
 
 
 @functools.cache
-def _settings_by_it_number() -> dict[int, tuple[dict[str, Any], ...]]:
+def _settings_by_it_number() -> dict[int, tuple[Mapping[str, Any], ...]]:
     from httk.atomistic import data
 
-    grouped: dict[int, list[dict[str, Any]]] = {}
+    grouped: dict[int, list[Mapping[str, Any]]] = {}
     for setting in data.spacegroup_settings():
         grouped.setdefault(setting["it_number"], []).append(setting)
     return {it_number: tuple(settings) for it_number, settings in grouped.items()}

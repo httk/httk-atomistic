@@ -6,6 +6,7 @@ import ast
 import datetime
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import cached_property
@@ -155,7 +156,7 @@ def declared_spacegroup_settings(
     hermann_mauguin: str | None,
     hermann_mauguin_extended: str | None,
     operation_group: frozenset[Any] | None,
-) -> tuple[dict[str, Any], ...]:
+) -> tuple[Mapping[str, Any], ...]:
     """Return tabulated settings consistent with supplied symmetry metadata.
 
     Raw ``xyz`` operation strings are parsed only for validation and matching; callers
@@ -236,7 +237,7 @@ class StructureSymmetry:
     space_group_symbol_hermann_mauguin_extended: str | None = None
     space_group_symmetry_operations_xyz: tuple[str, ...] | None = None
     wyckoff_positions: tuple[str, ...] | None = None
-    matched_settings: ClassVar[tuple[dict[str, Any], ...]]
+    matched_settings: ClassVar[tuple[Mapping[str, Any], ...]]
 
     def __post_init__(self) -> None:
         number = self.space_group_it_number

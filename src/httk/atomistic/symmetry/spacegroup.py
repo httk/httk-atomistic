@@ -11,6 +11,7 @@ setting, obtained from :meth:`Spacegroup.standard`, and reaches any other settin
 a :class:`~httk.atomistic.SettingTransform`.
 """
 
+from collections.abc import Mapping
 from functools import cached_property
 from typing import Any, Self
 
@@ -41,12 +42,12 @@ _PROBE_PARAMETERS = (
 class Spacegroup:
     """Represent a tabulated space-group setting from the vendored symmetry data.
 
-    :param record: The vendored record describing one space-group setting.
+    :param record: The read-only vendored mapping describing one space-group setting.
     """
 
-    _record: dict[str, Any]
+    _record: Mapping[str, Any]
 
-    def __init__(self, record: dict[str, Any]) -> None:
+    def __init__(self, record: Mapping[str, Any]) -> None:
         self._record = record
 
     # --- constructors ---
@@ -96,7 +97,7 @@ class Spacegroup:
     # --- identity ---
 
     @property
-    def record(self) -> dict[str, Any]:
+    def record(self) -> Mapping[str, Any]:
         """Return the raw vendored record for fields this class does not model.
 
         :return: The source record for this setting.

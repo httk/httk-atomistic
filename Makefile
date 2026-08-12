@@ -77,9 +77,8 @@ httk-defs:
 	done
 
 # Refresh the vendored CC BY 4.0 symmetry datasets under src/httk/atomistic/data/ from a
-# local data-generators checkout. Offline, unlike optimade-defs. The transforms file is a
-# derived subset, written with a fixed gzip mtime so the output is byte-reproducible; see
-# src/httk/atomistic/data/README.md.
+# local data-generators checkout. Offline, unlike optimade-defs. The five canonical
+# appropriately-sized json.gz files are copied byte-for-byte; see README.md.
 DATA_GENERATORS ?= ../data-generators-validation/data-generators
 symmetry-data:
 	$(PYTHON) tools/vendor_symmetry_data.py $(DATA_GENERATORS)

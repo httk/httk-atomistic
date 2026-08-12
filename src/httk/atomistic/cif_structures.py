@@ -15,7 +15,7 @@ rather than silently reinterpreted.
 import fractions
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from httk.core import FracVector, decimal_precision
@@ -359,7 +359,7 @@ def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True
         raise ValueError("this CIF block states no symmetry operations, so its setting cannot be determined")
     target = frozenset(operation_from_xyz(operation).wrapped() for operation in operations)
 
-    candidates: list[dict[str, Any]] | None = None
+    candidates: Sequence[Mapping[str, Any]] | None = None
     declared = None
     if trust_declared_symmetry:
         candidates, declared = _declared_settings(data)
@@ -385,7 +385,7 @@ def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True
     )
 
 
-def _declared_settings(data: Mapping[str, Any]) -> tuple[list[dict[str, Any]] | None, str | None]:
+def _declared_settings(data: Mapping[str, Any]) -> tuple[list[Mapping[str, Any]] | None, str | None]:
     """The settings the file's own declaration allows, and how it was described.
 
     ``(None, None)`` when the file declares nothing, in which case every tabulated setting is

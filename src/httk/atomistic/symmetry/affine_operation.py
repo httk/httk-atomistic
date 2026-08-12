@@ -19,7 +19,7 @@ code here.
 """
 
 import fractions
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Any, Self
 
 from httk.core import FracVector
@@ -65,7 +65,7 @@ class AffineOperation:
         return cls(FracVector.eye((3, 3)), (0, 0, 0))
 
     @classmethod
-    def from_record(cls, record: dict[str, Any]) -> Self:
+    def from_record(cls, record: Mapping[str, Any]) -> Self:
         """Build an operation from either vendored affine-record shape.
 
         The record's ``matrix`` and ``vector`` hold exact rational strings (``"1/2"``,
