@@ -83,7 +83,7 @@ Source repository: <https://github.com/httk/data-generator>
 
 | File | Version | Provenance |
 | --- | --- | --- |
-| `symmetry_basics.json.gz` | 0.1.0 | data-generators commit `de1f495b9e9231c8223cb20423f0d8b69b376a55`, copied byte-for-byte |
+| `symmetry_basics.json.gz` | 0.1.0 | data-generators commit `3eee0dc59f9bce6f8a704ac06be6d887e6550acc`, copied byte-for-byte |
 | `spacegroup_setting_transforms.json.gz` | 0.1.0 | subset of the same commit's `transformations_hm_entry` dataset |
 | `spacegroup_subgroups.json.gz` | 0.1.0 | subset of the `transformations_std` dataset in the data-generators checkout used for this refresh |
 | `affine_normalizer_cosets.json.gz` | 0.1.0 | `affine_normalizer_cosets` dataset in the data-generators checkout used for this refresh, copied byte-for-byte |
