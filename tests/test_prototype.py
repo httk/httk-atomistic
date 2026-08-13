@@ -1,16 +1,19 @@
 """Tests for standard-setting prototypes."""
 
+import pickle
 from fractions import Fraction
+from types import SimpleNamespace
 
 import pytest
 from httk.core import FracVector
 
 from httk.atomistic import (
-    AnonymousFormulaView,
     AnonymousFormula,
+    AnonymousFormulaView,
     AnonymousStructure,
     AnonymousStructureView,
     ASUStructure,
+    ASUStructureView,
     ChemicalFormulaView,
     CompositionView,
     Prototype,
@@ -21,6 +24,7 @@ from httk.atomistic import (
     UnitcellStructureView,
     WyckoffSite,
 )
+from httk.atomistic.models.structure.backend import StructureBackend
 
 CELL = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
 EMPTY = FracVector(())
@@ -33,6 +37,44 @@ def _rocksalt_asu() -> ASUStructure:
         (WyckoffSite("a", EMPTY, "Na"), WyckoffSite("b", EMPTY, "Cl")),
         (Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))),
     )
+
+
+def _rocksalt_unitcell() -> UnitcellStructure:
+    return UnitcellStructure(
+        CELL,
+        [[0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]],
+        (Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))),
+        ("Na", "Cl"),
+    )
+
+
+class CountingStructureResolver(StructureBackend):
+    def __init__(self, structure: UnitcellStructure) -> None:
+        self.structure = structure
+        self.resolve_calls = 0
+
+    @property
+    def cell(self):
+        return self.structure.cell
+
+    @property
+    def sites(self):
+        return self.structure.sites
+
+    @property
+    def species(self):
+        return self.structure.species
+
+    @property
+    def species_at_sites(self):
+        return self.structure.species_at_sites
+
+    def resolve(self):
+        self.resolve_calls += 1
+        return self.structure
+
+    def unwrap(self):
+        return self
 
 
 def test_prototype_standard_setting_and_canonical_site_order() -> None:
@@ -130,3 +172,109 @@ def test_recognition_path_is_spglib_gated() -> None:
     asu = _rocksalt_asu()
     unitcell = UnitcellStructureView(asu)
     assert PrototypeView(unitcell) == PrototypeView(asu)
+
+
+def test_prototype_view_resolves_nested_asu_source_once_across_value_operations() -> None:
+    source = CountingStructureResolver(_rocksalt_unitcell())
+    asu = ASUStructureView(source, setting=Spacegroup.standard(1))
+    view = PrototypeView(asu)
+
+    assert source.resolve_calls == 0
+    assert view.unwrap() is source
+    assert source.resolve_calls == 0
+
+    _ = view.spacegroup
+    assert source.resolve_calls == 1
+    _ = view.wyckoff_sites
+    same = view
+    _ = view == same
+    _ = repr(view)
+    _ = view.unview()
+    assert source.resolve_calls == 1
+
+
+def test_prototype_view_retains_tolerance_and_denominator_and_resolves_source_once(monkeypatch) -> None:
+    module = __import__("httk.atomistic.models.prototype.prototype_view", fromlist=["conventional_cell"])
+    source = CountingStructureResolver(_rocksalt_unitcell())
+    captured: dict[str, object] = {}
+
+    def fake_conventional(structure: object, **options: object):
+        captured["structure"] = structure
+        captured.update(options)
+        return SimpleNamespace(asu=_rocksalt_asu())
+
+    monkeypatch.setattr(module, "conventional_cell", fake_conventional)
+    view = PrototypeView(source, tolerance=0.125, limit_denominator=17)
+    assert source.resolve_calls == 0
+    _ = view.spacegroup
+    assert source.resolve_calls == 1
+    assert captured == {"structure": source.structure, "tolerance": 0.125, "limit_denominator": 17}
+
+
+def test_prototype_view_unsupported_data_fails_atomically_on_first_access() -> None:
+    mixed = UnitcellStructure(
+        CELL,
+        [[0, 0, 0]],
+        [Species("mixed", ("Fe", "Ni"), (Fraction(1, 2), Fraction(1, 2)))],
+        ("mixed",),
+    )
+    view = PrototypeView(mixed)
+    with pytest.raises(ValueError, match="not a single real element"):
+        _ = view.spacegroup
+    assert view._resolved_prototype is None
+    assert "_cell" not in view.__dict__
+    assert "_derived" not in view._backend.__dict__
+
+
+def test_prototype_view_pickle_preserves_unresolved_and_resolved_states() -> None:
+    source = CountingStructureResolver(_rocksalt_unitcell())
+    unresolved = PrototypeView(ASUStructureView(source, setting=Spacegroup.standard(1)))
+    restored = pickle.loads(pickle.dumps(unresolved))
+    restored_source = restored._backend._structure._source_backend
+    assert restored._resolved_prototype is None
+    assert restored._tolerance is None
+    assert restored_source.resolve_calls == 0
+    assert restored.unwrap() is restored_source
+    assert restored_source.resolve_calls == 0
+    assert restored.spacegroup.it_number == 1
+    assert restored_source.resolve_calls == 1
+
+    source = CountingStructureResolver(_rocksalt_unitcell())
+    resolved = PrototypeView(ASUStructureView(source, setting=Spacegroup.standard(1)))
+    _ = resolved.spacegroup
+    restored = pickle.loads(pickle.dumps(resolved))
+    assert restored._resolved_prototype is not None
+    assert restored.unview() is restored._resolved_prototype
+    assert restored._backend._structure._source_backend.resolve_calls == 1
+
+
+def test_prototype_view_native_unview_preserves_identity() -> None:
+    native = Prototype(
+        CELL,
+        225,
+        (WyckoffSite("a", EMPTY, "A"),),
+        (dummy("A"),),
+    )
+    assert PrototypeView(native).unview() is native
+
+
+def test_prototype_datastream_path_is_not_parsed_at_construction(tmp_path, monkeypatch) -> None:
+    import httk.core
+
+    __import__("httk.io")
+
+    path = tmp_path / "source.cif"
+    path.write_text("not parsed", encoding="utf-8")
+    calls = 0
+    real_load = httk.core.load
+
+    def counted_load(filename: str):
+        nonlocal calls
+        calls += 1
+        return real_load(filename)
+
+    monkeypatch.setattr(httk.core, "load", counted_load)
+    view = PrototypeView(str(path))
+    assert calls == 0
+    assert view.unwrap() == str(path)
+    assert calls == 0

@@ -1,4 +1,4 @@
-"""Eager prototype-recognition view."""
+"""Lazy prototype-recognition view."""
 
 from collections.abc import Callable
 from typing import Any, Self
@@ -12,8 +12,7 @@ from httk.atomistic.models.prototype.backend import AnonymousStructureBackend
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.prototype.view_base import AnonymousStructureViewBase
 from httk.atomistic.models.species.species import Species
-from httk.atomistic.models.structure.asu import WyckoffSite
-from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.asu import FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.symmetry.standardization import conventional_cell
 
@@ -36,7 +35,7 @@ def _relabel_sites(
 
 
 class PrototypeView(AnonymousStructureViewBase, Prototype):
-    r"""Recognize an eager standard-setting prototype view from a structure.
+    r"""Recognize a lazy standard-setting prototype view from a structure.
 
     Recognition accepts optional ``tolerance`` and ``limit_denominator`` values through
     the recognition hints.
@@ -46,6 +45,10 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
     """
 
     _backend: AnonymousStructureBackend
+    _resolved_prototype: Prototype | None
+    _tolerance: float | None
+    _limit_denominator: int | None
+    _DEFERRED_FIELDS = frozenset({"_cell", "_spacegroup", "_wyckoff_sites", "_species", "_coordinate_precision"})
 
     def __new__(
         cls,
@@ -66,58 +69,87 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
                 f"PrototypeView does not accept {names}=; use PrototypeView(ASUStructureView(source, {names}=...))"
             )
         backend = cls._prepare_backend(obj, hints)
+        if isinstance(backend, AnonymizedStructure) and (tolerance is not None or limit_denominator is not None):
+            from httk.atomistic.models.structure.asu_view import ASUStructureView
+
+            source = backend._structure
+            if isinstance(source, (FundamentalDomainStructure, ASUStructureView)) or isinstance(
+                getattr(source, "_view", None), ASUStructureView
+            ):
+                raise ValueError("PrototypeView tolerance and limit_denominator cannot be used with an existing ASU")
         if isinstance(backend, Prototype):
             if tolerance is not None or limit_denominator is not None:
                 raise ValueError("PrototypeView tolerance and limit_denominator cannot be used with a Prototype")
             instance = super().__new__(cls)
-            Prototype.__init__(
-                instance,
-                backend.cell,
-                backend.spacegroup,
-                backend.wyckoff_sites,
-                backend.species,
-                backend.coordinate_precision,
-            )
             instance._backend = backend
+            instance._resolved_prototype = None
+            instance._tolerance = tolerance
+            instance._limit_denominator = limit_denominator
             return instance
-
-        anonymous_source = isinstance(backend, AnonymousStructure)
-        source: StructureBackend
-        if anonymous_source:
-            source = UnitcellStructure(
-                backend.cell,
-                backend.sites,
-                backend.species,
-                backend.species_at_sites,
-            )
-            key_for_species = lambda name: name
-        elif isinstance(backend, AnonymizedStructure):
-            source = backend._structure
-            real_species = {species.name: species.chemical_symbols[0] for species in source.species}
-            key_for_species = lambda name: real_species[name]
-        else:
-            raise TypeError(f"Cannot recognize {type(backend).__name__} as a prototype source")
-
-        result = conventional_cell(source, tolerance=tolerance, limit_denominator=limit_denominator)
-        mapped_sites, mapped_species = _relabel_sites(
-            result.asu.wyckoff_sites,
-            result.asu.multiplicities(),
-            key_for_species,
-        )
         instance = super().__new__(cls)
-        Prototype.__init__(
-            instance,
-            result.asu.cell,
-            result.asu.spacegroup,
-            mapped_sites,
-            mapped_species,
-            result.asu.coordinate_precision,
-        )
         instance._backend = backend
+        instance._resolved_prototype = None
+        instance._tolerance = tolerance
+        instance._limit_denominator = limit_denominator
         return instance
 
     def __init__(self, obj: Any, **hints: Any) -> None:
         pass
+
+    def __getattribute__(self, name: str) -> Any:
+        if name in type(self)._DEFERRED_FIELDS:
+            namespace = object.__getattribute__(self, "__dict__")
+            if name not in namespace:
+                object.__getattribute__(self, "_effective_prototype")()
+        return object.__getattribute__(self, name)
+
+    def _effective_prototype(self) -> Prototype:
+        cached = object.__getattribute__(self, "_resolved_prototype")
+        if cached is not None:
+            return cached
+        backend = object.__getattribute__(self, "_backend")
+        if isinstance(backend, Prototype):
+            resolved = backend
+        else:
+            source: Any
+            anonymous_source = isinstance(backend, AnonymousStructure)
+            if anonymous_source:
+                source = UnitcellStructure(
+                    backend.cell,
+                    backend.sites,
+                    backend.species,
+                    backend.species_at_sites,
+                )
+                key_for_species = lambda name: name
+            elif isinstance(backend, AnonymizedStructure):
+                source = backend._effective_structure
+                backend.resolve()
+                real_species = {species.name: species.chemical_symbols[0] for species in source.species}
+                key_for_species = lambda name: real_species[name]
+            else:
+                raise TypeError(f"Cannot recognize {type(backend).__name__} as a prototype source")
+
+            result = conventional_cell(
+                source,
+                tolerance=object.__getattribute__(self, "_tolerance"),
+                limit_denominator=object.__getattribute__(self, "_limit_denominator"),
+            )
+            mapped_sites, mapped_species = _relabel_sites(
+                result.asu.wyckoff_sites,
+                result.asu.multiplicities(),
+                key_for_species,
+            )
+            resolved = Prototype(
+                result.asu.cell,
+                result.asu.spacegroup,
+                mapped_sites,
+                mapped_species,
+                result.asu.coordinate_precision,
+            )
+        state = dict(resolved.__dict__)
+        state["_resolved_prototype"] = resolved
+        object.__getattribute__(self, "__dict__").update(state)
+        return resolved
 
     def unwrap(self) -> Any:
         """Return the raw object behind the backend.
@@ -131,12 +163,32 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
 
         :return: The prototype value.
         """
-        if type(self._backend) is Prototype:
-            return self._backend
-        return Prototype(
-            self.cell,
-            self.spacegroup,
-            self.wyckoff_sites,
-            self.species,
-            self.coordinate_precision,
-        )
+        return self._effective_prototype()
+
+    @staticmethod
+    def _pickle_new() -> "PrototypeView":
+        return object.__new__(PrototypeView)
+
+    def __reduce__(self) -> tuple[Any, tuple[Any, ...], dict[str, Any]]:
+        return type(self)._pickle_new, (), self.__getstate__()
+
+    def __getstate__(self) -> dict[str, Any]:
+        state = {
+            "backend": self._backend,
+            "tolerance": self._tolerance,
+            "limit_denominator": self._limit_denominator,
+        }
+        if self._resolved_prototype is not None:
+            state["resolved"] = self._resolved_prototype
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        self._backend = state["backend"]
+        self._tolerance = state["tolerance"]
+        self._limit_denominator = state["limit_denominator"]
+        self._resolved_prototype = None
+        resolved = state.get("resolved")
+        if resolved is not None:
+            state_copy = dict(resolved.__dict__)
+            state_copy["_resolved_prototype"] = resolved
+            object.__getattribute__(self, "__dict__").update(state_copy)

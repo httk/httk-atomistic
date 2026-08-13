@@ -24,6 +24,10 @@ class AnonymizedStructure(AnonymousStructureBackend):
     _structure: StructureBackend
     kind = "structure"
 
+    @staticmethod
+    def _source_hints(hints: dict[str, Any]) -> dict[str, Any]:
+        return {name: value for name, value in hints.items() if name != "kind"}
+
     @classmethod
     def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
         r"""Adopt and validate an anonymizable structure.
@@ -36,19 +40,15 @@ class AnonymizedStructure(AnonymousStructureBackend):
             return None
         if isinstance(obj, AnonymousStructureBackend):
             return None
-        if isinstance(obj, StructureView):
-            backend = obj._backend
-        elif isinstance(obj, StructureBackend):
-            backend = obj
-        else:
+        if not isinstance(obj, (StructureView, StructureBackend)):
+            source_hints = cls._source_hints(hints)
             try:
-                backend = StructureBackend.create(obj)
+                StructureBackend.create(obj, **source_hints)
             except TypeError as exc:
                 # Only the backend factory's own no-match error means this probe should fall through.
                 if str(exc) == f"Cannot represent {type(obj)} as StructureBackend":
                     return None
                 raise
-        require_anonymizable(UnitcellStructureView(backend))
         return cls(obj, **hints)
 
     def __init__(self, obj: Any, **hints: Any) -> None:
@@ -57,11 +57,17 @@ class AnonymizedStructure(AnonymousStructureBackend):
         elif isinstance(obj, StructureBackend):
             self._structure = obj
         else:
-            self._structure = StructureBackend.create(obj)
+            self._structure = StructureBackend.create(obj, **self._source_hints(hints))
+
+    @cached_property
+    def _effective_structure(self) -> Any:
+        resolver = getattr(self._structure, "resolve", None)
+        return resolver() if resolver is not None else self._structure
 
     @cached_property
     def _derived(self) -> AnonymousStructure:
-        view = UnitcellStructureView(self._structure)
+        view = UnitcellStructureView(self._effective_structure)
+        require_anonymizable(view)
         species_by_name = {species.name: species for species in view.species}
         counts: Counter[str] = Counter()
         element_by_name: dict[str, str] = {}
@@ -74,6 +80,10 @@ class AnonymizedStructure(AnonymousStructureBackend):
         mapped_species = tuple(dummy_species(label) for label in assignment.values())
         mapped_sites = tuple(assignment[element_by_name[name]] for name in view.species_at_sites)
         return AnonymousStructure(view.cell, view.sites, mapped_species, mapped_sites)
+
+    def resolve(self) -> AnonymousStructure:
+        """Return the complete anonymized structure."""
+        return self._derived
 
     @property
     def cell(self):

@@ -1,5 +1,6 @@
 """Tests for standard-setting, geometry-free protostructures."""
 
+import pickle
 from fractions import Fraction
 from types import SimpleNamespace
 
@@ -9,16 +10,17 @@ from httk.core import FracVector
 from httk.atomistic import (
     AnonymousFormulaView,
     AnonymousStructure,
-    ASUStructure,
     Assembly,
+    ASUStructure,
     CartesianSiteMoments,
     ChemicalComposition,
     ChemicalFormulaView,
     CompositionView,
     FundamentalDomainStructure,
-    PrototypeView,
     Protostructure,
     ProtostructureView,
+    PrototypeView,
+    SettingTransform,
     Spacegroup,
     Species,
     UnitcellStructure,
@@ -27,8 +29,10 @@ from httk.atomistic import (
     WyckoffSite,
 )
 from httk.atomistic.models.cell.numeric import NumericCell
+from httk.atomistic.models.protostructure.backend import ProtostructureBackend
+from httk.atomistic.models.protostructure.recognized import RecognizedProtostructure
 from httk.atomistic.models.sites.numeric import NumericSites
-
+from httk.atomistic.models.structure.backend import StructureBackend
 
 CELL = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
 EMPTY = FracVector(())
@@ -40,6 +44,16 @@ def _species() -> tuple[Species, Species]:
     )
 
 
+def _rocksalt_unitcell() -> UnitcellStructure:
+    sodium, chlorine = _species()
+    return UnitcellStructure(
+        CELL,
+        ([0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]),
+        (sodium, chlorine),
+        ("Na", "Cl"),
+    )
+
+
 def _rocksalt_asu(*, domain: type[FundamentalDomainStructure] = ASUStructure) -> FundamentalDomainStructure:
     sodium, chlorine = _species()
     return domain(
@@ -48,6 +62,54 @@ def _rocksalt_asu(*, domain: type[FundamentalDomainStructure] = ASUStructure) ->
         (WyckoffSite("a", EMPTY, "Na"), WyckoffSite("b", EMPTY, "Cl")),
         (sodium, chlorine),
     )
+
+
+class CountingStructureResolver(StructureBackend):
+    def __init__(self, structure: UnitcellStructure | FundamentalDomainStructure) -> None:
+        self.structure = structure
+        self.resolve_calls = 0
+
+    @property
+    def cell(self):
+        return self.structure.cell
+
+    @property
+    def sites(self):
+        return self.structure.sites
+
+    @property
+    def species(self):
+        return self.structure.species
+
+    @property
+    def species_at_sites(self):
+        return self.structure.species_at_sites
+
+    def resolve(self):
+        self.resolve_calls += 1
+        return self.structure
+
+    def unwrap(self):
+        return self
+
+
+class CustomProtostructureBackend(ProtostructureBackend):
+    def __init__(self) -> None:
+        self.spacegroup_calls = 0
+        self.occupations_calls = 0
+
+    @property
+    def spacegroup(self):
+        self.spacegroup_calls += 1
+        return Spacegroup.standard(1)
+
+    @property
+    def occupations(self):
+        self.occupations_calls += 1
+        return (WyckoffOccupation("a", "He"),)
+
+    def unwrap(self):
+        return self
 
 
 def test_construction_promotes_inputs_and_canonicalizes() -> None:
@@ -172,8 +234,9 @@ def test_recognition_path_and_rejections() -> None:
         ("Na", "Cl"),
         assemblies=(Assembly(((0,),), (1,)),),
     )
+    view = ProtostructureView(structure)
     with pytest.raises(ValueError, match="assemblies"):
-        ProtostructureView(structure)
+        _ = view.spacegroup
 
     chemical = UnitcellStructure(
         CELL,
@@ -182,8 +245,9 @@ def test_recognition_path_and_rejections() -> None:
         ("Na",),
         chemical_composition=ChemicalComposition({"Na": 1}),
     )
+    view = ProtostructureView(chemical)
     with pytest.raises(ValueError, match="chemical_composition"):
-        ProtostructureView(chemical)
+        _ = view.spacegroup
 
     moments = UnitcellStructure(
         CELL,
@@ -192,5 +256,134 @@ def test_recognition_path_and_rejections() -> None:
         ("Na", "Cl"),
         site_moments=CartesianSiteMoments([[1, 0, 0], [0, 1, 0]]),
     )
+    view = ProtostructureView(moments)
     with pytest.raises(ValueError, match="site_moments"):
-        ProtostructureView(moments)
+        _ = view.spacegroup
+
+
+def test_protostructure_view_resolves_counting_source_once_across_value_operations() -> None:
+    source = CountingStructureResolver(_rocksalt_unitcell())
+    view = ProtostructureView(source, setting=Spacegroup.standard(1))
+
+    assert source.resolve_calls == 0
+    assert view.unwrap() is source
+    assert source.resolve_calls == 0
+
+    _ = view.spacegroup
+    assert source.resolve_calls == 1
+    _ = view.occupations
+    same = view
+    _ = view == same
+    _ = hash(view)
+    _ = repr(view)
+    _ = view.unview()
+    assert source.resolve_calls == 1
+
+
+def test_protostructure_view_rejects_options_at_deferred_asu_boundary() -> None:
+    asu = _rocksalt_asu()
+    backend = RecognizedProtostructure(asu, setting=Spacegroup.standard(225))
+    with pytest.raises(ValueError, match="recognition arguments cannot be used with an existing ASU"):
+        _ = backend.spacegroup
+
+    source = CountingStructureResolver(_rocksalt_unitcell())
+    inner = __import__("httk.atomistic.models.structure.asu_view", fromlist=["ASUStructureView"]).ASUStructureView(
+        source, setting=Spacegroup.standard(1)
+    )
+    outer = UnitcellStructureView(inner)
+    with pytest.raises(ValueError, match="recognition arguments cannot be used with an existing ASU"):
+        ProtostructureView(outer, tolerance=1e-5)
+    assert source.resolve_calls == 0
+
+
+def test_protostructure_view_retains_and_passes_all_recognition_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = __import__("httk.atomistic.models.protostructure.recognized", fromlist=["recognize_asu"])
+    captured: dict[str, object] = {}
+    standard = Spacegroup.standard(225)
+    transform = SettingTransform.identity()
+
+    def fake_recognize(source: object, **options: object) -> ASUStructure:
+        captured.update(options)
+        return _rocksalt_asu()
+
+    monkeypatch.setattr(module, "recognize_asu", fake_recognize)
+    view = ProtostructureView(
+        _rocksalt_unitcell(),
+        standard=standard,
+        transform=transform,
+        tolerance=0.125,
+        limit_denominator=17,
+    )
+    assert captured == {}
+    _ = view.spacegroup
+    assert captured == {
+        "setting": None,
+        "standard": standard,
+        "transform": transform,
+        "tolerance": 0.125,
+        "limit_denominator": 17,
+    }
+
+
+def test_protostructure_unsupported_data_fails_atomically_on_first_access() -> None:
+    unknown = UnitcellStructure(CELL, [[0, 0, 0]], [Species("unknown", ("X",), (1,))], ("unknown",))
+    view = ProtostructureView(unknown)
+    with pytest.raises(ValueError, match="unknown symbol 'X'"):
+        _ = view.spacegroup
+    assert view._resolved_protostructure is None
+    assert "_spacegroup" not in view.__dict__
+    assert "_derived" not in view._backend.__dict__
+
+
+def test_protostructure_view_pickle_preserves_unresolved_and_resolved_states() -> None:
+    unresolved = ProtostructureView(CountingStructureResolver(_rocksalt_unitcell()), setting=Spacegroup.standard(1))
+    restored = pickle.loads(pickle.dumps(unresolved))
+    assert restored._resolved_protostructure is None
+    assert restored._setting == Spacegroup.standard(1)
+    assert restored._backend._structure.resolve_calls == 0
+    assert restored.spacegroup.it_number == 1
+    assert restored._backend._structure.resolve_calls == 1
+
+    resolved = ProtostructureView(CountingStructureResolver(_rocksalt_unitcell()), setting=Spacegroup.standard(1))
+    _ = resolved.spacegroup
+    restored = pickle.loads(pickle.dumps(resolved))
+    assert restored._resolved_protostructure is not None
+    assert restored.unview() is restored._resolved_protostructure
+    assert restored._backend._structure.resolve_calls == 1
+
+
+def test_protostructure_view_accepts_custom_backend_and_native_identity() -> None:
+    custom = CustomProtostructureBackend()
+    view = ProtostructureView(custom)
+    assert custom.spacegroup_calls == 0
+    assert view.unwrap() is custom
+    assert custom.spacegroup_calls == 0
+    value = view.unview()
+    assert type(value) is Protostructure
+    assert custom.spacegroup_calls == 1
+    assert custom.occupations_calls == 1
+
+    native = Protostructure(225, [("a", "Na")])
+    assert ProtostructureView(native).unview() is native
+
+
+def test_protostructure_datastream_path_is_not_parsed_at_construction(tmp_path, monkeypatch) -> None:
+    import httk.core
+
+    __import__("httk.io")
+
+    path = tmp_path / "source.cif"
+    path.write_text("not parsed", encoding="utf-8")
+    calls = 0
+    real_load = httk.core.load
+
+    def counted_load(filename: str):
+        nonlocal calls
+        calls += 1
+        return real_load(filename)
+
+    monkeypatch.setattr(httk.core, "load", counted_load)
+    view = ProtostructureView(str(path), setting=Spacegroup.standard(1))
+    assert calls == 0
+    assert view.unwrap() == str(path)
+    assert calls == 0
