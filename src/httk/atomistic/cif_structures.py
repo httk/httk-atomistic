@@ -37,7 +37,10 @@ __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
 
 _ALLOW_LARGE_CIF_UNCERTAINTY = "_httk_atomistic_allow_large_cif_uncertainty"
 
-_TYPE_SYMBOL = re.compile(r"^(?P<symbol>[A-Z][a-z]?)(?:(?P<magnitude>\d+)?(?P<sign>[+-])|(?P<neutral>0))?$")
+_TYPE_SYMBOL = re.compile(
+    r"^(?P<symbol>[A-Z][a-z]?)(?:(?P<magnitude>\d+)?(?P<sign>[+-])|"
+    r"(?P<presign>[+-])(?P<premagnitude>\d+)|(?P<neutral>0))?$"
+)
 
 CIF_POSITIONAL_UNCERTAINTY_WARNING = fractions.Fraction(1, 10)
 CIF_POSITIONAL_UNCERTAINTY_ERROR = fractions.Fraction(1)
@@ -860,6 +863,9 @@ def _parse_type_symbol(symbol: str) -> tuple[str, fractions.Fraction | None]:
         return symbol, None
     magnitude = match.group("magnitude")
     sign = match.group("sign")
+    if match.group("presign") is not None:
+        magnitude = match.group("premagnitude")
+        sign = match.group("presign")
     if match.group("neutral") is not None:
         return element, fractions.Fraction(0)
     if sign is None:

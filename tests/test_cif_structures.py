@@ -103,7 +103,16 @@ def _rocksalt_integer_cif(tmp_path: Path) -> Path:
 
 @pytest.mark.parametrize(
     ("raw", "symbol", "charge"),
-    [("Ca2+", "Ca", F(2)), ("O2-", "O", F(-2)), ("Cu+", "Cu", F(1)), ("Ti0", "Ti", F(0)), ("Ti", "Ti", None)],
+    [
+        ("Ca2+", "Ca", F(2)),
+        ("O2-", "O", F(-2)),
+        ("Cu+", "Cu", F(1)),
+        ("Ti0", "Ti", F(0)),
+        ("Ti", "Ti", None),
+        ("O-2", "O", F(-2)),
+        ("Na+1", "Na", F(1)),
+        ("P+5", "P", F(5)),
+    ],
 )
 def test_cif_type_symbol_parsing(raw: str, symbol: str, charge: fractions.Fraction | None) -> None:
     assert _parse_type_symbol(raw) == (symbol, charge)
