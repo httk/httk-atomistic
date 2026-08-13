@@ -326,6 +326,9 @@ class WyckoffPosition:
         return f"WyckoffPosition({self._multiplicity}{self._letter}, sitesym={self._site_symmetry!r})"
 
 
+_WYCKOFF_CACHE: dict[str, tuple[WyckoffPosition, ...]] = {}
+
+
 def wyckoff_positions(record: Mapping[str, Any]) -> tuple[WyckoffPosition, ...]:
     """Build the Wyckoff positions of a setting record, most specific first.
 
@@ -338,9 +341,13 @@ def wyckoff_positions(record: Mapping[str, Any]) -> tuple[WyckoffPosition, ...]:
     :param record: The vendored space-group setting record.
     :return: The setting's ordered Wyckoff positions.
     """
+    key = record["hall_entry"]
+    cached = _WYCKOFF_CACHE.get(key)
+    if cached is not None:
+        return cached
     positions = [WyckoffPosition(entry) for entry in record["wyckoff"]]
     positions.sort(key=lambda position: (position.free_count, position.multiplicity, position.letter))
-    return tuple(positions)
+    return _WYCKOFF_CACHE.setdefault(key, tuple(positions))
 
 
 def _invert_small(rows: list[list[fractions.Fraction]]) -> list[list[fractions.Fraction]]:

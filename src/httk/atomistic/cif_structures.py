@@ -45,6 +45,20 @@ _TYPE_SYMBOL = re.compile(
 CIF_POSITIONAL_UNCERTAINTY_WARNING = fractions.Fraction(1, 10)
 CIF_POSITIONAL_UNCERTAINTY_ERROR = fractions.Fraction(1)
 
+_FLOAT_SCREEN_MAGNITUDE_LIMIT = 2**40
+_FLOAT_SCREEN_ULPS = 4096
+
+
+def _float_screen_slack(values: Sequence[float]) -> float | None:
+    """A conservative Cartesian float-screen error bound, or ``None`` when unsafe."""
+    if any(not math.isfinite(value) or abs(value) > _FLOAT_SCREEN_MAGNITUDE_LIMIT for value in values):
+        return None
+    magnitude = max(1.0, *(abs(value) for value in values))
+    # A screen coordinate needs fewer than 20 correctly-rounded operations.  This gives it
+    # 4096 ULPs at both input scales, including the later matrix product, so it exceeds the
+    # double-rounding bound by two orders of magnitude while keeping ordinary screens sharp.
+    return _FLOAT_SCREEN_ULPS * magnitude * math.ulp(magnitude)
+
 
 def asu_structures_from_cif(
     payload: Mapping[str, Any], *, autocorrect: bool = False, **options: Any
@@ -155,6 +169,7 @@ def asu_structure_from_cif(
         # tolerance depends on the precision and the cell, not on how many atoms there are.
         tolerance = _tolerance_from_cif(data, cell)
     assert tolerance is not None
+    uncertainty_metric = cell.basis * cell.basis.T() if derived_tolerance else None
 
     coordinates = _exact_positions(data)
     symbols = list(data["symbols"])
@@ -192,9 +207,9 @@ def asu_structure_from_cif(
             )
 
         standard_point = transform.to_standard(coordinate).normalize()
-        uncertainty = _site_uncertainty(data, index, cell) if derived_tolerance else None
+        uncertainty = _site_uncertainty(data, index, uncertainty_metric) if derived_tolerance else None
         orbit_screen: list[tuple[tuple[float, float, float], Any, FracVector]] = []
-        declared_position, declaration, declaration_error = _declared_wyckoff_position(
+        declared_position, declaration, declaration_error, declared_positions = _declared_wyckoff_position(
             declared_wyckoff, declared_multiplicities, index, setting, standard
         )
         ignored_declaration: tuple[str, str] | None = None
@@ -244,6 +259,22 @@ def asu_structure_from_cif(
                     f"declares Wyckoff position {declared_position.letter!r}, but its coordinate lies on the "
                     f"more-specific Wyckoff position {actual[0]!r}"
                 )
+        elif declaration is not None:
+            match = _snap(
+                standard,
+                standard_point,
+                coordinate,
+                cell,
+                transform,
+                tolerance,
+                uncertainty=uncertainty,
+                exact_match=None,
+                allow_large_cif_uncertainty=allow_large_cif_uncertainty,
+                positions=declared_positions,
+                orbit_screen=orbit_screen,
+            )
+            if match is None:
+                declaration_error = f"does not lie on any position allowed by declared {declaration}"
         else:
             match = None
         if declaration_error is not None:
@@ -426,11 +457,12 @@ def _has_rounded_orbit_overlap(
 ) -> bool:
     """Whether a matched orbit has distinct images within the CIF-derived tolerance.
 
-    Float Cartesian buckets screen possible pairs at twice the tolerance. Exact distance
-    arithmetic confirms every screened pair, so floats only prune work. With
-    ``include_coincident=True``, exact duplicate images also count; an authoritative
-    declaration names a Wyckoff *stratum*, so its coordinate may not collapse into a
-    proper sub-stratum.
+    Float Cartesian buckets screen possible pairs at the tolerance plus a scale-aware
+    double-rounding margin; exact distance arithmetic confirms every screened pair. A
+    non-finite, huge, or near-degenerate float conversion skips the screen and checks every
+    pair exactly. With ``include_coincident=True``, exact duplicate images also count; an
+    authoritative declaration names a Wyckoff *stratum*, so its coordinate may not collapse
+    into a proper sub-stratum.
     """
     from itertools import product
 
@@ -454,43 +486,67 @@ def _has_rounded_orbit_overlap(
     basis = cell.basis.to_floats()
     inverse = cell.basis.inv().to_floats()
     offsets = tuple(product((-1, 0, 1), repeat=3))
-    screen = tolerance * 2 + 1e-9
     coordinates = [item[0] for item in orbit_screen]
-    bins = tuple(
-        max(1, int(1 / (screen * math.sqrt(sum(inverse[row][column] ** 2 for row in range(3)))))) for column in range(3)
+    slack = _float_screen_slack(
+        [
+            tolerance,
+            *(value for row in basis for value in row),
+            *(value for coordinate in coordinates for value in coordinate),
+        ]
     )
+    inverse_slack = _float_screen_slack([value for row in inverse for value in row])
+    screen = None if slack is None or inverse_slack is None else abs(tolerance) + slack * 4
+    if screen is not None:
+        try:
+            bins = tuple(
+                max(
+                    1,
+                    int(1 / (screen * (math.sqrt(sum(inverse[row][column] ** 2 for row in range(3))) + inverse_slack)))
+                    - 1,
+                )
+                for column in range(3)
+            )
+        except (OverflowError, ValueError, ZeroDivisionError):
+            screen = None
 
     def bucket(coordinate: tuple[float, float, float]) -> tuple[int, int, int]:
         first, second, third = (min(count - 1, int(value * count)) for value, count in zip(coordinate, bins))
         return (first, second, third)
 
-    buckets: dict[tuple[int, int, int], list[int]] = {}
-    for index, coordinate in enumerate(coordinates):
-        buckets.setdefault(bucket(coordinate), []).append(index)
+    if screen is None:
+        pairs = ((index, other) for index in range(len(orbit_screen)) for other in range(index + 1, len(orbit_screen)))
+    else:
+        buckets: dict[tuple[int, int, int], list[int]] = {}
+        for index, coordinate in enumerate(coordinates):
+            buckets.setdefault(bucket(coordinate), []).append(index)
+        pairs = (
+            (index, other)
+            for index, coordinate in enumerate(coordinates)
+            for offset in offsets
+            for other in buckets.get(
+                tuple((value + delta) % count for value, delta, count in zip(bucket(coordinate), offset, bins)), []
+            )
+            if other > index
+        )
 
-    for index, coordinate in enumerate(coordinates):
-        for offset in offsets:
-            shifted = tuple((value + delta) % count for value, delta, count in zip(bucket(coordinate), offset, bins))
-            nearby = (shifted[0], shifted[1], shifted[2])
-            for other in buckets.get(nearby, []):
-                if other <= index:
-                    continue
-                difference = tuple(
-                    (first - second + 0.5) % 1 - 0.5 for first, second in zip(coordinate, coordinates[other])
-                )
-                cartesian = tuple(
-                    sum(value * basis[row][column] for row, value in enumerate(difference)) for column in range(3)
-                )
-                if sum(value * value for value in cartesian) > screen * screen:
-                    continue
-                first = (
-                    transform.to_setting(orbit_screen[index][1].coordinate(parameters)) + orbit_screen[index][2]
-                ).normalize()
-                second = (
-                    transform.to_setting(orbit_screen[other][1].coordinate(parameters)) + orbit_screen[other][2]
-                ).normalize()
-                if first != second and _cartesian_distance_squared(first - second, cell) <= tolerance * tolerance:
-                    return True
+    for index, other in pairs:
+        if screen is not None:
+            difference = tuple(
+                (first - second + 0.5) % 1 - 0.5 for first, second in zip(coordinates[index], coordinates[other])
+            )
+            cartesian = tuple(
+                sum(value * basis[row][column] for row, value in enumerate(difference)) for column in range(3)
+            )
+            if sum(value * value for value in cartesian) > screen * screen:
+                continue
+        first = (
+            transform.to_setting(orbit_screen[index][1].coordinate(parameters)) + orbit_screen[index][2]
+        ).normalize()
+        second = (
+            transform.to_setting(orbit_screen[other][1].coordinate(parameters)) + orbit_screen[other][2]
+        ).normalize()
+        if first != second and _cartesian_distance_squared(first - second, cell) <= tolerance * tolerance:
+            return True
     return False
 
 
@@ -500,28 +556,29 @@ def _declared_wyckoff_position(
     index: int,
     setting: Spacegroup,
     standard: Spacegroup,
-) -> tuple[Any | None, str | None, str | None]:
+) -> tuple[Any | None, str | None, str | None, Sequence[Any] | None]:
     """Resolve one CIF declaration into the corresponding standard-setting position.
 
     CIF Wyckoff labels and multiplicities describe the file's own setting, including its
-    centring convention. They are therefore resolved in ``setting`` and only then mapped
-    to ``standard``. A malformed or ambiguous declaration is an integrity error, not weak
-    evidence: callers choose whether to reject it or explicitly fall back to a search. A
-    declaration names a Wyckoff *stratum*, not merely a containing affine map: callers also
-    reject coordinates whose declared orbit collapses into a proper, more-specific stratum.
+    centring convention. Labels are therefore resolved in ``setting`` and only then mapped
+    to ``standard``. A multiplicity without a label filters the candidate strata but does not
+    identify one; coordinate matching chooses among those candidates. A malformed or
+    inconsistent declaration is an integrity error, not weak evidence: callers choose
+    whether to reject it or explicitly fall back to a search. Callers also reject coordinates
+    whose declared orbit collapses into a proper, more-specific stratum.
 
     :param wyckoff_labels: The block's per-site Wyckoff label column, or ``None``.
     :param multiplicities: The block's per-site multiplicity column, or ``None``.
     :param index: The site's position in the block's site lists.
     :param setting: The identified setting the declarations are expressed in.
     :param standard: The standard setting the resolved position is mapped into.
-    :return: ``(standard_position, declaration, error)``; no declaration is all ``None``.
+    :return: ``(standard_position, declaration, error, candidate_positions)``.
     """
     label = _site_declaration(wyckoff_labels, index)
     letter = None if label is None else label.lstrip("0123456789").lower()
     multiplicity = _site_declaration(multiplicities, index)
     if label is None and multiplicity is None:
-        return None, None, None
+        return None, None, None, None
     declaration = ", ".join(
         item
         for item in (
@@ -531,6 +588,18 @@ def _declared_wyckoff_position(
         if item is not None
     )
     positions = _setting_wyckoff_declarations(standard, setting)
+    if label is None:
+        try:
+            value = int(multiplicity)
+        except ValueError:
+            return None, declaration, f"invalid setting-local multiplicity {multiplicity!r}", None
+        matching = tuple(position for _, position, local_multiplicity in positions if local_multiplicity == value)
+        if not matching:
+            return None, declaration, f"unknown setting-local multiplicity {multiplicity!r}", None
+        candidates = tuple(
+            sorted(matching, key=lambda position: (position.free_count, position.multiplicity, position.letter))
+        )
+        return None, declaration, None, candidates
     by_letter = None
     if letter is not None:
         by_letter = next(
@@ -538,25 +607,25 @@ def _declared_wyckoff_position(
             None,
         )
         if by_letter is None:
-            return None, declaration, f"unknown setting-local Wyckoff letter {label!r}"
+            return None, declaration, f"unknown setting-local Wyckoff letter {label!r}", None
     try:
         value = None if multiplicity is None else int(multiplicity)
     except ValueError:
-        return None, declaration, f"invalid setting-local multiplicity {multiplicity!r}"
+        return None, declaration, f"invalid setting-local multiplicity {multiplicity!r}", None
     by_multiplicity = None
     if value is not None:
         matching = [position for _, position, multiplicity in positions if multiplicity == value]
         if by_letter is not None:
             if by_letter[1] != value:
-                return None, declaration, "the declared letter and multiplicity identify different positions"
+                return None, declaration, "the declared letter and multiplicity identify different positions", None
             by_multiplicity = by_letter[0]
         elif len(matching) != 1:
-            return None, declaration, f"ambiguous or unknown setting-local multiplicity {multiplicity!r}"
+            return None, declaration, f"ambiguous or unknown setting-local multiplicity {multiplicity!r}", None
         else:
             by_multiplicity = matching[0]
     if by_letter is not None and by_multiplicity is not None and by_letter[0] != by_multiplicity:
-        return None, declaration, "the declared letter and multiplicity identify different positions"
-    return (None if by_letter is None else by_letter[0]) or by_multiplicity, declaration, None
+        return None, declaration, "the declared letter and multiplicity identify different positions", None
+    return (None if by_letter is None else by_letter[0]) or by_multiplicity, declaration, None, None
 
 
 def _site_declaration(values: Any, index: int) -> str | None:
@@ -610,7 +679,7 @@ def _tolerance_from_cif(data: Mapping[str, Any], cell: Cell) -> float:
     return cartesian * _SAFETY_FACTOR
 
 
-def _site_uncertainty(data: Mapping[str, Any], index: int, cell: Cell) -> tuple[Any, str] | None:
+def _site_uncertainty(data: Mapping[str, Any], index: int, metric: Any) -> tuple[Any, str] | None:
     """Return one site's exact Cartesian uncertainty and the token causing it."""
     precisions = data.get("position_precisions")
     tokens = data.get("positions_exact")
@@ -633,18 +702,17 @@ def _site_uncertainty(data: Mapping[str, Any], index: int, cell: Cell) -> tuple[
     _, component, token = max(stated, key=lambda item: item[0])
     if raw_tokens is not None:
         token = str(raw_tokens[index][component])
-    from itertools import product
-
     from httk.atomistic.symmetry.recognition import _SAFETY_FACTOR
 
     corners = []
-    for signs in product((-1, 1), repeat=3):
+    # Opposite corners have the same squared norm.  The cell metric is per-file invariant,
+    # so evaluating four representatives avoids rebuilding Cartesian vectors for every site.
+    for signs in ((-1, -1, -1), (-1, -1, 1), (-1, 1, -1), (1, -1, -1)):
         fractional = FracVector([sign * (precision or 0) for sign, precision in zip(signs, precisions[index])])
-        vector = cell.basis.T() * fractional
-        corners.append((vector.lengthsqr(), vector))
+        corners.append((metric * fractional).dot(fractional))
     # Keep the exact squared norm: nested radicals can be impractical for triclinic cells,
     # while threshold comparisons remain exact and the square root is only for diagnostics.
-    squared = max(corners, key=lambda item: item[0])[0]
+    squared = max(corners)
     return squared * _SAFETY_FACTOR**2, token
 
 
@@ -661,7 +729,7 @@ def _block_name(data: Mapping[str, Any]) -> str:
 
 
 def _declared_symmetry(data: Mapping[str, Any]) -> str | None:
-    """The Hall symbol or International Tables number written by the CIF."""
+    """The Hall symbol or International Tables number enforced for the CIF."""
     hall = data.get("space_group_name_hall")
     if hall:
         return f"Hall symbol {str(hall).strip()!r}"
@@ -700,19 +768,22 @@ def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True
     comparison against the tabulated settings. That is what makes a file written in a
     non-standard setting come out as itself rather than being silently reinterpreted.
 
-    What the file *declares* — a Hall symbol, or an International Tables number — is treated
-    as a claim to be checked, not a hint to be taken or dropped. A declaration that names no
-    known setting, or that names one whose operations are not the file's, is a genuine
-    inconsistency in the file and raises rather than being worked around: the two halves of
-    the file disagree, and quietly believing one of them is how a wrong structure gets built.
+    What the file *declares* — a Hall symbol, an International Tables number, or a recognized
+    H-M symbol — is treated as a claim to be checked, not a hint to be taken or dropped. A
+    declaration that names no known setting, or that names one whose operations are not the
+    file's, is a genuine inconsistency in the file and raises rather than being worked around:
+    the two halves of the file disagree, and quietly believing one of them is how a wrong
+    structure gets built. An unrecognized H-M spelling is the exception and remains ignored.
 
     Pass ``trust_declared_symmetry=False`` to ignore the declaration entirely and identify
     the setting from the operations alone. That is the escape hatch for a file whose symbols
     are known to be wrong but whose operations are good.
 
-    The Hermann-Mauguin symbol is deliberately **not** checked. It has too many legitimate
-    spellings, and OPTIMADE itself notes that it does not unambiguously communicate the axis,
-    cell, or origin choice, so treating a mismatch there as an error would reject good files.
+    A Hermann-Mauguin symbol is consulted, when neither a Hall symbol nor an International
+    Tables number is declared, only if its normalized spelling is recognized. A recognized
+    symbol narrows the candidate IT number; the operations still identify the exact setting
+    and a contradiction fails like a contradicting IT-number declaration. Unrecognized H-M
+    spellings are ignored for compatibility with the previous operations-only behavior.
 
     Raises :class:`ValueError` when the block states no operations, when a declaration is
     inconsistent with them, or when the operations match no tabulated setting at all. In the
@@ -721,7 +792,7 @@ def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True
     built with an explicit :class:`~httk.atomistic.SettingTransform`.
 
     :param data: The loaded CIF data block.
-    :param trust_declared_symmetry: Whether to check the declared Hall symbol or IT number.
+    :param trust_declared_symmetry: Whether to check the declared Hall, IT, or H-M symbol.
     :return: The tabulated space-group setting matching the block's operations.
     :raises ValueError: If operations are absent, inconsistent with the declaration, or unknown.
     """
@@ -766,8 +837,8 @@ def _declared_settings(data: Mapping[str, Any]) -> tuple[list[Mapping[str, Any]]
     """The settings the file's own declaration allows, and how it was described.
 
     ``(None, None)`` when the file declares nothing, in which case every tabulated setting is
-    a candidate. A declaration that cannot name a real setting raises here rather than being
-    ignored, because silently ignoring it is indistinguishable from the file being right.
+    a candidate. Hall and IT declarations that cannot name a real setting raise here; an
+    unrecognized H-M spelling is ignored for operations-only compatibility.
     """
     hall = data.get("space_group_name_hall")
     if hall:
@@ -801,6 +872,14 @@ def _declared_settings(data: Mapping[str, Any]) -> tuple[list[Mapping[str, Any]]
         narrowed = [record for record in symmetry_data.spacegroup_settings() if record["it_number"] == it_number]
         return narrowed, f"International Tables number {it_number}"
 
+    hm = data.get("space_group_name_hm")
+    if hm:
+        written = str(hm).strip()
+        it_number = _hm_it_numbers().get(_normalized_hm(written))
+        if it_number is not None:
+            narrowed = [record for record in symmetry_data.spacegroup_settings() if record["it_number"] == it_number]
+            return narrowed, f"Hermann-Mauguin symbol {written!r}"
+
     return None, None
 
 
@@ -813,6 +892,25 @@ def _normalized_hall(symbol: str) -> str:
     step every correctly declared Hall symbol looks unknown.
     """
     return symbol.lower().replace(" ", "_")
+
+
+_HM_IT_NUMBERS: dict[str, int] | None = None
+
+
+def _normalized_hm(symbol: str) -> str:
+    """Normalize compact and spaced Hermann-Mauguin spellings to one lookup key."""
+    return "".join(symbol.casefold().replace("_", "").split())
+
+
+def _hm_it_numbers() -> dict[str, int]:
+    """Return the unambiguous normalized H-M-to-IT lookup, built on first use."""
+    global _HM_IT_NUMBERS
+    if _HM_IT_NUMBERS is None:
+        by_symbol: dict[str, set[int]] = {}
+        for record in symmetry_data.spacegroup_settings():
+            by_symbol.setdefault(_normalized_hm(record["hm_entry"]), set()).add(record["it_number"])
+        _HM_IT_NUMBERS = {symbol: next(iter(numbers)) for symbol, numbers in by_symbol.items() if len(numbers) == 1}
+    return _HM_IT_NUMBERS
 
 
 def _cell_from_cif(data: Mapping[str, Any]) -> Cell:
@@ -980,15 +1078,25 @@ def _snap(
             values = tuple(parameters.to_floats())
             matrix = transform.matrix.to_floats()
             vector = transform.vector.to_floats()
+            cosets = tuple((coset, tuple(coset.to_floats())) for coset in transform.lattice_cosets())
+            common = [*values, *(value for row in matrix for value in row), *vector]
             for branch in position.branches:
                 candidate = branch.coordinate_float(values)
                 own = tuple(
                     sum(matrix[row][column] * candidate[column] for column in range(3)) + vector[row]
                     for row in range(3)
                 )
-                for coset in transform.lattice_cosets():
+                for coset, shift in cosets:
+                    # Do not let a lossy large-coordinate modulo prune an exact orbit pair.
+                    safe = _float_screen_slack([*common, *candidate, *own, *shift]) is not None
                     orbit_screen.append(
-                        (tuple((value + shift) % 1.0 for value, shift in zip(own, coset.to_floats())), branch, coset)
+                        (
+                            tuple((value + delta) % 1.0 for value, delta in zip(own, shift))
+                            if safe
+                            else (math.nan, math.nan, math.nan),
+                            branch,
+                            coset,
+                        )
                     )
         return letter, parameters
 
@@ -1003,20 +1111,36 @@ def _snap(
                 f"{math.sqrt(projected.to_float()):.6g} Å; pass allow_large_cif_uncertainty=True to override"
             )
     limit = tolerance * tolerance
-    screen = (tolerance * 2 + 1e-9) ** 2
-    basis = cell.basis.to_floats()
-    point = tuple(own_point.to_floats())
-    standard_float = tuple(standard_point.to_floats())
-    matrix = transform.matrix.to_floats()
-    vector = transform.vector.to_floats()
+    try:
+        basis = cell.basis.to_floats()
+        point = tuple(own_point.to_floats())
+        standard_float = tuple(standard_point.to_floats())
+        matrix = transform.matrix.to_floats()
+        vector = transform.vector.to_floats()
+    except OverflowError:
+        screen = None
+        screen_values: list[float] = []
+    else:
+        screen_values = [
+            *point,
+            *standard_float,
+            *(value for row in basis for value in row),
+            *(value for row in matrix for value in row),
+            *vector,
+        ]
+        screen = None if _float_screen_slack(screen_values) is None else (tolerance * 2 + 1e-9) ** 2
     candidates = standard.wyckoff if positions is None else positions
 
     def screened(branch: Any) -> bool:
+        if screen is None:
+            return True
         parameters = branch.nearest_parameters_float(standard_float)
         candidate = branch.coordinate_float(parameters)
         own_candidate = tuple(
             sum(matrix[row][column] * candidate[column] for column in range(3)) + vector[row] for row in range(3)
         )
+        if _float_screen_slack([*screen_values, *candidate, *own_candidate]) is None:
+            return True
         difference = tuple((first - second + 0.5) % 1 - 0.5 for first, second in zip(point, own_candidate))
         cartesian = tuple(sum(difference[row] * basis[row][column] for row in range(3)) for column in range(3))
         return sum(value * value for value in cartesian) <= screen

@@ -24,7 +24,15 @@ from httk.atomistic import (
     asu_structures_from_cif,
     cif_setting,
 )
-from httk.atomistic.cif_structures import _parse_type_symbol, _read_cif_for_atomistic, _site_declaration, _snap
+from httk.atomistic.cif_structures import (
+    _has_rounded_orbit_overlap,
+    _hm_it_numbers,
+    _normalized_hm,
+    _parse_type_symbol,
+    _read_cif_for_atomistic,
+    _site_declaration,
+    _snap,
+)
 from httk.atomistic.models.cell.cell import Cell
 
 F = fractions.Fraction
@@ -318,6 +326,7 @@ def test_an_unidentifiable_setting_is_refused_rather_than_guessed(tmp_path: Path
     block["symops_xyz"] = block["symops_xyz"][:3]
     block["space_group_nbr"] = None
     block["space_group_name_hall"] = None
+    block["space_group_name_hm"] = None
     with pytest.raises(ValueError, match="no tabulated space-group setting"):
         asu_structure_from_cif(block)
 
@@ -541,6 +550,116 @@ def test_a_conventionally_spelled_hall_symbol_is_recognized(tmp_path: Path) -> N
     assert cif_setting(block).setting == "15:b1"
 
 
+def test_normalized_hermann_mauguin_lookup() -> None:
+    assert [_normalized_hm(symbol) for symbol in ("P4_2cm", "P 42 c m", "P42cm")] == ["p42cm"] * 3
+    assert _hm_it_numbers()["p42cm"] == 101
+
+
+@pytest.mark.parametrize(("filename", "it_number"), [("93.cif", 93), ("101.cif", 101)])
+def test_materials_project_hm_declarations_load_without_autocorrect(filename: str, it_number: int) -> None:
+    path = Path(__file__).parent / "fixtures" / "structreading" / filename
+    raw = load(str(path), raw=True)
+    assert raw["blocks"][0]["space_group_nbr"] == str(it_number)
+    assert load(str(path)).spacegroup.it_number == it_number
+
+
+def test_setting_tables_are_shared_by_immutable_setting_identity() -> None:
+    first = Spacegroup.standard(93)
+    second = Spacegroup.standard(93)
+    assert first.wyckoff is second.wyckoff
+    assert first.symmetry_operations is second.symmetry_operations
+
+
+def test_multiplicity_only_site_loads_and_is_identified_from_coordinates(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "multiplicity-only.cif",
+        "15:b1",
+        (5, 6, 7, 90, 90, 90),
+        [("Si1", "Si", ("0.000000", "0.333300", "0.250000"), "1")],
+        declare_number=False,
+        symmetry_multiplicities=["4"],
+    )
+    structure = load(str(path))
+    assert structure.setting().setting == "15:b1"
+    assert [(site.wyckoff, site.species) for site in structure.wyckoff_sites] == [("e", "Si")]
+
+
+def test_multiplicity_only_filters_nearby_special_position(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "multiplicity-filter.cif",
+        "2",
+        (1, 1, 1, 90, 90, 90),
+        [("X1", "X", ("0.075", "0", "0"), "1")],
+        declare_number=False,
+        symmetry_multiplicities=["2"],
+    )
+    structure = asu_structure_from_cif(load(str(path), raw=True)["blocks"][0], tolerance=0.1)
+    assert [(site.wyckoff, site.species) for site in structure.wyckoff_sites] == [("i", "X")]
+    assert len(UnitcellStructureView(structure).sites) == 2
+
+
+def test_multiplicity_only_with_no_matching_position_is_invalid(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "multiplicity-invalid.cif",
+        "2",
+        (1, 1, 1, 90, 90, 90),
+        [("X1", "X", ("0.1", "0.2", "0.3"), "1")],
+        declare_number=False,
+        symmetry_multiplicities=["3"],
+    )
+    with pytest.raises(ValueError, match="unknown setting-local multiplicity '3'"):
+        load(str(path))
+
+
+def test_multiplicity_only_filter_mismatch_is_a_declaration_error(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "multiplicity-mismatch.cif",
+        "2",
+        (1, 1, 1, 90, 90, 90),
+        [("X1", "X", ("0.100000", "0.200000", "0.300000"), "1")],
+        declare_number=False,
+        symmetry_multiplicities=["1"],
+    )
+    with pytest.raises(ValueError, match=r"invalid declaration .*multiplicity '1'"):
+        load(str(path))
+
+
+def test_autocorrect_drops_mismatching_multiplicity_filter(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    path = _write_cif(
+        tmp_path / "multiplicity-mismatch-autocorrect.cif",
+        "2",
+        (1, 1, 1, 90, 90, 90),
+        [("X1", "X", ("0.100000", "0.200000", "0.300000"), "1")],
+        declare_number=False,
+        symmetry_multiplicities=["1"],
+    )
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        structure = load(str(path), autocorrect=True)
+    assert [(site.wyckoff, site.species) for site in structure.wyckoff_sites] == [("i", "X")]
+    assert len(UnitcellStructureView(structure).sites) == 2
+    assert "ignored declared Wyckoff data" in caplog.records[0].getMessage()
+    assert "multiplicity '1'" in caplog.records[0].getMessage()
+
+
+def test_hm_only_recognized_declaration_loads_strictly(tmp_path: Path) -> None:
+    path = _sg15_cif(tmp_path, declaration="_space_group_name_H-M_alt 'C 1 2/c 1'\n")
+    block = load(str(path), raw=True)["blocks"][0]
+    assert cif_setting(block).setting == "15:b1"
+    assert load(str(path)).setting().setting == "15:b1"
+
+
+def test_hm_only_contradiction_is_rejected(tmp_path: Path) -> None:
+    path = _sg15_cif(tmp_path, declaration="_space_group_name_H-M_alt 'P 1'\n")
+    block = load(str(path), raw=True)["blocks"][0]
+    with pytest.raises(ValueError, match="declares Hermann-Mauguin symbol"):
+        cif_setting(block)
+
+
+def test_hm_only_unknown_declaration_is_ignored(tmp_path: Path) -> None:
+    path = _sg15_cif(tmp_path, declaration="_space_group_name_H-M_alt 'F m -3 m:1'\n")
+    assert load(str(path)).setting().setting == "15:b1"
+
+
 def test_a_hall_symbol_naming_no_setting_is_an_error(tmp_path: Path) -> None:
     block = load(str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall 'Not A Symbol'\n")), raw=True)["blocks"][0]
     with pytest.raises(
@@ -758,6 +877,78 @@ def test_zero_tolerance_float_screen_keeps_exact_matches(setting: str) -> None:
     ) == (
         position.letter,
         parameters,
+    )
+
+
+def test_unwrapped_large_coordinate_falls_through_the_float_screen(tmp_path: Path) -> None:
+    """A binary float loses the fractional part, but exact P1 matching must retain it."""
+    path = _write_cif(
+        tmp_path / "unwrapped-large-coordinate.cif",
+        "1",
+        (1, 1, 1, 90, 90, 90),
+        [("X1", "X", (f"{2**54}.25", "0", "0"), "1")],
+    )
+
+    structure = asu_structure_from_cif(load(str(path), raw=True)["blocks"][0], tolerance=0)
+
+    assert [(site.wyckoff, tuple(site.free_params.to_fractions())) for site in structure.wyckoff_sites] == [
+        ("a", (F(1, 4), F(0), F(0)))
+    ]
+
+
+def test_orbit_float_screen_keeps_an_exact_tolerance_boundary_match() -> None:
+    """A P -1 pair lies one exact fraction below the float tolerance boundary.
+
+    The two general-position branches are fractionally below the boundary exactly, but the
+    double squared distance rounds above it. A screen without its slack would omit exact
+    confirmation, so this must still detect the overlap.
+    """
+    spacegroup = Spacegroup.standard(2)
+    position = spacegroup.wyckoff[-1]
+    tolerance = 1e-6
+    point = FracVector([F(60655832901, 200000000000000000), F(6211242099, 15625000000000000), 0])
+    cell = Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    orbit_screen: list[tuple[tuple[float, float, float], object, FracVector]] = []
+    match = _snap(
+        spacegroup,
+        point,
+        point,
+        cell,
+        spacegroup.transform_from_standard,
+        tolerance,
+        positions=(position,),
+        orbit_screen=orbit_screen,
+    )
+
+    assert match is not None
+    assert sum((2 * value.to_float()) ** 2 for value in point) > tolerance**2
+    assert _has_rounded_orbit_overlap(
+        spacegroup, spacegroup.transform_from_standard, match, cell, tolerance, orbit_screen
+    )
+
+
+def test_orbit_float_screen_uses_the_magnitude_of_a_negative_tolerance() -> None:
+    """The exact orbit gap is below ``abs(tolerance)`` but above the old negative screen."""
+    spacegroup = Spacegroup.standard(2)
+    position = spacegroup.wyckoff[-1]
+    tolerance = -1e-6
+    point = FracVector([F(499999, 10**12), 0, 0])
+    cell = Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    orbit_screen: list[tuple[tuple[float, float, float], object, FracVector]] = []
+    match = _snap(
+        spacegroup,
+        point,
+        point,
+        cell,
+        spacegroup.transform_from_standard,
+        tolerance,
+        positions=(position,),
+        orbit_screen=orbit_screen,
+    )
+
+    assert match is not None
+    assert _has_rounded_orbit_overlap(
+        spacegroup, spacegroup.transform_from_standard, match, cell, tolerance, orbit_screen
     )
 
 

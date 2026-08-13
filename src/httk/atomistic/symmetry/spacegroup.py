@@ -38,6 +38,8 @@ _PROBE_PARAMETERS = (
     ("3/29", "7/31", "11/37"),
 )
 
+_SYMMETRY_OPERATIONS_CACHE: dict[str, tuple[AffineOperation, ...]] = {}
+
 
 class Spacegroup:
     """Represent a tabulated space-group setting from the vendored symmetry data.
@@ -187,7 +189,12 @@ class Spacegroup:
 
         :return: The complete tuple of symmetry operations.
         """
-        return tuple(AffineOperation.from_record(entry) for entry in self._record["symops"])
+        key = self._record["hall_entry"]
+        cached = _SYMMETRY_OPERATIONS_CACHE.get(key)
+        if cached is not None:
+            return cached
+        operations = tuple(AffineOperation.from_record(entry) for entry in self._record["symops"])
+        return _SYMMETRY_OPERATIONS_CACHE.setdefault(key, operations)
 
     @cached_property
     def centering_translations(self) -> tuple[FracVector, ...]:
