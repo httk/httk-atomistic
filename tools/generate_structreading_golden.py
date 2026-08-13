@@ -15,7 +15,13 @@ def main() -> int:
     :return: Process exit status.
     """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("corpus", type=Path, help="directory holding CIF files")
+    parser.add_argument(
+        "corpus",
+        nargs="?",
+        type=Path,
+        default=Path("tests/fixtures/structreading"),
+        help="directory holding CIF files (default: tests/fixtures/structreading)",
+    )
     parser.add_argument(
         "--output",
         type=Path,

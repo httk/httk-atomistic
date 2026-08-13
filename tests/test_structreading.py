@@ -12,7 +12,33 @@ from httk.atomistic._structreading import structreading_golden
 _ROOT = Path(__file__).parent
 _FIXTURES = _ROOT / "fixtures" / "structreading"
 _GOLDEN = _ROOT / "data" / "structreading_golden.json.gz"
-_CORPUS = Path("/home/rar/Documents/containers/devel/agents/httk2/old/httk/Tutorial/tutorial_data/all_spacegroups/cifs")
+_NORMAL_FIXTURES = (
+    "1.cif",
+    "2.cif",
+    "14.cif",
+    "16.cif",
+    "26.cif",
+    "51.cif",
+    "70.cif",
+    "75.cif",
+    "102.cif",
+    "110.cif",
+    "120.cif",
+    "130.cif",
+    "142.cif",
+    "149.cif",
+    "160.cif",
+    "168.cif",
+    "175.cif",
+    "190.cif",
+    "194.cif",
+    "200.cif",
+    "207.cif",
+    "214.cif",
+    "221.cif",
+    "225.cif",
+    "228.cif",
+)
 
 
 def _golden() -> dict[str, dict[str, Any]]:
@@ -45,7 +71,7 @@ def test_structreading_golden_is_substantial() -> None:
     assert len(_golden()) > 200
 
 
-@pytest.mark.parametrize("path", sorted(_FIXTURES.glob("*.cif")), ids=lambda path: path.name)
+@pytest.mark.parametrize("path", [_FIXTURES / name for name in _NORMAL_FIXTURES], ids=lambda path: path.name)
 def test_structreading_fixtures(path: Path) -> None:
     """Pin exact current interpretation for the always-available representative subset.
 
@@ -55,20 +81,18 @@ def test_structreading_fixtures(path: Path) -> None:
 
 
 @pytest.mark.extended
-@pytest.mark.skipif(not _CORPUS.is_dir(), reason="legacy httk tutorial CIF corpus is unavailable")
 def test_structreading_legacy_corpus_manifest() -> None:
-    """The optional corpus and the committed golden must describe the same files."""
+    """The vendored corpus and committed golden must describe the same files."""
     golden = _golden()
-    paths = sorted(_CORPUS.glob("*.cif"))
+    paths = sorted(_FIXTURES.glob("*.cif"))
     assert {path.name for path in paths} == set(golden)
 
 
 @pytest.mark.extended
-@pytest.mark.skipif(not _CORPUS.is_dir(), reason="legacy httk tutorial CIF corpus is unavailable")
-@pytest.mark.parametrize("path", sorted(_CORPUS.glob("*.cif")), ids=lambda path: path.name)
+@pytest.mark.parametrize("path", sorted(_FIXTURES.glob("*.cif")), ids=lambda path: path.name)
 def test_structreading_legacy_corpus(path: Path) -> None:
-    """Pin one optional full-corpus CIF per parallel test case.
+    """Pin one vendored full-corpus CIF per parallel test case.
 
-    :param path: Legacy tutorial CIF outside the repository.
+    :param path: Vendored legacy tutorial CIF.
     """
     _assert_golden(path.name, _golden()[path.name], path)
