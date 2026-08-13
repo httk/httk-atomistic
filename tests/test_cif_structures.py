@@ -24,7 +24,7 @@ from httk.atomistic import (
     asu_structures_from_cif,
     cif_setting,
 )
-from httk.atomistic.cif_structures import _parse_type_symbol
+from httk.atomistic.cif_structures import _parse_type_symbol, _read_cif_for_atomistic
 
 F = fractions.Fraction
 
@@ -39,6 +39,8 @@ def _write_cif(
     *,
     name: str = "test",
     declare_number: bool = True,
+    wyckoff_labels: list[str] | None = None,
+    symmetry_multiplicities: list[str] | None = None,
 ) -> Path:
     """A CIF for one setting, with its complete symmetry-operation list."""
     spacegroup = Spacegroup.for_setting(setting)
@@ -61,13 +63,19 @@ def _write_cif(
         "loop_",
         "_atom_site_label",
         "_atom_site_type_symbol",
+        *(["_atom_site_Wyckoff_label"] if wyckoff_labels is not None else []),
+        *(["_atom_site_symmetry_multiplicity"] if symmetry_multiplicities is not None else []),
         "_atom_site_fract_x",
         "_atom_site_fract_y",
         "_atom_site_fract_z",
         "_atom_site_occupancy",
     ]
-    for label, symbol, (x, y, z), occupancy in sites:
-        lines.append(f"{label} {symbol} {x} {y} {z} {occupancy}")
+    for index, (label, symbol, (x, y, z), occupancy) in enumerate(sites):
+        declarations = [
+            *([wyckoff_labels[index]] if wyckoff_labels is not None else []),
+            *([symmetry_multiplicities[index]] if symmetry_multiplicities is not None else []),
+        ]
+        lines.append(f"{label} {symbol} {' '.join(declarations)} {x} {y} {z} {occupancy}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
@@ -129,8 +137,32 @@ def test_coincident_cif_sites_with_different_species_are_rejected(tmp_path: Path
         [("Ca1", "Ca2+", ("0", "0", "0"), "1"), ("O1", "O2-", ("0", "0", "0"), "1")],
         name="Conflict",
     )
-    with pytest.raises(ValueError, match="different species"):
+    with pytest.raises(ValueError, match=r"different species.*Remedy: load\(\.\.\., autocorrect=True\)"):
         _ = load(str(path)).sites
+
+
+def test_autocorrect_drops_a_later_coincident_disorder_site(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    path = _write_cif(
+        tmp_path / "conflict.cif",
+        Spacegroup.standard(1).setting,
+        (1, 1, 1, 90, 90, 90),
+        [("Ca1", "Ca2+", ("0", "0", "0"), "1"), ("O1", "O2-", ("0", "0", "0"), "1")],
+        name="Conflict",
+    )
+
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        asu = load(str(path), autocorrect=True)
+
+    assert [site.species for site in asu.wyckoff_sites] == ["Ca2+"]
+    assert [species.name for species in asu.species] == ["Ca2+"]
+    assert len(UnitcellStructureView(asu).sites) == 1
+    warnings = [record.getMessage() for record in caplog.records]
+    assert warnings == [
+        (
+            "CIF block 'conflict', site 'O1': dropped co-located disorder site; the ASU model cannot represent "
+            "co-located different-species sites and occupancy information is lost"
+        )
+    ]
 
 
 # --- reading ---
@@ -194,6 +226,32 @@ def test_core_load_adapts_single_cif_and_raw_keeps_payload(tmp_path: Path) -> No
     assert isinstance(structure, ASUStructure)
     payload = load(str(path), raw=True)
     assert payload["format"] == "cif"
+
+
+def test_clean_cif_is_unchanged_when_autocorrect_is_disabled(tmp_path: Path) -> None:
+    path = _rocksalt_cif(tmp_path)
+    assert load(str(path), raw=True) == load(str(path), raw=True, autocorrect=False)
+
+
+def test_clean_cif_load_is_unchanged_by_autocorrect(tmp_path: Path) -> None:
+    path = _rocksalt_cif(tmp_path)
+    assert load(str(path), autocorrect=True) == load(str(path))
+
+
+def test_autocorrect_requires_a_cif_reader_that_supports_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from httk.io.cif import read_cif
+
+    path = _rocksalt_cif(tmp_path)
+
+    def released_read_cif(*args: object, **kwargs: object) -> object:
+        if "autocorrect" in kwargs:
+            raise TypeError("read_cif() got an unexpected keyword argument 'autocorrect'")
+        return read_cif(*args, **kwargs)
+
+    monkeypatch.setattr("httk.io.cif.read_cif", released_read_cif)
+    assert _read_cif_for_atomistic(path)["format"] == "cif"
+    with pytest.raises(ValueError, match="requires httk-io with CIF autocorrect support"):
+        _read_cif_for_atomistic(path, autocorrect=True)
 
 
 def test_the_cell_is_exact_not_the_files_rounded_basis(tmp_path: Path) -> None:
@@ -475,8 +533,161 @@ def test_a_conventionally_spelled_hall_symbol_is_recognized(tmp_path: Path) -> N
 
 def test_a_hall_symbol_naming_no_setting_is_an_error(tmp_path: Path) -> None:
     block = load(str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall 'Not A Symbol'\n")), raw=True)["blocks"][0]
-    with pytest.raises(ValueError, match="names no known space-group setting"):
+    with pytest.raises(
+        ValueError, match=r"names no known space-group setting.*Remedy: load\(\.\.\., autocorrect=True\)"
+    ):
         cif_setting(block)
+
+
+def test_autocorrect_ignores_an_unrecognized_declared_setting(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    path = _sg15_cif(tmp_path, declaration="_space_group_name_Hall 'Not A Symbol'\n")
+
+    with pytest.raises(ValueError, match=r"Remedy: load\(\.\.\., autocorrect=True\)"):
+        load(str(path))
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        asu = load(str(path), autocorrect=True)
+
+    assert asu.setting() is not None
+    assert asu.setting().setting == "15:b1"
+    assert len(UnitcellStructureView(asu).sites) == 4
+    warnings = [record.getMessage() for record in caplog.records]
+    assert warnings == [
+        (
+            "CIF block 'x': ignored declared symmetry Hall symbol 'Not A Symbol' and identified setting '15:b1' "
+            "from its symmetry operations"
+        )
+    ]
+
+
+def test_autocorrect_stamp_repairs_rounded_special_positions(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    path = _write_cif(
+        tmp_path / "rounded.cif",
+        Spacegroup.standard(149).setting,
+        (4.7241, 4.7241, 4.3862, 90, 90, 120),
+        [("N1", "N", ("0.33333", "0.66667", "0.50000"), "1")],
+        name="Rounded",
+    )
+    assert len(UnitcellStructureView(load(str(path))).sites) == 3
+
+    payload = load(str(path), raw=True, autocorrect=True)
+    assert payload["autocorrect"] is True
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        asu = asu_structures_from_cif(payload)[0]
+
+    assert [(site.wyckoff, site.species) for site in asu.wyckoff_sites] == [("d", "N")]
+    assert len(UnitcellStructureView(asu).sites) == 1
+    warnings = [record.getMessage() for record in caplog.records]
+    assert warnings == [
+        "CIF block 'rounded', site 'N1': snapped its rounded coordinate to the more-specific Wyckoff position 'd'"
+    ]
+
+
+def test_autocorrect_keeps_a_partially_occupied_near_special_site(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_cif(
+        tmp_path / "split.cif",
+        Spacegroup.standard(149).setting,
+        (4.7241, 4.7241, 4.3862, 90, 90, 120),
+        [("N1", "N", ("0.33333", "0.66667", "0.50000"), "0.5")],
+        name="Split",
+    )
+    strict = load(str(path))
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        corrected = load(str(path), autocorrect=True)
+
+    assert len(UnitcellStructureView(strict).sites) == len(UnitcellStructureView(corrected).sites) == 3
+    assert caplog.records == []
+
+
+def test_autocorrect_snaps_a_partially_occupied_declared_special_site(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_cif(
+        tmp_path / "declared-special.cif",
+        Spacegroup.standard(149).setting,
+        (4.7241, 4.7241, 4.3862, 90, 90, 120),
+        [("N1", "N", ("0.33333", "0.66667", "0.50000"), "0.5")],
+        name="DeclaredSpecial",
+        wyckoff_labels=["d"],
+        symmetry_multiplicities=["1"],
+    )
+
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        corrected = load(str(path), autocorrect=True)
+
+    assert len(UnitcellStructureView(corrected).sites) == 1
+    assert [record.getMessage() for record in caplog.records] == [
+        (
+            "CIF block 'declaredspecial', site 'N1': snapped its rounded coordinate to the more-specific Wyckoff "
+            "position 'd' using declared Wyckoff letter 'd' as evidence"
+        )
+    ]
+
+
+def test_autocorrect_keeps_a_declared_general_orbit(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    path = _write_cif(
+        tmp_path / "declared-general.cif",
+        Spacegroup.standard(149).setting,
+        (4.7241, 4.7241, 4.3862, 90, 90, 120),
+        [("N1", "N", ("0.33333", "0.66667", "0.50000"), "1")],
+        name="DeclaredGeneral",
+        wyckoff_labels=["k"],
+        symmetry_multiplicities=["3"],
+    )
+    strict = load(str(path))
+    payload = load(str(path), raw=True, autocorrect=True)
+    assert payload["blocks"][0]["_httk_atomistic_wyckoff_labels"] == ["k"]
+    assert payload["blocks"][0]["_httk_atomistic_symmetry_multiplicities"] == ["3"]
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        corrected = asu_structures_from_cif(payload)[0]
+
+    assert len(UnitcellStructureView(strict).sites) == len(UnitcellStructureView(corrected).sites) == 3
+    assert caplog.records == []
+
+
+def test_autocorrect_compares_declared_letters_in_the_cif_setting(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_cif(
+        tmp_path / "setting-local-letter.cif",
+        "224:1",
+        (10, 10, 10, 90, 90, 120),
+        [("X1", "X", ("0.75000", "0.25001", "0.24999"), "1")],
+        name="SettingLocalLetter",
+        wyckoff_labels=["i"],
+    )
+
+    strict = load(str(path))
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        corrected = load(str(path), autocorrect=True)
+
+    assert [(site.wyckoff, site.species) for site in strict.wyckoff_sites] == [("j", "X")]
+    assert corrected == strict
+    assert len(UnitcellStructureView(corrected).sites) == 24
+    assert caplog.records == []
+
+
+def test_autocorrect_compares_declared_multiplicities_in_the_cif_setting(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_cif(
+        tmp_path / "setting-local-multiplicity.cif",
+        "160:R",
+        (10, 10, 10, 90, 90, 120),
+        [("X1", "X", ("0.00002", "0.00002", "0.99999"), "0.5")],
+        name="SettingLocalMultiplicity",
+        symmetry_multiplicities=["3"],
+    )
+
+    strict = load(str(path))
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        corrected = load(str(path), autocorrect=True)
+
+    assert [(site.wyckoff, site.species) for site in strict.wyckoff_sites] == [("b", "X1")]
+    assert corrected == strict
+    assert len(UnitcellStructureView(corrected).sites) == 3
+    assert caplog.records == []
 
 
 def test_a_hall_symbol_naming_the_wrong_group_is_an_error(tmp_path: Path) -> None:
@@ -484,6 +695,19 @@ def test_a_hall_symbol_naming_the_wrong_group_is_an_error(tmp_path: Path) -> Non
     block = load(str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall '-P 2ybc'\n")), raw=True)["blocks"][0]
     with pytest.raises(ValueError, match="contradicts itself"):
         cif_setting(block)
+
+
+def test_autocorrect_does_not_override_a_contradictory_known_declaration(tmp_path: Path) -> None:
+    path = _sg15_cif(tmp_path, declaration="_space_group_name_Hall 'P 1'\n")
+    errors = []
+    for autocorrect in (False, True):
+        with pytest.raises(ValueError) as caught:
+            load(str(path), autocorrect=autocorrect)
+        errors.append(str(caught.value))
+
+    assert errors[0] == errors[1]
+    assert "contradicts itself" in errors[0]
+    assert "Remedy:" not in errors[0]
 
 
 def test_a_wrong_it_number_is_an_error(tmp_path: Path) -> None:

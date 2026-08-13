@@ -16,6 +16,7 @@ import fractions
 import math
 import re
 from collections.abc import Mapping, Sequence
+from functools import cache
 from typing import Any
 
 from httk.core import FracVector, decimal_precision
@@ -25,7 +26,7 @@ from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
-from httk.atomistic.symmetry.spacegroup import Spacegroup
+from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 from httk.atomistic.symmetry.xyz import operation_from_xyz
 
 from . import data as symmetry_data
@@ -41,7 +42,9 @@ CIF_POSITIONAL_UNCERTAINTY_WARNING = fractions.Fraction(1, 10)
 CIF_POSITIONAL_UNCERTAINTY_ERROR = fractions.Fraction(1)
 
 
-def asu_structures_from_cif(payload: Mapping[str, Any], **options: Any) -> list[ASUStructure]:
+def asu_structures_from_cif(
+    payload: Mapping[str, Any], *, autocorrect: bool = False, **options: Any
+) -> list[ASUStructure]:
     r"""Return every structure in a loaded CIF payload, one per structural data block.
 
     Accepts either a whole loaded payload (with ``blocks``) or a single block.
@@ -52,11 +55,13 @@ def asu_structures_from_cif(payload: Mapping[str, Any], **options: Any) -> list[
     could not be interpreted does not read as a file that contained nothing.
 
     :param payload: The loaded whole-CIF payload or one loaded CIF block.
+    :param autocorrect: Apply documented CIF input repairs, also enabled by a stamped payload.
     :param \*\*options: Options forwarded to :func:`asu_structure_from_cif`.
     :return: One asymmetric-unit structure for each structural data block.
     :raises ValueError: If the payload has no interpretable structural data or a block is invalid.
     """
     options.setdefault("allow_large_cif_uncertainty", bool(payload.get(_ALLOW_LARGE_CIF_UNCERTAINTY, False)))
+    options.setdefault("autocorrect", autocorrect or bool(payload.get("autocorrect", False)))
     blocks = payload.get("blocks")
     if blocks is None:
         return [asu_structure_from_cif(payload, **options)]
@@ -78,6 +83,7 @@ def asu_structure_from_cif(
     limit_denominator: int | None = None,
     trust_declared_symmetry: bool = True,
     allow_large_cif_uncertainty: bool = False,
+    autocorrect: bool = False,
 ) -> ASUStructure:
     """Build an exact :class:`~httk.atomistic.ASUStructure` from a neutral CIF mapping.
 
@@ -110,6 +116,7 @@ def asu_structure_from_cif(
     :param limit_denominator: The maximum denominator for snapped free parameters, if supplied.
     :param trust_declared_symmetry: Whether to validate the declared symmetry before matching operations.
     :param allow_large_cif_uncertainty: Whether to allow positional uncertainty at or above one angstrom.
+    :param autocorrect: Apply documented CIF input repairs with warnings.
     :return: The exact asymmetric-unit structure.
     :raises ValueError: If the block format, symmetry, coordinates, occupancies, or Wyckoff matches are invalid.
     """
@@ -117,7 +124,22 @@ def asu_structure_from_cif(
     if fmt != "cif":
         raise ValueError(f"asu_structure_from_cif expected a 'cif' mapping, got format={fmt!r}.")
 
-    setting = cif_setting(data, trust_declared_symmetry=trust_declared_symmetry)
+    try:
+        setting = cif_setting(data, trust_declared_symmetry=trust_declared_symmetry)
+    except ValueError as error:
+        declared = _declared_symmetry(data)
+        if (
+            not autocorrect
+            or not trust_declared_symmetry
+            or declared is None
+            or "names no known space-group setting" not in str(error)
+        ):
+            raise
+        setting = cif_setting(data, trust_declared_symmetry=False)
+        _cif_warning(
+            f"CIF block {_block_name(data)!r}: ignored declared symmetry {declared} and identified "
+            f"setting {setting.setting!r} from its symmetry operations"
+        )
     standard = setting.standard_setting()
     transform = setting.transform_from_standard
     cell = _cell_from_cif(data)
@@ -136,6 +158,8 @@ def asu_structure_from_cif(
     occupancies = data.get("occupancies")
     occupancies_exact = data.get("occupancies_exact")
     occupancy_precisions = data.get("occupancy_precisions")
+    declared_wyckoff = data.get("_httk_atomistic_wyckoff_labels")
+    declared_multiplicities = data.get("_httk_atomistic_symmetry_multiplicities")
 
     species_by_name: dict[str, Species] = {}
     wyckoff_sites: list[WyckoffSite] = []
@@ -177,6 +201,44 @@ def asu_structure_from_cif(
             exact_match=exact_match,
             allow_large_cif_uncertainty=allow_large_cif_uncertainty,
         )
+        if (
+            autocorrect
+            and match is not None
+            and _has_rounded_orbit_overlap(standard, transform, match, cell, tolerance)
+        ):
+            corrected_match = _snap(
+                standard,
+                standard_point,
+                coordinate,
+                cell,
+                transform,
+                tolerance,
+                allow_large_cif_uncertainty=allow_large_cif_uncertainty,
+                most_specific=True,
+            )
+            if corrected_match != match:
+                assert corrected_match is not None
+                evidence = _declared_orbit_evidence(
+                    declared_wyckoff,
+                    declared_multiplicities,
+                    index,
+                    setting,
+                    standard,
+                    standard.wyckoff_position(match[0]),
+                    standard.wyckoff_position(corrected_match[0]),
+                )
+                # A declaration of the snap target wins, then a declaration of the initial
+                # orbit blocks it; without either, only full occupancy favours rounding over
+                # a deliberately split site.
+                if evidence is not False and (
+                    evidence is not None or as_fraction(occupancy, field="CIF occupancy")[0] == 1
+                ):
+                    match = corrected_match
+                    declaration = "" if evidence is None else f" using {evidence} as evidence"
+                    _cif_warning(
+                        f"CIF block {_block_name(data)!r}, site {labels[index]!r}: snapped its rounded coordinate "
+                        f"to the more-specific Wyckoff position {match[0]!r}{declaration}"
+                    )
         if match is None:
             raise ValueError(
                 f"CIF site {labels[index]!r} at {tuple(coordinate.to_fractions())} does not lie on any "
@@ -197,11 +259,21 @@ def asu_structure_from_cif(
             f"maximum is {math.sqrt(maximum.to_float()):.6g} Å"
         )
 
+    canonical_sites = _deduplicate_wyckoff_sites(
+        standard,
+        transform,
+        wyckoff_sites,
+        species_by_name,
+        labels,
+        block_name=_block_name(data),
+        autocorrect=autocorrect,
+    )
+    used_species = {site.species for site in canonical_sites}
     return ASUStructure(
         cell,
         standard,
-        _deduplicate_wyckoff_sites(standard, transform, wyckoff_sites, species_by_name),
-        list(species_by_name.values()),
+        canonical_sites,
+        [species for name, species in species_by_name.items() if name in used_species],
         transform,
         data.get("coordinate_precision"),
     )
@@ -212,12 +284,16 @@ def _deduplicate_wyckoff_sites(
     transform: Any,
     sites: list[WyckoffSite],
     species_by_name: Mapping[str, Species],
+    labels: Sequence[str],
+    *,
+    block_name: str,
+    autocorrect: bool,
 ) -> list[WyckoffSite]:
     """Remove redundant identical-species CIF orbits before building the ASU."""
     seen: dict[tuple[fractions.Fraction, ...], tuple[str, WyckoffSite]] = {}
     cosets = transform.lattice_cosets()
     canonical: list[WyckoffSite] = []
-    for site in sites:
+    for index, site in enumerate(sites):
         position = spacegroup.wyckoff_position(site.wyckoff)
         keys = {
             tuple((transform.to_setting(point) + coset).normalize().to_fractions())
@@ -229,9 +305,25 @@ def _deduplicate_wyckoff_sites(
             previous = seen.get(key)
             if previous is None:
                 continue
-            if species_by_name[previous[0]] != species_by_name[site.species]:
-                raise ValueError(f"{site!r} coincides with {previous[1]!r} at {key} but has a different species")
             overlaps.append((key, previous))
+        conflicts = [
+            (key, previous)
+            for key, previous in overlaps
+            if species_by_name[previous[0]] != species_by_name[site.species]
+        ]
+        if conflicts:
+            key, previous = conflicts[0]
+            if autocorrect and len(overlaps) == len(keys):
+                _cif_warning(
+                    f"CIF block {block_name!r}, site {labels[index]!r}: dropped co-located disorder site; "
+                    "the ASU model cannot represent co-located different-species sites and occupancy "
+                    "information is lost"
+                )
+                continue
+            raise ValueError(
+                f"{site!r} coincides with {previous[1]!r} at {key} but has a different species. "
+                "Remedy: load(..., autocorrect=True) keeps the first co-located site and drops the later one."
+            )
         if overlaps:
             if len(overlaps) == len(keys):
                 continue
@@ -239,6 +331,122 @@ def _deduplicate_wyckoff_sites(
         canonical.append(site)
         seen.update({key: (site.species, site) for key in keys})
     return canonical
+
+
+def _has_rounded_orbit_overlap(
+    spacegroup: Spacegroup,
+    transform: Any,
+    match: tuple[str, FracVector],
+    cell: Cell,
+    tolerance: float,
+) -> bool:
+    """Whether a matched orbit has distinct images within the CIF-derived tolerance.
+
+    Float Cartesian buckets screen possible pairs at twice the tolerance.  Exact
+    distance arithmetic confirms every screened pair, so floats only prune work.
+    """
+    from itertools import product
+
+    from httk.atomistic.symmetry.recognition import _cartesian_distance_squared
+
+    letter, parameters = match
+    position = spacegroup.wyckoff_position(letter)
+    cosets = transform.lattice_cosets()
+    if position.multiplicity == 1 and len(cosets) == 1:
+        return False
+    points = {
+        (transform.to_setting(point) + coset).normalize()
+        for point in position.coordinates(parameters)
+        for coset in cosets
+    }
+    if len(points) < 2 or tolerance <= 0:
+        return False
+
+    basis = cell.basis.to_floats()
+    inverse = cell.basis.inv().to_floats()
+    offsets = tuple(product((-1, 0, 1), repeat=3))
+    screen = tolerance * 2
+    point_list = list(points)
+    coordinates = [tuple(point.to_floats()) for point in point_list]
+    bins = tuple(
+        max(1, int(1 / (screen * math.sqrt(sum(inverse[row][column] ** 2 for row in range(3)))))) for column in range(3)
+    )
+
+    def bucket(coordinate: tuple[float, float, float]) -> tuple[int, int, int]:
+        first, second, third = (min(count - 1, int(value * count)) for value, count in zip(coordinate, bins))
+        return (first, second, third)
+
+    buckets: dict[tuple[int, int, int], list[int]] = {}
+    for index, coordinate in enumerate(coordinates):
+        buckets.setdefault(bucket(coordinate), []).append(index)
+
+    for index, coordinate in enumerate(coordinates):
+        for offset in offsets:
+            shifted = tuple((value + delta) % count for value, delta, count in zip(bucket(coordinate), offset, bins))
+            nearby = (shifted[0], shifted[1], shifted[2])
+            for other in buckets.get(nearby, []):
+                if other <= index:
+                    continue
+                difference = tuple(
+                    (first - second + 0.5) % 1 - 0.5 for first, second in zip(coordinate, coordinates[other])
+                )
+                cartesian = tuple(
+                    sum(value * basis[row][column] for row, value in enumerate(difference)) for column in range(3)
+                )
+                if sum(value * value for value in cartesian) > screen * screen:
+                    continue
+                if _cartesian_distance_squared(point_list[index] - point_list[other], cell) <= tolerance * tolerance:
+                    return True
+    return False
+
+
+def _declared_orbit_evidence(
+    wyckoff_labels: Any,
+    multiplicities: Any,
+    index: int,
+    setting: Spacegroup,
+    standard: Spacegroup,
+    initial: Any,
+    target: Any,
+) -> str | bool | None:
+    """Whether a setting-local CIF declaration supports the target, initial orbit, or neither.
+
+    Letters are translated from the standard candidates through the identified setting's
+    table; multiplicities come from that same table. An unresolvable declaration is absent
+    evidence, never support for either candidate.
+    """
+    try:
+        letters = wyckoff_letter_map(standard, setting)
+        initial_local = setting.wyckoff_position(letters[initial.letter])
+        target_local = setting.wyckoff_position(letters[target.letter])
+    except (KeyError, ValueError):
+        return None
+    label = _site_declaration(wyckoff_labels, index)
+    letter = None if label is None else label.lstrip("0123456789").lower()
+    multiplicity = _site_declaration(multiplicities, index)
+    try:
+        value = None if multiplicity is None else int(multiplicity)
+    except ValueError:
+        value = None
+    if letter is not None and letter not in {position.letter for position in setting.wyckoff}:
+        letter = None
+    if letter == target_local.letter:
+        return f"declared Wyckoff letter {label!r}"
+    multiplicity_positions = [position for position in setting.wyckoff if position.multiplicity == value]
+    multiplicity_position = multiplicity_positions[0] if len(multiplicity_positions) == 1 else None
+    if multiplicity_position == target_local:
+        return f"declared multiplicity {value}"
+    if letter == initial_local.letter or multiplicity_position == initial_local:
+        return False
+    return None
+
+
+def _site_declaration(values: Any, index: int) -> str | None:
+    """One optional raw CIF atom-site declaration, if present."""
+    if not isinstance(values, list) or index >= len(values):
+        return None
+    value = str(values[index]).strip()
+    return None if value in {"", ".", "?"} else value
 
 
 def _tolerance_from_cif(data: Mapping[str, Any], cell: Cell) -> float:
@@ -310,6 +518,22 @@ def _cif_warning(message: str) -> None:
     logging.getLogger(__name__).warning(message, extra={"context": "cif"})
 
 
+def _block_name(data: Mapping[str, Any]) -> str:
+    """The CIF data-block name retained by the autocorrect reader bridge."""
+    return str(data.get("_httk_atomistic_block_name", "<unnamed>"))
+
+
+def _declared_symmetry(data: Mapping[str, Any]) -> str | None:
+    """The Hall symbol or International Tables number written by the CIF."""
+    hall = data.get("space_group_name_hall")
+    if hall:
+        return f"Hall symbol {str(hall).strip()!r}"
+    number = data.get("space_group_nbr")
+    if number is not None:
+        return f"International Tables number {str(number).strip()!r}"
+    return None
+
+
 def _exact_wyckoff_match(standard: Spacegroup, standard_point: FracVector) -> tuple[str, FracVector] | None:
     """Return an exact match for a special Wyckoff position, excluding the general position."""
     for position in standard.wyckoff:
@@ -364,7 +588,10 @@ def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True
     if trust_declared_symmetry:
         candidates, declared = _declared_settings(data)
     if candidates is None:
-        candidates = symmetry_data.spacegroup_settings()
+        record = _settings_by_operations().get(target)
+        if record is not None:
+            return Spacegroup(record)
+        candidates = ()
 
     for record in candidates:
         candidate = Spacegroup(record)
@@ -385,6 +612,17 @@ def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True
     )
 
 
+@cache
+def _settings_by_operations() -> Mapping[frozenset[Any], Mapping[str, Any]]:
+    """Index tabulated settings by their exact wrapped operation sets, preserving order."""
+    settings: dict[frozenset[Any], Mapping[str, Any]] = {}
+    for record in symmetry_data.spacegroup_settings():
+        setting = Spacegroup(record)
+        operations = frozenset(operation.wrapped() for operation in setting.symmetry_operations)
+        settings.setdefault(operations, record)
+    return settings
+
+
 def _declared_settings(data: Mapping[str, Any]) -> tuple[list[Mapping[str, Any]] | None, str | None]:
     """The settings the file's own declaration allows, and how it was described.
 
@@ -401,7 +639,8 @@ def _declared_settings(data: Mapping[str, Any]) -> tuple[list[Mapping[str, Any]]
             raise ValueError(
                 f"this CIF declares the Hall symbol {written!r}, which names no known space-group "
                 f"setting. Pass trust_declared_symmetry=False to ignore the declaration and identify "
-                f"the setting from the symmetry operations alone."
+                f"the setting from the symmetry operations alone. Remedy: load(..., autocorrect=True) "
+                f"ignores an unrecognized declared symmetry and identifies the setting from the operations."
             ) from None
         return [record], f"the Hall symbol {written!r}"
 
@@ -493,12 +732,24 @@ def _parse_type_symbol(symbol: str) -> tuple[str, fractions.Fraction | None]:
     return element, charge if sign == "+" else -charge
 
 
-def _read_cif_for_atomistic(source: Any, *, allow_large_cif_uncertainty: bool = False) -> Mapping[str, Any]:
+def _read_cif_for_atomistic(
+    source: Any, *, allow_large_cif_uncertainty: bool = False, autocorrect: bool = False
+) -> Mapping[str, Any]:
     """Read CIF through httk-io and carry the atomistic override to its adapter."""
     from httk.io.cif import read_cif
     from httk.io.cif.cif_parser import cifblock_to_asu
 
-    raw_blocks, header = read_cif(source, allow_cif2=False)
+    if autocorrect:
+        try:
+            raw_blocks, header = read_cif(source, allow_cif2=False, autocorrect=True)
+        except TypeError as error:
+            if "autocorrect" not in str(error):
+                raise
+            raise ValueError(
+                "CIF autocorrect requires httk-io with CIF autocorrect support, which is not yet released."
+            ) from error
+    else:
+        raw_blocks, header = read_cif(source, allow_cif2=False)
     blocks = []
     unparsed = []
     for name, raw_block in raw_blocks:
@@ -514,9 +765,14 @@ def _read_cif_for_atomistic(source: Any, *, allow_large_cif_uncertainty: bool = 
                     **block,
                     "position_precisions": _position_precisions(raw_block),
                     "position_tokens": _position_tokens(raw_block),
+                    "_httk_atomistic_wyckoff_labels": raw_block.get("atom_site_wyckoff_label"),
+                    "_httk_atomistic_symmetry_multiplicities": raw_block.get("atom_site_symmetry_multiplicity"),
+                    **({"_httk_atomistic_block_name": name} if autocorrect else {}),
                 }
             )
-    payload = {"format": "cif", "blocks": blocks, "unparsed": unparsed, "header": header}
+    payload: dict[str, Any] = {"format": "cif", "blocks": blocks, "unparsed": unparsed, "header": header}
+    if autocorrect:
+        payload["autocorrect"] = True
     if not allow_large_cif_uncertainty:
         return payload
     return {**payload, _ALLOW_LARGE_CIF_UNCERTAINTY: True}
@@ -563,11 +819,19 @@ def _snap(
     uncertainty: tuple[Any, str] | None = None,
     exact_match: tuple[str, FracVector] | None = None,
     allow_large_cif_uncertainty: bool = False,
+    most_specific: bool = False,
 ) -> tuple[str, FracVector] | None:
-    """The most specific Wyckoff position within ``tolerance``, and its free parameters."""
+    """The most specific Wyckoff position within ``tolerance``, and its free parameters.
+
+    With ``most_specific=True``, inspect every matching position and prefer the one with
+    fewer free parameters. The CIF autocorrect caller uses this only after the rounded
+    orbit-overlap check, and only for full-occupancy sites without a CIF Wyckoff letter or
+    multiplicity confirming the initial orbit: split sites win whenever the evidence is
+    ambiguous.
+    """
     from httk.atomistic.symmetry.recognition import _cartesian_distance_squared
 
-    if exact_match is not None:
+    if exact_match is not None and not most_specific:
         return exact_match
 
     if uncertainty is not None:
@@ -578,10 +842,17 @@ def _snap(
                 f"{math.sqrt(projected.to_float()):.6g} Å; pass allow_large_cif_uncertainty=True to override"
             )
     limit = tolerance * tolerance
+    matches: list[tuple[int, str, FracVector]] = []
     for position in standard.wyckoff:
         for branch in position.branches:
             parameters = branch.nearest_parameters(standard_point)
             candidate = transform.to_setting(branch.coordinate(parameters))
             if _cartesian_distance_squared(own_point - candidate, cell) <= limit:
-                return position.letter, parameters
-    return None
+                if not most_specific:
+                    return position.letter, parameters
+                matches.append((position.free_count, position.letter, parameters))
+                break
+    if not matches:
+        return None
+    _, letter, parameters = min(matches, key=lambda match: match[0])
+    return letter, parameters
