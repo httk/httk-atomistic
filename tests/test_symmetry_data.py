@@ -12,6 +12,7 @@ import fractions
 import pytest
 
 from httk.atomistic import data
+from httk.atomistic.symmetry.symop_key import symop_key_v1
 
 F = fractions.Fraction
 
@@ -165,6 +166,18 @@ def test_lookup_keys_agree_with_each_other() -> None:
     assert record["hall_entry"] == "-a_2a"
     assert data.spacegroup_setting(hall_entry="-a_2a") is record
     assert data.spacegroup_setting(hm_entry=record["hm_entry"]) is record
+
+
+def test_symop_key_index_matches_the_v1_canonical_recipe() -> None:
+    """Canary for drift from data-generators/generate_basics_hall.py:2957."""
+    settings = data.spacegroup_settings()
+    computed = {symop_key_v1(record["symops"]): position for position, record in enumerate(settings)}
+    vendored = data._lookup_index(data._basics(), "symmetry_basics", "index_symop_key_to_spacegroups")
+
+    assert computed == vendored
+    assert len(computed) == 527
+    assert next(iter(computed)) == "63dbcdb54bd5d8c35ce8ae32cb34369717b95ee5d3c49dba36f5bbf9bc800048"
+    assert data.spacegroup_setting_by_symop_key(next(iter(computed))) is settings[0]
 
 
 def test_lookup_rejects_unknown_keys_and_ambiguous_calls() -> None:

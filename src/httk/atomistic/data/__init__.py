@@ -57,6 +57,7 @@ __all__ = [
     "point_groups",
     "setting_transform",
     "spacegroup_setting",
+    "spacegroup_setting_by_symop_key",
     "spacegroup_settings",
     "spacegroup_subgroup_record",
     "spglib_default_spacegroup_setting",
@@ -241,6 +242,33 @@ def spacegroup_setting(
     except KeyError:
         raise KeyError(f"no space-group setting with {key}={value!r}") from None
     return _basics().data.spacegroups[position]
+
+
+def spacegroup_setting_by_symop_key(key: str) -> Mapping[str, Any]:
+    """Return the setting indexed by a canonical complete-operation-set key.
+
+    :param key: The v1 key from :func:`httk.atomistic.symmetry.symop_key.symop_key_v1`.
+    :return: The matching space-group setting record.
+    :raises KeyError: If the operations key is not tabulated.
+    """
+    try:
+        position = _symop_key_to_spacegroups()[key]
+    except KeyError:
+        raise KeyError(f"no space-group setting with symop key {key!r}") from None
+    return _basics().data.spacegroups[position]
+
+
+@cache
+def _symop_key_to_spacegroups() -> Mapping[str, int]:
+    """The vendored operations-key index, or a lazy compatibility reconstruction."""
+    index = _basics().index
+    vendored = None if index is None else getattr(index, "index_symop_key_to_spacegroups", None)
+    if vendored is not None:
+        return vendored
+
+    from httk.atomistic.symmetry.symop_key import symop_key_v1
+
+    return {symop_key_v1(record["symops"]): position for position, record in enumerate(spacegroup_settings())}
 
 
 def standard_spacegroup_setting(it_number: int) -> Mapping[str, Any]:

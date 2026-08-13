@@ -559,6 +559,26 @@ def test_autocorrect_ignores_an_unrecognized_declared_setting(tmp_path: Path, ca
     ]
 
 
+def test_unrecognized_declaration_identifies_sg_228_from_operations(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "sg228.cif",
+        "228:2",
+        (10, 10, 10, 90, 90, 90),
+        [("X1", "X", ("0", "0", "0"), "1")],
+    )
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "loop_\n_space_group_symop_operation_xyz",
+            "_space_group_name_Hall 'Not A Symbol'\nloop_\n_space_group_symop_operation_xyz",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="names no known space-group setting"):
+        load(str(path))
+    assert load(str(path), autocorrect=True).setting().setting == "228:2"
+
+
 def test_autocorrect_stamp_repairs_rounded_special_positions(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "rounded.cif",
@@ -663,6 +683,7 @@ def test_autocorrect_compares_declared_letters_in_the_cif_setting(
         corrected = load(str(path), autocorrect=True)
 
     assert [(site.wyckoff, site.species) for site in strict.wyckoff_sites] == [("j", "X")]
+    assert strict.setting().setting == "224:1"
     assert corrected == strict
     assert len(UnitcellStructureView(corrected).sites) == 24
     assert caplog.records == []
@@ -685,6 +706,7 @@ def test_autocorrect_compares_declared_multiplicities_in_the_cif_setting(
         corrected = load(str(path), autocorrect=True)
 
     assert [(site.wyckoff, site.species) for site in strict.wyckoff_sites] == [("b", "X1")]
+    assert strict.setting().setting == "160:R"
     assert corrected == strict
     assert len(UnitcellStructureView(corrected).sites) == 3
     assert caplog.records == []

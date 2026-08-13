@@ -16,7 +16,6 @@ import fractions
 import math
 import re
 from collections.abc import Mapping, Sequence
-from functools import cache
 from typing import Any
 
 from httk.core import FracVector, decimal_precision
@@ -27,6 +26,7 @@ from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
+from httk.atomistic.symmetry.symop_key import symop_key_v1
 from httk.atomistic.symmetry.xyz import operation_from_xyz
 
 from . import data as symmetry_data
@@ -587,15 +587,18 @@ def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True
     declared = None
     if trust_declared_symmetry:
         candidates, declared = _declared_settings(data)
-    if candidates is None:
-        record = _settings_by_operations().get(target)
-        if record is not None:
-            return Spacegroup(record)
-        candidates = ()
-
-    for record in candidates:
-        candidate = Spacegroup(record)
-        if frozenset(operation.wrapped() for operation in candidate.symmetry_operations) == target:
+    try:
+        candidate = Spacegroup(symmetry_data.spacegroup_setting_by_symop_key(symop_key_v1(target)))
+    except KeyError:
+        candidate = None
+    if candidate is not None:
+        candidate_operations = frozenset(operation.wrapped() for operation in candidate.symmetry_operations)
+        if candidate_operations != target:
+            raise RuntimeError(
+                f"symop-key index internal inconsistency: CIF operations key maps to setting {candidate.setting!r}, "
+                "but that setting's exact operations differ from the CIF operations"
+            )
+        if candidates is None or any(record["hall_entry"] == candidate.hall_entry for record in candidates):
             return candidate
 
     if declared is not None:
@@ -610,17 +613,6 @@ def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True
         f"SettingTransform instead; a transform cannot be derived, since infinitely many are "
         f"equally valid and they describe different crystals."
     )
-
-
-@cache
-def _settings_by_operations() -> Mapping[frozenset[Any], Mapping[str, Any]]:
-    """Index tabulated settings by their exact wrapped operation sets, preserving order."""
-    settings: dict[frozenset[Any], Mapping[str, Any]] = {}
-    for record in symmetry_data.spacegroup_settings():
-        setting = Spacegroup(record)
-        operations = frozenset(operation.wrapped() for operation in setting.symmetry_operations)
-        settings.setdefault(operations, record)
-    return settings
 
 
 def _declared_settings(data: Mapping[str, Any]) -> tuple[list[Mapping[str, Any]] | None, str | None]:
