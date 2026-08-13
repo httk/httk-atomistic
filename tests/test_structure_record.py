@@ -301,6 +301,30 @@ def test_setting_transform_provenance_does_not_change_structure_identity(
     assert first.id == second.id == first_record.id == second_record.id
 
 
+@pytest.mark.parametrize("bulk", (False, True))
+def test_strict_store_scopes_same_affine_transform_hall_metadata(bulk: bool) -> None:
+    pytest.importorskip("sqlalchemy")
+    from httk.store.db import Database, SqlStore
+
+    sources = (
+        ASUStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], 1, (), (), SettingTransform.for_hall_entry("p_1")),
+        ASUStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], 2, (), (), SettingTransform.for_hall_entry("-p_1")),
+    )
+    assert sources[0].transform == sources[1].transform
+    layout = {StructureEntry: (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord)}
+    with Database.sqlite() as database:
+        store = SqlStore(database, entry_records=layout)
+        if bulk:
+            with store.bulk_ingest(finalize="deferred") as ingest:
+                provisional = tuple(ingest.save(source) for source in sources)
+            sids = tuple(ingest.resolved_sid(ASUStructureRecord, sid) for sid in provisional)
+        else:
+            sids = tuple(store.save(source) for source in sources)
+        records = tuple(store.fetch(ASUStructureRecord, sid) for sid in sids)
+
+    assert tuple(record.setting_transform.hall_entry for record in records) == ("p_1", "-p_1")
+
+
 def test_metadata_round_trips_without_changing_identity_or_equality() -> None:
     stamp = datetime.datetime(2026, 8, 2, 10, 30, tzinfo=datetime.UTC)
     plain = _unitcell()

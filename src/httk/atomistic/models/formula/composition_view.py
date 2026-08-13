@@ -99,6 +99,13 @@ class CompositionView(ChemicalFormulaViewBase, Composition):
     def _ensure_materialized(self) -> None:
         _ = self.amounts
 
+    def __reduce__(self) -> tuple[type[Self], tuple[ChemicalFormulaBackend]]:
+        """Rebuild the view from its backend during pickling.
+
+        :return: The view constructor and its backend argument.
+        """
+        return type(self), (self._backend,)
+
     def unwrap(self) -> Any:
         """Return the raw object behind the backend.
 

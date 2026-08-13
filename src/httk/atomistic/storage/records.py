@@ -507,6 +507,7 @@ class SettingTransformRecord:
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_v3_setting_transform_record",
         identity_name="atomistic_v3_setting_transform_record",
+        dedup="by_value",
     )
     __httk_canonical_source__: ClassVar[type[SettingTransform]] = SettingTransform
 

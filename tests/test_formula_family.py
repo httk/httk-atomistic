@@ -1,3 +1,4 @@
+import pickle
 from fractions import Fraction
 
 import pytest
@@ -7,6 +8,7 @@ from httk.atomistic import (
     AnonymousFormula,
     AnonymousFormulaView,
     ASUStructure,
+    Cell,
     ChemicalFormula,
     ChemicalFormulaBackend,
     ChemicalFormulaView,
@@ -115,6 +117,22 @@ def test_record_and_structure_laziness() -> None:
     assert "amounts" in view.__dict__
     record = _normalized_composition_record_from_result(Composition({"Al": 2, "O": 3}))
     assert CompositionView(record) == Composition({"Al": 2, "O": 3})
+
+
+def test_asu_with_cached_composition_pickles() -> None:
+    source = _asu()
+    structure = ASUStructure(
+        Cell(source.cell.basis),
+        source.spacegroup,
+        source.wyckoff_sites,
+        source.species,
+    )
+    _ = structure.composition.amounts
+
+    restored = pickle.loads(pickle.dumps(structure))
+
+    assert restored == structure
+    assert restored.composition == structure.composition
 
 
 def test_formula_directionality_and_validation() -> None:
