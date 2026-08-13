@@ -2,6 +2,7 @@
 
 import io
 import json
+import pickle
 import urllib.request
 from datetime import UTC, datetime
 from email.message import Message
@@ -10,21 +11,26 @@ from typing import Any
 
 import httk.core
 import pytest
-from httk.core import TextstreamURLView
+from httk.core import FracVector, TextstreamURLView
 from httk.core.optimade import IncompleteOptimadeResourceError
 
 from httk.atomistic import (
     Assembly,
+    ASUStructure,
     ASUStructureView,
     Cell,
     CollinearSiteMoments,
     DatastreamStructure,
     NumericUnitcellStructureView,
+    SettingTransform,
+    Spacegroup,
     Species,
     StructureEntryProvider,
     UnitcellStructureView,
+    WyckoffSite,
     build_supercell,
 )
+from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 
 pytest.importorskip("httk.io")
@@ -32,6 +38,82 @@ pytest.importorskip("httk.io")
 
 class _Response(io.BytesIO):
     headers = Message()
+
+
+class _CountingResolver(StructureBackend):
+    def __init__(self, native: Any) -> None:
+        self.native = native
+        self.resolve_calls = 0
+
+    @property
+    def cell(self) -> Any:
+        return self.native.cell
+
+    @property
+    def sites(self) -> Any:
+        return self.native.sites
+
+    @property
+    def species(self) -> Any:
+        return self.native.species
+
+    @property
+    def species_at_sites(self) -> Any:
+        return self.native.species_at_sites
+
+    def resolve(self) -> Any:
+        self.resolve_calls += 1
+        return self.native
+
+    def unwrap(self) -> Any:
+        return self
+
+
+class _GenericPickleResolver(StructureBackend):
+    def __init__(self) -> None:
+        self.source = "plain-he"
+        self.resolve_calls = 0
+
+    @property
+    def cell(self) -> Any:
+        return _plain_he().cell
+
+    @property
+    def sites(self) -> Any:
+        return _plain_he().sites
+
+    @property
+    def species(self) -> Any:
+        return _plain_he().species
+
+    @property
+    def species_at_sites(self) -> Any:
+        return _plain_he().species_at_sites
+
+    def resolve(self) -> Any:
+        self.resolve_calls += 1
+        return _plain_he()
+
+    def unwrap(self) -> Any:
+        return self.source
+
+
+def _plain_he() -> UnitcellStructure:
+    return UnitcellStructure(
+        Cell([[2, 0, 0], [0, 2, 0], [0, 0, 2]]),
+        [[0, 0, 0]],
+        [Species("He", ("He",), (1,))],
+        ["He"],
+    )
+
+
+def _native_na_asu() -> ASUStructure:
+    return ASUStructure(
+        Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]),
+        225,
+        [WyckoffSite("a", FracVector(()), "Na")],
+        [Species("Na", ("Na",), (1,))],
+    )
 
 
 def _write_cif(path: Path) -> None:
@@ -241,6 +323,286 @@ def test_views_adopt_loaded_cif_asu(tmp_path: Path) -> None:
     assert view.spacegroup == loaded.spacegroup
     assert view.wyckoff_sites == loaded.wyckoff_sites
     assert UnitcellStructureView(str(path)).cell == UnitcellStructureView(loaded).cell
+
+
+def test_asu_view_path_construction_and_unwrap_do_no_work(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "x.cif"
+    _write_cif(path)
+    calls = 0
+    real_load = httk.core.load
+
+    def counted_load(filename: str) -> Any:
+        nonlocal calls
+        calls += 1
+        return real_load(filename)
+
+    monkeypatch.setattr(httk.core, "load", counted_load)
+    view = ASUStructureView(str(path))
+
+    assert calls == 0
+    assert view.unwrap() == str(path)
+    assert view._resolved_asu is None
+    assert "_cell" not in view.__dict__
+
+
+def test_asu_view_plain_unitcell_defers_recognition(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = __import__("httk.atomistic.models.structure.asu_view", fromlist=["recognize_asu"])
+    real_recognize = module.recognize_asu
+    recognition_calls = 0
+
+    def counted_recognize(*args: Any, **kwargs: Any) -> ASUStructure:
+        nonlocal recognition_calls
+        recognition_calls += 1
+        return real_recognize(*args, **kwargs)
+
+    monkeypatch.setattr(module, "recognize_asu", counted_recognize)
+    source = _plain_he()
+    view = ASUStructureView(source, setting=Spacegroup.standard(1))
+
+    assert recognition_calls == 0
+    assert view.unwrap() is source
+    assert view._resolved_asu is None
+    assert view.immutable_id is None
+    assert recognition_calls == 1
+    assert view.spacegroup.it_number == 1
+
+
+def test_asu_view_resolves_once_and_record_projection_uses_the_resolved_asu(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _CountingResolver(_plain_he())
+    view = ASUStructureView(source, setting=Spacegroup.standard(1))
+    module = __import__("httk.atomistic.models.structure.asu_view", fromlist=["recognize_asu"])
+    real_recognize = module.recognize_asu
+    recognition_calls = 0
+
+    def counted_recognize(*args: Any, **kwargs: Any) -> ASUStructure:
+        nonlocal recognition_calls
+        recognition_calls += 1
+        return real_recognize(*args, **kwargs)
+
+    monkeypatch.setattr(module, "recognize_asu", counted_recognize)
+    assert view.wyckoff_sites == view.wyckoff_sites
+    record = next(iter(StructureEntryProvider({"he": view}).records("structures")))
+
+    assert source.resolve_calls == 1
+    assert recognition_calls == 1
+    assert record["nsites"] == 1
+    assert record["species_at_sites"] == ["He"]
+
+
+def test_asu_recognition_options_survive_unitcell_view_nesting() -> None:
+    source = _CountingResolver(_plain_he())
+    inner = ASUStructureView(source, setting=Spacegroup.standard(1))
+    later = UnitcellStructureView(inner)
+    outer = ASUStructureView(later)
+
+    assert outer.spacegroup.it_number == 1
+    assert source.resolve_calls == 1
+
+
+def test_asu_nested_option_families_replace_each_other_without_work() -> None:
+    standard = Spacegroup.standard(1)
+    source = _CountingResolver(_plain_he())
+    inner = ASUStructureView(source, standard=standard, transform=SettingTransform.identity())
+    nested = UnitcellStructureView(inner)
+    outer = ASUStructureView(nested, setting=standard)
+
+    assert outer._setting is standard
+    assert outer._standard is None
+    assert outer._recognition_transform is None
+    assert source.resolve_calls == 0
+    assert outer.spacegroup.it_number == 1
+    assert source.resolve_calls == 1
+
+    source = _CountingResolver(_plain_he())
+    inner = ASUStructureView(source, setting=standard)
+    nested = UnitcellStructureView(inner)
+    outer = ASUStructureView(nested, standard=standard, transform=SettingTransform.identity())
+
+    assert outer._setting is None
+    assert outer._standard is standard
+    assert outer._recognition_transform == SettingTransform.identity()
+    assert source.resolve_calls == 0
+    assert outer.spacegroup.it_number == 1
+    assert source.resolve_calls == 1
+
+
+def test_asu_view_lazy_metadata_override_is_preserved() -> None:
+    source = _CountingResolver(_plain_he())
+    view = ASUStructureView(source, setting=Spacegroup.standard(1))
+    resolved = view.unview()
+    attached = ASUStructureView(view, immutable_id="attached")
+
+    assert resolved.immutable_id is None
+    assert attached.immutable_id == "attached"
+
+
+def test_asu_view_failed_resolution_publishes_no_partial_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    source = _CountingResolver(_plain_he())
+    view = ASUStructureView(source, setting=Spacegroup.standard(1))
+    module = __import__("httk.atomistic.models.structure.asu_view", fromlist=["recognize_asu"])
+
+    def fail(*args: Any, **kwargs: Any) -> ASUStructure:
+        raise ValueError("recognition failed")
+
+    monkeypatch.setattr(module, "recognize_asu", fail)
+    with pytest.raises(ValueError, match="recognition failed"):
+        _ = view.wyckoff_sites
+    assert view._resolved_asu is None
+    assert "_cell" not in view.__dict__
+
+
+def test_asu_view_validates_expansion_before_publishing() -> None:
+    invalid = ASUStructure(
+        Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]),
+        225,
+        [WyckoffSite("a", FracVector(()), "Na"), WyckoffSite("a", FracVector(()), "Na")],
+        [Species("Na", ("Na",), (1,))],
+    )
+    view = ASUStructureView(_CountingResolver(invalid))
+
+    with pytest.raises(ValueError, match="duplicates an earlier site's orbit"):
+        _ = view.cell
+    assert view._resolved_asu is None
+    assert "_cell" not in view.__dict__
+
+
+def test_asu_view_resolved_native_asu_skips_recognition(monkeypatch: pytest.MonkeyPatch) -> None:
+    path_source = _CountingResolver(httk.core.load_source(io.StringIO(_cif_text()), "x.cif"))
+    view = ASUStructureView(path_source)
+    monkeypatch.setattr(
+        "httk.atomistic.models.structure.asu_view.recognize_asu",
+        lambda *args, **kwargs: pytest.fail("native ASU must not be recognized"),
+    )
+
+    assert view.spacegroup.it_number == 1
+    assert path_source.resolve_calls == 1
+
+
+def test_asu_view_native_asu_is_pending_until_first_access() -> None:
+    invalid = ASUStructure(
+        Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]),
+        225,
+        [WyckoffSite("a", FracVector(()), "Na"), WyckoffSite("a", FracVector(()), "Na")],
+        [Species("Na", ("Na",), (1,))],
+    )
+
+    view = ASUStructureView(invalid)
+
+    assert view._resolved_asu is None
+    assert "_expansion" not in invalid.__dict__
+    with pytest.raises(ValueError, match="duplicates an earlier site's orbit"):
+        _ = view.cell
+    assert view._resolved_asu is None
+    assert "_cell" not in view.__dict__
+
+
+def test_asu_view_plain_unitcell_pickle_stays_unresolved() -> None:
+    view = ASUStructureView(_plain_he(), setting=Spacegroup.standard(1))
+
+    restored = pickle.loads(pickle.dumps(view))
+
+    assert restored._resolved_asu is None
+    assert "_cell" not in restored.__dict__
+    assert restored.spacegroup.it_number == 1
+    assert restored._resolved_asu is not None
+
+
+def test_asu_view_native_asu_pickle_retains_source_and_stays_lazy() -> None:
+    native = _native_na_asu()
+    view = ASUStructureView(native)
+
+    restored = pickle.loads(pickle.dumps(view))
+
+    assert restored._resolved_asu is None
+    assert isinstance(restored.unwrap(), ASUStructure)
+    assert restored.unwrap() is restored._source_backend
+    assert "_expansion" not in restored._source_backend.__dict__
+    assert restored.spacegroup.it_number == 225
+    assert restored.unview() is restored._source_backend
+
+
+def test_asu_view_rejects_invalid_recognition_options_without_backend_work() -> None:
+    source = _CountingResolver(_plain_he())
+    with pytest.raises(TypeError, match="either 'setting' or 'standard'/'transform'"):
+        ASUStructureView(source, setting=Spacegroup.standard(1), standard=Spacegroup.standard(1))
+    assert source.resolve_calls == 0
+
+    source = _CountingResolver(_plain_he())
+    with pytest.raises(TypeError, match="needs both 'standard' and 'transform'"):
+        ASUStructureView(source, standard=Spacegroup.standard(1))
+    assert source.resolve_calls == 0
+
+    source = _CountingResolver(_plain_he())
+    with pytest.raises(TypeError, match="needs both 'standard' and 'transform'"):
+        ASUStructureView(source, transform=SettingTransform.identity())
+    assert source.resolve_calls == 0
+
+    source = _CountingResolver(_plain_he())
+    with pytest.raises(ValueError, match="'standard' must be an IT standard setting"):
+        ASUStructureView(source, standard=Spacegroup.for_setting("15:c1"), transform=SettingTransform.identity())
+    assert source.resolve_calls == 0
+
+
+def test_asu_view_unresolved_replayable_pickle_roundtrip(tmp_path: Path) -> None:
+    path = tmp_path / "x.cif"
+    _write_cif(path)
+    view = ASUStructureView(str(path))
+    restored = pickle.loads(pickle.dumps(view))
+
+    assert restored._resolved_asu is None
+    assert restored.unwrap() == str(path)
+    assert restored.spacegroup.it_number == 1
+
+
+def test_asu_view_unresolved_pickle_accepts_generic_resolver_backend() -> None:
+    source = _GenericPickleResolver()
+    view = ASUStructureView(source, setting=Spacegroup.standard(1))
+
+    restored = pickle.loads(pickle.dumps(view))
+
+    assert isinstance(restored._source_backend, _GenericPickleResolver)
+    assert restored._resolved_asu is None
+    assert source.resolve_calls == 0
+    assert restored.unwrap() == "plain-he"
+    assert restored.spacegroup.it_number == 1
+    assert restored._source_backend.resolve_calls == 1
+
+
+def test_asu_view_resolved_pickle_retains_source_backend(tmp_path: Path) -> None:
+    path = tmp_path / "x.cif"
+    _write_cif(path)
+    view = ASUStructureView(str(path))
+    source_backend = view._source_backend
+    expected = view.unview()
+    path.write_text("not a CIF", encoding="utf-8")
+    restored = pickle.loads(pickle.dumps(view))
+
+    assert type(restored._source_backend) is type(source_backend)
+    assert restored.unwrap() == str(path)
+    assert restored.unview() == expected
+    assert restored.unview() is restored._resolved_asu
+
+
+def test_asu_view_unresolved_stream_pickle_roundtrip() -> None:
+    view = ASUStructureView(io.StringIO(_cif_text()), name="x.cif")
+    restored = pickle.loads(pickle.dumps(view))
+
+    assert restored._resolved_asu is None
+    assert restored.unwrap().tell() == 0
+    assert restored.spacegroup.it_number == 1
+
+
+def test_asu_view_unview_materializes_the_standalone_asu(tmp_path: Path) -> None:
+    path = tmp_path / "x.cif"
+    _write_cif(path)
+    view = ASUStructureView(str(path))
+
+    result = view.unview()
+
+    assert type(result) is ASUStructure
+    assert result is view._resolved_asu
 
 
 def test_supercell_uses_file_url_datastream(tmp_path: Path) -> None:

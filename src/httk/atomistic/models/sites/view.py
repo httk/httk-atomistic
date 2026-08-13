@@ -67,6 +67,13 @@ class SitesView(SitesViewBase, Sites):
         """
         return unwrap(self._backend)
 
+    def __reduce__(self) -> tuple[type[Self], tuple[SitesBackend]]:
+        """Rebuild the view from its backend during pickling.
+
+        :return: The view constructor and its backend argument.
+        """
+        return type(self), (self._backend,)
+
     def unview(self) -> Sites:
         """Return this presentation as standalone exact sites.
 

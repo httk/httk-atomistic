@@ -99,6 +99,13 @@ class CellView(CellViewBase, Cell):
         """
         return unwrap(self._backend)
 
+    def __reduce__(self) -> tuple[type[Self], tuple[CellBackend]]:
+        """Rebuild the view from its backend during pickling.
+
+        :return: The view constructor and its backend argument.
+        """
+        return type(self), (self._backend,)
+
     def unview(self) -> Cell:
         """Return this presentation as a standalone cell.
 

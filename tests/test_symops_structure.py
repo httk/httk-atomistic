@@ -148,8 +148,9 @@ def test_views_expand_symops_and_asu_recognition_checks_moment_uniformity() -> N
         ("x,y,z,+1", "x+1/2,y+1/2,z+1/2,-1"),
         moments=CrystalAxisSiteMoments([[1, 0, 0]], _cell()),
     )
+    view = ASUStructureView(afm)
     with pytest.raises(ValueError, match="non-uniform site moments"):
-        ASUStructureView(afm)
+        _ = view.wyckoff_sites
 
 
 def test_modulated_structure_holds_payload_and_rejects_standard_properties() -> None:

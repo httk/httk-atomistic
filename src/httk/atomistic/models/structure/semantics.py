@@ -422,6 +422,9 @@ def _semantic_value(
     default: Any = None,
     private_name: str | None = None,
 ) -> Any:
+    effective = getattr(source, "_effective_asu", None)
+    if callable(effective):
+        source = effective()
     namespace = getattr(source, "__dict__", {})
     if private_name is not None:
         if private_name in namespace:

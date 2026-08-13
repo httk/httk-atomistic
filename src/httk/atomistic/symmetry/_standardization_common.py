@@ -35,6 +35,9 @@ def _as_existing_asu(structure: StructureLike | ASUStructure) -> ASUStructure | 
     visited: set[int] = set()
     while id(candidate) not in visited:
         visited.add(id(candidate))
+        effective = getattr(candidate, "_effective_asu", None)
+        if callable(effective):
+            candidate = effective()
         if isinstance(candidate, ASUStructure):
             return candidate
         direct = getattr(candidate, "asu", None)

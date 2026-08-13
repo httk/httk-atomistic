@@ -365,9 +365,13 @@ def test_views_inherit_metadata_and_reject_explicit_conflicts() -> None:
     asu = ASUStructureView(_domain(immutable_id="asu-7", last_modified=stamp))
     assert asu.immutable_id == "asu-7"
     assert asu.last_modified == stamp
-    assert ASUStructureView(asu, immutable_id="asu-7", last_modified=same_instant) is asu
+    same_metadata = ASUStructureView(asu, immutable_id="asu-7", last_modified=same_instant)
+    assert same_metadata is not asu
+    assert same_metadata.immutable_id == "asu-7"
+    assert same_metadata.last_modified == same_instant
+    conflicting_id = ASUStructureView(asu, immutable_id=None)
     with pytest.raises(ValueError, match="immutable_id conflicts"):
-        ASUStructureView(asu, immutable_id=None)
+        _ = conflicting_id.immutable_id
 
     bare_asu = ASUStructureView(_domain())
     attached_asu = ASUStructureView(bare_asu, immutable_id="attached", last_modified=stamp)

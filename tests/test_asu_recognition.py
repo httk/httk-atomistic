@@ -17,7 +17,6 @@ import pytest
 from httk.core import FracVector, unwrap
 
 from httk.atomistic import (
-    WyckoffSite,
     ASUStructure,
     ASUStructureView,
     SettingTransform,
@@ -25,6 +24,7 @@ from httk.atomistic import (
     Species,
     UnitcellStructure,
     UnitcellStructureView,
+    WyckoffSite,
     recognize_asu,
     same_crystal,
 )
@@ -213,11 +213,15 @@ def test_view_adopts_an_existing_asu_without_recognizing_anything() -> None:
     assert view.wyckoff_sites == original.wyckoff_sites
     assert view.transform == original.transform
     assert unwrap(view) is original
+    assert view.unview() is original
 
 
 def test_view_rewrap_identity_and_unwrap() -> None:
     view = ASUStructureView(_rocksalt())
     assert ASUStructureView(view) is view
+    configured = ASUStructureView(view, tolerance=0.01)
+    assert configured is not view
+    assert configured._tolerance == 0.01
     assert isinstance(view, ASUStructure)
 
 
@@ -252,7 +256,8 @@ def test_asu_view_without_spglib_raises_importerror(monkeypatch: pytest.MonkeyPa
     monkeypatch.setitem(sys.modules, "spglib", None)
 
     with pytest.raises(ImportError, match=r"spglib.*httk-atomistic\[default\]"):
-        ASUStructureView(structure)
+        deferred = ASUStructureView(structure)
+        _ = deferred.wyckoff_sites
 
 
 def test_spglib_finds_the_symmetry_of_a_structure_that_carries_none() -> None:

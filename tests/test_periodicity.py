@@ -165,8 +165,8 @@ def test_the_tolerance_cap_does_not_fold_a_non_periodic_direction() -> None:
     direction were periodic they look 1 A apart, which tightens the derived tolerance far
     below what the data justifies.
     """
-    from httk.atomistic.symmetry.recognition import _half_minimum_separation
     from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+    from httk.atomistic.symmetry.recognition import _half_minimum_separation
 
     pair = ((0, 0, "1/20"), (0, 0, "19/20"))
     tall = [[3, 0, 0], [0, 3, 0], [0, 0, 10]]
@@ -283,7 +283,7 @@ def _slab() -> UnitcellStructure:
 
 
 def test_asu_structure_refuses_a_reduced_periodicity_cell() -> None:
-    from httk.atomistic import WyckoffSite, ASUStructure
+    from httk.atomistic import ASUStructure, WyckoffSite
 
     site = WyckoffSite(wyckoff="a", free_params=(), species="Na")
     with pytest.raises(ValueError, match="fully 3D-periodic"):
@@ -308,8 +308,9 @@ def test_the_asu_view_refuses_too() -> None:
     """It has no guard of its own; it delegates to `recognize_asu`, which does."""
     from httk.atomistic.models.structure.asu_view import ASUStructureView
 
+    view = ASUStructureView(_slab())
     with pytest.raises(ValueError, match="fully 3D-periodic"):
-        ASUStructureView(_slab())
+        _ = view.wyckoff_sites
 
 
 def test_supercell_construction_refuses_a_slab() -> None:

@@ -13,6 +13,7 @@ from httk.core import FracVector, unwrap
 from httk.atomistic import (
     Assembly,
     ASUStructure,
+    ASUStructureView,
     Cell,
     FundamentalDomainStructure,
     SettingTransform,
@@ -50,6 +51,16 @@ def _rocksalt() -> ASUStructure:
 def _fractions_of(structure: object) -> list[tuple[F, ...]]:
     view = UnitcellStructureView(structure)
     return [tuple(row) for row in view.sites.reduced_coords.to_fractions()]
+
+
+def test_asu_view_keeps_representative_domain_presentation() -> None:
+    view = ASUStructureView(_rocksalt())
+
+    assert view.asu is view
+    assert view.nsites == 2
+    assert len(view.sites) == 2
+    assert view.species_at_sites == ("Na", "Cl")
+    assert repr(view).startswith("ASUStructureView(")
 
 
 # --- expansion ---
