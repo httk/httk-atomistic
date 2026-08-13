@@ -16,6 +16,7 @@ import fractions
 import math
 import re
 from collections.abc import Mapping, Sequence
+from functools import cache
 from typing import Any
 
 from httk.core import FracVector, decimal_precision
@@ -188,23 +189,100 @@ def asu_structure_from_cif(
             )
 
         standard_point = transform.to_standard(coordinate).normalize()
-        exact_match = _exact_wyckoff_match(standard, standard_point)
         uncertainty = _site_uncertainty(data, index, cell) if derived_tolerance else None
-        match = _snap(
-            standard,
-            standard_point,
-            coordinate,
-            cell,
-            transform,
-            tolerance,
-            uncertainty=uncertainty,
-            exact_match=exact_match,
-            allow_large_cif_uncertainty=allow_large_cif_uncertainty,
+        orbit_screen: list[tuple[tuple[float, float, float], Any, FracVector]] = []
+        declared_position, declaration, declaration_error = _declared_wyckoff_position(
+            declared_wyckoff, declared_multiplicities, index, setting, standard
         )
+        ignored_declaration: tuple[str, str] | None = None
+        exact_match = None if declaration is not None else _exact_wyckoff_match(standard, standard_point)
+        if declaration is not None and declared_position is not None:
+            match = _snap(
+                standard,
+                standard_point,
+                coordinate,
+                cell,
+                transform,
+                tolerance,
+                uncertainty=uncertainty,
+                exact_match=None,
+                allow_large_cif_uncertainty=allow_large_cif_uncertainty,
+                positions=(declared_position,),
+                orbit_screen=orbit_screen,
+            )
+            if match is None:
+                declaration_error = (
+                    f"does not lie on its declared Wyckoff position {declared_position.letter!r}: "
+                    f"measured distance {_nearest_wyckoff_distance(declared_position, standard_point, coordinate, cell, transform):.6g} "
+                    f"exceeds tolerance {tolerance:.6g}"
+                )
+            elif _has_rounded_orbit_overlap(
+                standard,
+                transform,
+                match,
+                cell,
+                tolerance,
+                orbit_screen,
+                include_coincident=True,
+                expected_distinct=_setting_local_multiplicity(standard, setting, declared_position),
+            ):
+                actual = _snap(
+                    standard,
+                    standard_point,
+                    coordinate,
+                    cell,
+                    transform,
+                    tolerance,
+                    allow_large_cif_uncertainty=allow_large_cif_uncertainty,
+                    most_specific=True,
+                )
+                assert actual is not None
+                declaration_error = (
+                    f"declares Wyckoff position {declared_position.letter!r}, but its coordinate lies on the "
+                    f"more-specific Wyckoff position {actual[0]!r}"
+                )
+        else:
+            match = None
+        if declaration_error is not None:
+            if not autocorrect:
+                raise ValueError(
+                    f"CIF site {labels[index]!r} has invalid declaration {declaration!r}: {declaration_error}. "
+                    "Remedy: load(..., autocorrect=True) ignores the declaration and searches the coordinates."
+                )
+            assert declaration is not None  # an error always describes a present declaration
+            ignored_declaration = declaration, declaration_error
+            declaration = None
+            exact_match = _exact_wyckoff_match(standard, standard_point)
+            match = _snap(
+                standard,
+                standard_point,
+                coordinate,
+                cell,
+                transform,
+                tolerance,
+                uncertainty=uncertainty,
+                exact_match=exact_match,
+                allow_large_cif_uncertainty=allow_large_cif_uncertainty,
+                orbit_screen=orbit_screen,
+            )
+        elif declaration is None:
+            match = _snap(
+                standard,
+                standard_point,
+                coordinate,
+                cell,
+                transform,
+                tolerance,
+                uncertainty=uncertainty,
+                exact_match=exact_match,
+                allow_large_cif_uncertainty=allow_large_cif_uncertainty,
+                orbit_screen=orbit_screen,
+            )
         if (
             autocorrect
+            and declaration is None
             and match is not None
-            and _has_rounded_orbit_overlap(standard, transform, match, cell, tolerance)
+            and _has_rounded_orbit_overlap(standard, transform, match, cell, tolerance, orbit_screen)
         ):
             corrected_match = _snap(
                 standard,
@@ -218,34 +296,33 @@ def asu_structure_from_cif(
             )
             if corrected_match != match:
                 assert corrected_match is not None
-                evidence = _declared_orbit_evidence(
-                    declared_wyckoff,
-                    declared_multiplicities,
-                    index,
-                    setting,
-                    standard,
-                    standard.wyckoff_position(match[0]),
-                    standard.wyckoff_position(corrected_match[0]),
-                )
-                # A declaration of the snap target wins, then a declaration of the initial
-                # orbit blocks it; without either, only full occupancy favours rounding over
-                # a deliberately split site.
-                if evidence is not False and (
-                    evidence is not None or as_fraction(occupancy, field="CIF occupancy")[0] == 1
-                ):
+                # Undeclared, fully occupied near-special sites are ordinarily rounded
+                # measurements. Partial occupancy instead denotes a deliberate split site.
+                if as_fraction(occupancy, field="CIF occupancy")[0] == 1:
                     match = corrected_match
-                    declaration = "" if evidence is None else f" using {evidence} as evidence"
                     _cif_warning(
                         f"CIF block {_block_name(data)!r}, site {labels[index]!r}: snapped its rounded coordinate "
-                        f"to the more-specific Wyckoff position {match[0]!r}{declaration}"
+                        f"to the more-specific Wyckoff position {match[0]!r}"
                     )
         if match is None:
+            if ignored_declaration is not None:
+                rejected, reason = ignored_declaration
+                _cif_warning(
+                    f"CIF block {_block_name(data)!r}, site {labels[index]!r}: ignored declared Wyckoff data "
+                    f"{rejected!r} ({reason}) and selected no Wyckoff position from the coordinates"
+                )
             raise ValueError(
                 f"CIF site {labels[index]!r} at {tuple(coordinate.to_fractions())} does not lie on any "
                 f"Wyckoff position of {setting.setting} within {tolerance}; the file's coordinates and its "
                 f"symmetry operations disagree"
             )
         letter, parameters = match
+        if ignored_declaration is not None:
+            rejected, reason = ignored_declaration
+            _cif_warning(
+                f"CIF block {_block_name(data)!r}, site {labels[index]!r}: ignored declared Wyckoff data "
+                f"{rejected!r} ({reason}) and selected Wyckoff position {letter!r} from the coordinates"
+            )
         if limit_denominator is not None and parameters.dim not in ((), (0,)):
             parameters = FracVector([value.limit_denominator(limit_denominator) for value in parameters.to_fractions()])
         wyckoff_sites.append(WyckoffSite(letter, parameters, name, coordinate.normalize()))
@@ -339,11 +416,18 @@ def _has_rounded_orbit_overlap(
     match: tuple[str, FracVector],
     cell: Cell,
     tolerance: float,
+    orbit_screen: Sequence[tuple[tuple[float, float, float], Any, FracVector]],
+    *,
+    include_coincident: bool = False,
+    expected_distinct: int | None = None,
 ) -> bool:
     """Whether a matched orbit has distinct images within the CIF-derived tolerance.
 
-    Float Cartesian buckets screen possible pairs at twice the tolerance.  Exact
-    distance arithmetic confirms every screened pair, so floats only prune work.
+    Float Cartesian buckets screen possible pairs at twice the tolerance. Exact distance
+    arithmetic confirms every screened pair, so floats only prune work. With
+    ``include_coincident=True``, exact duplicate images also count; an authoritative
+    declaration names a Wyckoff *stratum*, so its coordinate may not collapse into a
+    proper sub-stratum.
     """
     from itertools import product
 
@@ -351,23 +435,24 @@ def _has_rounded_orbit_overlap(
 
     letter, parameters = match
     position = spacegroup.wyckoff_position(letter)
-    cosets = transform.lattice_cosets()
-    if position.multiplicity == 1 and len(cosets) == 1:
+    if position.multiplicity == 1 and len(transform.lattice_cosets()) == 1:
         return False
-    points = {
-        (transform.to_setting(point) + coset).normalize()
-        for point in position.coordinates(parameters)
-        for coset in cosets
-    }
-    if len(points) < 2 or tolerance <= 0:
+    if len(orbit_screen) < 2:
         return False
+    if include_coincident:
+        assert expected_distinct is not None
+        points = {
+            tuple((transform.to_setting(branch.coordinate(parameters)) + coset).normalize().to_fractions())
+            for _, branch, coset in orbit_screen
+        }
+        if len(points) < expected_distinct:
+            return True
 
     basis = cell.basis.to_floats()
     inverse = cell.basis.inv().to_floats()
     offsets = tuple(product((-1, 0, 1), repeat=3))
-    screen = tolerance * 2
-    point_list = list(points)
-    coordinates = [tuple(point.to_floats()) for point in point_list]
+    screen = tolerance * 2 + 1e-9
+    coordinates = [item[0] for item in orbit_screen]
     bins = tuple(
         max(1, int(1 / (screen * math.sqrt(sum(inverse[row][column] ** 2 for row in range(3)))))) for column in range(3)
     )
@@ -395,50 +480,80 @@ def _has_rounded_orbit_overlap(
                 )
                 if sum(value * value for value in cartesian) > screen * screen:
                     continue
-                if _cartesian_distance_squared(point_list[index] - point_list[other], cell) <= tolerance * tolerance:
+                first = (
+                    transform.to_setting(orbit_screen[index][1].coordinate(parameters)) + orbit_screen[index][2]
+                ).normalize()
+                second = (
+                    transform.to_setting(orbit_screen[other][1].coordinate(parameters)) + orbit_screen[other][2]
+                ).normalize()
+                if first != second and _cartesian_distance_squared(first - second, cell) <= tolerance * tolerance:
                     return True
     return False
 
 
-def _declared_orbit_evidence(
+def _declared_wyckoff_position(
     wyckoff_labels: Any,
     multiplicities: Any,
     index: int,
     setting: Spacegroup,
     standard: Spacegroup,
-    initial: Any,
-    target: Any,
-) -> str | bool | None:
-    """Whether a setting-local CIF declaration supports the target, initial orbit, or neither.
+) -> tuple[Any | None, str | None, str | None]:
+    """Resolve one CIF declaration into the corresponding standard-setting position.
 
-    Letters are translated from the standard candidates through the identified setting's
-    table; multiplicities come from that same table. An unresolvable declaration is absent
-    evidence, never support for either candidate.
+    CIF Wyckoff labels and multiplicities describe the file's own setting, including its
+    centring convention. They are therefore resolved in ``setting`` and only then mapped
+    to ``standard``. A malformed or ambiguous declaration is an integrity error, not weak
+    evidence: callers choose whether to reject it or explicitly fall back to a search. A
+    declaration names a Wyckoff *stratum*, not merely a containing affine map: callers also
+    reject coordinates whose declared orbit collapses into a proper, more-specific stratum.
+
+    :param wyckoff_labels: The block's per-site Wyckoff label column, or ``None``.
+    :param multiplicities: The block's per-site multiplicity column, or ``None``.
+    :param index: The site's position in the block's site lists.
+    :param setting: The identified setting the declarations are expressed in.
+    :param standard: The standard setting the resolved position is mapped into.
+    :return: ``(standard_position, declaration, error)``; no declaration is all ``None``.
     """
-    try:
-        letters = wyckoff_letter_map(standard, setting)
-        initial_local = setting.wyckoff_position(letters[initial.letter])
-        target_local = setting.wyckoff_position(letters[target.letter])
-    except (KeyError, ValueError):
-        return None
     label = _site_declaration(wyckoff_labels, index)
     letter = None if label is None else label.lstrip("0123456789").lower()
     multiplicity = _site_declaration(multiplicities, index)
+    if label is None and multiplicity is None:
+        return None, None, None
+    declaration = ", ".join(
+        item
+        for item in (
+            None if label is None else f"Wyckoff label {label!r}",
+            None if multiplicity is None else f"multiplicity {multiplicity!r}",
+        )
+        if item is not None
+    )
+    positions = _setting_wyckoff_declarations(standard, setting)
+    by_letter = None
+    if letter is not None:
+        by_letter = next(
+            ((position, local_multiplicity) for local, position, local_multiplicity in positions if local == letter),
+            None,
+        )
+        if by_letter is None:
+            return None, declaration, f"unknown setting-local Wyckoff letter {label!r}"
     try:
         value = None if multiplicity is None else int(multiplicity)
     except ValueError:
-        value = None
-    if letter is not None and letter not in {position.letter for position in setting.wyckoff}:
-        letter = None
-    if letter == target_local.letter:
-        return f"declared Wyckoff letter {label!r}"
-    multiplicity_positions = [position for position in setting.wyckoff if position.multiplicity == value]
-    multiplicity_position = multiplicity_positions[0] if len(multiplicity_positions) == 1 else None
-    if multiplicity_position == target_local:
-        return f"declared multiplicity {value}"
-    if letter == initial_local.letter or multiplicity_position == initial_local:
-        return False
-    return None
+        return None, declaration, f"invalid setting-local multiplicity {multiplicity!r}"
+    by_multiplicity = None
+    if value is not None:
+        matching = [position for _, position, multiplicity in positions if multiplicity == value]
+        if by_letter is not None:
+            if by_letter[1] != value:
+                return None, declaration, "the declared letter and multiplicity identify different positions"
+            by_multiplicity = by_letter[0]
+        elif len(matching) != 1:
+            return None, declaration, f"ambiguous or unknown setting-local multiplicity {multiplicity!r}"
+        else:
+            by_multiplicity = matching[0]
+    if by_letter is not None and by_multiplicity is not None and by_letter[0] != by_multiplicity:
+        return None, declaration, "the declared letter and multiplicity identify different positions"
+    return (None if by_letter is None else by_letter[0]) or by_multiplicity, declaration, None
 
 
 def _site_declaration(values: Any, index: int) -> str | None:
@@ -447,6 +562,25 @@ def _site_declaration(values: Any, index: int) -> str | None:
         return None
     value = str(values[index]).strip()
     return None if value in {"", ".", "?"} else value
+
+
+@cache
+def _setting_wyckoff_declarations(standard: Spacegroup, setting: Spacegroup) -> tuple[tuple[str, Any, int], ...]:
+    """Cache setting-local declarations translated to standard Wyckoff positions."""
+    letters = wyckoff_letter_map(standard, setting)
+    local_multiplicities = {position.letter: position.multiplicity for position in setting.wyckoff}
+    return tuple(
+        (local, standard.wyckoff_position(letter), local_multiplicities[local]) for letter, local in letters.items()
+    )
+
+
+def _setting_local_multiplicity(standard: Spacegroup, setting: Spacegroup, position: Any) -> int:
+    """Return the setting-local multiplicity for a standard position from a CIF declaration."""
+    return next(
+        multiplicity
+        for _, candidate, multiplicity in _setting_wyckoff_declarations(standard, setting)
+        if candidate == position
+    )
 
 
 def _tolerance_from_cif(data: Mapping[str, Any], cell: Cell) -> float:
@@ -535,11 +669,21 @@ def _declared_symmetry(data: Mapping[str, Any]) -> str | None:
 
 
 def _exact_wyckoff_match(standard: Spacegroup, standard_point: FracVector) -> tuple[str, FracVector] | None:
-    """Return an exact match for a special Wyckoff position, excluding the general position."""
+    """Return an exact special-position match after a floating-point zero-distance screen.
+
+    The screen can only nominate candidates: ``parameters_of`` remains the exact decision.
+    Every coordinate is reduced into one unit cell and the affine maps have tiny integer
+    coefficients, so ``1e-13`` is deliberately far above double-rounding noise while far
+    below any CIF precision that can affect a tolerant match.
+    """
+    point = tuple(standard_point.to_floats())
     for position in standard.wyckoff:
         if position.free_count == 3:
             continue
         for branch in position.branches:
+            candidate = branch.coordinate_float(branch.nearest_parameters_float(point))
+            if any(abs((first - second + 0.5) % 1.0 - 0.5) > 1e-13 for first, second in zip(point, candidate)):
+                continue
             parameters = branch.parameters_of(standard_point)
             if parameters is not None:
                 return position.letter, parameters
@@ -812,19 +956,38 @@ def _snap(
     exact_match: tuple[str, FracVector] | None = None,
     allow_large_cif_uncertainty: bool = False,
     most_specific: bool = False,
+    positions: Sequence[Any] | None = None,
+    orbit_screen: list[tuple[tuple[float, float, float], Any, FracVector]] | None = None,
 ) -> tuple[str, FracVector] | None:
     """The most specific Wyckoff position within ``tolerance``, and its free parameters.
 
-    With ``most_specific=True``, inspect every matching position and prefer the one with
-    fewer free parameters. The CIF autocorrect caller uses this only after the rounded
-    orbit-overlap check, and only for full-occupancy sites without a CIF Wyckoff letter or
-    multiplicity confirming the initial orbit: split sites win whenever the evidence is
-    ambiguous.
+    Floating point screens branch candidates at twice the tolerance, but an exact distance
+    check still accepts every result. ``positions`` limits the search to authoritative CIF
+    declarations; otherwise every standard position is tried in its established order.
     """
     from httk.atomistic.symmetry.recognition import _cartesian_distance_squared
 
-    if exact_match is not None and not most_specific:
-        return exact_match
+    def finish(letter: str, parameters: FracVector) -> tuple[str, FracVector]:
+        if orbit_screen is not None:
+            orbit_screen.clear()
+            position = standard.wyckoff_position(letter)
+            values = tuple(parameters.to_floats())
+            matrix = transform.matrix.to_floats()
+            vector = transform.vector.to_floats()
+            for branch in position.branches:
+                candidate = branch.coordinate_float(values)
+                own = tuple(
+                    sum(matrix[row][column] * candidate[column] for column in range(3)) + vector[row]
+                    for row in range(3)
+                )
+                for coset in transform.lattice_cosets():
+                    orbit_screen.append(
+                        (tuple((value + shift) % 1.0 for value, shift in zip(own, coset.to_floats())), branch, coset)
+                    )
+        return letter, parameters
+
+    if exact_match is not None and positions is None and not most_specific:
+        return finish(*exact_match)
 
     if uncertainty is not None:
         projected, token = uncertainty
@@ -834,17 +997,58 @@ def _snap(
                 f"{math.sqrt(projected.to_float()):.6g} Å; pass allow_large_cif_uncertainty=True to override"
             )
     limit = tolerance * tolerance
+    screen = (tolerance * 2 + 1e-9) ** 2
+    basis = cell.basis.to_floats()
+    point = tuple(own_point.to_floats())
+    standard_float = tuple(standard_point.to_floats())
+    matrix = transform.matrix.to_floats()
+    vector = transform.vector.to_floats()
+    candidates = standard.wyckoff if positions is None else positions
+
+    def screened(branch: Any) -> bool:
+        parameters = branch.nearest_parameters_float(standard_float)
+        candidate = branch.coordinate_float(parameters)
+        own_candidate = tuple(
+            sum(matrix[row][column] * candidate[column] for column in range(3)) + vector[row] for row in range(3)
+        )
+        difference = tuple((first - second + 0.5) % 1 - 0.5 for first, second in zip(point, own_candidate))
+        cartesian = tuple(sum(difference[row] * basis[row][column] for row in range(3)) for column in range(3))
+        return sum(value * value for value in cartesian) <= screen
+
     matches: list[tuple[int, str, FracVector]] = []
-    for position in standard.wyckoff:
+    for position in candidates:
         for branch in position.branches:
+            if not screened(branch):
+                continue
             parameters = branch.nearest_parameters(standard_point)
             candidate = transform.to_setting(branch.coordinate(parameters))
             if _cartesian_distance_squared(own_point - candidate, cell) <= limit:
                 if not most_specific:
-                    return position.letter, parameters
+                    return finish(position.letter, parameters)
                 matches.append((position.free_count, position.letter, parameters))
                 break
     if not matches:
         return None
     _, letter, parameters = min(matches, key=lambda match: match[0])
-    return letter, parameters
+    return finish(letter, parameters)
+
+
+def _nearest_wyckoff_distance(
+    position: Any,
+    standard_point: FracVector,
+    own_point: FracVector,
+    cell: Cell,
+    transform: Any,
+) -> float:
+    """Return the exact nearest projected distance for a declaration diagnostic."""
+    from httk.atomistic.symmetry.recognition import _cartesian_distance_squared
+
+    return (
+        min(
+            _cartesian_distance_squared(
+                own_point - transform.to_setting(branch.coordinate(branch.nearest_parameters(standard_point))), cell
+            )
+            for branch in position.branches
+        )
+        ** 0.5
+    )

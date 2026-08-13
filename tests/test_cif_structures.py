@@ -13,7 +13,7 @@ import fractions
 from pathlib import Path
 
 import pytest
-from httk.core import decimal_precision, load
+from httk.core import FracVector, decimal_precision, load
 from httk.core.report import collect_reports
 
 from httk.atomistic import (
@@ -24,7 +24,8 @@ from httk.atomistic import (
     asu_structures_from_cif,
     cif_setting,
 )
-from httk.atomistic.cif_structures import _parse_type_symbol, _read_cif_for_atomistic
+from httk.atomistic.cif_structures import _parse_type_symbol, _read_cif_for_atomistic, _site_declaration, _snap
+from httk.atomistic.models.cell.cell import Cell
 
 F = fractions.Fraction
 
@@ -620,9 +621,7 @@ def test_autocorrect_keeps_a_partially_occupied_near_special_site(
     assert caplog.records == []
 
 
-def test_autocorrect_snaps_a_partially_occupied_declared_special_site(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_declared_special_position_is_assigned_strictly(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "declared-special.cif",
         Spacegroup.standard(149).setting,
@@ -633,16 +632,12 @@ def test_autocorrect_snaps_a_partially_occupied_declared_special_site(
         symmetry_multiplicities=["1"],
     )
 
+    strict = load(str(path))
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
         corrected = load(str(path), autocorrect=True)
 
-    assert len(UnitcellStructureView(corrected).sites) == 1
-    assert [record.getMessage() for record in caplog.records] == [
-        (
-            "CIF block 'declaredspecial', site 'N1': snapped its rounded coordinate to the more-specific Wyckoff "
-            "position 'd' using declared Wyckoff letter 'd' as evidence"
-        )
-    ]
+    assert len(UnitcellStructureView(strict).sites) == len(UnitcellStructureView(corrected).sites) == 1
+    assert caplog.records == []
 
 
 def test_autocorrect_keeps_a_declared_general_orbit(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
@@ -650,7 +645,7 @@ def test_autocorrect_keeps_a_declared_general_orbit(tmp_path: Path, caplog: pyte
         tmp_path / "declared-general.cif",
         Spacegroup.standard(149).setting,
         (4.7241, 4.7241, 4.3862, 90, 90, 120),
-        [("N1", "N", ("0.33333", "0.66667", "0.50000"), "1")],
+        [("N1", "N", ("0.20000", "0.80000", "0.50000"), "1")],
         name="DeclaredGeneral",
         wyckoff_labels=["k"],
         symmetry_multiplicities=["3"],
@@ -666,6 +661,97 @@ def test_autocorrect_keeps_a_declared_general_orbit(tmp_path: Path, caplog: pyte
     assert caplog.records == []
 
 
+def test_invalid_declared_position_is_an_integrity_error_or_falls_back(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_cif(
+        tmp_path / "bad-declaration.cif",
+        Spacegroup.standard(149).setting,
+        (4.7241, 4.7241, 4.3862, 90, 90, 120),
+        [("N1", "N", ("0.10000", "0.20000", "0.30000"), "1")],
+        name="BadDeclaration",
+        wyckoff_labels=["d"],
+        symmetry_multiplicities=["1"],
+    )
+
+    with pytest.raises(
+        ValueError, match=r"N1.*invalid declaration.*measured distance.*Remedy: load\(\.\.\., autocorrect=True\)"
+    ):
+        load(str(path))
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        corrected = load(str(path), autocorrect=True)
+
+    assert len(UnitcellStructureView(corrected).sites) == 6
+    assert len(caplog.records) == 1
+    assert "ignored declared Wyckoff data" in caplog.records[0].getMessage()
+
+
+def test_invalid_declaration_fallback_uses_the_undeclared_rounded_site_path(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_cif(
+        tmp_path / "unknown-declaration.cif",
+        Spacegroup.standard(149).setting,
+        (4.7241, 4.7241, 4.3862, 90, 90, 120),
+        [("N1", "N", ("0.33333", "0.66667", "0.50000"), "1")],
+        name="UnknownDeclaration",
+        wyckoff_labels=["z"],
+    )
+
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        corrected = load(str(path), autocorrect=True)
+
+    assert len(UnitcellStructureView(corrected).sites) == 1
+    warnings = [record.getMessage() for record in caplog.records]
+    assert any("Wyckoff label 'z'" in warning and "Wyckoff position 'd'" in warning for warning in warnings)
+    assert any(warning.endswith("more-specific Wyckoff position 'd'") for warning in warnings)
+
+
+@pytest.mark.parametrize("value", ("", "?"))
+def test_empty_wyckoff_declaration_entries_are_absent(value: str) -> None:
+    assert _site_declaration([value], 0) is None
+
+
+def test_declared_containing_position_is_an_integrity_error_or_falls_back(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_cif(
+        tmp_path / "containing-position.cif",
+        Spacegroup.standard(149).setting,
+        (4.7241, 4.7241, 4.3862, 90, 90, 120),
+        [("N1", "N", ("0.333333", "0.666667", "0.500000"), "1")],
+        name="ContainingPosition",
+        wyckoff_labels=["k"],
+        symmetry_multiplicities=["3"],
+    )
+
+    with pytest.raises(ValueError, match=r"declares Wyckoff position 'k'.*more-specific Wyckoff position 'd'"):
+        load(str(path))
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        corrected = load(str(path), autocorrect=True)
+
+    assert len(UnitcellStructureView(corrected).sites) == 1
+    assert any("Wyckoff position 'd'" in record.getMessage() for record in caplog.records)
+    assert any(record.getMessage().endswith("more-specific Wyckoff position 'd'") for record in caplog.records)
+
+
+@pytest.mark.parametrize("setting", ("48:1", "50:1", "50:1bca", "50:1cab", "73:ba-c", "126:1", "142:1", "222:1"))
+def test_zero_tolerance_float_screen_keeps_exact_matches(setting: str) -> None:
+    spacegroup = Spacegroup.for_setting(setting)
+    standard = spacegroup.standard_setting()
+    position = standard.wyckoff[-1]
+    parameters = FracVector([F(1, 7), F(2, 7), F(3, 7)])
+    point = position.representative.coordinate(parameters)
+    own = spacegroup.transform_from_standard.to_setting(point).normalize()
+
+    assert _snap(
+        standard, point, own, Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), spacegroup.transform_from_standard, 0
+    ) == (
+        position.letter,
+        parameters,
+    )
+
+
 def test_autocorrect_compares_declared_letters_in_the_cif_setting(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -673,7 +759,7 @@ def test_autocorrect_compares_declared_letters_in_the_cif_setting(
         tmp_path / "setting-local-letter.cif",
         "224:1",
         (10, 10, 10, 90, 90, 120),
-        [("X1", "X", ("0.75000", "0.25001", "0.24999"), "1")],
+        [("X1", "X", ("0.75000", "0.39286", "0.10714"), "1")],
         name="SettingLocalLetter",
         wyckoff_labels=["i"],
     )
@@ -698,6 +784,7 @@ def test_autocorrect_compares_declared_multiplicities_in_the_cif_setting(
         (10, 10, 10, 90, 90, 120),
         [("X1", "X", ("0.00002", "0.00002", "0.99999"), "0.5")],
         name="SettingLocalMultiplicity",
+        wyckoff_labels=["b"],
         symmetry_multiplicities=["3"],
     )
 

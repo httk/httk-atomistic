@@ -156,6 +156,44 @@ class WyckoffBranch:
         mapped = (point - self._operation.vector) * self._unimodular.T()
         return self._parameters_from_mapped(mapped)
 
+    def nearest_parameters_float(self, coordinate: Sequence[float]) -> tuple[float, ...]:
+        """Project a coordinate onto this branch in floating point for screening.
+
+        This deliberately mirrors :meth:`nearest_parameters` without its exact verification.
+        It is only a candidate-screening aid; callers must calculate and compare the final
+        distance with the exact methods before accepting a match.
+
+        :param coordinate: A reduced coordinate as three floating-point values.
+        :return: The normalized floating-point free parameters.
+        """
+        rank = len(self._free)
+        if not rank:
+            return ()
+        vector = self._operation.vector.to_floats()
+        unimodular = self._unimodular.to_floats()
+        mapped = [
+            sum((coordinate[column] - vector[column]) * unimodular[row][column] for column in range(3))
+            for row in range(rank)
+        ]
+        inverse = self._pivot_inverse.to_floats()
+        return tuple(sum(mapped[row] * inverse[column][row] for row in range(rank)) % 1.0 for column in range(rank))
+
+    def coordinate_float(self, parameters: Sequence[float]) -> tuple[float, float, float]:
+        """Evaluate this branch in floating point for candidate screening.
+
+        :param parameters: One floating-point value for every free parameter.
+        :return: The unwrapped floating-point reduced coordinate.
+        :raises ValueError: If the parameter count is wrong.
+        """
+        if len(parameters) != len(self._free):
+            raise ValueError(f"expected {len(self._free)} free parameter(s), got {len(parameters)}")
+        placed = [0.0, 0.0, 0.0]
+        for slot, index in enumerate(self._free):
+            placed[index] = parameters[slot]
+        matrix = self._operation.matrix.to_floats()
+        vector = self._operation.vector.to_floats()
+        return tuple(sum(matrix[row][column] * placed[column] for column in range(3)) + vector[row] for row in range(3))
+
     def _parameters_from_mapped(self, mapped: FracVector) -> FracVector:
         """Back-substitute the free parameters out of ``U * (point - b)``."""
         rank = len(self._free)
