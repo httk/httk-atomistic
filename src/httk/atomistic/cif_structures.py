@@ -25,7 +25,7 @@ from httk.atomistic.elements import SYMBOLS
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.species.species import Species
-from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
+from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite, _ValidatedASUProof
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 from httk.atomistic.symmetry.symop_key import symop_key_v1
 from httk.atomistic.symmetry.xyz import operation_from_xyz
@@ -211,9 +211,11 @@ def asu_structure_from_cif(
 
         standard_point = transform.to_standard(coordinate).normalize()
         uncertainty = _site_uncertainty(data, index, uncertainty_metric) if derived_tolerance else None
-        orbit_screen: list[tuple[tuple[float, float, float], Any, FracVector]] = []
         declared_position, declaration, declaration_error, declared_positions = _declared_wyckoff_position(
             declared_wyckoff, declared_multiplicities, index, setting, standard
+        )
+        orbit_screen: list[tuple[tuple[float, float, float], Any, FracVector]] | None = (
+            [] if declaration is not None or autocorrect else None
         )
         ignored_declaration: tuple[str, str] | None = None
         exact_match = None if declaration is not None else _exact_wyckoff_match(standard, standard_point)
@@ -237,31 +239,33 @@ def asu_structure_from_cif(
                     f"measured distance {_nearest_wyckoff_distance(declared_position, standard_point, coordinate, cell, transform):.6g} "
                     f"exceeds tolerance {tolerance:.6g}"
                 )
-            elif _has_rounded_orbit_overlap(
-                standard,
-                transform,
-                match,
-                cell,
-                tolerance,
-                orbit_screen,
-                include_coincident=True,
-                expected_distinct=_setting_local_multiplicity(standard, setting, declared_position),
-            ):
-                actual = _snap(
+            elif match is not None:
+                assert orbit_screen is not None
+                if _has_rounded_orbit_overlap(
                     standard,
-                    standard_point,
-                    coordinate,
-                    cell,
                     transform,
+                    match,
+                    cell,
                     tolerance,
-                    allow_large_cif_uncertainty=allow_large_cif_uncertainty,
-                    most_specific=True,
-                )
-                assert actual is not None
-                declaration_error = (
-                    f"declares Wyckoff position {declared_position.letter!r}, but its coordinate lies on the "
-                    f"more-specific Wyckoff position {actual[0]!r}"
-                )
+                    orbit_screen,
+                    include_coincident=True,
+                    expected_distinct=_setting_local_multiplicity(standard, setting, declared_position),
+                ):
+                    actual = _snap(
+                        standard,
+                        standard_point,
+                        coordinate,
+                        cell,
+                        transform,
+                        tolerance,
+                        allow_large_cif_uncertainty=allow_large_cif_uncertainty,
+                        most_specific=True,
+                    )
+                    assert actual is not None
+                    declaration_error = (
+                        f"declares Wyckoff position {declared_position.letter!r}, but its coordinate lies on the "
+                        f"more-specific Wyckoff position {actual[0]!r}"
+                    )
         elif declaration is not None:
             match = _snap(
                 standard,
@@ -315,32 +319,29 @@ def asu_structure_from_cif(
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 orbit_screen=orbit_screen,
             )
-        if (
-            autocorrect
-            and declaration is None
-            and match is not None
-            and _has_rounded_orbit_overlap(standard, transform, match, cell, tolerance, orbit_screen)
-        ):
-            corrected_match = _snap(
-                standard,
-                standard_point,
-                coordinate,
-                cell,
-                transform,
-                tolerance,
-                allow_large_cif_uncertainty=allow_large_cif_uncertainty,
-                most_specific=True,
-            )
-            if corrected_match != match:
-                assert corrected_match is not None
-                # Undeclared, fully occupied near-special sites are ordinarily rounded
-                # measurements. Partial occupancy instead denotes a deliberate split site.
-                if as_fraction(occupancy, field="CIF occupancy")[0] == 1:
-                    match = corrected_match
-                    _cif_warning(
-                        f"CIF block {_block_name(data)!r}, site {labels[index]!r}: snapped its rounded coordinate "
-                        f"to the more-specific Wyckoff position {match[0]!r}"
-                    )
+        if autocorrect and declaration is None and match is not None:
+            assert orbit_screen is not None
+            if _has_rounded_orbit_overlap(standard, transform, match, cell, tolerance, orbit_screen):
+                corrected_match = _snap(
+                    standard,
+                    standard_point,
+                    coordinate,
+                    cell,
+                    transform,
+                    tolerance,
+                    allow_large_cif_uncertainty=allow_large_cif_uncertainty,
+                    most_specific=True,
+                )
+                if corrected_match != match:
+                    assert corrected_match is not None
+                    # Undeclared, fully occupied near-special sites are ordinarily rounded
+                    # measurements. Partial occupancy instead denotes a deliberate split site.
+                    if as_fraction(occupancy, field="CIF occupancy")[0] == 1:
+                        match = corrected_match
+                        _cif_warning(
+                            f"CIF block {_block_name(data)!r}, site {labels[index]!r}: snapped its rounded coordinate "
+                            f"to the more-specific Wyckoff position {match[0]!r}"
+                        )
         if match is None:
             if ignored_declaration is not None:
                 rejected, reason = ignored_declaration
@@ -373,7 +374,7 @@ def asu_structure_from_cif(
             f"maximum is {math.sqrt(maximum.to_float()):.6g} Å"
         )
 
-    canonical_sites, expansion = _deduplicate_wyckoff_sites(
+    proof = _deduplicate_wyckoff_sites(
         standard,
         transform,
         wyckoff_sites,
@@ -381,18 +382,17 @@ def asu_structure_from_cif(
         labels,
         block_name=_block_name(data),
         autocorrect=autocorrect,
+        coordinate_precision=data.get("coordinate_precision"),
     )
-    used_species = {site.species for site in canonical_sites}
-    structure = ASUStructure(
+    used_species = {site.species for site in proof.wyckoff_sites}
+    return ASUStructure._from_validated_proof(
         cell,
         standard,
-        canonical_sites,
+        proof,
         [species for name, species in species_by_name.items() if name in used_species],
         transform,
         data.get("coordinate_precision"),
     )
-    structure._precomputed_expansion = expansion
-    return structure
 
 
 def _deduplicate_wyckoff_sites(
@@ -404,7 +404,8 @@ def _deduplicate_wyckoff_sites(
     *,
     block_name: str,
     autocorrect: bool,
-) -> tuple[list[WyckoffSite], tuple[FracVector, tuple[str, ...], tuple[int, ...]]]:
+    coordinate_precision: Any,
+) -> _ValidatedASUProof:
     """Remove redundant identical-species CIF orbits before building the ASU."""
     seen: dict[tuple[fractions.Fraction, ...], tuple[str, WyckoffSite]] = {}
     cosets = transform.lattice_cosets()
@@ -454,7 +455,13 @@ def _deduplicate_wyckoff_sites(
         species_at_sites.extend((site.species,) * len(ordered))
         counts.append(len(ordered))
     reduced = FracVector([list(point) for point in coordinates]) if coordinates else FracVector(())
-    return canonical, (reduced, tuple(species_at_sites), tuple(counts))
+    return _ValidatedASUProof._issue_from_cif_deduplication(
+        spacegroup,
+        transform,
+        canonical,
+        (reduced, tuple(species_at_sites), tuple(counts)),
+        coordinate_precision,
+    )
 
 
 def _has_rounded_orbit_overlap(

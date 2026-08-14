@@ -11,6 +11,7 @@ setting; the coordinates and occupancies in it are written by hand.
 
 import fractions
 from pathlib import Path
+from typing import Any
 
 import pytest
 from httk.core import FracVector, decimal_precision, load
@@ -18,7 +19,9 @@ from httk.core.report import collect_reports
 
 from httk.atomistic import (
     ASUStructure,
+    SettingTransform,
     Spacegroup,
+    Species,
     UnitcellStructureView,
     asu_structure_from_cif,
     asu_structures_from_cif,
@@ -36,6 +39,7 @@ from httk.atomistic.cif_structures import (
     _snap,
 )
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.structure.asu import FundamentalDomainStructure, WyckoffSite, _ValidatedASUProof
 
 F = fractions.Fraction
 
@@ -123,6 +127,102 @@ def test_cif_retains_validated_expansion_lazily(tmp_path: Path, monkeypatch: pyt
     assert structure.multiplicities() == (4, 4)
     assert "_precomputed_expansion" not in structure.__dict__
     assert "_expansion" in structure.__dict__
+
+
+def test_strict_undeclared_cif_does_not_build_orbit_screen(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    screens: list[object] = []
+    original_snap = _snap
+
+    def capture_snap(*args: Any, **kwargs: Any) -> Any:
+        screens.append(kwargs["orbit_screen"])
+        return original_snap(*args, **kwargs)
+
+    monkeypatch.setattr("httk.atomistic.cif_structures._snap", capture_snap)
+    load(str(_rocksalt_cif(tmp_path)))
+
+    assert screens
+    assert all(screen is None for screen in screens)
+
+
+def test_cif_proof_reuses_deduplicated_orbits_for_representatives(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail(*args: object, **kwargs: object) -> object:
+        raise AssertionError("CIF construction regenerated a representative orbit")
+
+    monkeypatch.setattr(FundamentalDomainStructure, "_representatives_for_site", fail)
+    structure = load(str(_rocksalt_cif(tmp_path)))
+
+    assert structure.multiplicities() == (4, 4)
+
+
+def test_cif_proof_checks_representatives_against_exact_expansion() -> None:
+    site = WyckoffSite("a", FracVector(()), "Na", representative=FracVector((F(1, 4), 0, 0)))
+    expansion = (FracVector([[0, 0, 0]]), ("Na",), (1,))
+
+    with pytest.raises(ValueError, match="representative coordinate"):
+        _ValidatedASUProof._issue_from_cif_deduplication(
+            Spacegroup.standard(221), SettingTransform.identity(), (site,), expansion, None
+        )
+
+
+@pytest.mark.parametrize(
+    ("coordinates", "species_at_sites", "counts", "message"),
+    [
+        (FracVector([[0, 0]]), ("Cs",), (1,), "shape"),
+        (FracVector([[0, 0, 0], [F(1, 2), 0, 0]]), ("Cs", "O"), (2,), "species"),
+    ],
+)
+def test_cif_proof_rejects_malformed_expansion(
+    coordinates: FracVector,
+    species_at_sites: tuple[str, ...],
+    counts: tuple[int, ...],
+    message: str,
+) -> None:
+    site = WyckoffSite("a", FracVector(()), "Cs", representative=FracVector((0, 0, 0)))
+
+    with pytest.raises(ValueError, match=message):
+        _ValidatedASUProof._issue_from_cif_deduplication(
+            Spacegroup.standard(221),
+            SettingTransform.identity(),
+            (site,),
+            (coordinates, species_at_sites, counts),
+            None,
+        )
+
+
+def test_cif_proof_is_not_directly_constructible_and_binds_context() -> None:
+    group = Spacegroup.standard(221)
+    transform = SettingTransform.identity()
+    site = WyckoffSite("a", FracVector(()), "Cs", representative=FracVector((0, 0, 0)))
+    proof = _ValidatedASUProof._issue_from_cif_deduplication(
+        group, transform, (site,), (FracVector([[0, 0, 0]]), ("Cs",), (1,)), None
+    )
+    cell = Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    species = (Species("Cs", ("Cs",), (1,)),)
+
+    with pytest.raises(TypeError):
+        _ValidatedASUProof(group, transform, (site,), proof.expansion, None)  # type: ignore[call-arg]
+    with pytest.raises(ValueError, match="Wyckoff sites"):
+        ASUStructure(
+            cell,
+            group,
+            (WyckoffSite("a", FracVector(()), "Cs", representative=FracVector((F(1, 4), 0, 0))),),
+            species,
+            _validated_proof=proof,
+        )
+    with pytest.raises(ValueError, match="structure context"):
+        ASUStructure(cell, Spacegroup.standard(222), (site,), species, transform, None, _validated_proof=proof)
+    with pytest.raises(ValueError, match="structure context"):
+        ASUStructure(
+            cell,
+            group,
+            (site,),
+            species,
+            SettingTransform(FracVector.eye((3, 3)), (F(1, 8), F(1, 8), F(1, 8))),
+            None,
+            _validated_proof=proof,
+        )
 
 
 def test_rational_uncertainty_metric_is_exactly_equivalent(tmp_path: Path) -> None:

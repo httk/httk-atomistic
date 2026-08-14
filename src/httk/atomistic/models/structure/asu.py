@@ -25,7 +25,7 @@ import fractions
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self
 
 from httk.core import FracVector, SurdVector
 
@@ -107,6 +107,73 @@ class WyckoffSite:
         return 0 if self.free_params.dim in ((), (0,)) else self.free_params.dim[0]
 
 
+def _representative_matches_coordinates(
+    representative: FracVector,
+    candidates: Sequence[FracVector | Sequence[fractions.Fraction]],
+    coordinate_precision: fractions.Fraction | None,
+) -> bool:
+    stated = representative.normalize().to_fractions()
+    tolerance = (coordinate_precision or fractions.Fraction()) * 3
+    for candidate in candidates:
+        expected = candidate.to_fractions() if isinstance(candidate, FracVector) else candidate
+        differences = []
+        for left, right in zip(stated, expected):
+            difference = abs(left - right) % 1
+            differences.append(min(difference, 1 - difference))
+        if all(value <= tolerance for value in differences):
+            return True
+    return False
+
+
+@dataclass(frozen=True, init=False)
+class _ValidatedASUProof:
+    spacegroup: Spacegroup
+    transform: SettingTransform
+    wyckoff_sites: tuple[WyckoffSite, ...]
+    expansion: tuple[FracVector, tuple[str, ...], tuple[int, ...]]
+    coordinate_precision: fractions.Fraction | None
+
+    @classmethod
+    def _issue_from_cif_deduplication(
+        cls,
+        spacegroup: Spacegroup,
+        transform: SettingTransform,
+        wyckoff_sites: Sequence[WyckoffSite],
+        expansion: tuple[FracVector, tuple[str, ...], tuple[int, ...]],
+        coordinate_precision: Any,
+    ) -> Self:
+        sites = tuple(wyckoff_sites)
+        precision = to_precision(coordinate_precision)
+        coordinates, species_at_sites, counts = expansion
+        if not isinstance(coordinates, FracVector) or len(coordinates.dim) != 2 or coordinates.dim[1] != 3:
+            raise ValueError("validated CIF expansion coordinates must have shape (N, 3)")
+        if len(counts) != len(sites) or any(not isinstance(count, int) or count <= 0 for count in counts):
+            raise ValueError("validated CIF expansion counts must be positive and match the Wyckoff sites")
+        if sum(counts) != coordinates.dim[0]:
+            raise ValueError("validated CIF expansion counts must cover every coordinate")
+        expected_species = tuple(site.species for site, count in zip(sites, counts) for _ in range(count))
+        if tuple(species_at_sites) != expected_species:
+            raise ValueError("validated CIF expansion species do not match the Wyckoff sites")
+        rows = coordinates.to_fractions()
+        offset = 0
+        for site, count in zip(sites, counts):
+            candidates = rows[offset : offset + count]
+            if site.representative is not None and not _representative_matches_coordinates(
+                site.representative, candidates, precision
+            ):
+                raise ValueError(
+                    f"representative coordinate for Wyckoff site {site.wyckoff!r} does not match its orbit"
+                )
+            offset += count
+        proof = object.__new__(cls)
+        object.__setattr__(proof, "spacegroup", spacegroup)
+        object.__setattr__(proof, "transform", transform)
+        object.__setattr__(proof, "wyckoff_sites", sites)
+        object.__setattr__(proof, "expansion", expansion)
+        object.__setattr__(proof, "coordinate_precision", precision)
+        return proof
+
+
 class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     """Represent a crystal structure by one exact site per symmetry orbit.
 
@@ -132,6 +199,8 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     :param last_modified: Optional source modification timestamp.
     :param charge: An explicitly assigned charge for the expanded cell content; it is not
         derived from the species.
+    :param _validated_proof: Internal proof that the supplied CIF expansion already validates
+        the representatives.
     """
 
     _cell: Cell
@@ -162,6 +231,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         immutable_id: str | None = None,
         last_modified: datetime.datetime | None = None,
         charge: fractions.Fraction | int | str | None = None,
+        _validated_proof: _ValidatedASUProof | None = None,
     ) -> None:
         self._cell = cell if isinstance(cell, Cell) else CellView(cell)
         require_full_periodicity(self._cell, "ASUStructure")
@@ -177,6 +247,15 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         self._charge = None if charge is None else fractions.Fraction(charge)
         self._wyckoff_sites = tuple(wyckoff_sites)
         self._species = tuple(item if isinstance(item, Species) else SpeciesView(item) for item in species)
+        if _validated_proof is not None:
+            if self._wyckoff_sites != _validated_proof.wyckoff_sites:
+                raise ValueError("validated ASU proof does not match the supplied Wyckoff sites")
+            if (
+                self._spacegroup != _validated_proof.spacegroup
+                or self._transform != _validated_proof.transform
+                or self._coordinate_precision != _validated_proof.coordinate_precision
+            ):
+                raise ValueError("validated ASU proof does not match the supplied structure context")
 
         moments = tuple(site.moment for site in self._wyckoff_sites)
         if any(value is None for value in moments) and any(value is not None for value in moments):
@@ -204,7 +283,11 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
                     f"{self._spacegroup.setting} takes {position.free_count} free parameter(s), "
                     f"but the site supplies {site.free_count}"
                 )
-            if site.representative is not None and not self._representative_matches_orbit(site):
+            if (
+                _validated_proof is None
+                and site.representative is not None
+                and not self._representative_matches_orbit(site)
+            ):
                 raise ValueError(
                     f"representative coordinate for Wyckoff site {site.wyckoff!r} does not match its orbit"
                 )
@@ -220,6 +303,28 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             optimization_type=optimization_type,
             immutable_id=immutable_id,
             last_modified=last_modified,
+        )
+        if _validated_proof is not None:
+            self._precomputed_expansion = _validated_proof.expansion
+
+    @classmethod
+    def _from_validated_proof(
+        cls,
+        cell: CellLike,
+        spacegroup: Spacegroup | int,
+        proof: _ValidatedASUProof,
+        species: Sequence[SpeciesLike],
+        transform: SettingTransform | None,
+        coordinate_precision: Any,
+    ) -> Self:
+        return cls(
+            cell,
+            spacegroup,
+            proof.wyckoff_sites,
+            species,
+            transform,
+            coordinate_precision,
+            _validated_proof=proof,
         )
 
     # --- accessors ---
@@ -300,20 +405,9 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
 
     def _representative_matches_orbit(self, site: WyckoffSite) -> bool:
         assert site.representative is not None
-        stated = site.representative.normalize().to_fractions()
-        # A source representative is retained before symmetry snapping. Coordinate
-        # precision is a per-component statement, while recognition compares two rounded
-        # positions and may change axes; use the same conservative three-component bound.
-        tolerance = (self._coordinate_precision or fractions.Fraction()) * 3
-        for candidate in self._representatives_for_site(site):
-            expected = candidate.to_fractions()
-            differences = []
-            for left, right in zip(stated, expected):
-                difference = abs(left - right) % 1
-                differences.append(min(difference, 1 - difference))
-            if all(value <= tolerance for value in differences):
-                return True
-        return False
+        return _representative_matches_coordinates(
+            site.representative, self._representatives_for_site(site), self._coordinate_precision
+        )
 
     def _representative_sites(self) -> Sites:
         """Compute the exact representative positions retained by this representation."""
