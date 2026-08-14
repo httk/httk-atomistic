@@ -99,6 +99,12 @@ def test_expansion_is_deterministic_and_cached() -> None:
     assert asu.expand_sites().reduced_coords == asu.expand_sites().reduced_coords
 
 
+def test_wyckoff_float_coefficients_are_cached() -> None:
+    branch = Spacegroup.standard(15).wyckoff_position("e").branches[0]
+    first = branch._float_coefficients
+    assert branch._float_coefficients is first
+
+
 def test_a_free_parameter_places_a_whole_orbit() -> None:
     """One value of ``y`` on Wyckoff e of SG 15 places four atoms, exactly."""
     asu = ASUStructure(

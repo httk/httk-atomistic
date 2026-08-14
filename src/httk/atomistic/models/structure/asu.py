@@ -141,6 +141,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     _species: tuple[Species, ...]
     _coordinate_precision: fractions.Fraction | None
     _charge: fractions.Fraction | None
+    _precomputed_expansion: tuple[FracVector, tuple[str, ...], tuple[int, ...]]
     kind: ClassVar[str] = "asu"
 
     def __init__(
@@ -483,6 +484,11 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         point cannot silently produce a doubled atom. Coincident listings with different
         species, or redundant listings in a strict stored ASU, raise ``ValueError``.
         """
+        precomputed = getattr(self, "_precomputed_expansion", None)
+        if precomputed is not None:
+            object.__delattr__(self, "_precomputed_expansion")
+            return precomputed
+
         transform = self._transform
         cosets = transform.lattice_cosets()
 

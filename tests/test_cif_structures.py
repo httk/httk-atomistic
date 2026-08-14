@@ -25,12 +25,14 @@ from httk.atomistic import (
     cif_setting,
 )
 from httk.atomistic.cif_structures import (
+    _cell_from_cif,
     _has_rounded_orbit_overlap,
     _hm_it_numbers,
     _normalized_hm,
     _parse_type_symbol,
     _read_cif_for_atomistic,
     _site_declaration,
+    _site_uncertainty,
     _snap,
 )
 from httk.atomistic.models.cell.cell import Cell
@@ -107,6 +109,30 @@ def _rocksalt_integer_cif(tmp_path: Path) -> Path:
         [("Na1", "Na", ("0", "0", "0"), "1"), ("Cl1", "Cl", ("0.5", "0.5", "0.5"), "1")],
         name="NaClInteger",
     )
+
+
+def test_cif_retains_validated_expansion_lazily(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    structure = load(str(_rocksalt_cif(tmp_path)))
+    assert "_precomputed_expansion" in structure.__dict__
+    assert "_expansion" not in structure.__dict__
+
+    def fail(*args: object, **kwargs: object) -> object:
+        raise AssertionError("the validated CIF expansion was recomputed")
+
+    monkeypatch.setattr(Spacegroup, "wyckoff_position", fail)
+    assert structure.multiplicities() == (4, 4)
+    assert "_precomputed_expansion" not in structure.__dict__
+    assert "_expansion" in structure.__dict__
+
+
+def test_rational_uncertainty_metric_is_exactly_equivalent(tmp_path: Path) -> None:
+    block = load(str(_rocksalt_cif(tmp_path)), raw=True)["blocks"][0]
+    metric = _cell_from_cif(block).metric()
+    assert metric.is_rational
+    rational = metric.coefficient(1)
+
+    for index in range(len(block["positions_exact"])):
+        assert _site_uncertainty(block, index, rational) == _site_uncertainty(block, index, metric)
 
 
 @pytest.mark.parametrize(

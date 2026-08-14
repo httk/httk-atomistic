@@ -23,7 +23,8 @@ Everything is expressed in the coordinates of whichever setting the record came 
 
 import fractions
 from collections.abc import Mapping, Sequence
-from typing import Any, Self
+from functools import cached_property
+from typing import Any, Self, cast
 
 from httk.core import FracVector
 
@@ -169,13 +170,11 @@ class WyckoffBranch:
         rank = len(self._free)
         if not rank:
             return ()
-        vector = self._operation.vector.to_floats()
-        unimodular = self._unimodular.to_floats()
+        vector, unimodular, inverse, _ = self._float_coefficients
         mapped = [
             sum((coordinate[column] - vector[column]) * unimodular[row][column] for column in range(3))
             for row in range(rank)
         ]
-        inverse = self._pivot_inverse.to_floats()
         return tuple(sum(mapped[row] * inverse[column][row] for row in range(rank)) % 1.0 for column in range(rank))
 
     def coordinate_float(self, parameters: Sequence[float]) -> tuple[float, float, float]:
@@ -190,9 +189,28 @@ class WyckoffBranch:
         placed = [0.0, 0.0, 0.0]
         for slot, index in enumerate(self._free):
             placed[index] = parameters[slot]
-        matrix = self._operation.matrix.to_floats()
-        vector = self._operation.vector.to_floats()
-        return tuple(sum(matrix[row][column] * placed[column] for column in range(3)) + vector[row] for row in range(3))
+        vector, _, _, matrix = self._float_coefficients
+        return cast(
+            tuple[float, float, float],
+            tuple(sum(matrix[row][column] * placed[column] for column in range(3)) + vector[row] for row in range(3)),
+        )
+
+    @cached_property
+    def _float_coefficients(
+        self,
+    ) -> tuple[
+        tuple[float, ...],
+        tuple[tuple[float, ...], ...],
+        tuple[tuple[float, ...], ...],
+        tuple[tuple[float, ...], ...],
+    ]:
+        """Cache immutable coefficients shared by every floating-point screen."""
+        return (
+            tuple(self._operation.vector.to_floats()),
+            tuple(tuple(row) for row in self._unimodular.to_floats()),
+            tuple(tuple(row) for row in self._pivot_inverse.to_floats()),
+            tuple(tuple(row) for row in self._operation.matrix.to_floats()),
+        )
 
     def _parameters_from_mapped(self, mapped: FracVector) -> FracVector:
         """Back-substitute the free parameters out of ``U * (point - b)``."""

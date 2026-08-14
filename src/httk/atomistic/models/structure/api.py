@@ -161,6 +161,16 @@ class StructureAPI(ABC):
         """Expose the number of canonical site-coordinate rows."""
         return self.sites.num_sites
 
+    def multiplicities(self) -> tuple[int, ...]:
+        """Return how many unit-cell sites each represented site contributes.
+
+        The canonical structure interface presents a unit cell, so each row contributes
+        once. Symmetry-reduced representations override this with their orbit counts.
+
+        :return: One multiplicity per represented site.
+        """
+        return (1,) * len(self.species_at_sites)
+
     @property
     def structure_features(self) -> tuple[str, ...] | None:
         """Expose composition-related features derived from canonical components."""

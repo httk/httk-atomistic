@@ -169,7 +169,10 @@ def asu_structure_from_cif(
         # tolerance depends on the precision and the cell, not on how many atoms there are.
         tolerance = _tolerance_from_cif(data, cell)
     assert tolerance is not None
-    uncertainty_metric = cell.basis * cell.basis.T() if derived_tolerance else None
+    uncertainty_metric = None
+    if derived_tolerance:
+        metric = cell.metric()
+        uncertainty_metric = metric.coefficient(1) if metric.is_rational else metric
 
     coordinates = _exact_positions(data)
     symbols = list(data["symbols"])
@@ -370,7 +373,7 @@ def asu_structure_from_cif(
             f"maximum is {math.sqrt(maximum.to_float()):.6g} Å"
         )
 
-    canonical_sites = _deduplicate_wyckoff_sites(
+    canonical_sites, expansion = _deduplicate_wyckoff_sites(
         standard,
         transform,
         wyckoff_sites,
@@ -380,7 +383,7 @@ def asu_structure_from_cif(
         autocorrect=autocorrect,
     )
     used_species = {site.species for site in canonical_sites}
-    return ASUStructure(
+    structure = ASUStructure(
         cell,
         standard,
         canonical_sites,
@@ -388,6 +391,8 @@ def asu_structure_from_cif(
         transform,
         data.get("coordinate_precision"),
     )
+    structure._precomputed_expansion = expansion
+    return structure
 
 
 def _deduplicate_wyckoff_sites(
@@ -399,11 +404,14 @@ def _deduplicate_wyckoff_sites(
     *,
     block_name: str,
     autocorrect: bool,
-) -> list[WyckoffSite]:
+) -> tuple[list[WyckoffSite], tuple[FracVector, tuple[str, ...], tuple[int, ...]]]:
     """Remove redundant identical-species CIF orbits before building the ASU."""
     seen: dict[tuple[fractions.Fraction, ...], tuple[str, WyckoffSite]] = {}
     cosets = transform.lattice_cosets()
     canonical: list[WyckoffSite] = []
+    coordinates: list[tuple[fractions.Fraction, ...]] = []
+    species_at_sites: list[str] = []
+    counts: list[int] = []
     for index, site in enumerate(sites):
         position = spacegroup.wyckoff_position(site.wyckoff)
         keys = {
@@ -441,7 +449,12 @@ def _deduplicate_wyckoff_sites(
             raise ValueError(f"{site!r} partially overlaps an earlier orbit; the CIF is not a valid ASU")
         canonical.append(site)
         seen.update({key: (site.species, site) for key in keys})
-    return canonical
+        ordered = sorted(keys)
+        coordinates.extend(ordered)
+        species_at_sites.extend((site.species,) * len(ordered))
+        counts.append(len(ordered))
+    reduced = FracVector([list(point) for point in coordinates]) if coordinates else FracVector(())
+    return canonical, (reduced, tuple(species_at_sites), tuple(counts))
 
 
 def _has_rounded_orbit_overlap(
@@ -981,7 +994,7 @@ def _read_cif_for_atomistic(
 
     if autocorrect:
         try:
-            raw_blocks, header = read_cif(source, allow_cif2=False, autocorrect=True)
+            raw_blocks, header = read_cif(source, allow_cif2=False, autocorrect=True, structural_only=True)
         except TypeError as error:
             if "autocorrect" not in str(error):
                 raise
@@ -989,7 +1002,7 @@ def _read_cif_for_atomistic(
                 "CIF autocorrect requires httk-io with CIF autocorrect support, which is not yet released."
             ) from error
     else:
-        raw_blocks, header = read_cif(source, allow_cif2=False)
+        raw_blocks, header = read_cif(source, allow_cif2=False, structural_only=True)
     blocks = []
     unparsed = []
     for name, raw_block in raw_blocks:
