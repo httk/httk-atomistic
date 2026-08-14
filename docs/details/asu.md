@@ -23,8 +23,8 @@ the cell.
 | | |
 | --- | --- |
 | `cell` | the cell, in the structure's *own* setting |
-| `spacegroup` | the space group, as its International Tables **standard** setting |
-| `transform` | a {py:class}`~httk.atomistic.SettingTransform` from that standard setting to the structure's own |
+| `spacegroup` | the tabulated setting that names the stored Wyckoff data |
+| `transform` | the transform from that stored setting to the structure's own coordinates; normally identity |
 | `wyckoff_sites` | one {py:class}`~httk.atomistic.WyckoffSite` per orbit: a Wyckoff letter, its free parameters, and a species name |
 | `species` | the species the sites name |
 
@@ -40,17 +40,16 @@ A space group can be written in many *settings*, and they are genuinely
 different coordinate systems. Wyckoff letter `e` of space group 15 reads
 `0,y,1/4` in the standard setting `15:b1` and `1/4,0,z` in `15:c1`.
 
-httk records the Wyckoff data against the standard setting **always**, and
-carries a transform to whatever setting the structure is actually in. Because
-that transform is *stored* rather than looked up, a setting that appears in no
-table is representable exactly as well as a tabulated one:
+httk records Wyckoff data directly against a tabulated source setting. This avoids a
+change of basis during reading, expansion, storage, and writing. A setting that appears in
+no table is still represented against the standard table with an explicit transform:
 
 ```python
 from httk.atomistic import WyckoffSite, ASUStructure, SettingTransform, Spacegroup
 from httk.core import FracVector
 
-# A tabulated setting: look the transform up.
-tabulated = Spacegroup.for_setting("15:c1").transform_from_standard
+# A tabulated setting is stored directly.
+tabulated = Spacegroup.for_setting("15:c1")
 
 # A setting in no table: state the transform yourself.
 shifted = SettingTransform(FracVector.eye((3, 3)), ["1/8", "1/8", "1/8"])
@@ -72,7 +71,9 @@ be identified is refused with an explanation instead.
 
 ### Direction
 
-The transform maps *standard* coordinates into the structure's own setting.
+For an untabulated setting, the stored transform maps *standard* coordinates into the
+structure's own setting. A tabulated setting derives the same transform only if a caller
+explicitly requests standardization.
 Under httk's row-vector convention:
 
 ```
@@ -84,11 +85,10 @@ B_own = inv(M).T() * B_std          # cell basis rows
 Applying it backwards yields a structurally valid but systematically *wrong*
 crystal.
 
-`det M` is 1 for 520 of those settings and **3** for the seven
+`det M` is 1 for 520 tabulated setting conversions and **3** for the seven
 rhombohedral-axes ones (IT numbers 146, 148, 155, 160, 161, 166, 167), where the
-standard hexagonal cell holds three primitive rhombohedral cells. Expansion
-handles that: the standard orbit is three times too large for the smaller cell
-and the surplus points coincide *exactly* under wrapping.
+standard hexagonal cell holds three primitive rhombohedral cells. Ordinary expansion uses
+the rhombohedral table directly; the volume change matters only during standardization.
 
 ## Expansion is exact
 
@@ -108,7 +108,7 @@ The cell survives untouched, so a hexagonal cell keeps its exact `sqrt(3)`.
 
 For an existing ASU — including a full-cell view that is still backed by one —
 `conventional_cell()` returns the same crystal re-expressed in the space group's IT
-standard-setting conventional cell. It keeps the ASU's standard-to-own transform in the
+standard-setting conventional cell. It returns the derived standard-to-own transform in the
 result for provenance, while the result ASU has an identity transform; the basis change and
 expansion remain exact. For a plain `UnitcellStructure`, the operation first runs tolerant
 `recognize_asu()`: measured coordinates may be snapped, and the result records the transform
@@ -255,10 +255,9 @@ symmetry, so they serve `null`; inferring a space group there would mean running
 symmetry search behind the caller's back, with a tolerance nobody chose, on every record.
 
 The symbols and Wyckoff letters describe **the setting the structure is written in**, as
-OPTIMADE requires, not the standard setting the ASU stores them against. That distinction
-is not cosmetic: setting `224:1` permutes Wyckoff letters `i` and `j`, and the rhombohedral
-settings change multiplicities, so a 3a of the standard hexagonal cell is served as the 1a
-it is in the smaller cell.
+OPTIMADE requires. Setting `224:1` therefore stores and serves its own letter `i`, not the
+standard setting's corresponding `j`; rhombohedral settings likewise retain their local
+multiplicities.
 
 For what OPTIMADE does not standardise — which setting, and the change of basis to it —
 httk serves six provider-specific properties whose definitions are taken verbatim from

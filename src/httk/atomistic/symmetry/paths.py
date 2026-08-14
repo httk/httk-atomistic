@@ -19,6 +19,7 @@ from httk.atomistic.symmetry._standardization_common import (
 )
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.lift import _apply_normalizer_operation, _wrapped, rerepresent
+from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 from httk.atomistic.symmetry.subgroups import _standard_input, subgroup_closure
 
@@ -179,19 +180,33 @@ def _pair_score(candidate: ASUStructure, reference: ASUStructure) -> tuple[Fract
 
 
 def _reference_setting(candidate: ASUStructure, reference: ASUStructure) -> ASUStructure:
-    transform = reference.transform
+    transform = reference.transform_from_standard
     basis_matrix = transform.matrix.T().inv()
     cell = Cell(
         transform.basis_to_setting(candidate.cell.basis),
         precision=_scaled_precision(candidate.cell.precision, _matrix_row_sum_factor(basis_matrix)),
         periodicity=candidate.cell.periodicity,
     )
+    spacegroup = reference.spacegroup
+    sites = candidate.wyckoff_sites
+    residual = reference.transform
+    if not spacegroup.is_standard_setting:
+        mapped = []
+        for site in sites:
+            point = candidate.spacegroup.wyckoff_position(site.wyckoff).representative.coordinate(site.free_params)
+            identified = spacegroup.identify_wyckoff(transform.to_setting(point).normalize())
+            if identified is None:
+                raise ValueError(f"cannot express Wyckoff site {site.wyckoff!r} in {spacegroup.setting}")
+            position, parameters = identified
+            mapped.append(WyckoffSite(position.letter, parameters, site.species))
+        sites = tuple(mapped)
+        residual = SettingTransform.identity()
     return ASUStructure(
         cell,
-        reference.spacegroup,
-        candidate.wyckoff_sites,
+        spacegroup,
+        sites,
         candidate.species,
-        transform=transform,
+        transform=residual,
         coordinate_precision=_scaled_precision(
             candidate.coordinate_precision,
             _matrix_column_sum_factor(transform.matrix.T()),
@@ -207,11 +222,15 @@ def _normalizer_image(structure: ASUStructure, operation: AffineOperation) -> AS
 def _aligned(end: ASUStructure, reference: ASUStructure, *, tolerance: float | None) -> _Alignment:
     _validate(end, "represent_like")
     _validate(reference, "represent_like")
-    represented = rerepresent(end, reference.spacegroup, tolerance=tolerance)
+    reference_standard = _standard_input(reference)
+    represented = rerepresent(end, reference_standard.spacegroup, tolerance=tolerance)
     represented = _standard_input(represented)
-    reference_signature = _signature(reference)
+    reference_signature = _signature(reference_standard)
     represented_signature = _signature(represented)
-    if _species_signature(represented) != _species_signature(reference) or represented_signature != reference_signature:
+    if (
+        _species_signature(represented) != _species_signature(reference_standard)
+        or represented_signature != reference_signature
+    ):
         raise ValueError(
             f"structures are not representable alike: signatures {represented_signature!r} and {reference_signature!r}"
         )
@@ -236,7 +255,7 @@ def _aligned(end: ASUStructure, reference: ASUStructure, *, tolerance: float | N
     ) = None
     for candidate in candidates.values():
         try:
-            score, pairs = _pair_score(candidate, reference)
+            score, pairs = _pair_score(candidate, reference_standard)
         except ValueError:
             continue
         choice = (score, _canonical_sites(candidate.wyckoff_sites), candidate, pairs)

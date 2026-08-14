@@ -175,12 +175,12 @@ def _domain_setting(record: Any) -> tuple[Any, Any | None, Any]:
     """Recover the stored setting without materializing a domain structure."""
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
-    spacegroup = Spacegroup.standard(record.spacegroup_it_number)
+    spacegroup = Spacegroup.for_hall_entry(record.spacegroup_hall_entry)
     from httk.atomistic.storage.records import _setting_transform_from_record
 
     transform = _setting_transform_from_record(record.setting_transform)
     if transform.is_identity():
-        return spacegroup, spacegroup, transform
+        return spacegroup, spacegroup, spacegroup.transform_from_standard
     if transform.hall_entry is not None:
         return spacegroup, Spacegroup.for_hall_entry(transform.hall_entry), transform
     for setting_record in _settings_by_it_number().get(spacegroup.it_number, ()):
@@ -246,7 +246,11 @@ def _domain_symmetry_value(record: Any, name: str) -> object:
     if name == "wyckoff_positions":
         if setting is None:
             return None
-        letters = wyckoff_letter_map(spacegroup, setting)
+        letters = (
+            {position.letter: position.letter for position in setting.wyckoff}
+            if setting == spacegroup
+            else wyckoff_letter_map(spacegroup, setting)
+        )
         return [setting.wyckoff_position(letters[site.wyckoff]).letter for site in record.domain_sites]
     if name == "_httk_setting_it_nc":
         return None if setting is None else setting.setting

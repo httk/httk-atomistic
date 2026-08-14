@@ -164,7 +164,11 @@ def _wyckoff_symbols(asu: FundamentalDomainStructure, setting: Any) -> list[str]
     (standard ``j`` is that setting's ``i`` and vice versa). The multiplicity is used only
     to repeat each letter for the expanded sites; OPTIMADE receives the bare letter.
     """
-    letters = wyckoff_letter_map(asu.spacegroup, setting)
+    letters = (
+        {position.letter: position.letter for position in setting.wyckoff}
+        if setting == asu.spacegroup
+        else wyckoff_letter_map(asu.spacegroup, setting)
+    )
     symbols: list[str] = []
     for site in asu.wyckoff_sites:
         position = setting.wyckoff_position(letters[site.wyckoff])
@@ -178,7 +182,7 @@ def _transform_record(asu: FundamentalDomainStructure) -> dict[str, Any]:
     Rendered as exact rational strings, matching how the vendored symmetry tables write
     them, so the value survives a JSON round trip without becoming a float.
     """
-    transform = asu.transform
+    transform = asu.transform_from_standard
     return {
         "matrix": [[str(value) for value in row] for row in transform.matrix.to_fractions()],
         "vector": [str(value) for value in transform.vector.to_fractions()],

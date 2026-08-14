@@ -493,7 +493,8 @@ def test_a_non_standard_setting_is_recognized_as_itself(tmp_path: Path) -> None:
     assert setting is not None
     assert setting.setting == "15:c1"
     assert not asu.is_standard_setting
-    assert asu.spacegroup.setting == "15:b1"
+    assert asu.spacegroup.setting == "15:c1"
+    assert asu.transform.is_identity()
 
 
 def test_the_setting_is_found_even_when_the_file_declares_nothing(tmp_path: Path) -> None:
@@ -1169,7 +1170,7 @@ def test_autocorrect_compares_declared_letters_in_the_cif_setting(
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
         corrected = load(str(path), autocorrect=True)
 
-    assert [(site.wyckoff, site.species) for site in strict.wyckoff_sites] == [("j", "X")]
+    assert [(site.wyckoff, site.species) for site in strict.wyckoff_sites] == [("i", "X")]
     assert strict.setting().setting == "224:1"
     assert corrected == strict
     assert len(UnitcellStructureView(corrected).sites) == 24

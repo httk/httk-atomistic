@@ -2,10 +2,10 @@
 
 A crystal structure can be written in any setting of its space group — a different choice
 of axes, a different origin, or something that appears in no table at all. httk represents
-such a structure by holding its Wyckoff data in the International Tables **standard**
-setting and carrying a :class:`SettingTransform` that says how to get from there to the
-setting the structure is actually in. That pairing is what lets an arbitrary,
-non-tabulated setting be represented losslessly.
+tabulated settings are stored directly and need no transform during ordinary use. A
+:class:`SettingTransform` is used when an operation explicitly needs the International
+Tables **standard** setting, and to represent an arbitrary, non-tabulated setting
+losslessly against the standard tables.
 
 **Direction.** A :class:`SettingTransform` maps *standard* coordinates into the
 structure's *own* setting::

@@ -1,9 +1,8 @@
 """Express an asymmetric-unit structure in its IT standard-setting cell.
 
-The operation is exact after any optional recognition step. An ASU already carries the
-standard-setting Wyckoff data and the stored transform from that setting to its own cell,
-so the conventional cell is obtained by transforming the cell basis back and expanding a
-new identity-transform ASU.
+The operation is exact after any optional recognition step. A setting-local ASU is mapped
+to the standard Wyckoff table only here, because this operation explicitly requests the
+standard conventional cell. An untabulated ASU instead uses its stored exact transform.
 """
 
 import fractions
@@ -12,7 +11,7 @@ from dataclasses import dataclass
 from httk.core import unwrap
 
 from httk.atomistic.models.cell.cell import Cell
-from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
+from httk.atomistic.models.structure.asu import ASUStructure
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.semantics import initialize_semantics
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
@@ -126,7 +125,8 @@ def conventional_cell(
         raise ValueError(
             "conventional_cell does not yet support structures with site moments; keep the original setting"
         )
-    transform = asu.transform
+    transform = asu.transform_from_standard
+    standard, standard_sites = asu._standard_wyckoff_sites()
     basis_matrix = transform.matrix.T()
     coordinate_matrix = basis_matrix.inv()
     new_cell_precision = _scaled_precision(
@@ -142,20 +142,11 @@ def conventional_cell(
         precision=new_cell_precision,
         periodicity=asu.cell.periodicity,
     )
-    standard_sites = tuple(
-        WyckoffSite(
-            site.wyckoff,
-            site.free_params,
-            site.species,
-            None if site.representative is None else transform.to_standard(site.representative).normalize(),
-        )
-        for site in asu.wyckoff_sites
-    )
 
     def _standard_asu(charge: fractions.Fraction | None = None) -> ASUStructure:
         return ASUStructure(
             new_cell,
-            asu.spacegroup,
+            standard,
             standard_sites,
             asu.species,
             transform=SettingTransform.identity(),
@@ -219,7 +210,7 @@ def conventional_cell(
     return ConventionalCellResult(
         result_structure,
         standard_asu,
-        asu.spacegroup,
+        standard,
         transform,
         multiplier,
     )

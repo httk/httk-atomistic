@@ -150,9 +150,10 @@ class RecognizedProtostructure(ProtostructureBackend):
                 limit_denominator=self._limit_denominator,
             )
             self._validate_structure(asu)
+        standard, sites = asu._standard_wyckoff_sites()
         species_by_name = {species.name: species for species in asu.species}
-        occupations = tuple((site.wyckoff, species_by_name[site.species]) for site in asu.wyckoff_sites)
-        return Protostructure(asu.spacegroup, occupations)
+        occupations = tuple((site.wyckoff, species_by_name[site.species]) for site in sites)
+        return Protostructure(standard, occupations)
 
     def resolve(self) -> Protostructure:
         """Return the complete recognized protostructure."""

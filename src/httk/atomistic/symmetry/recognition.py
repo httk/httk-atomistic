@@ -190,8 +190,8 @@ def recognize_asu(
     if setting is not None:
         if standard is not None or transform is not None:
             raise TypeError("recognize_asu() takes either 'setting' or 'standard'/'transform', not both")
-        standard = setting.standard_setting()
-        transform = setting.transform_from_standard
+        standard = setting
+        transform = SettingTransform.identity()
     elif standard is not None or transform is not None:
         if standard is None or transform is None:
             raise TypeError("recognize_asu() needs both 'standard' and 'transform' when either is given")

@@ -5,12 +5,11 @@ plus the space group needed to regenerate the rest. Where a :class:`~httk.atomis
 lists every atom in the cell, this lists one representative per orbit as a Wyckoff letter
 and the values of that position's free parameters.
 
-**Any setting, including non-standard ones.** The Wyckoff data is always recorded against
-the International Tables *standard* setting, and a :class:`~httk.atomistic.SettingTransform`
-carries the change of basis from there to whatever setting the structure is actually in.
-A setting that appears in no table is representable just as well as a tabulated one: the
-transform is stored, not looked up. That pairing is what makes the representation lossless
-for arbitrary settings.
+**Any setting, including non-standard ones.** Wyckoff data is recorded directly against
+the tabulated setting it arrived in. No change of basis is done merely to store or expand
+it. A setting that appears in no table remains representable by recording the Wyckoff data
+against the standard setting together with an exact transform into the structure's own
+coordinates.
 
 **Expansion is exact and needs no tolerance.** Reduced coordinates, symmetry operations,
 Wyckoff parameters, and the setting transform are all exact rationals, and the vendored
@@ -57,7 +56,7 @@ class WyckoffSite:
     """Represent one symmetry-distinct site.
 
     ``wyckoff`` is a bare letter (``"e"``, not ``"4e"``) naming a position of the
-    **standard setting**, and ``free_params`` holds one exact value per degree of freedom
+    structure's stored setting, and ``free_params`` holds one exact value per degree of freedom
     of that position — none at all for a fixed position such as an inversion centre.
     ``species`` names one of the owning structure's species.
 
@@ -69,7 +68,7 @@ class WyckoffSite:
     Partial occupancy needs nothing special here: it lives in the referenced
     :class:`~httk.atomistic.Species`, which already carries a composition.
 
-    :param wyckoff: The Wyckoff letter in the standard setting.
+    :param wyckoff: The Wyckoff letter in the structure's stored setting.
     :param free_params: The free values for the Wyckoff position.
     :param species: The name of the owning structure's species.
     :param representative: An optional retained representative coordinate.
@@ -177,17 +176,17 @@ class _ValidatedASUProof:
 class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     """Represent a crystal structure by one exact site per symmetry orbit.
 
-    Holds the cell in the structure's own setting, the space group as its **standard**
-    setting, a transform from that standard setting to the structure's own, one
+    Holds the cell in the structure's own setting, the space-group setting that names its
+    Wyckoff data, an optional transform from that setting to the structure's own, one
     :class:`WyckoffSite` per symmetry-distinct site, and the species they name.
     On first expansion, a site whose orbit contributes no new points raises ``ValueError``
     because it duplicates an earlier site's orbit.
 
     :param cell: The cell in the structure's own setting.
-    :param spacegroup: The space group in its standard setting.
+    :param spacegroup: The setting that names the stored Wyckoff data.
     :param wyckoff_sites: The symmetry-distinct site definitions.
     :param species: The species referenced by the site definitions.
-    :param transform: The change of basis from standard to the structure's setting.
+    :param transform: The change of basis from the stored setting to the structure's setting.
     :param coordinate_precision: The precision recorded for the reduced coordinates.
     :param molecular: Whether the structure describes molecular entities.
     :param assemblies: Optional correlations among domain sites.
@@ -236,13 +235,12 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         self._cell = cell if isinstance(cell, Cell) else CellView(cell)
         require_full_periodicity(self._cell, "ASUStructure")
         self._spacegroup = spacegroup if isinstance(spacegroup, Spacegroup) else Spacegroup.standard(spacegroup)
-        if not self._spacegroup.is_standard_setting:
-            raise ValueError(
-                f"ASUStructure records Wyckoff data in the IT standard setting, but was given "
-                f"{self._spacegroup.setting}; pass Spacegroup.standard({self._spacegroup.it_number}) and "
-                f"express the difference as the transform instead"
-            )
         self._transform = SettingTransform.identity() if transform is None else transform
+        if not self._spacegroup.is_standard_setting and not self._transform.is_identity():
+            raise ValueError(
+                "a nonidentity ASUStructure transform is only valid when the stored Wyckoff "
+                "setting is the IT standard setting"
+            )
         self._coordinate_precision = to_precision(coordinate_precision)
         self._charge = None if charge is None else fractions.Fraction(charge)
         self._wyckoff_sites = tuple(wyckoff_sites)
@@ -336,13 +334,37 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
 
     @property
     def spacegroup(self) -> Spacegroup:
-        """Expose the space group in its standard setting."""
+        """Expose the setting that names the stored Wyckoff data."""
         return self._spacegroup
 
     @property
     def transform(self) -> SettingTransform:
-        """Expose the transform from standard to the structure's setting."""
+        """Expose the transform from the stored setting to the structure's setting."""
         return self._transform
+
+    @property
+    def transform_from_standard(self) -> SettingTransform:
+        """Return the exact transform from the IT standard setting to this structure."""
+        return self._transform if self._spacegroup.is_standard_setting else self._spacegroup.transform_from_standard
+
+    def _standard_wyckoff_sites(self) -> tuple[Spacegroup, tuple[WyckoffSite, ...]]:
+        """Return equivalent Wyckoff data in the IT standard setting, on demand."""
+        standard = self._spacegroup.standard_setting()
+        if self._spacegroup.is_standard_setting:
+            return standard, self._wyckoff_sites
+        transform = self._spacegroup.transform_from_standard
+        sites = []
+        for site in self._wyckoff_sites:
+            local = self._spacegroup.wyckoff_position(site.wyckoff).representative.coordinate(site.free_params)
+            identified = standard.identify_wyckoff(transform.to_standard(local).normalize())
+            if identified is None:
+                raise ValueError(f"cannot express Wyckoff site {site.wyckoff!r} in {standard.setting}")
+            position, parameters = identified
+            representative = (
+                None if site.representative is None else transform.to_standard(site.representative).normalize()
+            )
+            sites.append(WyckoffSite(position.letter, parameters, site.species, representative, site.moment))
+        return standard, tuple(sites)
 
     @property
     def wyckoff_sites(self) -> tuple[WyckoffSite, ...]:
@@ -397,6 +419,8 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
 
     def _representatives_for_site(self, site: WyckoffSite) -> tuple[FracVector, ...]:
         position = self._spacegroup.wyckoff_position(site.wyckoff)
+        if self._transform.is_identity():
+            return tuple(point.normalize() for point in position.coordinates(site.free_params))
         values: list[FracVector] = []
         for standard_point in position.coordinates(site.free_params):
             own_point = self._transform.to_setting(standard_point)
@@ -486,13 +510,17 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         setting = self.setting()
         if setting is None:
             return None
-        letters = wyckoff_letter_map(self._spacegroup, setting)
+        letters = (
+            {position.letter: position.letter for position in setting.wyckoff}
+            if setting == self._spacegroup
+            else wyckoff_letter_map(self._spacegroup, setting)
+        )
         return tuple(setting.wyckoff_position(letters[site.wyckoff]).letter for site in self._wyckoff_sites)
 
     @property
     def is_standard_setting(self) -> bool:
         """Expose whether the structure uses its space group's standard setting."""
-        return self._transform.is_identity()
+        return self._spacegroup.is_standard_setting and self._transform.is_identity()
 
     def setting(self) -> Spacegroup | None:
         """The tabulated setting this structure is written in, or ``None`` if untabulated.
@@ -502,9 +530,8 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
 
         A transform looked up from the tables remembers which setting it came from, but one
         that was constructed directly does not, so an equal transform is also matched
-        against the group's tabulated settings. An identity transform means the structure is
-        in the standard setting, which is of course tabulated — reporting it as nameless
-        would be simply wrong.
+        against the group's tabulated settings. An identity transform means the stored
+        tabulated setting is already the structure's own setting.
 
         :return: The matching tabulated setting, or ``None`` when untabulated.
         """
@@ -585,6 +612,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
 
         transform = self._transform
         cosets = transform.lattice_cosets()
+        identity = transform.is_identity()
 
         coordinates: list[tuple[fractions.Fraction, ...]] = []
         species_at_sites: list[str] = []
@@ -594,14 +622,15 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
 
         for site in self._wyckoff_sites:
             position = self._spacegroup.wyckoff_position(site.wyckoff)
-            # The tabulated orbit is the complete, already-deduplicated set of equivalent
-            # points in the standard setting, so the group's operations never need to be
-            # applied one by one here.
+            # The tabulated orbit is complete and already deduplicated, so the group's
+            # operations never need to be applied one by one here.
             generated: list[tuple[fractions.Fraction, ...]] = []
-            for standard_point in position.coordinates(site.free_params):
-                own_point = transform.to_setting(standard_point)
-                for coset in cosets:
-                    key = tuple((own_point + coset).normalize().to_fractions())
+            for stored_point in position.coordinates(site.free_params):
+                own_points = (
+                    (stored_point,) if identity else tuple(transform.to_setting(stored_point) + x for x in cosets)
+                )
+                for own_point in own_points:
+                    key = tuple(own_point.normalize().to_fractions())
                     previous = seen.get(key)
                     if previous is not None:
                         previous_name, previous_site = previous
@@ -631,12 +660,11 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     def expand_sites(self) -> Sites:
         """Every site of the unit cell, as exact reduced coordinates in this structure's setting.
 
-        The orbit of each asymmetric-unit site is generated in the standard setting, mapped
-        through the setting transform, wrapped into ``[0, 1)``, and deduplicated by exact
-        equality. Deduplication is not a formality: when the transform shrinks the cell — as
-        it does for the seven rhombohedral-axes settings, where ``det M == 3`` — the standard
-        setting's orbit is three times too large and the surplus points coincide exactly.
-        The opposite case, a transform onto a larger cell, is covered by
+        The orbit of each asymmetric-unit site is generated directly from its stored
+        setting's table, wrapped into ``[0, 1)``, and deduplicated by exact equality. Only an
+        untabulated setting uses the stored transform. Deduplication then also handles a
+        transform that shrinks the cell; the opposite case, a transform onto a larger cell,
+        is covered by
         :meth:`~httk.atomistic.SettingTransform.lattice_cosets`.
 
         :return: All unit-cell sites in the structure's exact setting.

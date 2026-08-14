@@ -1182,7 +1182,8 @@ def rerepresent(
     """
     if not isinstance(structure, ASUStructure):
         raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")
-    target_group = target if isinstance(target, Spacegroup) else Spacegroup.standard(target)
+    target_group = (target if isinstance(target, Spacegroup) else Spacegroup.standard(target)).standard_setting()
+    structure = _standard_input(structure)
     current_number = structure.spacegroup.it_number
     if target_group.it_number == current_number:
         return structure

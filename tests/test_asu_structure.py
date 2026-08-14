@@ -178,9 +178,18 @@ def test_a_volume_changing_transform_collapses_the_orbit_exactly() -> None:
         _species("Bi"),
         transform=rhombohedral.transform_from_standard,
     )
+    setting_local = ASUStructure(
+        HEXAGONAL,
+        rhombohedral,
+        [WyckoffSite("a", NO_PARAMETERS, "Bi")],
+        _species("Bi"),
+    )
 
     assert in_standard.multiplicities() == (Spacegroup.standard(166).wyckoff_position("a").multiplicity,)
     assert in_rhombohedral.multiplicities() == (rhombohedral.wyckoff_position("a").multiplicity,)
+    assert setting_local.multiplicities() == in_rhombohedral.multiplicities()
+    assert setting_local.expand_sites() == in_rhombohedral.expand_sites()
+    assert setting_local.transform.is_identity()
     assert in_standard.multiplicities() == (3,)
     assert in_rhombohedral.multiplicities() == (1,)
 
@@ -250,14 +259,19 @@ def test_asu_structure_rejects_inconsistent_input() -> None:
         ASUStructure(CUBIC, 225, [WyckoffSite("a", NO_PARAMETERS, "Na")], _species("Na") + _species("Na"))
 
 
-def test_asu_structure_requires_the_standard_setting() -> None:
-    """Wyckoff data is recorded against the standard setting; a difference is a transform."""
-    with pytest.raises(ValueError, match="standard setting"):
+def test_asu_structure_keeps_a_tabulated_setting_local() -> None:
+    local = Spacegroup.for_setting("15:c1")
+    asu = ASUStructure(CUBIC, local, [WyckoffSite("a", NO_PARAMETERS, "Na")], _species("Na"))
+
+    assert asu.spacegroup == local
+    assert asu.transform.is_identity()
+    with pytest.raises(ValueError, match="nonidentity"):
         ASUStructure(
             CUBIC,
-            Spacegroup.for_setting("15:c1"),
+            local,
             [WyckoffSite("a", NO_PARAMETERS, "Na")],
             _species("Na"),
+            transform=local.transform_from_standard,
         )
 
 

@@ -290,7 +290,8 @@ def _orbit_key(position: Any, parameters: Any) -> frozenset[tuple[Fraction, ...]
 
 def _standard_input(structure: ASUStructure) -> ASUStructure:
     """Normalize an ASU cell to its standard frame while retaining exact metadata."""
-    transform = structure.transform
+    transform = structure.transform_from_standard
+    standard, sites = structure._standard_wyckoff_sites()
     basis_matrix = transform.matrix.T()
     new_cell = Cell(
         transform.basis_to_standard(structure.cell.basis),
@@ -299,8 +300,8 @@ def _standard_input(structure: ASUStructure) -> ASUStructure:
     )
     return ASUStructure(
         new_cell,
-        structure.spacegroup,
-        tuple(WyckoffSite(site.wyckoff, site.free_params, site.species) for site in structure.wyckoff_sites),
+        standard,
+        tuple(WyckoffSite(site.wyckoff, site.free_params, site.species) for site in sites),
         structure.species,
         transform=SettingTransform.identity(),
         coordinate_precision=_scaled_precision(

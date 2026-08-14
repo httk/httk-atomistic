@@ -26,6 +26,7 @@ from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite, _ValidatedASUProof
+from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 from httk.atomistic.symmetry.symop_key import symop_key_v1
 from httk.atomistic.symmetry.xyz import operation_from_xyz
@@ -243,8 +244,8 @@ def asu_structure_from_cif(
             f"CIF block {_block_name(data)!r}: ignored declared symmetry {declared} and identified "
             f"setting {setting.setting!r} from its symmetry operations"
         )
-    standard = setting.standard_setting()
-    transform = setting.transform_from_standard
+    standard = setting
+    transform = SettingTransform.identity()
     cell = _cell_from_cif(data)
 
     derived_tolerance = tolerance is None
@@ -295,7 +296,7 @@ def asu_structure_from_cif(
                 charges=(charge,) if charge is not None else None,
             )
 
-        standard_point = transform.to_standard(coordinate).normalize()
+        standard_point = coordinate.normalize()
         uncertainty = _site_uncertainty(data, index, uncertainty_metric) if derived_tolerance else None
         declared_position, declaration, declaration_error, declared_positions = _declared_wyckoff_position(
             declared_wyckoff, declared_multiplicities, index, setting, standard
@@ -497,17 +498,22 @@ def _deduplicate_wyckoff_sites(
     """Remove redundant identical-species CIF orbits before building the ASU."""
     seen: dict[tuple[fractions.Fraction, ...], tuple[str, WyckoffSite]] = {}
     cosets = transform.lattice_cosets()
+    identity = transform.is_identity()
     canonical: list[WyckoffSite] = []
     coordinates: list[tuple[fractions.Fraction, ...]] = []
     species_at_sites: list[str] = []
     counts: list[int] = []
     for index, site in enumerate(sites):
         position = spacegroup.wyckoff_position(site.wyckoff)
-        keys = {
-            tuple((transform.to_setting(point) + coset).normalize().to_fractions())
-            for point in position.coordinates(site.free_params)
-            for coset in cosets
-        }
+        keys = (
+            {tuple(point.normalize().to_fractions()) for point in position.coordinates(site.free_params)}
+            if identity
+            else {
+                tuple((transform.to_setting(point) + coset).normalize().to_fractions())
+                for point in position.coordinates(site.free_params)
+                for coset in cosets
+            }
+        )
         overlaps: list[tuple[tuple[fractions.Fraction, ...], tuple[str, WyckoffSite]]] = []
         for key in keys:
             previous = seen.get(key)
@@ -578,6 +584,7 @@ def _has_rounded_orbit_overlap(
 
     letter, parameters = match
     position = spacegroup.wyckoff_position(letter)
+    identity = transform.is_identity()
     if position.multiplicity == 1 and len(transform.lattice_cosets()) == 1:
         return False
     if len(orbit_screen) < 2:
@@ -585,7 +592,15 @@ def _has_rounded_orbit_overlap(
     if include_coincident:
         assert expected_distinct is not None
         points = {
-            tuple((transform.to_setting(branch.coordinate(parameters)) + coset).normalize().to_fractions())
+            tuple(
+                (
+                    branch.coordinate(parameters)
+                    if identity
+                    else transform.to_setting(branch.coordinate(parameters)) + coset
+                )
+                .normalize()
+                .to_fractions()
+            )
             for _, branch, coset in orbit_screen
         }
         if len(points) < expected_distinct:
@@ -593,7 +608,7 @@ def _has_rounded_orbit_overlap(
 
     basis = cell.basis.to_floats()
     inverse = cell.basis.inv().to_floats()
-    offsets = tuple(product((-1, 0, 1), repeat=3))
+    offsets = tuple((first, second, third) for first, second, third in product((-1, 0, 1), repeat=3))
     coordinates = [item[0] for item in orbit_screen]
     slack = _float_screen_slack(
         [
@@ -604,9 +619,11 @@ def _has_rounded_orbit_overlap(
     )
     inverse_slack = _float_screen_slack([value for row in inverse for value in row])
     screen = None if slack is None or inverse_slack is None else abs(tolerance) + slack * 4
+    bins = (1, 1, 1)
     if screen is not None:
+        assert inverse_slack is not None
         try:
-            bins = tuple(
+            calculated_bins = tuple(
                 max(
                     1,
                     int(1 / (screen * (math.sqrt(sum(inverse[row][column] ** 2 for row in range(3))) + inverse_slack)))
@@ -614,12 +631,26 @@ def _has_rounded_orbit_overlap(
                 )
                 for column in range(3)
             )
+            bins = (calculated_bins[0], calculated_bins[1], calculated_bins[2])
         except (OverflowError, ValueError, ZeroDivisionError):
             screen = None
 
     def bucket(coordinate: tuple[float, float, float]) -> tuple[int, int, int]:
-        first, second, third = (min(count - 1, int(value * count)) for value, count in zip(coordinate, bins))
-        return (first, second, third)
+        return (
+            min(bins[0] - 1, int(coordinate[0] * bins[0])),
+            min(bins[1] - 1, int(coordinate[1] * bins[1])),
+            min(bins[2] - 1, int(coordinate[2] * bins[2])),
+        )
+
+    def neighbouring_bucket(
+        coordinate: tuple[float, float, float], offset: tuple[int, int, int]
+    ) -> tuple[int, int, int]:
+        current = bucket(coordinate)
+        return (
+            (current[0] + offset[0]) % bins[0],
+            (current[1] + offset[1]) % bins[1],
+            (current[2] + offset[2]) % bins[2],
+        )
 
     if screen is None:
         pairs = ((index, other) for index in range(len(orbit_screen)) for other in range(index + 1, len(orbit_screen)))
@@ -631,9 +662,7 @@ def _has_rounded_orbit_overlap(
             (index, other)
             for index, coordinate in enumerate(coordinates)
             for offset in offsets
-            for other in buckets.get(
-                tuple((value + delta) % count for value, delta, count in zip(bucket(coordinate), offset, bins)), []
-            )
+            for other in buckets.get(neighbouring_bucket(coordinate, offset), [])
             if other > index
         )
 
@@ -647,12 +676,13 @@ def _has_rounded_orbit_overlap(
             )
             if sum(value * value for value in cartesian) > screen * screen:
                 continue
-        first = (
-            transform.to_setting(orbit_screen[index][1].coordinate(parameters)) + orbit_screen[index][2]
-        ).normalize()
-        second = (
-            transform.to_setting(orbit_screen[other][1].coordinate(parameters)) + orbit_screen[other][2]
-        ).normalize()
+        first = orbit_screen[index][1].coordinate(parameters)
+        second = orbit_screen[other][1].coordinate(parameters)
+        if not identity:
+            first = transform.to_setting(first) + orbit_screen[index][2]
+            second = transform.to_setting(second) + orbit_screen[other][2]
+        first = first.normalize()
+        second = second.normalize()
         if first != second and _cartesian_distance_squared(first - second, cell) <= tolerance * tolerance:
             return True
     return False
@@ -697,6 +727,7 @@ def _declared_wyckoff_position(
     )
     positions = _setting_wyckoff_declarations(standard, setting)
     if label is None:
+        assert multiplicity is not None
         try:
             value = int(multiplicity)
         except ValueError:
@@ -717,20 +748,22 @@ def _declared_wyckoff_position(
         if by_letter is None:
             return None, declaration, f"unknown setting-local Wyckoff letter {label!r}", None
     try:
-        value = None if multiplicity is None else int(multiplicity)
+        declared_multiplicity = None if multiplicity is None else int(multiplicity)
     except ValueError:
         return None, declaration, f"invalid setting-local multiplicity {multiplicity!r}", None
     by_multiplicity = None
-    if value is not None:
-        matching = [position for _, position, multiplicity in positions if multiplicity == value]
+    if declared_multiplicity is not None:
+        matching_positions = [
+            position for _, position, multiplicity in positions if multiplicity == declared_multiplicity
+        ]
         if by_letter is not None:
-            if by_letter[1] != value:
+            if by_letter[1] != declared_multiplicity:
                 return None, declaration, "the declared letter and multiplicity identify different positions", None
             by_multiplicity = by_letter[0]
-        elif len(matching) != 1:
+        elif len(matching_positions) != 1:
             return None, declaration, f"ambiguous or unknown setting-local multiplicity {multiplicity!r}", None
         else:
-            by_multiplicity = matching[0]
+            by_multiplicity = matching_positions[0]
     if by_letter is not None and by_multiplicity is not None and by_letter[0] != by_multiplicity:
         return None, declaration, "the declared letter and multiplicity identify different positions", None
     return (None if by_letter is None else by_letter[0]) or by_multiplicity, declaration, None, None
@@ -747,6 +780,8 @@ def _site_declaration(values: Any, index: int) -> str | None:
 @cache
 def _setting_wyckoff_declarations(standard: Spacegroup, setting: Spacegroup) -> tuple[tuple[str, Any, int], ...]:
     """Cache setting-local declarations translated to standard Wyckoff positions."""
+    if standard == setting:
+        return tuple((position.letter, position, position.multiplicity) for position in setting.wyckoff)
     letters = wyckoff_letter_map(standard, setting)
     local_multiplicities = {position.letter: position.multiplicity for position in setting.wyckoff}
     return tuple(
@@ -961,9 +996,9 @@ def _declared_settings(data: Mapping[str, Any]) -> tuple[list[Mapping[str, Any]]
     hm = data.get("space_group_name_hm")
     if hm:
         written = str(hm).strip()
-        it_number = _hm_it_numbers().get(_normalized_hm(written))
-        if it_number is not None:
-            narrowed = [record for record in symmetry_data.spacegroup_settings() if record["it_number"] == it_number]
+        hm_number = _hm_it_numbers().get(_normalized_hm(written))
+        if hm_number is not None:
+            narrowed = [record for record in symmetry_data.spacegroup_settings() if record["it_number"] == hm_number]
             return narrowed, f"Hermann-Mauguin symbol {written!r}"
 
     return None, None
@@ -1157,21 +1192,31 @@ def _snap(
     """
     from httk.atomistic.symmetry.recognition import _cartesian_distance_squared
 
+    identity = transform.is_identity()
+
     def finish(letter: str, parameters: FracVector) -> tuple[str, FracVector]:
         if orbit_screen is not None:
             orbit_screen.clear()
             position = standard.wyckoff_position(letter)
             values = tuple(parameters.to_floats())
-            matrix = transform.matrix.to_floats()
-            vector = transform.vector.to_floats()
+            matrix = None if identity else transform.matrix.to_floats()
+            vector = None if identity else transform.vector.to_floats()
             cosets = tuple((coset, tuple(coset.to_floats())) for coset in transform.lattice_cosets())
-            common = [*values, *(value for row in matrix for value in row), *vector]
+            common = [
+                *values,
+                *(() if matrix is None else (value for row in matrix for value in row)),
+                *(() if vector is None else vector),
+            ]
             for branch in position.branches:
                 candidate = branch.coordinate_float(values)
-                own = tuple(
-                    sum(matrix[row][column] * candidate[column] for column in range(3)) + vector[row]
-                    for row in range(3)
-                )
+                if identity:
+                    own = candidate
+                else:
+                    assert matrix is not None and vector is not None
+                    own = tuple(
+                        sum(matrix[row][column] * candidate[column] for column in range(3)) + vector[row]
+                        for row in range(3)
+                    )
                 for coset, shift in cosets:
                     # Do not let a lossy large-coordinate modulo prune an exact orbit pair.
                     safe = _float_screen_slack([*common, *candidate, *own, *shift]) is not None
@@ -1208,14 +1253,14 @@ def _snap(
 
     limit = tolerance * tolerance
     standard_float: tuple[float, ...] | None = None
-    float_geometry: tuple[Any, tuple[float, ...], Any, tuple[float, ...]] | None = None
+    float_geometry: tuple[Any, tuple[float, ...], Any | None, tuple[float, ...] | None] | None = None
     screen_values: list[float] = []
     try:
         basis = cell.basis.to_floats()
         point = tuple(own_point.to_floats())
         standard_float = tuple(standard_point.to_floats())
-        matrix = transform.matrix.to_floats()
-        vector = transform.vector.to_floats()
+        matrix = None if identity else transform.matrix.to_floats()
+        vector = None if identity else transform.vector.to_floats()
     except OverflowError:
         screen = None
     else:
@@ -1223,8 +1268,8 @@ def _snap(
             *point,
             *standard_float,
             *(value for row in basis for value in row),
-            *(value for row in matrix for value in row),
-            *vector,
+            *(() if matrix is None else (value for row in matrix for value in row)),
+            *(() if vector is None else vector),
         ]
         float_geometry = basis, point, matrix, vector
         screen = None if _float_screen_slack(screen_values) is None else (tolerance * 2 + 1e-9) ** 2
@@ -1236,7 +1281,9 @@ def _snap(
             reject_large_uncertainty()
             for deferred_position, deferred_branch in deferred:
                 parameters = deferred_branch.nearest_parameters(standard_point)
-                candidate = transform.to_setting(deferred_branch.coordinate(parameters))
+                candidate = deferred_branch.coordinate(parameters)
+                if not identity:
+                    candidate = transform.to_setting(candidate)
                 if _cartesian_distance_squared(own_point - candidate, cell) <= limit:
                     return finish(deferred_position.letter, parameters)
             exact_first = False
@@ -1259,10 +1306,14 @@ def _snap(
             if screen is not None and projected is not None:
                 assert float_geometry is not None
                 basis, point, matrix, vector = float_geometry
-                own_candidate = tuple(
-                    sum(matrix[row][column] * projected[column] for column in range(3)) + vector[row]
-                    for row in range(3)
-                )
+                if identity:
+                    own_candidate = projected
+                else:
+                    assert matrix is not None and vector is not None
+                    own_candidate = tuple(
+                        sum(matrix[row][column] * projected[column] for column in range(3)) + vector[row]
+                        for row in range(3)
+                    )
                 if _float_screen_slack([*screen_values, *projected, *own_candidate]) is not None:
                     difference = tuple((first - second + 0.5) % 1 - 0.5 for first, second in zip(point, own_candidate))
                     cartesian = tuple(
@@ -1274,7 +1325,9 @@ def _snap(
                 deferred.append((position, branch))
                 continue
             parameters = branch.nearest_parameters(standard_point)
-            candidate = transform.to_setting(branch.coordinate(parameters))
+            candidate = branch.coordinate(parameters)
+            if not identity:
+                candidate = transform.to_setting(candidate)
             if _cartesian_distance_squared(own_point - candidate, cell) <= limit:
                 if not most_specific:
                     return finish(position.letter, parameters)
@@ -1284,7 +1337,9 @@ def _snap(
         reject_large_uncertainty()
         for position, branch in deferred:
             parameters = branch.nearest_parameters(standard_point)
-            candidate = transform.to_setting(branch.coordinate(parameters))
+            candidate = branch.coordinate(parameters)
+            if not identity:
+                candidate = transform.to_setting(candidate)
             if _cartesian_distance_squared(own_point - candidate, cell) <= limit:
                 return finish(position.letter, parameters)
     if not matches:
@@ -1303,10 +1358,17 @@ def _nearest_wyckoff_distance(
     """Return the exact nearest projected distance for a declaration diagnostic."""
     from httk.atomistic.symmetry.recognition import _cartesian_distance_squared
 
+    identity = transform.is_identity()
     return (
         min(
             _cartesian_distance_squared(
-                own_point - transform.to_setting(branch.coordinate(branch.nearest_parameters(standard_point))), cell
+                own_point
+                - (
+                    branch.coordinate(branch.nearest_parameters(standard_point))
+                    if identity
+                    else transform.to_setting(branch.coordinate(branch.nearest_parameters(standard_point)))
+                ),
+                cell,
             )
             for branch in position.branches
         )

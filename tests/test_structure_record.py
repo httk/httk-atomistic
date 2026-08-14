@@ -156,6 +156,7 @@ def _domain_record(
             WyckoffSiteRecord(**project_storage_record(WyckoffSiteRecord, site)) for site in source.domain_sites
         ),
         spacegroup_it_number=source.spacegroup.it_number,
+        spacegroup_hall_entry=source.spacegroup.hall_entry,
         setting_transform=SettingTransformRecord(**SettingTransformRecord.__httk_project__(source.transform)),
         coordinate_precision=source.coordinate_precision,
     )
@@ -299,6 +300,23 @@ def test_setting_transform_provenance_does_not_change_structure_identity(
     assert first == second
     assert first_record == second_record
     assert first.id == second.id == first_record.id == second_record.id
+
+
+def test_setting_local_asu_round_trips_without_a_change_of_basis() -> None:
+    local = Spacegroup.for_setting("15:c1")
+    source = ASUStructure(
+        [[4, 0, 0], [0, 5, 0], [0, 0, 6]],
+        local,
+        (WyckoffSite(local.wyckoff[-1].letter, FracVector(["1/7", "2/9", "3/11"]), "Na"),),
+        (_species()[0],),
+    )
+    record = _domain_record(source)
+    rebuilt = _domain_structure_from_record(record)
+
+    assert record.spacegroup_hall_entry == local.hall_entry
+    assert rebuilt == source
+    assert rebuilt.spacegroup == local
+    assert rebuilt.transform.is_identity()
 
 
 @pytest.mark.parametrize("bulk", (False, True))
@@ -479,7 +497,13 @@ def test_native_root_schemas_are_distinct_and_not_tagged() -> None:
     domain_fields = {item.name for item in fields(FundamentalDomainStructureRecord)}
     asu_fields = {item.name for item in fields(ASUStructureRecord)}
     assert {"cell", "sites", "species_at_sites"} <= unit_fields
-    assert {"cell", "domain_sites", "spacegroup_it_number", "setting_transform"} <= domain_fields
+    assert {
+        "cell",
+        "domain_sites",
+        "spacegroup_it_number",
+        "spacegroup_hall_entry",
+        "setting_transform",
+    } <= domain_fields
     assert domain_fields == asu_fields
     assert "representation" not in unit_fields | domain_fields | asu_fields
     assert "sites" not in domain_fields

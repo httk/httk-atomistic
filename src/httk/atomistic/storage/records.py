@@ -494,13 +494,13 @@ class WyckoffSiteRecord:
 
 @dataclass(frozen=True)
 class SettingTransformRecord:
-    """Represent an exact standard-to-own setting transform.
+    """Represent an exact stored-setting-to-own transform.
 
     Hand-built records are shape-checked on construction and semantically validated at the
     storage boundary or explicitly through the validation hook.
 
-    :param matrix: The standard-to-own fractional coordinate matrix.
-    :param vector: The standard-to-own fractional origin shift.
+    :param matrix: The stored-setting-to-own fractional coordinate matrix.
+    :param vector: The stored-setting-to-own fractional origin shift.
     :param hall_entry: The normalized Hall entry, if known.
     """
 
@@ -1172,7 +1172,8 @@ class FundamentalDomainStructureRecord:
     :param domain_sites: The symmetry-distinct durable site records.
     :param species: The distinct durable species records.
     :param spacegroup_it_number: The International Tables space-group number.
-    :param setting_transform: The standard-to-own setting transform.
+    :param spacegroup_hall_entry: The setting that names the stored Wyckoff data.
+    :param setting_transform: The stored-setting-to-own transform.
     :param coordinate_precision: The reduced-coordinate precision, if stated.
     :param normalized_composition: The authoritative normalized composition.
     :param charge: The explicitly assigned cell charge, if stated.
@@ -1187,10 +1188,11 @@ class FundamentalDomainStructureRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_fundamental_domain_structure_v2",
-        identity_name="atomistic_fundamental_domain_structure_v2",
+        storage_name="atomistic_fundamental_domain_structure_v3",
+        identity_name="atomistic_fundamental_domain_structure_v3",
         indexes=(
             ("spacegroup_it_number",),
+            ("spacegroup_hall_entry",),
             ("immutable_id",),
             ("last_modified",),
             ("optimization_type",),
@@ -1202,6 +1204,7 @@ class FundamentalDomainStructureRecord:
     domain_sites: tuple[WyckoffSiteRecord, ...]
     species: tuple[SpeciesRecord, ...]
     spacegroup_it_number: int
+    spacegroup_hall_entry: str
     setting_transform: SettingTransformRecord
     coordinate_precision: fractions.Fraction | None
     normalized_composition: NormalizedCompositionRecord
@@ -1248,6 +1251,8 @@ class FundamentalDomainStructureRecord:
             raise TypeError("FundamentalDomainStructureRecord spacegroup_it_number must be an integer")
         if not 1 <= self.spacegroup_it_number <= 230:
             raise ValueError("FundamentalDomainStructureRecord spacegroup_it_number must be in [1, 230]")
+        if not isinstance(self.spacegroup_hall_entry, str):
+            raise TypeError("FundamentalDomainStructureRecord spacegroup_hall_entry must be a string")
         if not isinstance(self.setting_transform, SettingTransformRecord):
             raise TypeError("FundamentalDomainStructureRecord setting_transform must be a SettingTransformRecord")
         coordinate_precision = to_precision(self.coordinate_precision)
@@ -1270,6 +1275,7 @@ class FundamentalDomainStructureRecord:
             {
                 "domain_sites": structure.domain_sites,
                 "spacegroup_it_number": structure.spacegroup.it_number,
+                "spacegroup_hall_entry": structure.spacegroup.hall_entry,
                 "setting_transform": structure.transform,
                 "coordinate_precision": structure.coordinate_precision,
             }
@@ -1286,10 +1292,11 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_asu_structure_v2",
-        identity_name="atomistic_asu_structure_v2",
+        storage_name="atomistic_asu_structure_v3",
+        identity_name="atomistic_asu_structure_v3",
         indexes=(
             ("spacegroup_it_number",),
+            ("spacegroup_hall_entry",),
             ("immutable_id",),
             ("last_modified",),
             ("optimization_type",),
@@ -1411,9 +1418,12 @@ def _domain_structure_from_record(
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     structure_type = ASUStructure if isinstance(record, ASUStructureRecord) else FundamentalDomainStructure
+    spacegroup = Spacegroup.for_hall_entry(record.spacegroup_hall_entry)
+    if spacegroup.it_number != record.spacegroup_it_number:
+        raise ValueError("stored space-group Hall entry contradicts its International Tables number")
     return structure_type(
         _cell_from_record(record.cell),
-        Spacegroup.standard(record.spacegroup_it_number),
+        spacegroup,
         tuple(
             WyckoffSite(
                 value.wyckoff,

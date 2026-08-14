@@ -6,9 +6,10 @@ settings, and they are genuinely different coordinate systems: Wyckoff letter ``
 ``Spacegroup`` exposes — its symmetry operations, its Wyckoff table — is expressed in its
 own setting's coordinates.
 
-:class:`~httk.atomistic.ASUStructure` holds its Wyckoff data against the IT **standard**
-setting, obtained from :meth:`Spacegroup.standard`, and reaches any other setting through
-a :class:`~httk.atomistic.SettingTransform`.
+:class:`~httk.atomistic.ASUStructure` normally holds its Wyckoff data directly against the
+tabulated setting it uses. Conversion through :class:`~httk.atomistic.SettingTransform` is
+reserved for operations that explicitly require the IT standard setting, or for an own
+setting that is not tabulated.
 """
 
 from collections.abc import Mapping
