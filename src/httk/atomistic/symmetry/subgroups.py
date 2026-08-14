@@ -290,6 +290,10 @@ def _orbit_key(position: Any, parameters: Any) -> frozenset[tuple[Fraction, ...]
 
 def _standard_input(structure: ASUStructure) -> ASUStructure:
     """Normalize an ASU cell to its standard frame while retaining exact metadata."""
+    # Already in the IT standard setting with an identity transform: the rebuild below is a pure
+    # copy (identity basis, precision factor 1, own spacegroup/sites), so return the input unchanged.
+    if structure.spacegroup.is_standard_setting and structure.transform_from_standard.is_identity():
+        return structure
     transform = structure.transform_from_standard
     standard, sites = structure._standard_wyckoff_sites()
     basis_matrix = transform.matrix.T()

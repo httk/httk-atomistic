@@ -57,7 +57,7 @@ def test_anonymous_view_is_canonical_lazy_and_preserves_formula() -> None:
     assert view.unwrap() is structure
 
 
-def test_anonymization_rejects_unsupported_structure_features_at_construction() -> None:
+def test_anonymization_rejects_unsupported_structure_features_on_first_derivation() -> None:
     cases = [
         (Species("mixed", ("Na", "Cl"), (Fraction(1, 2), Fraction(1, 2))), "single real element"),
         (Species("unknown", ("X",), (1,)), "single real element"),
@@ -66,8 +66,9 @@ def test_anonymization_rejects_unsupported_structure_features_at_construction() 
     ]
     for species, message in cases:
         structure = UnitcellStructure(CELL, [[0, 0, 0]], (species,), (species.name,))
+        view = AnonymousStructureView(structure)
         with pytest.raises(ValueError, match=message):
-            AnonymousStructureView(structure)
+            _ = view.species
 
 
 def test_anonymous_structures_are_not_structure_like() -> None:
@@ -76,15 +77,17 @@ def test_anonymous_structures_are_not_structure_like() -> None:
         UnitcellStructureView(value)
 
 
-def test_anonymization_rejects_unused_species_and_contradictory_kind() -> None:
+def test_anonymization_rejects_unused_species_on_derivation_and_contradictory_kind() -> None:
     structure = UnitcellStructure(
         CELL,
         [[0, 0, 0]],
         (Species("Na1", ("Na",), (1,)), Species("Na2", ("Na",), (1,))),
         ("Na1",),
     )
+    view = AnonymousStructureView(structure)
     with pytest.raises(ValueError, match="Na2"):
-        AnonymousStructureView(structure)
+        _ = view.species
+    # A contradictory ``kind`` is a dispatch error and still surfaces at construction.
     with pytest.raises(TypeError):
         AnonymousStructureView(structure, kind="bogus")
 

@@ -1178,7 +1178,9 @@ def rerepresent(
     :param target: The target space group or IT number.
     :param tolerance: Cartesian acceptance tolerance for upward lifts.
     :return: The target-group asymmetric unit.
-    :raises ValueError: If the target is unrelated or an upward hop has no lift.
+    :raises ValueError: If the target is unrelated, an upward hop has no lift, or a cross-group
+        rerepresentation requires descending or lifting a structure with site moments, assemblies,
+        or molecular semantics.
     """
     if not isinstance(structure, ASUStructure):
         raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")
