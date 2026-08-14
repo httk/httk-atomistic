@@ -60,6 +60,83 @@ def _float_screen_slack(values: Sequence[float]) -> float | None:
     return _FLOAT_SCREEN_ULPS * magnitude * math.ulp(magnitude)
 
 
+type _GeneralPositionScreen = tuple[tuple[tuple[int, int, int], float, float], ...]
+
+
+@cache
+def _special_position_constraints(standard: Spacegroup) -> tuple[tuple[tuple[int, int, int], float], ...]:
+    """Return the distinct affine relations obeyed by the group's special branches."""
+    result: set[tuple[tuple[int, int, int], fractions.Fraction]] = set()
+    for position in standard.wyckoff:
+        if position.free_count == 3:
+            continue
+        for branch in position.branches:
+            rows = branch._unimodular.to_fractions()
+            vector = branch.operation.vector.to_fractions()
+            for row in range(len(branch.free), 3):
+                coefficients = (int(rows[row][0]), int(rows[row][1]), int(rows[row][2]))
+                constant = (
+                    sum(
+                        (fractions.Fraction(coefficient) * value for coefficient, value in zip(coefficients, vector)),
+                        start=fractions.Fraction(),
+                    )
+                    % 1
+                )
+                if next(value for value in coefficients if value) < 0:
+                    coefficients = (-coefficients[0], -coefficients[1], -coefficients[2])
+                    constant = (-constant) % 1
+                result.add((coefficients, constant))
+    return tuple((coefficients, float(constant)) for coefficients, constant in sorted(result))
+
+
+def _general_position_screen(
+    standard: Spacegroup, cell: Cell, transform: Any, tolerance: float
+) -> _GeneralPositionScreen | None:
+    """Build conservative affine-relation bounds that can certify a general position."""
+    try:
+        # B_standard = M.T * B_own, hence B_standard^-1 = B_own^-1 * M^-T.
+        # Multiplying in this order also preserves exact SurdVector cell bases.
+        inverse = cell.basis.inv() * transform.matrix.inv().T()
+        # If a Cartesian displacement has length at most t, each reduced component is
+        # bounded by t times the L1 norm of the corresponding inverse-basis column.
+        # Doubling that exact coefficient after float conversion keeps this a rejection
+        # screen rather than a numerical decision boundary.
+        inverse_float = inverse.to_floats()
+        component_bounds = tuple(2 * sum(abs(inverse_float[row][column]) for row in range(3)) for column in range(3))
+    except (ArithmeticError, OverflowError, TypeError, ValueError):
+        return None
+    scale = abs(tolerance) + 1e-9
+    constraints = _special_position_constraints(standard)
+    values = [scale, *component_bounds, *(constant for _, constant in constraints)]
+    slack = _float_screen_slack(values)
+    if slack is None:
+        return None
+    return tuple(
+        (
+            coefficients,
+            constant,
+            scale * sum(abs(coefficient) * component_bounds[index] for index, coefficient in enumerate(coefficients))
+            + slack,
+        )
+        for coefficients, constant in constraints
+    )
+
+
+def _definitely_general(standard_point: FracVector, screen: _GeneralPositionScreen) -> bool:
+    """Return whether every affine relation for every special branch is out of range."""
+    try:
+        point = tuple(standard_point.to_floats())
+    except OverflowError:
+        return False
+    if _float_screen_slack([*point, *(constant for _, constant, _ in screen)]) is None:
+        return False
+    return all(
+        abs((sum(coefficient * value for coefficient, value in zip(coefficients, point)) - constant + 0.5) % 1 - 0.5)
+        > limit
+        for coefficients, constant, limit in screen
+    )
+
+
 def asu_structures_from_cif(
     payload: Mapping[str, Any], *, autocorrect: bool = False, **options: Any
 ) -> list[ASUStructure]:
@@ -169,6 +246,7 @@ def asu_structure_from_cif(
         # tolerance depends on the precision and the cell, not on how many atoms there are.
         tolerance = _tolerance_from_cif(data, cell)
     assert tolerance is not None
+    general_screen = _general_position_screen(standard, cell, transform, tolerance)
     uncertainty_metric = None
     if derived_tolerance:
         metric = cell.metric()
@@ -218,7 +296,6 @@ def asu_structure_from_cif(
             [] if declaration is not None or autocorrect else None
         )
         ignored_declaration: tuple[str, str] | None = None
-        exact_match = None if declaration is not None else _exact_wyckoff_match(standard, standard_point)
         if declaration is not None and declared_position is not None:
             match = _snap(
                 standard,
@@ -228,7 +305,6 @@ def asu_structure_from_cif(
                 transform,
                 tolerance,
                 uncertainty=uncertainty,
-                exact_match=None,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 positions=(declared_position,),
                 orbit_screen=orbit_screen,
@@ -275,7 +351,6 @@ def asu_structure_from_cif(
                 transform,
                 tolerance,
                 uncertainty=uncertainty,
-                exact_match=None,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 positions=declared_positions,
                 orbit_screen=orbit_screen,
@@ -293,7 +368,6 @@ def asu_structure_from_cif(
             assert declaration is not None  # an error always describes a present declaration
             ignored_declaration = declaration, declaration_error
             declaration = None
-            exact_match = _exact_wyckoff_match(standard, standard_point)
             match = _snap(
                 standard,
                 standard_point,
@@ -302,9 +376,9 @@ def asu_structure_from_cif(
                 transform,
                 tolerance,
                 uncertainty=uncertainty,
-                exact_match=exact_match,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 orbit_screen=orbit_screen,
+                general_screen=general_screen,
             )
         elif declaration is None:
             match = _snap(
@@ -315,9 +389,9 @@ def asu_structure_from_cif(
                 transform,
                 tolerance,
                 uncertainty=uncertainty,
-                exact_match=exact_match,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 orbit_screen=orbit_screen,
+                general_screen=general_screen,
             )
         if autocorrect and declaration is None and match is not None:
             assert orbit_screen is not None
@@ -364,7 +438,13 @@ def asu_structure_from_cif(
         if limit_denominator is not None and parameters.dim not in ((), (0,)):
             parameters = FracVector([value.limit_denominator(limit_denominator) for value in parameters.to_fractions()])
         wyckoff_sites.append(WyckoffSite(letter, parameters, name, coordinate.normalize()))
-        if exact_match is None and uncertainty is not None and uncertainty[0] >= CIF_POSITIONAL_UNCERTAINTY_WARNING**2:
+        matched_position = standard.wyckoff_position(match[0])
+        exact_special = (
+            declaration is None
+            and matched_position.free_count != 3
+            and matched_position.parameters_of(standard_point) is not None
+        )
+        if not exact_special and uncertainty is not None and uncertainty[0] >= CIF_POSITIONAL_UNCERTAINTY_WARNING**2:
             warning_uncertainties.append(uncertainty[0])
 
     if warning_uncertainties:
@@ -759,28 +839,6 @@ def _declared_symmetry(data: Mapping[str, Any]) -> str | None:
     return None
 
 
-def _exact_wyckoff_match(standard: Spacegroup, standard_point: FracVector) -> tuple[str, FracVector] | None:
-    """Return an exact special-position match after a floating-point zero-distance screen.
-
-    The screen can only nominate candidates: ``parameters_of`` remains the exact decision.
-    Every coordinate is reduced into one unit cell and the affine maps have tiny integer
-    coefficients, so ``1e-13`` is deliberately far above double-rounding noise while far
-    below any CIF precision that can affect a tolerant match.
-    """
-    point = tuple(standard_point.to_floats())
-    for position in standard.wyckoff:
-        if position.free_count == 3:
-            continue
-        for branch in position.branches:
-            candidate = branch.coordinate_float(branch.nearest_parameters_float(point))
-            if any(abs((first - second + 0.5) % 1.0 - 0.5) > 1e-13 for first, second in zip(point, candidate)):
-                continue
-            parameters = branch.parameters_of(standard_point)
-            if parameters is not None:
-                return position.letter, parameters
-    return None
-
-
 def cif_setting(data: Mapping[str, Any], *, trust_declared_symmetry: bool = True) -> Spacegroup:
     """The space-group setting a CIF block is written in.
 
@@ -1077,11 +1135,11 @@ def _snap(
     tolerance: float,
     *,
     uncertainty: tuple[Any, str] | None = None,
-    exact_match: tuple[str, FracVector] | None = None,
     allow_large_cif_uncertainty: bool = False,
     most_specific: bool = False,
     positions: Sequence[Any] | None = None,
     orbit_screen: list[tuple[tuple[float, float, float], Any, FracVector]] | None = None,
+    general_screen: _GeneralPositionScreen | None = None,
 ) -> tuple[str, FracVector] | None:
     """The most specific Wyckoff position within ``tolerance``, and its free parameters.
 
@@ -1120,17 +1178,30 @@ def _snap(
                     )
         return letter, parameters
 
-    if exact_match is not None and positions is None and not most_specific:
-        return finish(*exact_match)
+    exact_first = positions is None and not most_specific
 
-    if uncertainty is not None:
-        projected, token = uncertainty
-        if projected >= CIF_POSITIONAL_UNCERTAINTY_ERROR**2 and not allow_large_cif_uncertainty:
-            raise ValueError(
-                f"CIF coordinate token {token!r} implies a projected positional uncertainty of "
-                f"{math.sqrt(projected.to_float()):.6g} Å; pass allow_large_cif_uncertainty=True to override"
-            )
+    def reject_large_uncertainty() -> None:
+        if uncertainty is not None:
+            projected, token = uncertainty
+            if projected >= CIF_POSITIONAL_UNCERTAINTY_ERROR**2 and not allow_large_cif_uncertainty:
+                raise ValueError(
+                    f"CIF coordinate token {token!r} implies a projected positional uncertainty of "
+                    f"{math.sqrt(projected.to_float()):.6g} Å; pass allow_large_cif_uncertainty=True to override"
+                )
+
+    if not exact_first:
+        reject_large_uncertainty()
+    elif general_screen is not None and _definitely_general(standard_point, general_screen):
+        reject_large_uncertainty()
+        general = standard.wyckoff[-1]
+        parameters = general.representative.parameters_of(standard_point)
+        assert general.free_count == 3 and parameters is not None
+        return finish(general.letter, parameters)
+
     limit = tolerance * tolerance
+    standard_float: tuple[float, ...] | None = None
+    float_geometry: tuple[Any, tuple[float, ...], Any, tuple[float, ...]] | None = None
+    screen_values: list[float] = []
     try:
         basis = cell.basis.to_floats()
         point = tuple(own_point.to_floats())
@@ -1139,7 +1210,6 @@ def _snap(
         vector = transform.vector.to_floats()
     except OverflowError:
         screen = None
-        screen_values: list[float] = []
     else:
         screen_values = [
             *point,
@@ -1148,27 +1218,52 @@ def _snap(
             *(value for row in matrix for value in row),
             *vector,
         ]
+        float_geometry = basis, point, matrix, vector
         screen = None if _float_screen_slack(screen_values) is None else (tolerance * 2 + 1e-9) ** 2
     candidates = standard.wyckoff if positions is None else positions
-
-    def screened(branch: Any) -> bool:
-        if screen is None:
-            return True
-        parameters = branch.nearest_parameters_float(standard_float)
-        candidate = branch.coordinate_float(parameters)
-        own_candidate = tuple(
-            sum(matrix[row][column] * candidate[column] for column in range(3)) + vector[row] for row in range(3)
-        )
-        if _float_screen_slack([*screen_values, *candidate, *own_candidate]) is None:
-            return True
-        difference = tuple((first - second + 0.5) % 1 - 0.5 for first, second in zip(point, own_candidate))
-        cartesian = tuple(sum(difference[row] * basis[row][column] for row in range(3)) for column in range(3))
-        return sum(value * value for value in cartesian) <= screen
-
+    deferred: list[tuple[Any, Any]] = []
     matches: list[tuple[int, str, FracVector]] = []
     for position in candidates:
+        if exact_first and position.free_count == 3:
+            reject_large_uncertainty()
+            for deferred_position, deferred_branch in deferred:
+                parameters = deferred_branch.nearest_parameters(standard_point)
+                candidate = transform.to_setting(deferred_branch.coordinate(parameters))
+                if _cartesian_distance_squared(own_point - candidate, cell) <= limit:
+                    return finish(deferred_position.letter, parameters)
+            exact_first = False
         for branch in position.branches:
-            if not screened(branch):
+            projection = (
+                None
+                if standard_float is None or (not exact_first and screen is None)
+                else branch.nearest_parameters_float(standard_float)
+            )
+            projected = None if projection is None else branch.coordinate_float(projection)
+            exact_candidate = projected is None
+            if standard_float is not None and projected is not None:
+                exact_candidate = _float_screen_slack([*standard_float, *projected]) is None or all(
+                    abs((first - second + 0.5) % 1.0 - 0.5) <= 1e-13 for first, second in zip(standard_float, projected)
+                )
+            if exact_first and position.free_count != 3 and exact_candidate:
+                parameters = branch.parameters_of(standard_point)
+                if parameters is not None:
+                    return finish(position.letter, parameters)
+            if screen is not None and projected is not None:
+                assert float_geometry is not None
+                basis, point, matrix, vector = float_geometry
+                own_candidate = tuple(
+                    sum(matrix[row][column] * projected[column] for column in range(3)) + vector[row]
+                    for row in range(3)
+                )
+                if _float_screen_slack([*screen_values, *projected, *own_candidate]) is not None:
+                    difference = tuple((first - second + 0.5) % 1 - 0.5 for first, second in zip(point, own_candidate))
+                    cartesian = tuple(
+                        sum(difference[row] * basis[row][column] for row in range(3)) for column in range(3)
+                    )
+                    if sum(value * value for value in cartesian) > screen:
+                        continue
+            if exact_first:
+                deferred.append((position, branch))
                 continue
             parameters = branch.nearest_parameters(standard_point)
             candidate = transform.to_setting(branch.coordinate(parameters))
@@ -1177,6 +1272,13 @@ def _snap(
                     return finish(position.letter, parameters)
                 matches.append((position.free_count, position.letter, parameters))
                 break
+    if exact_first:
+        reject_large_uncertainty()
+        for position, branch in deferred:
+            parameters = branch.nearest_parameters(standard_point)
+            candidate = transform.to_setting(branch.coordinate(parameters))
+            if _cartesian_distance_squared(own_point - candidate, cell) <= limit:
+                return finish(position.letter, parameters)
     if not matches:
         return None
     _, letter, parameters = min(matches, key=lambda match: match[0])

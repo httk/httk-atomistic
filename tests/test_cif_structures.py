@@ -29,6 +29,8 @@ from httk.atomistic import (
 )
 from httk.atomistic.cif_structures import (
     _cell_from_cif,
+    _definitely_general,
+    _general_position_screen,
     _has_rounded_orbit_overlap,
     _hm_it_numbers,
     _normalized_hm,
@@ -40,6 +42,7 @@ from httk.atomistic.cif_structures import (
 )
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure, WyckoffSite, _ValidatedASUProof
+from httk.atomistic.symmetry.wyckoff import WyckoffBranch
 
 F = fractions.Fraction
 
@@ -142,6 +145,43 @@ def test_strict_undeclared_cif_does_not_build_orbit_screen(tmp_path: Path, monke
 
     assert screens
     assert all(screen is None for screen in screens)
+
+
+def test_generic_cif_matching_skips_wyckoff_branches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = _write_cif(
+        tmp_path / "generic.cif",
+        "2",
+        (1, 1, 1, 90, 90, 90),
+        [("X1", "X", ("0.142857", "0.285714", "0.428571"), "1")],
+        declare_number=False,
+    )
+    calls: dict[int, int] = {}
+    original = WyckoffBranch.nearest_parameters_float
+
+    def counted(self: WyckoffBranch, coordinate: tuple[float, ...]) -> tuple[float, ...]:
+        calls[id(self)] = calls.get(id(self), 0) + 1
+        return original(self, coordinate)
+
+    monkeypatch.setattr(WyckoffBranch, "nearest_parameters_float", counted)
+    asu_structure_from_cif(load(str(path), raw=True)["blocks"][0], tolerance=1e-6)
+
+    assert calls == {}
+
+
+@pytest.mark.parametrize(
+    ("number", "point"),
+    [(99, (F(1, 7), F(1, 7), F(2, 7))), (149, (F(1, 7), F(6, 7), F(2, 7)))],
+)
+def test_general_screen_keeps_equal_and_opposite_coordinate_positions(
+    number: int, point: tuple[fractions.Fraction, ...]
+) -> None:
+    standard = Spacegroup.standard(number)
+    screen = _general_position_screen(
+        standard, Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), SettingTransform.identity(), 1e-8
+    )
+
+    assert screen is not None
+    assert not _definitely_general(FracVector(point), screen)
 
 
 def test_cif_proof_reuses_deduplicated_orbits_for_representatives(
@@ -1004,6 +1044,15 @@ def test_zero_tolerance_float_screen_keeps_exact_matches(setting: str) -> None:
         position.letter,
         parameters,
     )
+
+
+def test_exact_special_position_beats_an_earlier_nearby_position() -> None:
+    spacegroup = Spacegroup.standard(149)
+    parameters = FracVector([F(49, 100)])
+    point = spacegroup.wyckoff_position("h").representative.coordinate(parameters)
+    cell = Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+
+    assert _snap(spacegroup, point, point, cell, spacegroup.transform_from_standard, 0.02) == ("h", parameters)
 
 
 def test_unwrapped_large_coordinate_falls_through_the_float_screen(tmp_path: Path) -> None:
