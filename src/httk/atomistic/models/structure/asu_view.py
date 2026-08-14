@@ -62,7 +62,7 @@ class _ASUResolverBackend(StructureBackend):
 
 
 class ASUStructureView(StructureView, ASUStructure):
-    r"""Present an underlying structure backend as a lazy :class:`ASUStructure`.
+    r"""Present an underlying structure backend as a lazy :class:`~httk.atomistic.ASUStructure`.
 
     Resolver-backed and non-native sources are retained without recognition until the first
     asymmetric-unit access. The view then publishes the complete validated ASU state on itself,
@@ -77,7 +77,7 @@ class ASUStructureView(StructureView, ASUStructure):
     :param tolerance: The Cartesian recognition tolerance.
     :param immutable_id: The optional immutable source identifier override.
     :param last_modified: The optional source modification timestamp override.
-    :param **hints: Backend-selection and reader hints.
+    :param \**hints: Backend-selection and reader hints.
     """
 
     _backend: StructureBackend

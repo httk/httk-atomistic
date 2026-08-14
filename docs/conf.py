@@ -147,6 +147,9 @@ nitpick_ignore = [
     # module qualification; the concrete record remains documented in the
     # storage records module.
     ("py:class", "NormalizedCompositionRecord"),
+    # AutoAPI renders the private validated-proof annotation in public constructor
+    # signatures; the class is deliberately undocumented.
+    ("py:class", "_ValidatedASUProof"),
 ]
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True
