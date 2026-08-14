@@ -26,6 +26,7 @@ from httk.atomistic import (
     asu_structure_from_cif,
     asu_structures_from_cif,
     cif_setting,
+    data,
 )
 from httk.atomistic.cif_structures import (
     _cell_from_cif,
@@ -170,18 +171,43 @@ def test_generic_cif_matching_skips_wyckoff_branches(tmp_path: Path, monkeypatch
 
 @pytest.mark.parametrize(
     ("number", "point"),
-    [(99, (F(1, 7), F(1, 7), F(2, 7))), (149, (F(1, 7), F(6, 7), F(2, 7)))],
+    [(99, (F(1, 7), F(1, 7), F(2, 7))), (149, (F(1, 7), F(6, 7), F(0)))],
 )
 def test_general_screen_keeps_equal_and_opposite_coordinate_positions(
     number: int, point: tuple[fractions.Fraction, ...]
 ) -> None:
     standard = Spacegroup.standard(number)
-    screen = _general_position_screen(
-        standard, Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), SettingTransform.identity(), 1e-8
-    )
+    screen = _general_position_screen(standard, Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), 1e-8)
 
     assert screen is not None
     assert not _definitely_general(FracVector(point), screen)
+
+
+@pytest.mark.parametrize(("setting_name", "letter"), [("15:c1", "e"), ("166:R", "c"), ("224:1", "e")])
+def test_general_screen_uses_setting_local_wyckoff_rules(setting_name: str, letter: str) -> None:
+    setting = Spacegroup.for_setting(setting_name)
+    position = setting.wyckoff_position(letter)
+    point = position.representative.coordinate([F(1, 7)] * position.free_count)
+    screen = _general_position_screen(setting, Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), 1e-8)
+
+    assert screen is not None
+    assert not _definitely_general(point, screen)
+
+
+@pytest.mark.extended
+def test_general_screen_keeps_every_tabulated_setting_special_branch() -> None:
+    cell = Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    parameters = (F(1, 7), F(2, 11), F(3, 13))
+    for record in data.spacegroup_settings():
+        setting = Spacegroup(record)
+        screen = _general_position_screen(setting, cell, 1e-8)
+        assert screen is not None
+        for position in setting.wyckoff:
+            if position.free_count == 3:
+                continue
+            for branch in position.branches:
+                point = branch.coordinate(parameters[: position.free_count]).normalize()
+                assert not _definitely_general(point, screen), (setting.setting, position.letter, branch.operation)
 
 
 def test_cif_proof_reuses_deduplicated_orbits_for_representatives(

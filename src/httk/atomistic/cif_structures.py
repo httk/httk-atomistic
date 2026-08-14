@@ -60,19 +60,21 @@ def _float_screen_slack(values: Sequence[float]) -> float | None:
     return _FLOAT_SCREEN_ULPS * magnitude * math.ulp(magnitude)
 
 
-type _GeneralPositionScreen = tuple[tuple[tuple[int, int, int], float, float], ...]
+type _SpecialPositionRule = tuple[tuple[tuple[int, int, int], float], ...]
+type _GeneralPositionScreen = tuple[tuple[tuple[tuple[int, int, int], float, float], ...], ...]
 
 
 @cache
-def _special_position_constraints(standard: Spacegroup) -> tuple[tuple[tuple[int, int, int], float], ...]:
-    """Return the distinct affine relations obeyed by the group's special branches."""
-    result: set[tuple[tuple[int, int, int], fractions.Fraction]] = set()
-    for position in standard.wyckoff:
+def _setting_special_position_rules(setting: Spacegroup) -> tuple[_SpecialPositionRule, ...]:
+    """Return each special branch's affine relations in this setting's coordinates."""
+    result: set[_SpecialPositionRule] = set()
+    for position in setting.wyckoff:
         if position.free_count == 3:
             continue
         for branch in position.branches:
             rows = branch._unimodular.to_fractions()
             vector = branch.operation.vector.to_fractions()
+            rule = []
             for row in range(len(branch.free), 3):
                 coefficients = (int(rows[row][0]), int(rows[row][1]), int(rows[row][2]))
                 constant = (
@@ -85,18 +87,15 @@ def _special_position_constraints(standard: Spacegroup) -> tuple[tuple[tuple[int
                 if next(value for value in coefficients if value) < 0:
                     coefficients = (-coefficients[0], -coefficients[1], -coefficients[2])
                     constant = (-constant) % 1
-                result.add((coefficients, constant))
-    return tuple((coefficients, float(constant)) for coefficients, constant in sorted(result))
+                rule.append((coefficients, float(constant)))
+            result.add(tuple(rule))
+    return tuple(sorted(result))
 
 
-def _general_position_screen(
-    standard: Spacegroup, cell: Cell, transform: Any, tolerance: float
-) -> _GeneralPositionScreen | None:
-    """Build conservative affine-relation bounds that can certify a general position."""
+def _general_position_screen(setting: Spacegroup, cell: Cell, tolerance: float) -> _GeneralPositionScreen | None:
+    """Build setting-local affine-relation bounds that can certify a general position."""
     try:
-        # B_standard = M.T * B_own, hence B_standard^-1 = B_own^-1 * M^-T.
-        # Multiplying in this order also preserves exact SurdVector cell bases.
-        inverse = cell.basis.inv() * transform.matrix.inv().T()
+        inverse = cell.basis.inv()
         # If a Cartesian displacement has length at most t, each reduced component is
         # bounded by t times the L1 norm of the corresponding inverse-basis column.
         # Doubling that exact coefficient after float conversion keeps this a rejection
@@ -106,34 +105,43 @@ def _general_position_screen(
     except (ArithmeticError, OverflowError, TypeError, ValueError):
         return None
     scale = abs(tolerance) + 1e-9
-    constraints = _special_position_constraints(standard)
-    values = [scale, *component_bounds, *(constant for _, constant in constraints)]
+    rules = _setting_special_position_rules(setting)
+    values = [scale, *component_bounds, *(constant for rule in rules for _, constant in rule)]
     slack = _float_screen_slack(values)
     if slack is None:
         return None
     return tuple(
-        (
-            coefficients,
-            constant,
-            scale * sum(abs(coefficient) * component_bounds[index] for index, coefficient in enumerate(coefficients))
-            + slack,
+        tuple(
+            (
+                coefficients,
+                constant,
+                scale
+                * sum(abs(coefficient) * component_bounds[index] for index, coefficient in enumerate(coefficients))
+                + slack,
+            )
+            for coefficients, constant in rule
         )
-        for coefficients, constant in constraints
+        for rule in rules
     )
 
 
-def _definitely_general(standard_point: FracVector, screen: _GeneralPositionScreen) -> bool:
-    """Return whether every affine relation for every special branch is out of range."""
+def _definitely_general(own_point: FracVector, screen: _GeneralPositionScreen) -> bool:
+    """Return whether every special branch violates at least one required relation."""
     try:
-        point = tuple(standard_point.to_floats())
+        point = tuple(own_point.to_floats())
     except OverflowError:
         return False
-    if _float_screen_slack([*point, *(constant for _, constant, _ in screen)]) is None:
+    if _float_screen_slack([*point, *(constant for rule in screen for _, constant, _ in rule)]) is None:
         return False
     return all(
-        abs((sum(coefficient * value for coefficient, value in zip(coefficients, point)) - constant + 0.5) % 1 - 0.5)
-        > limit
-        for coefficients, constant, limit in screen
+        any(
+            abs(
+                (sum(coefficient * value for coefficient, value in zip(coefficients, point)) - constant + 0.5) % 1 - 0.5
+            )
+            > limit
+            for coefficients, constant, limit in rule
+        )
+        for rule in screen
     )
 
 
@@ -246,7 +254,7 @@ def asu_structure_from_cif(
         # tolerance depends on the precision and the cell, not on how many atoms there are.
         tolerance = _tolerance_from_cif(data, cell)
     assert tolerance is not None
-    general_screen = _general_position_screen(standard, cell, transform, tolerance)
+    general_screen = _general_position_screen(setting, cell, tolerance)
     uncertainty_metric = None
     if derived_tolerance:
         metric = cell.metric()
@@ -1191,7 +1199,7 @@ def _snap(
 
     if not exact_first:
         reject_large_uncertainty()
-    elif general_screen is not None and _definitely_general(standard_point, general_screen):
+    elif general_screen is not None and _definitely_general(own_point, general_screen):
         reject_large_uncertainty()
         general = standard.wyckoff[-1]
         parameters = general.representative.parameters_of(standard_point)
