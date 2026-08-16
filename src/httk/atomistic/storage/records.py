@@ -56,6 +56,21 @@ __all__ = [
 ]
 
 
+def _effective_record_type(value: Any) -> type:
+    """Return a value's storable record type, unwrapping a lazy store-row subclass.
+
+    A record fetched from a store may be a lazy row proxy whose ``type()`` is a
+    generated subclass; the record author's exact-type checks compare against the
+    base record. ``__httk_row_base__`` (set on the row subclass by the store)
+    names that base; a plain record has no such attribute and reports its own
+    type.
+
+    :param value: The value whose effective record type is wanted.
+    :return: The base record type for a proxy, otherwise ``type(value)``.
+    """
+    return cast(type, getattr(type(value), "__httk_row_base__", type(value)))
+
+
 def _extract_surd_scalar(vector: SurdVector, index: tuple[int, int]) -> SurdScalar:
     """Extract one exact scalar through SurdVector's public coefficient API."""
     components = {radicand: vector.coefficient(radicand)[index].to_fraction() for radicand in vector.radicands}
@@ -212,7 +227,9 @@ class SpeciesRecord:
         if not isinstance(self.name, str):
             raise TypeError("SpeciesRecord name must be a string")
         constituents = tuple(self.constituents)
-        if not constituents or not all(type(value) is SpeciesConstituentRecord for value in constituents):
+        if not constituents or not all(
+            _effective_record_type(value) is SpeciesConstituentRecord for value in constituents
+        ):
             raise TypeError("SpeciesRecord constituents must contain SpeciesConstituentRecord values")
         object.__setattr__(self, "constituents", constituents)
         if self.original_name is not None and not isinstance(self.original_name, str):
@@ -384,7 +401,7 @@ class AssemblyRecord:
 
     def __post_init__(self) -> None:
         groups = tuple(self.groups)
-        if not all(type(group) is AssemblyGroupRecord for group in groups):
+        if not all(_effective_record_type(group) is AssemblyGroupRecord for group in groups):
             raise TypeError("AssemblyRecord groups must contain AssemblyGroupRecord values")
         probabilities = tuple(
             as_fraction(value, field="AssemblyRecord group probability")[0] for value in self.group_probabilities
@@ -1477,7 +1494,11 @@ def validate_structure_record(
     :raises TypeError: If ``record`` is not an exact supported root record.
     :raises ValueError: If the record's normalized composition contradicts its native fields.
     """
-    if type(record) not in (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord):
+    if _effective_record_type(record) not in (
+        UnitcellStructureRecord,
+        FundamentalDomainStructureRecord,
+        ASUStructureRecord,
+    ):
         raise TypeError("validate_structure_record expects an exact root structure record")
     _validate_normalized_composition(record)
 
@@ -1625,7 +1646,7 @@ class TrajectoryRecord:
         if not isinstance(self.nframes, int) or isinstance(self.nframes, bool) or self.nframes < 1:
             raise ValueError("TrajectoryRecord nframes must be a positive integer")
         species = tuple(self.species)
-        if not species or not all(type(value) is SpeciesRecord for value in species):
+        if not species or not all(_effective_record_type(value) is SpeciesRecord for value in species):
             raise TypeError("TrajectoryRecord species must contain SpeciesRecord values")
         if len({value.name for value in species}) != len(species):
             raise ValueError("TrajectoryRecord species names must be unique")
@@ -1642,10 +1663,12 @@ class TrajectoryRecord:
             raise ValueError("TrajectoryRecord reference_frame_indexes contains an out-of-bounds index")
         if indexes != tuple(sorted(set(indexes))):
             raise ValueError("TrajectoryRecord reference_frame_indexes must be sorted and deduplicated")
-        if len(indexes) != len(structures) or not all(type(value) is UnitcellStructureRecord for value in structures):
+        if len(indexes) != len(structures) or not all(
+            _effective_record_type(value) is UnitcellStructureRecord for value in structures
+        ):
             raise TypeError("TrajectoryRecord reference frames must match UnitcellStructureRecord values")
         summaries = tuple(self.observable_summaries)
-        if not all(type(value) is ObservableSummaryRecord for value in summaries):
+        if not all(_effective_record_type(value) is ObservableSummaryRecord for value in summaries):
             raise TypeError("TrajectoryRecord observable_summaries must contain ObservableSummaryRecord values")
         if len({value.name for value in summaries}) != len(summaries):
             raise ValueError("TrajectoryRecord observable summary names must be unique")

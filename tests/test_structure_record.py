@@ -2,7 +2,7 @@
 
 import datetime
 import math
-from dataclasses import fields
+from dataclasses import fields, replace
 from fractions import Fraction
 from pathlib import Path
 
@@ -278,10 +278,44 @@ def test_sql_store_round_trips_site_moments() -> None:
     source = _unitcell(site_moments=CartesianSiteMoments([[1, 2, 3], [-1, 0, 1]], precision=Fraction(1, 100)))
     with Database.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
-        fetched = store.fetch(UnitcellStructureRecord, store.save(source))
+        # Asserted after the in-memory database is disposed, so materialize now.
+        fetched = store.fetch(UnitcellStructureRecord, store.save(source), eager=True)
 
     assert _structure_from_record(fetched).site_moments == source.site_moments
     assert fetched.site_moments_precision == Fraction(1, 100)
+
+
+def test_lazy_fetch_replace_save_recomposes_with_proxy_children() -> None:
+    pytest.importorskip("sqlalchemy")
+    from httk.store.db import Database, SqlStore
+    from httk.store.db.rows import is_lazy_row
+
+    with Database.sqlite() as database:
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        sid = store.save(_unitcell_record(_unitcell(optimization_type="local")))
+        fetched = store.fetch(UnitcellStructureRecord, sid)
+        assert is_lazy_row(fetched)
+        assert fetched.species and all(is_lazy_row(value) for value in fetched.species)
+
+        # The recomposition workflow itself: the top-level __post_init__ uses
+        # isinstance (proxy-tolerant) and save skips __httk_validate__ for a row
+        # subclass (type(source) is record_type gates it), so this flow alone
+        # does NOT touch a relaxed exact-type check. optimization_type is part of
+        # content identity, so the recomposed record stores as a new row.
+        recomposed = replace(fetched, optimization_type="global")
+        new_sid = store.save(recomposed)
+        assert new_sid != sid
+        assert store.fetch(UnitcellStructureRecord, new_sid, eager=True).optimization_type == "global"
+
+        # These two DO exercise the exact-type relaxation over proxy children:
+        # replace() on a SpeciesRecord proxy re-runs its __post_init__, whose
+        # constituents check would reject the SpeciesConstituentRecord proxies
+        # under the old strict `type(value) is ...`.
+        renamed_species = replace(fetched.species[0], original_name="renamed")
+        assert renamed_species.original_name == "renamed"
+        # validate_structure_record over the lazy root proxy: the old strict
+        # `type(record) not in (...)` would reject the row subclass.
+        validate_structure_record(fetched)
 
 
 @pytest.mark.parametrize(
@@ -338,7 +372,8 @@ def test_strict_store_scopes_same_affine_transform_hall_metadata(bulk: bool) -> 
             sids = tuple(ingest.resolved_sid(ASUStructureRecord, sid) for sid in provisional)
         else:
             sids = tuple(store.save(source) for source in sources)
-        records = tuple(store.fetch(ASUStructureRecord, sid) for sid in sids)
+        # Asserted after the in-memory database is disposed, so materialize now.
+        records = tuple(store.fetch(ASUStructureRecord, sid, eager=True) for sid in sids)
 
     assert tuple(record.setting_transform.hall_entry for record in records) == ("p_1", "-p_1")
 
