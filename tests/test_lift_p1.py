@@ -312,6 +312,9 @@ def test_p1_cscl_canonicalizes_to_cubic() -> None:
     # The deterministic min-key canonical origin places the alphabetically-smaller species (Cl) on
     # 1a; "Cs on 1a" is the same crystal at the (1/2,1/2,1/2)-shifted origin.
     assert _site_key(result.asu) == (("Cl", "a", ()), ("Cs", "b", ()))
+    # Idempotency: canonicalizing the canonical result reproduces it exactly (F4 -- the orientation
+    # rebuild must not perturb the exact metric).
+    assert _result_key(canonicalize(result.asu, tolerance=1e-3)) == _result_key(result)
 
 
 @pytest.mark.extended
@@ -409,3 +412,168 @@ def test_cscl_p1_invariance_battery() -> None:
     assert reference[0] == 221 and reference[1] == (("Cl", "a", ()), ("Cs", "b", ()))
     for name, structure in variants.items():
         assert _result_key(canonicalize(structure, tolerance=1e-3)) == reference, name
+
+
+# --- phase 3 review fixes: chirality, orbit representative, centred lattices, exact orientation ---
+
+
+def _signed_volume(structure: ASUStructure) -> float:
+    """Min-image signed volume of the inter-species vectors (its sign is the crystal's chirality)."""
+    ordered = sorted(structure.wyckoff_sites, key=lambda site: site.species)
+    points = [
+        FracVector(structure.spacegroup.wyckoff_position(site.wyckoff).coordinates(site.free_params)[0]).normalize()
+        for site in ordered
+    ]
+    basis = structure.cell.basis
+
+    def cartesian(fractional: FracVector) -> list[float]:
+        return (SurdVector(fractional) * basis).to_floats()
+
+    def minimum_image(vector: FracVector) -> FracVector:
+        return FracVector([value - round(float(value)) for value in vector.to_fractions()])
+
+    a, b, c = (cartesian(minimum_image(points[index] - points[0])) for index in (1, 2, 3))
+    return a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])
+
+
+def _canonical_without_bfs(structure: ASUStructure) -> ASUStructure:
+    """The production canonical representative minus the breadth-first lift search.
+
+    For a generic structure whose highest symmetry is its own group this equals ``canonicalize`` --
+    it lets the chiral, multi-site invariance battery run fast without the slow failed-lift attempts.
+    """
+    current = _standard_input(structure)
+    if current.spacegroup.it_number in (1, 2):
+        current = lift_module._niggli_reduced_entry(current)
+    return lift_module._canonical_orientation(lift_module._normal_form(current))
+
+
+def _chiral_sites() -> list[WyckoffSite]:
+    return [
+        WyckoffSite("a", FracVector((F(1, 7), F(2, 11), F(3, 13))), "Fe"),
+        WyckoffSite("a", FracVector((F(5, 7), F(3, 11), F(1, 13))), "Co"),
+        WyckoffSite("a", FracVector((F(2, 7), F(9, 11), F(5, 13))), "Ni"),
+        WyckoffSite("a", FracVector((F(4, 7), F(6, 11), F(11, 13))), "Cu"),
+    ]
+
+
+def test_discrete_translations_cover_centred_lattices() -> None:
+    quarter = (F(1, 4), F(1, 4), F(1, 4))
+    # F-43m gains the (1/4,1/4,1/4) translation relating its 4a/4b/4c/4d origins (the Z^3 criterion
+    # drops it).
+    assert quarter in lift_module._discrete_normalizer_translations(Spacegroup.standard(216))
+    # All seven centred-lattice groups gain the quarter-translations the too-strict criterion missed.
+    for number in (22, 82, 119, 120, 196, 216, 219):
+        translations = lift_module._discrete_normalizer_translations(Spacegroup.standard(number))
+        assert any(value.denominator == 4 for vector in translations for value in vector), number
+
+
+def test_zincblende_entries_are_coherent() -> None:
+    cell = Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5)))
+    zn_ac = ASUStructure(
+        cell, 216, [WyckoffSite("a", FracVector(()), "Zn"), WyckoffSite("c", FracVector(()), "S")], _species("Zn", "S")
+    )
+    zn_cb = ASUStructure(
+        cell, 216, [WyckoffSite("c", FracVector(()), "Zn"), WyckoffSite("b", FracVector(()), "S")], _species("Zn", "S")
+    )
+    # (1/4,1/4,1/4) relates the two origin descriptions of the same zincblende crystal.
+    assert _result_key(canonicalize(zn_ac, tolerance=1e-3)) == _result_key(canonicalize(zn_cb, tolerance=1e-3))
+
+
+def test_normal_form_is_orbit_representative_invariant() -> None:
+    cell = Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7)))
+    at_x = ASUStructure(cell, 2, [WyckoffSite("i", FracVector((F(6, 7), F(9, 11), F(10, 13))), "Si")], _species("Si"))
+    at_minus_x = ASUStructure(cell, 2, [WyckoffSite("i", FracVector((F(1, 7), F(2, 11), F(3, 13))), "Si")], _species("Si"))
+    first = lift_module._normal_form(at_x)
+    second = lift_module._normal_form(at_minus_x)
+    # x and -x are the same orbit under inversion: identical key and identical stored free params.
+    assert _site_key(first) == _site_key(second)
+    assert first.wyckoff_sites[0].free_params.to_fractions() == second.wyckoff_sites[0].free_params.to_fractions()
+
+
+def test_canonical_orientation_preserves_chirality() -> None:
+    structure = ASUStructure(Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7))), 1, _chiral_sites(), _species("Fe", "Co", "Ni", "Cu"))
+    canonical = _canonical_without_bfs(structure)
+    # The canonical representative is right-handed and keeps the input's chirality: no enantiomorph.
+    assert canonical.cell.basis.det().sign() == 1
+    assert (_signed_volume(structure) > 0) == (_signed_volume(canonical) > 0)
+    # A det<0 basis is still repaired to a right-handed one with identical Cartesian geometry.
+    left_handed = ASUStructure(
+        Cell(((-5, 0, 0), (0, 6, 0), (0, 0, 7))), 1, _chiral_sites(), _species("Fe", "Co", "Ni", "Cu")
+    )
+    repaired = lift_module._canonical_orientation(left_handed)
+    assert repaired.cell.basis.det().sign() == 1
+    assert (_signed_volume(left_handed) > 0) == (_signed_volume(repaired) > 0)
+
+
+def test_canonical_orientation_keeps_the_gram_exact() -> None:
+    # Rational lengths but an angle with no exact fraction: CellParams cannot reproduce the Gram, so
+    # the lift orientation is kept rather than introducing a ~1e-10 drift.
+    structure = ASUStructure(
+        Cell(((3, 0, 4), (0, 6, 0), (0, 0, 13))), 3, [WyckoffSite("a", FracVector([F(1, 3)]), "Si")], _species("Si")
+    )
+    assert lift_module._canonical_orientation(structure).cell.metric() == structure.cell.metric()
+
+
+def test_left_handed_enantiomorphic_cell_is_handled_gracefully() -> None:
+    # SG 144 (P3_1) is enantiomorphic: the -I re-expression conjugates to P3_2 and is rejected, so
+    # the exact left-handed cell must be kept (N1) rather than the assert firing or -O silently
+    # producing the enantiomorph.  A single 3-fold orbit is coplanar, so the frame handedness
+    # (det sign) is the chirality statement here.
+    left_handed = Cell(SurdVector(((1, 0, 0), (0, 1, 0), (0, 0, -1))) * CellParams((5, 5, 12, 90, 90, 120)).basis)
+    assert left_handed.basis.det().sign() < 0
+    structure = ASUStructure(
+        left_handed, 144, [WyckoffSite("a", FracVector((F(1, 7), F(2, 11), F(3, 13))), "Si")], _species("Si")
+    )
+    first = _canonical_without_bfs(structure)
+    second = _canonical_without_bfs(structure)
+    assert first.spacegroup.it_number == 144
+    assert first.cell.basis.det().sign() < 0  # chirality preserved, no enantiomorph
+    assert _site_key(first) == _site_key(second) and first.cell.basis == second.cell.basis  # deterministic
+
+
+def test_chiral_multi_species_invariance_battery() -> None:
+    """Chiral four-species invariance via the production path minus the BFS.
+
+    The variants are compared through ``_canonical_without_bfs`` (Niggli entry + normal form +
+    canonical orientation), which equals ``canonicalize`` for a symmetryless crystal whose highest
+    symmetry is its own group.  Full ``canonicalize`` on this four-site P1 input does not complete
+    within ~5 minutes (its failed-lift BFS is the slow part, not the canonical form), so the full
+    end-to-end equivalence is not asserted here; multi-species full-``canonicalize`` coherence is
+    covered by the fast zincblende test above.
+    """
+    # Chiral, four-species content in a rational-length cell.  Variants exercise the origin- and
+    # orbit-representative-choice invariance that the F1/F2 fixes provide, and chirality preservation.
+    # Axis-relabel/shear are NOT included here: for a symmetryless crystal they additionally expose
+    # the lattice-holohedry orientation choice (a 2_y-equivalent Niggli cell), which is outside the
+    # four review defects; basis-choice invariance for symmetric crystals is covered by the Po/CsCl
+    # batteries above.
+    cell = ((5, 0, 0), (0, 6, 0), (0, 0, 7))
+    base_sites = _chiral_sites()
+    species = ["Fe", "Co", "Ni", "Cu"]
+    base = ASUStructure(Cell(cell), 1, base_sites, _species(*species))
+
+    def key(structure: ASUStructure) -> tuple[Any, ...]:
+        return (structure.spacegroup.it_number, _site_key(structure), structure.cell.basis)
+
+    reference_key = key(_canonical_without_bfs(base))
+
+    translated = list(base_sites)
+    translated[0] = WyckoffSite("a", FracVector((F(1, 7) + 1, F(2, 11), F(3, 13) - 1)), "Fe")
+    variants = {
+        "base": base,
+        "origin_shift": ASUStructure(
+            Cell(cell),
+            1,
+            [WyckoffSite(s.wyckoff, _wrapped_shift(s.free_params.to_fractions(), (F(1, 5), F(1, 7), F(1, 3))), s.species) for s in base_sites],
+            _species(*species),
+        ),
+        "lattice_translate": ASUStructure(Cell(cell), 1, translated, _species(*species)),
+    }
+    for name, structure in variants.items():
+        canonical = _canonical_without_bfs(structure)
+        # (a) every same-crystal description yields the identical canonical representative (full key,
+        # including the exact cell basis).
+        assert key(canonical) == reference_key, name
+        # (b) chirality is preserved: the canonical signed volume keeps the input's sign.
+        assert (_signed_volume(structure) > 0) == (_signed_volume(canonical) > 0), name
