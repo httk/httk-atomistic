@@ -932,12 +932,15 @@ def _solve_with_fixed_shift(
     return None if solved is None else solved[0] + coefficients
 
 
-def _canonical_result_key(result: LiftResult) -> tuple[Any, ...]:
-    sites = tuple(
-        sorted(
-            (site.species, site.wyckoff, tuple(site.free_params.to_fractions())) for site in result.asu.wyckoff_sites
-        )
+def _site_key(structure: ASUStructure) -> tuple[tuple[str, str, tuple[Fraction, ...]], ...]:
+    """Return the exact translation-invariant sorted-site key of one ASU."""
+    return tuple(
+        sorted((site.species, site.wyckoff, tuple(site.free_params.to_fractions())) for site in structure.wyckoff_sites)
     )
+
+
+def _canonical_result_key(result: LiftResult) -> tuple[Any, ...]:
+    sites = _site_key(result.asu)
     path_key = tuple((transform.index, transform.subgroup_type) for transform in result.path)
     metric = result.asu.cell.metric()
     gram = tuple(metric._element((row, column)) for row in range(3) for column in range(3))
@@ -1151,6 +1154,118 @@ def _apply_normalizer_operation(structure: ASUStructure, operation: AffineOperat
         return None
 
 
+def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
+    """Return the origin-canonical image under the group's continuous-normalizer translations.
+
+    The continuous normalizer basis spans the directions along which the whole structure may be
+    translated while staying a valid same-group description.  Candidate origins are, for every
+    expanded orbit point of every site, the pure translation that cancels that point's components
+    along the continuous directions; the least exact sorted-site key wins, and the identity
+    translation is always a candidate so the result never regresses.  Pure translations leave the
+    cell unchanged, so the site key alone is a sound comparison.
+    """
+    shift_basis = _shift_basis(structure)
+    if not shift_basis:
+        return structure
+    # Every tabulated continuous-normalizer vector is an axis-aligned unit vector, so the continuous
+    # directions are simply the axes those vectors point along.
+    axes = sorted({index for vector in shift_basis for index in range(3) if vector[index]})
+    identity = FracVector.eye((3, 3))
+    candidates: set[tuple[Fraction, ...]] = {(Fraction(0), Fraction(0), Fraction(0))}
+    for site in structure.wyckoff_sites:
+        position = structure.spacegroup.wyckoff_position(site.wyckoff)
+        for point in position.coordinates(site.free_params):
+            values = FracVector(point).normalize().to_fractions()
+            translation = [Fraction(0), Fraction(0), Fraction(0)]
+            for index in axes:
+                translation[index] = (-values[index]) % 1
+            candidates.add(tuple(translation))
+    best = structure
+    best_key = _site_key(structure)
+    for translation in sorted(candidates):
+        if not any(translation):
+            continue
+        image = _apply_normalizer_operation(structure, AffineOperation(identity, FracVector(translation)))
+        if image is None:
+            continue
+        key = _site_key(image)
+        if key < best_key:
+            best, best_key = image, key
+    return best
+
+
+def _demote_sites(structure: ASUStructure) -> ASUStructure:
+    """Re-label any site whose expanded orbit degenerates onto a more-special Wyckoff position.
+
+    A lift can leave an atom on a special coordinate while still carrying a general (or less
+    special) Wyckoff letter; its expanded orbit then contains coincident points.  Re-identifying the
+    representative coordinate through the exact Wyckoff machinery demotes it to its true most-special
+    letter and free params, so equal crystals carry equal site keys.
+    """
+    demoted: list[WyckoffSite] = []
+    changed = False
+    for site in structure.wyckoff_sites:
+        position = structure.spacegroup.wyckoff_position(site.wyckoff)
+        points = [FracVector(point).normalize() for point in position.coordinates(site.free_params)]
+        if len({tuple(point.to_fractions()) for point in points}) == len(points):
+            demoted.append(site)
+            continue
+        match = structure.spacegroup.identify_wyckoff(points[0])
+        if match is None:
+            demoted.append(site)
+            continue
+        letter_position, parameters = match
+        demoted.append(WyckoffSite(letter_position.letter, parameters, site.species))
+        changed = True
+    if not changed:
+        return structure
+    try:
+        return ASUStructure(
+            structure.cell,
+            structure.spacegroup,
+            demoted,
+            structure.species,
+            transform=SettingTransform.identity(),
+            coordinate_precision=structure.coordinate_precision,
+            charge=structure.charge,
+        )
+    except ValueError:
+        return structure
+
+
+def _normal_form(structure: ASUStructure) -> ASUStructure:
+    """Return a deterministic canonical representative of one state within its own space group.
+
+    Sites mislabeled onto a special coordinate are demoted first, then two quotients are collapsed:
+    the continuous-normalizer translation quotient (origin choice) and the tabulated
+    affine-normalizer coset quotient.  Images under the group's normalizer describe the same crystal
+    in the same group and lift equivalently, so collapsing them cannot lose any reachable terminal.
+    Coset filtering on the group's own crystal system keeps only operations that preserve this
+    cell's metric, so the sorted-site key remains a sound comparison across images; the least such
+    key wins, ties broken by tabulated coset order.
+    """
+    structure = _demote_sites(structure)
+    best = _translation_normal_form(structure)
+    best_key = _site_key(best)
+    try:
+        record = data.affine_normalizer_coset_record(structure.spacegroup.hall_entry)
+    except KeyError:
+        return best
+    system = structure.spacegroup.crystal_system
+    for coset in record.get("affine_normalizer_cosets", ()):
+        if system not in coset["compatible_systems"]:
+            continue
+        image = _apply_normalizer(structure, coset)
+        if image is None:
+            continue
+        # A coset can change which origin is canonical, so re-run the translation quotient.
+        reduced = _translation_normal_form(image)
+        key = _site_key(reduced)
+        if key < best_key:
+            best, best_key = reduced, key
+    return best
+
+
 def _normalizer_retries(structure: ASUStructure, target: Spacegroup, tolerance: float) -> tuple[LiftResult, ...]:
     try:
         record = data.affine_normalizer_coset_record(structure.spacegroup.hall_entry)
@@ -1268,7 +1383,11 @@ def _highest_lifts(structure: ASUStructure, tolerance: float) -> tuple[LiftResul
         indices = {transform: index for index, transform in enumerate(transforms)}
         target = Spacegroup.standard(parent_number)
         try:
-            candidates = _raw_lifts(structure, target, tolerance) + _normalizer_retries(structure, target, tolerance)
+            raw = _raw_lifts(structure, target, tolerance)
+            # The state normal form now collapses the origin/normalizer-equivalent variants that
+            # unconditional retries used to contribute, so only fall back to retries when the direct
+            # lift found nothing for this parent (backward_lift keeps unconditional retries).
+            candidates = raw if raw else _normalizer_retries(structure, target, tolerance)
         except ValueError as error:
             if "branch cap exceeded" not in str(error):
                 raise
@@ -1318,8 +1437,12 @@ def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None)
     :return: Deterministically ordered highest-symmetry representations.
     :raises ValueError: If the input is unsupported or the search cap is exceeded.
 
-    A bounded normalizer retry applies tabulated cosets to child fractional coordinates and maps
-    successful results back with the exact inverse, in tabulated coset order.
+    Each search state is reduced to its normalizer-canonical normal form, collapsing origin- and
+    affine-normalizer-equivalent representations to one visited entry so the search terminates from
+    a raw P1 input.  The returned ``asu`` is that normalizer-canonical representative; ``path``
+    records the tabulated hops of the route that reached it, and a bounded normalizer retry along
+    that route applies tabulated cosets to child coordinates and maps results back with the exact
+    inverse, in tabulated coset order.
     """
     if not isinstance(structure, ASUStructure):
         raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")
@@ -1330,7 +1453,7 @@ def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None)
         raise ValueError("highest_symmetry does not support structures with assemblies")
     if structure.molecular:
         raise ValueError("highest_symmetry does not support molecular structures")
-    current = _standard_input(structure)
+    current = _normal_form(_standard_input(structure))
     accepted_tolerance = structure_tolerance(current) if tolerance is None else float(tolerance)
     queue: list[tuple[ASUStructure, tuple[SubgroupTransform, ...], FracVector, Fraction]] = [
         (current, (), FracVector((0, 0, 0)), Fraction(0))
@@ -1344,7 +1467,7 @@ def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None)
             terminals.append(_terminal_result(state, path, shift, residual))
             continue
         for result in lifts:
-            next_state = result.asu
+            next_state = _normal_form(result.asu)
             key = (next_state.spacegroup.it_number, _structure_signature(next_state))
             if key in visited:
                 continue

@@ -301,7 +301,9 @@ def test_backward_lift_invokes_the_normalizer_retry(monkeypatch: pytest.MonkeyPa
     assert retry_keys <= result_keys
 
 
-def test_highest_symmetry_unions_raw_and_retry_embeddings(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_highest_symmetry_bfs_uses_retries_only_when_the_direct_lift_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     parent = _parent(5, [WyckoffSite("a", FracVector([F(2, 17)]), "Si")], ((5, 0, 0), (0, 6, 0), (0, 0, 7)))
     child = subgroup_representation(parent, 3).asu
     target = Spacegroup.standard(5)
@@ -312,14 +314,18 @@ def test_highest_symmetry_unions_raw_and_retry_embeddings(monkeypatch: pytest.Mo
     )
     monkeypatch.setattr(
         lift_module,
-        "_raw_lifts",
-        lambda _structure, candidate, _tolerance: raw if candidate == target else (),
-    )
-    monkeypatch.setattr(
-        lift_module,
         "_normalizer_retries",
         lambda _structure, candidate, _tolerance: retry if candidate == target else (),
     )
+    # The state normal form now collapses the variants unconditional retries used to add, so the BFS
+    # path only falls back to retries when the direct lift found nothing for that parent target.
+    monkeypatch.setattr(
+        lift_module,
+        "_raw_lifts",
+        lambda _structure, candidate, _tolerance: raw if candidate == target else (),
+    )
+    assert retry_only not in _highest_lifts(child, 1e-3)
+    monkeypatch.setattr(lift_module, "_raw_lifts", lambda _structure, _candidate, _tolerance: ())
     assert retry_only in _highest_lifts(child, 1e-3)
 
 
