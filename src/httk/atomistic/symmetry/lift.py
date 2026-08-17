@@ -8,6 +8,23 @@ tetragonal, trigonal, hexagonal, and cubic systems; every tabulated trigonal and
 is in a hexagonal-axes standard setting, so their metric constraint is a=b with alpha=beta=90 and
 gamma=120. Normalizer retry applies tabulated cosets to child fractional coordinates, maps
 successful results back with the exact inverse, and follows tabulated coset order.
+
+On top of the one-hop lift, :func:`highest_symmetry` / :func:`canonicalize` search upward for the
+highest-symmetry description of a crystal and return one deterministic, normalizer-canonical
+representative.  Every search state is reduced to a normal form that collapses same-group
+descriptions of the same crystal: mislabeled special sites are demoted, and the state is quotiented
+by the group's continuous- and discrete-Euclidean-normalizer translations and its affine-normalizer
+cosets.  A triclinic (SG 1 or 2) entry is first Niggli-reduced so the result is independent of the
+input basis choice, and the returned cell is put in the standard orientation of its metric.  The
+result is therefore invariant under origin shift, cell-basis choice (relabeling/shear), and site
+order for the same crystal, and agrees with direct entry at the crystal's own space group.  For a
+P1 / unit-cell start, build the ASU in SG 1 and canonicalize it::
+
+    cell = Cell(((4, 0, 0), (0, 4, 0), (0, 0, 4)))
+    sites = [WyckoffSite("a", FracVector((0, 0, 0)), "Cs"),
+             WyckoffSite("a", FracVector((Fraction(1, 2),) * 3), "Cl")]
+    p1 = ASUStructure(cell, 1, sites, [Species(...), Species(...)])
+    result = canonicalize(p1)  # result.spacegroup.it_number == 221
 """
 
 import itertools
@@ -1154,6 +1171,114 @@ def _apply_normalizer_operation(structure: ASUStructure, operation: AffineOperat
         return None
 
 
+def _integer_diagonalize(rows: tuple[tuple[int, ...], ...]) -> tuple[tuple[int, ...], list[list[int]]]:
+    """Diagonalize an integer ``n x 3`` matrix by unimodular row and column operations.
+
+    Returns the positive diagonal entries ``(d0, d1, d2)`` and the accumulated column transform
+    ``V`` (``3 x 3`` unimodular), so that ``M t`` is integral iff ``d_i * (V^-1 t)_i`` is integral;
+    a zero diagonal marks a continuous direction (column of ``V``).  Euclidean row/column swaps
+    drive each pivot to the gcd, so this terminates on any integer input.
+    """
+    work = [list(row) for row in rows]
+    height = len(work)
+    transform = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    for pivot in range(3):
+        while True:
+            if pivot >= height or work[pivot][pivot] == 0:
+                swapped = False
+                for row in range(pivot, height):
+                    for column in range(pivot, 3):
+                        if work[row][column]:
+                            if row != pivot:
+                                work[pivot], work[row] = work[row], work[pivot]
+                            if column != pivot:
+                                for line in work:
+                                    line[pivot], line[column] = line[column], line[pivot]
+                                for line in transform:
+                                    line[pivot], line[column] = line[column], line[pivot]
+                            swapped = True
+                            break
+                    if swapped:
+                        break
+                if not swapped:
+                    break
+            leader = work[pivot][pivot]
+            settled = True
+            for row in range(pivot + 1, height):
+                if work[row][pivot]:
+                    factor = work[row][pivot] // leader
+                    for column in range(3):
+                        work[row][column] -= factor * work[pivot][column]
+                    if work[row][pivot]:
+                        work[pivot], work[row] = work[row], work[pivot]
+                        settled = False
+                        break
+            if not settled:
+                continue
+            for column in range(pivot + 1, 3):
+                if work[pivot][column]:
+                    factor = work[pivot][column] // leader
+                    for line in work:
+                        line[column] -= factor * line[pivot]
+                    for line in transform:
+                        line[column] -= factor * line[pivot]
+                    if work[pivot][column]:
+                        for line in work:
+                            line[pivot], line[column] = line[column], line[pivot]
+                        for line in transform:
+                            line[pivot], line[column] = line[column], line[pivot]
+                        settled = False
+                        break
+            if settled:
+                break
+    diagonal = tuple(abs(work[index][index]) if index < height else 0 for index in range(3))
+    return diagonal, transform
+
+
+_DISCRETE_NORMALIZER_CACHE: dict[str, tuple[tuple[Fraction, ...], ...]] = {}
+
+
+def _discrete_normalizer_translations(spacegroup: Spacegroup) -> tuple[tuple[Fraction, ...], ...]:
+    """Return the finite group of discrete Euclidean-normalizer translations, reps in ``[0, 1)^3``.
+
+    A translation ``t`` normalizes ``G`` iff ``(I - W) t`` is a lattice vector for every distinct
+    linear part ``W`` of ``G`` (conjugation sends ``(W, w)`` to ``(W, w + (I - W) t)``, and ops
+    sharing ``W`` differ only by lattice translations).  Stacking the integer rows of ``I - W`` gives
+    ``M``; the solutions of ``M t in Z`` modulo ``Z^3`` form a finite lattice, enumerated exactly via
+    the integer diagonalization.  Continuous null-space directions are excluded here -- the
+    continuous-translation quotient owns them.  Always includes the identity ``(0, 0, 0)``.
+    """
+    key = spacegroup.hall_entry
+    cached = _DISCRETE_NORMALIZER_CACHE.get(key)
+    if cached is not None:
+        return cached
+    seen: set[tuple[tuple[int, ...], ...]] = set()
+    rows: list[tuple[int, ...]] = []
+    for operation in spacegroup.symmetry_operations:
+        linear = tuple(tuple(int(value) for value in row) for row in operation.matrix.to_fractions())
+        if linear in seen:
+            continue
+        seen.add(linear)
+        for index in range(3):
+            rows.append(tuple((1 if index == column else 0) - linear[index][column] for column in range(3)))
+    diagonal, transform = _integer_diagonalize(tuple(rows))
+    axes = [[Fraction(step, divisor) for step in range(divisor)] if divisor else [Fraction(0)] for divisor in diagonal]
+    representatives: set[tuple[Fraction, ...]] = set()
+    for first in axes[0]:
+        for second in axes[1]:
+            for third in axes[2]:
+                coefficients = (first, second, third)
+                representatives.add(
+                    tuple(
+                        sum((transform[row][column] * coefficients[column] for column in range(3)), Fraction(0)) % 1
+                        for row in range(3)
+                    )
+                )
+    result = tuple(sorted(representatives))
+    _DISCRETE_NORMALIZER_CACHE[key] = result
+    return result
+
+
 def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
     """Return the origin-canonical image under the group's continuous-normalizer translations.
 
@@ -1236,34 +1361,50 @@ def _demote_sites(structure: ASUStructure) -> ASUStructure:
 def _normal_form(structure: ASUStructure) -> ASUStructure:
     """Return a deterministic canonical representative of one state within its own space group.
 
-    Sites mislabeled onto a special coordinate are demoted first, then two quotients are collapsed:
-    the continuous-normalizer translation quotient (origin choice) and the tabulated
-    affine-normalizer coset quotient.  Images under the group's normalizer describe the same crystal
+    Sites mislabeled onto a special coordinate are demoted first, then the normalizer quotients are
+    collapsed: the candidate images are every affine-normalizer coset crossed with every discrete
+    Euclidean-normalizer translation (both including the identity), each followed by the
+    continuous-translation quotient.  Images under the group's normalizer describe the same crystal
     in the same group and lift equivalently, so collapsing them cannot lose any reachable terminal.
     Coset filtering on the group's own crystal system keeps only operations that preserve this
     cell's metric, so the sorted-site key remains a sound comparison across images; the least such
-    key wins, ties broken by tabulated coset order.
+    key wins, with a deterministic order (tabulated coset order, then sorted translations).
     """
     structure = _demote_sites(structure)
-    best = _translation_normal_form(structure)
-    best_key = _site_key(best)
+    identity_matrix = FracVector.eye((3, 3))
+    operations = [AffineOperation.identity()]
     try:
         record = data.affine_normalizer_coset_record(structure.spacegroup.hall_entry)
     except KeyError:
-        return best
-    system = structure.spacegroup.crystal_system
-    for coset in record.get("affine_normalizer_cosets", ()):
-        if system not in coset["compatible_systems"]:
-            continue
-        image = _apply_normalizer(structure, coset)
+        record = None
+    if record is not None:
+        system = structure.spacegroup.crystal_system
+        operations.extend(
+            AffineOperation.from_record(coset)
+            for coset in record.get("affine_normalizer_cosets", ())
+            if system in coset["compatible_systems"]
+        )
+    translations = _discrete_normalizer_translations(structure.spacegroup)
+    best: ASUStructure | None = None
+    best_key: tuple[Any, ...] | None = None
+    for operation in operations:
+        image = _apply_normalizer_operation(structure, operation)
         if image is None:
             continue
-        # A coset can change which origin is canonical, so re-run the translation quotient.
-        reduced = _translation_normal_form(image)
-        key = _site_key(reduced)
-        if key < best_key:
-            best, best_key = reduced, key
-    return best
+        for translation in translations:
+            if any(translation):
+                shifted = _apply_normalizer_operation(image, AffineOperation(identity_matrix, FracVector(translation)))
+            else:
+                shifted = image
+            if shifted is None:
+                continue
+            # A coset or discrete shift can change which origin is canonical, so re-run the
+            # continuous-translation quotient on each candidate.
+            reduced = _translation_normal_form(shifted)
+            key = _site_key(reduced)
+            if best_key is None or key < best_key:
+                best, best_key = reduced, key
+    return best if best is not None else structure
 
 
 def _normalizer_retries(structure: ASUStructure, target: Spacegroup, tolerance: float) -> tuple[LiftResult, ...]:
@@ -1429,6 +1570,58 @@ def _terminal_result(
     return LiftResult(structure, structure.spacegroup, path, shift, residual)
 
 
+def _canonical_orientation(structure: ASUStructure) -> ASUStructure:
+    """Put the cell in the standard crystallographic orientation for its exact Gram matrix.
+
+    Equal crystals reached through different lifts can carry the same metric in different rotated
+    frames; fractional coordinates are orientation-independent, so re-expressing the cell in the
+    unique standard orientation of its parameters makes the returned basis a function of the metric
+    alone.  Cells whose edge lengths are not exactly rational (a surd basis CellParams cannot rebuild
+    losslessly) keep their lift orientation.
+    """
+    cell = structure.cell
+    lengths = cell.lengths
+    if any(not length.is_rational for length in lengths):
+        return structure
+    params = [length._rational_fraction() for length in lengths] + list(cell.angles)
+    try:
+        oriented = Cell(CellParams(params).basis, precision=cell.precision, periodicity=cell.periodicity)
+    except ValueError:
+        return structure
+    if oriented.basis == cell.basis:
+        return structure
+    return ASUStructure(
+        oriented,
+        structure.spacegroup,
+        structure.wyckoff_sites,
+        structure.species,
+        transform=SettingTransform.identity(),
+        coordinate_precision=structure.coordinate_precision,
+        charge=structure.charge,
+    )
+
+
+def _niggli_reduced_entry(structure: ASUStructure) -> ASUStructure:
+    """Re-express a triclinic-entry (SG 1 or 2) structure in its exact Niggli-reduced basis.
+
+    Different bases of the same lattice reduce to the same Niggli cell, so this removes the
+    basis-choice freedom before the search.  A non-rational (surd) Gram matrix that
+    ``niggli_reduce`` cannot handle degrades gracefully to the unreduced structure.
+    """
+    # Local import: reduction is a sibling top-level module; importing it at module load would run
+    # before httk.atomistic finishes wiring symmetry, so keep it lazy.
+    from httk.atomistic.reduction import niggli_reduce
+
+    try:
+        reduced = niggli_reduce(structure.cell)
+    except (ValueError, ArithmeticError):
+        return structure
+    if reduced.transform == FracVector.eye((3, 3)):
+        return structure
+    rebased = _apply_normalizer_operation(structure, AffineOperation(reduced.transform.T().inv(), (0, 0, 0)))
+    return rebased if rebased is not None else structure
+
+
 def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None) -> tuple[LiftResult, ...]:
     """Return all terminal upward lifts reached by breadth-first search.
 
@@ -1437,12 +1630,16 @@ def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None)
     :return: Deterministically ordered highest-symmetry representations.
     :raises ValueError: If the input is unsupported or the search cap is exceeded.
 
-    Each search state is reduced to its normalizer-canonical normal form, collapsing origin- and
-    affine-normalizer-equivalent representations to one visited entry so the search terminates from
-    a raw P1 input.  The returned ``asu`` is that normalizer-canonical representative; ``path``
-    records the tabulated hops of the route that reached it, and a bounded normalizer retry along
-    that route applies tabulated cosets to child coordinates and maps results back with the exact
-    inverse, in tabulated coset order.
+    A triclinic (SG 1 or 2) entry is first Niggli-reduced so the search is independent of the input
+    basis choice.  Each search state is then reduced to its normalizer-canonical normal form --
+    special-site demotion plus the continuous- and discrete-Euclidean-normalizer translation
+    quotients and the affine-normalizer coset quotient -- collapsing origin-, basis- and
+    normalizer-equivalent representations to one visited entry so the search terminates from a raw
+    P1 input.  The returned ``asu`` is that normalizer-canonical representative, its cell placed in
+    the standard orientation of its metric, so the result is invariant under origin shift, cell-basis
+    choice, and site order for the same crystal.  ``path`` records the tabulated hops of the route
+    that reached it, and a bounded normalizer retry along that route applies tabulated cosets to
+    child coordinates and maps results back with the exact inverse, in tabulated coset order.
     """
     if not isinstance(structure, ASUStructure):
         raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")
@@ -1453,7 +1650,12 @@ def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None)
         raise ValueError("highest_symmetry does not support structures with assemblies")
     if structure.molecular:
         raise ValueError("highest_symmetry does not support molecular structures")
-    current = _normal_form(_standard_input(structure))
+    current = _standard_input(structure)
+    if current.spacegroup.it_number in (1, 2):
+        # A raw triclinic entry may be any basis of its lattice; Niggli-reduce so the search starts
+        # from the canonical reduced cell regardless of the input basis choice.
+        current = _niggli_reduced_entry(current)
+    current = _normal_form(current)
     accepted_tolerance = structure_tolerance(current) if tolerance is None else float(tolerance)
     queue: list[tuple[ASUStructure, tuple[SubgroupTransform, ...], FracVector, Fraction]] = [
         (current, (), FracVector((0, 0, 0)), Fraction(0))
@@ -1464,7 +1666,7 @@ def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None)
         state, path, shift, residual = queue.pop(0)
         lifts = _highest_lifts(state, accepted_tolerance)
         if not lifts:
-            terminals.append(_terminal_result(state, path, shift, residual))
+            terminals.append(_terminal_result(_canonical_orientation(state), path, shift, residual))
             continue
         for result in lifts:
             next_state = _normal_form(result.asu)
@@ -1501,6 +1703,12 @@ def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None)
 
 def canonicalize(structure: ASUStructure, *, tolerance: float | None = None) -> LiftResult:
     """Return the first deterministic highest-symmetry representation.
+
+    The result is the normalizer-canonical representative of the input's crystal: the same exact
+    ``(it_number, sorted (species, wyckoff, free_params), cell basis)`` for any origin shift,
+    cell-basis choice (relabeling/shear), or site ordering of that crystal, and coherent with direct
+    entry at its own space group.  See :func:`highest_symmetry` for the full contract; for a
+    P1/unit-cell start build the ASU in SG 1 and pass it here.
 
     :param structure: The structure to canonicalize.
     :param tolerance: Cartesian acceptance tolerance, or the recognition-derived default.

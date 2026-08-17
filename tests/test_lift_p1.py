@@ -12,7 +12,7 @@ from fractions import Fraction as F
 from typing import Any
 
 import pytest
-from httk.core import FracVector
+from httk.core import FracVector, SurdVector
 
 import httk.atomistic.symmetry.lift as lift_module
 from httk.atomistic import (
@@ -20,9 +20,11 @@ from httk.atomistic import (
     Cell,
     Spacegroup,
     Species,
+    UnitcellStructureView,
     WyckoffSite,
     backward_lift,
     canonicalize,
+    data,
     same_crystal,
     subgroup_representation,
 )
@@ -68,6 +70,44 @@ def _result_key(result: Any) -> tuple[Any, ...]:
 
 def _wrapped_shift(values: list[F], shift: tuple[F, F, F]) -> FracVector:
     return FracVector(tuple((value + delta) % 1 for value, delta in zip(values, shift)))
+
+
+_CYCLIC = FracVector(((0, 1, 0), (0, 0, 1), (1, 0, 0)))
+_SHEAR = FracVector(((1, 1, 0), (0, 1, 0), (0, 0, 1)))
+
+
+def _rebased(cell_rows: object, sites: list[WyckoffSite], species: list[str], transform: FracVector) -> ASUStructure:
+    """Return the same crystal in a rebased P1 cell: ``basis_new = M * basis``, ``f_new = f_old * M^-1``."""
+    basis = SurdVector(transform) * Cell(cell_rows).basis
+    inverse = transform.inv()
+    rebased_sites = [
+        WyckoffSite(site.wyckoff, (FracVector(site.free_params.to_fractions()) * inverse).normalize(), site.species)
+        for site in sites
+    ]
+    return ASUStructure(Cell(basis), 1, rebased_sites, _species(*species))
+
+
+def _invariance_variants(
+    cell_rows: object, sites: list[WyckoffSite], species: list[str]
+) -> dict[str, ASUStructure]:
+    """The six same-crystal P1 descriptions that must canonicalize identically."""
+
+    def shifted(shift: tuple[F, F, F]) -> ASUStructure:
+        return ASUStructure(
+            Cell(cell_rows),
+            1,
+            [WyckoffSite(s.wyckoff, _wrapped_shift(s.free_params.to_fractions(), shift), s.species) for s in sites],
+            _species(*species),
+        )
+
+    return {
+        "base": ASUStructure(Cell(cell_rows), 1, sites, _species(*species)),
+        "shift_a": shifted((F(1, 5), F(1, 7), F(1, 3))),
+        "shift_b": shifted((F(1, 2), F(0), F(0))),
+        "reversed": ASUStructure(Cell(cell_rows), 1, list(reversed(sites)), _species(*species)),
+        "axis_relabel": _rebased(cell_rows, sites, species, _CYCLIC),
+        "shear": _rebased(cell_rows, sites, species, _SHEAR),
+    }
 
 
 # --- 1a: trigonal/hexagonal metric enforcement -----------------------------------------------
@@ -205,14 +245,16 @@ def test_p1_bfs_guard_skips_a_capped_parent(monkeypatch: pytest.MonkeyPatch) -> 
 # --- phase 2: normal form (Wyckoff demotion + normalizer quotients) ---------------------------
 
 
-def test_normal_form_demotes_a_general_site_on_a_special_coordinate() -> None:
+def test_demote_sites_relabels_a_general_site_on_a_special_coordinate() -> None:
     cell = Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5)))
     # SG 2 general position "i" placed on the special coordinate (0,0,1/2) demotes to letter "b";
-    # (1/2,1/2,1/2) demotes to "h" (verified against the vendored SG 2 Wyckoff table).
+    # (1/2,1/2,1/2) demotes to "h" (verified against the vendored SG 2 Wyckoff table).  Tested on
+    # ``_demote_sites`` directly, since the full normal form then collapses every SG-2 special
+    # position to "a" through the discrete-translation quotient.
     at_b = ASUStructure(cell, 2, [WyckoffSite("i", FracVector((0, 0, F(1, 2))), "Po")], _species("Po"))
-    assert _site_key(_normal_form(at_b)) == (("Po", "b", ()),)
+    assert _site_key(lift_module._demote_sites(at_b)) == (("Po", "b", ()),)
     at_h = ASUStructure(cell, 2, [WyckoffSite("i", FracVector((F(1, 2), F(1, 2), F(1, 2))), "Po")], _species("Po"))
-    assert _site_key(_normal_form(at_h)) == (("Po", "h", ()),)
+    assert _site_key(lift_module._demote_sites(at_h)) == (("Po", "h", ()),)
     # A genuine general position (non-degenerate orbit) keeps its letter.
     general = ASUStructure(
         Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7))),
@@ -220,7 +262,7 @@ def test_normal_form_demotes_a_general_site_on_a_special_coordinate() -> None:
         [WyckoffSite("i", FracVector((F(1, 7), F(2, 11), F(3, 13))), "Po")],
         _species("Po"),
     )
-    assert _normal_form(general).wyckoff_sites[0].wyckoff == "i"
+    assert lift_module._demote_sites(general).wyckoff_sites[0].wyckoff == "i"
 
 
 def _bfs_state_multiset_counts(structure: ASUStructure) -> Counter:
@@ -289,7 +331,7 @@ def test_p1_cscl_is_origin_site_order_and_run_invariant() -> None:
 
 
 @pytest.mark.extended
-def test_p1_and_direct_cubic_entries_agree_on_spacegroup() -> None:
+def test_p1_and_direct_cubic_entries_are_fully_coherent() -> None:
     from_p1 = canonicalize(_cscl(_cscl_sites()), tolerance=1e-3)
     direct = canonicalize(
         ASUStructure(
@@ -300,12 +342,70 @@ def test_p1_and_direct_cubic_entries_agree_on_spacegroup() -> None:
         ),
         tolerance=1e-3,
     )
-    assert from_p1.spacegroup.it_number == direct.spacegroup.it_number == 221
-    # Both are the cubic CsCl structure with Cs and Cl on {1a, 1b}.  The exact a/b assignment differs
-    # between the two entry points: their canonical origins are related by a (1/2,1/2,1/2) shift that
-    # is not a 221 normalizer operation (1a and 1b are inequivalent Wyckoff positions), so the normal
-    # form cannot unify them.  Full cross-entry coherence is a later-phase concern; here we assert
-    # only the coherent part (space group, letter set, species) and document the divergence.
-    for result in (from_p1, direct):
-        assert {letter for _, letter, _ in _site_key(result.asu)} == {"a", "b"}
-        assert {species for species, _, _ in _site_key(result.asu)} == {"Cs", "Cl"}
+    # The discrete Euclidean-normalizer translation (1/2,1/2,1/2) of Pm-3m relates the two origin
+    # choices, so the P1 entry and the directly-built 221 entry now agree exactly.
+    assert _result_key(from_p1) == _result_key(direct)
+    assert from_p1.spacegroup.it_number == 221
+    assert _site_key(from_p1.asu) == (("Cl", "a", ()), ("Cs", "b", ()))
+
+
+# --- phase 3: discrete-normalizer translations and full basis/origin invariance ----------------
+
+
+def _continuous_directions(spacegroup: Spacegroup) -> list[tuple[F, ...]]:
+    """The zero-diagonal columns of the integer diagonalization: the continuous normalizer axes."""
+    seen: set[tuple[tuple[int, ...], ...]] = set()
+    rows: list[tuple[int, ...]] = []
+    for operation in spacegroup.symmetry_operations:
+        linear = tuple(tuple(int(v) for v in row) for row in operation.matrix.to_fractions())
+        if linear in seen:
+            continue
+        seen.add(linear)
+        for i in range(3):
+            rows.append(tuple((1 if i == j else 0) - linear[i][j] for j in range(3)))
+    diagonal, transform = lift_module._integer_diagonalize(tuple(rows))
+    return [tuple(F(transform[r][c]) for r in range(3)) for c in range(3) if diagonal[c] == 0]
+
+
+def _rank(vectors: list[tuple[F, ...]]) -> int:
+    return 3 - len(_rational_null_space(tuple(vectors), 3)) if vectors else 0
+
+
+def test_discrete_and_continuous_normalizer_translations() -> None:
+    zero = (F(0), F(0), F(0))
+    body = (F(1, 2), F(1, 2), F(1, 2))
+    # P-1: the eight half-translations relating the inversion centres a-h.
+    eight = lift_module._discrete_normalizer_translations(Spacegroup.standard(2))
+    assert len(eight) == 8 and zero in eight and body in eight
+    # Pm-3m: identity and the body-centring translation (fixes the CsCl cross-entry divergence).
+    assert set(lift_module._discrete_normalizer_translations(Spacegroup.standard(221))) == {zero, body}
+    # Computed continuous directions span the same subspace as the vendored continuous-normalizer basis.
+    for number in (1, 3, 5, 25, 99):
+        spacegroup = Spacegroup.standard(number)
+        computed = _continuous_directions(spacegroup)
+        vendored = [
+            tuple(F(value) for value in vector)
+            for vector in data.spacegroup_subgroup_record(number)["continuous_normalizer"]["basis_vectors"]
+        ]
+        assert _rank(computed) == _rank(vendored) == _rank(computed + vendored)
+
+
+@pytest.mark.extended
+def test_po_p1_invariance_battery() -> None:
+    variants = _invariance_variants(((5, 0, 0), (0, 5, 0), (0, 0, 5)), [WyckoffSite("a", FracVector((0, 0, 0)), "Po")], ["Po"])
+    reference = _result_key(canonicalize(variants["base"], tolerance=1e-3))
+    assert reference[0] == 221 and reference[1] == (("Po", "a", ()),)
+    for name, structure in variants.items():
+        assert _result_key(canonicalize(structure, tolerance=1e-3)) == reference, name
+    # Expansion sanity: the canonical result is the same crystal as the (unrotated) input.
+    canonical = canonicalize(variants["base"], tolerance=1e-3)
+    assert same_crystal(UnitcellStructureView(canonical.asu), UnitcellStructureView(variants["base"]))
+
+
+@pytest.mark.extended
+def test_cscl_p1_invariance_battery() -> None:
+    variants = _invariance_variants(((4, 0, 0), (0, 4, 0), (0, 0, 4)), _cscl_sites(), ["Cs", "Cl"])
+    reference = _result_key(canonicalize(variants["base"], tolerance=1e-3))
+    assert reference[0] == 221 and reference[1] == (("Cl", "a", ()), ("Cs", "b", ()))
+    for name, structure in variants.items():
+        assert _result_key(canonicalize(structure, tolerance=1e-3)) == reference, name
