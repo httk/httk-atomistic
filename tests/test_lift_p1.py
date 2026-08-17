@@ -87,9 +87,7 @@ def _rebased(cell_rows: object, sites: list[WyckoffSite], species: list[str], tr
     return ASUStructure(Cell(basis), 1, rebased_sites, _species(*species))
 
 
-def _invariance_variants(
-    cell_rows: object, sites: list[WyckoffSite], species: list[str]
-) -> dict[str, ASUStructure]:
+def _invariance_variants(cell_rows: object, sites: list[WyckoffSite], species: list[str]) -> dict[str, ASUStructure]:
     """The six same-crystal P1 descriptions that must canonicalize identically."""
 
     def shifted(shift: tuple[F, F, F]) -> ASUStructure:
@@ -395,7 +393,9 @@ def test_discrete_and_continuous_normalizer_translations() -> None:
 
 @pytest.mark.extended
 def test_po_p1_invariance_battery() -> None:
-    variants = _invariance_variants(((5, 0, 0), (0, 5, 0), (0, 0, 5)), [WyckoffSite("a", FracVector((0, 0, 0)), "Po")], ["Po"])
+    variants = _invariance_variants(
+        ((5, 0, 0), (0, 5, 0), (0, 0, 5)), [WyckoffSite("a", FracVector((0, 0, 0)), "Po")], ["Po"]
+    )
     reference = _result_key(canonicalize(variants["base"], tolerance=1e-3))
     assert reference[0] == 221 and reference[1] == (("Po", "a", ()),)
     for name, structure in variants.items():
@@ -483,7 +483,9 @@ def test_zincblende_entries_are_coherent() -> None:
 def test_normal_form_is_orbit_representative_invariant() -> None:
     cell = Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7)))
     at_x = ASUStructure(cell, 2, [WyckoffSite("i", FracVector((F(6, 7), F(9, 11), F(10, 13))), "Si")], _species("Si"))
-    at_minus_x = ASUStructure(cell, 2, [WyckoffSite("i", FracVector((F(1, 7), F(2, 11), F(3, 13))), "Si")], _species("Si"))
+    at_minus_x = ASUStructure(
+        cell, 2, [WyckoffSite("i", FracVector((F(1, 7), F(2, 11), F(3, 13))), "Si")], _species("Si")
+    )
     first = lift_module._normal_form(at_x)
     second = lift_module._normal_form(at_minus_x)
     # x and -x are the same orbit under inversion: identical key and identical stored free params.
@@ -492,7 +494,9 @@ def test_normal_form_is_orbit_representative_invariant() -> None:
 
 
 def test_canonical_orientation_preserves_chirality() -> None:
-    structure = ASUStructure(Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7))), 1, _chiral_sites(), _species("Fe", "Co", "Ni", "Cu"))
+    structure = ASUStructure(
+        Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7))), 1, _chiral_sites(), _species("Fe", "Co", "Ni", "Cu")
+    )
     canonical = _canonical_without_bfs(structure)
     # The canonical representative is right-handed and keeps the input's chirality: no enantiomorph.
     assert canonical.cell.basis.det().sign() == 1
@@ -565,7 +569,12 @@ def test_chiral_multi_species_invariance_battery() -> None:
         "origin_shift": ASUStructure(
             Cell(cell),
             1,
-            [WyckoffSite(s.wyckoff, _wrapped_shift(s.free_params.to_fractions(), (F(1, 5), F(1, 7), F(1, 3))), s.species) for s in base_sites],
+            [
+                WyckoffSite(
+                    s.wyckoff, _wrapped_shift(s.free_params.to_fractions(), (F(1, 5), F(1, 7), F(1, 3))), s.species
+                )
+                for s in base_sites
+            ],
             _species(*species),
         ),
         "lattice_translate": ASUStructure(Cell(cell), 1, translated, _species(*species)),
@@ -577,3 +586,154 @@ def test_chiral_multi_species_invariance_battery() -> None:
         assert key(canonical) == reference_key, name
         # (b) chirality is preserved: the canonical signed volume keeps the input's sign.
         assert (_signed_volume(structure) > 0) == (_signed_volume(canonical) > 0), name
+
+
+# --- exact supercell collapse (translational reduction at P1 entry) ---------------------------
+
+
+def _reduce(cell: object, sites: list[WyckoffSite], species: list[str]) -> ASUStructure:
+    return lift_module._primitive_reduced_entry(ASUStructure(Cell(cell), 1, sites, _species(*species)))
+
+
+def test_primitive_reduction_collapses_an_exact_supercell() -> None:
+    # Po 1x1x2 (two atoms, translation (0,0,1/2)) collapses to the primitive cubic cell, one atom;
+    # its expansion is the same crystal as the primitive Po.
+    reduced = _reduce(
+        ((5, 0, 0), (0, 5, 0), (0, 0, 10)),
+        [WyckoffSite("a", FracVector((0, 0, 0)), "Po"), WyckoffSite("a", FracVector((0, 0, F(1, 2))), "Po")],
+        ["Po"],
+    )
+    assert len(reduced.wyckoff_sites) == 1
+    assert reduced.cell.basis == Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))).basis
+    base = _p1(Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))), [WyckoffSite("a", FracVector((0, 0, 0)), "Po")])
+    assert same_crystal(UnitcellStructureView(reduced), UnitcellStructureView(base))
+
+
+def test_primitive_reduction_ignores_near_and_defective_supercells() -> None:
+    # (a) a near-translation (0,0,0.4999) is not exact -> no reduction.
+    near = _reduce(
+        ((5, 0, 0), (0, 5, 0), (0, 0, 10)),
+        [WyckoffSite("a", FracVector((0, 0, 0)), "Po"), WyckoffSite("a", FracVector((0, 0, F(4999, 10000))), "Po")],
+        ["Po"],
+    )
+    assert len(near.wyckoff_sites) == 2
+    # (b) an exact supercell with one atom displaced (a defect) has no self-translation -> no reduction.
+    defect = _reduce(
+        ((5, 0, 0), (0, 5, 0), (0, 0, 10)),
+        [WyckoffSite("a", FracVector((0, 0, 0)), "Po"), WyckoffSite("a", FracVector((F(1, 10), 0, F(1, 2))), "Po")],
+        ["Po"],
+    )
+    assert len(defect.wyckoff_sites) == 2
+
+
+def test_primitive_reduction_is_site_order_invariant_and_scales_charge() -> None:
+    # (c, the uniqueness pin at fixed cell) A genuine 2x two-species supercell reduces with n=2, and
+    # the reduction is invariant to input site order -- the finer lattice is generated by ALL exact
+    # translations and its HNF basis is a function of that lattice alone.  (Two *different* supercell
+    # cells, diagonal vs sheared, reduce to different-orientation primitive cells that the downstream
+    # Niggli + normal form unify; that end-to-end equality is the battery test below.)
+    cell = ((4, 0, 0), (0, 4, 0), (0, 0, 8))
+    sites = [
+        WyckoffSite("a", FracVector((0, 0, 0)), "Cs"),
+        WyckoffSite("a", FracVector((0, 0, F(1, 2))), "Cs"),
+        WyckoffSite("a", FracVector((F(1, 2), F(1, 2), F(1, 4))), "Cl"),
+        WyckoffSite("a", FracVector((F(1, 2), F(1, 2), F(3, 4))), "Cl"),
+    ]
+
+    def key(asu: ASUStructure) -> tuple[Any, ...]:
+        return (
+            asu.cell.basis,
+            tuple(sorted((s.species, tuple(s.free_params.to_fractions())) for s in asu.wyckoff_sites)),
+        )
+
+    forward = _reduce(cell, sites, ["Cs", "Cl"])
+    reversed_ = _reduce(cell, list(reversed(sites)), ["Cs", "Cl"])
+    assert len(forward.wyckoff_sites) == 2  # n = 2
+    assert key(forward) == key(reversed_)
+    # charge is per-cell content, so it divides by the multiplicity.
+    charged = ASUStructure(Cell(cell), 1, sites, _species("Cs", "Cl"), charge=F(6))
+    assert lift_module._primitive_reduced_entry(charged).charge == F(3)
+
+
+def _supercell_result_key(structure: ASUStructure) -> tuple[Any, ...]:
+    result = canonicalize(structure, tolerance=1e-3)
+    return (result.spacegroup.it_number, _site_key(result.asu), result.asu.cell.basis)
+
+
+@pytest.mark.extended
+def test_supercell_battery_canonicalizes_to_the_primitive_result() -> None:
+    # Po and CsCl supercells -- diagonal 1x1x2, sheared (det 2), and 1x1x3 -- canonicalize to exactly
+    # the primitive base result, and at base-case speed because the reduction fires before the search.
+    po_base = _p1(Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))), [WyckoffSite("a", FracVector((0, 0, 0)), "Po")])
+    po_reference = _supercell_result_key(po_base)
+    po_112 = _p1(
+        Cell(((5, 0, 0), (0, 5, 0), (0, 0, 10))),
+        [WyckoffSite("a", FracVector((0, 0, 0)), "Po"), WyckoffSite("a", FracVector((0, 0, F(1, 2))), "Po")],
+    )
+    po_113 = _p1(
+        Cell(((5, 0, 0), (0, 5, 0), (0, 0, 15))),
+        [WyckoffSite("a", FracVector((0, 0, c)), "Po") for c in (F(0), F(1, 3), F(2, 3))],
+    )
+    shear = FracVector(((1, 0, 0), (0, 1, 0), (1, 0, 2)))
+    inverse = shear.inv()
+    po_shear = ASUStructure(
+        Cell(SurdVector(shear) * Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))).basis),
+        1,
+        [WyckoffSite("a", (FracVector(point) * inverse).normalize(), "Po") for point in ((0, 0, 0), (0, 0, 1))],
+        _species("Po"),
+    )
+    assert _supercell_result_key(po_112) == po_reference
+    assert _supercell_result_key(po_113) == po_reference
+    assert _supercell_result_key(po_shear) == po_reference
+
+    cscl_base = _p1(
+        Cell(((4, 0, 0), (0, 4, 0), (0, 0, 4))),
+        [
+            WyckoffSite("a", FracVector((0, 0, 0)), "Cs"),
+            WyckoffSite("a", FracVector((F(1, 2), F(1, 2), F(1, 2))), "Cl"),
+        ],
+    )
+    cscl_112 = _p1(
+        Cell(((4, 0, 0), (0, 4, 0), (0, 0, 8))),
+        [
+            WyckoffSite("a", FracVector((0, 0, 0)), "Cs"),
+            WyckoffSite("a", FracVector((0, 0, F(1, 2))), "Cs"),
+            WyckoffSite("a", FracVector((F(1, 2), F(1, 2), F(1, 4))), "Cl"),
+            WyckoffSite("a", FracVector((F(1, 2), F(1, 2), F(3, 4))), "Cl"),
+        ],
+    )
+    assert _supercell_result_key(cscl_112) == _supercell_result_key(cscl_base)
+
+
+def test_primitive_reduction_preserves_cartesian_precision() -> None:
+    # coordinate_precision is fractional; the subdivided cell must rescale it so the *Cartesian*
+    # precision (and the derived tolerance) is invariant, not silently tightened.
+    supercell = ASUStructure(
+        Cell(((5, 0, 0), (0, 5, 0), (0, 0, 10)), precision=F(1, 10000)),
+        1,
+        [WyckoffSite("a", FracVector((0, 0, 0)), "Po"), WyckoffSite("a", FracVector((0, 0, F(1, 2))), "Po")],
+        _species("Po"),
+        coordinate_precision=F(1, 10000),
+    )
+    reduced = lift_module._primitive_reduced_entry(supercell)
+    before = UnitcellStructureView(supercell)
+    after = UnitcellStructureView(reduced)
+    assert after.cartesian_precision() == before.cartesian_precision()
+    assert structure_tolerance(after) == structure_tolerance(before)
+
+
+def test_primitive_reduction_tolerates_duplicate_sites() -> None:
+    # A duplicated (species, coordinate) site has no exact self-translation, so the reduction must
+    # pass it through untouched rather than reaching its internal "uneven copies" consistency error.
+    duplicated = ASUStructure(
+        Cell(((5, 0, 0), (0, 5, 0), (0, 0, 10))),
+        1,
+        [
+            WyckoffSite("a", FracVector((0, 0, 0)), "Po"),
+            WyckoffSite("a", FracVector((0, 0, 0)), "Po"),
+            WyckoffSite("a", FracVector((0, 0, F(1, 2))), "Po"),
+        ],
+        _species("Po"),
+    )
+    reduced = lift_module._primitive_reduced_entry(duplicated)  # must not raise
+    assert len(reduced.wyckoff_sites) == 3

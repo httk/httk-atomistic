@@ -31,6 +31,12 @@ result = canonicalize(asu)          # exact input, exact answer
 canonical = result.asu
 ```
 
+An exact P1 supercell — any multiplicity, diagonal or sheared — is collapsed to
+its unique primitive description before the search, so `canonicalize` returns the
+same answer whichever cell you hand it. That collapse fires only on exact
+rational invariance; a *noisy* supercell whose copies merely nearly coincide is
+snapped instead by `canonical_asu` below, within its tolerance.
+
 For *measured* input — coordinates carrying noise — use `canonical_asu`, the
 one-liner that recognizes the symmetry within a tolerance (with spglib) and then
 canonicalizes the result exactly:
