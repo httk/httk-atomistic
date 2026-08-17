@@ -1934,11 +1934,18 @@ def _canonical_without_bfs(structure: ASUStructure) -> ASUStructure:
     return _canonical_orientation(_canonical_entry(structure))
 
 
-def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None) -> tuple[LiftResult, ...]:
+def highest_symmetry(
+    structure: ASUStructure, *, tolerance: float | None = None, all_paths: bool = False
+) -> tuple[LiftResult, ...]:
     """Return all terminal upward lifts reached by breadth-first search.
 
     :param structure: The starting asymmetric-unit structure.
     :param tolerance: Cartesian acceptance tolerance, or the recognition-derived default.
+    :param all_paths: When ``False`` (default) the visited set collapses alternate Bärnighausen
+        routes to one entry per state, so each terminal appears once.  When ``True`` the visited set
+        also keys on the accumulated path, so every distinct ``(terminal, path)`` pair is returned;
+        the ``.asu`` representatives of the extra results are identical, only ``path`` differs.  The
+        state cap therefore binds sooner under the flag.
     :return: Deterministically ordered highest-symmetry representations.
     :raises ValueError: If the input is unsupported, or if the breadth-first search exceeds its
         visited-state cap.  A per-parent modular-solver branch-cap failure is not raised: that parent
@@ -1974,7 +1981,8 @@ def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None)
     queue: list[tuple[ASUStructure, tuple[SubgroupTransform, ...], FracVector, Fraction]] = [
         (current, (), FracVector((0, 0, 0)), Fraction(0))
     ]
-    visited: set[tuple[int, tuple[Any, ...]]] = {(current.spacegroup.it_number, _structure_signature(current))}
+    start_signature = (current.spacegroup.it_number, _structure_signature(current))
+    visited: set[tuple[Any, ...]] = {(*start_signature, ()) if all_paths else start_signature}
     terminals: list[LiftResult] = []
     while queue:
         state, path, shift, residual = queue.pop(0)
@@ -1984,21 +1992,18 @@ def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None)
             continue
         for result in lifts:
             next_state = _normal_form(result.asu)
-            key = (next_state.spacegroup.it_number, _structure_signature(next_state))
+            next_path = path + result.path
+            signature = (next_state.spacegroup.it_number, _structure_signature(next_state))
+            # all_paths keys the visited set on the route too, so alternate routes to a state are all
+            # explored rather than collapsed to the first one reached.
+            key = (*signature, next_path) if all_paths else signature
             if key in visited:
                 continue
             if len(visited) >= 10_000:
                 # ponytail: bounded state scan; add quotient-graph memoization if tables grow materially.
                 raise ValueError(f"highest_symmetry search cap exceeded for {current.spacegroup.setting}")
             visited.add(key)
-            queue.append(
-                (
-                    next_state,
-                    path + result.path,
-                    result.shift,
-                    max(residual, result.residual),
-                )
-            )
+            queue.append((next_state, next_path, result.shift, max(residual, result.residual)))
     deduplicated: dict[tuple[Any, ...], LiftResult] = {}
     for result in terminals:
         deduplicated.setdefault((result.spacegroup.it_number, _structure_signature(result.asu), result.path), result)

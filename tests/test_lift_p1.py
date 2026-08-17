@@ -7,6 +7,7 @@ affine-normalizer-coset quotients) that makes :func:`canonicalize` terminate fro
 """
 
 import itertools
+import random
 from collections import Counter
 from fractions import Fraction as F
 from typing import Any
@@ -25,6 +26,7 @@ from httk.atomistic import (
     backward_lift,
     canonicalize,
     data,
+    highest_symmetry,
     same_crystal,
     subgroup_representation,
 )
@@ -726,3 +728,128 @@ def test_primitive_reduction_tolerates_duplicate_sites() -> None:
     )
     reduced = lift_module._primitive_reduced_entry(duplicated)  # must not raise
     assert len(reduced.wyckoff_sites) == 3
+
+
+# --- all_paths: alternate Baernighausen routes to one terminal ---------------------------------
+
+
+def _cubic_c() -> ASUStructure:
+    return ASUStructure(
+        Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))), 221, [WyckoffSite("a", FracVector(()), "C")], _species("C")
+    )
+
+
+def test_all_paths_returns_every_route_to_one_terminal() -> None:
+    # A 221 crystal expressed in its orthorhombic subgroup 47 lifts back to 221 by two distinct
+    # Baernighausen routes (verified: two different paths, one terminal).
+    child = subgroup_representation(_cubic_c(), 47).asu
+    default = highest_symmetry(child, tolerance=1e-3)
+    everything = highest_symmetry(child, tolerance=1e-3, all_paths=True)
+    # Default collapses to one path per terminal; all_paths returns the superset.
+    assert len(default) == 1
+    assert len(everything) > len(default)
+    terminal = lambda result: (result.spacegroup.it_number, _site_key(result.asu), result.asu.cell.basis)
+    assert terminal(default[0]) == (221, (("C", "a", ()),), _cubic_c().cell.basis)
+    # Every all_paths result is the same terminal representative; only the routes differ.
+    assert {terminal(result) for result in everything} == {terminal(default[0])}
+    assert len({result.path for result in everything}) == len(everything)
+    # No regression: default mode is bit-identical to the flag-less call and contains default[0]'s route.
+    assert highest_symmetry(child, tolerance=1e-3, all_paths=False) == default
+    assert default[0].path in {result.path for result in everything}
+
+
+# --- scramble invariance harness (spirit of symmetry_finder's --scramble; test-only) ----------
+
+
+def _seed_unimodular(rng: random.Random) -> FracVector:
+    """A deterministic unimodular integer matrix: a product of random elementary shears (det 1)."""
+    matrix = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    for _ in range(4):
+        i, j = rng.sample(range(3), 2)
+        multiple = rng.choice([-2, -1, 1, 2])
+        for column in range(3):
+            matrix[i][column] += multiple * matrix[j][column]
+    return FracVector(matrix)
+
+
+def _expanded_p1(reference: ASUStructure) -> ASUStructure:
+    """The reference crystal as a plain P1 ASU (one site per expanded atom)."""
+    view = UnitcellStructureView(reference)
+    species = list(view.species_at_sites)
+    sites = [
+        WyckoffSite("a", FracVector(coordinate).normalize(), name)
+        for coordinate, name in zip(view.sites.reduced_coords.to_fractions(), species)
+    ]
+    return ASUStructure(Cell(view.cell.basis), 1, sites, _species(*sorted(set(species))))
+
+
+def _scrambled_p1(reference: ASUStructure, seed: int) -> ASUStructure:
+    """A seed-deterministic P1 description of the same crystal: unimodular shear + origin shift + reorder.
+
+    ``basis' = M basis`` (M unimodular) with coordinates ``f' = f M^-1 + t`` (rational origin ``t``),
+    then the site list is permuted -- the transformations `canonicalize` must undo exactly.
+    """
+    rng = random.Random(seed)
+    view = UnitcellStructureView(reference)
+    coordinates = [FracVector(coordinate) for coordinate in view.sites.reduced_coords.to_fractions()]
+    species = list(view.species_at_sites)
+    matrix = _seed_unimodular(rng)
+    inverse = matrix.inv()
+    denominator = rng.choice([2, 3, 4, 5, 6])
+    shift = FracVector([F(rng.randrange(denominator), denominator) for _ in range(3)])
+    scrambled = [(coordinate * inverse + shift).normalize() for coordinate in coordinates]
+    order = list(range(len(species)))
+    rng.shuffle(order)
+    sites = [WyckoffSite("a", scrambled[index], species[index]) for index in order]
+    return ASUStructure(Cell(SurdVector(matrix) * view.cell.basis), 1, sites, _species(*sorted(set(species))))
+
+
+def _scramble_reference(*sites: WyckoffSite, cell: Cell, spacegroup: int, species: list[str]) -> ASUStructure:
+    return ASUStructure(cell, spacegroup, list(sites), _species(*species))
+
+
+_SCRAMBLE_BATTERY = {
+    "Po-221": _scramble_reference(
+        WyckoffSite("a", FracVector(()), "Po"),
+        cell=Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))),
+        spacegroup=221,
+        species=["Po"],
+    ),
+    "CsCl-221": _scramble_reference(
+        WyckoffSite("a", FracVector(()), "Cs"),
+        WyckoffSite("b", FracVector(()), "Cl"),
+        cell=Cell(((4, 0, 0), (0, 4, 0), (0, 0, 4))),
+        spacegroup=221,
+        species=["Cs", "Cl"],
+    ),
+    "P4mmm-123-tetragonal": _scramble_reference(
+        WyckoffSite("a", FracVector(()), "Ti"),
+        cell=Cell(((4, 0, 0), (0, 4, 0), (0, 0, 6))),
+        spacegroup=123,
+        species=["Ti"],
+    ),
+    "P6mmm-191-hexagonal": _scramble_reference(
+        WyckoffSite("a", FracVector(()), "Mg"),
+        cell=Cell(CellParams((4, 4, 6, 90, 90, 120)).basis),
+        spacegroup=191,
+        species=["Mg"],
+    ),
+}
+
+
+def test_scrambled_single_atom_po_canonicalizes_to_cubic() -> None:
+    reference = _result_key(canonicalize(_expanded_p1(_SCRAMBLE_BATTERY["Po-221"]), tolerance=1e-3))
+    assert reference[0] == 221
+    assert _result_key(canonicalize(_scrambled_p1(_SCRAMBLE_BATTERY["Po-221"], 1), tolerance=1e-3)) == reference
+
+
+@pytest.mark.extended
+def test_scramble_invariance_battery() -> None:
+    # Simple-P-lattice references: scrambling (unimodular shear + origin shift + reorder) a P1
+    # description must canonicalize to exactly the unscrambled P1 expansion's result, for every seed.
+    # Excluded (not for speed): NaCl-225 (FCC) and trigonal Bi-166 canonicalize seed-dependently
+    # (-> IT 12), hitting the documented phase-3 lattice-holohedry orientation gap for those lattices.
+    for name, reference in _SCRAMBLE_BATTERY.items():
+        expected = _result_key(canonicalize(_expanded_p1(reference), tolerance=1e-3))
+        for seed in (1, 2, 3):
+            assert _result_key(canonicalize(_scrambled_p1(reference, seed), tolerance=1e-3)) == expected, (name, seed)

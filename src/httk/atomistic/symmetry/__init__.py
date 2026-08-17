@@ -40,6 +40,7 @@ __all__ = [
     "rerepresent",
     "structure_tolerance",
     "subgroup_closure",
+    "subgroup_representation",
     "subgroup_transforms",
     "supergroup_closure",
     "wyckoff_letter_map",
@@ -66,6 +67,7 @@ if TYPE_CHECKING:
         maximal_subgroups,
         minimal_supergroups,
         subgroup_closure,
+        subgroup_representation,
         subgroup_transforms,
         supergroup_closure,
     )
@@ -121,6 +123,7 @@ def __getattr__(name: str) -> object:
         "maximal_subgroups",
         "minimal_supergroups",
         "subgroup_closure",
+        "subgroup_representation",
         "subgroup_transforms",
         "supergroup_closure",
     }:
@@ -131,6 +134,7 @@ def __getattr__(name: str) -> object:
             maximal_subgroups,
             minimal_supergroups,
             subgroup_closure,
+            subgroup_representation,
             subgroup_transforms,
             supergroup_closure,
         )
@@ -142,6 +146,7 @@ def __getattr__(name: str) -> object:
             maximal_subgroups=maximal_subgroups,
             minimal_supergroups=minimal_supergroups,
             subgroup_closure=subgroup_closure,
+            subgroup_representation=subgroup_representation,
             subgroup_transforms=subgroup_transforms,
             supergroup_closure=supergroup_closure,
         )
