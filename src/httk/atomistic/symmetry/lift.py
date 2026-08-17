@@ -1909,6 +1909,31 @@ def _niggli_reduced_entry(structure: ASUStructure) -> ASUStructure:
     return rebased if rebased is not None else structure
 
 
+def _canonical_entry(structure: ASUStructure) -> ASUStructure:
+    """Return the normal-form state ``highest_symmetry`` starts its search from.
+
+    Standardizes the input, collapses an exact P1 supercell to its primitive cell, Niggli-reduces a
+    triclinic (SG 1/2) cell, and reduces to the normalizer-canonical normal form.
+    """
+    current = _standard_input(structure)
+    if current.spacegroup.it_number == 1:
+        current = _primitive_reduced_entry(current)
+    if current.spacegroup.it_number in (1, 2):
+        current = _niggli_reduced_entry(current)
+    return _normal_form(current)
+
+
+def _canonical_without_bfs(structure: ASUStructure) -> ASUStructure:
+    """Return the canonical representative of ``structure`` within its own group -- no upward search.
+
+    This is exactly the terminal ``highest_symmetry`` would emit if the entry state had no lifts:
+    the canonical-entry normal form, placed in the standard orientation of its metric.  It is the
+    deterministic, fully invariant representation of the *recognized* symmetry, without hunting for
+    pseudosymmetry above it.
+    """
+    return _canonical_orientation(_canonical_entry(structure))
+
+
 def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None) -> tuple[LiftResult, ...]:
     """Return all terminal upward lifts reached by breadth-first search.
 
@@ -1942,17 +1967,9 @@ def highest_symmetry(structure: ASUStructure, *, tolerance: float | None = None)
         raise ValueError("highest_symmetry does not support structures with assemblies")
     if structure.molecular:
         raise ValueError("highest_symmetry does not support molecular structures")
-    current = _standard_input(structure)
-    if current.spacegroup.it_number == 1:
-        # An exact P1 supercell has a finer translation lattice; collapse it to the unique primitive
-        # description before anything else, so any supercell of a crystal enters the search as that
-        # crystal.  (SG >= 2 supercell descriptions are not reduced this round.)
-        current = _primitive_reduced_entry(current)
-    if current.spacegroup.it_number in (1, 2):
-        # A raw triclinic entry may be any basis of its lattice; Niggli-reduce so the search starts
-        # from the canonical reduced cell regardless of the input basis choice.
-        current = _niggli_reduced_entry(current)
-    current = _normal_form(current)
+    # Standardize, collapse exact P1 supercells, Niggli-reduce triclinic cells, and take the normal
+    # form -- the state the breadth-first search starts from.
+    current = _canonical_entry(structure)
     accepted_tolerance = structure_tolerance(current) if tolerance is None else float(tolerance)
     queue: list[tuple[ASUStructure, tuple[SubgroupTransform, ...], FracVector, Fraction]] = [
         (current, (), FracVector((0, 0, 0)), Fraction(0))

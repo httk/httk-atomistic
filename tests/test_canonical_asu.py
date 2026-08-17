@@ -5,6 +5,7 @@ from fractions import Fraction as F
 import pytest
 from httk.core import FracVector
 
+import httk.atomistic.symmetry.canonical as canonical_module
 from httk.atomistic import (
     ASUStructure,
     Cell,
@@ -139,13 +140,83 @@ def test_fits_within_requires_an_injective_match() -> None:
 def test_symprec_sweep_rescues_a_tolerance_boundary_flip() -> None:
     pytest.importorskip("spglib")
     # NaCl shifted +1e-4 on every coordinate: recognition fails at the tight symprec (base/5) but
-    # returns IT 225 at the base symprec, so the full sweep rescues what the tight member cannot.
+    # RECOGNIZES IT 225 at the loosest member (base*5), which loosest-first takes and returns (not via
+    # the lift), so the default (lift=False) rescues it where the tight member alone cannot.
     cell, coords, species, species_at = _expanded(_nacl())
     shifted = [[value + F(1, 10000) for value in row] for row in coords]
     noisy = UnitcellStructure(cell, shifted, species, species_at)
     assert canonical_asu(noisy, factors=(F(1, 5), 1, 5)).spacegroup.it_number == 225
     with pytest.raises(ValueError, match="within tolerance"):
         canonical_asu(noisy, factors=(F(1, 5),))
+
+
+def test_all_members_failing_lists_every_attempted_tolerance() -> None:
+    pytest.importorskip("spglib")
+    # Two Na sites 5e-5 A apart merge at every swept symprec, so no member reproduces the input; the
+    # error lists each attempted symprec (loosest first).
+    two_close_na = UnitcellStructure(
+        Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))),
+        [[0, 0, 0], [0, 0, F(1, 100000)], [F(1, 2), F(1, 2), F(1, 2)]],
+        _species("Na", "Cl"),
+        ["Na", "Na", "Cl"],
+    )
+    with pytest.raises(ValueError, match=r"tried \[0\.005.*0\.001.*0\.0002"):
+        canonical_asu(two_close_na, tolerance=1e-3, factors=(F(1, 5), 1, 5))
+
+
+def test_default_and_lift_agree_on_a_clean_structure() -> None:
+    pytest.importorskip("spglib")
+    view = UnitcellStructureView(_nacl())
+    default = canonical_asu(view)  # lift=False
+    lifted = canonical_asu(view, lift=True)
+    assert default.spacegroup.it_number == lifted.spacegroup.it_number == 225
+    assert _site_key(default) == _site_key(lifted)
+    assert default.cell.basis == lifted.cell.basis
+
+
+def test_lift_finds_pseudosymmetry_the_default_leaves_at_the_recognized_group() -> None:
+    pytest.importorskip("spglib")
+    # A cubic NaCl motif in a slightly tetragonal cell (c = 5.0008): at the tight symprec spglib
+    # recognizes P4/mmm (IT 123), which the default returns as-is, while lift=True snaps the near-cubic
+    # metric and reaches Fm-3m (IT 221) -- the pseudosymmetry recognition missed.
+    tetragonal = ASUStructure(
+        Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5 + F(1, 1250)))),
+        1,
+        [
+            WyckoffSite("a", FracVector((0, 0, 0)), "Na"),
+            WyckoffSite("a", FracVector((F(1, 2), F(1, 2), F(1, 2))), "Cl"),
+        ],
+        _species("Na", "Cl"),
+    )
+    view = UnitcellStructureView(tetragonal)
+    assert canonical_asu(view, factors=(F(1, 5),)).spacegroup.it_number == 123
+    assert canonical_asu(view, factors=(F(1, 5),), lift=True).spacegroup.it_number == 221
+
+
+def test_loosest_fitting_member_wins_and_stops_the_sweep(monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("spglib")
+    recognitions = 0
+    real_recognize = canonical_module.recognize_asu
+    real_stage = canonical_module._canonical_without_bfs
+    stages = 0
+
+    def counting_recognize(*args, **kwargs):
+        nonlocal recognitions
+        recognitions += 1
+        return real_recognize(*args, **kwargs)
+
+    def counting_stage(structure: ASUStructure) -> ASUStructure:
+        nonlocal stages
+        stages += 1
+        return real_stage(structure)
+
+    monkeypatch.setattr(canonical_module, "recognize_asu", counting_recognize)
+    monkeypatch.setattr(canonical_module, "_canonical_without_bfs", counting_stage)
+    # Clean NaCl: the loosest symprec (base*5) already recognizes and fits, so the sweep stops after
+    # one recognition and the expensive stage runs once -- no matter how many factors are passed.
+    canonical_asu(UnitcellStructureView(_nacl()), factors=(F(1, 5), 1, 5))
+    assert recognitions == 1
+    assert stages == 1
 
 
 def test_result_is_deterministic() -> None:

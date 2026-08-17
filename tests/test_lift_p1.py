@@ -30,6 +30,7 @@ from httk.atomistic import (
 )
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.symmetry.lift import (
+    _canonical_without_bfs,
     _cell_for_transform,
     _integer_options,
     _linear_solve,
@@ -434,18 +435,6 @@ def _signed_volume(structure: ASUStructure) -> float:
 
     a, b, c = (cartesian(minimum_image(points[index] - points[0])) for index in (1, 2, 3))
     return a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])
-
-
-def _canonical_without_bfs(structure: ASUStructure) -> ASUStructure:
-    """The production canonical representative minus the breadth-first lift search.
-
-    For a generic structure whose highest symmetry is its own group this equals ``canonicalize`` --
-    it lets the chiral, multi-site invariance battery run fast without the slow failed-lift attempts.
-    """
-    current = _standard_input(structure)
-    if current.spacegroup.it_number in (1, 2):
-        current = lift_module._niggli_reduced_entry(current)
-    return lift_module._canonical_orientation(lift_module._normal_form(current))
 
 
 def _chiral_sites() -> list[WyckoffSite]:

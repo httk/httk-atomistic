@@ -54,6 +54,15 @@ input, so a boundary flip can be rescued without accepting extra noise. It alway
 works from the coordinates, so it can raise a declared symmetry the geometry
 supports — or lower one it does not, at the derived tolerance.
 
+By default (`lift=False`) it returns the canonical representative of the
+*recognized* symmetry: fully deterministic, all representational freedom removed,
+and cheap — the cost is essentially recognition. It does **not** hunt for
+pseudosymmetry above what recognition found. Pass `lift=True` to additionally run
+the exact upward search for higher symmetry the recognition missed; that is exact
+too but can be slow — minutes and beyond for low-symmetry, many-atom cells. Use
+the default for bulk sweeps over many structures; use `lift=True` when you are
+specifically hunting the maximal (pseudo)symmetry of one crystal.
+
 Only the recognition step is floating-point: which symmetry is *accepted* near a
 tolerance boundary can vary across platforms or spglib builds, but the exact
 canonicalization erases spglib's representational freedom, so *how* an accepted
