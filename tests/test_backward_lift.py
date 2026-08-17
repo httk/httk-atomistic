@@ -80,7 +80,7 @@ def _manual_affine_image(structure: ASUStructure, operation: AffineOperation) ->
         ),
         (15, 2, (WyckoffSite("e", FracVector([F(1, 3)]), "Si"),), ((5, 0, 0), (0, 6, 0), (0, 0, 7))),
         (3, 4, (WyckoffSite("a", FracVector([F(1, 3)]), "Si"),), ((5, 0, 0), (0, 6, 0), (0, 0, 7))),
-        (166, 148, (WyckoffSite("a", NO_PARAMETERS, "Bi"),), ((5, 0, 0), (0, 5, 0), (0, 0, 12))),
+        (166, 148, (WyckoffSite("a", NO_PARAMETERS, "Bi"),), CellParams((5, 5, 12, 90, 90, 120)).basis),
     ),
 )
 def test_descent_lift_round_trip(

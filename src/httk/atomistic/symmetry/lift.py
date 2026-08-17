@@ -4,13 +4,14 @@ The public functions in this module invert one tabulated subgroup descent.  Coor
 Wyckoff parameters, affine maps, modular solves, and returned shifts are rational.  A
 Cartesian tolerance is used only when accepting a measured structure that is not an exact
 solution of the assembled equations. Cell-metric validation covers monoclinic, orthorhombic,
-tetragonal, and cubic systems; trigonal and hexagonal setting-specific metric constraints are
-not yet enforced, so noisy lifts into those systems are accepted on coordinates and tolerance
-alone. Normalizer retry applies tabulated cosets to child fractional coordinates, maps successful
-results back with the exact inverse, and follows tabulated coset order.
+tetragonal, trigonal, hexagonal, and cubic systems; every tabulated trigonal and hexagonal parent
+is in a hexagonal-axes standard setting, so their metric constraint is a=b with alpha=beta=90 and
+gamma=120. Normalizer retry applies tabulated cosets to child fractional coordinates, maps
+successful results back with the exact inverse, and follows tabulated coset order.
 """
 
 import itertools
+import logging
 import math
 from collections import defaultdict
 from dataclasses import dataclass
@@ -311,6 +312,224 @@ def _least_squares(matrix: tuple[tuple[Fraction, ...], ...], rhs: tuple[Fraction
     return _linear_solve(normal, target)
 
 
+def _rational_null_space(rows: tuple[tuple[Fraction, ...], ...], width: int) -> tuple[tuple[Fraction, ...], ...]:
+    """Return an exact basis of ``{x : rows @ x = 0}`` by reduced row echelon elimination."""
+    matrix = [list(row) for row in rows]
+    pivot_columns: list[int] = []
+    pivot_row = 0
+    for column in range(width):
+        if pivot_row == len(matrix):
+            break
+        pivot = next((row for row in range(pivot_row, len(matrix)) if matrix[row][column]), None)
+        if pivot is None:
+            continue
+        matrix[pivot_row], matrix[pivot] = matrix[pivot], matrix[pivot_row]
+        divisor = matrix[pivot_row][column]
+        matrix[pivot_row] = [item / divisor for item in matrix[pivot_row]]
+        for row in range(len(matrix)):
+            if row != pivot_row and matrix[row][column]:
+                factor = matrix[row][column]
+                matrix[row] = [a - factor * b for a, b in zip(matrix[row], matrix[pivot_row])]
+        pivot_columns.append(column)
+        pivot_row += 1
+    free_columns = [column for column in range(width) if column not in pivot_columns]
+    basis: list[tuple[Fraction, ...]] = []
+    for free_column in free_columns:
+        vector = [Fraction(0)] * width
+        vector[free_column] = Fraction(1)
+        for row, column in enumerate(pivot_columns):
+            vector[column] = -matrix[row][free_column]
+        basis.append(tuple(vector))
+    return tuple(basis)
+
+
+def _rational_inverse(matrix: tuple[tuple[Fraction, ...], ...]) -> tuple[tuple[Fraction, ...], ...]:
+    """Return the exact inverse of a nonsingular rational square matrix by Gauss--Jordan."""
+    size = len(matrix)
+    augmented = [
+        list(matrix[row]) + [Fraction(1) if row == column else Fraction(0) for column in range(size)]
+        for row in range(size)
+    ]
+    for column in range(size):
+        pivot = next(row for row in range(column, size) if augmented[row][column])
+        augmented[column], augmented[pivot] = augmented[pivot], augmented[column]
+        divisor = augmented[column][column]
+        augmented[column] = [item / divisor for item in augmented[column]]
+        for row in range(size):
+            if row != column and augmented[row][column]:
+                factor = augmented[row][column]
+                augmented[row] = [a - factor * b for a, b in zip(augmented[row], augmented[column])]
+    return tuple(tuple(row[size:]) for row in augmented)
+
+
+def _integer_consistency_system(
+    matrix: tuple[tuple[Fraction, ...], ...], constants: tuple[Fraction, ...]
+) -> tuple[tuple[tuple[int, ...], ...], tuple[int, ...]]:
+    """Return the integer Diophantine system ``A n = d`` that ``n - c in col(M)`` requires.
+
+    Each left-null-space vector ``L`` of ``M`` gives one exact constraint ``L n = L c``; clearing
+    denominators turns the rational rows into integers.
+    """
+    height = len(matrix)
+    unknowns = len(matrix[0]) if matrix else 0
+    if unknowns:
+        left_null = _rational_null_space(_transpose(matrix), height)
+    else:
+        # Zero unknowns: ``col(M) = {0}``, so every row must equal its constant and the full
+        # identity is the constraint set.
+        left_null = tuple(
+            tuple(Fraction(1) if index == row else Fraction(0) for index in range(height)) for row in range(height)
+        )
+    rows: list[tuple[int, ...]] = []
+    targets: list[int] = []
+    for vector in left_null:
+        rhs = sum((coefficient * constant for coefficient, constant in zip(vector, constants)), Fraction(0))
+        denominator = math.lcm(*(value.denominator for value in (*vector, rhs)))
+        rows.append(tuple(int(value * denominator) for value in vector))
+        targets.append(int(rhs * denominator))
+    return tuple(rows), tuple(targets)
+
+
+def _integer_diophantine(
+    rows: tuple[tuple[int, ...], ...], targets: tuple[int, ...], width: int
+) -> tuple[tuple[int, ...], tuple[tuple[int, ...], ...]] | None:
+    """Solve ``A n = d`` exactly over the integers by unimodular row reduction of ``[A^T | I]``.
+
+    Returns one particular integer solution and an integer basis of ``{v : A v = 0}``, or ``None``
+    when the system has no integer solution.
+    """
+    height = len(rows)
+    # Each work row is ``(left, right)`` with ``left`` an integer combination of ``A``'s columns and
+    # ``right`` the coefficients producing it; unimodular row operations preserve that invariant.
+    work: list[tuple[list[int], list[int]]] = [
+        ([rows[constraint][column] for constraint in range(height)], [1 if k == column else 0 for k in range(width)])
+        for column in range(width)
+    ]
+    pivots: list[int] = []
+    pivot_row = 0
+    for column in range(height):
+        if pivot_row == len(work):
+            break
+        while True:
+            candidates = [row for row in range(pivot_row, len(work)) if work[row][0][column]]
+            if not candidates:
+                break
+            leader = min(candidates, key=lambda row: abs(work[row][0][column]))
+            work[pivot_row], work[leader] = work[leader], work[pivot_row]
+            settled = True
+            for row in range(pivot_row + 1, len(work)):
+                if work[row][0][column]:
+                    factor = work[row][0][column] // work[pivot_row][0][column]
+                    if factor:
+                        work[row] = (
+                            [a - factor * b for a, b in zip(work[row][0], work[pivot_row][0])],
+                            [a - factor * b for a, b in zip(work[row][1], work[pivot_row][1])],
+                        )
+                    if work[row][0][column]:
+                        settled = False
+            if settled:
+                break
+        if work[pivot_row][0][column]:
+            if work[pivot_row][0][column] < 0:
+                work[pivot_row] = ([-value for value in work[pivot_row][0]], [-value for value in work[pivot_row][1]])
+            pivots.append(pivot_row)
+            pivot_row += 1
+    null_basis = tuple(tuple(row[1]) for row in work if not any(row[0]))
+    particular = [0] * width
+    remainder = list(targets)
+    for pivot in pivots:
+        left = work[pivot][0]
+        column = next(index for index, value in enumerate(left) if value)
+        if remainder[column] % left[column]:
+            return None
+        factor = remainder[column] // left[column]
+        if factor:
+            remainder = [a - factor * b for a, b in zip(remainder, left)]
+            particular = [a + factor * b for a, b in zip(particular, work[pivot][1])]
+    if any(remainder):
+        return None
+    return tuple(particular), null_basis
+
+
+def _lattice_box_points(
+    particular: tuple[int, ...],
+    null_basis: tuple[tuple[int, ...], ...],
+    options: tuple[range, ...],
+) -> tuple[tuple[int, ...], ...] | None:
+    """Return every ``n = particular + sum(t_i * null_basis_i)`` lying in the per-row integer box.
+
+    Returns ``None`` when the bounded coset enumeration would exceed the solver cap.
+    """
+    if any(not option for option in options):
+        return ()
+    lows = tuple(option[0] for option in options)
+    highs = tuple(option[-1] for option in options)
+    if not null_basis:
+        point = particular
+        return (point,) if all(low <= value <= high for value, low, high in zip(point, lows, highs)) else ()
+    dimension = len(null_basis)
+    columns = tuple(tuple(vector[row] for vector in null_basis) for row in range(len(particular)))
+    gram = tuple(
+        tuple(sum(a * b for a, b in zip(null_basis[i], null_basis[j])) for j in range(dimension))
+        for i in range(dimension)
+    )
+    pseudo_inverse = _rational_inverse(tuple(tuple(Fraction(value) for value in row) for row in gram))
+    # ``left = (K^T K)^-1 K^T`` maps a box point back to exact coset coefficients, so each
+    # coefficient's finite range follows from the box corners componentwise.
+    ranges: list[range] = []
+    for index in range(dimension):
+        projector = tuple(
+            sum(pseudo_inverse[index][j] * null_basis[j][row] for j in range(dimension))
+            for row in range(len(particular))
+        )
+        low_sum = Fraction(0)
+        high_sum = Fraction(0)
+        for row, coefficient in enumerate(projector):
+            first = coefficient * (lows[row] - particular[row])
+            second = coefficient * (highs[row] - particular[row])
+            low_sum += min(first, second)
+            high_sum += max(first, second)
+        ranges.append(range(math.floor(low_sum), math.floor(high_sum) + 1))
+    if math.prod(len(item) for item in ranges) > _MAX_SOLVER_BRANCHES:
+        return None
+    points: list[tuple[int, ...]] = []
+    for coefficients in itertools.product(*ranges):
+        point = tuple(
+            particular[row] + sum(coefficients[index] * columns[row][index] for index in range(dimension))
+            for row in range(len(particular))
+        )
+        if all(low <= value <= high for value, low, high in zip(point, lows, highs)):
+            points.append(point)
+    return tuple(sorted(points))
+
+
+def _exact_modular_solution(
+    matrix: tuple[tuple[Fraction, ...], ...],
+    constants: tuple[Fraction, ...],
+    options: tuple[range, ...],
+) -> tuple[tuple[Fraction, ...], Fraction, bool] | None:
+    """Return the lexicographically first exact boxed solution, or ``None`` to use the fallback.
+
+    Only the integer wraps ``n`` that keep ``n - c`` in ``col(M)`` can yield an exact solution;
+    they form a lattice coset enumerated inside the finite per-row box, in the same deterministic
+    order the product enumeration visits, so the first-hit result is preserved.
+    """
+    diophantine_rows, diophantine_targets = _integer_consistency_system(matrix, constants)
+    solved = _integer_diophantine(diophantine_rows, diophantine_targets, len(options))
+    if solved is None:
+        return None
+    particular, null_basis = solved
+    points = _lattice_box_points(particular, null_basis, options)
+    if points is None:
+        return None
+    for integers in points:
+        rhs = tuple(Fraction(integer) - constant for integer, constant in zip(integers, constants))
+        solution = _linear_solve(matrix, rhs)
+        if solution is not None:
+            return solution, Fraction(0), True
+    return None
+
+
 def _solve_modular(equations: tuple[_Equation, ...]) -> tuple[tuple[Fraction, ...], Fraction, bool] | None:
     """Solve exact modular rows, then return the best exact rational least square fit."""
     if not equations:
@@ -318,6 +537,11 @@ def _solve_modular(equations: tuple[_Equation, ...]) -> tuple[tuple[Fraction, ..
     matrix = tuple(row for equation in equations for row in equation.matrix)
     constants = tuple(value for equation in equations for value in equation.constant)
     options = tuple(_integer_options(row, constant) for row, constant in zip(matrix, constants))
+    exact = _exact_modular_solution(matrix, constants, options)
+    if exact is not None:
+        return exact
+    # Noisy inputs have no exact wrap, so fall back to the capped least-squares sweep over the full
+    # per-row product.  The exact path above already ran unconditionally, so only this sweep is capped.
     branches = math.prod(len(item) for item in options)
     if branches > _MAX_SOLVER_BRANCHES:
         raise ValueError("exact modular lift solver branch cap exceeded")
@@ -488,10 +712,11 @@ def _metric_requirements(system: str) -> tuple[tuple[tuple[int, int], ...], tupl
         return ((0, 1),), ((0, right_angle), (1, right_angle), (2, right_angle))
     if system == "cubic":
         return ((0, 1), (0, 2)), ((0, right_angle), (1, right_angle), (2, right_angle))
-    # The rhombohedral/hexagonal setting conventions are not uniform in the
-    # subgroup tables.  Their exact setting-specific constraints belong in a
-    # later table-driven metric layer; retaining those measured metrics keeps
-    # the already-valid rhombohedral lifts lossless.
+    if system in ("trigonal", "hexagonal"):
+        # Every tabulated trigonal/hexagonal parent is reached in its hexagonal-axes standard
+        # setting (all trigonal R groups are the ":H" settings), so the metric constraint is
+        # a=b with alpha=beta=90, gamma=120. No rhombohedral-axes (":R") parent occurs.
+        return ((0, 1),), ((0, right_angle), (1, right_angle), (2, Fraction(120)))
     return (), ()
 
 
@@ -1042,8 +1267,17 @@ def _highest_lifts(structure: ASUStructure, tolerance: float) -> tuple[LiftResul
         transforms = subgroup_transforms(parent_number, structure.spacegroup)
         indices = {transform: index for index, transform in enumerate(transforms)}
         target = Spacegroup.standard(parent_number)
-        raw = _raw_lifts(structure, target, tolerance)
-        candidates = raw + _normalizer_retries(structure, target, tolerance)
+        try:
+            candidates = _raw_lifts(structure, target, tolerance) + _normalizer_retries(structure, target, tolerance)
+        except ValueError as error:
+            if "branch cap exceeded" not in str(error):
+                raise
+            # One hopeless parent target may saturate the modular solver's per-row product; skip it
+            # so the breadth-first search still explores the remaining minimal supergroups.
+            logging.getLogger(__name__).warning(
+                "skipping lift into %s: %s", target.setting, error, extra={"context": "symmetry"}
+            )
+            continue
         for result in candidates:
             if result.path and result.path[0] in indices:
                 results.append((parent_number, indices[result.path[0]], result))
