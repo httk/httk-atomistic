@@ -140,6 +140,7 @@ from httk.atomistic.symmetry.subgroups import (
     subgroup_representation,
     supergroup_closure,
 )
+from httk.atomistic.symmetry.canonical import canonical_asu
 from httk.atomistic.symmetry.lift import (
     LiftResult,
     backward_lift,
@@ -301,6 +302,7 @@ __all__ = [
     "atomic_number",
     "backward_lift",
     "build_supercell",
+    "canonical_asu",
     "canonicalize",
     "cif_setting",
     "conventional_cell",

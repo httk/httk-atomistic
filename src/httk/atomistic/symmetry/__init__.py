@@ -22,6 +22,7 @@ __all__ = [
     "WyckoffPosition",
     "WyckoffSplitPiece",
     "backward_lift",
+    "canonical_asu",
     "canonicalize",
     "common_subgroup_representation",
     "conventional_cell",
@@ -46,6 +47,7 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
+    from .canonical import canonical_asu
     from .lift import LiftResult, backward_lift, canonicalize, highest_symmetry, lift_candidates, rerepresent
     from .paths import (
         CommonSubgroupResult,
@@ -155,5 +157,10 @@ def __getattr__(name: str) -> object:
             lift_candidates=lift_candidates,
             rerepresent=rerepresent,
         )
+        return globals()[name]
+    if name == "canonical_asu":
+        from .canonical import canonical_asu
+
+        globals().update(canonical_asu=canonical_asu)
         return globals()[name]
     raise AttributeError(name)
