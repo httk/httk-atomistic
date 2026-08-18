@@ -42,6 +42,7 @@ from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
+from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.symmetry._lattice import finite_translation_cosets
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
 from httk.atomistic.symmetry._standardization_common import (
@@ -58,6 +59,7 @@ from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 from httk.atomistic.symmetry.subgroups import (
     SubgroupTransform,
+    _child_sites,
     _standard_input,
     minimal_supergroups,
     subgroup_closure,
@@ -865,14 +867,12 @@ def _candidate_list(
                 continue
             order = sorted(range(len(pieces)), key=lambda index: (len(choices[index]), index))
             selected: list[tuple[int, int]] = []
-            equations: list[_Equation] = []
 
             def visit(
                 depth: int,
                 *,
                 _order=order,
                 _selected=selected,
-                _equations=equations,
                 _pieces=pieces,
                 _parent_label=parent_label,
                 _species=species,
@@ -883,19 +883,41 @@ def _candidate_list(
                     selected_labels = [orbits[index].site.wyckoff for _, index in _selected]
                     if sorted(selected_labels) != sorted(piece.letter for piece in _pieces):
                         return
-                    candidate = _Candidate(
-                        _parent_label,
-                        _species,
-                        tuple(sorted(_selected)),
-                        tuple(_equations),
-                        frozenset(index for _, index in _selected),
-                    )
-                    solved = _solve_for_transform(candidate.equations, transform)
-                    if solved is not None:
-                        solution, _, _ = solved
+                    # The tabulated split maps each child orbit into the parent orbit, but the anchor
+                    # need not close on the child's branch-0 representative: a correspondence that only
+                    # solves on another branch was silently lost when this was hard-coded to branch 0.
+                    # Enumerate every child anchor branch (deterministic product order); any spurious
+                    # modular match this admits is removed by the exact descent round trip in
+                    # _lift_transform, which is the authoritative correctness gate.
+                    # ponytail: full branch product costs O(branches^pieces) solver calls -- negligible
+                    # for the one-branch P-lattice majority, but it lengthens the failed-lift search on
+                    # high-multiplicity trigonal parents; dedup combos by their solved placement if that
+                    # class of input matters.
+                    branch_counts = [len(orbits[index].position.branches) for _, index in _selected]
+                    for combo in itertools.product(*(range(count) for count in branch_counts)):
+                        equations = tuple(
+                            _equation(
+                                _parent_position,
+                                _pieces[piece_index],
+                                orbits[orbit_index],
+                                combo[position],
+                                shift_vectors,
+                            )
+                            for position, (piece_index, orbit_index) in enumerate(_selected)
+                        )
+                        candidate = _Candidate(
+                            _parent_label,
+                            _species,
+                            tuple(sorted(_selected)),
+                            equations,
+                            frozenset(index for _, index in _selected),
+                        )
+                        solved = _solve_for_transform(candidate.equations, transform)
+                        if solved is None:
+                            continue
                         check = _validate_candidate(
                             candidate,
-                            solution,
+                            solved[0],
                             _parent_position,
                             _pieces,
                             orbits,
@@ -911,13 +933,7 @@ def _candidate_list(
                 piece_index = _order[depth]
                 for orbit_index in _choices[piece_index]:
                     _selected.append((piece_index, orbit_index))
-                    # One anchor equation per split piece is enough; full branch validation
-                    # below checks the complete orbit and removes false modular matches.
-                    _equations.append(
-                        _equation(_parent_position, _pieces[piece_index], orbits[orbit_index], 0, shift_vectors)
-                    )
                     visit(depth + 1)
-                    _equations.pop()
                     _selected.pop()
 
             visit(0)
@@ -1032,6 +1048,77 @@ def _canonical_result_key(result: LiftResult) -> tuple[Any, ...]:
     metric = result.asu.cell.metric()
     gram = tuple(metric._element((row, column)) for row in range(3) for column in range(3))
     return (sites, tuple(result.shift.to_fractions()), gram, path_key)
+
+
+def _crystals_match_within(left: ASUStructure, right: ASUStructure, tolerance: float) -> bool:
+    """Return whether two same-cell crystals agree atom-for-atom within ``tolerance`` (Cartesian).
+
+    A bijective, species-labelled, minimum-image match -- the tolerant counterpart of
+    :func:`same_crystal` for the recognition-snapped path, where an accepted lift reproduces the
+    child only up to the hop's tolerance rather than exactly.
+    """
+    from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+
+    left_view = UnitcellStructureView(left)
+    right_view = UnitcellStructureView(right)
+    if left_view.cell.basis != right_view.cell.basis:
+        return False
+    left_points = list(zip(left_view.species_at_sites, left_view.sites.reduced_coords.to_fractions()))
+    remaining = list(zip(right_view.species_at_sites, right_view.sites.reduced_coords.to_fractions()))
+    if len(left_points) != len(remaining):
+        return False
+    for name, coordinate in left_points:
+        match_index: int | None = None
+        for index, (other_name, other_coordinate) in enumerate(remaining):
+            if other_name != name:
+                continue
+            difference = FracVector(_wrapped_tuple(FracVector(coordinate) - FracVector(other_coordinate)))
+            # ponytail: greedy first-match within tolerance; sites sit far more than one tolerance
+            # apart, so the first admissible partner is the only one -- no assignment search needed.
+            if math.sqrt(_cartesian_distance_squared(difference, left_view.cell)) <= tolerance:
+                match_index = index
+                break
+        if match_index is None:
+            return False
+        remaining.pop(match_index)
+    return True
+
+
+def _round_trip_reproduces(
+    child: ASUStructure, parent: ASUStructure, transform: SubgroupTransform, tolerance: float
+) -> bool:
+    """Return whether descending ``parent`` through ``transform`` reproduces ``child``.
+
+    A backward-lift candidate is correct exactly when the descent it claims to invert recovers the
+    child crystal.  Descent (:func:`_child_sites`) is exact and already trusted, so this is the
+    authoritative correctness gate: the per-orbit distance check in :func:`_validate_candidate` is
+    only a cheap pre-filter, because a modular anchor match on any child branch can pass it while
+    placing the other sites on a different crystal.  Exact input reproduces the child exactly, so the
+    fast path is :func:`same_crystal`; a recognition-snapped input is reproduced only up to the hop's
+    Cartesian ``tolerance``, so the fallback matches within it -- one rule, exact when it can be.
+
+    The lift's continuous-normalizer origin freedom (:attr:`LiftResult.shift`, and the residual
+    origin a polar or P1 child carries) leaves the descended child at a canonical origin the raw
+    input need not share.  Both sides are reduced through :func:`_translation_normal_form` first, so
+    the comparison is invariant to exactly that freedom -- a no-op for the non-polar majority, where
+    the continuous normalizer is trivial.  It shifts only along continuous directions, so a genuinely
+    different crystal from a spurious branch match still cannot be reconciled.
+    """
+    try:
+        rebuilt = ASUStructure(
+            child.cell,
+            transform.subgroup,
+            _child_sites(parent, transform),
+            child.species,
+            transform=SettingTransform.identity(),
+            coordinate_precision=child.coordinate_precision,
+            charge=child.charge,
+        )
+    except ValueError:
+        return False
+    rebuilt = _translation_normal_form(rebuilt)
+    target = _translation_normal_form(child)
+    return same_crystal(rebuilt, target) or _crystals_match_within(rebuilt, target, tolerance)
 
 
 def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, tolerance: float) -> tuple[LiftResult, ...]:
@@ -1192,6 +1279,10 @@ def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, toler
             used.remove(candidate_index)
 
     search(all_orbits)
+    # Authoritative correctness gate: keep only candidates whose exact descent reproduces the child.
+    # Branch-free anchoring above admits more modular matches; the ones that do not round-trip -- the
+    # unsound lifts branch-0 anchoring used to mask by never proposing them -- are removed here.
+    results = [result for result in results if _round_trip_reproduces(structure, result.asu, transform, tolerance)]
     deduplicated: dict[tuple[Any, ...], LiftResult] = {}
     for result in results:
         deduplicated.setdefault(_canonical_result_key(result), result)

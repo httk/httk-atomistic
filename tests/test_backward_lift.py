@@ -344,6 +344,41 @@ def test_noncanonical_exact_cells_survive_round_trip(basis: object) -> None:
     assert any(result.residual == F(0) and result.asu.cell.basis == parent.cell.basis for result in results)
 
 
+def test_ground_truth_c2m_image_lifts_to_r_minus_3m_via_a_nonzero_anchor_branch() -> None:
+    # Descending NaCl (Fm-3m) to C2/m lands Cl on a child orbit whose branch-0 representative does
+    # not solve the R-3m anchor; the correspondence closes only on another branch.  Branch-free
+    # anchoring recovers the lift that hard-coded branch-0 anchoring silently dropped.
+    nacl = _parent(225, [WyckoffSite("a", NO_PARAMETERS, "Na"), WyckoffSite("b", NO_PARAMETERS, "Cl")])
+    child = subgroup_representation(nacl, 12).asu
+    results = backward_lift(child, 166, tolerance=1e-3)
+    result = next(result for result in results if result.asu.spacegroup.it_number == 166)
+    assert result.residual == F(0)
+    assert sorted((site.species, site.wyckoff) for site in result.asu.wyckoff_sites) == [("Cl", "b"), ("Na", "a")]
+    assert lift_module._round_trip_reproduces(child, result.asu, result.path[0], 1e-3)
+
+
+def test_round_trip_gate_rejects_a_parent_whose_descent_is_a_different_crystal() -> None:
+    # The per-orbit distance check accepts each split piece in isolation, so a wrong global
+    # assignment can pass it; the exact descent round trip is what rejects an unsound lift.
+    nacl = _parent(225, [WyckoffSite("a", NO_PARAMETERS, "Na"), WyckoffSite("b", NO_PARAMETERS, "Cl")])
+    child = subgroup_representation(nacl, 12).asu
+    result = next(
+        result for result in backward_lift(child, 166, tolerance=1e-3) if result.asu.spacegroup.it_number == 166
+    )
+    transform = result.path[0]
+    assert lift_module._round_trip_reproduces(child, result.asu, transform, 1e-3)
+    swapped = ASUStructure(
+        result.asu.cell,
+        result.asu.spacegroup,
+        [
+            WyckoffSite(site.wyckoff, site.free_params, "Cl" if site.species == "Na" else "Na")
+            for site in result.asu.wyckoff_sites
+        ],
+        result.asu.species,
+    )
+    assert not lift_module._round_trip_reproduces(child, swapped, transform, 1e-3)
+
+
 def test_underdetermined_modular_solver_chooses_a_nonzero_free_variable() -> None:
     result = _linear_solve(((F(1, 2), F(-1)),), (F(-1, 4),))
     assert result == (F(1, 2), F(1, 2))
