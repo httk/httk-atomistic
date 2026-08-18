@@ -8,8 +8,6 @@ import pytest
 
 from httk.atomistic import Species, UnitcellStructure, UnitcellStructureView, VASPStructure
 
-pytest.importorskip("httk.io")
-
 POSCAR = """Synthetic POSCAR
 1.0
 2.0 0.0 0.0
@@ -102,12 +100,3 @@ def test_foreign_structure_uses_token_serializer_path(tmp_path: Path) -> None:
     httk.core.save(backend, destination)
     loaded = httk.core.load(str(destination))
     _assert_geometry(UnitcellStructureView(loaded), [[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]])
-
-
-def test_missing_poscar_reader_names_httk_io(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    source = tmp_path / "POSCAR"
-    source.write_text(POSCAR, encoding="utf-8")
-    monkeypatch.setattr(httk.core, "has_reader_for", lambda name: False)
-
-    with pytest.raises(ImportError, match="httk-io"):
-        VASPStructure(source)

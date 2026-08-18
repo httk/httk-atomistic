@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "httk-atomistic"
 version = "0.2.0"
-description = "httk₂ module for atomistic structures and their representations."
+description = "httk₂ module for atomistic structures, their representations, and file I/O (CIF/mCIF, VASP, trajectories)."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
@@ -19,6 +19,8 @@ keywords = [
   "Materials Informatics",
   "Materials Science",
   "Machine Learning",
+  "CIF",
+  "Crystallography",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

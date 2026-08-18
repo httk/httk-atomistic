@@ -61,8 +61,6 @@ from httk.atomistic import (
 )
 from httk.atomistic.cif_structures import asu_structure_from_cif
 
-HTTK_EXAMPLE_REQUIRES = ["httk.io"]
-
 F = fractions.Fraction
 
 

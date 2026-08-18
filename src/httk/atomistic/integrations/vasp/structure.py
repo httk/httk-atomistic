@@ -21,7 +21,7 @@ class VASPStructure(StructureBackend):
     r"""Load a VASP POSCAR structure lazily.
 
     This backend is explicitly constructed because a generic structure source should not
-    silently claim every POSCAR path without the optional httk-io reader.
+    silently claim every POSCAR path.
 
     It is not registered in ``backend_classes``. Constructing it from a view whose
     unwrapped value is already a ``VASPStructure`` returns that backend by identity.
@@ -83,11 +83,6 @@ class VASPStructure(StructureBackend):
             name = os.fsdecode(os.fspath(obj))
             if not Path(name).exists():
                 raise FileNotFoundError(f"VASP structure source does not exist: {name!r}")
-            if not httk.core.has_reader_for(name):
-                raise ImportError(
-                    "VASPStructure requires the POSCAR reader provided by httk-io; "
-                    "install httk-io to load POSCAR files."
-                )
         elif isinstance(obj, Mapping):
             if obj.get("format") != "vasp-poscar":
                 raise ValueError("VASPStructure payload must have format 'vasp-poscar'.")

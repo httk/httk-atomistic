@@ -36,7 +36,6 @@ from httk.atomistic.cif_structures import (
     _hm_it_numbers,
     _normalized_hm,
     _parse_type_symbol,
-    _read_cif_for_atomistic,
     _site_declaration,
     _site_uncertainty,
     _snap,
@@ -46,8 +45,6 @@ from httk.atomistic.models.structure.asu import FundamentalDomainStructure, Wyck
 from httk.atomistic.symmetry.wyckoff import WyckoffBranch
 
 F = fractions.Fraction
-
-pytest.importorskip("httk.io", reason="the CIF reader lives in httk-io")
 
 
 def _write_cif(
@@ -448,22 +445,6 @@ def test_clean_cif_load_is_unchanged_by_autocorrect(tmp_path: Path) -> None:
     assert load(str(path), autocorrect=True) == load(str(path))
 
 
-def test_autocorrect_requires_a_cif_reader_that_supports_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from httk.io.cif import read_cif
-
-    path = _rocksalt_cif(tmp_path)
-
-    def released_read_cif(*args: object, **kwargs: object) -> object:
-        if "autocorrect" in kwargs:
-            raise TypeError("read_cif() got an unexpected keyword argument 'autocorrect'")
-        return read_cif(*args, **kwargs)
-
-    monkeypatch.setattr("httk.io.cif.read_cif", released_read_cif)
-    assert _read_cif_for_atomistic(path)["format"] == "cif"
-    with pytest.raises(ValueError, match="requires httk-io with CIF autocorrect support"):
-        _read_cif_for_atomistic(path, autocorrect=True)
-
-
 def test_the_cell_is_exact_not_the_files_rounded_basis(tmp_path: Path) -> None:
     """Built from a, b, c and the angles, so a cubic cell keeps exact right angles.
 
@@ -558,7 +539,7 @@ def test_occupancies_survive_into_the_structure(tmp_path: Path) -> None:
 
 
 def test_neutral_exact_occupancies_preserve_central_values_and_precision(tmp_path: Path) -> None:
-    """The atomistic adapter consumes the neutral exact fields without importing httk-io."""
+    """The atomistic adapter consumes the neutral exact fields from the CIF reader payload."""
     payload = dict(load(str(_rocksalt_cif(tmp_path)), raw=True)["blocks"][0])
     payload["occupancies"] = [0.5, 1 / 3]
     payload["occupancies_exact"] = ["0.5000", "1/3"]

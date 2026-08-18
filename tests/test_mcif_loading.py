@@ -9,8 +9,6 @@ from httk.core import load
 from httk.atomistic import ModulatedStructure, SymopsStructure, UnitcellStructureView
 from httk.atomistic.mcif_structures import symops_structures_from_mcif
 
-pytest.importorskip("httk.io", reason="the mCIF reader lives in httk-io")
-
 FIXTURES = Path(__file__).with_name("fixtures")
 
 

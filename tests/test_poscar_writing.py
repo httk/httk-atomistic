@@ -91,7 +91,6 @@ def test_poscar_refuses_disordered_or_partial_species(species: Species) -> None:
 
 
 def test_charge_bearing_cif_can_be_projected_to_poscar(tmp_path: Path) -> None:
-    pytest.importorskip("httk.io")
     from httk.core import load, save
 
     charged = load(str(Path(__file__).with_name("fixtures") / "oxidation_states.cif"))
@@ -139,7 +138,6 @@ def test_poscar_expands_asymmetric_unit() -> None:
 
 
 def test_poscar_save_load_roundtrip_and_suffixes(tmp_path) -> None:
-    pytest.importorskip("httk.io")
     from httk.core import has_writer_for, load, save
 
     from httk.atomistic import same_crystal
@@ -155,7 +153,6 @@ def test_poscar_save_load_roundtrip_and_suffixes(tmp_path) -> None:
 
 
 def test_poscar_repeated_symbol_groups_survive_save_load(tmp_path) -> None:
-    pytest.importorskip("httk.io")
     from httk.core import has_writer_for, load, save
 
     assert has_writer_for("POSCAR")

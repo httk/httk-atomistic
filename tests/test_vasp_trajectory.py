@@ -5,12 +5,8 @@ from pathlib import Path
 import httk.core
 import pytest
 from httk.core.storage import project_storage_record
-from httk.io.vasp.outcar import OutcarFile
 
 from httk.atomistic import TrajectoryRecord, TrajectoryView, VASPTrajectory
-
-pytest.importorskip("httk.io")
-
 
 POSCAR = """Synthetic POSCAR
 1.0
@@ -150,7 +146,6 @@ def test_xdatcar_only_has_empty_observables_and_supports_negative_index(tmp_path
     assert float(trajectory.frame(-1).sites[0][0]) == pytest.approx(0.3)
 
 
-@pytest.mark.skipif(not hasattr(OutcarFile, "ions_per_type"), reason="requires httk-io ions_per_type contract")
 def test_standalone_outcar_derives_species_from_ions_and_potcar_titles(tmp_path: Path) -> None:
     source = tmp_path / "OUTCAR"
     source.write_text(OUTCAR_STANDALONE, encoding="utf-8")
@@ -158,7 +153,6 @@ def test_standalone_outcar_derives_species_from_ions_and_potcar_titles(tmp_path:
     assert trajectory.frame(0).species_at_sites == ("Si", "O")
 
 
-@pytest.mark.skipif(not hasattr(OutcarFile, "ions_per_type"), reason="requires httk-io ions_per_type contract")
 def test_standalone_outcar_rejects_species_count_disagreement(tmp_path: Path) -> None:
     source = tmp_path / "OUTCAR"
     source.write_text(OUTCAR_STANDALONE.replace("TITEL  = PAW_PBE O 08Apr2002\n", ""), encoding="utf-8")
@@ -171,8 +165,7 @@ def test_cartesian_xdatcar_coordinates_are_reduced_by_the_cell(tmp_path: Path) -
     source.write_text(XDATCAR_CARTESIAN, encoding="utf-8")
     payload = httk.core.load(source, raw=True)
     first = next(payload["xdatcar"].frames())
-    if "cartesian" not in first:
-        pytest.skip("requires httk-io XDATCAR cartesian frame contract")
+    assert "cartesian" in first
     assert VASPTrajectory(source).frame(0).sites.reduced_coords.to_floats() == [
         [0.1, 0.2, 0.3],
         [0.4, 0.5, 0.6],
@@ -184,8 +177,7 @@ def test_cartesian_xdatcar_uses_raw_lattice_before_universal_scale(tmp_path: Pat
     source.write_text(XDATCAR_CARTESIAN_SCALED, encoding="utf-8")
     payload = httk.core.load(source, raw=True)
     first = next(payload["xdatcar"].frames())
-    if "cartesian" not in first:
-        pytest.skip("requires httk-io XDATCAR cartesian frame contract")
+    assert "cartesian" in first
     assert VASPTrajectory(source).frame(0).sites.reduced_coords.to_floats() == [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
 
 
@@ -197,8 +189,7 @@ def test_npt_xdatcar_uses_repeated_header_scale(tmp_path: Path) -> None:
     xdatcar.write_text(XDATCAR_NPT_SCALE, encoding="utf-8")
     payload = httk.core.load(xdatcar, raw=True)
     frames = tuple(payload["xdatcar"].frames())
-    if "scale" not in frames[1]:
-        pytest.skip("requires httk-io XDATCAR per-frame scale contract")
+    assert "scale" in frames[1]
     assert VASPTrajectory(source).frame(1).cell.basis.to_floats() == [
         [2.0, 0.0, 0.0],
         [0.0, 2.0, 0.0],
@@ -206,7 +197,6 @@ def test_npt_xdatcar_uses_repeated_header_scale(tmp_path: Path) -> None:
     ]
 
 
-@pytest.mark.skipif(not hasattr(OutcarFile, "ions_per_type"), reason="requires httk-io ions_per_type contract")
 def test_core_load_outcar_locator_survives_view_projection(tmp_path: Path) -> None:
     source = tmp_path / "OUTCAR"
     source.write_text(OUTCAR_STANDALONE, encoding="utf-8")

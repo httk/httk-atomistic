@@ -1,7 +1,7 @@
-"""Lazy VASP trajectory access through neutral httk-io payloads.
+"""Lazy VASP trajectory access through neutral httk payloads.
 
 This backend is explicit-only: a generic trajectory source must not claim an
-OUTCAR/XDATCAR path unless the optional httk-io readers are installed.
+OUTCAR/XDATCAR path.
 """
 
 import os
@@ -126,22 +126,9 @@ class VASPTrajectory(TrajectoryBackend):
                     candidate for name in ("OUTCAR", "XDATCAR") if (candidate := _find(path, name)) is not None
                 )
                 if not found:
-                    raise FileNotFoundError(
-                        "VASP trajectory directory has no OUTCAR or XDATCAR; "
-                        "install httk-io to provide the VASP readers."
-                    )
-                if not any(httk.core.has_reader_for(os.fsdecode(os.fspath(candidate))) for candidate in found):
-                    raise ImportError(
-                        "VASPTrajectory requires an OUTCAR/XDATCAR reader provided by httk-io; "
-                        "install httk-io to load VASP trajectory files."
-                    )
+                    raise FileNotFoundError("VASP trajectory directory has no OUTCAR or XDATCAR.")
             elif _base_name(path) not in {"OUTCAR", "XDATCAR"}:
                 raise ValueError("VASP trajectory file must be named OUTCAR or XDATCAR.")
-            elif not httk.core.has_reader_for(os.fsdecode(os.fspath(source))):
-                raise ImportError(
-                    "VASPTrajectory requires the OUTCAR/XDATCAR readers provided by httk-io; "
-                    "install httk-io to load VASP trajectory files."
-                )
         elif not any(name in dir(source) for name in ("outcar", "xdatcar", "poscar")):
             raise TypeError(
                 "VASPTrajectory expects a directory, VASPOutputs-shaped object, or vasp-outcar/vasp-xdatcar payload."
@@ -230,10 +217,13 @@ class VASPTrajectory(TrajectoryBackend):
                     scale = None
                 counts = self._xdatcar.counts
             elif self._outcar is not None:
+                # Duck-typed sources (a VASPOutputs-shaped object) may lack these; the
+                # None guard below is the single named diagnostic instead of a bare
+                # AttributeError. The in-tree OutcarFile always provides both.
                 ions_per_type = getattr(self._outcar, "ions_per_type", None)
                 titles = tuple(getattr(self._outcar, "potcar_titles", ()))
                 if ions_per_type is None:
-                    raise ValueError("standalone OUTCAR composition requires httk-io OutcarFile.ions_per_type")
+                    raise ValueError("standalone OUTCAR has no ions-per-type line for its composition")
                 if len(ions_per_type) != len(titles):
                     raise ValueError(
                         "standalone OUTCAR ions_per_type and potcar_titles disagree in length: "

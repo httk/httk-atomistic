@@ -1,4 +1,22 @@
-"""Register format adapters implemented by :mod:`httk.atomistic`."""
+"""Register format adapters, readers, and writers implemented by :mod:`httk.atomistic`."""
+
+import importlib.util
+
+
+def _reject_legacy_httk_io() -> None:
+    """Fail fast if the retired httk-io distribution is co-installed.
+
+    Its ``httk.registry.io.io`` registrations collide with the ones here, so discovery
+    would otherwise crash with a cryptic duplicate-format error naming neither package.
+    """
+    if importlib.util.find_spec("httk.registry.io.io") is not None:
+        raise RuntimeError(
+            "the retired httk-io distribution is installed alongside httk-atomistic "
+            "(which now contains its I/O layer); run `pip uninstall httk-io`"
+        )
+
+
+_reject_legacy_httk_io()
 
 from httk.core.register import register_format_adapter
 
@@ -41,17 +59,97 @@ register_format_adapter(
     formats=("vasp-outcar", "vasp-xdatcar", "httk-trajectory-jsonl"),
 )
 
-# httk-core sends load kwargs to readers, not format adapters. The CIF bridge keeps the
-# atomistic reader option available without changing httk-io's neutral reader contract.
-try:
-    from httk.registry.io import io as _httk_io_registration  # noqa: F401
-except ImportError:
-    pass
-else:
-    from httk.core.register import readers
+from httk.core.register import register_reader, register_writer
 
-    readers.register(
-        key=".cif",
-        handler="httk.atomistic.cif_structures:_read_cif_for_atomistic",
-        name="atomistic-cif",
-    )
+# httk-core sends load kwargs to readers, not format adapters, so the ``.cif`` key maps
+# to the atomistic reader (which carries the atomistic override to its adapter) rather
+# than a neutral reader plus the ``cif`` format adapter.
+register_reader(
+    name="cif",
+    reader="httk.atomistic.cif_structures:_read_cif_for_atomistic",
+    extensions=(".cif",),
+)
+
+register_writer(
+    name="cif",
+    writer="httk.atomistic.io.cif.cif_writer:_write_cif_payload",
+    format="cif",
+    extensions=(".cif",),
+)
+
+register_writer(
+    name="poscar",
+    writer="httk.atomistic.integrations.vasp.io.poscar_writer:_write_poscar_payload",
+    format="vasp-poscar",
+    extensions=(".poscar", ".vasp"),
+    filenames=("POSCAR", "CONTCAR"),
+)
+
+register_reader(
+    name="mcif",
+    reader="httk.atomistic.io.cif:read_mcif_asus",
+    extensions=(".mcif",),
+)
+
+register_reader(
+    name="poscar",
+    reader="httk.atomistic.integrations.vasp.io:read_poscar",
+    extensions=(".poscar", ".vasp"),
+    filenames=("POSCAR", "CONTCAR"),
+)
+
+register_reader(
+    name="oszicar",
+    reader="httk.atomistic.integrations.vasp.io:read_oszicar",
+    extensions=(".oszicar",),
+    filenames=("OSZICAR",),
+)
+
+register_reader(
+    name="outcar",
+    reader="httk.atomistic.integrations.vasp.io:read_outcar",
+    extensions=(".outcar",),
+    filenames=("OUTCAR",),
+)
+
+register_reader(
+    name="potcar",
+    reader="httk.atomistic.integrations.vasp.io:read_potcar_summary",
+    extensions=(".potcar",),
+    filenames=("POTCAR", "POTCAR.summary"),
+)
+
+register_reader(
+    name="xdatcar",
+    reader="httk.atomistic.integrations.vasp.io:read_xdatcar",
+    extensions=(".xdatcar",),
+    filenames=("XDATCAR",),
+)
+
+register_reader(
+    name="wavecar",
+    reader="httk.atomistic.integrations.vasp.io.wavecar:read_wavecar",
+    extensions=(".wavecar",),
+    filenames=("WAVECAR",),
+)
+
+register_reader(
+    name="trajectory-jsonl",
+    reader="httk.atomistic.io.optimade_jsonl:read_trajectory_jsonl",
+    extensions=(".jsonl",),
+)
+
+register_writer(
+    name="wavecar",
+    writer="httk.atomistic.integrations.vasp.io.wavecar:_write_wavecar_payload",
+    format="vasp-wavecar",
+    extensions=(".wavecar",),
+    filenames=("WAVECAR",),
+)
+
+register_writer(
+    name="trajectory-jsonl",
+    writer="httk.atomistic.io.optimade_jsonl:_write_trajectory_jsonl_payload",
+    format="httk-trajectory-jsonl",
+    extensions=(".jsonl",),
+)

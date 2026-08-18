@@ -1,7 +1,7 @@
 """Build an exact :class:`~httk.atomistic.ASUStructure` from a neutral CIF mapping.
 
 :func:`asu_structure_from_cif` consumes the plain, string-preserving mapping produced by
-``httk.io.cif`` (format tag ``"cif"``) and turns it into an exact ASU representation. The
+``httk.atomistic.io.cif`` (format tag ``"cif"``) and turns it into an exact ASU representation. The
 conversion only understands the neutral mapping shape, keeping the parser and domain model
 decoupled; the private reader bridge below adds precision metadata needed by this adapter.
 
@@ -191,7 +191,7 @@ def asu_structure_from_cif(
 ) -> ASUStructure:
     """Build an exact :class:`~httk.atomistic.ASUStructure` from a neutral CIF mapping.
 
-    ``data`` is one block of the mapping returned by ``httk.io.cif`` (its ``format`` must be
+    ``data`` is one block of the mapping returned by ``httk.atomistic.io.cif`` (its ``format`` must be
     ``"cif"``).
 
     The cell is built exactly from the file's ``a, b, c, alpha, beta, gamma`` rather than
@@ -1096,19 +1096,12 @@ def _parse_type_symbol(symbol: str) -> tuple[str, fractions.Fraction | None]:
 def _read_cif_for_atomistic(
     source: Any, *, allow_large_cif_uncertainty: bool = False, autocorrect: bool = False
 ) -> Mapping[str, Any]:
-    """Read CIF through httk-io and carry the atomistic override to its adapter."""
-    from httk.io.cif import read_cif
-    from httk.io.cif.cif_parser import cifblock_to_asu
+    """Read CIF and carry the atomistic override to its adapter."""
+    from httk.atomistic.io.cif import read_cif
+    from httk.atomistic.io.cif.cif_parser import cifblock_to_asu
 
     if autocorrect:
-        try:
-            raw_blocks, header = read_cif(source, allow_cif2=False, autocorrect=True, structural_only=True)
-        except TypeError as error:
-            if "autocorrect" not in str(error):
-                raise
-            raise ValueError(
-                "CIF autocorrect requires httk-io with CIF autocorrect support, which is not yet released."
-            ) from error
+        raw_blocks, header = read_cif(source, allow_cif2=False, autocorrect=True, structural_only=True)
     else:
         raw_blocks, header = read_cif(source, allow_cif2=False, structural_only=True)
     blocks = []
@@ -1142,7 +1135,8 @@ def _read_cif_for_atomistic(
 def _position_precisions(block: Mapping[str, Any]) -> list[tuple[fractions.Fraction | None, ...]]:
     """Preserve per-component CIF digit/ESD precision for the compatibility reader bridge."""
     from httk.core import combined_precision
-    from httk.io.cif.cif_parser import cif_exact_token, parse_cif_float
+
+    from httk.atomistic.io.cif.cif_parser import cif_exact_token, parse_cif_float
 
     columns = [block[f"atom_site_fract_{axis}"] for axis in "xyz"]
     companions = [block.get(f"httk_atom_site_fract_{axis}_exact") for axis in "xyz"]

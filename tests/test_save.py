@@ -1,9 +1,9 @@
 from fractions import Fraction
 
 from httk.core import FracVector, load, save
-from httk.io.cif.cif_reader import read_cif
 
 from httk.atomistic import ASUStructure, Cell, Spacegroup, Species, UnitcellStructureView, WyckoffSite, same_crystal
+from httk.atomistic.io.cif.cif_reader import read_cif
 
 P1 = """\
 data_p1

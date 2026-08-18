@@ -8,8 +8,6 @@ is the loading entry point:
 : **The loading entry point.** It picks a reader by file type, transparently
   decompresses `.bz2` and `.gz`, and returns the native `UnitcellStructure`.
 
-*httk-io* must be installed so its POSCAR reader can be registered.
-
 **The values stay exact.** The file's numbers are read as *strings* and turned
 into exact rationals, never into floats first, so a lattice row written as
 `5.3982999999999999` is that exact decimal and a coordinate written as `1/3`
@@ -34,10 +32,6 @@ from pathlib import Path
 from httk.core import load
 
 from httk.atomistic import UnitcellStructure
-
-#: This example needs *httk-io* on the path: it registers the POSCAR reader that
-#: ``httk.core.load`` dispatches to.
-HTTK_EXAMPLE_REQUIRES = ["httk.io"]
 
 POSCAR_TEXT = """SmFeO3 (VASP-5, Direct coordinates)
 1.0

@@ -1,0 +1,195 @@
+#
+#    The high-throughput toolkit (httk)
+#    Copyright (C) 2012-2025 The httk AUTHORS
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Affero General Public License as
+#    published by the Free Software Foundation, either version 3 of the
+#    License, or (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Affero General Public License for more details.
+#
+#    You should have received a copy of the GNU Affero General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""A string-preserving reader for VASP POSCAR/CONTCAR files.
+
+:func:`read_poscar` parses a POSCAR/CONTCAR file into a neutral, JSON-able
+mapping whose numeric fields are kept as the **verbatim strings** found in the
+file. It performs no numeric conversion and imports nothing from
+*httk-atomistic*; turning the mapping into a ``UnitcellStructure`` is the job of
+``httk.core.load``.
+"""
+
+import re
+from collections.abc import Iterator
+from typing import Any
+
+from httk.core import combined_precision
+
+from ._text import source_lines
+
+_POTCAR_SUFFIX = re.compile(r"^([A-Z][a-z]?)[_/.]")
+
+
+def _strip_potcar_suffix(token: str) -> str:
+    """Drop a POTCAR-flavor suffix, keeping the leading element symbol.
+
+    Only ``_``, ``/`` and ``.`` introduce a suffix, and only when the token
+    starts with an element-shaped ``[A-Z][a-z]?``; anything else (``vacancy``,
+    ``D`` and unrecognized tokens) is returned unchanged so downstream error
+    messages stay truthful.
+    """
+    match = _POTCAR_SUFFIX.match(token)
+    return match.group(1) if match is not None else token
+
+
+def _next_line(lines: Iterator[str], lineno: int, what: str) -> str:
+    """Return the next line's text, raising a clear error at end of file."""
+    try:
+        return next(lines)
+    except StopIteration:
+        raise ValueError(f"Malformed POSCAR: unexpected end of file at line {lineno} (expected {what}).") from None
+
+
+def _parse_flag(token: str, lineno: int) -> bool:
+    if token in ("T", "t"):
+        return True
+    if token in ("F", "f"):
+        return False
+    raise ValueError(f"Malformed POSCAR line {lineno}: expected a selective-dynamics flag 'T' or 'F', got {token!r}.")
+
+
+def read_poscar(source: Any) -> dict[str, Any]:
+    """Parse a VASP POSCAR/CONTCAR into a neutral, string-preserving mapping.
+
+    ``source`` may be a filename, opened through
+    :class:`httk.core.TextstreamFileView` so compressed files such as
+    ``CONTCAR.bz2`` are decompressed transparently, or an already-open text
+    stream / iterable of lines.
+
+    The returned mapping has the keys ``format`` (always ``"vasp-poscar"``),
+    ``comment``, ``scale`` and ``volume`` (both keys are always present; exactly
+    one is non-``None``), ``cell``, ``symbols`` (which may be ``None`` for
+    VASP-4; any species token shaped ``[A-Z][a-z]?`` followed by ``_``, ``/`` or
+    ``.`` is truncated to that leading symbol, so ``Li_sv``, ``O_h`` and ``Lu/``
+    read as ``Li``, ``O`` and ``Lu``; every other token, including ``vacancy``,
+    is left untouched), ``counts``, ``cartesian``, ``coords``, and
+    ``selective_dynamics`` (which may be ``None`` when selective dynamics is not
+    declared), and ``raw`` (the original decompressed text, or ``None`` when
+    unavailable). For filenames and binary sources, ``raw`` preserves CRLF and
+    provides the writer's byte-exact round-trip channel. For an open text
+    stream, it reflects the stream's already translated text and is not
+    byte-exact. Malformed input raises a clear
+    :class:`ValueError` naming the offending line.
+
+    Three further keys report how precisely the file wrote its numbers, each the coarsest
+    claim among the tokens it covers, or ``None`` when none of them claim anything:
+    ``cell_precision``, ``scale_precision``, and ``coordinate_precision``. They are the
+    precisions of the tokens **as written**, deliberately not converted: the cell vectors
+    are still to be multiplied by the scaling factor, and the coordinates may be Cartesian
+    or fractional depending on ``cartesian``. Doing that conversion needs the assembled
+    cell, so it belongs to whoever builds the structure —
+    :func:`httk.core.load` — not to the reader.
+
+    :param source: POSCAR/CONTCAR filename, text stream, or iterable of source lines.
+    :return: The neutral mapping, including the original text in ``raw`` when available.
+    :raises ValueError: If the input is malformed.
+    """
+    with source_lines(source, preserve_path=True, capture_stream=True) as (lines, raw):
+        data = _read_poscar(iter(lines))
+    data["raw"] = raw
+    return data
+
+
+def _read_poscar(lines: Iterator[str]) -> dict[str, Any]:
+    comment = _next_line(lines, 1, "comment").strip()
+
+    scale_line = _next_line(lines, 2, "scale/volume").strip()
+    try:
+        scale_value = float(scale_line)
+    except ValueError:
+        raise ValueError(f"Malformed POSCAR line 2: scale/volume {scale_line!r} is not a number.") from None
+    if scale_value < 0:
+        # A negative universal scaling factor means |value| is the target VOLUME.
+        volume: str | None = scale_line.removeprefix("-")
+        scale: str | None = None
+    else:
+        scale = scale_line
+        volume = None
+
+    cell: list[list[str]] = []
+    for i in range(3):
+        lineno = 3 + i
+        tokens = _next_line(lines, lineno, "a lattice-vector row").strip().split()
+        if len(tokens) < 3:
+            raise ValueError(f"Malformed POSCAR line {lineno}: expected 3 lattice-vector components, got {tokens!r}.")
+        cell.append(tokens[:3])
+
+    species_line = _next_line(lines, 6, "species symbols or atom counts").strip().split()
+    if not species_line:
+        raise ValueError("Malformed POSCAR line 6: expected species symbols or atom counts, got a blank line.")
+    try:
+        counts = [int(token) for token in species_line]
+        symbols: list[str] | None = None
+        counts_lineno = 6
+    except ValueError:
+        symbols = [_strip_potcar_suffix(token) for token in species_line]
+        counts_line = _next_line(lines, 7, "atom counts").strip().split()
+        try:
+            counts = [int(token) for token in counts_line]
+        except ValueError:
+            raise ValueError(f"Malformed POSCAR line 7: atom counts {counts_line!r} are not all integers.") from None
+        if len(counts) != len(symbols):
+            raise ValueError(f"Malformed POSCAR: {len(symbols)} species symbol(s) but {len(counts)} atom count(s).")
+        counts_lineno = 7
+
+    n_atoms = sum(counts)
+
+    # Optional selective-dynamics line, then the coordinate-type line.
+    mode_lineno = counts_lineno + 1
+    mode_line = _next_line(lines, mode_lineno, "coordinate type (or 'Selective dynamics')").strip()
+    selective = bool(mode_line) and mode_line[0] in "Ss"
+    if selective:
+        coordtype_lineno = mode_lineno + 1
+        coordtype = _next_line(lines, coordtype_lineno, "coordinate type").strip()
+    else:
+        coordtype_lineno = mode_lineno
+        coordtype = mode_line
+    if not coordtype:
+        raise ValueError(f"Malformed POSCAR line {coordtype_lineno}: missing coordinate type (Direct/Cartesian).")
+    cartesian = coordtype[0] in "CcKk"
+
+    coords: list[list[str]] = []
+    selective_dynamics: list[list[bool]] | None = [] if selective else None
+    for i in range(n_atoms):
+        lineno = coordtype_lineno + 1 + i
+        tokens = _next_line(lines, lineno, "an atomic coordinate row").strip().split()
+        if len(tokens) < 3:
+            raise ValueError(f"Malformed POSCAR line {lineno}: expected 3 coordinate components, got {tokens!r}.")
+        coords.append(tokens[:3])
+        if selective_dynamics is not None:
+            if len(tokens) < 6:
+                raise ValueError(
+                    f"Malformed POSCAR line {lineno}: selective dynamics declared but flags are missing ({tokens!r})."
+                )
+            selective_dynamics.append([_parse_flag(tokens[3 + j], lineno) for j in range(3)])
+
+    return {
+        "format": "vasp-poscar",
+        "cell_precision": combined_precision(token for row in cell for token in row),
+        "scale_precision": combined_precision([scale]),
+        "coordinate_precision": combined_precision(token for row in coords for token in row),
+        "comment": comment,
+        "scale": scale,
+        "volume": volume,
+        "cell": cell,
+        "symbols": symbols,
+        "counts": counts,
+        "cartesian": cartesian,
+        "coords": coords,
+        "selective_dynamics": selective_dynamics,
+    }

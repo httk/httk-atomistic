@@ -33,8 +33,6 @@ from httk.atomistic import (
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 
-pytest.importorskip("httk.io")
-
 
 class _Response(io.BytesIO):
     headers = Message()

@@ -7,40 +7,29 @@ than one representative test standing in for the rest.
 """
 
 import fractions
+import io
 from pathlib import Path
 
 import pytest
-from httk.core import FracVector
+from httk.core import FracVector, load
+from httk.core.report import collect_reports
 
 from httk.atomistic import (
+    DEFAULT_TOLERANCE,
+    ASUStructure,
     Cell,
     CellParamsView,
     CellView,
     Sites,
     SitesView,
+    Spacegroup,
     Species,
     UnitcellStructure,
     UnitcellStructureView,
-    same_crystal,
-)
-from httk.atomistic.models.cell.numeric_view import CellNumericView
-from httk.atomistic.models.sites.numeric_view import SitesNumericView
-
-pytest.importorskip("httk.io", reason="the readers live in httk-io")
-
-import io
-
-from httk.core import load
-from httk.core.report import collect_reports
-from httk.io.vasp import read_poscar
-
-from httk.atomistic import (
-    DEFAULT_TOLERANCE,
-    ASUStructure,
-    Spacegroup,
     WyckoffSite,
     _loading,
     recognize_asu,
+    same_crystal,
     structure_tolerance,
 )
 from httk.atomistic.cif_structures import (
@@ -48,6 +37,9 @@ from httk.atomistic.cif_structures import (
     CIF_POSITIONAL_UNCERTAINTY_WARNING,
     asu_structure_from_cif,
 )
+from httk.atomistic.integrations.vasp.io import read_poscar
+from httk.atomistic.models.cell.numeric_view import CellNumericView
+from httk.atomistic.models.sites.numeric_view import SitesNumericView
 
 build_poscar = getattr(_loading, "_" + "structure_" + "from_poscar")
 

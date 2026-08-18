@@ -42,7 +42,6 @@ def test_structure_entry_serves_site_moments_and_feature(moments, served, magnet
 
 
 def test_magnetic_mcif_serves_expanded_cartesian_moments() -> None:
-    pytest.importorskip("httk.io")
     from httk.core import load
 
     structure = load(str(Path(__file__).with_name("fixtures") / "magnetic_centered.mcif"))

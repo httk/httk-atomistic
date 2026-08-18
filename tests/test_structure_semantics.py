@@ -170,7 +170,6 @@ def test_incomplete_structure_formula_raises_but_reduced_formula_stays_nullable(
 
 
 def test_loaded_structure_view_formula_round_trips_to_loaded_backend() -> None:
-    pytest.importorskip("httk.io")
     loaded = load(str(Path(__file__).with_name("fixtures") / "magnetic_centered.mcif"))
     view = UnitcellStructureView(loaded)
 

@@ -3,7 +3,7 @@
 `httk-atomistic` exposes VASP plane-wave coefficients as
 `PlaneWaveFunctions`. The class is numpy-backed, uses zero-based spin,
 k-point, and band indices, and can be built from the neutral `vasp-wavecar`
-payload supplied by *httk-io*.
+payload produced by the low-level WAVECAR reader (see {doc}`wavecar`).
 
 Install the optional dependency before using this functionality:
 
@@ -13,7 +13,7 @@ python -m pip install -e '.[numpy]'
 
 ## Loading a WAVECAR
 
-Importing `httk.core` discovers the *httk-io* reader. `load` selects the
+Importing `httk.core` discovers the WAVECAR reader. `load` selects the
 reader by the exact `WAVECAR` basename or by the `.wavecar` extension, then
 the atomistic registration turns the payload into `PlaneWaveFunctions`:
 
@@ -88,8 +88,8 @@ from httk.atomistic import save_vesta
 save_vesta("wave", structure, wave.realspace_wave(0, 0, 0))
 ```
 
-`save_vesta` also requires the *httk-io* package for its POSCAR and
-volumetric writers.
+`save_vesta` builds on the low-level POSCAR and volumetric writers described
+in {doc}`wavecar`, so it also requires the optional numpy extra.
 
 ## Deliberate scope
 

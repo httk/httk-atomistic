@@ -88,7 +88,6 @@ Direct
 
 
 def test_core_load_poscar_end_to_end(tmp_path: Path) -> None:
-    pytest.importorskip("httk.io")  # load() needs the POSCAR loader httk-io registers
     contcar = tmp_path / "CONTCAR.bz2"
     contcar.write_bytes(bz2.compress(CONTCAR_TEXT.encode("utf-8")))
     structure = load(str(contcar))
@@ -97,7 +96,6 @@ def test_core_load_poscar_end_to_end(tmp_path: Path) -> None:
 
 
 def test_core_load_adapts_poscar_and_raw_keeps_payload(tmp_path: Path) -> None:
-    pytest.importorskip("httk.io")
     contcar = tmp_path / "POSCAR"
     contcar.write_text(CONTCAR_TEXT, encoding="utf-8")
 
@@ -137,7 +135,6 @@ def test_core_load_discovers_atomistic_lazily() -> None:
 
 
 def test_core_load_unknown_format(tmp_path: Path) -> None:
-    pytest.importorskip("httk.io")  # load() needs the CIF loader httk-io registers
     cif = tmp_path / "x.cif"
     cif.write_text("#h\ndata_x\n_cell_length_a 1.0\n", encoding="utf-8")
     with pytest.raises(ValueError):

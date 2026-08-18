@@ -261,8 +261,6 @@ def test_prototype_view_native_unview_preserves_identity() -> None:
 def test_prototype_datastream_path_is_not_parsed_at_construction(tmp_path, monkeypatch) -> None:
     import httk.core
 
-    __import__("httk.io")
-
     path = tmp_path / "source.cif"
     path.write_text("not parsed", encoding="utf-8")
     calls = 0

@@ -63,8 +63,6 @@ So the two directions are not symmetric, and the example prints both:
 Run this file to see every step printed.
 """
 
-# The CIF reader lives in httk-io, which httk-atomistic does not depend on: the
-# two are joined only by a neutral mapping. See HTTK_EXAMPLE_REQUIRES below.
 import tempfile
 from pathlib import Path
 
@@ -80,9 +78,6 @@ from httk.atomistic import (
     recognize_asu,
     same_crystal,
 )
-
-HTTK_EXAMPLE_REQUIRES = ["httk.io"]
-
 
 NACL_CIF = """\
 data_NaCl

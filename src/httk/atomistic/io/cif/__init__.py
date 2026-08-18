@@ -1,0 +1,31 @@
+#
+#    The high-throughput toolkit (httk)
+#    Copyright (C) 2012-2025 The httk AUTHORS
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Affero General Public License as
+#    published by the Free Software Foundation, either version 3 of the
+#    License, or (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Affero General Public License for more details.
+#
+#    You should have received a copy of the GNU Affero General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""Read CIF and magnetic CIF files into neutral asymmetric-unit payloads."""
+
+from .cif_parser import read_cif_asus, single_asu_from_cif_file
+from .cif_reader import read_cif
+from .mcif_parser import mag_asus_from_mcif_file, read_mcif_asus, single_mag_asu_from_mcif_file
+
+__all__ = [
+    "mag_asus_from_mcif_file",
+    "read_cif",
+    "read_cif_asus",
+    "read_mcif_asus",
+    "single_asu_from_cif_file",
+    "single_mag_asu_from_mcif_file",
+]

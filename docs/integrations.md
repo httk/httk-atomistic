@@ -48,3 +48,8 @@ trajectory:
 >>> structure = VASPStructure("POSCAR")          # lazy, byte-exact round-trip
 >>> trajectory = VASPTrajectory("OUTCAR")         # frames read on demand
 ```
+
+These build on the low-level, string-preserving VASP readers: see {doc}`poscar`
+for the neutral POSCAR/CONTCAR mapping, {doc}`vasp_outputs` for the OUTCAR,
+XDATCAR, OSZICAR and POTCAR readers, and {doc}`wavecar` for the binary WAVECAR
+layer.

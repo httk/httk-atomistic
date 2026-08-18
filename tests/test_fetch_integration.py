@@ -15,8 +15,6 @@ from httk.core.optimade import OptimadeResource
 
 from httk.atomistic import OptimadeStructure, UnitcellStructureView, build_supercell
 
-pytest.importorskip("httk.io")
-
 _STRUCTURES_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 
 

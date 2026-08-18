@@ -650,29 +650,25 @@ def _planewaves_from_payload(payload: Mapping[str, Any]) -> PlaneWaveFunctions:
 def save_vesta(basename: str, structure: Any, wave: Any, *, cols: int = 10) -> None:
     """Save real and imaginary wave components as VASP volumetric files.
 
-    The files are written as ``<basename>_r.vasp`` and ``<basename>_i.vasp``. This operation
-    requires the optional ``httk-io`` package.
+    The files are written as ``<basename>_r.vasp`` and ``<basename>_i.vasp``.
 
     :param basename: The output filename prefix.
     :param structure: The structure supplying the volumetric-file cell and species metadata.
     :param wave: The three-dimensional complex wave to write.
     :param cols: The number of values written per output line.
-    :raises ImportError: If NumPy or ``httk-io`` is not installed.
+    :raises ImportError: If NumPy is not installed.
     :raises ValueError: If ``wave`` is not a three-dimensional complex array.
     """
     require_numpy()
     import numpy
     from httk.core.register import format_serializers
 
+    from httk.atomistic.integrations.vasp.io.volumetric import write_vasp_volumetric
     from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
     values = numpy.asarray(wave)
     if values.ndim != 3 or not numpy.iscomplexobj(values):
         raise ValueError("wave must be a three-dimensional complex array")
-    try:
-        from httk.io.vasp import write_vasp_volumetric
-    except ImportError as error:
-        raise ImportError("save_vesta requires the httk-io package") from error
     payload = format_serializers.dispatch("vasp-poscar", UnitcellStructureView(structure))
     write_vasp_volumetric(f"{basename}_r.vasp", payload, numpy.real(values), cols=cols)
     write_vasp_volumetric(f"{basename}_i.vasp", payload, numpy.imag(values), cols=cols)

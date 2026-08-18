@@ -293,8 +293,9 @@ assert structure.species_at_sites == ("Na", "Cl")
 A negative scale line encodes a target cell **volume**; the resulting overall
 scale is the cube root of `V / |det(basis)|`, which leaves the exact surd field,
 so it is a deterministic rational approximation (the basis rows stay exact).
-The POSCAR reader requires *httk-io* to be importable so it can be registered.
-For VASP plane-wave coefficients, see {doc}`/wavefunctions`.
+The POSCAR reader ships in-tree and is registered when `httk.core` is imported;
+see {doc}`/poscar` for the neutral, string-preserving reader mapping. For VASP
+plane-wave coefficients, see {doc}`/wavefunctions`.
 
 ## Building supercells
 

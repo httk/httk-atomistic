@@ -99,7 +99,6 @@ def test_vector_adoption_and_exact_input():
 
 @pytest.mark.parametrize("dtype", [numpy.complex64, numpy.complex128])
 def test_wavecar_roundtrip(tmp_path, dtype):
-    pytest.importorskip("httk.io")
     original = _standard(dtype)
     path = tmp_path / "WAVECAR"
     save(original, path)
@@ -151,7 +150,6 @@ def test_coefficients_cache_false_reads_once_without_caching():
 
 
 def test_wavecar_context_manager_and_lifecycle(tmp_path):
-    pytest.importorskip("httk.io")
     path = tmp_path / "WAVECAR"
     save(_standard(), path)
     with load(str(path)) as loaded:
@@ -243,7 +241,6 @@ def test_gamma_realspace_known_answer(half):
 
 
 def test_gamma_save_load(tmp_path):
-    pytest.importorskip("httk.io")
     gamma = _gamma_standard().select(format="gamma")
     path = tmp_path / "WAVECAR"
     save(gamma, path)
@@ -253,8 +250,7 @@ def test_gamma_save_load(tmp_path):
 
 
 def test_gamma_half_load_hint(tmp_path):
-    pytest.importorskip("httk.io")
-    from httk.io.vasp import read_wavecar
+    from httk.atomistic.integrations.vasp.io import read_wavecar
 
     path = tmp_path / "WAVECAR"
     save(_gamma_standard().select(format="gamma"), path)
@@ -281,7 +277,6 @@ def test_select_and_validation():
 
 
 def test_save_vesta(tmp_path):
-    pytest.importorskip("httk.io")
     from httk.atomistic import Cell, Sites, Species, UnitcellStructure
 
     structure = UnitcellStructure(
@@ -299,7 +294,6 @@ FIXTURES = Path(__file__).resolve().parents[2] / "old/httk/Examples/example_reso
 
 @pytest.mark.skipif(not FIXTURES.exists(), reason="workspace-only real WAVECAR fixtures")
 def test_real_fixture_gvectors(tmp_path):
-    pytest.importorskip("httk.io")
     destinations = {}
     for suffix in ("std", "gam"):
         destination = tmp_path / f"{suffix}.wavecar"
