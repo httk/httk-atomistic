@@ -1475,12 +1475,12 @@ def _lattice_basis(generators: list[tuple[int, ...]]) -> list[list[int]]:
                 reduced = [(vector[lead] // gcd) * pivot[k] - (pivot[lead] // gcd) * vector[k] for k in range(3)]
                 pivot[:] = combined
                 vector = reduced
-        lead = next((k for k in range(3) if vector[k]), None)
-        if lead is not None:
-            if vector[lead] < 0:
+        head = next((k for k in range(3) if vector[k]), None)
+        if head is not None:
+            if vector[head] < 0:
                 vector = [-value for value in vector]
             pivots.append(vector)
-            leads.append(lead)
+            leads.append(head)
             order = sorted(range(len(leads)), key=lambda index: leads[index])
             pivots = [pivots[index] for index in order]
             leads = [leads[index] for index in order]
@@ -1596,10 +1596,10 @@ def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
             candidates.add(tuple(translation))
     best = structure
     best_key = _site_key(structure)
-    for translation in sorted(candidates):
-        if not any(translation):
+    for candidate in sorted(candidates):
+        if not any(candidate):
             continue
-        image = _apply_normalizer_operation(structure, AffineOperation(identity, FracVector(translation)))
+        image = _apply_normalizer_operation(structure, AffineOperation(identity, FracVector(candidate)))
         if image is None:
             continue
         key = _site_key(image)
@@ -1814,7 +1814,7 @@ def _search_conventional_basis(
             if c_perpendicular_to_b:
                 candidates = candidates & perpendicular[b] if c_perpendicular_to_a else perpendicular[b]
             for c in candidates:
-                rows = (a, b, c)
+                rows: tuple[tuple[int, ...], ...] = (a, b, c)
                 if _integer_determinant(rows) == 0:
                     continue
                 if not all(
