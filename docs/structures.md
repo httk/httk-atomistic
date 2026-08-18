@@ -2,8 +2,9 @@
 
 Crystal structures in `httk.atomistic` follow the *httk₂* view/backend pattern:
 one family of backends (`UnitcellStructure`, `FundamentalDomainStructure`,
-`PlainStructure`, records, ...) presented through views, with `StructureLike`
-naming everything a function accepts. Loading is one call, and any member
+`PlainStructure` — the last defined in `httk.atomistic.models.structure.plain`, not
+re-exported from `httk.atomistic` — records, ...) presented through views, with
+`StructureLike` naming everything a function accepts. Loading is one call, and any member
 converts to any view by class conversion:
 
 ```python

@@ -136,7 +136,11 @@ interpretation; class instances are selected by their type.
   `SpeciesView` remains eager so `Species` validation happens at construction. The
   plain views are genuine immutable-subclass views of their
   class (a `Cell`, a tuple, ...); `PlainSpeciesView` is a genuine — but detached and
-  mutable — OPTIMADE `dict`.
+  mutable — OPTIMADE `dict`. Of the component presentations, only `PlainStructureView`,
+  `PlainSpeciesView`, `CellParamsView`, and `NumericUnitcellStructureView` are re-exported
+  from `httk.atomistic`; the per-component `PlainCellView` / `PlainSitesView` (and the
+  numeric-view equivalents above) live in their `httk.atomistic.models.*` submodules or are
+  reached by class conversion, so `from httk.atomistic import PlainCellView` does not resolve.
 - `PlainStructureView` requires every site's species to be a single, unattached
   chemical element; alloy, vacancy, and attached species cannot be represented as a
   bare atomic number and raise `TypeError`. Such species survive in the Unitcell
@@ -265,9 +269,11 @@ assert isinstance(cartesian, numpy.ndarray) and cartesian.shape == (2, 3)
 assert numeric.exact == structure
 ```
 
-The same presentation is also available as views over any backend — `CellNumericView`,
-`SitesNumericView`, `NumericUnitcellStructureView` — mirroring the `*View` pattern (rewrap-idempotent,
-`unwrap` returns the raw original), and likewise requiring numpy.
+The same presentation is also available as views over any backend — the whole-structure
+`NumericUnitcellStructureView` (re-exported from `httk.atomistic`), and the per-component
+`CellNumericView` / `SitesNumericView` (in `httk.atomistic.models.cell.numeric_view` /
+`httk.atomistic.models.sites.numeric_view`, or reached by class conversion) — mirroring the
+`*View` pattern (rewrap-idempotent, `unwrap` returns the raw original), and likewise requiring numpy.
 
 ## Loading a POSCAR
 

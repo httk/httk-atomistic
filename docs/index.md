@@ -13,6 +13,9 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 - **Composition and formulas**: {doc}`composition`
 - **Structure prototypes**: {doc}`prototypes`
 - **Asymmetric units**: {doc}`asu`
+- **Subgroups and pathfinding**: {doc}`subgroups`
+- **Site moments (magnetism)**: {doc}`moments`
+- **Integrations (ASE, pymatgen, VASP)**: {doc}`integrations`
 - **Data precision**: {doc}`precision`
 - **Periodicity (slabs, wires, molecules)**: {doc}`periodicity`
 - **Lattice reduction**: {doc}`lattice-reduction`
@@ -66,6 +69,9 @@ prototypes
 wavefunctions
 trajectory_jsonl
 asu
+subgroups
+moments
+integrations
 precision
 periodicity
 lattice-reduction
