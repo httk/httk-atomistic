@@ -33,11 +33,17 @@ a centred-lattice parent can be presented, in the reduced cell the search carrie
 that misses the parent's exact metric class even though the lattice admits a conforming cell -- an
 F-centred cubic (NaCl from its Niggli primitive) is the motivating case.  It searches the candidate
 parent lattice for a conventional basis meeting the parent metric exactly, derives the implied child
-re-expression, and -- when that re-expression is an integer lattice normalizer -- applies it and
-lifts the re-expressed child; the descent round-trip gate stays authoritative.  It is inert whenever
-an earlier tier succeeds, so it never runs on a normally-climbing (e.g. P-lattice) input.  A centred
-child whose conventional cell is an intrinsic supercell of its lattice (the R-centred trigonal case,
-Bi-166) yields a non-integer, non-normalizer re-expression and is not landed by this tier.
+re-expression, and applies it through two arms: an integer lattice-normalizer re-choice on the
+conventional lattice (the F-centred cubic case), and -- when the parent conventional cell is an
+intrinsic supercell of the child's conventional lattice, so the conventional-lattice search cannot
+produce it (the R-centred trigonal case, Bi-166) -- a re-choice enumerated on the child's PRIMITIVE
+lattice (centring vectors included; the det-3 hexagonal basis lives there) and crossed with the
+child's discrete normalizer translations, which is what places the atoms on the tabulated
+splitting's origin coset.  Centred-arm re-expressions are verified to conjugate the child's op set
+onto itself exactly and may in general be half-integer on the conventional cell (a supported
+generalization; every map accepted so far has been integer).  The descent round-trip gate stays
+authoritative in both arms.  The tier is inert whenever an earlier tier succeeds, so it never runs
+on a normally-climbing (e.g. P-lattice) input.
 """
 
 import itertools
@@ -1333,6 +1339,13 @@ def _apply_normalizer(structure: ASUStructure, record: dict[str, Any]) -> ASUStr
 
 
 def _apply_normalizer_operation(structure: ASUStructure, operation: AffineOperation) -> ASUStructure | None:
+    """Re-express a standard-setting ASU through a point map, or ``None`` if the image is invalid.
+
+    Sites and basis transform JOINTLY (points by the operation, basis by its inverse-transpose), so
+    the Cartesian crystal is invariant under ANY invertible map -- a wrong or inapplicable operation
+    can only fail the per-orbit re-identification below and strand, never corrupt the emitted
+    structure; the descent round-trip gate downstream stays authoritative regardless.
+    """
     sites: list[WyckoffSite] = []
     for site in structure.wyckoff_sites:
         position = structure.spacegroup.wyckoff_position(site.wyckoff)
@@ -1831,6 +1844,237 @@ def _exact_rational_matrix(matrix: Any) -> tuple[tuple[Fraction, ...], ...]:
     return tuple(tuple(value for value in row) for row in matrix.to_fractions())
 
 
+def _rational_determinant(matrix: tuple[tuple[Fraction, ...], ...]) -> Fraction:
+    a, b, c = matrix
+    return a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])
+
+
+@lru_cache(maxsize=50_000)
+def _primitive_conventional_bases(
+    gram: tuple[tuple[Fraction, ...], ...], system: str
+) -> tuple[tuple[tuple[int, ...], ...], ...]:
+    """Return ALL integer bases on ``gram``'s lattice meeting the system's exact metric, in canonical order.
+
+    The centred-supercell recell arm enumerates candidate parent conventional cells over the child's
+    PRIMITIVE lattice, so unlike :func:`_search_conventional_basis` it must return every metric-valid
+    basis -- which candidate is usable depends on the transform (the implied child re-expression must
+    be a lattice automorphism), a filter only the caller can apply.  The ``c`` axis is additionally
+    allowed past the short-vector norm cap when it is fully perpendicular-constrained: a hexagonal
+    conventional ``c`` (e.g. Bi-166's c = 11.8 vs a = 4.5) is far longer than the primitive vectors,
+    and perpendicularity to both basal axes is itself a strong exact filter.  Bounded search
+    (entries in [-5, 5]), same heritage as :func:`_search_conventional_basis`.
+    """
+    equal_lengths, fixed_angles = _metric_requirements(system)
+    if not equal_lengths and not fixed_angles:
+        return ()
+    everything = [n for n in itertools.product(range(-5, 6), repeat=3) if any(n)]
+    everything.sort(key=lambda n: (_bilinear(gram, n, n), n))
+    norms = sorted({_bilinear(gram, n, n) for n in everything})
+    cap = norms[min(len(norms) - 1, 9)]
+    short = [n for n in everything if _bilinear(gram, n, n) <= cap]
+    right = Fraction(90)
+    c_perpendicular_to_a = any(index == 1 and degrees == right for index, degrees in fixed_angles)
+    c_perpendicular_to_b = any(index == 0 and degrees == right for index, degrees in fixed_angles)
+    basal_angles = tuple((index, degrees) for index, degrees in fixed_angles if index == 2)
+
+    def angle_ok(rows: tuple[tuple[int, ...], ...], index: int, degrees: Fraction) -> bool:
+        first, second = ((1, 2), (0, 2), (0, 1))[index]
+        product = _bilinear(gram, rows[first], rows[second])
+        if degrees == right:
+            return product == 0
+        length = _bilinear(gram, rows[first], rows[first])
+        return 2 * product == -length and length == _bilinear(gram, rows[second], rows[second])
+
+    found: list[tuple[tuple[int, ...], ...]] = []
+    for a in short:
+        length_a = _bilinear(gram, a, a)
+        for b in short:
+            if (0, 1) in equal_lengths and _bilinear(gram, b, b) != length_a:
+                continue
+            if any(not angle_ok((a, b, a), index, degrees) for index, degrees in basal_angles):
+                continue
+            if c_perpendicular_to_a and c_perpendicular_to_b:
+                candidates = [n for n in everything if _bilinear(gram, a, n) == 0 and _bilinear(gram, b, n) == 0]
+            else:
+                candidates = short
+            for c in candidates:
+                rows = (a, b, c)
+                if _integer_determinant(rows) == 0:
+                    continue
+                if not all(
+                    _bilinear(gram, rows[i], rows[i]) == _bilinear(gram, rows[j], rows[j]) for i, j in equal_lengths
+                ):
+                    continue
+                if not all(angle_ok(rows, index, degrees) for index, degrees in fixed_angles):
+                    continue
+                found.append(rows)
+    found.sort(
+        key=lambda rows: (
+            abs(_integer_determinant(rows)),
+            tuple(_bilinear(gram, rows[k], rows[k]) for k in range(3)),
+            rows,
+        )
+    )
+    return tuple(found)
+
+
+def _resetting_preserves_group(spacegroup: Spacegroup, point_matrix: FracVector) -> bool:
+    """Whether the pure-linear point map ``x -> A x`` conjugates the group's op set onto itself exactly.
+
+    The centred recell arm's re-expressions are lattice automorphisms unimodular over the centred
+    translation lattice; expressed on the conventional cell they MAY be half-integer (a supported
+    generalization -- no probed centred group has yet produced a non-integer map that passes this
+    check, so in practice the accepted maps have been integer), so op-set preservation is verified
+    directly rather than assumed from integrality: the conjugate image set
+    ``{(A W A^-1, wrap(A w))}`` must EQUAL the tabulated op set of the standard setting -- set
+    equality, not membership, since a non-injective conjugation could collapse two operations onto
+    one and still pass a subset check.  This is the exact-op-set contract the SettingTransform
+    machinery pins across all 527 settings, applied here to a candidate re-choice.
+    """
+    inverse = point_matrix.inv()
+    operations = {
+        (
+            tuple(tuple(value for value in row) for row in operation.matrix.to_fractions()),
+            tuple(FracVector(operation.vector).normalize().to_fractions()),
+        )
+        for operation in spacegroup.symmetry_operations
+    }
+    conjugates = set()
+    for operation in spacegroup.symmetry_operations:
+        conjugated = point_matrix * operation.matrix * inverse
+        translated = point_matrix * FracVector(operation.vector)
+        conjugates.add(
+            (
+                tuple(tuple(value for value in row) for row in conjugated.to_fractions()),
+                tuple(FracVector(translated).normalize().to_fractions()),
+            )
+        )
+    return conjugates == operations
+
+
+def _integer_recell_lifts(
+    structure: ASUStructure,
+    transform: SubgroupTransform,
+    child_gram: tuple[tuple[Fraction, ...], ...],
+    tolerance: float,
+) -> tuple[LiftResult, ...]:
+    """First recell arm: integer lattice-normalizer re-choice (see :func:`_recell_lifts`)."""
+    matrix_transpose = _exact_rational_matrix(transform.operation.matrix.T())
+    matrix_transpose_inverse = _exact_rational_matrix(transform.operation.matrix.T().inv())
+    parent_gram = _matmul3(
+        _matmul3(matrix_transpose_inverse, child_gram),
+        tuple(tuple(matrix_transpose_inverse[j][i] for j in range(3)) for i in range(3)),
+    )
+    basis = _search_conventional_basis(parent_gram, transform.parent.crystal_system)
+    if basis is None:
+        return ()
+    rechoice = _matmul3(
+        _matmul3(matrix_transpose, tuple(tuple(Fraction(v) for v in row) for row in basis)),
+        matrix_transpose_inverse,
+    )
+    if any(value.denominator != 1 for row in rechoice for value in row):
+        return ()
+    # A re-expression is a same-crystal re-choice only if it preserves the cell volume: an integer
+    # but volume-changing matrix (real runs produced det -2 and -6) is a supercell, not a lattice
+    # normalizer, and must not be applied even though the downstream re-identification would also
+    # reject it.  The right-handed search basis makes the surviving determinant exactly +1.
+    if abs(_rational_determinant(rechoice)) != 1:
+        return ()
+    # Pre-check the rebased parent metric before paying for the re-expression and lift: applying
+    # the operation sets the child basis to inv(U)*B, so the parent cell it derives is
+    # inv(M^T)*inv(U)*B.  Most searched re-choices do not clear the parent metric here (8 of 13
+    # firings in review), so this exact check -- the same one _cell_for_transform applies, on the
+    # exact rational grams this tier is guarded to -- skips them cheaply.
+    rebased_parent = SurdVector(transform.operation.matrix.T().inv()) * (
+        SurdVector(FracVector(rechoice).inv()) * structure.cell.basis
+    )
+    measured = Cell(rebased_parent)
+    equal_lengths, fixed_angles = _metric_requirements(transform.parent.crystal_system)
+    metric = measured.metric()
+    if not all(metric._element((i, i)) == metric._element((j, j)) for i, j in equal_lengths):
+        return ()
+    if not all(measured.angles[index] == angle for index, angle in fixed_angles):
+        return ()
+    transpose = FracVector(tuple(tuple(rechoice[j][i] for j in range(3)) for i in range(3)))
+    image = _apply_normalizer_operation(structure, AffineOperation(transpose, (0, 0, 0)))
+    if image is None:
+        return ()
+    return _lift_transform(image, transform, tolerance)
+
+
+def _centred_recell_lifts(
+    structure: ASUStructure,
+    transform: SubgroupTransform,
+    child_gram: tuple[tuple[Fraction, ...], ...],
+    tolerance: float,
+) -> tuple[LiftResult, ...]:
+    """Second recell arm: centred-lattice re-choice of the child's own conventional cell.
+
+    An R-centred parent's conventional cell is an intrinsic supercell of the child's CONVENTIONAL
+    lattice, so the first arm's conventional-lattice search can never produce it.  The two
+    load-bearing ingredients here are (a) candidate parent cells enumerated over the child's
+    PRIMITIVE lattice (conventional basis + centring vectors -- the det-3 hexagonal basis exists
+    only there), and (b) the discrete-normalizer-translation crossing of the applied image, which
+    places the atoms on the tabulated splitting's origin coset (observed: Bi's C2/m 'i' at
+    x = 1/2 vs the split's x = 0 family).  A candidate ``M_int`` is usable for this transform iff
+    ``X = M^T * M_int`` is integer (the new child cell expressed in primitive coordinates), giving
+    the child re-expression ``V = X * C^T`` with exact ``det V = +1`` demanded.  ``V`` may in
+    general be half-integer on the conventional cell (unimodular over the centred lattice only) --
+    a supported generalization, though every map accepted so far, including Bi's landing one, has
+    been integer.  ``V`` is verified to conjugate the child's op set onto itself exactly
+    (:func:`_resetting_preserves_group`), applied as the point map ``(V^T)^-1`` through the
+    validity-gated :func:`_apply_normalizer_operation`, then crossed with the discrete normalizer
+    translations before lifting.  The committed descent round-trip gate in :func:`_lift_transform`
+    stays authoritative -- and since a joint site+basis transformation is Cartesian-invariant for
+    ANY invertible map, a wrong re-expression can only strand (fail identification or the gate),
+    never corrupt the emitted crystal.
+
+    Deterministic: candidate bases in canonical order, translations in sorted order, first landing
+    basis per transform wins.  # ponytail: first-landing stop bounds cost; enumerate-and-dedup all
+    landing bases if a centred case ever needs a non-first representative.
+    """
+    lattice = _translation_lattice(structure.spacegroup)
+    identity = tuple(tuple(Fraction(1) if row == column else Fraction(0) for column in range(3)) for row in range(3))
+    if lattice == identity:
+        return ()
+    lattice_transpose = tuple(tuple(lattice[row][column] for row in range(3)) for column in range(3))
+    primitive_gram = _matmul3(
+        _matmul3(lattice_transpose, child_gram),
+        tuple(tuple(lattice_transpose[j][i] for j in range(3)) for i in range(3)),
+    )
+    matrix_transpose = _exact_rational_matrix(transform.operation.matrix.T())
+    identity_matrix = FracVector.eye((3, 3))
+    results: list[LiftResult] = []
+    for basis in _primitive_conventional_bases(primitive_gram, transform.parent.crystal_system):
+        integer_candidate = tuple(tuple(Fraction(value) for value in row) for row in basis)
+        new_cell_primitive = _matmul3(matrix_transpose, integer_candidate)
+        if any(value.denominator != 1 for row in new_cell_primitive for value in row):
+            continue
+        rechoice = _matmul3(new_cell_primitive, lattice_transpose)
+        if _rational_determinant(rechoice) != 1:
+            continue
+        point_matrix = FracVector(rechoice).T().inv()
+        if not _resetting_preserves_group(structure.spacegroup, point_matrix):
+            continue
+        image = _apply_normalizer_operation(structure, AffineOperation(point_matrix, (0, 0, 0)))
+        if image is None:
+            continue
+        if _cell_for_transform(image, transform, tolerance) is None:
+            continue
+        for translation in _discrete_normalizer_translations(structure.spacegroup):
+            shifted = (
+                image
+                if not any(translation)
+                else _apply_normalizer_operation(image, AffineOperation(identity_matrix, FracVector(translation)))
+            )
+            if shifted is None:
+                continue
+            results.extend(_lift_transform(shifted, transform, tolerance))
+        if results:
+            break
+    return tuple(results)
+
+
 def _matmul3(
     left: tuple[tuple[Fraction, ...], ...], right: tuple[tuple[Fraction, ...], ...]
 ) -> tuple[tuple[Fraction, ...], ...]:
@@ -1849,10 +2093,12 @@ def _recell_lifts(structure: ASUStructure, target: Spacegroup, tolerance: float)
     meeting the parent metric exactly, derives the implied child re-expression ``U = M^T*N*inv(M^T)``,
     and -- when ``U`` is a unimodular (``abs(det) == 1``) integer lattice normalizer of the child --
     applies ``U^T`` through the validity-gated :func:`_apply_normalizer_operation` and lifts the
-    re-expressed child.  A ``U`` that is non-integer or volume-changing (a centred child whose
-    conventional cell is an intrinsic supercell, e.g. the R-centred trigonal case) is not a normalizer
-    and is skipped here.  The committed descent round-trip gate in :func:`_lift_transform` remains
-    authoritative against the original child.
+    re-expressed child.  A ``U`` that is non-integer or volume-changing is not an integer lattice
+    normalizer and is skipped by this first arm; for a CENTRED child (the R-centred trigonal case,
+    where the parent conventional cell is an intrinsic supercell of the child's conventional lattice)
+    the second arm :func:`_centred_recell_lifts` then searches the child's primitive lattice for a
+    half-integer, centred-lattice-unimodular re-choice instead.  The committed descent round-trip
+    gate in :func:`_lift_transform` remains authoritative against the original child.
 
     ``_lift_transform`` is called directly, deliberately bypassing the same-setting
     :data:`COMPATIBLE_CRYSTAL_SYSTEMS` filter that cell re-choice is designed to escape.
@@ -1867,52 +2113,13 @@ def _recell_lifts(structure: ASUStructure, target: Spacegroup, tolerance: float)
             continue
         if _cell_for_transform(structure, transform, tolerance) is not None:
             continue
-        matrix_transpose = _exact_rational_matrix(transform.operation.matrix.T())
-        matrix_transpose_inverse = _exact_rational_matrix(transform.operation.matrix.T().inv())
-        parent_gram = _matmul3(
-            _matmul3(matrix_transpose_inverse, child_gram),
-            tuple(tuple(matrix_transpose_inverse[j][i] for j in range(3)) for i in range(3)),
-        )
-        basis = _search_conventional_basis(parent_gram, transform.parent.crystal_system)
-        if basis is None:
-            continue
-        rechoice = _matmul3(
-            _matmul3(matrix_transpose, tuple(tuple(Fraction(v) for v in row) for row in basis)),
-            matrix_transpose_inverse,
-        )
-        if any(value.denominator != 1 for row in rechoice for value in row):
-            continue
-        determinant = (
-            rechoice[0][0] * (rechoice[1][1] * rechoice[2][2] - rechoice[1][2] * rechoice[2][1])
-            - rechoice[0][1] * (rechoice[1][0] * rechoice[2][2] - rechoice[1][2] * rechoice[2][0])
-            + rechoice[0][2] * (rechoice[1][0] * rechoice[2][1] - rechoice[1][1] * rechoice[2][0])
-        )
-        # A re-expression is a same-crystal re-choice only if it preserves the cell volume: an integer
-        # but volume-changing matrix (real runs produced det -2 and -6) is a supercell, not a lattice
-        # normalizer, and must not be applied even though the downstream re-identification would also
-        # reject it.  The right-handed search basis makes the surviving determinant exactly +1.
-        if abs(determinant) != 1:
-            continue
-        # Pre-check the rebased parent metric before paying for the re-expression and lift: applying
-        # the operation sets the child basis to inv(U)*B, so the parent cell it derives is
-        # inv(M^T)*inv(U)*B.  Most searched re-choices do not clear the parent metric here (8 of 13
-        # firings in review), so this exact check -- the same one _cell_for_transform applies, on the
-        # exact rational grams this tier is guarded to -- skips them cheaply.
-        rebased_parent = SurdVector(transform.operation.matrix.T().inv()) * (
-            SurdVector(FracVector(rechoice).inv()) * structure.cell.basis
-        )
-        measured = Cell(rebased_parent)
-        equal_lengths, fixed_angles = _metric_requirements(transform.parent.crystal_system)
-        metric = measured.metric()
-        if not all(metric._element((i, i)) == metric._element((j, j)) for i, j in equal_lengths):
-            continue
-        if not all(measured.angles[index] == angle for index, angle in fixed_angles):
-            continue
-        transpose = FracVector(tuple(tuple(rechoice[j][i] for j in range(3)) for i in range(3)))
-        image = _apply_normalizer_operation(structure, AffineOperation(transpose, (0, 0, 0)))
-        if image is None:
-            continue
-        results.extend(_lift_transform(image, transform, tolerance))
+        lifted = _integer_recell_lifts(structure, transform, child_gram, tolerance)
+        if not lifted:
+            # The integer arm cannot re-choose across a centring (the parent conventional cell may be
+            # an intrinsic supercell of the child's conventional lattice); the centred arm searches
+            # the child's primitive lattice for a half-integer lattice-unimodular re-choice instead.
+            lifted = _centred_recell_lifts(structure, transform, child_gram, tolerance)
+        results.extend(lifted)
     deduplicated: dict[tuple[Any, ...], LiftResult] = {}
     for result in results:
         deduplicated.setdefault(_canonical_result_key(result), result)

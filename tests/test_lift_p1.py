@@ -843,6 +843,15 @@ _SCRAMBLE_BATTERY = {
         spacegroup=225,
         species=["Na", "Cl"],
     ),
+    # R-centred trigonal: the hexagonal conventional cell is an intrinsic threefold supercell of the
+    # carried child's conventional lattice, so only the centred recell arm's primitive-lattice
+    # search (plus its discrete-translation crossing) can present the R-centred hop.
+    "Bi-166-rhombohedral": _scramble_reference(
+        WyckoffSite("c", FracVector((F(234, 1000),)), "Bi"),
+        cell=Cell(CellParams((F(45, 10), F(45, 10), F(118, 10), 90, 90, 120)).basis),
+        spacegroup=166,
+        species=["Bi"],
+    ),
 }
 
 
@@ -855,12 +864,9 @@ def test_scrambled_single_atom_po_canonicalizes_to_cubic() -> None:
 @pytest.mark.extended
 def test_scramble_invariance_battery() -> None:
     # Scrambling (unimodular shear + origin shift + reorder) a P1 description must canonicalize to
-    # exactly the unscrambled P1 expansion's result, for every seed -- including FCC NaCl, whose
-    # F-centred cubic hop is recovered by the conventional-cell re-choice tier.
-    # Still excluded: trigonal Bi-166 (R-centred).  Its conventional (hexagonal) cell is an intrinsic
-    # threefold supercell of the carried child's lattice, so the implied child re-expression is not an
-    # integer lattice normalizer; the re-choice tier searches, finds no valid normalizer, and Bi
-    # strands at IT 12.  Landing it needs a centred-supercell re-expression the tier does not yet do.
+    # exactly the unscrambled P1 expansion's result, for every seed -- including FCC NaCl (F-centred
+    # cubic hop recovered by the integer re-choice arm) and rhombohedral Bi-166 (recovered by the
+    # centred recell arm's primitive-lattice search and discrete-translation crossing).
     for name, reference in _SCRAMBLE_BATTERY.items():
         expected = _result_key(canonicalize(_expanded_p1(reference), tolerance=1e-3))
         for seed in (1, 2, 3):
@@ -880,12 +886,14 @@ def _count_recell_searches(monkeypatch: pytest.MonkeyPatch) -> list[int]:
 
 
 def _capture_recell_applications(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
-    """Record the determinant of every re-expression the re-choice tier actually APPLIES.
+    """Record every re-expression operation the re-choice tier actually APPLIES.
 
     Only ``_apply_normalizer_operation`` calls made while ``_recell_lifts`` is on the stack are
-    captured (the tier makes no others), so the list is exactly the re-expressions the tier applies.
+    captured (the tier makes no others), so the list is exactly the operations the tier applies --
+    integer-arm re-choices, centred-arm half-integer re-choices, and the centred arm's discrete
+    normalizer translations.
     """
-    determinants: list[Any] = []
+    operations: list[Any] = []
     active = [False]
     real_recell = lift_module._recell_lifts
     real_apply = lift_module._apply_normalizer_operation
@@ -899,12 +907,12 @@ def _capture_recell_applications(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
 
     def apply_spy(structure: Any, operation: Any) -> Any:
         if active[0]:
-            determinants.append(operation.determinant())
+            operations.append(operation)
         return real_apply(structure, operation)
 
     monkeypatch.setattr(lift_module, "_recell_lifts", recell_spy)
     monkeypatch.setattr(lift_module, "_apply_normalizer_operation", apply_spy)
-    return determinants
+    return operations
 
 
 def test_conventional_recell_tier_is_dormant_on_a_p_lattice(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -926,23 +934,45 @@ def test_conventional_recell_tier_lands_fcc_nacl(monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.mark.extended
-def test_conventional_recell_tier_documents_the_r_centred_bi_limit(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Sanity anchor pinned to the CAUSE, not the current terminal: the tier searches the R-centred
-    # trigonal hop but every re-expression it finds is a volume-changing supercell, so it applies
-    # none and Bi cannot climb past its subgroup.  Asserted as: the search fires, nothing is applied,
-    # and the result is IT 12 or better (so a future centred-supercell arm landing 166 stays green).
-    searches = _count_recell_searches(monkeypatch)
+def test_conventional_recell_tier_lands_r_centred_bi(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Sanity anchor for the centred recell arm: the R-centred hexagonal conventional cell is an
+    # intrinsic threefold supercell of the carried child's CONVENTIONAL lattice, so the integer
+    # arm's conventional-lattice search can never produce it.  What lands Bi is (a) the parent-cell
+    # search on the child's PRIMITIVE lattice (the det-3 hexagonal basis lives there) and (b) the
+    # discrete-normalizer-translation crossing that places the atoms on the tabulated splitting's
+    # origin coset.  (The applied re-choice matrix itself happens to be integer; half-integer maps
+    # are a supported generalization no probed group has exercised.)
     applied = _capture_recell_applications(monkeypatch)
-    bismuth = ASUStructure(
-        Cell(CellParams((4.5, 4.5, 11.8, 90, 90, 120)).basis),
-        166,
-        [WyckoffSite("c", FracVector((F(234, 1000),)), "Bi")],
-        _species("Bi"),
-    )
+    landings = [0]
+    real_centred = lift_module._centred_recell_lifts
+
+    def centred_spy(structure: Any, transform: Any, child_gram: Any, tolerance: float) -> Any:
+        lifted = real_centred(structure, transform, child_gram, tolerance)
+        if lifted:
+            landings[0] += 1
+        return lifted
+
+    monkeypatch.setattr(lift_module, "_centred_recell_lifts", centred_spy)
+    bismuth = _SCRAMBLE_BATTERY["Bi-166-rhombohedral"]
     result = canonicalize(_expanded_p1(bismuth), tolerance=1e-3)
-    assert searches[0] > 0
-    assert applied == []
-    assert result.spacegroup.it_number >= 12
+    assert result.spacegroup.it_number == 166
+    assert landings[0] > 0, "the centred arm must be what landed the R-centred hop"
+    # The winning re-choice rides the primitive-lattice search (a det-3 parent basis unreachable by
+    # the integer arm's conventional-lattice search) and the discrete-normalizer-translation
+    # crossing -- the half-lattice shift is observable in the applied operations.
+    shifted = [
+        operation
+        for operation in applied
+        if operation.matrix == FracVector.eye((3, 3))
+        and any(value != 0 for value in FracVector(operation.vector).to_fractions())
+    ]
+    assert shifted, "the centred arm's discrete-translation crossing must have been applied"
+    # The tier invariant extends to the centred arm: every applied operation is volume- and
+    # orientation-preserving (det exactly +1; half-integer entries allowed).
+    assert all(operation.determinant() == 1 for operation in applied)
+    # Direct entry at 166 and the P1 climb agree exactly -- the arm restores full entry coherence.
+    direct = canonicalize(bismuth, tolerance=1e-3)
+    assert _result_key(result) == _result_key(direct)
 
 
 @pytest.mark.extended
@@ -956,4 +986,52 @@ def test_conventional_recell_re_expressions_are_unimodular_and_right_handed(monk
     result = canonicalize(_expanded_p1(_SCRAMBLE_BATTERY["NaCl-225-fcc"]), tolerance=1e-3)
     assert result.spacegroup.it_number == 225
     assert applied  # the tier fired and applied at least one re-expression
-    assert all(determinant == 1 for determinant in applied)
+    assert all(operation.determinant() == 1 for operation in applied)
+
+
+def test_non_integer_centred_automorphisms_are_rejected_at_the_op_set_gate() -> None:
+    # The centred arm's half-integer branch is the mathematically complete formulation, but no
+    # centred group is known to exercise it: bounded review probes (~91k non-integer det-1
+    # centred-unimodular maps across all 36 centred standard settings) found ZERO that pass the
+    # op-set equality check, and every map the arm has accepted in practice is integer.  This pins
+    # the current observable contract -- non-integer candidates are enumerated and rejected at the
+    # op-set gate -- for one group per centring class (C-mono, F-ortho, R-trigonal, I-cubic).
+    identity = tuple(tuple(F(1) if row == column else F(0) for column in range(3)) for row in range(3))
+    bumps = [identity] + [
+        tuple(tuple(F(1) if r == c else (F(1) if (r, c) == (i, j) else F(0)) for c in range(3)) for r in range(3))
+        for i in range(3)
+        for j in range(3)
+        if i != j
+    ]
+    for it_number in (12, 69, 166, 229):
+        spacegroup = Spacegroup.standard(it_number)
+        lattice = lift_module._translation_lattice(spacegroup)
+        lattice_transpose = tuple(tuple(lattice[row][column] for row in range(3)) for column in range(3))
+        index = round(1 / float(lift_module._rational_determinant(lattice_transpose)))
+        # Deterministic candidate family: diag(d) * elementary-bump with det = centring index, so
+        # V = X * C^T is volume-preserving; keep the non-integer ones.
+        diagonals = sorted(
+            {
+                combo
+                for combo in itertools.product((1, 2, 3, 4), repeat=3)
+                if combo[0] * combo[1] * combo[2] == abs(index)
+            }
+        )
+        non_integer = []
+        for diagonal in diagonals:
+            for bump in bumps:
+                x_matrix = tuple(tuple(F(diagonal[r]) * bump[r][c] for c in range(3)) for r in range(3))
+                candidate = lift_module._matmul3(x_matrix, lattice_transpose)
+                if abs(lift_module._rational_determinant(candidate)) != 1:
+                    continue
+                if all(value.denominator == 1 for row in candidate for value in row):
+                    continue
+                non_integer.append(candidate)
+        assert non_integer, it_number  # the candidate family genuinely reaches the branch
+        for candidate in non_integer:
+            assert not lift_module._resetting_preserves_group(spacegroup, FracVector(candidate).T().inv()), (
+                it_number,
+                candidate,
+            )
+        # Positive control: the identity trivially preserves the op set, so the gate discriminates.
+        assert lift_module._resetting_preserves_group(spacegroup, FracVector(identity))
