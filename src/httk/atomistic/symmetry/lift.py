@@ -103,10 +103,13 @@ COMPATIBLE_CRYSTAL_SYSTEMS: dict[str, frozenset[str]] = {
 }
 
 _MAX_SOLVER_BRANCHES = 200_000
-# The noisy least-squares fallback only helps genuine recognition noise, whose integer-wrap box is
-# tiny (observed <= ~16).  An underdetermined or invalid candidate instead blows the box up (46656
-# for the Bi 2-atom P1 -> P-1 hop, ~90 s of sweep that only ever yields a rejected approximation), so
-# it is failed cheaply above this far-lower ceiling while the full cap still guards the exact path.
+# The noisy least-squares fallback only helps genuine recognition noise: the wrap box that carried an
+# accepted noisy solution was <= 16 in the reviewed cases, while the full sweep on the same Bi
+# 2-atom P1 -> P-1 hop enters boxes up to 1296 before this cap (and 46656 without it, ~90 s that only
+# ever yields a rejected approximation).  The ceiling sits ~3.2x above that measured 1296.  It is a
+# heuristic, not a proof: the box grows multiplicatively in the number of rows, so a genuinely noisy
+# lift whose wrap box exceeds it would be silently missed -- hence the warning log at the skip.  The
+# full cap still guards the exact path.
 _MAX_NOISY_SWEEP_BRANCHES = 4_096
 _MAX_FOURIER_MOTZKIN_INEQUALITIES = 20_000
 
@@ -591,7 +594,15 @@ def _solve_modular(equations: tuple[_Equation, ...]) -> tuple[tuple[Fraction, ..
         raise ValueError("exact modular lift solver branch cap exceeded")
     if branches > _MAX_NOISY_SWEEP_BRANCHES:
         # No exact wrap exists (the exact path already ran); a noisy match this deep in the wrap box
-        # is not a real lift, so fail the candidate cheaply rather than grinding the full sweep.
+        # is not a real lift, so fail the candidate cheaply rather than grinding the full sweep.  This
+        # can in principle silently drop a genuinely noisy lift in a large box, so record it on the
+        # same warning channel the branch-cap skip uses.
+        logging.getLogger(__name__).warning(
+            "skipping noisy least-squares sweep over %d wrap boxes (cap %d)",
+            branches,
+            _MAX_NOISY_SWEEP_BRANCHES,
+            extra={"context": "symmetry"},
+        )
         return None
     best: tuple[tuple[Fraction, ...], Fraction, bool] | None = None
     for integers in itertools.product(*(tuple(item) for item in options)):
@@ -1078,6 +1089,11 @@ def _crystals_match_within(left: ASUStructure, right: ASUStructure, tolerance: f
     A bijective, species-labelled, minimum-image match -- the tolerant counterpart of
     :func:`same_crystal` for the recognition-snapped path, where an accepted lift reproduces the
     child only up to the hop's tolerance rather than exactly.
+
+    The basis-equality guard below is a defensive precondition, not a working branch: the round-trip
+    caller (:func:`_round_trip_reproduces`) always passes two structures built on the child's own
+    cell, so it never fires there.  It is kept so the tolerant match stays sound if reused with
+    mismatched cells, where a Cartesian comparison would be meaningless.
     """
     from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
@@ -1740,7 +1756,9 @@ def _search_conventional_basis(
     :func:`_metric_requirements` exactly.  Enumeration is a bounded exact short-vector search --
     ``bound`` 5 was what the trigonal Bi case needed in the parameterization these grams use, kept as
     a documented bounded search rather than a proven radius.  The choice is deterministic: least
-    ``(abs(det), sorted squared lengths, rows)``.  ``None`` when no such basis is found in the bound.
+    ``(abs(det), row-order squared lengths, rows)``, then flipped to a right-handed (positive
+    determinant) basis so the applied re-expression is orientation-preserving.  ``None`` when no such
+    basis is found in the bound.
     """
     equal_lengths, fixed_angles = _metric_requirements(system)
     if not equal_lengths and not fixed_angles:
@@ -1799,7 +1817,14 @@ def _search_conventional_basis(
                 )
                 if best is None or key < best[0]:
                     best = (key, rows)
-    return None if best is None else best[1]
+    if best is None:
+        return None
+    rows = best[1]
+    if _integer_determinant(rows) < 0:
+        # The abs(det) key leaves the handedness of the winner undetermined; negate one axis so the
+        # returned basis is right-handed and every re-expression built from it preserves orientation.
+        rows = (rows[0], rows[1], tuple(-value for value in rows[2]))
+    return rows
 
 
 def _exact_rational_matrix(matrix: Any) -> tuple[tuple[Fraction, ...], ...]:
@@ -1822,11 +1847,12 @@ def _recell_lifts(structure: ASUStructure, target: Spacegroup, tolerance: float)
     misses the parent's exact metric class -- even though the lattice does admit a conforming cell.
     For each such transform this searches the candidate parent lattice for a conventional basis
     meeting the parent metric exactly, derives the implied child re-expression ``U = M^T*N*inv(M^T)``,
-    and -- when ``U`` is an integer lattice normalizer of the child -- applies ``U^T`` through the
-    validity-gated :func:`_apply_normalizer_operation` and lifts the re-expressed child.  A
-    non-integer ``U`` (a centred child whose conventional cell is an intrinsic supercell, e.g. the
-    R-centred trigonal case) is not a normalizer and is skipped here.  The committed descent
-    round-trip gate in :func:`_lift_transform` remains authoritative against the original child.
+    and -- when ``U`` is a unimodular (``abs(det) == 1``) integer lattice normalizer of the child --
+    applies ``U^T`` through the validity-gated :func:`_apply_normalizer_operation` and lifts the
+    re-expressed child.  A ``U`` that is non-integer or volume-changing (a centred child whose
+    conventional cell is an intrinsic supercell, e.g. the R-centred trigonal case) is not a normalizer
+    and is skipped here.  The committed descent round-trip gate in :func:`_lift_transform` remains
+    authoritative against the original child.
 
     ``_lift_transform`` is called directly, deliberately bypassing the same-setting
     :data:`COMPATIBLE_CRYSTAL_SYSTEMS` filter that cell re-choice is designed to escape.
@@ -1855,6 +1881,32 @@ def _recell_lifts(structure: ASUStructure, target: Spacegroup, tolerance: float)
             matrix_transpose_inverse,
         )
         if any(value.denominator != 1 for row in rechoice for value in row):
+            continue
+        determinant = (
+            rechoice[0][0] * (rechoice[1][1] * rechoice[2][2] - rechoice[1][2] * rechoice[2][1])
+            - rechoice[0][1] * (rechoice[1][0] * rechoice[2][2] - rechoice[1][2] * rechoice[2][0])
+            + rechoice[0][2] * (rechoice[1][0] * rechoice[2][1] - rechoice[1][1] * rechoice[2][0])
+        )
+        # A re-expression is a same-crystal re-choice only if it preserves the cell volume: an integer
+        # but volume-changing matrix (real runs produced det -2 and -6) is a supercell, not a lattice
+        # normalizer, and must not be applied even though the downstream re-identification would also
+        # reject it.  The right-handed search basis makes the surviving determinant exactly +1.
+        if abs(determinant) != 1:
+            continue
+        # Pre-check the rebased parent metric before paying for the re-expression and lift: applying
+        # the operation sets the child basis to inv(U)*B, so the parent cell it derives is
+        # inv(M^T)*inv(U)*B.  Most searched re-choices do not clear the parent metric here (8 of 13
+        # firings in review), so this exact check -- the same one _cell_for_transform applies, on the
+        # exact rational grams this tier is guarded to -- skips them cheaply.
+        rebased_parent = SurdVector(transform.operation.matrix.T().inv()) * (
+            SurdVector(FracVector(rechoice).inv()) * structure.cell.basis
+        )
+        measured = Cell(rebased_parent)
+        equal_lengths, fixed_angles = _metric_requirements(transform.parent.crystal_system)
+        metric = measured.metric()
+        if not all(metric._element((i, i)) == metric._element((j, j)) for i, j in equal_lengths):
+            continue
+        if not all(measured.angles[index] == angle for index, angle in fixed_angles):
             continue
         transpose = FracVector(tuple(tuple(rechoice[j][i] for j in range(3)) for i in range(3)))
         image = _apply_normalizer_operation(structure, AffineOperation(transpose, (0, 0, 0)))
@@ -2221,7 +2273,10 @@ def highest_symmetry(
     :raises ValueError: If the input is unsupported, or if the breadth-first search exceeds its
         visited-state cap.  A per-parent modular-solver branch-cap failure is not raised: that parent
         target is skipped and reported through the ``"symmetry"`` warning channel, so in that rare
-        case the returned symmetry may be lower than the true maximum.
+        case the returned symmetry may be lower than the true maximum.  The noisy least-squares
+        fallback is capped the same way -- a candidate whose integer-wrap box exceeds the noisy cap is
+        skipped (also on the ``"symmetry"`` warning channel), which could likewise lower the returned
+        symmetry for a genuinely noisy large-box lift.
 
     An exact P1 supercell entry is first collapsed to its unique primitive description (any
     multiplicity or sublattice orientation), and a triclinic (SG 1 or 2) entry is then Niggli-reduced

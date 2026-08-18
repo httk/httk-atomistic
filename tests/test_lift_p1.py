@@ -879,6 +879,34 @@ def _count_recell_searches(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     return calls
 
 
+def _capture_recell_applications(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
+    """Record the determinant of every re-expression the re-choice tier actually APPLIES.
+
+    Only ``_apply_normalizer_operation`` calls made while ``_recell_lifts`` is on the stack are
+    captured (the tier makes no others), so the list is exactly the re-expressions the tier applies.
+    """
+    determinants: list[Any] = []
+    active = [False]
+    real_recell = lift_module._recell_lifts
+    real_apply = lift_module._apply_normalizer_operation
+
+    def recell_spy(structure: Any, target: Any, tolerance: float) -> Any:
+        active[0] = True
+        try:
+            return real_recell(structure, target, tolerance)
+        finally:
+            active[0] = False
+
+    def apply_spy(structure: Any, operation: Any) -> Any:
+        if active[0]:
+            determinants.append(operation.determinant())
+        return real_apply(structure, operation)
+
+    monkeypatch.setattr(lift_module, "_recell_lifts", recell_spy)
+    monkeypatch.setattr(lift_module, "_apply_normalizer_operation", apply_spy)
+    return determinants
+
+
 def test_conventional_recell_tier_is_dormant_on_a_p_lattice(monkeypatch: pytest.MonkeyPatch) -> None:
     # A state that climbs normally never reaches the third tier, so the exact re-choice search never
     # runs on a P-lattice input -- zero firings, not merely zero accepted lifts.
@@ -899,9 +927,12 @@ def test_conventional_recell_tier_lands_fcc_nacl(monkeypatch: pytest.MonkeyPatch
 
 @pytest.mark.extended
 def test_conventional_recell_tier_documents_the_r_centred_bi_limit(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Sanity anchor (documented limit): the tier searches the R-centred trigonal hop but finds no
-    # integer normalizer, so Bi-166 strands at IT 12 rather than landing.
-    calls = _count_recell_searches(monkeypatch)
+    # Sanity anchor pinned to the CAUSE, not the current terminal: the tier searches the R-centred
+    # trigonal hop but every re-expression it finds is a volume-changing supercell, so it applies
+    # none and Bi cannot climb past its subgroup.  Asserted as: the search fires, nothing is applied,
+    # and the result is IT 12 or better (so a future centred-supercell arm landing 166 stays green).
+    searches = _count_recell_searches(monkeypatch)
+    applied = _capture_recell_applications(monkeypatch)
     bismuth = ASUStructure(
         Cell(CellParams((4.5, 4.5, 11.8, 90, 90, 120)).basis),
         166,
@@ -909,5 +940,20 @@ def test_conventional_recell_tier_documents_the_r_centred_bi_limit(monkeypatch: 
         _species("Bi"),
     )
     result = canonicalize(_expanded_p1(bismuth), tolerance=1e-3)
-    assert calls[0] > 0
-    assert result.spacegroup.it_number == 12
+    assert searches[0] > 0
+    assert applied == []
+    assert result.spacegroup.it_number >= 12
+
+
+@pytest.mark.extended
+def test_conventional_recell_re_expressions_are_unimodular_and_right_handed(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The tier's own invariant, guarded rather than left to downstream accident: every re-expression
+    # it applies is unimodular (|det| = 1, no volume change) and orientation-preserving (det = +1, no
+    # left-handed flip).  The FCC NaCl climb both lands via the tier and exercises its other firings
+    # (including the IT 44 -> 119 hop the review flagged as left-handed), so its applied set covers
+    # the guard.
+    applied = _capture_recell_applications(monkeypatch)
+    result = canonicalize(_expanded_p1(_SCRAMBLE_BATTERY["NaCl-225-fcc"]), tolerance=1e-3)
+    assert result.spacegroup.it_number == 225
+    assert applied  # the tier fired and applied at least one re-expression
+    assert all(determinant == 1 for determinant in applied)
