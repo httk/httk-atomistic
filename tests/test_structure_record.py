@@ -261,10 +261,10 @@ def test_content_id_is_layout_independent_without_sqlalchemy() -> None:
 
 def test_sql_store_unitcell_rename_preserves_content_id() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store.db import Database, SqlStore
+    from httk.store import Backend, SqlStore
 
     source = _unitcell()
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
 
@@ -273,10 +273,10 @@ def test_sql_store_unitcell_rename_preserves_content_id() -> None:
 
 def test_sql_store_round_trips_site_moments() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store.db import Database, SqlStore
+    from httk.store import Backend, SqlStore
 
     source = _unitcell(site_moments=CartesianSiteMoments([[1, 2, 3], [-1, 0, 1]], precision=Fraction(1, 100)))
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         # Asserted after the in-memory database is disposed, so materialize now.
         fetched = store.fetch(UnitcellStructureRecord, store.save(source), eager=True)
@@ -287,10 +287,10 @@ def test_sql_store_round_trips_site_moments() -> None:
 
 def test_lazy_fetch_replace_save_recomposes_with_proxy_children() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store.db import Database, SqlStore
-    from httk.store.db.rows import is_lazy_row
+    from httk.store import Backend, SqlStore
+    from httk.store.backend.sql.rows import is_lazy_row
 
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         sid = store.save(_unitcell_record(_unitcell(optimization_type="local")))
         fetched = store.fetch(UnitcellStructureRecord, sid)
@@ -356,7 +356,7 @@ def test_setting_local_asu_round_trips_without_a_change_of_basis() -> None:
 @pytest.mark.parametrize("bulk", (False, True))
 def test_strict_store_scopes_same_affine_transform_hall_metadata(bulk: bool) -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store.db import Database, SqlStore
+    from httk.store import Backend, SqlStore
 
     sources = (
         ASUStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], 1, (), (), SettingTransform.for_hall_entry("p_1")),
@@ -364,7 +364,7 @@ def test_strict_store_scopes_same_affine_transform_hall_metadata(bulk: bool) -> 
     )
     assert sources[0].transform == sources[1].transform
     layout = {StructureEntry: (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord)}
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records=layout)
         if bulk:
             with store.bulk_ingest(finalize="deferred") as ingest:
@@ -455,9 +455,9 @@ def test_mixed_species_precision_survives_record_and_sql_views() -> None:
     assert UnitcellStructureView(record).species[0].concentration_precision == expected
 
     pytest.importorskip("sqlalchemy")
-    from httk.store.db import Database, SqlStore
+    from httk.store import Backend, SqlStore
 
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         sid = store.save(source)
         fetched = store.fetch(UnitcellStructureRecord, sid)
@@ -494,9 +494,9 @@ def test_decorated_repeated_species_and_structure_charge_round_trip(dialect: str
     pytest.importorskip("sqlalchemy")
     if dialect == "duckdb":
         pytest.importorskip("duckdb_engine")
-    from httk.store.db import Database, SqlStore
+    from httk.store import Backend, SqlStore
 
-    database = Database.duckdb() if dialect == "duckdb" else Database.sqlite()
+    database = Backend.duckdb() if dialect == "duckdb" else Backend.sqlite()
     with database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         fetched = store.fetch(UnitcellStructureRecord, store.save(source))
@@ -633,9 +633,9 @@ def test_record_construction_defers_normalized_composition_validation() -> None:
         validate_structure_record(record)
 
     pytest.importorskip("sqlalchemy")
-    from httk.store.db import Database, SqlStore
+    from httk.store import Backend, SqlStore
 
-    with Database.sqlite() as database, pytest.raises(ValueError, match="normalized_composition contradicts"):
+    with Backend.sqlite() as database, pytest.raises(ValueError, match="normalized_composition contradicts"):
         SqlStore(database, entry_records={}).save(record)
 
 
@@ -658,12 +658,12 @@ def test_record_structure_serves_stored_normalized_composition() -> None:
 
 def test_sql_fetch_of_a_root_record_does_not_reconstruct_structure(monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store.db import Database, SqlStore
+    from httk.store import Backend, SqlStore
 
     import httk.atomistic.storage.records as structure_record_module
 
     source = _unitcell()
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={})
         sid = store.save(source)
 
@@ -740,9 +740,9 @@ def test_sql_fetched_root_records_keep_identity_and_metadata(
     view_type: type[UnitcellStructureView] | type[ASUStructureView],
 ) -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store.db import Database, SqlStore
+    from httk.store import Backend, SqlStore
 
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(
             database,
             entry_records={
@@ -765,9 +765,10 @@ def test_sql_fetched_root_records_keep_identity_and_metadata(
 
 def test_unitcell_record_view_keeps_unread_cursor_fields_lazy() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store.db import Database, ExpiredCursorRowError, SqlStore
+    from httk.store import Backend, SqlStore
+    from httk.store.backend.sql import ExpiredCursorRowError
 
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(_unitcell(optimization_type="local"))
         store.save(_unitcell(optimization_type="global"))

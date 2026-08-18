@@ -6,10 +6,11 @@ from typing import Any
 
 import pytest
 
-pytest.importorskip("httk.store.db")
+pytest.importorskip("httk.store.backend.sql")
 
 from httk.core import FracVector
-from httk.store.db import Database, SqlStore, stored_property_sql_plan
+from httk.store import Backend, SqlStore
+from httk.store.backend.sql import stored_property_sql_plan
 from httk.store.query.optimade_filters import FilterTranslationError
 
 from httk.atomistic import (
@@ -97,8 +98,8 @@ def _unitcell_with_unused_disordered_species() -> UnitcellStructure:
 def _database_for(request):
     if request.param == "duckdb":
         pytest.importorskip("duckdb_engine")
-        return Database.duckdb()
-    return Database.sqlite()
+        return Backend.duckdb()
+    return Backend.sqlite()
 
 
 @pytest.fixture(params=("sqlite", "duckdb"))
@@ -336,9 +337,9 @@ def test_exact_precision_filter_retains_the_full_decimal_literal(long_precision_
 def test_natural_collapsed_asu_orbit_preserves_expanded_composition(dialect):
     if dialect == "duckdb":
         pytest.importorskip("duckdb_engine")
-        database = Database.duckdb()
+        database = Backend.duckdb()
     else:
-        database = Database.sqlite()
+        database = Backend.sqlite()
     source = _collapsed_orbit_asu()
     with database:
         store = SqlStore(database, entry_records={StructureEntry: ASUStructureRecord})
