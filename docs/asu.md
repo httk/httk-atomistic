@@ -70,6 +70,26 @@ symmetry is represented never does. Free-parameter values are least-squares fits
 of the measured coordinates: two noisy measurements of the same crystal reach the
 same Wyckoff choices but slightly different rational parameter values.
 
+## From the command line
+
+The same operations are available as `httk symmetry`, taking a structure file
+(CIF, POSCAR) and printing a human-readable report; `-o` saves the result.
+
+```console
+$ httk symmetry info nacl.cif                    # declared group, cell, Wyckoff occupation
+$ httk symmetry info measured.poscar --recognize # also recognize symmetry from the geometry
+$ httk symmetry canonicalize nacl.cif -o out.cif # canonical form of noisy input (spglib), saved
+$ httk symmetry canonicalize nacl.cif --exact    # exact, spglib-free (needs declared symmetry)
+$ httk symmetry representations nacl.cif --target 166   # list distinct forms in a related group
+```
+
+`canonicalize` defaults to the tolerant `canonical_asu` path (`--lift` searches
+upward for higher pseudosymmetry); `--exact` runs the exact `canonicalize` on
+input that already carries declared symmetry. `rerepresent --target N` re-expresses
+one crystal in a reachable group. Every subcommand accepts `--tolerance X` (a
+Cartesian distance) and reports operator errors — a missing spglib, an unrelated
+target — to stderr with a nonzero exit.
+
 The full guide, {doc}`details/asu`, covers what an asymmetric unit holds,
 arbitrary and untabulated settings, the exactness contract of expansion,
 tolerance-bearing recognition, round-tripping, reading CIFs, serving symmetry

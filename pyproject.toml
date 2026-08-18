@@ -80,6 +80,7 @@ namespaces = true
 # httk.atomistic.data is itself a package, so its data files are declared against it
 # rather than through a "data/*" glob on the parent.
 "httk.atomistic.data" = ["*.json.gz", "LICENSE", "README.md"]
+"httk.registry.cli.atomistic" = ["py.typed"]
 "httk.registry.io.atomistic" = ["py.typed"]
 "httk.registry.entries.atomistic" = ["py.typed"]
 "httk.registry.schemas.atomistic" = ["*.json", "LICENSE*", "README.md"]
