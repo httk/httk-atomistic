@@ -149,7 +149,13 @@ from httk.atomistic.symmetry.lift import (
     lift_candidates,
     rerepresent,
 )
-from httk.atomistic.symmetry.paths import StructurePath, interpolate_structures, represent_like
+from httk.atomistic.symmetry.paths import (
+    StructurePath,
+    canonicalize_full,
+    interpolate_structures,
+    list_representations,
+    represent_like,
+)
 from httk.atomistic.symmetry.wyckoff import WyckoffPosition, wyckoff_positions
 
 from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
@@ -304,6 +310,7 @@ __all__ = [
     "build_supercell",
     "canonical_asu",
     "canonicalize",
+    "canonicalize_full",
     "cif_setting",
     "conventional_cell",
     "cubic_supercell",
@@ -311,6 +318,7 @@ __all__ = [
     "interpolate_structures",
     "is_niggli_reduced",
     "lift_candidates",
+    "list_representations",
     "maximal_subgroups",
     "minimal_supergroups",
     "niggli_reduce",

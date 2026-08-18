@@ -18,7 +18,20 @@ from httk.atomistic.symmetry._standardization_common import (
     _scaled_precision,
 )
 from httk.atomistic.symmetry.affine_operation import AffineOperation
-from httk.atomistic.symmetry.lift import _apply_normalizer_operation, _wrapped, rerepresent
+from httk.atomistic.symmetry.lift import (
+    _apply_normalizer_operation,
+    _demote_sites,
+    _discrete_normalizer_translations,
+    _translation_normal_form,
+    _wrapped,
+    rerepresent,
+)
+from httk.atomistic.symmetry.lift import (
+    _canonical_sites as _orbit_canonical_sites,
+)
+from httk.atomistic.symmetry.lift import (
+    _site_key as _orbit_site_key,
+)
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 from httk.atomistic.symmetry.subgroups import _standard_input, subgroup_closure
@@ -26,8 +39,10 @@ from httk.atomistic.symmetry.subgroups import _standard_input, subgroup_closure
 __all__ = [
     "CommonSubgroupResult",
     "StructurePath",
+    "canonicalize_full",
     "common_subgroup_representation",
     "interpolate_structures",
+    "list_representations",
     "represent_like",
 ]
 
@@ -290,6 +305,133 @@ def represent_like(
     """
     _register_subgroup_matching_citation()
     return _aligned(structure, reference, tolerance=tolerance).structure
+
+
+def _representation_gram(structure: ASUStructure) -> tuple[object, ...]:
+    metric = structure.cell.metric()
+    return tuple(metric._element((row, column)) for row in range(3) for column in range(3))
+
+
+def _representation_orbit(structure: ASUStructure) -> tuple[ASUStructure, ...]:
+    """Return every distinct representation reachable by the group's discrete affine normalizer.
+
+    The images are the tabulated affine-normalizer cosets crossed with the runtime discrete
+    Euclidean-normalizer translations -- exactly the crossing :func:`~httk.atomistic.symmetry.lift`'s
+    normal form minimizes over, but enumerated instead of reduced to the least.  Each image is put in
+    its continuous-normalizer translation-normal form, made right-handed where inversion re-describes
+    the group (and dropped as the enantiomorph where it does not, for a Sohncke group), stored at its
+    orbit-canonical Wyckoff representatives, then deduplicated by exact orbit-canonical site key and
+    cell gram and sorted by that key.  This is the full set of representations modulo the continuous
+    normalizer, for the discrete-normalizer freedom; representations differing by an untabulated
+    conventional-cell re-choice (the A.5 recell-class freedom) are not generated.
+    """
+    structure = _demote_sites(structure)
+    identity = FracVector.eye((3, 3))
+    inversion = AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
+    operations = [AffineOperation.identity()]
+    try:
+        record = data.affine_normalizer_coset_record(structure.spacegroup.hall_entry)
+    except KeyError:
+        record = None
+    if record is not None:
+        system = structure.spacegroup.crystal_system
+        operations.extend(
+            AffineOperation.from_record(coset)
+            for coset in record.get("affine_normalizer_cosets", ())
+            if system in coset["compatible_systems"]
+        )
+    translations = _discrete_normalizer_translations(structure.spacegroup)
+    images: dict[tuple[object, ...], ASUStructure] = {}
+    for operation in operations:
+        image = _apply_normalizer_operation(structure, operation)
+        if image is None:
+            continue
+        for translation in translations:
+            shifted = (
+                image
+                if not any(translation)
+                else _apply_normalizer_operation(image, AffineOperation(identity, FracVector(translation)))
+            )
+            if shifted is None:
+                continue
+            reduced = _translation_normal_form(shifted)
+            if reduced.cell.basis.det().sign() < 0:
+                flipped = _apply_normalizer_operation(reduced, inversion)
+                if flipped is None:
+                    # Inversion does not re-describe an enantiomorphic (Sohncke) group in its own
+                    # setting, so a left-handed image is the enantiomorph -- a different crystal, not
+                    # another representation of this one.  Drop it rather than emit a mirror twin.
+                    continue
+                reduced = _translation_normal_form(flipped)
+            reduced = _orbit_canonical_sites(reduced)
+            images.setdefault((_orbit_site_key(reduced), _representation_gram(reduced)), reduced)
+    return tuple(images[key] for key in sorted(images))
+
+
+def list_representations(
+    structure: ASUStructure,
+    target: Spacegroup | int,
+    *,
+    tolerance: float | None = None,
+) -> tuple[ASUStructure, ...]:
+    """Return every distinct representation of one crystal in a target group's standard setting.
+
+    The crystal is first expressed once in ``target`` by
+    :func:`~httk.atomistic.symmetry.lift.rerepresent` -- an exact descent for a subgroup target, a
+    round-trip-gated lift for a supergroup target, itself for the same group -- and the full discrete
+    affine-normalizer orbit of that one realization is then enumerated.  Every representation is
+    returned in its continuous-translation normal form (otherwise a polar or triclinic target would
+    have infinitely many), deduplicated by exact orbit-canonical site key and cell gram, and sorted by
+    that key.
+
+    **Scope.**  When ``target`` is the crystal's *own* full symmetry group, two representations differ
+    only by an element of that group's affine normalizer, so this one orbit is the complete set --
+    modulo the continuous normalizer and limited only by the bounded tabulated coset table.  For a
+    PROPER-SUBGROUP (or supergroup) target only the normalizer orbit of the single
+    :func:`~httk.atomistic.symmetry.lift.rerepresent` embedding is returned; inequivalent embeddings
+    reachable by *other* descent chains -- the same crystal at the same cell size but a genuinely
+    different site placement -- are deliberately out of scope and are NOT returned, because
+    enumerating every chain is combinatorially explosive for deep targets (many tabulated chains), so
+    a single canonical embedding is chosen.  Representations needing an untabulated conventional-cell
+    re-choice (the A.5 recell-class freedom) are likewise not generated.  A supercell description is
+    the same crystal in a larger cell; it too is not enumerated -- the exclusion there is "not a
+    distinct representation at the same cell size", not "not the same crystal".
+
+    :param structure: The crystal, as an asymmetric-unit structure.
+    :param target: The target space group or IT number.
+    :param tolerance: Cartesian acceptance tolerance passed to any upward lift; ``None`` derives it.
+    :return: The distinct representations in ``target``'s standard setting, sorted by canonical key.
+    :raises ValueError: If ``target`` is unrelated to the crystal's group, or the input is
+        unsupported by the exact symmetry machinery.
+    """
+    _validate(structure, "list_representations")
+    standardized = _standard_input(structure)
+    target_group = (target if isinstance(target, Spacegroup) else Spacegroup.standard(target)).standard_setting()
+    base = _standard_input(rerepresent(standardized, target_group, tolerance=tolerance))
+    return _representation_orbit(base)
+
+
+def canonicalize_full(
+    structure: ASUStructure,
+    target: Spacegroup | int,
+    *,
+    tolerance: float | None = None,
+) -> ASUStructure:
+    """Return the canonically least representation of a crystal in a target group's standard setting.
+
+    The least element, by exact orbit-canonical site key then cell gram, of
+    :func:`list_representations`.  On the crystal's own group this is a normalizer-canonical form: it
+    selects the same representative the upward search's normal form does, over the same discrete
+    normalizer crossing and modulo the continuous quotient.  It is idempotent -- re-running it on its
+    own result in the same target returns that result.
+
+    :param structure: The crystal, as an asymmetric-unit structure.
+    :param target: The target space group or IT number.
+    :param tolerance: Cartesian acceptance tolerance passed to any upward lift; ``None`` derives it.
+    :return: The canonically least representation in ``target``'s standard setting.
+    :raises ValueError: If ``target`` is unrelated, or the input is unsupported.
+    """
+    return list_representations(structure, target, tolerance=tolerance)[0]
 
 
 def common_subgroup_representation(

@@ -24,11 +24,13 @@ __all__ = [
     "backward_lift",
     "canonical_asu",
     "canonicalize",
+    "canonicalize_full",
     "common_subgroup_representation",
     "conventional_cell",
     "highest_symmetry",
     "interpolate_structures",
     "lift_candidates",
+    "list_representations",
     "maximal_subgroups",
     "minimal_supergroups",
     "operation_from_xyz",
@@ -53,8 +55,10 @@ if TYPE_CHECKING:
     from .paths import (
         CommonSubgroupResult,
         StructurePath,
+        canonicalize_full,
         common_subgroup_representation,
         interpolate_structures,
+        list_representations,
         represent_like,
     )
     from .primitive import PrimitiveCellResult, primitive_cell
@@ -91,23 +95,29 @@ def __getattr__(name: str) -> object:
     if name in {
         "CommonSubgroupResult",
         "StructurePath",
+        "canonicalize_full",
         "common_subgroup_representation",
         "interpolate_structures",
+        "list_representations",
         "represent_like",
     }:
         from .paths import (
             CommonSubgroupResult,
             StructurePath,
+            canonicalize_full,
             common_subgroup_representation,
             interpolate_structures,
+            list_representations,
             represent_like,
         )
 
         globals().update(
             CommonSubgroupResult=CommonSubgroupResult,
             StructurePath=StructurePath,
+            canonicalize_full=canonicalize_full,
             common_subgroup_representation=common_subgroup_representation,
             interpolate_structures=interpolate_structures,
+            list_representations=list_representations,
             represent_like=represent_like,
         )
         return globals()[name]
