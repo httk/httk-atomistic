@@ -5,12 +5,12 @@ This directory holds the authoritative, supported copies of the symmetry data th
 (`httk.atomistic.ASUStructure`). The checked-in files are the source of truth:
 httk-atomistic supports exactly these versions.
 
-They are the five canonical per-concern datasets published by upstream
+They are the six canonical per-concern datasets published by upstream
 data-generators, stored as byte-for-byte `.json.gz` artifacts of the upstream JSON-LD
 publications. `httk.core.DatasetLoader` reads them through the ordinary lazy dataset
 accessors; the complete document is parsed on first lookup. Upstream also publishes
 `.sqlar` twins for large-dataset/lazy-access use, but the compressed JSON artifacts are
-appropriately sized for these five vendored datasets.
+appropriately sized for these six vendored datasets.
 
 The files are loaded through the accessors in `httk.atomistic.data` and included in
 the wheel and sdist as package data.
@@ -22,6 +22,7 @@ the wheel and sdist as package data.
 | `baernighausen_std.json.gz` | 316 KB | per-IT-number Bärnighausen subgroup transformations, for all 230 |
 | `continuous_euclidean_normalizer_std.json.gz` | 3 KB | per-IT-number continuous-normalizer bases, for all 230 |
 | `affine_normalizer_cosets.json.gz` | 41 KB | affine-normalizer cosets for all 527 Hall entries |
+| `isomorphic_subgroups_std.json.gz` | 403 KB | per-IT-number same-setting isomorphic subgroup transforms (indices up to 9), for all 230 |
 
 The split-affine records map parent standard-setting coordinates directly to child
 standard-setting coordinates, as pinned by `tests/test_subgroups.py`.
@@ -83,7 +84,7 @@ copy or normalize their exact values.
 ## Provenance and license
 
 Source repository: <https://github.com/httk/data-generator>. Each file preserves its
-upstream JSON-LD attribution and provenance header; all five are version `0.1.0` and
+upstream JSON-LD attribution and provenance header; all six are version `0.1.0` and
 licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0).
 See the adjacent [`LICENSE`](./LICENSE) for the required attribution. This differs from
 the httk source code, which is AGPL — see the repository root.
@@ -97,7 +98,7 @@ artifacts; no derived documents are generated here.
 make symmetry-data DATA_GENERATORS=/path/to/data-generators
 ```
 
-This copies the five canonical `.json.gz` files from the local data-generators checkout's
+This copies the six canonical `.json.gz` files from the local data-generators checkout's
 `data/` directory, byte-for-byte, and is offline. After a refresh, review the diff and
 re-run `tests/test_symmetry_data.py`, which asserts the record counts and structural
 invariants documented above.

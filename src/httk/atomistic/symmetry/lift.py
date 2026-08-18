@@ -2418,6 +2418,91 @@ def _primitive_reduced_entry(structure: ASUStructure) -> ASUStructure:
     )
 
 
+def _pseudo_translations(structure: ASUStructure) -> list[tuple[Fraction, ...]]:
+    """Full-cell exact self-translations lying OUTSIDE the group's own translation lattice.
+
+    For a declared-symmetry structure the full-cell atom set is always invariant under the group's
+    centring translations, so those are filtered out through ``_translation_lattice``; anything that
+    survives is genuine translation pseudosymmetry -- the declared description is an exact supercell.
+    Exact rational check only (a noisy near-supercell is untouched; that is ``canonical_asu``'s job).
+    """
+    atoms: list[tuple[str, tuple[Fraction, ...]]] = []
+    for site in structure.wyckoff_sites:
+        position = structure.spacegroup.wyckoff_position(site.wyckoff)
+        for point in position.coordinates(site.free_params):
+            atoms.append((site.species, tuple(FracVector(point).normalize().to_fractions())))
+    if len(atoms) < 2:
+        return []
+    translations = _exact_translations(atoms)
+    if not translations:
+        return []
+    lattice_inverse = _rational_inverse(_translation_lattice(structure.spacegroup))
+    return [
+        translation
+        for translation in translations
+        if any(
+            sum(lattice_inverse[row][column] * translation[column] for column in range(3)).denominator != 1
+            for row in range(3)
+        )
+    ]
+
+
+def _isomorphic_reduced_entry(structure: ASUStructure) -> ASUStructure:
+    """Collapse a declared-symmetry (SG >= 2) exact supercell via tabulated isomorphic self-lifts.
+
+    The cheap guard is :func:`_pseudo_translations`: one full-cell expansion plus an exact O(N^2)
+    translation check, empty for the overwhelmingly common non-supercell input -- measured
+    millisecond-scale to ~16 full-cell atoms and ~250 ms at ~100 atoms (about 9% of a bulk
+    ``canonical_asu`` call at that size).  When genuine pseudo-translations exist, their count
+    determines the total collapse index exactly (the pseudo-translation cosets number
+    ``len(pseudo) + 1`` including identity), so backward lifts through same-IT-number entries --
+    the vendored Bärnighausen self-entries (tabulated only where isomorphic subgroups are maximal)
+    plus the dedicated ``isomorphic_subgroups_std`` transforms -- are FILTERED to indices dividing
+    that implied index (a self-lift of index k collapses a k-subgroup of the pseudo-translation
+    group, so any other index cannot land and only burns solver time) and tried ascending, so
+    composite supercells collapse stepwise through the cheapest applicable steps (tabulated
+    indices reach 9; prime factors 2, 3, 5, 7 compose by iteration).  Exact tolerance (0) only;
+    the descent round-trip gate inside :func:`_lift_transform` keeps every landing sound.  If no
+    self-lift lands, the loop warns and proceeds with whatever was achieved -- the upward search
+    may still collapse the supercell through a cross-group chain (the cubic
+    221(2a) -> 225(2a) -> 221(a) route works through the plain search, since cubic isomorphic
+    subgroups are never maximal).
+    """
+    from httk.atomistic.symmetry.subgroups import isomorphic_subgroup_transforms
+
+    while True:
+        pseudo = _pseudo_translations(structure)
+        if not pseudo:
+            return structure
+        implied_index = len(pseudo) + 1
+        number = structure.spacegroup.it_number
+        transforms: list[SubgroupTransform] = []
+        seen: set[SubgroupTransform] = set()
+        for transform in subgroup_transforms(number, number) + isomorphic_subgroup_transforms(number):
+            if transform.index <= 1 or implied_index % transform.index != 0:
+                continue
+            if transform in seen:
+                continue
+            seen.add(transform)
+            transforms.append(transform)
+        transforms.sort(key=lambda transform: transform.index)  # stable: table order within an index
+        landed: ASUStructure | None = None
+        for transform in transforms:
+            results = _lift_transform(structure, transform, 0.0)
+            if results:
+                landed = min(results, key=_canonical_result_key).asu
+                break
+        if landed is None:
+            logging.getLogger(__name__).warning(
+                "declared supercell in %s (implied index %d) not collapsed by tabulated isomorphic "
+                "self-lifts (indices up to 9); proceeding with the supercell description",
+                structure.spacegroup.setting,
+                implied_index,
+            )
+            return structure
+        structure = landed
+
+
 def _niggli_reduced_entry(structure: ASUStructure) -> ASUStructure:
     """Re-express a triclinic-entry (SG 1 or 2) structure in its exact Niggli-reduced basis.
 
@@ -2442,12 +2527,15 @@ def _niggli_reduced_entry(structure: ASUStructure) -> ASUStructure:
 def _canonical_entry(structure: ASUStructure) -> ASUStructure:
     """Return the normal-form state ``highest_symmetry`` starts its search from.
 
-    Standardizes the input, collapses an exact P1 supercell to its primitive cell, Niggli-reduces a
-    triclinic (SG 1/2) cell, and reduces to the normalizer-canonical normal form.
+    Standardizes the input, collapses an exact supercell (a P1 one to its primitive cell; a
+    declared-symmetry one via tabulated isomorphic self-lifts), Niggli-reduces a triclinic
+    (SG 1/2) cell, and reduces to the normalizer-canonical normal form.
     """
     current = _standard_input(structure)
     if current.spacegroup.it_number == 1:
         current = _primitive_reduced_entry(current)
+    else:
+        current = _isomorphic_reduced_entry(current)
     if current.spacegroup.it_number in (1, 2):
         current = _niggli_reduced_entry(current)
     return _normal_form(current)

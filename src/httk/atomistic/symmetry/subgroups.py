@@ -278,6 +278,54 @@ def subgroup_transforms(parent: Spacegroup | int, subgroup: Spacegroup | int) ->
     return tuple(result)
 
 
+def isomorphic_subgroup_transforms(spacegroup: Spacegroup | int) -> tuple[SubgroupTransform, ...]:
+    """Return the tabulated same-setting isomorphic subgroup transforms for one group.
+
+    These come from the dedicated ``isomorphic_subgroups_std`` dataset (indices up to 9,
+    normalizer-deduplicated), NOT from the Bärnighausen maximal-subgroup tables: isomorphic
+    subgroups are tabulated there only where they are maximal (low-symmetry groups), while this
+    dataset covers all 230 groups including the non-maximal composites (e.g. the cubic index-8
+    ``2x2x2``).  Where both tabulate an index (e.g. SG 2 index 2) the entries may differ in
+    tabulation choice -- both are valid family members.  Index-1 items (identity-cell
+    re-descriptions) are excluded; every returned transform enlarges the cell.  Entries carry
+    ``subgroup_type "k"`` / ``k_subtype "enlarged_unit_cell"``, matching the Bärnighausen
+    self-entry convention, and the same splitting/affine conventions as
+    :func:`subgroup_transforms`.
+
+    :param spacegroup: A space group or IT number.
+    :return: All tabulated isomorphic transforms with index greater than 1, in table order.
+    :raises KeyError: If the IT number has no tabulated isomorphic record.
+    """
+    it_number = spacegroup.it_number if isinstance(spacegroup, Spacegroup) else int(spacegroup)
+    standard = Spacegroup.standard(it_number)
+    result: list[SubgroupTransform] = []
+    for item in data.isomorphic_subgroup_record(it_number)["isomorphic_subgroups"]["items"]:
+        if item["index"] == 1:
+            continue
+        splittings: dict[str, tuple[WyckoffSplitPiece, ...]] = {}
+        for splitting in item["wyckoff_splitting"]:
+            splittings[splitting["parent"]] = tuple(
+                WyckoffSplitPiece(
+                    letter=piece["letter"],
+                    xyz=piece["xyz"],
+                    operation=_affine_from_3x4(piece["affine"]),
+                )
+                for piece in splitting["splits"]
+            )
+        result.append(
+            SubgroupTransform(
+                parent=standard,
+                subgroup=standard,
+                index=item["index"],
+                subgroup_type="k",
+                k_subtype="enlarged_unit_cell",
+                operation=_affine_from_record(item),
+                splittings=splittings,
+            )
+        )
+    return tuple(result)
+
+
 def _wrapped_coordinate_key(coordinate: Any) -> tuple[Fraction, ...]:
     """Return one exact wrapped coordinate as a hashable tuple."""
     return tuple(coordinate.normalize().to_fractions())

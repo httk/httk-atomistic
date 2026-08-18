@@ -1,9 +1,9 @@
-"""Copy the five canonical symmetry datasets into the package data directory.
+"""Copy the six canonical symmetry datasets into the package data directory.
 
 Run via ``make symmetry-data DATA_GENERATORS=<path to data-generators checkout>``.
 The canonical artifact is vendored in whichever published format is appropriately sized;
-at current sizes that is ``.json.gz`` for all five. The upstream ``.sqlar`` twins exist
-for large-dataset/lazy-access use. These five canonical ``.json.gz`` files are copied
+at current sizes that is ``.json.gz`` for all six. The upstream ``.sqlar`` twins exist
+for large-dataset/lazy-access use. These six canonical ``.json.gz`` files are copied
 byte-for-byte from the upstream data-generators ``data/`` directory. The canonical
 per-concern split happened upstream; this replaces the old vendored slices, including the
 two derived documents that httk previously generated locally.
@@ -22,6 +22,7 @@ DATASETS = (
     "baernighausen_std.json.gz",
     "continuous_euclidean_normalizer_std.json.gz",
     "affine_normalizer_cosets.json.gz",
+    "isomorphic_subgroups_std.json.gz",
 )
 
 
