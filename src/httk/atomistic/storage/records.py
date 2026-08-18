@@ -159,8 +159,8 @@ class SpeciesConstituentRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_v1_species_constituent_record",
-        identity_name="atomistic_v1_species_constituent_record",
+        storage_name="atomistic_species_constituent_record",
+        identity_name="atomistic_species_constituent_record",
     )
 
     chemical_symbol: str
@@ -203,8 +203,8 @@ class SpeciesRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_v4_species_record",
-        identity_name="atomistic_v4_species_record",
+        storage_name="atomistic_species_record",
+        identity_name="atomistic_species_record",
     )
     __httk_canonical_source__: ClassVar[type[Species]] = Species
 
@@ -347,8 +347,8 @@ class AssemblyGroupRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_v3_assembly_group_record",
-        identity_name="atomistic_v3_assembly_group_record",
+        storage_name="atomistic_assembly_group_record",
+        identity_name="atomistic_assembly_group_record",
     )
     __httk_canonical_source__: ClassVar[type[tuple]] = tuple
 
@@ -382,8 +382,8 @@ class AssemblyRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_v3_assembly_record",
-        identity_name="atomistic_v3_assembly_record",
+        storage_name="atomistic_assembly_record",
+        identity_name="atomistic_assembly_record",
     )
     __httk_canonical_source__: ClassVar[type[Assembly]] = Assembly
 
@@ -461,8 +461,8 @@ class WyckoffSiteRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_v3_domain_site_record",
-        identity_name="atomistic_v3_domain_site_record",
+        storage_name="atomistic_domain_site_record",
+        identity_name="atomistic_domain_site_record",
     )
     __httk_canonical_source__: ClassVar[type[WyckoffSite]] = WyckoffSite
 
@@ -522,8 +522,8 @@ class SettingTransformRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_v3_setting_transform_record",
-        identity_name="atomistic_v3_setting_transform_record",
+        storage_name="atomistic_setting_transform_record",
+        identity_name="atomistic_setting_transform_record",
         dedup="by_value",
     )
     __httk_canonical_source__: ClassVar[type[SettingTransform]] = SettingTransform
@@ -583,8 +583,8 @@ class SymmetryRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_symmetry_v3",
-        identity_name="atomistic_symmetry_v3",
+        storage_name="atomistic_symmetry",
+        identity_name="atomistic_symmetry",
     )
     __httk_canonical_source__: ClassVar[type[StructureSymmetry]] = StructureSymmetry
 
@@ -663,8 +663,8 @@ class CompositionAmountRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_v3_composition_amount_record",
-        identity_name="atomistic_v3_composition_amount_record",
+        storage_name="atomistic_composition_amount_record",
+        identity_name="atomistic_composition_amount_record",
     )
     __httk_canonical_source__: ClassVar[type[tuple]] = tuple
 
@@ -709,8 +709,8 @@ class ChemicalCompositionRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_v3_chemical_composition_record",
-        identity_name="atomistic_v3_chemical_composition_record",
+        storage_name="atomistic_chemical_composition_record",
+        identity_name="atomistic_chemical_composition_record",
     )
     __httk_canonical_source__: ClassVar[type[ChemicalComposition]] = ChemicalComposition
 
@@ -756,8 +756,8 @@ class NormalizedCompositionRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_v3_normalized_composition_record",
-        identity_name="atomistic_v3_normalized_composition_record",
+        storage_name="atomistic_normalized_composition_record",
+        identity_name="atomistic_normalized_composition_record",
     )
     __httk_canonical_source__: ClassVar[type[Composition]] = Composition
 
@@ -809,8 +809,8 @@ class NormalizedCompositionAmountRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_v3_normalized_composition_amount_record",
-        identity_name="atomistic_v3_normalized_composition_amount_record",
+        storage_name="atomistic_normalized_composition_amount_record",
+        identity_name="atomistic_normalized_composition_amount_record",
     )
     __httk_canonical_source__: ClassVar[type[tuple]] = tuple
 
@@ -868,8 +868,8 @@ class CellRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_cell_v1",
-        identity_name="atomistic_cell_v1",
+        storage_name="atomistic_cell",
+        identity_name="atomistic_cell",
     )
     __httk_canonical_source__: ClassVar[type[Cell]] = Cell
 
@@ -920,8 +920,8 @@ class SitesRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_sites_v1",
-        identity_name="atomistic_sites_v1",
+        storage_name="atomistic_sites",
+        identity_name="atomistic_sites",
     )
     __httk_canonical_source__: ClassVar[type[Sites]] = Sites
 
@@ -1089,8 +1089,8 @@ class UnitcellStructureRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_unitcell_structure_v2",
-        identity_name="atomistic_unitcell_structure_v2",
+        storage_name="atomistic_unitcell_structure",
+        identity_name="atomistic_unitcell_structure",
         indexes=(("immutable_id",), ("last_modified",), ("optimization_type",)),
     )
     __httk_canonical_source__: ClassVar[type[UnitcellStructure]] = UnitcellStructure
@@ -1205,8 +1205,8 @@ class FundamentalDomainStructureRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_fundamental_domain_structure_v3",
-        identity_name="atomistic_fundamental_domain_structure_v3",
+        storage_name="atomistic_fundamental_domain_structure",
+        identity_name="atomistic_fundamental_domain_structure",
         indexes=(
             ("spacegroup_it_number",),
             ("spacegroup_hall_entry",),
@@ -1309,8 +1309,8 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_asu_structure_v3",
-        identity_name="atomistic_asu_structure_v3",
+        storage_name="atomistic_asu_structure",
+        identity_name="atomistic_asu_structure",
         indexes=(
             ("spacegroup_it_number",),
             ("spacegroup_hall_entry",),
@@ -1569,8 +1569,8 @@ class ObservableSummaryRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_trajectory_observable_summary_v1",
-        identity_name="atomistic_trajectory_observable_summary_v1",
+        storage_name="atomistic_trajectory_observable_summary",
+        identity_name="atomistic_trajectory_observable_summary",
     )
 
     name: str
@@ -1617,8 +1617,8 @@ class TrajectoryRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_trajectory_v1",
-        identity_name="atomistic_trajectory_v1",
+        storage_name="atomistic_trajectory",
+        identity_name="atomistic_trajectory",
         indexes=(("immutable_id",), ("last_modified",), ("nframes",)),
     )
     __httk_canonical_source__: ClassVar[type[TrajectoryAPI]] = cast(type[TrajectoryAPI], TrajectoryAPI)

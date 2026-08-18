@@ -256,7 +256,7 @@ def test_content_id_is_layout_independent_without_sqlalchemy() -> None:
 
     # 2026-08-06 species constituent child record + structure charge fields:
     # pre-existing stores must be rebuilt; a future move must not change this value.
-    assert content_id(source) == "dfe119d07685701a738b7188f360be9707982a2ecb457027b5c2b9916d7129da"
+    assert content_id(source) == "036604c0ddde27f40d377ec3de902e10209e5e11cfc3f7b5db133fc1ae568a37"
 
 
 def test_sql_store_unitcell_rename_preserves_content_id() -> None:
@@ -268,7 +268,7 @@ def test_sql_store_unitcell_rename_preserves_content_id() -> None:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
 
-    assert content_id(source) == "dfe119d07685701a738b7188f360be9707982a2ecb457027b5c2b9916d7129da"
+    assert content_id(source) == "036604c0ddde27f40d377ec3de902e10209e5e11cfc3f7b5db133fc1ae568a37"
 
 
 def test_sql_store_round_trips_site_moments() -> None:
