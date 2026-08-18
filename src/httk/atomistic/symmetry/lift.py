@@ -25,6 +25,19 @@ P1 / unit-cell start, build the ASU in SG 1 and canonicalize it::
              WyckoffSite("a", FracVector((Fraction(1, 2),) * 3), "Cl")]
     p1 = ASUStructure(cell, 1, sites, [Species(...), Species(...)])
     result = canonicalize(p1)  # result.spacegroup.it_number == 221
+
+The upward search lifts each state through three fail-only tiers, tried in order and only when the
+earlier ones return nothing for a state: (1) the direct tabulated lift; (2) tabulated
+affine-normalizer-coset retries; (3) a conventional-cell re-choice.  The third tier exists because
+a centred-lattice parent can be presented, in the reduced cell the search carries, in an axis choice
+that misses the parent's exact metric class even though the lattice admits a conforming cell -- an
+F-centred cubic (NaCl from its Niggli primitive) is the motivating case.  It searches the candidate
+parent lattice for a conventional basis meeting the parent metric exactly, derives the implied child
+re-expression, and -- when that re-expression is an integer lattice normalizer -- applies it and
+lifts the re-expressed child; the descent round-trip gate stays authoritative.  It is inert whenever
+an earlier tier succeeds, so it never runs on a normally-climbing (e.g. P-lattice) input.  A centred
+child whose conventional cell is an intrinsic supercell of its lattice (the R-centred trigonal case,
+Bi-166) yields a non-integer, non-normalizer re-expression and is not landed by this tier.
 """
 
 import itertools
@@ -1707,6 +1720,153 @@ def _normalizer_retries(structure: ASUStructure, target: Spacegroup, tolerance: 
     return tuple(deduplicated[key] for key in sorted(deduplicated))
 
 
+def _bilinear(gram: tuple[tuple[Fraction, ...], ...], left: tuple[int, ...], right: tuple[int, ...]) -> Fraction:
+    return sum((left[i] * gram[i][j] * right[j] for i in range(3) for j in range(3)), Fraction(0))
+
+
+def _integer_determinant(rows: tuple[tuple[int, ...], ...]) -> int:
+    a, b, c = rows
+    return a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])
+
+
+@lru_cache(maxsize=50_000)
+def _search_conventional_basis(
+    gram: tuple[tuple[Fraction, ...], ...], system: str
+) -> tuple[tuple[int, ...], ...] | None:
+    """Return a canonical integer basis of ``gram``'s lattice meeting the system's exact metric.
+
+    The lattice is the candidate parent lattice ``inv(M^T)*B_child`` (as its exact rational gram);
+    the returned rows are integer coordinates on it whose cell satisfies the parent crystal system's
+    :func:`_metric_requirements` exactly.  Enumeration is a bounded exact short-vector search --
+    ``bound`` 5 was what the trigonal Bi case needed in the parameterization these grams use, kept as
+    a documented bounded search rather than a proven radius.  The choice is deterministic: least
+    ``(abs(det), sorted squared lengths, rows)``.  ``None`` when no such basis is found in the bound.
+    """
+    equal_lengths, fixed_angles = _metric_requirements(system)
+    if not equal_lengths and not fixed_angles:
+        return None
+    everything = [n for n in itertools.product(range(-5, 6), repeat=3) if any(n)]
+    everything.sort(key=lambda n: (_bilinear(gram, n, n), n))
+    norms = sorted({_bilinear(gram, n, n) for n in everything})
+    cap = norms[min(len(norms) - 1, 9)]
+    short = [n for n in everything if _bilinear(gram, n, n) <= cap]
+    right = Fraction(90)
+    # Every target system that reaches here has alpha = beta = 90 (parents are orthorhombic or more
+    # symmetric), so the c axis is perpendicular to whichever earlier axes those angles name -- a
+    # precomputed perpendicular set keeps the innermost loop to genuine candidates instead of all of
+    # ``short``, which is what makes the exact search tractable inside the breadth-first search.
+    perpendicular = {vector: {other for other in short if _bilinear(gram, vector, other) == 0} for vector in short}
+    c_perpendicular_to_a = any(index == 1 and degrees == right for index, degrees in fixed_angles)
+    c_perpendicular_to_b = any(index == 0 and degrees == right for index, degrees in fixed_angles)
+    basal_angles = tuple((index, degrees) for index, degrees in fixed_angles if index == 2)
+
+    def angle_ok(rows: tuple[tuple[int, ...], ...], index: int, degrees: Fraction) -> bool:
+        first, second = ((1, 2), (0, 2), (0, 1))[index]
+        product = _bilinear(gram, rows[first], rows[second])
+        if degrees == right:
+            return product == 0
+        length = _bilinear(gram, rows[first], rows[first])
+        return 2 * product == -length and length == _bilinear(gram, rows[second], rows[second])
+
+    best: tuple[tuple[Any, ...], tuple[tuple[int, ...], ...]] | None = None
+    for a in short:
+        length_a = _bilinear(gram, a, a)
+        for b in short:
+            # Prune on the constraints that involve only the first two axes before the c loop.
+            if (0, 1) in equal_lengths and _bilinear(gram, b, b) != length_a:
+                continue
+            if any(not angle_ok((a, b, a), index, degrees) for index, degrees in basal_angles):
+                continue
+            candidates: Any = short
+            if c_perpendicular_to_a:
+                candidates = perpendicular[a]
+            if c_perpendicular_to_b:
+                candidates = candidates & perpendicular[b] if c_perpendicular_to_a else perpendicular[b]
+            for c in candidates:
+                rows = (a, b, c)
+                if _integer_determinant(rows) == 0:
+                    continue
+                if not all(
+                    _bilinear(gram, rows[i], rows[i]) == _bilinear(gram, rows[j], rows[j]) for i, j in equal_lengths
+                ):
+                    continue
+                if not all(angle_ok(rows, index, degrees) for index, degrees in fixed_angles):
+                    continue
+                key = (
+                    abs(_integer_determinant(rows)),
+                    tuple(_bilinear(gram, rows[k], rows[k]) for k in range(3)),
+                    rows,
+                )
+                if best is None or key < best[0]:
+                    best = (key, rows)
+    return None if best is None else best[1]
+
+
+def _exact_rational_matrix(matrix: Any) -> tuple[tuple[Fraction, ...], ...]:
+    return tuple(tuple(value for value in row) for row in matrix.to_fractions())
+
+
+def _matmul3(
+    left: tuple[tuple[Fraction, ...], ...], right: tuple[tuple[Fraction, ...], ...]
+) -> tuple[tuple[Fraction, ...], ...]:
+    return tuple(
+        tuple(sum((left[i][k] * right[k][j] for k in range(3)), Fraction(0)) for j in range(3)) for i in range(3)
+    )
+
+
+def _recell_lifts(structure: ASUStructure, target: Spacegroup, tolerance: float) -> tuple[LiftResult, ...]:
+    """Third, fail-only lift tier: re-choose the child's conventional cell so a metric-rejected hop fits.
+
+    A tabulated transform is rejected by :func:`_cell_for_transform` when the child, carried through
+    the breadth-first search in a reduced cell, presents the parent lattice in an axis choice that
+    misses the parent's exact metric class -- even though the lattice does admit a conforming cell.
+    For each such transform this searches the candidate parent lattice for a conventional basis
+    meeting the parent metric exactly, derives the implied child re-expression ``U = M^T*N*inv(M^T)``,
+    and -- when ``U`` is an integer lattice normalizer of the child -- applies ``U^T`` through the
+    validity-gated :func:`_apply_normalizer_operation` and lifts the re-expressed child.  A
+    non-integer ``U`` (a centred child whose conventional cell is an intrinsic supercell, e.g. the
+    R-centred trigonal case) is not a normalizer and is skipped here.  The committed descent
+    round-trip gate in :func:`_lift_transform` remains authoritative against the original child.
+
+    ``_lift_transform`` is called directly, deliberately bypassing the same-setting
+    :data:`COMPATIBLE_CRYSTAL_SYSTEMS` filter that cell re-choice is designed to escape.
+    """
+    child_gram_surd = SurdVector(structure.cell.basis) * SurdVector(structure.cell.basis).T()
+    if not child_gram_surd.is_rational:
+        return ()
+    child_gram = tuple(tuple(value for value in row) for row in child_gram_surd.to_fractions_approx())
+    results: list[LiftResult] = []
+    for transform in subgroup_transforms(target, structure.spacegroup):
+        if not _multiplicity_possible(structure, transform):
+            continue
+        if _cell_for_transform(structure, transform, tolerance) is not None:
+            continue
+        matrix_transpose = _exact_rational_matrix(transform.operation.matrix.T())
+        matrix_transpose_inverse = _exact_rational_matrix(transform.operation.matrix.T().inv())
+        parent_gram = _matmul3(
+            _matmul3(matrix_transpose_inverse, child_gram),
+            tuple(tuple(matrix_transpose_inverse[j][i] for j in range(3)) for i in range(3)),
+        )
+        basis = _search_conventional_basis(parent_gram, transform.parent.crystal_system)
+        if basis is None:
+            continue
+        rechoice = _matmul3(
+            _matmul3(matrix_transpose, tuple(tuple(Fraction(v) for v in row) for row in basis)),
+            matrix_transpose_inverse,
+        )
+        if any(value.denominator != 1 for row in rechoice for value in row):
+            continue
+        transpose = FracVector(tuple(tuple(rechoice[j][i] for j in range(3)) for i in range(3)))
+        image = _apply_normalizer_operation(structure, AffineOperation(transpose, (0, 0, 0)))
+        if image is None:
+            continue
+        results.extend(_lift_transform(image, transform, tolerance))
+    deduplicated: dict[tuple[Any, ...], LiftResult] = {}
+    for result in results:
+        deduplicated.setdefault(_canonical_result_key(result), result)
+    return tuple(deduplicated[key] for key in sorted(deduplicated))
+
+
 def _raw_lifts(structure: ASUStructure, target: Spacegroup, tolerance: float) -> tuple[LiftResult, ...]:
     if structure.spacegroup.crystal_system not in COMPATIBLE_CRYSTAL_SYSTEMS[target.crystal_system]:
         return ()
@@ -1780,16 +1940,19 @@ def lift_candidates(structure: ASUStructure, *, tolerance: float | None = None) 
 
 def _highest_lifts(structure: ASUStructure, tolerance: float) -> tuple[LiftResult, ...]:
     results: list[tuple[int, int, LiftResult]] = []
-    for parent_number in minimal_supergroups(structure.spacegroup):
+    parents = minimal_supergroups(structure.spacegroup)
+    indices_by_parent: dict[int, dict[SubgroupTransform, int]] = {}
+    for parent_number in parents:
         transforms = subgroup_transforms(parent_number, structure.spacegroup)
         indices = {transform: index for index, transform in enumerate(transforms)}
+        indices_by_parent[parent_number] = indices
         target = Spacegroup.standard(parent_number)
         try:
             raw = _raw_lifts(structure, target, tolerance)
             # The state normal form now collapses the origin/normalizer-equivalent variants that
             # unconditional retries used to contribute, so only fall back to retries when the direct
             # lift found nothing for this parent (backward_lift keeps unconditional retries).
-            candidates = raw if raw else _normalizer_retries(structure, target, tolerance)
+            candidates = raw or _normalizer_retries(structure, target, tolerance)
         except ValueError as error:
             if "branch cap exceeded" not in str(error):
                 raise
@@ -1802,6 +1965,14 @@ def _highest_lifts(structure: ASUStructure, tolerance: float) -> tuple[LiftResul
         for result in candidates:
             if result.path and result.path[0] in indices:
                 results.append((parent_number, indices[result.path[0]], result))
+    if not results:
+        # Only a genuinely stranded state -- no direct or retry lift into any parent -- pays for the
+        # exact conventional-cell re-choice search, so its cost never touches states that climb
+        # normally (the search is dormant on every P-lattice battery).
+        for parent_number in parents:
+            for result in _recell_lifts(structure, Spacegroup.standard(parent_number), tolerance):
+                if result.path and result.path[0] in indices_by_parent[parent_number]:
+                    results.append((parent_number, indices_by_parent[parent_number][result.path[0]], result))
     deduplicated: dict[tuple[Any, ...], tuple[int, int, LiftResult]] = {}
     for parent_number, table_index, result in results:
         key = (parent_number, table_index, _canonical_result_key(result))

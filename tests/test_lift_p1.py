@@ -834,6 +834,15 @@ _SCRAMBLE_BATTERY = {
         spacegroup=191,
         species=["Mg"],
     ),
+    # FCC: the Niggli primitive strands at a lower symmetry until the conventional-cell re-choice tier
+    # re-expresses the child so the F-centred cubic hop fits.
+    "NaCl-225-fcc": _scramble_reference(
+        WyckoffSite("a", FracVector(()), "Na"),
+        WyckoffSite("b", FracVector(()), "Cl"),
+        cell=Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))),
+        spacegroup=225,
+        species=["Na", "Cl"],
+    ),
 }
 
 
@@ -845,11 +854,60 @@ def test_scrambled_single_atom_po_canonicalizes_to_cubic() -> None:
 
 @pytest.mark.extended
 def test_scramble_invariance_battery() -> None:
-    # Simple-P-lattice references: scrambling (unimodular shear + origin shift + reorder) a P1
-    # description must canonicalize to exactly the unscrambled P1 expansion's result, for every seed.
-    # Excluded (not for speed): NaCl-225 (FCC) and trigonal Bi-166 canonicalize seed-dependently
-    # (-> IT 12), hitting the documented phase-3 lattice-holohedry orientation gap for those lattices.
+    # Scrambling (unimodular shear + origin shift + reorder) a P1 description must canonicalize to
+    # exactly the unscrambled P1 expansion's result, for every seed -- including FCC NaCl, whose
+    # F-centred cubic hop is recovered by the conventional-cell re-choice tier.
+    # Still excluded: trigonal Bi-166 (R-centred).  Its conventional (hexagonal) cell is an intrinsic
+    # threefold supercell of the carried child's lattice, so the implied child re-expression is not an
+    # integer lattice normalizer; the re-choice tier searches, finds no valid normalizer, and Bi
+    # strands at IT 12.  Landing it needs a centred-supercell re-expression the tier does not yet do.
     for name, reference in _SCRAMBLE_BATTERY.items():
         expected = _result_key(canonicalize(_expanded_p1(reference), tolerance=1e-3))
         for seed in (1, 2, 3):
             assert _result_key(canonicalize(_scrambled_p1(reference, seed), tolerance=1e-3)) == expected, (name, seed)
+
+
+def _count_recell_searches(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    calls = [0]
+    real = lift_module._search_conventional_basis
+
+    def counting(gram: Any, system: str) -> Any:
+        calls[0] += 1
+        return real(gram, system)
+
+    monkeypatch.setattr(lift_module, "_search_conventional_basis", counting)
+    return calls
+
+
+def test_conventional_recell_tier_is_dormant_on_a_p_lattice(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A state that climbs normally never reaches the third tier, so the exact re-choice search never
+    # runs on a P-lattice input -- zero firings, not merely zero accepted lifts.
+    calls = _count_recell_searches(monkeypatch)
+    result = canonicalize(_expanded_p1(_SCRAMBLE_BATTERY["Po-221"]), tolerance=1e-3)
+    assert result.spacegroup.it_number == 221
+    assert calls[0] == 0
+
+
+@pytest.mark.extended
+def test_conventional_recell_tier_lands_fcc_nacl(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Sanity anchor: FCC NaCl strands without the tier; the tier must fire and land IT 225.
+    calls = _count_recell_searches(monkeypatch)
+    result = canonicalize(_expanded_p1(_SCRAMBLE_BATTERY["NaCl-225-fcc"]), tolerance=1e-3)
+    assert result.spacegroup.it_number == 225
+    assert calls[0] > 0
+
+
+@pytest.mark.extended
+def test_conventional_recell_tier_documents_the_r_centred_bi_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Sanity anchor (documented limit): the tier searches the R-centred trigonal hop but finds no
+    # integer normalizer, so Bi-166 strands at IT 12 rather than landing.
+    calls = _count_recell_searches(monkeypatch)
+    bismuth = ASUStructure(
+        Cell(CellParams((4.5, 4.5, 11.8, 90, 90, 120)).basis),
+        166,
+        [WyckoffSite("c", FracVector((F(234, 1000),)), "Bi")],
+        _species("Bi"),
+    )
+    result = canonicalize(_expanded_p1(bismuth), tolerance=1e-3)
+    assert calls[0] > 0
+    assert result.spacegroup.it_number == 12
