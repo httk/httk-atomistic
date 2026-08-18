@@ -90,6 +90,11 @@ COMPATIBLE_CRYSTAL_SYSTEMS: dict[str, frozenset[str]] = {
 }
 
 _MAX_SOLVER_BRANCHES = 200_000
+# The noisy least-squares fallback only helps genuine recognition noise, whose integer-wrap box is
+# tiny (observed <= ~16).  An underdetermined or invalid candidate instead blows the box up (46656
+# for the Bi 2-atom P1 -> P-1 hop, ~90 s of sweep that only ever yields a rejected approximation), so
+# it is failed cheaply above this far-lower ceiling while the full cap still guards the exact path.
+_MAX_NOISY_SWEEP_BRANCHES = 4_096
 _MAX_FOURIER_MOTZKIN_INEQUALITIES = 20_000
 
 
@@ -571,6 +576,10 @@ def _solve_modular(equations: tuple[_Equation, ...]) -> tuple[tuple[Fraction, ..
     branches = math.prod(len(item) for item in options)
     if branches > _MAX_SOLVER_BRANCHES:
         raise ValueError("exact modular lift solver branch cap exceeded")
+    if branches > _MAX_NOISY_SWEEP_BRANCHES:
+        # No exact wrap exists (the exact path already ran); a noisy match this deep in the wrap box
+        # is not a real lift, so fail the candidate cheaply rather than grinding the full sweep.
+        return None
     best: tuple[tuple[Fraction, ...], Fraction, bool] | None = None
     for integers in itertools.product(*(tuple(item) for item in options)):
         rhs = tuple(Fraction(integer) - constant for integer, constant in zip(integers, constants))
