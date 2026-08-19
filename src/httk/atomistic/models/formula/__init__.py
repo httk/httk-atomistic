@@ -1,8 +1,13 @@
 from typing import TYPE_CHECKING
 
-from .anonymous import AnonymousFormula
-from .anonymous_string import AnonymousFormulaString
-from .anonymous_view import AnonymousFormulaView
+from .formulapattern import Formulapattern
+from .formulapattern_string import FormulapatternString
+from .formulapattern_view import FormulapatternView
+
+# Alias for discoverability; canonical name is Formulapattern (see docs/prototypes.md).
+AnonymousFormula = Formulapattern
+AnonymousFormulaView = FormulapatternView
+AnonymousFormulaString = FormulapatternString
 from .api import ChemicalFormulaAPI
 from .backend import ChemicalFormulaBackend
 from .composition import Composition
@@ -37,6 +42,9 @@ __all__ = [
     "CompositionDiagnostic",
     "CompositionView",
     "FormulaString",
+    "Formulapattern",
+    "FormulapatternString",
+    "FormulapatternView",
     "RecordComposition",
     "StructureComposition",
     "anonymous_symbol",

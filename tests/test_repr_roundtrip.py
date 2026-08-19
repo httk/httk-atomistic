@@ -3,10 +3,10 @@
 from fractions import Fraction
 
 from httk.atomistic import (
-    AnonymousFormula,
     Cell,
     ChemicalFormula,
     Composition,
+    Formulapattern,
     Species,
 )
 from httk.core.vectors import FracScalar, FracVector, SurdScalar, SurdVector
@@ -17,7 +17,7 @@ _NS = {
     "Cell": Cell,
     "Composition": Composition,
     "ChemicalFormula": ChemicalFormula,
-    "AnonymousFormula": AnonymousFormula,
+    "Formulapattern": Formulapattern,
     "FracVector": FracVector,
     "FracScalar": FracScalar,
     "SurdVector": SurdVector,
@@ -54,8 +54,8 @@ def test_formula_reprs_name_their_class() -> None:
     f = ChemicalFormula("Fe2O3")
     assert repr(f) == "ChemicalFormula('Fe2O3')"
     _roundtrips(f)
-    a = AnonymousFormula("A3B2")
-    assert repr(a) == "AnonymousFormula('A3B2')"
+    a = Formulapattern("A3B2")
+    assert repr(a) == "Formulapattern('A3B2')"
     _roundtrips(a)
 
 

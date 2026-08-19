@@ -7,8 +7,12 @@ from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.notation import try_parse_anonymous
 
 
-class AnonymousFormulaString(ChemicalFormulaBackend):
+class FormulapatternString(ChemicalFormulaBackend):
     r"""Wrap a canonical anonymous formula held as a plain string.
+
+    The canonical class name is ``FormulapatternString``; the legacy
+    :class:`AnonymousFormulaString` name remains available as a package-internal
+    alias.
 
     :param obj: The canonical anonymous formula text.
     :param \*\*hints: Backend-selection hints.

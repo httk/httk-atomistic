@@ -5,7 +5,7 @@ from fractions import Fraction
 from typing import TYPE_CHECKING, cast
 
 from httk.atomistic.models.cell.cell import Cell
-from httk.atomistic.models.formula.anonymous_view import AnonymousFormulaView
+from httk.atomistic.models.formula.formulapattern_view import FormulapatternView
 from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
@@ -52,11 +52,11 @@ class AnonymousStructureAPI(ABC):
         return None
 
     @property
-    def anonymous_formula(self) -> AnonymousFormulaView:
+    def anonymous_formula(self) -> FormulapatternView:
         """Return the canonical anonymous formula at the represented site scale."""
         # The API root is only ever hosted by a backend in this family; the formula bridge
         # accepts that backend root rather than the abstract API protocol itself.
-        return AnonymousFormulaView(cast("AnonymousStructureBackend", self))
+        return FormulapatternView(cast("AnonymousStructureBackend", self))
 
     @property
     def is_canonical(self) -> bool:

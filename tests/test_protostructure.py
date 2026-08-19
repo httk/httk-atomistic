@@ -8,7 +8,6 @@ import pytest
 from httk.core import FracVector
 
 from httk.atomistic import (
-    AnonymousFormulaView,
     AnonymousStructure,
     Assembly,
     ASUStructure,
@@ -17,6 +16,7 @@ from httk.atomistic import (
     ChemicalFormulaView,
     CompositionView,
     FundamentalDomainStructure,
+    FormulapatternView,
     Protostructure,
     ProtostructureView,
     PrototypeView,
@@ -150,7 +150,7 @@ def test_disorder_and_vacancy_project_with_tabulated_multiplicity() -> None:
     value = Protostructure(221, [("a", mixed), ("b", vacancy)])
     assert CompositionView(value).amounts == (("Fe", Fraction(1, 2)), ("Ni", Fraction(1, 2)))
     assert ChemicalFormulaView(value) == "FeNi"
-    assert AnonymousFormulaView(value) == "AB"
+    assert FormulapatternView(value) == "AB"
 
 
 def test_exact_paths_preserve_species_and_match_structure_formula() -> None:

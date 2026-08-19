@@ -8,14 +8,14 @@ import pytest
 from httk.core import FracVector
 
 from httk.atomistic import (
-    AnonymousFormula,
-    AnonymousFormulaView,
     AnonymousStructure,
     AnonymousStructureView,
     ASUStructure,
     ASUStructureView,
     ChemicalFormulaView,
     CompositionView,
+    Formulapattern,
+    FormulapatternView,
     Prototype,
     PrototypeView,
     Spacegroup,
@@ -107,7 +107,7 @@ def test_exact_asu_path_and_expansion() -> None:
     assert prototype.multiplicities() == (4, 4)
     assert len(AnonymousStructureView(prototype).sites) == prototype.nsites_conventional
     assert prototype.anonymous_formula == "AB"
-    assert isinstance(AnonymousFormulaView(prototype), str)
+    assert isinstance(FormulapatternView(prototype), str)
     with pytest.raises(ValueError):
         PrototypeView(asu, tolerance=1e-5)
     with pytest.raises(ValueError):
@@ -140,10 +140,10 @@ def test_anonymous_prototype_source_uses_original_labels() -> None:
 def test_formula_views_reduce_non_coprime_amounts_and_remain_parseable() -> None:
     asu = _rocksalt_asu()
     prototype = PrototypeView(asu)
-    assert AnonymousFormula(str(prototype.anonymous_formula)) == "AB"
+    assert Formulapattern(str(prototype.anonymous_formula)) == "AB"
 
     real_structure = UnitcellStructureView(asu)
-    assert AnonymousFormula(str(AnonymousFormulaView(real_structure))) == "AB"
+    assert Formulapattern(str(FormulapatternView(real_structure))) == "AB"
     assert ChemicalFormulaView(real_structure) == "ClNa"
 
 

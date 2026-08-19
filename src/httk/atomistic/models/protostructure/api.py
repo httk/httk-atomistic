@@ -3,8 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Self, cast
 
-from httk.atomistic.models.formula.anonymous_view import AnonymousFormulaView
 from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
+from httk.atomistic.models.formula.formulapattern_view import FormulapatternView
 
 if TYPE_CHECKING:
     from httk.atomistic.models.protostructure.backend import ProtostructureBackend
@@ -61,12 +61,12 @@ class ProtostructureAPI(ABC):
         return ChemicalFormulaView(cast("ProtostructureBackend", self))
 
     @property
-    def anonymous_formula(self) -> AnonymousFormulaView:
+    def anonymous_formula(self) -> FormulapatternView:
         """Return a reduced anonymous formula at the standard conventional-cell scale.
 
         :return: The conventional-cell anonymous formula view.
         """
-        return AnonymousFormulaView(cast("ProtostructureBackend", self))
+        return FormulapatternView(cast("ProtostructureBackend", self))
 
     @property
     def protostructure(self) -> Self:

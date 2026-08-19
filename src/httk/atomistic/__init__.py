@@ -96,9 +96,9 @@ from httk.atomistic.models.structure.record import RecordStructure
 
 # Formula imports must follow the structure imports: formula record/like modules pull in
 # the storage stack, whose integration bridges depend on a fully initialized structure family.
-from httk.atomistic.models.formula.anonymous import AnonymousFormula
-from httk.atomistic.models.formula.anonymous_string import AnonymousFormulaString
-from httk.atomistic.models.formula.anonymous_view import AnonymousFormulaView
+from httk.atomistic.models.formula.formulapattern import Formulapattern
+from httk.atomistic.models.formula.formulapattern_string import FormulapatternString
+from httk.atomistic.models.formula.formulapattern_view import FormulapatternView
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.formula.composition_view import CompositionView
@@ -109,6 +109,10 @@ from httk.atomistic.models.formula.like import ChemicalFormulaLike
 from httk.atomistic.models.formula.plain import PlainComposition
 from httk.atomistic.models.formula.record import RecordComposition
 from httk.atomistic.models.formula.structure import StructureComposition
+
+# Alias for discoverability; canonical name is Formulapattern (see docs/prototypes.md).
+AnonymousFormula = Formulapattern
+AnonymousFormulaView = FormulapatternView
 
 # Prototype imports follow both structure and formula imports: the prototype-to-formula
 # bridge and adapter deliberately depend on the completed lower-level family registrations.
@@ -187,11 +191,11 @@ ChemicalFormulaBackend.backend_classes = [
     PrototypeComposition,
     PlainComposition,
     FormulaString,
-    AnonymousFormulaString,
+    FormulapatternString,
 ]
 AnonymousStructureBackend.backend_classes = [AnonymizedStructure]
 ProtostructureBackend.backend_classes = [RecognizedProtostructure]
-register_coercer(view_class_coercer([ChemicalFormulaView, AnonymousFormulaView, CompositionView]), Any)
+register_coercer(view_class_coercer([ChemicalFormulaView, FormulapatternView, CompositionView]), Any)
 StructureBackend.backend_classes = [
     RecordStructure,
     OptimadeStructure,
@@ -253,6 +257,8 @@ __all__ = [
     "CrystalAxisSiteMoments",
     "CrystalAxisSiteMomentsView",
     "DatastreamStructure",
+    "Formulapattern",
+    "FormulapatternView",
     "FundamentalDomainStructure",
     "FundamentalDomainStructureRecord",
     "JsonlTrajectory",

@@ -7,8 +7,11 @@ from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.notation import parse_anonymous_formula
 
 
-class AnonymousFormula(ChemicalFormulaBackend, str):
+class Formulapattern(ChemicalFormulaBackend, str):
     """Store a strictly canonical OPTIMADE anonymous chemical formula.
+
+    The canonical class name is ``Formulapattern``; the legacy
+    :class:`AnonymousFormula` name remains available as an alias.
 
     :param formula: The canonical anonymous formula text.
     """
