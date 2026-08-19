@@ -55,8 +55,8 @@ def test_protostructure_indexes_cover_it_number_and_label() -> None:
 
 def test_protostructure_record_label_format_is_deterministic() -> None:
     record = _protostructure_record_from_value(_rocksalt())
-    # Canonical order sorts by (species name, wyckoff): Cl before Na.
-    assert record.label == "225/b:Cl,a:Na"
+    # The httk protostructure label: classes ordered by Wyckoff letters, then species names.
+    assert record.label == "AB_cF8_225_a_b:Na-Cl"
 
 
 def test_protostructure_golden_content_id_is_layout_independent() -> None:
@@ -140,12 +140,12 @@ def test_sql_store_protostructure_dedup_and_it_number_filter() -> None:
         # The derived label column is queryable.
         label_searcher = store.searcher()
         label_variable = label_searcher.variable(ProtostructureRecord)
-        label_searcher.add(label_variable.label == "225/b:Cl,a:Na")
+        label_searcher.add(label_variable.label == "AB_cF8_225_a_b:Na-Cl")
         assert label_searcher.count() == 1
 
         fetched = store.fetch(ProtostructureRecord, first_sid, eager=True)
         assert fetched.id == first.id
-        assert fetched.label == "225/b:Cl,a:Na"
+        assert fetched.label == "AB_cF8_225_a_b:Na-Cl"
         assert _protostructure_from_record(fetched) == Protostructure(225, [("a", "Na"), ("b", "Cl")])
 
 

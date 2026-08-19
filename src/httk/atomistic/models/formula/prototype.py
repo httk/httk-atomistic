@@ -8,6 +8,8 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
+import httk.atomistic.models.protopattern.backend
+import httk.atomistic.models.protopattern.view_base
 import httk.atomistic.models.protostructure.backend
 import httk.atomistic.models.protostructure.view_base
 from httk.atomistic.composition import project_composition
@@ -21,8 +23,8 @@ from httk.atomistic.models.formula.notation import anonymous_symbol
 class PrototypeComposition(ChemicalFormulaBackend):
     r"""Represent the canonical composition of a prototype-like backend.
 
-    Anonymous-structure inputs use dummy labels; protostructure inputs retain their real
-    elemental composition at the standard conventional-cell scale.
+    Anonymous-structure and protopattern inputs use anonymous labels; protostructure
+    inputs retain their real elemental composition at the standard conventional-cell scale.
 
     :param obj: The anonymous structure or protostructure to present.
     :param \*\*hints: Backend-selection hints.
@@ -46,6 +48,8 @@ class PrototypeComposition(ChemicalFormulaBackend):
             (
                 CrystalPatternBackend,
                 CrystalPatternViewBase,
+                httk.atomistic.models.protopattern.backend.ProtopatternBackend,
+                httk.atomistic.models.protopattern.view_base.ProtopatternViewBase,
                 httk.atomistic.models.protostructure.backend.ProtostructureBackend,
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
             ),
@@ -55,7 +59,12 @@ class PrototypeComposition(ChemicalFormulaBackend):
 
     def __init__(self, obj: Any, **hints: Any) -> None:
         if isinstance(
-            obj, (CrystalPatternViewBase, httk.atomistic.models.protostructure.view_base.ProtostructureViewBase)
+            obj,
+            (
+                CrystalPatternViewBase,
+                httk.atomistic.models.protopattern.view_base.ProtopatternViewBase,
+                httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
+            ),
         ):
             self._prototype = obj._backend
         else:
@@ -64,6 +73,10 @@ class PrototypeComposition(ChemicalFormulaBackend):
     @property
     def _is_protostructure(self) -> bool:
         return isinstance(self._prototype, httk.atomistic.models.protostructure.backend.ProtostructureBackend)
+
+    @property
+    def _is_protopattern(self) -> bool:
+        return isinstance(self._prototype, httk.atomistic.models.protopattern.backend.ProtopatternBackend)
 
     @cached_property
     def _projected(self) -> Composition:
@@ -89,7 +102,12 @@ class PrototypeComposition(ChemicalFormulaBackend):
     def _amounts(self) -> tuple[tuple[str, Fraction], ...]:
         if self._is_protostructure:
             return self._projected.amounts
-        counts = Counter(self._prototype.species_at_sites)
+        if self._is_protopattern:
+            counts: Counter[str] = Counter()
+            for occupation, multiplicity in zip(self._prototype.occupations, self._prototype.multiplicities()):
+                counts[occupation.label] += multiplicity
+        else:
+            counts = Counter(self._prototype.species_at_sites)
         ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
         return tuple((anonymous_symbol(index), Fraction(count)) for index, (_, count) in enumerate(ordered))
 

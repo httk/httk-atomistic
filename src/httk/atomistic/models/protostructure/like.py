@@ -8,4 +8,5 @@ type ProtostructureLike = (
     httk.atomistic.models.protostructure.backend.ProtostructureBackend
     | httk.atomistic.models.protostructure.view_base.ProtostructureViewBase
     | httk.atomistic.models.protostructure.protostructure.Protostructure
+    | str
 )

@@ -15,8 +15,8 @@ from httk.atomistic import (
     ChemicalComposition,
     ChemicalFormulaView,
     CompositionView,
-    FundamentalDomainStructure,
     FormulapatternView,
+    FundamentalDomainStructure,
     Protostructure,
     ProtostructureView,
     PrototypeView,
@@ -365,6 +365,26 @@ def test_protostructure_view_accepts_custom_backend_and_native_identity() -> Non
 
     native = Protostructure(225, [("a", "Na")])
     assert ProtostructureView(native).unview() is native
+
+
+def test_protostructure_label_golden_and_aflow_divergence() -> None:
+    calcite = Protostructure(167, [("a", "Ca"), ("b", "C"), ("e", "O")])
+    assert str(calcite.label) == "ABC3_hR10_167_a_b_e:Ca-C-O"
+    # AFLOW orders classes alphabetically by element, so both prefix and suffix reorder.
+    assert calcite.aflow_label == "ABC3_hR10_167_b_a_e:C-Ca-O"
+
+
+def test_protostructure_label_round_trips_element_pure_value() -> None:
+    # Element-pure means Species(name, (name,), (1,)) exactly, as the parser rebuilds.
+    pure = [(letter, Species(name, (name,), (1,))) for letter, name in (("a", "Ca"), ("b", "C"), ("e", "O"))]
+    calcite = Protostructure(167, pure)
+    assert ProtostructureView(str(calcite.label)) == calcite
+
+
+def test_protostructure_label_string_dispatch() -> None:
+    view = ProtostructureView("AB_cF8_225_a_b:Na-Cl")
+    assert view.spacegroup == Spacegroup.standard(225)
+    assert str(ProtostructureView("AB_cF8_225_a_b:Na-Cl").label) == "AB_cF8_225_a_b:Na-Cl"
 
 
 def test_protostructure_datastream_path_is_not_parsed_at_construction(tmp_path, monkeypatch) -> None:

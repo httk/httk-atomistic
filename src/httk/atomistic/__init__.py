@@ -133,9 +133,23 @@ AnonymousStructureLike = CrystalPatternLike
 Prototype = FundamentalDomainPattern
 PrototypeView = FundamentalDomainPatternView
 
+# Protopattern imports follow the crystalpattern block and precede protostructure: the
+# element-free family reuses the formula bridge and crystalpattern recognition above, and
+# the protostructure family below extends its label notation.
+from httk.atomistic.models.protopattern.backend import ProtopatternBackend
+from httk.atomistic.models.protopattern.derived import DerivedProtopattern
+from httk.atomistic.models.protopattern.label import ProtopatternLabel
+from httk.atomistic.models.protopattern.label_string import ProtopatternLabelString
+from httk.atomistic.models.protopattern.like import ProtopatternLike
+from httk.atomistic.models.protopattern.occupation import ProtopatternOccupation
+from httk.atomistic.models.protopattern.protopattern import Protopattern
+from httk.atomistic.models.protopattern.view import ProtopatternView
+
 # Protostructure imports follow the prototype block: the geometry-free family bridges
 # through the completed formula and structure registrations above.
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
+from httk.atomistic.models.protostructure.label import ProtostructureLabel
+from httk.atomistic.models.protostructure.label_string import ProtostructureLabelString
 from httk.atomistic.models.protostructure.like import ProtostructureLike
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.protostructure import Protostructure
@@ -202,7 +216,11 @@ ChemicalFormulaBackend.backend_classes = [
     FormulapatternString,
 ]
 CrystalPatternBackend.backend_classes = [AnonymizedStructure]
-ProtostructureBackend.backend_classes = [RecognizedProtostructure]
+ProtopatternBackend.backend_classes = [ProtopatternLabelString, DerivedProtopattern]
+# The label-string probe is first: it is a cheap exact parse that either matches a
+# canonical label or declines, mirroring the record-first rationale, so recognition
+# sources never fall through it.
+ProtostructureBackend.backend_classes = [ProtostructureLabelString, RecognizedProtostructure]
 register_coercer(view_class_coercer([ChemicalFormulaView, FormulapatternView, CompositionView]), Any)
 StructureBackend.backend_classes = [
     RecordStructure,
@@ -288,7 +306,13 @@ __all__ = [
     "PlainTrajectory",
     "PlaneWaveFunctions",
     "PrimitiveCellResult",
+    "Protopattern",
+    "ProtopatternLabel",
+    "ProtopatternLike",
+    "ProtopatternOccupation",
+    "ProtopatternView",
     "Protostructure",
+    "ProtostructureLabel",
     "ProtostructureLike",
     "ProtostructureRecord",
     "ProtostructureView",

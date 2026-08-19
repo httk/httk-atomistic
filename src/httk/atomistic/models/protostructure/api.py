@@ -5,9 +5,11 @@ from typing import TYPE_CHECKING, Self, cast
 
 from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
 from httk.atomistic.models.formula.formulapattern_view import FormulapatternView
+from httk.atomistic.models.protopattern.notation import render_aflow_label
 
 if TYPE_CHECKING:
     from httk.atomistic.models.protostructure.backend import ProtostructureBackend
+    from httk.atomistic.models.protostructure.label import ProtostructureLabel
     from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -67,6 +69,36 @@ class ProtostructureAPI(ABC):
         :return: The conventional-cell anonymous formula view.
         """
         return FormulapatternView(cast("ProtostructureBackend", self))
+
+    @property
+    def label(self) -> "ProtostructureLabel":
+        """Return the httk protostructure label of this protostructure.
+
+        The label's unsuffixed part orders classes by their Wyckoff letters, so it is the
+        protopattern label of the erased pattern; the suffix lists the class species names.
+        This is NOT an AFLOW label: AFLOW orders classes alphabetically by element (see
+        :attr:`aflow_label`). Any faithful render is *the* protostructure label; the
+        *canonical* protostructure label comes from a normalizer-canonical protostructure.
+
+        :return: The protostructure label view.
+        """
+        from httk.atomistic.models.protostructure.label import ProtostructureLabel
+
+        return ProtostructureLabel(cast("ProtostructureBackend", self))
+
+    @property
+    def aflow_label(self) -> str:
+        """Return the AFLOW-style label of this protostructure.
+
+        Unlike :attr:`label`, AFLOW orders classes alphabetically by element symbol and
+        reassigns the anonymous symbols in that order, so the unsuffixed prefix depends on
+        the chemistry. Provided for interoperability only.
+
+        :return: The AFLOW-style label text.
+        """
+        return render_aflow_label(
+            self.spacegroup, [(occupation.wyckoff, occupation.species.name) for occupation in self.occupations]
+        )
 
     @property
     def protostructure(self) -> Self:

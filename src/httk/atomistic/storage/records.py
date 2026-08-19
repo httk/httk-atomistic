@@ -1816,10 +1816,11 @@ class ProtostructureRecord:
 
     @stored_property
     def label(self) -> str:
-        """Expose a compact, deterministic query label for this protostructure.
+        """Expose the httk protostructure label as a deterministic query column.
 
-        The format is ``"<it_number>/<wyckoff>:<species_name>,..."`` listing the
-        occupations in the record's stored canonical order. It is a convenience and
+        The label is the canonical httk protostructure label
+        (``"AB_cF8_225_a_b:Na-Cl"`` for rocksalt): the protopattern label of the erased
+        pattern followed by ``:`` and the class species names. It is a convenience and
         query column only; it is not the record's identity (the content id is), and it
         is NOT unique across distinct protostructures: species that share a name but
         differ in any other :class:`~httk.atomistic.Species` field (concentration, charges, spins,
@@ -1827,10 +1828,9 @@ class ProtostructureRecord:
         under-count distinct protostructures — count and deduplicate by row (content
         id), never by label.
 
-        :return: The compact protostructure label.
+        :return: The httk protostructure label.
         """
-        occupations = ",".join(f"{value.wyckoff}:{value.species.name}" for value in self.occupations)
-        return f"{self.spacegroup_it_number}/{occupations}"
+        return _protostructure_record_label(self)
 
     def __post_init__(self) -> None:
         if not isinstance(self.spacegroup_it_number, int) or isinstance(self.spacegroup_it_number, bool):
@@ -1957,6 +1957,21 @@ class PrototypeRecord:
             "spacegroup_hall_entry": prototype.spacegroup.hall_entry,
             "coordinate_precision": prototype.coordinate_precision,
         }
+
+
+def _protostructure_record_label(record: ProtostructureRecord) -> str:
+    """Render the httk protostructure label for a durable protostructure record.
+
+    :param record: The durable protostructure record.
+    :return: The canonical httk protostructure label.
+    """
+    from httk.atomistic.models.protopattern.notation import render_protostructure_label
+    from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
+    return render_protostructure_label(
+        spacegroup, [(occupation.wyckoff, occupation.species.name) for occupation in record.occupations]
+    )
 
 
 def _protostructure_from_record(record: ProtostructureRecord) -> Protostructure:
