@@ -11,3 +11,4 @@ class ProtostructureBackend(Backend["ProtostructureBackend"], ProtostructureAPI)
     """Backend root for standard-setting geometry-free crystal keys."""
 
     backend_classes: ClassVar[list[type[Backend[Any]]]]
+    __httk_storage_record__: ClassVar[type[Any]]

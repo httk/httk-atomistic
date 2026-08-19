@@ -11,3 +11,4 @@ class AnonymousStructureBackend(Backend["AnonymousStructureBackend"], AnonymousS
     """Backend root for the first PrototypeLike family."""
 
     backend_classes: ClassVar[list[type[Backend[Any]]]]
+    __httk_storage_record__: ClassVar[type[Any]]

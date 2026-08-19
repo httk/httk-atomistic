@@ -96,8 +96,56 @@ standard-setting space group and its occupied Wyckoff positions together with
 the associated `Species` values, so equivalent construction order does not
 change the key.
 
+## Storage records
+
+Both prototype families have durable, layout-independent storage records in
+`httk.atomistic.storage.records`.
+
+`ProtostructureRecord` (`atomistic_protostructure_v1`) carries exactly the value
+identity of `Protostructure`: its standard-setting space group (as
+`spacegroup_it_number` plus the standard `spacegroup_hall_entry`, mirroring the
+structure records) and its `occupations` — a tuple of `WyckoffOccupationRecord`
+(`atomistic_wyckoff_occupation_v1`), each a Wyckoff letter and a real
+`SpeciesRecord`, in the protostructure's canonical order (sorted by species name
+then Wyckoff letter). It has no cell or coordinates. Because the record carries
+the same value identity, two equal `Protostructure` values (`==`, including a
+permuted construction order) produce records with the same content id, and
+unequal values differ; this is the deduplication key for a COD-scale
+protostructure catalog (count by rows; filter by `spacegroup_it_number`).
+
+`ProtostructureRecord` exposes a queryable `label` stored property with the
+deterministic compact format `"<it_number>/<wyckoff>:<species_name>,..."`, listing
+the occupations in the record's stored canonical order (for example
+`"225/b:Cl,a:Na"`). The label is a convenience and query column only; it is **not**
+the record's identity — the content id is — and it is **not unique** across distinct
+protostructures: species sharing a name but differing in any other `Species` field
+(concentration, charges, spins, mass, precision, ...) collide on the same label, so
+counting or grouping by label may under-count distinct protostructures; count by row
+(content id) instead. The record declares composite indexes
+on `("spacegroup_it_number",)` and `("label",)`.
+
+`PrototypeRecord` (`atomistic_prototype_v1`) is the geometric per-structure
+object: a surd-capable `CellRecord`, `WyckoffSiteRecord` sites with their exact
+free parameters, distinct dummy `SpeciesRecord` species, the standard-setting
+space group, and the reduced-coordinate precision. Distinct free parameters make
+distinct values, so no content deduplication is expected; the content id is still
+deterministic. It indexes `("spacegroup_it_number",)` and
+`("spacegroup_hall_entry",)`.
+
+Conversion follows the established record idiom: each record declares
+`__httk_canonical_source__` and `__httk_project__` (so `content_id` and a store
+project a source value directly), and the module provides
+`_protostructure_record_from_value`/`_protostructure_from_record` and
+`_prototype_record_from_value`/`_prototype_from_record` for building records and
+recovering values. The records register under the logical `protostructures` and
+`prototypes` entry families (`ProtostructureEntry`/`PrototypeEntry`). A
+`Prototype` value stores directly through its record; a `Protostructure` value is
+stored through its `ProtostructureRecord` (the derived `label` column is computed
+from the record).
+
 ## Deferred features
 
-Storage records, AFLOW/symgen labels and Pearson symbols, Wyckoff-sequence
-strings, and `same_prototype()` are deferred. They are not part of the
-conversion contracts described here.
+AFLOW/symgen labels and Pearson symbols, Wyckoff-sequence strings, OPTIMADE
+serving (definitions and providers) for the prototype families, and
+`same_prototype()` are deferred. They are not part of the conversion contracts
+described here.

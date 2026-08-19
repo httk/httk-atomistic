@@ -81,10 +81,13 @@ from httk.atomistic.entries.trajectories import TrajectoryEntry, TrajectoryEntry
 from httk.atomistic.storage.records import (
     ASUStructureRecord,
     FundamentalDomainStructureRecord,
+    ProtostructureRecord,
+    PrototypeRecord,
     UnitcellStructureRecord,
     validate_structure_record,
     ObservableSummaryRecord,
     TrajectoryRecord,
+    WyckoffOccupationRecord,
 )
 from httk.atomistic.models.cell.record import RecordCell
 from httk.atomistic.models.sites.record import RecordSites
@@ -215,6 +218,8 @@ ASUStructure.__httk_storage_record__ = ASUStructureRecord
 ASUStructureView.__httk_storage_record__ = ASUStructureRecord
 Trajectory.__httk_storage_record__ = TrajectoryRecord
 TrajectoryView.__httk_storage_record__ = TrajectoryRecord
+Protostructure.__httk_storage_record__ = ProtostructureRecord
+Prototype.__httk_storage_record__ = PrototypeRecord
 
 __all__ = [
     "DEFAULT_TOLERANCE",
@@ -265,9 +270,11 @@ __all__ = [
     "PrimitiveCellResult",
     "Protostructure",
     "ProtostructureLike",
+    "ProtostructureRecord",
     "ProtostructureView",
     "Prototype",
     "PrototypeLike",
+    "PrototypeRecord",
     "PrototypeView",
     "PymatgenStructure",
     "PymatgenStructureProtocol",
@@ -301,6 +308,7 @@ __all__ = [
     "VASPStructure",
     "VASPTrajectory",
     "WyckoffOccupation",
+    "WyckoffOccupationRecord",
     "WyckoffPosition",
     "WyckoffSite",
     "asu_structure_from_cif",

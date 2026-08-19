@@ -16,7 +16,7 @@ from httk.core import (
     SurdScalar,
     SurdVector,
 )
-from httk.core.storage import IdentitySkip, StorageInfo, content_id
+from httk.core.storage import IdentitySkip, StorageInfo, content_id, stored_property
 
 from httk.atomistic._composition_values import as_fraction
 from httk.atomistic.composition import Assembly, ChemicalComposition, validate_assemblies
@@ -26,6 +26,9 @@ from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
+from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
+from httk.atomistic.models.protostructure.protostructure import Protostructure
+from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
@@ -45,6 +48,8 @@ __all__ = [
     "NormalizedCompositionAmountRecord",
     "NormalizedCompositionRecord",
     "ObservableSummaryRecord",
+    "ProtostructureRecord",
+    "PrototypeRecord",
     "SettingTransformRecord",
     "SitesRecord",
     "SpeciesConstituentRecord",
@@ -52,6 +57,7 @@ __all__ = [
     "SymmetryRecord",
     "TrajectoryRecord",
     "UnitcellStructureRecord",
+    "WyckoffOccupationRecord",
     "WyckoffSiteRecord",
 ]
 
@@ -1733,6 +1739,302 @@ class TrajectoryRecord:
             "immutable_id": getattr(trajectory, "immutable_id", None),
             "last_modified": getattr(trajectory, "last_modified", None),
         }
+
+
+@dataclass(frozen=True)
+class WyckoffOccupationRecord:
+    """Represent one occupied standard-setting Wyckoff orbit and its real species.
+
+    The occupation carries a real (possibly disordered) ``SpeciesRecord``; it is
+    the durable analogue of :class:`~httk.atomistic.models.protostructure.occupation.WyckoffOccupation`.
+
+    :param wyckoff: The Wyckoff letter in the standard setting.
+    :param species: The durable real species occupying the orbit.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_wyckoff_occupation_v1",
+        identity_name="atomistic_wyckoff_occupation_v1",
+    )
+    __httk_canonical_source__: ClassVar[type[WyckoffOccupation]] = WyckoffOccupation
+
+    wyckoff: str
+    species: SpeciesRecord
+
+    @classmethod
+    def __httk_project__(cls, occupation: WyckoffOccupation) -> Mapping[str, object]:
+        """Project one Wyckoff occupation into durable fields.
+
+        :param occupation: The occupation to project.
+        :return: The projected occupation fields.
+        """
+        return {"wyckoff": occupation.wyckoff, "species": occupation.species}
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.wyckoff, str) or len(self.wyckoff) != 1:
+            raise ValueError("WyckoffOccupationRecord wyckoff must be a single letter")
+        if _effective_record_type(self.species) is not SpeciesRecord:
+            raise TypeError("WyckoffOccupationRecord species must be a SpeciesRecord")
+
+
+@dataclass(frozen=True)
+class ProtostructureRecord:
+    """Represent the durable backing for a geometry-free protostructure.
+
+    The record carries exactly the value identity of
+    :class:`~httk.atomistic.models.protostructure.protostructure.Protostructure`: its
+    standard-setting space group and its occupied Wyckoff positions with real species,
+    in the protostructure's canonical order (sorted by species name then Wyckoff letter).
+    It has no cell or coordinates. The record's content identity is independent of its
+    storage layout, and two equal protostructures produce the same content identity.
+
+    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
+    :param occupations: The occupied Wyckoff positions and their real species.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_protostructure_v1",
+        identity_name="atomistic_protostructure_v1",
+        indexes=(("spacegroup_it_number",), ("label",)),
+    )
+    __httk_canonical_source__: ClassVar[type[Protostructure]] = Protostructure
+
+    spacegroup_it_number: int
+    spacegroup_hall_entry: str
+    occupations: tuple[WyckoffOccupationRecord, ...]
+
+    @property
+    def id(self) -> str:
+        """Expose the layout-independent content identifier.
+
+        :return: The content identifier for this record.
+        """
+        return content_id(self)
+
+    @stored_property
+    def label(self) -> str:
+        """Expose a compact, deterministic query label for this protostructure.
+
+        The format is ``"<it_number>/<wyckoff>:<species_name>,..."`` listing the
+        occupations in the record's stored canonical order. It is a convenience and
+        query column only; it is not the record's identity (the content id is), and it
+        is NOT unique across distinct protostructures: species that share a name but
+        differ in any other :class:`Species` field (concentration, charges, spins,
+        mass, precision, ...) collide on the same label, so a ``GROUP BY label`` may
+        under-count distinct protostructures — count and deduplicate by row (content
+        id), never by label.
+
+        :return: The compact protostructure label.
+        """
+        occupations = ",".join(f"{value.wyckoff}:{value.species.name}" for value in self.occupations)
+        return f"{self.spacegroup_it_number}/{occupations}"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.spacegroup_it_number, int) or isinstance(self.spacegroup_it_number, bool):
+            raise TypeError("ProtostructureRecord spacegroup_it_number must be an integer")
+        if not 1 <= self.spacegroup_it_number <= 230:
+            raise ValueError("ProtostructureRecord spacegroup_it_number must be in [1, 230]")
+        if not isinstance(self.spacegroup_hall_entry, str) or not self.spacegroup_hall_entry:
+            raise TypeError("ProtostructureRecord spacegroup_hall_entry must be a non-empty string")
+        occupations = tuple(self.occupations)
+        if not occupations or not all(
+            _effective_record_type(value) is WyckoffOccupationRecord for value in occupations
+        ):
+            raise TypeError("ProtostructureRecord occupations must contain WyckoffOccupationRecord values")
+        object.__setattr__(self, "occupations", occupations)
+
+    @classmethod
+    def __httk_validate__(cls, record: "ProtostructureRecord") -> None:
+        """Validate the semantic protostructure record.
+
+        :param record: The record to validate.
+        :return: ``None`` after successful validation.
+        """
+        _protostructure_from_record(record)
+
+    @classmethod
+    def __httk_project__(cls, protostructure: Protostructure) -> Mapping[str, object]:
+        """Project a protostructure into durable fields.
+
+        :param protostructure: The protostructure to project.
+        :return: The projected protostructure fields.
+        """
+        return {
+            "spacegroup_it_number": protostructure.spacegroup.it_number,
+            "spacegroup_hall_entry": protostructure.spacegroup.hall_entry,
+            "occupations": protostructure.occupations,
+        }
+
+
+@dataclass(frozen=True)
+class PrototypeRecord:
+    """Represent the durable backing for a standard-setting dummy-species prototype.
+
+    The record carries the geometric per-structure prototype: its standard-setting
+    space group, its cell (surd-capable), the symmetry-distinct Wyckoff sites with
+    their exact free parameters, and the distinct dummy species. Distinct prototypes
+    with different free parameters are distinct values, so no content deduplication is
+    expected; the content identity remains deterministic.
+
+    :param cell: The durable standard-setting cell record.
+    :param wyckoff_sites: The symmetry-distinct durable Wyckoff site records.
+    :param species: The distinct durable dummy species records.
+    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
+    :param coordinate_precision: The reduced-coordinate precision, if stated.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_prototype_v1",
+        identity_name="atomistic_prototype_v1",
+        indexes=(("spacegroup_it_number",), ("spacegroup_hall_entry",)),
+    )
+    __httk_canonical_source__: ClassVar[type[Prototype]] = Prototype
+
+    cell: CellRecord
+    wyckoff_sites: tuple[WyckoffSiteRecord, ...]
+    species: tuple[SpeciesRecord, ...]
+    spacegroup_it_number: int
+    spacegroup_hall_entry: str
+    coordinate_precision: fractions.Fraction | None = None
+
+    @property
+    def id(self) -> str:
+        """Expose the layout-independent content identifier.
+
+        :return: The content identifier for this record.
+        """
+        return content_id(self)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.cell, CellRecord):
+            raise TypeError("PrototypeRecord cell must be a CellRecord")
+        wyckoff_sites = tuple(self.wyckoff_sites)
+        if not all(_effective_record_type(value) is WyckoffSiteRecord for value in wyckoff_sites):
+            raise TypeError("PrototypeRecord wyckoff_sites must contain WyckoffSiteRecord values")
+        species = tuple(self.species)
+        if not all(_effective_record_type(value) is SpeciesRecord for value in species):
+            raise TypeError("PrototypeRecord species must contain SpeciesRecord values")
+        names = tuple(value.name for value in species)
+        if len(names) != len(set(names)):
+            raise ValueError("PrototypeRecord species names must be unique")
+        if not isinstance(self.spacegroup_it_number, int) or isinstance(self.spacegroup_it_number, bool):
+            raise TypeError("PrototypeRecord spacegroup_it_number must be an integer")
+        if not 1 <= self.spacegroup_it_number <= 230:
+            raise ValueError("PrototypeRecord spacegroup_it_number must be in [1, 230]")
+        if not isinstance(self.spacegroup_hall_entry, str) or not self.spacegroup_hall_entry:
+            raise TypeError("PrototypeRecord spacegroup_hall_entry must be a non-empty string")
+        if unknown := {value.species for value in wyckoff_sites} - set(names):
+            raise ValueError(f"PrototypeRecord references unknown species: {sorted(unknown)!r}")
+        object.__setattr__(self, "wyckoff_sites", wyckoff_sites)
+        object.__setattr__(self, "species", species)
+        object.__setattr__(self, "coordinate_precision", to_precision(self.coordinate_precision))
+
+    @classmethod
+    def __httk_validate__(cls, record: "PrototypeRecord") -> None:
+        """Validate the semantic prototype record.
+
+        :param record: The record to validate.
+        :return: ``None`` after successful validation.
+        """
+        _prototype_from_record(record)
+
+    @classmethod
+    def __httk_project__(cls, prototype: Prototype) -> Mapping[str, object]:
+        """Project a prototype into durable fields.
+
+        :param prototype: The prototype to project.
+        :return: The projected prototype fields.
+        """
+        return {
+            "cell": prototype.cell,
+            "wyckoff_sites": prototype.wyckoff_sites,
+            "species": prototype.species,
+            "spacegroup_it_number": prototype.spacegroup.it_number,
+            "spacegroup_hall_entry": prototype.spacegroup.hall_entry,
+            "coordinate_precision": prototype.coordinate_precision,
+        }
+
+
+def _protostructure_from_record(record: ProtostructureRecord) -> Protostructure:
+    """Reconstruct a protostructure value from its durable record.
+
+    :param record: The durable protostructure record.
+    :return: The reconstructed protostructure value.
+    """
+    from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+    spacegroup = Spacegroup.for_hall_entry(record.spacegroup_hall_entry)
+    if spacegroup.it_number != record.spacegroup_it_number:
+        raise ValueError("stored space-group Hall entry contradicts its International Tables number")
+    return Protostructure(
+        spacegroup,
+        tuple(WyckoffOccupation(value.wyckoff, _species_from_record(value.species)) for value in record.occupations),
+    )
+
+
+def _prototype_from_record(record: PrototypeRecord) -> Prototype:
+    """Reconstruct a prototype value from its durable record.
+
+    :param record: The durable prototype record.
+    :return: The reconstructed prototype value.
+    """
+    from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+    spacegroup = Spacegroup.for_hall_entry(record.spacegroup_hall_entry)
+    if spacegroup.it_number != record.spacegroup_it_number:
+        raise ValueError("stored space-group Hall entry contradicts its International Tables number")
+    return Prototype(
+        _cell_from_record(record.cell),
+        spacegroup,
+        tuple(
+            WyckoffSite(value.wyckoff, FracVector(value.free_parameters), value.species)
+            for value in record.wyckoff_sites
+        ),
+        tuple(_species_from_record(value) for value in record.species),
+        record.coordinate_precision,
+    )
+
+
+def _protostructure_record_from_value(value: Protostructure) -> ProtostructureRecord:
+    """Build a durable protostructure record from a protostructure value.
+
+    :param value: The protostructure value to store.
+    :return: The durable protostructure record.
+    """
+    return ProtostructureRecord(
+        spacegroup_it_number=value.spacegroup.it_number,
+        spacegroup_hall_entry=value.spacegroup.hall_entry,
+        occupations=tuple(
+            WyckoffOccupationRecord(
+                wyckoff=occupation.wyckoff,
+                species=SpeciesRecord(**cast(dict[str, Any], SpeciesRecord.__httk_project__(occupation.species))),
+            )
+            for occupation in value.occupations
+        ),
+    )
+
+
+def _prototype_record_from_value(value: Prototype) -> PrototypeRecord:
+    """Build a durable prototype record from a prototype value.
+
+    :param value: The prototype value to store.
+    :return: The durable prototype record.
+    """
+    return PrototypeRecord(
+        cell=CellRecord(**cast(dict[str, Any], CellRecord.__httk_project__(value.cell))),
+        wyckoff_sites=tuple(
+            WyckoffSiteRecord(**cast(dict[str, Any], WyckoffSiteRecord.__httk_project__(site)))
+            for site in value.wyckoff_sites
+        ),
+        species=tuple(
+            SpeciesRecord(**cast(dict[str, Any], SpeciesRecord.__httk_project__(species))) for species in value.species
+        ),
+        spacegroup_it_number=value.spacegroup.it_number,
+        spacegroup_hall_entry=value.spacegroup.hall_entry,
+        coordinate_precision=value.coordinate_precision,
+    )
 
 
 from httk.atomistic.storage.stored_properties import attach_structure_property_projections

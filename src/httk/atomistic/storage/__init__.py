@@ -9,6 +9,8 @@ from .records import (
     NormalizedCompositionAmountRecord,
     NormalizedCompositionRecord,
     ObservableSummaryRecord,
+    ProtostructureRecord,
+    PrototypeRecord,
     SettingTransformRecord,
     SitesRecord,
     SpeciesConstituentRecord,
@@ -16,6 +18,7 @@ from .records import (
     SymmetryRecord,
     TrajectoryRecord,
     UnitcellStructureRecord,
+    WyckoffOccupationRecord,
     WyckoffSiteRecord,
 )
 
@@ -30,6 +33,8 @@ __all__ = [
     "NormalizedCompositionAmountRecord",
     "NormalizedCompositionRecord",
     "ObservableSummaryRecord",
+    "ProtostructureRecord",
+    "PrototypeRecord",
     "SettingTransformRecord",
     "SitesRecord",
     "SpeciesConstituentRecord",
@@ -37,5 +42,6 @@ __all__ = [
     "SymmetryRecord",
     "TrajectoryRecord",
     "UnitcellStructureRecord",
+    "WyckoffOccupationRecord",
     "WyckoffSiteRecord",
 ]

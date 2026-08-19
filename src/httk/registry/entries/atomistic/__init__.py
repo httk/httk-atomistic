@@ -58,3 +58,23 @@ register_entry_record(
     family="trajectories",
     definition_id="https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/trajectories",
 )
+
+register_entry_family(
+    name="protostructures",
+    family="httk.atomistic.entries.prototypes:ProtostructureEntry",
+)
+register_entry_family(
+    name="prototypes",
+    family="httk.atomistic.entries.prototypes:PrototypeEntry",
+)
+
+register_entry_record(
+    name="atomistic-protostructure",
+    family="protostructures",
+    record="httk.atomistic.storage.records:ProtostructureRecord",
+)
+register_entry_record(
+    name="atomistic-prototype",
+    family="prototypes",
+    record="httk.atomistic.storage.records:PrototypeRecord",
+)
