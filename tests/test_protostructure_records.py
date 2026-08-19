@@ -116,7 +116,7 @@ def test_protostructure_record_label_format_is_deterministic() -> None:
 
 def test_protostructure_golden_content_id_is_layout_independent() -> None:
     record = _protostructure_record_from_value(_rocksalt())
-    assert record.id == content_id(_rocksalt()) == "743eee98965ea3a28e00db23b8211d1d41659dbc1a8db2a0b34ace3f298896b5"
+    assert record.id == content_id(_rocksalt()) == "329f155afa99629b803ffd35a25dd51876f193f00770d738ab83d65d9e206119"
 
 
 def test_equal_protostructures_share_content_id_including_permuted_species_order() -> None:
@@ -301,13 +301,13 @@ def test_structuretype_golden_content_ids_are_layout_independent() -> None:
     representative_carrying = StructuretypeView(_rocksalt_asu()).unview()
     rep_record = _structuretype_record_from_value(representative_carrying)
     assert rep_record.id == content_id(representative_carrying)
-    assert rep_record.id == "7095708d994065dffe01bfe32d5382cad0aea827438a6d69a3775823778bb5dd"
+    assert rep_record.id == "efe8fc1b7703b5eb8372a1af135bccacabd074206c68ca83a9bfe144e2d3b0c3"
 
     protostructure = Protostructure(225, [("a", Species("Na", ("Na",), (1,))), ("b", Species("Cl", ("Cl",), (1,)))])
     discriminator_only = Structuretype(protostructure, discriminator="001")
     disc_record = _structuretype_record_from_value(discriminator_only)
     assert disc_record.id == content_id(discriminator_only)
-    assert disc_record.id == "67b214c92957cd65c840a3995cbec6e1b696bf1dd54736af9c35462a888d21eb"
+    assert disc_record.id == "0f8ef6343ed42482f1591f4ba339f29359340709d907e458a4035b66709aac1a"
 
 
 # --- occupation record guard (unchanged) ---

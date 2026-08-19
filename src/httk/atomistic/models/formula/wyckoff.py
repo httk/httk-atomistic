@@ -1,4 +1,4 @@
-"""Formula bridge for anonymous structures and prototypes."""
+"""Formula bridge for Wyckoff-multiplicity-based backends."""
 
 from collections import Counter
 from fractions import Fraction
@@ -20,8 +20,8 @@ from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.formula.notation import anonymous_symbol
 
 
-class PrototypeComposition(ChemicalFormulaBackend):
-    r"""Represent the canonical composition of a prototype-like backend.
+class WyckoffComposition(ChemicalFormulaBackend):
+    r"""Represent the canonical composition of a Wyckoff-multiplicity-based backend.
 
     Anonymous-structure and protopattern inputs use anonymous labels; protostructure
     inputs retain their real elemental composition at the standard conventional-cell scale.
@@ -31,17 +31,17 @@ class PrototypeComposition(ChemicalFormulaBackend):
     """
 
     _prototype: Any
-    kind = "prototype"
+    kind = "wyckoff"
 
     @classmethod
     def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
-        r"""Adopt a prototype-like backend.
+        r"""Adopt a Wyckoff-multiplicity-based backend.
 
         :param obj: The source object to adopt.
         :param \**hints: Backend-selection hints.
         :return: An initialized backend, or ``None`` when this backend declines ``obj``.
         """
-        if hints and hints.get("kind", "prototype") != "prototype":
+        if hints and hints.get("kind", "wyckoff") != "wyckoff":
             return None
         if isinstance(
             obj,
@@ -149,7 +149,7 @@ class PrototypeComposition(ChemicalFormulaBackend):
         return self._projected.diagnostics if self._is_protostructure else super().diagnostics
 
     def unwrap(self) -> Any:
-        """Return the raw object behind the prototype backend.
+        """Return the raw object behind the Wyckoff-composition backend.
 
         :return: The unwrapped source object.
         """

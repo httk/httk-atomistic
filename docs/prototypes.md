@@ -256,7 +256,7 @@ geometrical class. They are **never** part of the label.
 
 The families have durable, layout-independent storage records in
 `httk.atomistic.storage.records`. Alongside the existing
-`ProtostructureRecord` (`atomistic_protostructure_v1`) and
+`ProtostructureRecord` (`atomistic_protostructure`) and
 `FundamentalDomainPatternRecord` (`atomistic_fundamental_domain_pattern`), the
 matrix adds four records:
 
@@ -300,6 +300,11 @@ values produces new content ids under the new records. And a store written
 across the label switch holds mixed formats in the `ProtostructureRecord.label`
 column — old `"225/b:Cl,a:Na"`-style rows alongside httk-label rows; record
 identity (the content id) is unaffected, and a rebuild normalizes the column.
+Likewise, the `atomistic_protostructure_v1` and `atomistic_wyckoff_occupation_v1`
+tables are orphaned by the removal of the `_v1` storage-name suffixes (to
+`atomistic_protostructure` and `atomistic_wyckoff_occupation`): their rows are not
+migrated, and because the identity name participates in hashing the content ids
+change, so re-ingesting the source values under the new records is the remedy.
 
 ## Deferred features
 

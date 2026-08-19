@@ -1760,8 +1760,8 @@ class WyckoffOccupationRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_wyckoff_occupation_v1",
-        identity_name="atomistic_wyckoff_occupation_v1",
+        storage_name="atomistic_wyckoff_occupation",
+        identity_name="atomistic_wyckoff_occupation",
     )
     __httk_canonical_source__: ClassVar[type[WyckoffOccupation]] = WyckoffOccupation
 
@@ -1801,8 +1801,8 @@ class ProtostructureRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_protostructure_v1",
-        identity_name="atomistic_protostructure_v1",
+        storage_name="atomistic_protostructure",
+        identity_name="atomistic_protostructure",
         indexes=(("spacegroup_it_number",), ("label",)),
     )
     __httk_canonical_source__: ClassVar[type[Protostructure]] = Protostructure

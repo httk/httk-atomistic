@@ -126,7 +126,7 @@ from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
 from httk.atomistic.models.crystalpattern.like import CrystalPatternLike
 from httk.atomistic.models.crystalpattern.fundamental import ASUPattern, FundamentalDomainPattern
 from httk.atomistic.models.crystalpattern.fundamental_view import FundamentalDomainPatternView
-from httk.atomistic.models.formula.prototype import PrototypeComposition
+from httk.atomistic.models.formula.wyckoff import WyckoffComposition
 
 # Alias for discoverability; canonical name is CrystalPattern (see docs/prototypes.md).
 AnonymousStructure = CrystalPattern
@@ -231,7 +231,7 @@ from .reduction import (
 ChemicalFormulaBackend.backend_classes = [
     RecordComposition,
     StructureComposition,
-    PrototypeComposition,
+    WyckoffComposition,
     PlainComposition,
     FormulaString,
     FormulapatternString,
