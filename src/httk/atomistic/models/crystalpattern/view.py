@@ -6,27 +6,27 @@ from typing import TYPE_CHECKING, Any, Self
 from httk.core import unwrap
 
 from httk.atomistic.models.cell.cell import Cell
-from httk.atomistic.models.prototype.anonymous import AnonymousStructure
-from httk.atomistic.models.prototype.backend import AnonymousStructureBackend
-from httk.atomistic.models.prototype.view_base import AnonymousStructureViewBase
+from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
+from httk.atomistic.models.crystalpattern.crystalpattern import CrystalPattern
+from httk.atomistic.models.crystalpattern.view_base import CrystalPatternViewBase
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.prototype.like import AnonymousStructureLike
+    from httk.atomistic.models.crystalpattern.like import CrystalPatternLike
     from httk.atomistic.models.structure.like import StructureLike
 
 
-class AnonymousStructureView(AnonymousStructureViewBase, AnonymousStructure):
+class CrystalPatternView(CrystalPatternViewBase, CrystalPattern):
     r"""Present an anonymous or ordinary structure lazily as an anonymous structure.
 
     :param obj: The anonymous-structure-like or structure-like object to present.
     :param \*\*hints: Backend-selection hints.
     """
 
-    _backend: AnonymousStructureBackend
+    _backend: CrystalPatternBackend
 
-    def __new__(cls, obj: "AnonymousStructureLike | StructureLike", **hints: Any) -> Self:
+    def __new__(cls, obj: "CrystalPatternLike | StructureLike", **hints: Any) -> Self:
         if isinstance(obj, cls):
             return obj
         backend = cls._prepare_backend(obj, hints)
@@ -107,11 +107,11 @@ class AnonymousStructureView(AnonymousStructureViewBase, AnonymousStructure):
         """
         return unwrap(self._backend)
 
-    def unview(self) -> AnonymousStructure:
+    def unview(self) -> CrystalPattern:
         """Return the presented structure as a standalone value.
 
         :return: The anonymous structure value.
         """
-        if type(self._backend) is AnonymousStructure:
+        if type(self._backend) is CrystalPattern:
             return self._backend
-        return AnonymousStructure(self.cell, self.sites, self.species, self.species_at_sites)
+        return CrystalPattern(self.cell, self.sites, self.species, self.species_at_sites)

@@ -11,10 +11,10 @@ from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.prototype.backend import AnonymousStructureBackend
+    from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
 
 
-class AnonymousStructureAPI(ABC):
+class CrystalPatternAPI(ABC):
     """The common interface for dummy-species structures and prototypes."""
 
     @property
@@ -56,7 +56,7 @@ class AnonymousStructureAPI(ABC):
         """Return the canonical anonymous formula at the represented site scale."""
         # The API root is only ever hosted by a backend in this family; the formula bridge
         # accepts that backend root rather than the abstract API protocol itself.
-        return FormulapatternView(cast("AnonymousStructureBackend", self))
+        return FormulapatternView(cast("CrystalPatternBackend", self))
 
     @property
     def is_canonical(self) -> bool:

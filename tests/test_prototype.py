@@ -194,7 +194,7 @@ def test_prototype_view_resolves_nested_asu_source_once_across_value_operations(
 
 
 def test_prototype_view_retains_tolerance_and_denominator_and_resolves_source_once(monkeypatch) -> None:
-    module = __import__("httk.atomistic.models.prototype.prototype_view", fromlist=["conventional_cell"])
+    module = __import__("httk.atomistic.models.crystalpattern.fundamental_view", fromlist=["conventional_cell"])
     source = CountingStructureResolver(_rocksalt_unitcell())
     captured: dict[str, object] = {}
 

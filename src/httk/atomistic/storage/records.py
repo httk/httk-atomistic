@@ -22,13 +22,15 @@ from httk.atomistic._composition_values import as_fraction
 from httk.atomistic.composition import Assembly, ChemicalComposition, validate_assemblies
 from httk.atomistic.models._vector_guards import to_periodicity, to_precision
 from httk.atomistic.models.cell.cell import Cell
+
+# Transitional alias, removed in the taxonomy phase 4.
+from httk.atomistic.models.crystalpattern.fundamental import FundamentalDomainPattern as Prototype
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.protostructure import Protostructure
-from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite

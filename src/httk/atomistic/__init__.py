@@ -114,16 +114,24 @@ from httk.atomistic.models.formula.structure import StructureComposition
 AnonymousFormula = Formulapattern
 AnonymousFormulaView = FormulapatternView
 
-# Prototype imports follow both structure and formula imports: the prototype-to-formula
+# Crystalpattern imports follow both structure and formula imports: the crystal-pattern-to-formula
 # bridge and adapter deliberately depend on the completed lower-level family registrations.
-from httk.atomistic.models.prototype.anonymous import AnonymousStructure
-from httk.atomistic.models.prototype.anonymous_view import AnonymousStructureView
-from httk.atomistic.models.prototype.anonymized import AnonymizedStructure
-from httk.atomistic.models.prototype.backend import AnonymousStructureBackend
-from httk.atomistic.models.prototype.like import AnonymousStructureLike, PrototypeLike
-from httk.atomistic.models.prototype.prototype import Prototype
-from httk.atomistic.models.prototype.prototype_view import PrototypeView
+from httk.atomistic.models.crystalpattern.crystalpattern import CrystalPattern
+from httk.atomistic.models.crystalpattern.view import CrystalPatternView
+from httk.atomistic.models.crystalpattern.anonymized import AnonymizedStructure
+from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
+from httk.atomistic.models.crystalpattern.like import CrystalPatternLike, PrototypeLike
+from httk.atomistic.models.crystalpattern.fundamental import ASUPattern, FundamentalDomainPattern
+from httk.atomistic.models.crystalpattern.fundamental_view import FundamentalDomainPatternView
 from httk.atomistic.models.formula.prototype import PrototypeComposition
+
+# Alias for discoverability; canonical name is CrystalPattern (see docs/prototypes.md).
+AnonymousStructure = CrystalPattern
+AnonymousStructureView = CrystalPatternView
+AnonymousStructureLike = CrystalPatternLike
+# Transitional alias, removed in the taxonomy phase 4.
+Prototype = FundamentalDomainPattern
+PrototypeView = FundamentalDomainPatternView
 
 # Protostructure imports follow the prototype block: the geometry-free family bridges
 # through the completed formula and structure registrations above.
@@ -193,7 +201,7 @@ ChemicalFormulaBackend.backend_classes = [
     FormulaString,
     FormulapatternString,
 ]
-AnonymousStructureBackend.backend_classes = [AnonymizedStructure]
+CrystalPatternBackend.backend_classes = [AnonymizedStructure]
 ProtostructureBackend.backend_classes = [RecognizedProtostructure]
 register_coercer(view_class_coercer([ChemicalFormulaView, FormulapatternView, CompositionView]), Any)
 StructureBackend.backend_classes = [
@@ -223,12 +231,13 @@ ASUStructureView.__httk_storage_record__ = ASUStructureRecord
 Trajectory.__httk_storage_record__ = TrajectoryRecord
 TrajectoryView.__httk_storage_record__ = TrajectoryRecord
 Protostructure.__httk_storage_record__ = ProtostructureRecord
-Prototype.__httk_storage_record__ = PrototypeRecord
+FundamentalDomainPattern.__httk_storage_record__ = PrototypeRecord
 
 __all__ = [
     "DEFAULT_TOLERANCE",
     "ASEAtoms",
     "ASEAtomsProtocol",
+    "ASUPattern",
     "ASUStructure",
     "ASUStructureRecord",
     "ASUStructureView",
@@ -256,9 +265,14 @@ __all__ = [
     "ConventionalCellResult",
     "CrystalAxisSiteMoments",
     "CrystalAxisSiteMomentsView",
+    "CrystalPattern",
+    "CrystalPatternLike",
+    "CrystalPatternView",
     "DatastreamStructure",
     "Formulapattern",
     "FormulapatternView",
+    "FundamentalDomainPattern",
+    "FundamentalDomainPatternView",
     "FundamentalDomainStructure",
     "FundamentalDomainStructureRecord",
     "JsonlTrajectory",

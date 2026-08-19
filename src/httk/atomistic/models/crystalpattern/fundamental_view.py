@@ -5,12 +5,12 @@ from typing import Any, Self
 
 from httk.core import MISSING, unwrap
 
-from httk.atomistic.models.prototype.anonymize import canonical_dummy_assignment, dummy_species
-from httk.atomistic.models.prototype.anonymized import AnonymizedStructure
-from httk.atomistic.models.prototype.anonymous import AnonymousStructure
-from httk.atomistic.models.prototype.backend import AnonymousStructureBackend
-from httk.atomistic.models.prototype.prototype import Prototype
-from httk.atomistic.models.prototype.view_base import AnonymousStructureViewBase
+from httk.atomistic.models.crystalpattern.anonymize import canonical_dummy_assignment, dummy_species
+from httk.atomistic.models.crystalpattern.anonymized import AnonymizedStructure
+from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
+from httk.atomistic.models.crystalpattern.crystalpattern import CrystalPattern
+from httk.atomistic.models.crystalpattern.fundamental import FundamentalDomainPattern
+from httk.atomistic.models.crystalpattern.view_base import CrystalPatternViewBase
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
@@ -34,7 +34,7 @@ def _relabel_sites(
     return mapped_sites, mapped_species
 
 
-class PrototypeView(AnonymousStructureViewBase, Prototype):
+class FundamentalDomainPatternView(CrystalPatternViewBase, FundamentalDomainPattern):
     r"""Recognize a lazy standard-setting prototype view from a structure.
 
     Recognition accepts optional ``tolerance`` and ``limit_denominator`` values through
@@ -44,8 +44,8 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
     :param \*\*hints: Backend-selection and recognition hints.
     """
 
-    _backend: AnonymousStructureBackend
-    _resolved_prototype: Prototype | None
+    _backend: CrystalPatternBackend
+    _resolved_prototype: FundamentalDomainPattern | None
     _tolerance: float | None
     _limit_denominator: int | None
     _DEFERRED_FIELDS = frozenset({"_cell", "_spacegroup", "_wyckoff_sites", "_species", "_coordinate_precision"})
@@ -62,13 +62,13 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
             return super().__new__(cls)
         if isinstance(obj, cls):
             if any(value is not None for value in (tolerance, limit_denominator)) or hints:
-                raise ValueError("PrototypeView rewrapping does not accept recognition arguments")
+                raise ValueError("FundamentalDomainPatternView rewrapping does not accept recognition arguments")
             return obj
         forbidden = {name for name in ("setting", "standard", "transform") if name in hints}
         if forbidden:
             names = ", ".join(sorted(forbidden))
             raise ValueError(
-                f"PrototypeView does not accept {names}=; use PrototypeView(ASUStructureView(source, {names}=...))"
+                f"FundamentalDomainPatternView does not accept {names}=; use FundamentalDomainPatternView(ASUStructureView(source, {names}=...))"
             )
         backend = cls._prepare_backend(obj, hints)
         if isinstance(backend, AnonymizedStructure) and (tolerance is not None or limit_denominator is not None):
@@ -78,10 +78,14 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
             if isinstance(source, (FundamentalDomainStructure, ASUStructureView)) or isinstance(
                 getattr(source, "_view", None), ASUStructureView
             ):
-                raise ValueError("PrototypeView tolerance and limit_denominator cannot be used with an existing ASU")
-        if isinstance(backend, Prototype):
+                raise ValueError(
+                    "FundamentalDomainPatternView tolerance and limit_denominator cannot be used with an existing ASU"
+                )
+        if isinstance(backend, FundamentalDomainPattern):
             if tolerance is not None or limit_denominator is not None:
-                raise ValueError("PrototypeView tolerance and limit_denominator cannot be used with a Prototype")
+                raise ValueError(
+                    "FundamentalDomainPatternView tolerance and limit_denominator cannot be used with a FundamentalDomainPattern"
+                )
             instance = super().__new__(cls)
             instance._backend = backend
             instance._resolved_prototype = None
@@ -105,16 +109,16 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
                 object.__getattribute__(self, "_effective_prototype")()
         return object.__getattribute__(self, name)
 
-    def _effective_prototype(self) -> Prototype:
+    def _effective_prototype(self) -> FundamentalDomainPattern:
         cached = object.__getattribute__(self, "_resolved_prototype")
         if cached is not None:
             return cached
         backend = object.__getattribute__(self, "_backend")
-        if isinstance(backend, Prototype):
+        if isinstance(backend, FundamentalDomainPattern):
             resolved = backend
         else:
             source: Any
-            anonymous_source = isinstance(backend, AnonymousStructure)
+            anonymous_source = isinstance(backend, CrystalPattern)
             if anonymous_source:
                 source = UnitcellStructure(
                     backend.cell,
@@ -141,7 +145,7 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
                 result.asu.multiplicities(),
                 key_for_species,
             )
-            resolved = Prototype(
+            resolved = FundamentalDomainPattern(
                 result.asu.cell,
                 result.asu.spacegroup,
                 mapped_sites,
@@ -160,7 +164,7 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
         """
         return unwrap(self._backend)
 
-    def unview(self) -> Prototype:
+    def unview(self) -> FundamentalDomainPattern:
         """Return the recognized prototype as a standalone value.
 
         :return: The prototype value.

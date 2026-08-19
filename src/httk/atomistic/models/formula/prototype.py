@@ -11,11 +11,11 @@ from httk.core import unwrap
 import httk.atomistic.models.protostructure.backend
 import httk.atomistic.models.protostructure.view_base
 from httk.atomistic.composition import project_composition
+from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
+from httk.atomistic.models.crystalpattern.view_base import CrystalPatternViewBase
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.formula.notation import anonymous_symbol
-from httk.atomistic.models.prototype.backend import AnonymousStructureBackend
-from httk.atomistic.models.prototype.view_base import AnonymousStructureViewBase
 
 
 class PrototypeComposition(ChemicalFormulaBackend):
@@ -44,8 +44,8 @@ class PrototypeComposition(ChemicalFormulaBackend):
         if isinstance(
             obj,
             (
-                AnonymousStructureBackend,
-                AnonymousStructureViewBase,
+                CrystalPatternBackend,
+                CrystalPatternViewBase,
                 httk.atomistic.models.protostructure.backend.ProtostructureBackend,
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
             ),
@@ -55,7 +55,7 @@ class PrototypeComposition(ChemicalFormulaBackend):
 
     def __init__(self, obj: Any, **hints: Any) -> None:
         if isinstance(
-            obj, (AnonymousStructureViewBase, httk.atomistic.models.protostructure.view_base.ProtostructureViewBase)
+            obj, (CrystalPatternViewBase, httk.atomistic.models.protostructure.view_base.ProtostructureViewBase)
         ):
             self._prototype = obj._backend
         else:

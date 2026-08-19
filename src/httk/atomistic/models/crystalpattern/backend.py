@@ -4,10 +4,10 @@ from typing import Any, ClassVar
 
 from httk.core import Backend
 
-from httk.atomistic.models.prototype.api import AnonymousStructureAPI
+from httk.atomistic.models.crystalpattern.api import CrystalPatternAPI
 
 
-class AnonymousStructureBackend(Backend["AnonymousStructureBackend"], AnonymousStructureAPI):
+class CrystalPatternBackend(Backend["CrystalPatternBackend"], CrystalPatternAPI):
     """Backend root for the first PrototypeLike family."""
 
     backend_classes: ClassVar[list[type[Backend[Any]]]]
