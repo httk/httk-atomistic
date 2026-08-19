@@ -67,6 +67,14 @@ register_entry_family(
     name="prototypes",
     family="httk.atomistic.entries.prototypes:PrototypeEntry",
 )
+register_entry_family(
+    name="protopatterns",
+    family="httk.atomistic.entries.prototypes:ProtopatternEntry",
+)
+register_entry_family(
+    name="structuretypes",
+    family="httk.atomistic.entries.prototypes:StructuretypeEntry",
+)
 
 register_entry_record(
     name="atomistic-protostructure",
@@ -77,4 +85,14 @@ register_entry_record(
     name="atomistic-prototype",
     family="prototypes",
     record="httk.atomistic.storage.records:PrototypeRecord",
+)
+register_entry_record(
+    name="atomistic-protopattern",
+    family="protopatterns",
+    record="httk.atomistic.storage.records:ProtopatternRecord",
+)
+register_entry_record(
+    name="atomistic-structuretype",
+    family="structuretypes",
+    record="httk.atomistic.storage.records:StructuretypeRecord",
 )
