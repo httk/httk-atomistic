@@ -7,6 +7,7 @@ import pytest
 from httk.core import FracVector
 
 from httk.atomistic import (
+    Assembly,
     ASUStructure,
     FundamentalDomainStructure,
     Protostructure,
@@ -18,7 +19,6 @@ from httk.atomistic import (
     Species,
     Structuretype,
     StructuretypeView,
-    UnitcellStructure,
     UnitcellStructureView,
     WyckoffSite,
 )
@@ -167,3 +167,38 @@ def test_structuretype_view_pickle_preserves_resolved_value() -> None:
     _ = view.protostructure  # resolve
     restored = pickle.loads(pickle.dumps(view))
     assert restored.unview() == view.unview()
+
+
+def test_representative_with_assemblies_is_rejected() -> None:
+    representative = ASUStructure(
+        CELL,
+        221,
+        (WyckoffSite("a", EMPTY, "Na"),),
+        (Species("Na", ("Na",), (1,)),),
+        assemblies=(Assembly(((0,),), (1,)),),
+    )
+    with pytest.raises(ValueError, match="assemblies"):
+        Structuretype(representative=representative)
+
+
+def test_structuretype_view_unresolved_pickle_stays_lazy() -> None:
+    view = StructuretypeView(_rocksalt_asu())  # no field access -> unresolved
+    restored = pickle.loads(pickle.dumps(view))
+    assert restored._resolved_structuretype is None
+    assert restored.unview() == view.unview()
+
+
+def test_lazy_erasure_arrows_are_not_resolved_at_construction_and_recover_source() -> None:
+    structuretype = Structuretype(representative=_rocksalt_asu(), discriminator="001")
+
+    prototype_view = PrototypeView(structuretype)
+    assert prototype_view._resolved_prototype is None  # lazy: no erasure at construction
+    assert prototype_view.unwrap() is structuretype  # unwrap recovers the source
+    restored = pickle.loads(pickle.dumps(prototype_view))
+    assert restored._resolved_prototype is None
+    assert restored.unview().discriminator == "001"
+
+    protostructure_view = ProtostructureView(structuretype)
+    assert protostructure_view._resolved_protostructure is None
+    assert protostructure_view.unwrap() is structuretype
+    assert protostructure_view.unview() == structuretype.protostructure

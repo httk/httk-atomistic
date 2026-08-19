@@ -26,7 +26,8 @@ class RecognizedProtostructure(ProtostructureBackend):
     """
 
     kind = "structure"
-    _structure: StructureBackend
+    _structure: StructureBackend | None
+    _structuretype: Any
     _setting: Any
     _standard: Any
     _transform: Any
@@ -61,6 +62,12 @@ class RecognizedProtostructure(ProtostructureBackend):
         """
         if hints and hints.get("kind", "structure") != "structure":
             return None
+        # A structuretype already holds a protostructure; erase it lazily (see _derived).
+        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
+
+        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)):
+            return cls(obj, **hints)
         setting = hints.get("setting")
         standard = hints.get("standard")
         transform = hints.get("transform")
@@ -93,6 +100,16 @@ class RecognizedProtostructure(ProtostructureBackend):
         return cls(obj, **hints)
 
     def __init__(self, obj: Any, **hints: Any) -> None:
+        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
+
+        self._structuretype = None
+        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)):
+            self._structuretype = obj._backend if isinstance(obj, StructuretypeViewBase) else obj
+            self._structure = None
+            self._setting = self._standard = self._transform = None
+            self._tolerance = self._limit_denominator = None
+            return
         if isinstance(obj, StructureView):
             self._structure = obj._backend
         elif isinstance(obj, StructureBackend):
@@ -135,6 +152,8 @@ class RecognizedProtostructure(ProtostructureBackend):
 
     @cached_property
     def _derived(self) -> Protostructure:
+        if self._structuretype is not None:
+            return self._structuretype.protostructure
         structure = self._effective_structure()
         asu = structure if isinstance(structure, FundamentalDomainStructure) else getattr(structure, "asu", None)
         if asu is not None and self._has_recognition_options():
@@ -170,5 +189,5 @@ class RecognizedProtostructure(ProtostructureBackend):
         return self._derived.occupations
 
     def unwrap(self) -> Any:
-        """Return the original ordinary structure."""
-        return unwrap(self._structure)
+        """Return the original source (an ordinary structure or a structuretype)."""
+        return unwrap(self._structuretype if self._structuretype is not None else self._structure)

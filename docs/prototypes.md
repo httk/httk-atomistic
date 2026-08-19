@@ -284,9 +284,22 @@ across protostructures whose species share a name but differ in another
 part of the label, so structuretypes that share a protostructure but differ in
 class collide on it.
 
+The registry record name `atomistic-prototype` now resolves to the new
+class-level `PrototypeRecord`; the renamed `FundamentalDomainPatternRecord` is
+an embedded component record (nested inside `PrototypeRecord` and
+`StructuretypeRecord` as the optional representative) and deliberately has no
+registry entry of its own.
+
 Because the label column switched format and the prototype tables were
-redesigned, **pre-existing stores carry stale label columns and old prototype
-tables**. Rebuilding the store from its source values is the documented remedy.
+redesigned, **pre-existing stores carry stale label columns and orphaned
+prototype tables**. Rebuilding the store from its source values is the
+documented remedy. Concretely: a pre-series store's `atomistic_prototype_v1`
+tables are orphaned by the rename to `atomistic_fundamental_domain_pattern` and
+`atomistic_prototype` — their rows are not migrated, and re-ingesting the source
+values produces new content ids under the new records. And a store written
+across the label switch holds mixed formats in the `ProtostructureRecord.label`
+column — old `"225/b:Cl,a:Na"`-style rows alongside httk-label rows; record
+identity (the content id) is unaffected, and a rebuild normalizes the column.
 
 ## Deferred features
 

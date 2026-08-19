@@ -1,9 +1,9 @@
 """Tests for the geometry-free and geometrical-class taxonomy storage records."""
 
+import dataclasses
 from fractions import Fraction
 
 import pytest
-from httk.core import FracVector
 from httk.core.storage import content_id, storage_identity_name
 
 from httk.atomistic import (
@@ -126,6 +126,13 @@ def test_equal_protostructures_share_content_id_including_permuted_species_order
     assert _protostructure_record_from_value(first).id == _protostructure_record_from_value(permuted).id
 
 
+def test_protostructure_record_rejects_reversed_occupations() -> None:
+    good = _protostructure_record_from_value(_rocksalt())
+    reordered = dataclasses.replace(good, occupations=tuple(reversed(good.occupations)))
+    with pytest.raises(ValueError, match="not in canonical order"):
+        ProtostructureRecord.__httk_validate__(reordered)
+
+
 def test_disordered_species_protostructure_round_trips() -> None:
     mixed = Species("mixed", ("Fe", "Ni"), (Fraction(1, 2), Fraction(1, 2)))
     value = Protostructure(221, [("a", mixed), ("b", "Cl")])
@@ -159,6 +166,13 @@ def test_protopattern_golden_content_id_is_layout_independent() -> None:
     assert record.id == "1e3f5da5dbd250cc75e2939415dc1f5c1061fcd54a3b8509e18e9f11b1cd754a"
 
 
+def test_protopattern_record_rejects_non_canonical_field_order() -> None:
+    good = _protopattern_record_from_value(_rocksalt_protopattern())
+    swapped = dataclasses.replace(good, wyckoff_letters=tuple(reversed(good.wyckoff_letters)))
+    with pytest.raises(ValueError, match="not in canonical order"):
+        ProtopatternRecord.__httk_validate__(swapped)
+
+
 # --- fundamental-domain-pattern record (the renamed geometric record) ---
 
 
@@ -168,6 +182,19 @@ def test_fundamental_domain_pattern_record_round_trips_surd_cell_and_free_parame
     rebuilt = _fundamental_domain_pattern_from_record(record)
     assert rebuilt == value
     assert record.cell.basis  # surd basis retained as exact scalars
+
+
+def _two_site_fundamental_domain_pattern() -> FundamentalDomainPattern:
+    a = Species("A", ("X",), (1,), labels=("A",))
+    b = Species("B", ("X",), (1,), labels=("B",))
+    return FundamentalDomainPattern(CELL, 225, (WyckoffSite("a", EMPTY, "A"), WyckoffSite("b", EMPTY, "B")), (a, b))
+
+
+def test_fundamental_domain_pattern_record_rejects_permuted_sites() -> None:
+    good = _fundamental_domain_pattern_record_from_value(_two_site_fundamental_domain_pattern())
+    permuted = dataclasses.replace(good, wyckoff_sites=tuple(reversed(good.wyckoff_sites)))
+    with pytest.raises(ValueError, match="not in canonical order"):
+        FundamentalDomainPatternRecord.__httk_validate__(permuted)
 
 
 def test_fundamental_domain_pattern_golden_content_id_is_layout_independent() -> None:
@@ -205,6 +232,13 @@ def test_prototype_record_requires_a_class_distinction() -> None:
             wyckoff_letters=good.wyckoff_letters,
             labels=good.labels,
         )
+
+
+def test_prototype_record_rejects_permuted_class_labels() -> None:
+    good = _prototype_record_from_value(Prototype(_rocksalt_protopattern(), discriminator="001"))
+    permuted = dataclasses.replace(good, labels=tuple(reversed(good.labels)))
+    with pytest.raises(ValueError, match="not in canonical order"):
+        PrototypeRecord.__httk_validate__(permuted)
 
 
 def test_prototype_golden_content_ids_are_layout_independent() -> None:
@@ -253,6 +287,14 @@ def test_structuretype_record_requires_a_class_distinction() -> None:
             spacegroup_hall_entry=good.spacegroup_hall_entry,
             occupations=good.occupations,
         )
+
+
+def test_structuretype_record_rejects_non_canonical_occupation_order() -> None:
+    protostructure = Protostructure(225, [("a", Species("Na", ("Na",), (1,))), ("b", Species("Cl", ("Cl",), (1,)))])
+    good = _structuretype_record_from_value(Structuretype(protostructure, discriminator="001"))
+    reordered = dataclasses.replace(good, occupations=tuple(reversed(good.occupations)))
+    with pytest.raises(ValueError, match="not in canonical order"):
+        StructuretypeRecord.__httk_validate__(reordered)
 
 
 def test_structuretype_golden_content_ids_are_layout_independent() -> None:

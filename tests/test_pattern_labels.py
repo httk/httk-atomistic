@@ -44,6 +44,27 @@ def test_repeated_letter_group_pins() -> None:
     assert parse_protopattern_label("A_oP4_47_2i") == pattern
 
 
+def test_repeated_special_letter_group_pins() -> None:
+    # The special 27th letter α occupied twice by one class renders "2A" (multiplicity 8 each).
+    pattern = Protopattern(47, [("α", "A"), ("α", "A")])
+    assert str(pattern.label) == "A_oP16_47_2A"
+    assert parse_protopattern_label("A_oP16_47_2A") == pattern
+
+
+@pytest.mark.parametrize(
+    ("it_number", "occupations", "expected"),
+    [
+        # Trigonal-P and hexagonal-P: the count is NOT divided by three (that is R-only).
+        (156, [("a", "A"), ("b", "B")], "AB_hP2_156_a_b"),
+        (194, [("a", "A"), ("b", "A"), ("f", "B"), ("f", "B")], "AB2_hP12_194_ab_2f"),
+    ],
+)
+def test_non_rhombohedral_pearson_is_not_divided(it_number: int, occupations: list, expected: str) -> None:
+    pattern = Protopattern(it_number, occupations)
+    assert str(pattern.label) == expected
+    assert parse_protopattern_label(expected) == pattern
+
+
 def test_protostructure_label_and_aflow_divergence() -> None:
     sg = Spacegroup.standard(167)
     occupations = [("a", "Ca"), ("b", "C"), ("e", "O")]

@@ -164,3 +164,10 @@ def test_prototype_view_pickle_preserves_resolved_value() -> None:
     _ = view.protopattern  # resolve
     restored = pickle.loads(pickle.dumps(view))
     assert restored.unview() == view.unview()
+
+
+def test_prototype_view_unresolved_pickle_stays_lazy() -> None:
+    view = PrototypeView(_rocksalt_asu())  # no field access -> unresolved
+    restored = pickle.loads(pickle.dumps(view))
+    assert restored._resolved_prototype is None
+    assert restored.unview() == view.unview()

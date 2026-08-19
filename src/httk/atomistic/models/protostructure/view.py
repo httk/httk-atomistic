@@ -70,13 +70,15 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
                 "a prototype/anonymous structure carries dummy species; a protostructure needs the real ones"
             )
 
-        # A structuretype already holds a protostructure; unwrap to it before backend selection.
+        # A structuretype erases lazily to its protostructure through RecognizedProtostructure
+        # (adopted below); recognition arguments are meaningless for it, so reject them up front.
         from httk.atomistic.models.structuretype.backend import StructuretypeBackend
         from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
 
-        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)):
-            structuretype = obj._backend if isinstance(obj, StructuretypeViewBase) else obj
-            obj = structuretype.protostructure
+        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)) and (
+            any(value is not None for value in (setting, standard, transform, tolerance, limit_denominator)) or hints
+        ):
+            raise ValueError("ProtostructureView recognition arguments cannot be used with a structuretype")
 
         recognition_values = (setting, standard, transform, tolerance, limit_denominator)
         backend_hints = dict(hints)

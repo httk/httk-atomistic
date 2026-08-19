@@ -1858,7 +1858,8 @@ class ProtostructureRecord:
         :param record: The record to validate.
         :return: ``None`` after successful validation.
         """
-        _protostructure_from_record(record)
+        canonical = _protostructure_record_from_value(_protostructure_from_record(record))
+        _require_canonical("ProtostructureRecord", "occupations", record.occupations, canonical.occupations)
 
     @classmethod
     def __httk_project__(cls, protostructure: Protostructure) -> Mapping[str, object]:
@@ -1945,7 +1946,10 @@ class FundamentalDomainPatternRecord:
         :param record: The record to validate.
         :return: ``None`` after successful validation.
         """
-        _fundamental_domain_pattern_from_record(record)
+        canonical = _fundamental_domain_pattern_record_from_value(_fundamental_domain_pattern_from_record(record))
+        _require_canonical(
+            "FundamentalDomainPatternRecord", "wyckoff_sites", record.wyckoff_sites, canonical.wyckoff_sites
+        )
 
     @classmethod
     def __httk_project__(cls, pattern: FundamentalDomainPattern) -> Mapping[str, object]:
@@ -2021,7 +2025,13 @@ class ProtopatternRecord:
         :param record: The record to validate.
         :return: ``None`` after successful validation.
         """
-        _protopattern_from_record(record)
+        canonical = _protopattern_record_from_value(_protopattern_from_record(record))
+        _require_canonical(
+            "ProtopatternRecord",
+            "wyckoff_letters/labels",
+            (record.wyckoff_letters, record.labels),
+            (canonical.wyckoff_letters, canonical.labels),
+        )
 
     @classmethod
     def __httk_project__(cls, pattern: Protopattern) -> Mapping[str, object]:
@@ -2106,7 +2116,13 @@ class PrototypeRecord:
         :param record: The record to validate.
         :return: ``None`` after successful validation.
         """
-        _prototype_from_record(record)
+        canonical = _prototype_record_from_value(_prototype_from_record(record))
+        _require_canonical(
+            "PrototypeRecord",
+            "wyckoff_letters/labels",
+            (record.wyckoff_letters, record.labels),
+            (canonical.wyckoff_letters, canonical.labels),
+        )
 
     @classmethod
     def __httk_project__(cls, prototype: Prototype) -> Mapping[str, object]:
@@ -2201,7 +2217,8 @@ class StructuretypeRecord:
         :param record: The record to validate.
         :return: ``None`` after successful validation.
         """
-        _structuretype_from_record(record)
+        canonical = _structuretype_record_from_value(_structuretype_from_record(record))
+        _require_canonical("StructuretypeRecord", "occupations", record.occupations, canonical.occupations)
 
     @classmethod
     def __httk_project__(cls, structuretype: Structuretype) -> Mapping[str, object]:
@@ -2246,6 +2263,24 @@ def _validate_class_distinction(record_name: str, representative: Any, discrimin
         raise ValueError(f"{record_name} requires at least one of representative or discriminator")
     if discriminator is not None and (not isinstance(discriminator, str) or not discriminator):
         raise ValueError(f"{record_name} discriminator must be a non-empty string when given")
+
+
+def _require_canonical(record_name: str, field: str, stored: Any, canonical: Any) -> None:
+    """Reject stored fields that reconstruct to a value whose canonical form differs.
+
+    The model constructor silently re-canonicalizes order, so a non-canonical stored record
+    would reconstruct to an equal value yet hash to a different content id, breaking dedup.
+
+    :param record_name: The record class name, for the error message.
+    :param field: The non-canonical field name, for the error message.
+    :param stored: The field value as stored.
+    :param canonical: The field value the value's canonical projection would store.
+    :raises ValueError: If ``stored`` differs from ``canonical``.
+    """
+    if stored != canonical:
+        raise ValueError(
+            f"{record_name} {field} are not in canonical order; store a {record_name} built from its value"
+        )
 
 
 def _protostructure_record_label(record: "ProtostructureRecord | StructuretypeRecord") -> str:

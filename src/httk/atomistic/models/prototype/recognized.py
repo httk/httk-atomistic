@@ -57,7 +57,12 @@ class RecognizedPrototype(PrototypeBackend):
             return None
         if isinstance(obj, (ChemicalFormulaBackend, ChemicalFormulaViewBase)):
             return None
-        # A Structuretype erasure is intercepted by PrototypeView before backend selection.
+        # A structuretype erases lazily to its anonymous prototype (see _derived).
+        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
+
+        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)):
+            return cls(obj, **hints)
         if isinstance(obj, (CrystalPatternBackend, CrystalPatternViewBase, StructureView, StructureBackend)):
             return cls(obj, **hints)
         source_hints = {
@@ -79,9 +84,26 @@ class RecognizedPrototype(PrototypeBackend):
     @cached_property
     def _derived(self) -> Prototype:
         from httk.atomistic.models.crystalpattern.fundamental_view import FundamentalDomainPatternView
+        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
 
+        source = self._source
+        if isinstance(source, (StructuretypeBackend, StructuretypeViewBase)):
+            # Erase a structuretype: protopattern from its protostructure, representative
+            # anonymized, discriminator carried over (it names the species-independent class).
+            from httk.atomistic.models.protopattern.view import ProtopatternView
+
+            structuretype = source._backend if isinstance(source, StructuretypeViewBase) else source
+            protopattern = ProtopatternView(structuretype.protostructure).unview()
+            representative_structure = structuretype.representative
+            representative = (
+                None
+                if representative_structure is None
+                else FundamentalDomainPatternView(representative_structure).unview()
+            )
+            return Prototype(protopattern, representative=representative, discriminator=structuretype.discriminator)
         representative = FundamentalDomainPatternView(
-            self._source, tolerance=self._tolerance, limit_denominator=self._limit_denominator
+            source, tolerance=self._tolerance, limit_denominator=self._limit_denominator
         ).unview()
         return Prototype(representative.protopattern, representative=representative)
 

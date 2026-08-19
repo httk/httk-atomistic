@@ -44,16 +44,15 @@ class PrototypeView(PrototypeViewBase, Prototype):
                 raise ValueError("PrototypeView rewrapping does not accept recognition arguments")
             return obj
 
-        erased = cls._erase_structuretype(obj)
-        if erased is not None:
-            if any(value is not None for value in (tolerance, limit_denominator)) or hints:
-                raise ValueError("PrototypeView structuretype erasure does not accept recognition arguments")
-            instance = super().__new__(cls)
-            instance._backend = erased
-            instance._resolved_prototype = None
-            instance._tolerance = None
-            instance._limit_denominator = None
-            return instance
+        # A structuretype erases lazily through RecognizedPrototype (adopted below); recognition
+        # arguments are meaningless for it, so reject them up front like a prototype source.
+        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
+
+        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)) and (
+            any(value is not None for value in (tolerance, limit_denominator)) or hints
+        ):
+            raise ValueError("PrototypeView recognition arguments cannot be used with a structuretype")
 
         backend_hints = dict(hints)
         if tolerance is not None:
@@ -72,37 +71,6 @@ class PrototypeView(PrototypeViewBase, Prototype):
         instance._tolerance = tolerance
         instance._limit_denominator = limit_denominator
         return instance
-
-    @staticmethod
-    def _erase_structuretype(obj: Any) -> Prototype | None:
-        """Return the anonymous prototype a structuretype source erases to, else ``None``.
-
-        The structuretype family is an optional dependency of this seam: before it is
-        installed the import declines, so ordinary recognition proceeds unchanged.
-
-        :param obj: The candidate source object.
-        :return: The erased prototype value, or ``None`` when ``obj`` is not a structuretype.
-        """
-        try:
-            from httk.atomistic.models.structuretype.backend import StructuretypeBackend
-            from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
-        except ImportError:
-            return None
-
-        if not isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)):
-            return None
-        from httk.atomistic.models.crystalpattern.fundamental_view import FundamentalDomainPatternView
-        from httk.atomistic.models.protopattern.view import ProtopatternView
-
-        structuretype = obj._backend if isinstance(obj, StructuretypeViewBase) else obj
-        protopattern = ProtopatternView(structuretype.protostructure).unview()
-        representative_structure = structuretype.representative
-        representative = (
-            None
-            if representative_structure is None
-            else FundamentalDomainPatternView(representative_structure).unview()
-        )
-        return Prototype(protopattern, representative=representative, discriminator=structuretype.discriminator)
 
     def __init__(self, obj: Any, **hints: Any) -> None:
         pass
