@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class ProtostructureLabel(ProtostructureViewBase, str):
-    r"""Present a protostructure as its eager canonical httk label string.
+    r"""Present a protostructure as its eager httk label string.
 
     Any faithful render is the protostructure label; the *canonical* protostructure label
     is the one obtained from a normalizer-canonical protostructure (for example one derived

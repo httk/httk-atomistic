@@ -21,6 +21,17 @@ class Prototype(PrototypeBackend):
     representative-only value is never equal to a discriminator-only value. The discriminator
     names a species-independent class and is not part of the label.
 
+    ``Prototype`` is the anonymous-species, geometrical-class cell of the
+    material-information matrix:
+
+    ======================  ==============  ==============
+    Geometrical info        Anonymous       Assigned
+    ======================  ==============  ==============
+    Wyckoff positions only  Protopattern    Protostructure
+    Geometrical class       Prototype       Structuretype
+    Exact geometry          CrystalPattern  Structure
+    ======================  ==============  ==============
+
     :param protopattern: The anonymous protopattern, as any protopattern-like value. When
         omitted it is derived from ``representative``; it is required when only
         ``discriminator`` is given.

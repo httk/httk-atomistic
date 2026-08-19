@@ -11,7 +11,7 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 - **API reference**: {doc}`reference/index`
 - **Structures**: {doc}`structures`
 - **Composition and formulas**: {doc}`composition`
-- **Structure prototypes**: {doc}`prototypes`
+- **Material-information levels**: {doc}`prototypes`
 - **Asymmetric units**: {doc}`asu`
 - **Subgroups and pathfinding**: {doc}`subgroups`
 - **Site moments (magnetism)**: {doc}`moments`

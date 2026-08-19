@@ -22,7 +22,7 @@ class FormulapatternView(ChemicalFormulaViewBase, Formulapattern):
     r"""Present a complete composition as an eager canonical anonymous formula.
 
     The canonical class name is ``FormulapatternView``; the legacy
-    :class:`AnonymousFormulaView` name remains available as an alias.
+    ``AnonymousFormulaView`` name remains available as an alias.
 
     :param obj: The chemical-formula-like object to present.
     :param \*\*hints: Backend-selection hints.

@@ -1823,7 +1823,7 @@ class ProtostructureRecord:
     def label(self) -> str:
         """Expose the httk protostructure label as a deterministic query column.
 
-        The label is the canonical httk protostructure label
+        The label is the httk protostructure label
         (``"AB_cF8_225_a_b:Na-Cl"`` for rocksalt): the protopattern label of the erased
         pattern followed by ``:`` and the class species names. It is a convenience and
         query column only; it is not the record's identity (the content id is), and it

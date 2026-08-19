@@ -24,6 +24,17 @@ from httk.atomistic.models.structure.unitcell import (
 class CrystalPattern(CrystalPatternBackend):
     """Store a unit cell whose site identities are consecutive dummy labels.
 
+    ``CrystalPattern`` is the anonymous-species, exact-geometry cell of the
+    material-information matrix:
+
+    ======================  ==============  ==============
+    Geometrical info        Anonymous       Assigned
+    ======================  ==============  ==============
+    Wyckoff positions only  Protopattern    Protostructure
+    Geometrical class       Prototype       Structuretype
+    Exact geometry          CrystalPattern  Structure
+    ======================  ==============  ==============
+
     :param cell: The unit-cell geometry.
     :param sites: The reduced coordinates of the sites.
     :param species: The distinct dummy species definitions.

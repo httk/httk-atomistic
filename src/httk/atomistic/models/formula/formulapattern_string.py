@@ -11,7 +11,7 @@ class FormulapatternString(ChemicalFormulaBackend):
     r"""Wrap a canonical anonymous formula held as a plain string.
 
     The canonical class name is ``FormulapatternString``; the legacy
-    :class:`AnonymousFormulaString` name remains available as a package-internal
+    ``AnonymousFormulaString`` name remains available as a package-internal
     alias.
 
     :param obj: The canonical anonymous formula text.

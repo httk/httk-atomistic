@@ -19,6 +19,11 @@ Every backend produces the same canonical quartet — `cell`, `sites`,
 there is no pairwise conversion between representations. `unwrap()` always
 recovers the exact original.
 
+`Structure` is the exact-geometry, assigned-species cell of the six-level
+material-information taxonomy; {doc}`prototypes` lays out that matrix and the
+anonymous and less-resolved levels (`CrystalPattern`, `Protostructure`,
+`Prototype`, `Structuretype`, `Protopattern`) that a structure projects to.
+
 The full guide, {doc}`details/structures`, covers `DatastreamStructure` and
 lazy remote sources, the component families (`Cell`, `Sites`, `Species`),
 exact geometry (surd matrices, Cartesian positions), the numeric float/numpy

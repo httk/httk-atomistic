@@ -15,6 +15,17 @@ class Protostructure(ProtostructureBackend):
     derivations are defined at the standard-setting conventional-cell scale, even when
     the source used to recognize it was stored in a volume-scaled setting.
 
+    ``Protostructure`` is the assigned-species, Wyckoff-positions-only cell of the
+    material-information matrix:
+
+    ======================  ==============  ==============
+    Geometrical info        Anonymous       Assigned
+    ======================  ==============  ==============
+    Wyckoff positions only  Protopattern    Protostructure
+    Geometrical class       Prototype       Structuretype
+    Exact geometry          CrystalPattern  Structure
+    ======================  ==============  ==============
+
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: The occupied Wyckoff positions and their species.
     """

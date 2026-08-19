@@ -11,7 +11,7 @@ class Formulapattern(ChemicalFormulaBackend, str):
     """Store a strictly canonical OPTIMADE anonymous chemical formula.
 
     The canonical class name is ``Formulapattern``; the legacy
-    :class:`AnonymousFormula` name remains available as an alias.
+    ``AnonymousFormula`` name remains available as an alias.
 
     :param formula: The canonical anonymous formula text.
     """

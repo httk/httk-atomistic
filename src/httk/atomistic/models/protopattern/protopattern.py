@@ -19,6 +19,17 @@ class Protopattern(ProtopatternBackend):
     the pinned group-ordering rule, so any permutation of the input class labels builds an
     equal value that renders the identical label.
 
+    ``Protopattern`` is the anonymous-species, Wyckoff-positions-only cell of the
+    material-information matrix:
+
+    ======================  ==============  ==============
+    Geometrical info        Anonymous       Assigned
+    ======================  ==============  ==============
+    Wyckoff positions only  Protopattern    Protostructure
+    Geometrical class       Prototype       Structuretype
+    Exact geometry          CrystalPattern  Structure
+    ======================  ==============  ==============
+
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: The occupied Wyckoff positions and their anonymous class labels.
     """

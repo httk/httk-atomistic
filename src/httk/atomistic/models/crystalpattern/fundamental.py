@@ -26,6 +26,17 @@ if TYPE_CHECKING:
 class FundamentalDomainPattern(CrystalPatternBackend):
     """Store a standard-setting fundamental domain with dummy species labels.
 
+    ``FundamentalDomainPattern`` is the fundamental-domain member of the ``CrystalPattern``
+    family, the anonymous-species, exact-geometry cell of the material-information matrix:
+
+    ======================  ==============  ==============
+    Geometrical info        Anonymous       Assigned
+    ======================  ==============  ==============
+    Wyckoff positions only  Protopattern    Protostructure
+    Geometrical class       Prototype       Structuretype
+    Exact geometry          CrystalPattern  Structure
+    ======================  ==============  ==============
+
     :param cell: The standard-setting cell geometry.
     :param spacegroup: The standard-setting space group.
     :param wyckoff_sites: The symmetry-distinct site definitions.

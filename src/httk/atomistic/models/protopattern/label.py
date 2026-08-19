@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class ProtopatternLabel(ProtopatternViewBase, str):
-    r"""Present a protopattern as its eager canonical httk label string.
+    r"""Present a protopattern as its eager httk label string.
 
     Any faithful render is the protopattern label; the *canonical* protopattern label is
     the one obtained from a normalizer-canonical pattern (for example one derived via

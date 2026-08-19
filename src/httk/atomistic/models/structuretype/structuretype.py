@@ -51,6 +51,17 @@ class Structuretype(StructuretypeBackend):
     equal to a discriminator-only value. The discriminator names a species-independent class
     and is not part of the label.
 
+    ``Structuretype`` is the assigned-species, geometrical-class cell of the
+    material-information matrix:
+
+    ======================  ==============  ==============
+    Geometrical info        Anonymous       Assigned
+    ======================  ==============  ==============
+    Wyckoff positions only  Protopattern    Protostructure
+    Geometrical class       Prototype       Structuretype
+    Exact geometry          CrystalPattern  Structure
+    ======================  ==============  ==============
+
     :param protostructure: The geometry-free protostructure, as any protostructure-like value.
         When omitted it is derived from ``representative``; it is required when only
         ``discriminator`` is given.
