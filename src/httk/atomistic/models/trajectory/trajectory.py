@@ -81,6 +81,14 @@ class Trajectory(TrajectoryBackend):
         """
         return self._frames[i]
 
+    def __repr__(self) -> str:
+        parts = [f"frames=(... {len(self._frames)} frame(s) ...)"]
+        if self._observables:
+            parts.append(f"observables={tuple(self._observables)!r}")
+        if self._reference_frames is not None:
+            parts.append(f"reference_frames={self._reference_frames!r}")
+        return f"Trajectory({', '.join(parts)})"
+
     def frames(self) -> Iterator[UnitcellStructure]:
         """Iterate over the stored frames.
 

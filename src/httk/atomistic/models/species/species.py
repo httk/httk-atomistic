@@ -190,6 +190,27 @@ class Species(SpeciesBackend):
             )
         object.__setattr__(self, "concentration_precision", precision)
 
+    def __repr__(self) -> str:
+        parts = [
+            f"name={self.name!r}",
+            f"chemical_symbols={self.chemical_symbols!r}",
+            f"concentration={self.concentration!r}",
+        ]
+        for field in (
+            "mass",
+            "original_name",
+            "attached",
+            "nattached",
+            "concentration_precision",
+            "charges",
+            "spins",
+            "labels",
+        ):
+            value = getattr(self, field)
+            if value is not None:
+                parts.append(f"{field}={value!r}")
+        return f"Species({', '.join(parts)})"
+
     def __eq__(self, other: object) -> bool:
         """Compare species values across the Species subclass/view family.
 

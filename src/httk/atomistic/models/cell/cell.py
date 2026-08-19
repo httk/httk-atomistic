@@ -297,6 +297,20 @@ class Cell(CellBackend):
         return self.basis == other.basis and self._periodicity == other._periodicity
 
     def __repr__(self) -> str:
-        if self._periodicity == (True, True, True):
-            return f"Cell(basis={self.basis!r}, scale={self._scale!r})"
-        return f"Cell(basis={self.basis!r}, scale={self._scale!r}, periodicity={self._periodicity!r})"
+        # Emit the *unscaled* basis: the constructor's ``basis`` argument is pre-scale, so emitting
+        # the scaled ``self.basis`` here would make eval(repr(x)) re-apply scale (scale**2).
+        parts = [f"basis={self.unscaled_basis!r}", f"scale={self._scale!r}"]
+        if self._precision is not None:
+            parts.append(f"precision={self._precision!r}")
+        if self._periodicity != (True, True, True):
+            parts.append(f"periodicity={self._periodicity!r}")
+        return f"Cell({', '.join(parts)})"
+
+    def __str__(self) -> str:
+        a, b, c = (float(length) for length in self.lengths)
+        alpha, beta, gamma = (float(angle) for angle in self.angles)
+        return (
+            f"Cell(a={a:.4g}, b={b:.4g}, c={c:.4g}, "
+            f"angles=({alpha:.4g}, {beta:.4g}, {gamma:.4g}) deg, "
+            f"volume={float(self.volume):.4g})"
+        )

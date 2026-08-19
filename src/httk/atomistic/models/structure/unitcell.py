@@ -488,9 +488,26 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
         )
 
     def __repr__(self) -> str:
+        n = len(self._species_at_sites)
+        if n <= 12:
+            return (
+                f"UnitcellStructure(cell={self._cell!r}, sites={self._sites!r}, "
+                f"species={self._species!r}, species_at_sites={self._species_at_sites!r})"
+            )
+        # Large structure: abbreviate the bulky arguments and mark the elision with a trailing ...
         return (
-            f"UnitcellStructure(cell={self._cell!r}, sites={self._sites!r}, "
-            f"species={self._species!r}, species_at_sites={self._species_at_sites!r})"
+            f"UnitcellStructure(cell={self._cell!r}, sites=Sites(... {n} sites ...), "
+            f"species=(... {len(self._species)} species ...), ...)"
+        )
+
+    def __str__(self) -> str:
+        names = sorted(set(self._species_at_sites))
+        formula = " ".join(
+            f"{name}{self._species_at_sites.count(name)}" if self._species_at_sites.count(name) > 1 else name
+            for name in names
+        )
+        return (
+            f"UnitcellStructure({formula}: {len(self._species_at_sites)} sites, volume={float(self._cell.volume):.4g})"
         )
 
 

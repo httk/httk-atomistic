@@ -286,7 +286,9 @@ class Spacegroup:
         return hash(self.hall_entry)
 
     def __repr__(self) -> str:
-        return f"Spacegroup({self.setting!r}, {self.hermann_mauguin!r})"
+        # The IT number is the identifying property; this builder form round-trips for the standard
+        # setting (the common case). A non-standard setting is a detail this repr deliberately elides.
+        return f"Spacegroup.standard({self.it_number})"
 
 
 def wyckoff_letter_map(standard: Spacegroup, target: Spacegroup) -> dict[str, str]:

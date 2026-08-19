@@ -76,6 +76,8 @@ def _integer_transformation(transformation: VectorLike | int) -> tuple[FracVecto
     if isinstance(transformation, int) and not isinstance(transformation, bool):
         value = _positive_integer(transformation, "supercell multiplier")
         return FracVector([[value, 0, 0], [0, value, 0], [0, 0, value]]), value**3
+    # The explicit simplify is load-bearing: FracVector no longer canonicalizes on construction,
+    # so the denom == 1 integer test below only holds on a reduced matrix.
     matrix = FracVector(transformation).simplify()
     if matrix.dim != (3, 3):
         raise ValueError(f"a supercell transformation must be 3x3, got {matrix.dim}")

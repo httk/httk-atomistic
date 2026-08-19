@@ -155,6 +155,22 @@ class Composition(ChemicalFormulaBackend):
         ordered = sorted(coefficients, key=lambda item: (-item[1], item[0]))
         return render_anonymous(tuple(amount for _, amount in ordered))
 
+    def __repr__(self) -> str:
+        parts = [f"amounts={self.amounts!r}"]
+        if any(width is not None for _, width in self.uncertainties):
+            parts.append(f"uncertainties={self.uncertainties!r}")
+        if not self.complete:
+            parts.append(f"complete={self.complete!r}")
+        if not self.exact:
+            parts.append(f"exact={self.exact!r}")
+        if not self.normalized:
+            parts.append(f"normalized={self.normalized!r}")
+        if self.normalization_status != "exact":
+            parts.append(f"normalization_status={self.normalization_status!r}")
+        if self.diagnostics:
+            parts.append(f"diagnostics={self.diagnostics!r}")
+        return f"Composition({', '.join(parts)})"
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Composition):
             return NotImplemented

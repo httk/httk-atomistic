@@ -23,6 +23,9 @@ class AnonymousFormula(ChemicalFormulaBackend, str):
         instance._coefficients = coefficients
         return instance
 
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({str.__repr__(self)})"
+
     @property
     def is_anonymous(self) -> bool:
         """Return whether the formula uses anonymous labels."""

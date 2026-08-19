@@ -44,7 +44,7 @@ def _params_to_basis(params: tuple[fractions.Fraction, ...]) -> SurdVector:
         cy = ((cos_a - cos_b * cos_g) / sin_g)._as_scalar()
         cz_sq = (SurdVector.one() - cos_b * cos_b - cy * cy)._as_scalar()
         if cz_sq.is_rational:
-            zero = SurdScalar.from_components({}, ())
+            zero = SurdScalar._of({}, ())
             av = SurdVector(a)._as_scalar()
             bv = SurdVector(b)._as_scalar()
             cv = SurdVector(c)._as_scalar()
