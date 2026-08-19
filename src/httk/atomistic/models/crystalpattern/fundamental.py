@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 from functools import cached_property
-from typing import Any, ClassVar, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.like import CellLike
@@ -18,6 +18,9 @@ from httk.atomistic.models.structure.asu import FundamentalDomainStructure, Wyck
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+if TYPE_CHECKING:
+    from httk.atomistic.models.protopattern.protopattern import Protopattern
 
 
 class FundamentalDomainPattern(CrystalPatternBackend):
@@ -174,6 +177,24 @@ class FundamentalDomainPattern(CrystalPatternBackend):
     def prototype(self) -> Self:
         """Return this prototype value."""
         return self
+
+    @cached_property
+    def protopattern(self) -> "Protopattern":
+        """Return the anonymous protopattern this fundamental domain folds to.
+
+        The pattern keeps this domain's occupied Wyckoff letters and their dummy-species
+        class partition; the exact geometry is discarded. The pattern's constructor
+        re-canonicalizes the class labels by the pinned group-ordering rule.
+
+        :return: The folded :class:`~httk.atomistic.models.protopattern.protopattern.Protopattern`.
+        """
+        from httk.atomistic.models.protopattern.occupation import ProtopatternOccupation
+        from httk.atomistic.models.protopattern.protopattern import Protopattern
+
+        return Protopattern(
+            self._spacegroup,
+            [ProtopatternOccupation(site.wyckoff, site.species) for site in self._wyckoff_sites],
+        )
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, FundamentalDomainPattern):

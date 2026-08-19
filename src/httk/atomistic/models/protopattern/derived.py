@@ -44,6 +44,14 @@ class DerivedProtopattern(ProtopatternBackend):
             return None
         if isinstance(obj, (ProtostructureBackend, ProtostructureViewBase)):
             return cls(obj, **hints)
+        # A prototype exposes its protopattern directly; a structuretype exposes its erased one.
+        from httk.atomistic.models.prototype.backend import PrototypeBackend
+        from httk.atomistic.models.prototype.view_base import PrototypeViewBase
+        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
+
+        if isinstance(obj, (PrototypeBackend, PrototypeViewBase, StructuretypeBackend, StructuretypeViewBase)):
+            return cls(obj, **hints)
         from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
         from httk.atomistic.models.crystalpattern.view_base import CrystalPatternViewBase
 
@@ -64,6 +72,15 @@ class DerivedProtopattern(ProtopatternBackend):
     @cached_property
     def _derived(self) -> Protopattern:
         source = self._source
+        from httk.atomistic.models.prototype.backend import PrototypeBackend
+        from httk.atomistic.models.prototype.view_base import PrototypeViewBase
+        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
+
+        if isinstance(source, (PrototypeBackend, PrototypeViewBase, StructuretypeBackend, StructuretypeViewBase)):
+            api = source._backend if isinstance(source, (PrototypeViewBase, StructuretypeViewBase)) else source
+            folded = api.protopattern
+            return folded if type(folded) is Protopattern else Protopattern(folded.spacegroup, folded.occupations)
         if isinstance(source, (ProtostructureBackend, ProtostructureViewBase)):
             proto: ProtostructureBackend = source._backend if isinstance(source, ProtostructureViewBase) else source
             letters_by_name: dict[str, list[str]] = {}

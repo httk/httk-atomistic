@@ -1,33 +1,35 @@
-"""Tests for standard-setting prototypes."""
+"""Tests for the anonymous geometrical-class prototype family."""
 
 import pickle
-from fractions import Fraction
-from types import SimpleNamespace
 
 import pytest
 from httk.core import FracVector
 
 from httk.atomistic import (
-    AnonymousStructure,
-    AnonymousStructureView,
     ASUStructure,
-    ASUStructureView,
-    ChemicalFormulaView,
-    CompositionView,
-    Formulapattern,
-    FormulapatternView,
+    FundamentalDomainPattern,
+    Protopattern,
     Prototype,
     PrototypeView,
-    Spacegroup,
     Species,
-    UnitcellStructure,
-    UnitcellStructureView,
     WyckoffSite,
 )
-from httk.atomistic.models.structure.backend import StructureBackend
 
 CELL = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
 EMPTY = FracVector(())
+
+
+def _dummy(label: str) -> Species:
+    return Species(label, ("X",), (1,), labels=(label,))
+
+
+def _rocksalt_pattern() -> FundamentalDomainPattern:
+    return FundamentalDomainPattern(
+        CELL,
+        225,
+        (WyckoffSite("a", EMPTY, "A"), WyckoffSite("b", EMPTY, "B")),
+        (_dummy("A"), _dummy("B")),
+    )
 
 
 def _rocksalt_asu() -> ASUStructure:
@@ -39,240 +41,126 @@ def _rocksalt_asu() -> ASUStructure:
     )
 
 
-def _rocksalt_unitcell() -> UnitcellStructure:
-    return UnitcellStructure(
-        CELL,
-        [[0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]],
-        (Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))),
-        ("Na", "Cl"),
-    )
+def test_requires_at_least_one_of_representative_or_discriminator() -> None:
+    pattern = _rocksalt_pattern().protopattern
+    with pytest.raises(ValueError, match="at least one of representative or discriminator"):
+        Prototype(pattern)
 
 
-class CountingStructureResolver(StructureBackend):
-    def __init__(self, structure: UnitcellStructure) -> None:
-        self.structure = structure
-        self.resolve_calls = 0
-
-    @property
-    def cell(self):
-        return self.structure.cell
-
-    @property
-    def sites(self):
-        return self.structure.sites
-
-    @property
-    def species(self):
-        return self.structure.species
-
-    @property
-    def species_at_sites(self):
-        return self.structure.species_at_sites
-
-    def resolve(self):
-        self.resolve_calls += 1
-        return self.structure
-
-    def unwrap(self):
-        return self
+def test_protopattern_only_is_rejected() -> None:
+    pattern = Protopattern(225, [("a", "A"), ("b", "B")])
+    with pytest.raises(ValueError, match="at least one of representative or discriminator"):
+        Prototype(pattern)
 
 
-def test_prototype_standard_setting_and_canonical_site_order() -> None:
-    species = (Species("A", ("X",), (1,), labels=("A",)), Species("B", ("X",), (1,), labels=("B",)))
-    first = Prototype(CELL, 225, (WyckoffSite("b", EMPTY, "B"), WyckoffSite("a", EMPTY, "A")), species)
-    second = Prototype(CELL, 225, tuple(reversed(first.wyckoff_sites)), species)
-    assert first == second
-    with pytest.raises(ValueError, match="standard setting"):
-        Prototype(CELL, Spacegroup.from_setting("15:c1"), (WyckoffSite("e", FracVector([1, 3]), "A"),), (species[0],))
+def test_discriminator_only_requires_a_protopattern() -> None:
+    with pytest.raises(ValueError, match="needs a protopattern"):
+        Prototype(discriminator="001")
 
 
-def test_prototype_rejects_representatives_moments_and_bad_free_count() -> None:
-    with pytest.raises(ValueError, match="representative"):
-        Prototype(CELL, 225, (WyckoffSite("a", EMPTY, "A", representative=FracVector([0, 0, 0])),), (dummy("A"),))
-    with pytest.raises(ValueError, match="free parameter"):
-        Prototype(CELL, 225, (WyckoffSite("a", FracVector([1]), "A"),), (dummy("A"),))
+def test_discriminator_must_be_non_empty_string() -> None:
+    pattern = Protopattern(225, [("a", "A"), ("b", "B")])
+    with pytest.raises(ValueError, match="non-empty string"):
+        Prototype(pattern, discriminator="")
 
 
-def dummy(label: str) -> Species:
-    return Species(label, ("X",), (1,), labels=(label,))
+def test_representative_only_derives_the_protopattern() -> None:
+    representative = _rocksalt_pattern()
+    prototype = Prototype(representative=representative)
+    assert prototype.representative == representative
+    assert prototype.discriminator is None
+    assert prototype.protopattern == representative.protopattern
 
 
-def test_exact_asu_path_and_expansion() -> None:
-    asu = _rocksalt_asu()
-    prototype = PrototypeView(asu)
-    assert PrototypeView(asu, kind="structure") == prototype
+def test_both_given_agreement_is_enforced() -> None:
+    representative = _rocksalt_pattern()
+    # A single-class pattern cannot describe the two-class rocksalt representative.
+    mismatched = Protopattern(221, [("a", "A")])
+    with pytest.raises(ValueError, match="disagrees with its representative"):
+        Prototype(mismatched, representative=representative)
+    # The agreeing protopattern is accepted.
+    prototype = Prototype(representative.protopattern, representative=representative)
+    assert prototype.representative == representative
+
+
+def test_representative_only_is_never_equal_to_discriminator_only() -> None:
+    representative = _rocksalt_pattern()
+    pattern = representative.protopattern
+    representative_only = Prototype(representative=representative)
+    discriminator_only = Prototype(pattern, discriminator="001")
+    assert representative_only != discriminator_only
+
+
+def test_equality_and_inequality_across_the_triple() -> None:
+    representative = _rocksalt_pattern()
+    pattern = representative.protopattern
+    assert Prototype(representative=representative) == Prototype(representative=representative)
+    assert Prototype(pattern, discriminator="001") == Prototype(pattern, discriminator="001")
+    assert Prototype(pattern, discriminator="001") != Prototype(pattern, discriminator="002")
+    assert Prototype(representative=representative, discriminator="001") != Prototype(representative=representative)
+    assert Prototype(representative=representative) != object()
+
+
+def test_prototype_is_unhashable() -> None:
     with pytest.raises(TypeError):
-        PrototypeView(asu, kind="bogus")
-    assert prototype.spacegroup.is_standard_setting
-    assert prototype.multiplicities() == (4, 4)
-    assert len(AnonymousStructureView(prototype).sites) == prototype.nsites_conventional
-    assert prototype.anonymous_formula == "AB"
-    assert isinstance(FormulapatternView(prototype), str)
-    with pytest.raises(ValueError):
-        PrototypeView(asu, tolerance=1e-5)
-    with pytest.raises(ValueError):
-        CompositionView(prototype)
-    with pytest.raises(ValueError):
-        ChemicalFormulaView(prototype)
-    with pytest.raises(TypeError):
-        ChemicalFormulaView(prototype, kind="bogus")
+        hash(Prototype(representative=_rocksalt_pattern()))
 
 
-def test_prototype_view_rewrap_rejects_arguments() -> None:
+def test_view_recognizes_a_fundamental_domain_pattern_carrying_a_representative() -> None:
+    representative = _rocksalt_pattern()
+    prototype = PrototypeView(representative).unview()
+    assert isinstance(prototype, Prototype)
+    assert prototype.representative == representative
+    assert prototype.discriminator is None
+    assert prototype.protopattern == representative.protopattern
+
+
+def test_view_recognizes_an_exact_asu_without_spglib() -> None:
+    # The build-cod pass-2 path: PrototypeView(canonical_asu).unview() must not need spglib.
+    prototype = PrototypeView(_rocksalt_asu()).unview()
+    assert prototype.representative is not None
+    assert prototype.discriminator is None
+    assert prototype.label == "AB_cF8_225_a_b"
+
+
+def test_label_pearson_and_anonymous_formula_delegate_to_the_protopattern() -> None:
+    prototype = Prototype(representative=_rocksalt_pattern())
+    pattern = prototype.protopattern
+    assert prototype.label == pattern.label
+    assert prototype.pearson_symbol == pattern.pearson_symbol == "cF8"
+    assert prototype.anonymous_formula == pattern.anonymous_formula == "AB"
+    assert prototype.nsites_conventional == pattern.nsites_conventional
+    assert prototype.spacegroup == pattern.spacegroup
+
+
+def test_view_of_a_native_value_unviews_to_the_same_identity() -> None:
+    native = Prototype(Protopattern(225, [("a", "A"), ("b", "B")]), discriminator="001")
+    view = PrototypeView(native)
+    assert view.unview() is native
+    assert view.unwrap() is native
+
+
+def test_view_rewrap_rejects_recognition_arguments() -> None:
     view = PrototypeView(_rocksalt_asu())
     with pytest.raises(ValueError):
-        PrototypeView(view, tolerance=0.123)
-    with pytest.raises(ValueError):
-        PrototypeView(view, setting="bogus")
-    with pytest.raises(ValueError):
-        PrototypeView(view, kind="bogus")
+        PrototypeView(view, tolerance=0.1)
 
 
-def test_anonymous_prototype_source_uses_original_labels() -> None:
-    anonymous = AnonymousStructure(
-        CELL, [[0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]], species_at_sites=("A", "B")
-    )
-    pytest.importorskip("spglib")
-    prototype = PrototypeView(anonymous)
-    assert prototype.anonymous_formula == AnonymousStructureView(anonymous).anonymous_formula
+def test_bare_protopattern_is_not_a_prototype_source() -> None:
+    with pytest.raises(TypeError):
+        PrototypeView(Protopattern(225, [("a", "A"), ("b", "B")]))
 
 
-def test_formula_views_reduce_non_coprime_amounts_and_remain_parseable() -> None:
-    asu = _rocksalt_asu()
-    prototype = PrototypeView(asu)
-    assert Formulapattern(str(prototype.anonymous_formula)) == "AB"
-
-    real_structure = UnitcellStructureView(asu)
-    assert Formulapattern(str(FormulapatternView(real_structure))) == "AB"
-    assert ChemicalFormulaView(real_structure) == "ClNa"
+def test_prototype_value_pickle_round_trip() -> None:
+    representative_only = Prototype(representative=_rocksalt_pattern())
+    discriminator_only = Prototype(Protopattern(225, [("a", "A"), ("b", "B")]), discriminator="001")
+    for value in (representative_only, discriminator_only):
+        restored = pickle.loads(pickle.dumps(value))
+        assert restored == value
 
 
-def test_anonymous_formula_cross_consistency_for_non_coprime_counts() -> None:
-    asu = _rocksalt_asu()
-    assert AnonymousStructureView(asu).anonymous_formula == UnitcellStructureView(asu).chemical_formula_anonymous
-
-    two_to_two = UnitcellStructureView(
-        UnitcellStructure(
-            CELL,
-            [
-                [0, 0, 0],
-                [0, 0, 0],
-                [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)],
-                [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)],
-            ],
-            (Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))),
-            ("Na", "Na", "Cl", "Cl"),
-        )
-    )
-    assert AnonymousStructureView(two_to_two).anonymous_formula == two_to_two.chemical_formula_anonymous
-
-
-def test_recognition_path_is_spglib_gated() -> None:
-    pytest.importorskip("spglib")
-    asu = _rocksalt_asu()
-    unitcell = UnitcellStructureView(asu)
-    assert PrototypeView(unitcell) == PrototypeView(asu)
-
-
-def test_prototype_view_resolves_nested_asu_source_once_across_value_operations() -> None:
-    source = CountingStructureResolver(_rocksalt_unitcell())
-    asu = ASUStructureView(source, setting=Spacegroup.standard(1))
-    view = PrototypeView(asu)
-
-    assert source.resolve_calls == 0
-    assert view.unwrap() is source
-    assert source.resolve_calls == 0
-
-    _ = view.spacegroup
-    assert source.resolve_calls == 1
-    _ = view.wyckoff_sites
-    same = view
-    _ = view == same
-    _ = repr(view)
-    _ = view.unview()
-    assert source.resolve_calls == 1
-
-
-def test_prototype_view_retains_tolerance_and_denominator_and_resolves_source_once(monkeypatch) -> None:
-    module = __import__("httk.atomistic.models.crystalpattern.fundamental_view", fromlist=["conventional_cell"])
-    source = CountingStructureResolver(_rocksalt_unitcell())
-    captured: dict[str, object] = {}
-
-    def fake_conventional(structure: object, **options: object):
-        captured["structure"] = structure
-        captured.update(options)
-        return SimpleNamespace(asu=_rocksalt_asu())
-
-    monkeypatch.setattr(module, "conventional_cell", fake_conventional)
-    view = PrototypeView(source, tolerance=0.125, limit_denominator=17)
-    assert source.resolve_calls == 0
-    _ = view.spacegroup
-    assert source.resolve_calls == 1
-    assert captured == {"structure": source.structure, "tolerance": 0.125, "limit_denominator": 17}
-
-
-def test_prototype_view_unsupported_data_fails_atomically_on_first_access() -> None:
-    mixed = UnitcellStructure(
-        CELL,
-        [[0, 0, 0]],
-        [Species("mixed", ("Fe", "Ni"), (Fraction(1, 2), Fraction(1, 2)))],
-        ("mixed",),
-    )
-    view = PrototypeView(mixed)
-    with pytest.raises(ValueError, match="not a single real element"):
-        _ = view.spacegroup
-    assert view._resolved_prototype is None
-    assert "_cell" not in view.__dict__
-    assert "_derived" not in view._backend.__dict__
-
-
-def test_prototype_view_pickle_preserves_unresolved_and_resolved_states() -> None:
-    source = CountingStructureResolver(_rocksalt_unitcell())
-    unresolved = PrototypeView(ASUStructureView(source, setting=Spacegroup.standard(1)))
-    restored = pickle.loads(pickle.dumps(unresolved))
-    restored_source = restored._backend._structure._source_backend
-    assert restored._resolved_prototype is None
-    assert restored._tolerance is None
-    assert restored_source.resolve_calls == 0
-    assert restored.unwrap() is restored_source
-    assert restored_source.resolve_calls == 0
-    assert restored.spacegroup.it_number == 1
-    assert restored_source.resolve_calls == 1
-
-    source = CountingStructureResolver(_rocksalt_unitcell())
-    resolved = PrototypeView(ASUStructureView(source, setting=Spacegroup.standard(1)))
-    _ = resolved.spacegroup
-    restored = pickle.loads(pickle.dumps(resolved))
-    assert restored._resolved_prototype is not None
-    assert restored.unview() is restored._resolved_prototype
-    assert restored._backend._structure._source_backend.resolve_calls == 1
-
-
-def test_prototype_view_native_unview_preserves_identity() -> None:
-    native = Prototype(
-        CELL,
-        225,
-        (WyckoffSite("a", EMPTY, "A"),),
-        (dummy("A"),),
-    )
-    assert PrototypeView(native).unview() is native
-
-
-def test_prototype_datastream_path_is_not_parsed_at_construction(tmp_path, monkeypatch) -> None:
-    import httk.core
-
-    path = tmp_path / "source.cif"
-    path.write_text("not parsed", encoding="utf-8")
-    calls = 0
-    real_load = httk.core.load
-
-    def counted_load(filename: str):
-        nonlocal calls
-        calls += 1
-        return real_load(filename)
-
-    monkeypatch.setattr(httk.core, "load", counted_load)
-    view = PrototypeView(str(path))
-    assert calls == 0
-    assert view.unwrap() == str(path)
-    assert calls == 0
+def test_prototype_view_pickle_preserves_resolved_value() -> None:
+    view = PrototypeView(_rocksalt_asu())
+    _ = view.protopattern  # resolve
+    restored = pickle.loads(pickle.dumps(view))
+    assert restored.unview() == view.unview()

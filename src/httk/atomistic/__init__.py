@@ -80,9 +80,12 @@ from httk.atomistic.entries.structures import StructureEntry, StructureEntryProv
 from httk.atomistic.entries.trajectories import TrajectoryEntry, TrajectoryEntryProvider
 from httk.atomistic.storage.records import (
     ASUStructureRecord,
+    FundamentalDomainPatternRecord,
     FundamentalDomainStructureRecord,
+    ProtopatternRecord,
     ProtostructureRecord,
     PrototypeRecord,
+    StructuretypeRecord,
     UnitcellStructureRecord,
     validate_structure_record,
     ObservableSummaryRecord,
@@ -120,7 +123,7 @@ from httk.atomistic.models.crystalpattern.crystalpattern import CrystalPattern
 from httk.atomistic.models.crystalpattern.view import CrystalPatternView
 from httk.atomistic.models.crystalpattern.anonymized import AnonymizedStructure
 from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
-from httk.atomistic.models.crystalpattern.like import CrystalPatternLike, PrototypeLike
+from httk.atomistic.models.crystalpattern.like import CrystalPatternLike
 from httk.atomistic.models.crystalpattern.fundamental import ASUPattern, FundamentalDomainPattern
 from httk.atomistic.models.crystalpattern.fundamental_view import FundamentalDomainPatternView
 from httk.atomistic.models.formula.prototype import PrototypeComposition
@@ -129,9 +132,6 @@ from httk.atomistic.models.formula.prototype import PrototypeComposition
 AnonymousStructure = CrystalPattern
 AnonymousStructureView = CrystalPatternView
 AnonymousStructureLike = CrystalPatternLike
-# Transitional alias, removed in the taxonomy phase 4.
-Prototype = FundamentalDomainPattern
-PrototypeView = FundamentalDomainPatternView
 
 # Protopattern imports follow the crystalpattern block and precede protostructure: the
 # element-free family reuses the formula bridge and crystalpattern recognition above, and
@@ -155,6 +155,27 @@ from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.protostructure.recognized import RecognizedProtostructure
 from httk.atomistic.models.protostructure.view import ProtostructureView
+
+# Prototype imports follow the protostructure block: the anonymous geometrical-class family
+# composes the completed crystalpattern (its representative) and protopattern (its erasure)
+# registrations above.
+from httk.atomistic.models.prototype.backend import PrototypeBackend
+from httk.atomistic.models.prototype.like import PrototypeLike
+from httk.atomistic.models.prototype.prototype import Prototype
+from httk.atomistic.models.prototype.recognized import RecognizedPrototype
+from httk.atomistic.models.prototype.view import PrototypeView
+
+# Structuretype imports come last of the taxonomy families: the assigned geometrical-class
+# family composes the completed protostructure, structure, and prototype registrations above.
+from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+from httk.atomistic.models.structuretype.like import StructuretypeLike
+from httk.atomistic.models.structuretype.recognized import RecognizedStructuretype
+from httk.atomistic.models.structuretype.structuretype import Structuretype
+from httk.atomistic.models.structuretype.view import StructuretypeView
+
+# Aliases for discoverability; canonical names are Protopattern and Prototype (see docs/prototypes.md).
+WyckoffPrototype = Protopattern
+ProtopatternType = Prototype
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
 from httk.atomistic.symmetry.setting_transform import SettingTransform
@@ -221,6 +242,8 @@ ProtopatternBackend.backend_classes = [ProtopatternLabelString, DerivedProtopatt
 # canonical label or declines, mirroring the record-first rationale, so recognition
 # sources never fall through it.
 ProtostructureBackend.backend_classes = [ProtostructureLabelString, RecognizedProtostructure]
+PrototypeBackend.backend_classes = [RecognizedPrototype]
+StructuretypeBackend.backend_classes = [RecognizedStructuretype]
 register_coercer(view_class_coercer([ChemicalFormulaView, FormulapatternView, CompositionView]), Any)
 StructureBackend.backend_classes = [
     RecordStructure,
@@ -249,7 +272,15 @@ ASUStructureView.__httk_storage_record__ = ASUStructureRecord
 Trajectory.__httk_storage_record__ = TrajectoryRecord
 TrajectoryView.__httk_storage_record__ = TrajectoryRecord
 Protostructure.__httk_storage_record__ = ProtostructureRecord
-FundamentalDomainPattern.__httk_storage_record__ = PrototypeRecord
+Protopattern.__httk_storage_record__ = ProtopatternRecord
+ProtopatternView.__httk_storage_record__ = ProtopatternRecord
+# ASUPattern is deliberately not storable (matches the phase-2 decision for ASUStructure).
+FundamentalDomainPattern.__httk_storage_record__ = FundamentalDomainPatternRecord
+FundamentalDomainPatternView.__httk_storage_record__ = FundamentalDomainPatternRecord
+Prototype.__httk_storage_record__ = PrototypeRecord
+PrototypeView.__httk_storage_record__ = PrototypeRecord
+Structuretype.__httk_storage_record__ = StructuretypeRecord
+StructuretypeView.__httk_storage_record__ = StructuretypeRecord
 
 __all__ = [
     "DEFAULT_TOLERANCE",
@@ -290,6 +321,7 @@ __all__ = [
     "Formulapattern",
     "FormulapatternView",
     "FundamentalDomainPattern",
+    "FundamentalDomainPatternRecord",
     "FundamentalDomainPatternView",
     "FundamentalDomainStructure",
     "FundamentalDomainStructureRecord",
@@ -310,6 +342,8 @@ __all__ = [
     "ProtopatternLabel",
     "ProtopatternLike",
     "ProtopatternOccupation",
+    "ProtopatternRecord",
+    "ProtopatternType",
     "ProtopatternView",
     "Protostructure",
     "ProtostructureLabel",
@@ -337,6 +371,10 @@ __all__ = [
     "StructureLike",
     "StructurePath",
     "StructureSymmetry",
+    "Structuretype",
+    "StructuretypeLike",
+    "StructuretypeRecord",
+    "StructuretypeView",
     "SubgroupRepresentationResult",
     "SupercellResult",
     "SymopsStructure",
@@ -354,6 +392,7 @@ __all__ = [
     "WyckoffOccupation",
     "WyckoffOccupationRecord",
     "WyckoffPosition",
+    "WyckoffPrototype",
     "WyckoffSite",
     "asu_structure_from_cif",
     "asu_structures_from_cif",

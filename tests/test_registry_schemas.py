@@ -1,9 +1,17 @@
 """Tests for httk-atomistic's IRI schema registrations."""
 
+import httk.atomistic  # noqa: F401  (import triggers the atomistic entry-family/record registrations)
 from httk.core import load_entry_type_definition, load_property_definition
-from httk.core.register import known_entry_type_definitions, known_property_definitions
+from httk.core.register import (
+    known_entry_families,
+    known_entry_records,
+    known_entry_type_definitions,
+    known_property_definitions,
+    resolve_entry_record,
+)
 
 from httk.atomistic.entries.definitions import load_httk_definitions
+from httk.atomistic.storage.records import ProtopatternRecord, StructuretypeRecord
 
 STRUCTURES_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 HTTK_PROPERTY_IDS = {
@@ -29,6 +37,15 @@ def test_atomistic_property_schemas_are_registered_and_loadable() -> None:
         assert load_property_definition(definition_id).definition_id == definition_id
     assert STRUCTURES_ID in known_entry_type_definitions()
     assert load_entry_type_definition(STRUCTURES_ID).definition_id == STRUCTURES_ID
+
+
+def test_taxonomy_entry_families_and_records_are_registered() -> None:
+    families = set(known_entry_families())
+    assert {"protopatterns", "structuretypes"} <= families
+    records = set(known_entry_records())
+    assert {"atomistic-protopattern", "atomistic-structuretype"} <= records
+    assert resolve_entry_record("atomistic-protopattern") is ProtopatternRecord
+    assert resolve_entry_record("atomistic-structuretype") is StructuretypeRecord
 
 
 def test_httk_definitions_keep_served_names_and_published_ids() -> None:

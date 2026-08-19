@@ -11,3 +11,4 @@ class ProtopatternBackend(Backend["ProtopatternBackend"], ProtopatternAPI):
     """Backend root for standard-setting anonymous crystal keys."""
 
     backend_classes: ClassVar[list[type[Backend[Any]]]]
+    __httk_storage_record__: ClassVar[type[Any]]

@@ -9,8 +9,6 @@ from httk.atomistic import (
     AnonymousStructureView,
     CrystalPattern,
     CrystalPatternView,
-    FundamentalDomainPattern,
-    Prototype,
     Species,
     UnitcellStructure,
     UnitcellStructureView,
@@ -28,7 +26,6 @@ SITES = [[0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]]
 def test_transitional_aliases_are_the_canonical_classes() -> None:
     assert AnonymousStructure is CrystalPattern
     assert AnonymousStructureView is CrystalPatternView
-    assert Prototype is FundamentalDomainPattern
 
 
 def test_dummy_species_round_trip_and_decorations() -> None:

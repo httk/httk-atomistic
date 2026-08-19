@@ -70,6 +70,14 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
                 "a prototype/anonymous structure carries dummy species; a protostructure needs the real ones"
             )
 
+        # A structuretype already holds a protostructure; unwrap to it before backend selection.
+        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
+
+        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)):
+            structuretype = obj._backend if isinstance(obj, StructuretypeViewBase) else obj
+            obj = structuretype.protostructure
+
         recognition_values = (setting, standard, transform, tolerance, limit_denominator)
         backend_hints = dict(hints)
         for name, value in zip(
