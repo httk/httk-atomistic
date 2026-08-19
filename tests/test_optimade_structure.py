@@ -62,8 +62,8 @@ def _resource(*, ids: dict[str, object] | None = None, attributes: dict[str, obj
     }
     if attributes is not None:
         values = attributes
-    info = OptimadeDocument.create(json.dumps({"data": {"properties": info_properties}}), "https://example.test/info")
-    document = OptimadeDocument.create(
+    info = OptimadeDocument.from_response(json.dumps({"data": {"properties": info_properties}}), "https://example.test/info")
+    document = OptimadeDocument.from_response(
         json.dumps({"data": [{"id": "example-1", "type": "structures", "attributes": values}]}),
         "https://example.test/v1/structures",
     )
@@ -78,10 +78,10 @@ def _semantic_resource(attributes: dict[str, object]) -> OptimadeResource:
         f"transport_{index}": {"$id": schema.properties[name].definition_id} for index, name in enumerate(attributes)
     }
     renamed = {transport: attributes[name] for transport, name in zip(properties, attributes)}
-    info = OptimadeDocument.create(
+    info = OptimadeDocument.from_response(
         json.dumps({"data": {"properties": properties}}), "https://example.test/info/structures"
     )
-    document = OptimadeDocument.create(
+    document = OptimadeDocument.from_response(
         json.dumps({"data": [{"id": "semantic", "type": "structures", "attributes": renamed}]}),
         "https://example.test/v1/structures",
     )
@@ -96,7 +96,7 @@ def _moment_resource(moment_rows: object) -> OptimadeResource:
         "structure_features": "remote_structure_features",
     }
     properties = {remote: {"$id": schema.properties[name].definition_id} for name, remote in names.items()}
-    info = OptimadeDocument.create(
+    info = OptimadeDocument.from_response(
         json.dumps({"data": {"properties": properties}}), "https://example.test/info/structures"
     )
     attributes = {
@@ -105,7 +105,7 @@ def _moment_resource(moment_rows: object) -> OptimadeResource:
         names["structure_features"]: ["_httk_magnetism"],
         "_httk_site_moments": moment_rows,
     }
-    document = OptimadeDocument.create(
+    document = OptimadeDocument.from_response(
         json.dumps({"data": [{"id": "magnetic", "type": "structures", "attributes": attributes}]}),
         "https://example.test/v1/structures",
     )
@@ -207,7 +207,7 @@ def test_required_attribute_missing_raises_only_for_affected_component() -> None
 def test_decimal_token_precision_falls_back_without_registered_precision_properties() -> None:
     schema = OptimadeSchemaSnapshot(
         "structures",
-        OptimadeDocument.create(
+        OptimadeDocument.from_response(
             json.dumps(
                 {
                     "data": {
@@ -224,7 +224,7 @@ def test_decimal_token_precision_falls_back_without_registered_precision_propert
             "https://example.test/info/structures",
         ),
     )
-    document = OptimadeDocument.create(
+    document = OptimadeDocument.from_response(
         """{"data":[{"id":"precision","type":"structures","attributes":{
         "remote_lattice":[[2.000,0.000,0.000],[0.000,3.000,0.000],[0.000,0.000,4.000]],
         "remote_cartesian":[[1.500,0.000,0.000]],
@@ -315,12 +315,12 @@ def test_fractional_decimal_precision_uses_selected_representation_unless_explic
         precision_attribute = ',"renamed_precision":0.01'
     schema = OptimadeSchemaSnapshot(
         "structures",
-        OptimadeDocument.create(
+        OptimadeDocument.from_response(
             json.dumps({"data": {"properties": properties}}),
             "https://example.test/info/structures",
         ),
     )
-    document = OptimadeDocument.create(
+    document = OptimadeDocument.from_response(
         """{"data":[{"id":"precision","type":"structures","attributes":{
         "renamed_fractional":[[0.1250,0.0000,0.0000]],
         "renamed_cartesian":[[9.0,9.0,9.0]]"""
@@ -335,7 +335,7 @@ def test_fractional_decimal_precision_uses_selected_representation_unless_explic
 
 def test_source_and_backend_are_retained_on_view_round_trip() -> None:
     resource = _resource()
-    backend = StructureBackend.create(resource)
+    backend = StructureBackend._select_backend(resource)
     assert isinstance(backend, OptimadeStructure)
     view = UnitcellStructureView(backend)
 

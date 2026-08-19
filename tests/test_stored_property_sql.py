@@ -63,7 +63,7 @@ def _domain(record_type: type[Any], *, molecular: bool = False) -> FundamentalDo
 
 
 def _collapsed_orbit_asu() -> ASUStructure:
-    rhombohedral = Spacegroup.for_setting("166:R")
+    rhombohedral = Spacegroup.from_setting("166:R")
     return ASUStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 12]],
         166,

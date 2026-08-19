@@ -164,7 +164,7 @@ def show_a_non_standard_setting() -> None:
     """The same crystal, described in two settings, with the transform between them."""
     print("== A non-standard setting ==")
     standard = Spacegroup.standard(15)
-    other = Spacegroup.for_setting("15:c1")
+    other = Spacegroup.from_setting("15:c1")
 
     print(f"Wyckoff e of {standard.setting}: {standard.wyckoff_position('e').representative.operation.to_xyz()}")
     print(f"Wyckoff e of {other.setting}: {other.wyckoff_position('e').representative.operation.to_xyz()}")

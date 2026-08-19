@@ -20,7 +20,7 @@ def _frame(x: int = 0) -> UnitcellStructure:
     return UnitcellStructure(
         Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
         Sites([[x, 0, 0]]),
-        [Species.create("Si")],
+        [Species.from_object("Si")],
         ["Si"],
     )
 
@@ -65,7 +65,7 @@ def test_native_trajectory_validates_shape_and_composition() -> None:
             [
                 _frame(),
                 UnitcellStructure(
-                    Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), Sites([[0, 0, 0]]), [Species.create("O")], ["O"]
+                    Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), Sites([[0, 0, 0]]), [Species.from_object("O")], ["O"]
                 ),
             ]
         )

@@ -100,7 +100,7 @@ def test_an_entry_without_a_structure_serves_null_symmetry() -> None:
 
 def test_symbols_and_letters_describe_the_setting_the_structure_is_in() -> None:
     """A structure in ``15:c1`` is ``A 2/a``, not the standard setting's ``C 2/c``."""
-    setting = Spacegroup.for_setting("15:c1")
+    setting = Spacegroup.from_setting("15:c1")
     asu = ASUStructure(
         [[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         15,
@@ -124,7 +124,7 @@ def test_wyckoff_letters_are_translated_across_the_setting_boundary() -> None:
     name a different position, and nothing would complain — which is exactly why this is
     tested rather than assumed.
     """
-    setting = Spacegroup.for_setting("224:1")
+    setting = Spacegroup.from_setting("224:1")
     standard = Spacegroup.standard(224)
     asu = ASUStructure(
         [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
@@ -142,7 +142,7 @@ def test_wyckoff_letters_are_translated_across_the_setting_boundary() -> None:
 
 def test_wyckoff_multiplicity_follows_the_setting_too() -> None:
     """A 3a of the standard hexagonal cell is a 1a of the smaller rhombohedral one."""
-    setting = Spacegroup.for_setting("166:R")
+    setting = Spacegroup.from_setting("166:R")
     asu = ASUStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 12]],
         166,
@@ -180,7 +180,7 @@ def test_an_untabulated_setting_serves_the_number_but_not_a_symbol() -> None:
 
 def test_the_setting_transform_is_served_as_exact_rationals() -> None:
     """Rendered as strings, so the value survives JSON without becoming a float."""
-    setting = Spacegroup.for_setting("15:c1")
+    setting = Spacegroup.from_setting("15:c1")
     asu = ASUStructure(
         [[5, 0, 0], [0, 6, 0], [0, 0, 7]],
         15,

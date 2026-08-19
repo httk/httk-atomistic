@@ -67,6 +67,14 @@ def test_spacegroup_repr_is_builder_form_and_roundtrips() -> None:
     assert eval(repr(sg), {"Spacegroup": Spacegroup}) == sg  # noqa: S307
 
 
+def test_affine_operation_repr_roundtrips_via_xyz_constructor() -> None:
+    from httk.atomistic.symmetry.affine_operation import AffineOperation
+
+    op = AffineOperation([[0, -1, 0], [1, 0, 0], [0, 0, 1]], ["1/2", "1/2", "0"])
+    assert eval(repr(op), {"AffineOperation": AffineOperation}) == op  # noqa: S307
+    assert AffineOperation("x,y,z") == AffineOperation.identity()
+
+
 def test_structure_and_trajectory_repr_and_str_are_clean() -> None:
     from httk.atomistic import Trajectory, UnitcellStructure
 

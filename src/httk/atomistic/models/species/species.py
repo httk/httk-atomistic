@@ -343,7 +343,7 @@ class Species(SpeciesBackend):
         )
 
     @classmethod
-    def create(cls, obj: "Species | dict[str, Any] | str | int", **hints: Any) -> "Species":
+    def from_object(cls, obj: "Species | dict[str, Any] | str | int", **hints: Any) -> "Species":
         r"""
         Return a Species from an existing Species, bare symbol or atomic number, or
         OPTIMADE species dict.

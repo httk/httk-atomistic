@@ -194,7 +194,7 @@ class PlainTrajectory(TrajectoryBackend):
             sites = Sites(fractional)
         names = self._value("species_at_sites", i)
         species_value = self._value("species", i) if "species" in self._raw else None
-        species = None if species_value is None else tuple(Species.create(value) for value in species_value)
+        species = None if species_value is None else tuple(Species.from_object(value) for value in species_value)
         return UnitcellStructure(
             cell,
             sites,

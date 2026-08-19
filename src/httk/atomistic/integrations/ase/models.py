@@ -88,11 +88,11 @@ def _magnetic_moments(obj: Any) -> Any:
 def _charge_species(symbols: tuple[str, ...], obj: Any) -> tuple[tuple[Species, ...], tuple[str, ...]]:
     if not hasattr(obj, "get_initial_charges"):
         distinct_symbols = tuple(dict.fromkeys(symbols))
-        return tuple(Species.create(symbol) for symbol in distinct_symbols), symbols
+        return tuple(Species.from_object(symbol) for symbol in distinct_symbols), symbols
     values = _values(obj.get_initial_charges())
     if all(float(value) == 0 for value in values):
         distinct_symbols = tuple(dict.fromkeys(symbols))
-        return tuple(Species.create(symbol) for symbol in distinct_symbols), symbols
+        return tuple(Species.from_object(symbol) for symbol in distinct_symbols), symbols
 
     charges = tuple(fractions.Fraction(str(value)) for value in values)
     species_by_key: dict[tuple[str, fractions.Fraction], Species] = {}

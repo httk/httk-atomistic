@@ -255,7 +255,7 @@ def _poscar_payload_from_structure(obj: Any) -> Mapping[str, object]:
 
 def _trajectory_jsonl_payload(obj: Any) -> Mapping[str, object]:
     """Adapt a trajectory to a streaming neutral JSONL writer payload."""
-    trajectory = TrajectoryBackend.create(obj) if isinstance(obj, Mapping) else obj
+    trajectory = TrajectoryBackend._select_backend(obj) if isinstance(obj, Mapping) else obj
     if not isinstance(trajectory, (TrajectoryBackend, TrajectoryView)):
         raise TypeError(f"cannot save {type(obj).__name__} as a trajectory JSONL file")
 

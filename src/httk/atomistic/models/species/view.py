@@ -29,7 +29,7 @@ class SpeciesView(SpeciesViewBase, Species):
     def __new__(cls, obj: SpeciesLike, **hints: Any) -> Self:
         if isinstance(obj, cls):
             return obj
-        backend = Species.create(obj) if isinstance(obj, (bool, str, int)) else cls._prepare_backend(obj, hints)
+        backend = Species.from_object(obj) if isinstance(obj, (bool, str, int)) else cls._prepare_backend(obj, hints)
         instance = super().__new__(cls)
         # Species is a frozen dataclass whose generated __init__ assigns via object.__setattr__,
         # so its state is initialized here in __new__ (keeping __init__ a no-op); this also means

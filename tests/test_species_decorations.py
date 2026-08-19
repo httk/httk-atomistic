@@ -112,15 +112,15 @@ def test_dict_and_payload_round_trip_decorations() -> None:
         "_httk_spins": [0, None],
         "_httk_labels": ["site-a", None],
     }
-    species = Species.create(raw)
+    species = Species.from_object(raw)
 
     assert species.charges == (Fraction(5, 2), None)
     assert species.spins == (Fraction(0), None)
     assert species.labels == ("site-a", None)
     assert SpeciesView(raw).charges == species.charges
-    assert Species.create(PlainSpeciesView(species)).charges == species.charges
+    assert Species.from_object(PlainSpeciesView(species)).charges == species.charges
     payload = species_payload(species)
     assert payload["_httk_charges"] == [2.5, None]
     assert payload["_httk_spins"] == [0.0, None]
-    assert Species.create(payload).charges == species.charges
-    assert Species.create({**raw, "_httk_charges": [0, None]}).charges == (Fraction(0), None)
+    assert Species.from_object(payload).charges == species.charges
+    assert Species.from_object({**raw, "_httk_charges": [0, None]}).charges == (Fraction(0), None)

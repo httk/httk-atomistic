@@ -1392,7 +1392,7 @@ class OptimadeStructure(StructureBackend):
                 "OPTIMADE species has invalid semantic property 'species': expected objects"
             )
         try:
-            values = tuple(Species.create(dict(value)) for value in raw_species)
+            values = tuple(Species.from_object(dict(value)) for value in raw_species)
         except (TypeError, ValueError, KeyError) as exc:
             raise IncompleteOptimadeResourceError(
                 f"OPTIMADE species has invalid semantic property 'species': {exc}"

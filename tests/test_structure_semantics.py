@@ -214,7 +214,7 @@ def test_semantic_input_validation() -> None:
             symmetry=StructureSymmetry(space_group_symmetry_operations_xyz=("x,y,z",)),
         )
 
-    setting = Spacegroup.for_setting("15:c1")
+    setting = Spacegroup.from_setting("15:c1")
     metadata = StructureSymmetry(
         space_group_it_number=15,
         space_group_symbol_hall=setting.hall_symbol,

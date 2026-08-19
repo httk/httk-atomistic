@@ -43,7 +43,7 @@ class AnonymizedStructure(AnonymousStructureBackend):
         if not isinstance(obj, (StructureView, StructureBackend)):
             source_hints = cls._source_hints(hints)
             try:
-                StructureBackend.create(obj, **source_hints)
+                StructureBackend._select_backend(obj, **source_hints)
             except TypeError as exc:
                 # Only the backend factory's own no-match error means this probe should fall through.
                 if str(exc) == f"Cannot represent {type(obj)} as StructureBackend":
@@ -57,7 +57,7 @@ class AnonymizedStructure(AnonymousStructureBackend):
         elif isinstance(obj, StructureBackend):
             self._structure = obj
         else:
-            self._structure = StructureBackend.create(obj, **self._source_hints(hints))
+            self._structure = StructureBackend._select_backend(obj, **self._source_hints(hints))
 
     @cached_property
     def _effective_structure(self) -> Any:

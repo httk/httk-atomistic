@@ -65,7 +65,7 @@ class Spacegroup:
         return cls(data.standard_spacegroup_setting(it_number))
 
     @classmethod
-    def for_hall_entry(cls, hall_entry: str) -> Self:
+    def from_hall_entry(cls, hall_entry: str) -> Self:
         """Return the setting named by a normalized Hall symbol.
 
         For example, ``"-c_2yc"`` names one setting.
@@ -76,7 +76,7 @@ class Spacegroup:
         return cls(data.spacegroup_setting(hall_entry=hall_entry))
 
     @classmethod
-    def for_setting(cls, setting_it_nc: str) -> Self:
+    def from_setting(cls, setting_it_nc: str) -> Self:
         """Return the setting named by an IT number and coordinate-system code.
 
         For example, ``"15:c1"`` names one setting.
@@ -87,7 +87,7 @@ class Spacegroup:
         return cls(data.spacegroup_setting(setting_it_nc=setting_it_nc))
 
     @classmethod
-    def for_hm_entry(cls, hm_entry: str) -> Self:
+    def from_hm_entry(cls, hm_entry: str) -> Self:
         """Return the setting named by a Hermann-Mauguin entry.
 
         For example, ``"C 1 2/c 1"`` names one setting.
@@ -264,7 +264,7 @@ class Spacegroup:
 
         :return: The stored standard-to-own setting transform.
         """
-        return SettingTransform.for_hall_entry(self.hall_entry)
+        return SettingTransform.from_hall_entry(self.hall_entry)
 
     def standard_setting(self) -> "Spacegroup":
         """Return the IT standard setting for this space-group number.

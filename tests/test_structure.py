@@ -66,9 +66,9 @@ def test_elements_unknowns_raise() -> None:
 def test_species_valid_and_create_from_dict() -> None:
     species = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))
     assert species.is_single_element
-    assert Species.create(species) is species
+    assert Species.from_object(species) is species
 
-    from_dict = Species.create({"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]})
+    from_dict = Species.from_object({"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]})
     assert from_dict == species
     assert from_dict.chemical_symbols == ("Na",)
     assert from_dict.concentration == (1.0,)
@@ -266,21 +266,21 @@ def test_backend_create_dispatches_and_kind_overrides() -> None:
     assert isinstance(simple, StructureBackend)
     assert UnitcellStructureView(simple)._backend is simple
 
-    primitive = StructureBackend.create(nacl_triple())
+    primitive = StructureBackend._select_backend(nacl_triple())
     assert isinstance(primitive, PlainStructure)
 
-    assert isinstance(StructureBackend.create(nacl_triple(), kind="plain"), PlainStructure)
+    assert isinstance(StructureBackend._select_backend(nacl_triple(), kind="plain"), PlainStructure)
 
 
 def test_backend_create_raises_for_malformed_triple() -> None:
     with pytest.raises(TypeError):
-        StructureBackend.create([CUBIC, [[0.0, 0.0, 0.0]], [11, 17]])  # numbers/positions length mismatch
+        StructureBackend._select_backend([CUBIC, [[0.0, 0.0, 0.0]], [11, 17]])  # numbers/positions length mismatch
     with pytest.raises(TypeError):
-        StructureBackend.create([[[1.0, 2.0]], [[0.0, 0.0, 0.0]], [1]])  # lattice not 3x3
+        StructureBackend._select_backend([[[1.0, 2.0]], [[0.0, 0.0, 0.0]], [1]])  # lattice not 3x3
     with pytest.raises(TypeError):
-        StructureBackend.create(12345)
+        StructureBackend._select_backend(12345)
     with pytest.raises(TypeError):
-        StructureBackend.create(nacl_structure(), kind="plain")
+        StructureBackend._select_backend(nacl_structure(), kind="plain")
 
 
 # --- Views ---
@@ -376,7 +376,7 @@ def test_primitive_view_refuses_partially_occupied_single_symbol_species() -> No
 
 
 def test_view_rewrap_identity_and_shared_backend() -> None:
-    backend = StructureBackend.create(nacl_triple())
+    backend = StructureBackend._select_backend(nacl_triple())
     v1 = UnitcellStructureView(backend)
     assert UnitcellStructureView(v1) is v1
 
@@ -395,7 +395,7 @@ def test_unwrap_returns_native_raw_object() -> None:
     assert isinstance(unwrap(simple_view), UnitcellStructure)
 
     triple = nacl_triple()
-    primitive_backend = StructureBackend.create(triple)
+    primitive_backend = StructureBackend._select_backend(triple)
     assert unwrap(primitive_backend) is triple
 
     primitive_view = PlainStructureView(structure)

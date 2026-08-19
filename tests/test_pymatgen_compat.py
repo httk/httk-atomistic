@@ -58,7 +58,7 @@ def test_pymatgen_protocol_is_duck_typed_and_disjoint_from_ase() -> None:
 
 def test_fake_pymatgen_backend_and_declines() -> None:
     fake = FakePymatgenStructure()
-    backend = StructureBackend.create(fake)
+    backend = StructureBackend._select_backend(fake)
     assert isinstance(backend, PymatgenStructure)
     assert backend.unwrap() is fake
     assert backend.cell.periodicity == (True, True, False)

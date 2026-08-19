@@ -35,9 +35,9 @@ def test_cell_geometry_defaults_match_every_backend() -> None:
     source = Cell(params.basis)
     record = CellRecord(**project_storage_record(CellRecord, source))
     backends = (
-        CellBackend.create(params.basis, kind="plain"),
-        CellBackend.create(CELL_PARAMS, kind="params"),
-        CellBackend.create(record, kind="record"),
+        CellBackend._select_backend(params.basis, kind="plain"),
+        CellBackend._select_backend(CELL_PARAMS, kind="params"),
+        CellBackend._select_backend(record, kind="record"),
         source,
     )
 
@@ -56,7 +56,7 @@ def _frame(x: int) -> UnitcellStructure:
     return UnitcellStructure(
         Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
         Sites([[x, 0, 0]]),
-        [Species.create("Si")],
+        [Species.from_object("Si")],
         ["Si"],
     )
 
@@ -100,18 +100,18 @@ def test_trajectory_streaming_defaults() -> None:
 def test_sites_and_species_api_defaults_cover_plain_and_record_backends() -> None:
     sites = Sites([[0, 0, 0], [Fraction(1, 2), 0, 0]])
     sites_record = SitesRecord(**SitesRecord.__httk_project__(sites))
-    plain_sites = SitesBackend.create(sites.reduced_coords.to_floats(), kind="plain")
-    record_sites = SitesBackend.create(sites_record, kind="record")
+    plain_sites = SitesBackend._select_backend(sites.reduced_coords.to_floats(), kind="plain")
+    record_sites = SitesBackend._select_backend(sites_record, kind="record")
     assert plain_sites.num_sites == record_sites.num_sites == 2
 
     ordered = {"name": "Si", "chemical_symbols": ["Si"], "concentration": [1]}
-    plain_species = SpeciesBackend.create(ordered, kind="plain")
-    species_record = SpeciesRecord(**SpeciesRecord.__httk_project__(Species.create("Si")))
-    record_species = SpeciesBackend.create(species_record, kind="record")
+    plain_species = SpeciesBackend._select_backend(ordered, kind="plain")
+    species_record = SpeciesRecord(**SpeciesRecord.__httk_project__(Species.from_object("Si")))
+    record_species = SpeciesBackend._select_backend(species_record, kind="record")
     assert plain_species.is_ordered is True
     assert record_species.is_ordered is True
 
-    fractional = SpeciesBackend.create(
+    fractional = SpeciesBackend._select_backend(
         {"name": "FeNi", "chemical_symbols": ["Fe", "Ni"], "concentration": [Fraction(1, 2), Fraction(1, 2)]},
         kind="plain",
     )
@@ -147,7 +147,7 @@ class MinimalStructure(StructureBackend):
 def test_structure_api_defaults_match_unitcell_for_minimal_backend() -> None:
     cell = Cell([[3, 0, 0], [0, 4, 0], [0, 0, 5]])
     sites = Sites([[0, 0, 0], [Fraction(1, 2), 0, 0]])
-    species = (Species.create("Si"), Species.create("O"))
+    species = (Species.from_object("Si"), Species.from_object("O"))
     names = ("Si", "O")
     minimal = MinimalStructure(cell, sites, species, names)
     unitcell = UnitcellStructure(cell, sites, species, names)
@@ -190,7 +190,7 @@ def test_structure_api_defaults_null_incomplete_composition_fields() -> None:
 @pytest.mark.parametrize("kind", ("unitcell", "fundamental", "symops"))
 def test_nperiodic_dimensions_default_matches_cell(kind: str) -> None:
     cell = Cell([[3, 0, 0], [0, 3, 0], [0, 0, 3]])
-    species = (Species.create("Si"),)
+    species = (Species.from_object("Si"),)
     if kind == "unitcell":
         structure = UnitcellStructure(cell, Sites([[0, 0, 0]]), species, ("Si",))
     elif kind == "fundamental":
@@ -211,7 +211,7 @@ def test_optimade_source_null_composition_fields_stay_null_when_sites_are_comple
             "chemical_formula_anonymous": None,
         }
     )
-    backend = StructureBackend.create(_semantic_resource(attributes))
+    backend = StructureBackend._select_backend(_semantic_resource(attributes))
     record = next(iter(StructureEntryProvider({"remote": backend}).records("structures")))
 
     assert [
@@ -235,7 +235,7 @@ def test_optimade_elements_ratios_remain_source_values_at_serving_boundary() -> 
             "structure_features": ["implicit_atoms"],
         }
     )
-    backend = StructureBackend.create(_semantic_resource(attributes))
+    backend = StructureBackend._select_backend(_semantic_resource(attributes))
     assert backend.elements_ratios == (Fraction(3333, 10000), Fraction(3333, 5000))
     record = next(iter(StructureEntryProvider({"remote": backend}).records("structures")))
     assert record["elements_ratios"] == pytest.approx([0.3333, 0.6666])

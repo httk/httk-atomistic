@@ -12,7 +12,7 @@ def _structure(x: float) -> UnitcellStructure:
     return UnitcellStructure(
         Cell([[2, 0, 0], [0, 2, 0], [0, 0, 2]]),
         Sites([[x, 0, 0]]),
-        [Species.create("Al")],
+        [Species.from_object("Al")],
         ["Al"],
     )
 

@@ -18,7 +18,7 @@ class WyckoffOccupation:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "wyckoff", str(self.wyckoff))
-        species = self.species if isinstance(self.species, Species) else Species.create(self.species)
+        species = self.species if isinstance(self.species, Species) else Species.from_object(self.species)
         if "X" in species.chemical_symbols or "X" in (species.attached or ()):
             raise ValueError(f"WyckoffOccupation species {species.name!r} contains unknown chemical symbol 'X'")
         object.__setattr__(self, "species", species)

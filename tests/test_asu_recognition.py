@@ -49,7 +49,7 @@ def _rocksalt() -> ASUStructure:
 
 def _monoclinic(setting: str = "15:b1") -> ASUStructure:
     """One silicon on the one-parameter Wyckoff position e of SG 15."""
-    spacegroup = Spacegroup.for_setting(setting)
+    spacegroup = Spacegroup.from_setting(setting)
     return ASUStructure(
         ORTHO,
         15,
@@ -83,7 +83,7 @@ def test_round_trip_reproduces_the_crystal_exactly(build: object) -> None:
 
 def test_round_trip_through_a_volume_changing_transform() -> None:
     """Rhombohedral axes: the standard orbit is three times too large for this cell."""
-    rhombohedral = Spacegroup.for_setting("166:R")
+    rhombohedral = Spacegroup.from_setting("166:R")
     original = ASUStructure(
         HEXAGONAL,
         166,
@@ -200,7 +200,7 @@ def test_recognize_asu_rejects_contradictory_arguments() -> None:
     with pytest.raises(TypeError):
         recognize_asu(structure, standard=Spacegroup.standard(225))
     with pytest.raises(ValueError, match="standard setting"):
-        recognize_asu(structure, standard=Spacegroup.for_setting("15:c1"), transform=SettingTransform.identity())
+        recognize_asu(structure, standard=Spacegroup.from_setting("15:c1"), transform=SettingTransform.identity())
 
 
 # --- the view ---

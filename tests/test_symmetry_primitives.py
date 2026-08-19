@@ -117,7 +117,7 @@ def test_setting_transform_maps_the_standard_symop_set_onto_each_setting(setting
     Transposing the matrix or inverting the direction fails this for the settings sampled
     here, even though several self-inverse cases would pass either way.
     """
-    target = Spacegroup.for_setting(setting)
+    target = Spacegroup.from_setting(setting)
     standard = target.standard_setting()
     transform = target.transform_from_standard
 
@@ -134,9 +134,9 @@ def test_setting_transform_is_the_identity_exactly_for_standard_settings() -> No
 
 def test_only_rhombohedral_settings_change_the_cell_volume() -> None:
     changing = {
-        record["setting_it_nc"]: SettingTransform.for_hall_entry(record["hall_entry"]).determinant()
+        record["setting_it_nc"]: SettingTransform.from_hall_entry(record["hall_entry"]).determinant()
         for record in data.spacegroup_settings()
-        if abs(SettingTransform.for_hall_entry(record["hall_entry"]).determinant()) != 1
+        if abs(SettingTransform.from_hall_entry(record["hall_entry"]).determinant()) != 1
     }
     assert set(changing) == set(RHOMBOHEDRAL_SETTINGS)
     assert set(changing.values()) == {F(3)}
@@ -144,7 +144,7 @@ def test_only_rhombohedral_settings_change_the_cell_volume() -> None:
 
 @pytest.mark.parametrize("setting", SAMPLE_SETTINGS)
 def test_setting_transform_round_trips_coordinates(setting: str) -> None:
-    transform = Spacegroup.for_setting(setting).transform_from_standard
+    transform = Spacegroup.from_setting(setting).transform_from_standard
     point = FracVector(["1/7", "2/11", "3/13"])
     assert transform.to_standard(transform.to_setting(point)) == point
     assert transform.inverse().inverse() == transform
@@ -158,7 +158,7 @@ def test_setting_transform_preserves_cartesian_positions(setting: str) -> None:
     ``f * B`` has to come out the same in both settings. This catches a transposed basis
     rule that the symop test would not.
     """
-    transform = Spacegroup.for_setting(setting).transform_from_standard
+    transform = Spacegroup.from_setting(setting).transform_from_standard
     standard_basis = SurdVector([[3, 0, 0], [0, 5, 0], [0, 0, 7]])
     own_basis = transform.basis_to_setting(standard_basis)
 
@@ -181,7 +181,7 @@ def test_lattice_cosets_are_trivial_for_every_tabulated_setting() -> None:
     """
     zero = FracVector((0, 0, 0))
     for record in data.spacegroup_settings():
-        transform = SettingTransform.for_hall_entry(record["hall_entry"])
+        transform = SettingTransform.from_hall_entry(record["hall_entry"])
         assert transform.lattice_cosets() == (zero,)
 
 
@@ -204,13 +204,13 @@ def test_singular_setting_transform_is_rejected() -> None:
 
 
 def test_wyckoff_positions_are_ordered_most_specific_first() -> None:
-    positions = Spacegroup.for_setting("15:b1").wyckoff
+    positions = Spacegroup.from_setting("15:b1").wyckoff
     assert [position.letter for position in positions] == ["a", "b", "c", "d", "e", "f"]
     assert [position.free_count for position in positions] == [0, 0, 0, 0, 1, 3]
 
 
 def test_wyckoff_forward_evaluation_is_exact() -> None:
-    position = Spacegroup.for_setting("15:b1").wyckoff_position("e")
+    position = Spacegroup.from_setting("15:b1").wyckoff_position("e")
     assert position.multiplicity == 4
     assert position.free == (1,)
     assert position.site_symmetry == "2"
@@ -233,7 +233,7 @@ def test_every_orbit_member_recovers_its_parameters_not_just_the_representative(
     """
     checked = 0
     for setting in SAMPLE_SETTINGS:
-        spacegroup = Spacegroup.for_setting(setting)
+        spacegroup = Spacegroup.from_setting(setting)
         for position in spacegroup.wyckoff:
             parameters = ["1/7", "1/11", "1/13"][: position.free_count]
             orbit = position.coordinates(parameters)
@@ -256,7 +256,7 @@ def test_every_orbit_member_recovers_its_parameters_not_just_the_representative(
 
 
 def test_wyckoff_rejects_coordinates_that_are_not_on_the_position() -> None:
-    spacegroup = Spacegroup.for_setting("15:b1")
+    spacegroup = Spacegroup.from_setting("15:b1")
     special = spacegroup.wyckoff_position("e")
     general = spacegroup.wyckoff_position("f")
     off_position = FracVector(["1/7", "2/11", "3/13"])
@@ -267,7 +267,7 @@ def test_wyckoff_rejects_coordinates_that_are_not_on_the_position() -> None:
 
 
 def test_identify_wyckoff_returns_the_most_specific_position() -> None:
-    spacegroup = Spacegroup.for_setting("15:b1")
+    spacegroup = Spacegroup.from_setting("15:b1")
     # The origin is Wyckoff a, which is more specific than the general position it also
     # trivially satisfies as a point of the cell.
     identified = spacegroup.identify_wyckoff(FracVector((0, 0, 0)))
@@ -284,7 +284,7 @@ def test_identify_wyckoff_returns_the_most_specific_position() -> None:
 
 
 def test_fixed_positions_take_no_parameters() -> None:
-    position = Spacegroup.for_setting("15:b1").wyckoff_position("a")
+    position = Spacegroup.from_setting("15:b1").wyckoff_position("a")
     assert position.free_count == 0
     assert position.coordinates([])[0] == FracVector((0, 0, 0))
     with pytest.raises(ValueError):
@@ -295,27 +295,27 @@ def test_fixed_positions_take_no_parameters() -> None:
 
 
 def test_spacegroup_lookup_and_identity() -> None:
-    spacegroup = Spacegroup.for_setting("15:c1")
+    spacegroup = Spacegroup.from_setting("15:c1")
     assert spacegroup.it_number == 15
     assert spacegroup.hall_entry == "-a_2a"
     assert spacegroup.crystal_system == "monoclinic"
     assert spacegroup.centring_type == "A"
     assert not spacegroup.is_standard_setting
     assert spacegroup.standard_setting().setting == "15:b1"
-    assert Spacegroup.for_hall_entry("-a_2a") == spacegroup
-    assert len({spacegroup, Spacegroup.for_setting("15:c1")}) == 1
+    assert Spacegroup.from_hall_entry("-a_2a") == spacegroup
+    assert len({spacegroup, Spacegroup.from_setting("15:c1")}) == 1
 
 
 def test_spacegroup_operation_count_matches_the_group_order() -> None:
     for setting in SAMPLE_SETTINGS:
-        spacegroup = Spacegroup.for_setting(setting)
+        spacegroup = Spacegroup.from_setting(setting)
         assert len(spacegroup.symmetry_operations) == spacegroup.record["n_symops"]
         assert len(_wrapped_symops(spacegroup)) == len(spacegroup.symmetry_operations)
 
 
 def test_unknown_wyckoff_letter_raises() -> None:
     with pytest.raises(KeyError):
-        Spacegroup.for_setting("15:b1").wyckoff_position("z")
+        Spacegroup.from_setting("15:b1").wyckoff_position("z")
 
 
 # --- Wyckoff letters across settings ---
@@ -327,13 +327,13 @@ def test_wyckoff_letters_are_usually_but_not_always_preserved_across_settings() 
     Trusting a CIF's declared letter across a setting boundary is therefore wrong in a way
     that raises no error, which is why the map is computed rather than assumed.
     """
-    swapped = Spacegroup.for_setting("224:1")
+    swapped = Spacegroup.from_setting("224:1")
     mapping = wyckoff_letter_map(swapped.standard_setting(), swapped)
     assert mapping["i"] == "j"
     assert mapping["j"] == "i"
 
     for setting in ("15:c1", "48:1", "68:1", "142:1", "166:R", "227:1"):
-        target = Spacegroup.for_setting(setting)
+        target = Spacegroup.from_setting(setting)
         identity_map = wyckoff_letter_map(target.standard_setting(), target)
         assert all(source == mapped for source, mapped in identity_map.items()), setting
 

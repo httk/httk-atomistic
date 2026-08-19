@@ -1441,7 +1441,7 @@ def _domain_structure_from_record(
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     structure_type = ASUStructure if isinstance(record, ASUStructureRecord) else FundamentalDomainStructure
-    spacegroup = Spacegroup.for_hall_entry(record.spacegroup_hall_entry)
+    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
     return structure_type(
@@ -1965,7 +1965,7 @@ def _protostructure_from_record(record: ProtostructureRecord) -> Protostructure:
     """
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
-    spacegroup = Spacegroup.for_hall_entry(record.spacegroup_hall_entry)
+    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
     return Protostructure(
@@ -1982,7 +1982,7 @@ def _prototype_from_record(record: PrototypeRecord) -> Prototype:
     """
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
-    spacegroup = Spacegroup.for_hall_entry(record.spacegroup_hall_entry)
+    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
     return Prototype(

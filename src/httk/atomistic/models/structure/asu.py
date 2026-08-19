@@ -540,7 +540,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
 
         hall_entry = self._transform.hall_entry
         if hall_entry is not None:
-            return Spacegroup.for_hall_entry(hall_entry)
+            return Spacegroup.from_hall_entry(hall_entry)
 
         for record in data.spacegroup_settings():
             if record["it_number"] != self._spacegroup.it_number:

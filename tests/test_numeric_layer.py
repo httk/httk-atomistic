@@ -103,13 +103,13 @@ def test_numeric_unitcell_structure_view_of_structure_and_triple() -> None:
     assert view.exact == structure
     assert UnitcellStructureView(view) == structure
 
-    backend = StructureBackend.create(view)
+    backend = StructureBackend._select_backend(view)
     assert isinstance(backend, NumericUnitcellStructure)
     assert backend.cell is structure.cell
     assert backend.sites is structure.sites
-    assert StructureBackend.create(view, kind="numeric") is not None
+    assert StructureBackend._select_backend(view, kind="numeric") is not None
     with pytest.raises(TypeError):
-        StructureBackend.create(view, kind="unitcell")
+        StructureBackend._select_backend(view, kind="unitcell")
 
     triple = (
         [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],

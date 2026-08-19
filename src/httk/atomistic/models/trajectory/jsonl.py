@@ -81,7 +81,7 @@ class JsonlTrajectory(TrajectoryBackend):
     @property
     def species(self) -> tuple[Species, ...]:
         """Return the constant distinct species."""
-        return tuple(Species.create(value) for value in self._info["species"])
+        return tuple(Species.from_object(value) for value in self._info["species"])
 
     @property
     def species_at_sites(self) -> tuple[str, ...]:

@@ -109,7 +109,7 @@ def show_the_conversion_to_a_distance() -> None:
 
 def write_cif(directory: Path, coordinates: str) -> Path:
     """A monoclinic CIF whose one site is meant to sit on Wyckoff 4e (0, y, 1/4)."""
-    spacegroup = Spacegroup.for_setting("15:b1")
+    spacegroup = Spacegroup.from_setting("15:b1")
     operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
     path = directory / "measured.cif"
     path.write_text(

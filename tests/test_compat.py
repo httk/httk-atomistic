@@ -52,7 +52,7 @@ def test_fake_atoms_protocol_and_exact_structure_conversion() -> None:
     fake = FakeAtoms()
 
     assert isinstance(fake, ASEAtomsProtocol)
-    backend = StructureBackend.create(fake)
+    backend = StructureBackend._select_backend(fake)
     assert isinstance(backend, ASEAtoms)
     assert backend.unwrap() is fake
 
@@ -86,9 +86,9 @@ def test_ase_view_accepts_plain_string_source_species() -> None:
 def test_kind_hint_selects_or_rejects_ase_backend() -> None:
     fake = FakeAtoms()
 
-    assert isinstance(StructureBackend.create(fake, kind="ase"), ASEAtoms)
+    assert isinstance(StructureBackend._select_backend(fake, kind="ase"), ASEAtoms)
     with pytest.raises(TypeError):
-        StructureBackend.create(fake, kind="unitcell")
+        StructureBackend._select_backend(fake, kind="unitcell")
 
 
 def test_ase_atoms_round_trip() -> None:
@@ -243,7 +243,7 @@ def test_ase_atoms_export_handles_cartesian_and_crystalaxis_moments() -> None:
 
     cell = [[3, 0, 0], [1, 3, 0], [0, 0, 3]]
     cartesian = CartesianSiteMoments([[1, 2, 3]])
-    structure = UnitcellStructure(cell, [[0, 0, 0]], [Species.create("Fe")], ["Fe"], site_moments=cartesian)
+    structure = UnitcellStructure(cell, [[0, 0, 0]], [Species.from_object("Fe")], ["Fe"], site_moments=cartesian)
     assert ASEAtomsView(structure).get_initial_magnetic_moments().tolist() == [[1.0, 2.0, 3.0]]
 
     crystalaxis = CrystalAxisSiteMoments([[1, 2, 3]], structure.cell)
@@ -262,7 +262,7 @@ def test_ase_atoms_round_trip_full_cartesian_moments() -> None:
     structure = UnitcellStructure(
         [[3, 0, 0], [0, 3, 0], [0, 0, 3]],
         [[0, 0, 0], [fractions.Fraction(1, 2), fractions.Fraction(1, 2), fractions.Fraction(1, 2)]],
-        [Species.create("Fe")],
+        [Species.from_object("Fe")],
         ["Fe", "Fe"],
         site_moments=moments,
     )
@@ -294,7 +294,7 @@ def test_ase_atoms_export_maps_none_charge_to_ase_zero() -> None:
     from httk.atomistic import ASEAtomsView
 
     charged = Species("Fe+1", ("Fe",), (1,), charges=(1,))
-    plain = Species.create("Fe")
+    plain = Species.from_object("Fe")
     structure = UnitcellStructure(
         [[3, 0, 0], [0, 3, 0], [0, 0, 3]], [[0, 0, 0], [0.5, 0.5, 0.5]], [charged, plain], [charged.name, plain.name]
     )
@@ -306,7 +306,7 @@ def test_ase_atoms_export_rejects_structure_charge() -> None:
     from httk.atomistic import ASEAtomsView
 
     structure = UnitcellStructure(
-        [[3, 0, 0], [0, 3, 0], [0, 0, 3]], [[0, 0, 0]], [Species.create("Fe")], ["Fe"], charge=1
+        [[3, 0, 0], [0, 3, 0], [0, 0, 3]], [[0, 0, 0]], [Species.from_object("Fe")], ["Fe"], charge=1
     )
     with pytest.raises(ValueError, match="charge"):
         ASEAtomsView(structure)

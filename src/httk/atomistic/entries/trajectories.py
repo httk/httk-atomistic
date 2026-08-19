@@ -68,7 +68,7 @@ def _as_trajectory(obj: TrajectoryLike | TrajectoryRecord) -> TrajectoryBackend 
     if isinstance(obj, TrajectoryView | TrajectoryBackend):
         return obj
     if isinstance(obj, Mapping):
-        return TrajectoryBackend.create(obj)
+        return TrajectoryBackend._select_backend(obj)
     raise TypeError(f"cannot represent {type(obj).__name__} as a trajectory")
 
 

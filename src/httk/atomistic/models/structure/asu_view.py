@@ -1,5 +1,6 @@
 """A lazy view presenting any structure as its asymmetric unit."""
 
+import copyreg
 from typing import Any, Self
 
 from httk.core import unwrap
@@ -351,12 +352,11 @@ class ASUStructureView(StructureView, ASUStructure):
             other._effective_asu()
         return ASUStructure.__eq__(self, other)
 
-    @staticmethod
-    def _pickle_new() -> "ASUStructureView":
-        return object.__new__(ASUStructureView)
-
     def __reduce__(self) -> tuple[Any, tuple[Any, ...], dict[str, Any]]:
-        return type(self)._pickle_new, (), self.__getstate__()
+        # __new__ requires an ``obj`` argument, so bypass it via the stdlib
+        # reconstructor (object.__new__(cls), no __init__); state is restored
+        # through __setstate__.
+        return copyreg._reconstructor, (type(self), object, None), self.__getstate__()  # type: ignore[attr-defined]
 
     def __getstate__(self) -> dict[str, Any]:
         backend = self._pickle_backend()

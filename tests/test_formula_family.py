@@ -85,11 +85,11 @@ def test_value_and_view_construction_and_string_behavior() -> None:
 
 
 def test_backend_kinds_and_round_trips() -> None:
-    assert isinstance(ChemicalFormulaBackend.create({"Al": 2}, kind="plain"), PlainComposition)
-    assert isinstance(ChemicalFormulaBackend.create("Al2O3", kind="formula"), FormulaString)
-    assert isinstance(ChemicalFormulaBackend.create("A3B2", kind="anonymous"), AnonymousFormulaString)
+    assert isinstance(ChemicalFormulaBackend._select_backend({"Al": 2}, kind="plain"), PlainComposition)
+    assert isinstance(ChemicalFormulaBackend._select_backend("Al2O3", kind="formula"), FormulaString)
+    assert isinstance(ChemicalFormulaBackend._select_backend("A3B2", kind="anonymous"), AnonymousFormulaString)
     record = _normalized_composition_record_from_result(Composition({"Al": 2, "O": 3}))
-    assert isinstance(ChemicalFormulaBackend.create(record), RecordComposition)
+    assert isinstance(ChemicalFormulaBackend._select_backend(record), RecordComposition)
     structure = _unitcell()
     view = CompositionView(structure)
     assert isinstance(view._backend, StructureComposition)

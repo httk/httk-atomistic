@@ -92,20 +92,20 @@ def test_cell_equality_and_repr() -> None:
 
 
 def test_cell_backend_dispatches_and_domain_adoption() -> None:
-    assert isinstance(CellBackend.create(ORTHO), PlainCell)
+    assert isinstance(CellBackend._select_backend(ORTHO), PlainCell)
     cell = Cell(ORTHO)
     assert isinstance(cell, CellBackend)
     assert CellView(cell)._backend is cell
-    assert isinstance(CellBackend.create(ORTHO, kind="plain"), PlainCell)
+    assert isinstance(CellBackend._select_backend(ORTHO, kind="plain"), PlainCell)
 
 
 def test_cell_backend_raises_for_malformed() -> None:
     with pytest.raises(TypeError):
-        CellBackend.create([[1.0, 0.0], [0.0, 1.0]])
+        CellBackend._select_backend([[1.0, 0.0], [0.0, 1.0]])
     with pytest.raises(TypeError):
-        CellBackend.create(12345)
+        CellBackend._select_backend(12345)
     with pytest.raises(TypeError):
-        CellBackend.create(Cell(ORTHO))
+        CellBackend._select_backend(Cell(ORTHO))
 
 
 def test_cell_views_class_and_primitive() -> None:
@@ -165,7 +165,7 @@ def test_cell_view_rewrap_identity_and_unwrap() -> None:
     assert PlainCellView(primitive_view) is primitive_view
 
     # unwrap returns the native raw object.
-    assert unwrap(CellBackend.create(ORTHO)) is ORTHO
+    assert unwrap(CellBackend._select_backend(ORTHO)) is ORTHO
     cell = Cell(ORTHO)
     assert unwrap(cell) is cell
     assert unwrap(CellView(ORTHO)) is ORTHO
@@ -191,12 +191,12 @@ def test_sites_construction_and_sequence_behavior() -> None:
 
 def test_sites_dispatch_and_views() -> None:
     raw = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
-    assert isinstance(SitesBackend.create(raw), PlainSites)
+    assert isinstance(SitesBackend._select_backend(raw), PlainSites)
     sites = Sites(raw)
     assert isinstance(sites, SitesBackend)
     assert SitesView(sites)._backend is sites
     with pytest.raises(TypeError):
-        SitesBackend.create([[0.0, 0.0]])
+        SitesBackend._select_backend([[0.0, 0.0]])
 
     class_view = SitesView(raw)
     assert isinstance(class_view, Sites)
@@ -207,7 +207,7 @@ def test_sites_dispatch_and_views() -> None:
     assert tuple(primitive_view) == ((0.0, 0.0, 0.0), (0.5, 0.5, 0.5))
 
     assert SitesView(class_view) is class_view
-    assert unwrap(SitesBackend.create(raw)) is raw
+    assert unwrap(SitesBackend._select_backend(raw)) is raw
 
 
 # --- Species ---
@@ -219,19 +219,19 @@ def test_species_construction_and_dispatch() -> None:
 
     assert isinstance(species, SpeciesBackend)
     assert SpeciesView(species)._backend is species
-    assert isinstance(SpeciesBackend.create(optimade), PlainSpecies)
-    assert isinstance(SpeciesBackend.create(optimade, kind="plain"), PlainSpecies)
+    assert isinstance(SpeciesBackend._select_backend(optimade), PlainSpecies)
+    assert isinstance(SpeciesBackend._select_backend(optimade, kind="plain"), PlainSpecies)
     with pytest.raises(TypeError):
-        SpeciesBackend.create("Fe", kind="plain")
+        SpeciesBackend._select_backend("Fe", kind="plain")
     with pytest.raises(TypeError):
-        SpeciesBackend.create(26, kind="plain")
+        SpeciesBackend._select_backend(26, kind="plain")
 
 
 def test_species_bare_symbol_and_atomic_number_inputs() -> None:
     for value in ("Fe", "X", "vacancy", 1, 118):
         symbol = value if isinstance(value, str) else ("H" if value == 1 else "Og")
         expected = Species(name=symbol, chemical_symbols=(symbol,), concentration=(1.0,))
-        assert Species.create(value) == expected
+        assert Species.from_object(value) == expected
         view = SpeciesView(value)
         assert view.name == symbol
         assert view.chemical_symbols == (symbol,)
@@ -252,24 +252,24 @@ def test_species_equality_and_hash_are_subclass_tolerant() -> None:
 
 def test_species_bare_input_validation() -> None:
     with pytest.raises(ValueError, match="chemical symbol"):
-        Species.create("Zz")
+        Species.from_object("Zz")
     with pytest.raises(ValueError, match="atomic number"):
-        Species.create(0)
+        Species.from_object(0)
     with pytest.raises(ValueError, match="atomic number"):
-        Species.create(119)
+        Species.from_object(119)
     with pytest.raises(ValueError, match="bool"):
-        Species.create(True)
+        Species.from_object(True)
     with pytest.raises(ValueError, match="bool"):
         SpeciesView(False)
 
 
 def test_species_backend_raises_for_malformed() -> None:
     with pytest.raises(TypeError):
-        SpeciesBackend.create(12345)
+        SpeciesBackend._select_backend(12345)
     with pytest.raises(TypeError):
-        SpeciesBackend.create({"name": "Na"})  # missing required keys
+        SpeciesBackend._select_backend({"name": "Na"})  # missing required keys
     with pytest.raises(TypeError):
-        SpeciesBackend.create({"name": 5, "chemical_symbols": ["Na"], "concentration": [1.0]})
+        SpeciesBackend._select_backend({"name": 5, "chemical_symbols": ["Na"], "concentration": [1.0]})
 
 
 def test_species_dict_to_class_roundtrip_with_optional_fields() -> None:
@@ -325,7 +325,7 @@ def test_species_view_rewrap_and_unwrap() -> None:
     assert unwrap(species) is species
 
     optimade = {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1.0]}
-    assert unwrap(SpeciesBackend.create(optimade)) is optimade
+    assert unwrap(SpeciesBackend._select_backend(optimade)) is optimade
 
     primitive_view = PlainSpeciesView(species)
     assert PlainSpeciesView(primitive_view) is primitive_view
@@ -334,19 +334,19 @@ def test_species_view_rewrap_and_unwrap() -> None:
 def test_species_view_applies_full_validation() -> None:
     # A dict that passes the conservative primitive check but is not a valid Species.
     bad = {"name": "bad", "chemical_symbols": ["Zz"], "concentration": [1.0]}
-    assert isinstance(SpeciesBackend.create(bad), PlainSpecies)  # conservative check passes
+    assert isinstance(SpeciesBackend._select_backend(bad), PlainSpecies)  # conservative check passes
     with pytest.raises(ValueError):
         SpeciesView(bad)  # full validation rejects the unknown symbol
 
 
 def test_cell_params_backend_constructs_standard_matrix() -> None:
-    cubic = CellBackend.create((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))
+    cubic = CellBackend._select_backend((4.0, 4.0, 4.0, 90.0, 90.0, 90.0))
     assert isinstance(cubic, CellParams)
     for i, row in enumerate(cubic.basis.to_floats()):
         for j, x in enumerate(row):
             assert x == pytest.approx(4.0 if i == j else 0.0, abs=1e-12)
 
-    hexagonal = CellBackend.create((3.0, 3.0, 5.0, 90.0, 90.0, 120.0))
+    hexagonal = CellBackend._select_backend((3.0, 3.0, 5.0, 90.0, 90.0, 120.0))
     matrix = hexagonal.basis.to_floats()
     assert tuple(matrix[0]) == pytest.approx((3.0, 0.0, 0.0), abs=1e-12)
     assert matrix[1][0] == pytest.approx(-1.5)
@@ -355,22 +355,22 @@ def test_cell_params_backend_constructs_standard_matrix() -> None:
 
 
 def test_cell_params_dispatch_and_kind_overrides() -> None:
-    assert isinstance(CellBackend.create([1.0, 2.0, 3.0, 80.0, 85.0, 95.0]), CellParams)
-    assert isinstance(CellBackend.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), PlainCell)
+    assert isinstance(CellBackend._select_backend([1.0, 2.0, 3.0, 80.0, 85.0, 95.0]), CellParams)
+    assert isinstance(CellBackend._select_backend([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), PlainCell)
     with pytest.raises(TypeError):
-        CellBackend.create((1.0, 2.0, 3.0, 80.0, 85.0, 95.0), kind="plain")
+        CellBackend._select_backend((1.0, 2.0, 3.0, 80.0, 85.0, 95.0), kind="plain")
     with pytest.raises(TypeError):
-        CellBackend.create([[1, 0, 0], [0, 1, 0], [0, 0, 1]], kind="params")
+        CellBackend._select_backend([[1, 0, 0], [0, 1, 0], [0, 0, 1]], kind="params")
 
 
 def test_cell_params_validation_errors() -> None:
     with pytest.raises(ValueError):
-        CellBackend.create((0.0, 1.0, 1.0, 90.0, 90.0, 90.0))
+        CellBackend._select_backend((0.0, 1.0, 1.0, 90.0, 90.0, 90.0))
     with pytest.raises(ValueError):
-        CellBackend.create((1.0, 1.0, 1.0, 190.0, 90.0, 90.0))
+        CellBackend._select_backend((1.0, 1.0, 1.0, 190.0, 90.0, 90.0))
     # Angles that cannot close into a parallelepiped.
     with pytest.raises(ValueError):
-        CellBackend.create((1.0, 1.0, 1.0, 10.0, 10.0, 170.0))
+        CellBackend._select_backend((1.0, 1.0, 1.0, 10.0, 10.0, 170.0))
 
 
 def test_cell_params_view_from_params_backend_is_verbatim() -> None:

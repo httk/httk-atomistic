@@ -337,7 +337,7 @@ def test_setting_transform_provenance_does_not_change_structure_identity(
 
 
 def test_setting_local_asu_round_trips_without_a_change_of_basis() -> None:
-    local = Spacegroup.for_setting("15:c1")
+    local = Spacegroup.from_setting("15:c1")
     source = ASUStructure(
         [[4, 0, 0], [0, 5, 0], [0, 0, 6]],
         local,
@@ -359,8 +359,8 @@ def test_strict_store_scopes_same_affine_transform_hall_metadata(bulk: bool) -> 
     from httk.store import Backend, SqlStore
 
     sources = (
-        ASUStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], 1, (), (), SettingTransform.for_hall_entry("p_1")),
-        ASUStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], 2, (), (), SettingTransform.for_hall_entry("-p_1")),
+        ASUStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], 1, (), (), SettingTransform.from_hall_entry("p_1")),
+        ASUStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], 2, (), (), SettingTransform.from_hall_entry("-p_1")),
     )
     assert sources[0].transform == sources[1].transform
     layout = {StructureEntry: (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord)}
@@ -677,7 +677,7 @@ def test_sql_fetch_of_a_root_record_does_not_reconstruct_structure(monkeypatch: 
 
 def test_asu_record_composition_follows_collapsed_orbit_expansion() -> None:
     """The normalized relation follows an orbit's exact within-site collapse."""
-    rhombohedral = Spacegroup.for_setting("166:R")
+    rhombohedral = Spacegroup.from_setting("166:R")
     source = ASUStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 12]],
         166,

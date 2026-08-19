@@ -1,5 +1,6 @@
 """Lazy prototype-recognition view."""
 
+import copyreg
 from collections.abc import Callable
 from typing import Any, Self
 
@@ -165,12 +166,11 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
         """
         return self._effective_prototype()
 
-    @staticmethod
-    def _pickle_new() -> "PrototypeView":
-        return object.__new__(PrototypeView)
-
     def __reduce__(self) -> tuple[Any, tuple[Any, ...], dict[str, Any]]:
-        return type(self)._pickle_new, (), self.__getstate__()
+        # __new__ requires an ``obj`` argument, so bypass it via the stdlib
+        # reconstructor (object.__new__(cls), no __init__); state is restored
+        # through __setstate__.
+        return copyreg._reconstructor, (type(self), object, None), self.__getstate__()  # type: ignore[attr-defined]
 
     def __getstate__(self) -> dict[str, Any]:
         state = {

@@ -45,7 +45,7 @@ def _rocksalt() -> ASUStructure:
 
 
 def _monoclinic() -> tuple[ASUStructure, SettingTransform]:
-    transform = Spacegroup.for_setting("15:c1").transform_from_standard
+    transform = Spacegroup.from_setting("15:c1").transform_from_standard
     return (
         ASUStructure(
             ORTHO,
@@ -168,7 +168,7 @@ def test_a_nonstandard_setting_is_mapped_back_to_the_standard_cell() -> None:
 
 
 def test_rhombohedral_setting_expands_to_three_standard_cell_sites() -> None:
-    transform = Spacegroup.for_setting("166:R").transform_from_standard
+    transform = Spacegroup.from_setting("166:R").transform_from_standard
     rhombohedral_basis, expected_basis = _hexagonal_basis_pair()
     asu = ASUStructure(
         rhombohedral_basis,

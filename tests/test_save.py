@@ -53,7 +53,7 @@ def test_cif_save_load_preserves_compression_suffixes(tmp_path):
 
 
 def test_cif_save_load_preserves_a_declared_setting(tmp_path):
-    setting = Spacegroup.for_setting("15:c1")
+    setting = Spacegroup.from_setting("15:c1")
     lines = [
         "data_setting",
         "_cell_length_a 5",

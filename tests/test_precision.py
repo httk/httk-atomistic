@@ -179,8 +179,8 @@ def test_a_backend_that_knows_no_precision_reports_unknown() -> None:
     from httk.atomistic import CellBackend, CellParams, SitesBackend
 
     assert CellParams((5, 5, 5, 90, 90, 90)).precision is None
-    assert CellBackend.create([[5, 0, 0], [0, 5, 0], [0, 0, 5]]).precision is None
-    assert SitesBackend.create([[0, 0, 0]]).precision is None
+    assert CellBackend._select_backend([[5, 0, 0], [0, 5, 0], [0, 0, 5]]).precision is None
+    assert SitesBackend._select_backend([[0, 0, 0]]).precision is None
 
 
 # --- the derived Cartesian value ---
@@ -363,7 +363,7 @@ def test_a_coarsely_written_file_is_matched_at_the_precision_it_claims(tmp_path:
     answer, silently. The precision the file itself states justifies 0.014 A, at which it is
     recognized correctly.
     """
-    spacegroup = Spacegroup.for_setting("15:b1")
+    spacegroup = Spacegroup.from_setting("15:b1")
     operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
     path = tmp_path / "coarse.cif"
     path.write_text(

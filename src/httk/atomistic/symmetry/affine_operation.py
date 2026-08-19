@@ -35,7 +35,9 @@ class AffineOperation:
     comparing symmetry operations as members of a space group, since ``x+1/2`` and
     ``x+3/2`` are the same operation there but different objects here.
 
-    :param matrix: The 3x3 rotation part in the column-vector convention.
+    :param matrix: The 3x3 rotation part in the column-vector convention, or a comma-separated
+        ``"x,y,z"`` operation string (as emitted by :meth:`to_xyz` and ``repr``), in which case
+        ``vector`` is ignored.
     :param vector: The translation part in fractional coordinates.
     """
 
@@ -45,6 +47,13 @@ class AffineOperation:
     _inverse_cache: "AffineOperation | None"
 
     def __init__(self, matrix: Any, vector: Any = (0, 0, 0)) -> None:
+        if isinstance(matrix, str):
+            # Accept the "x,y,z" form that repr/to_xyz emit, so eval(repr(op)) round-trips.
+            # Imported lazily: xyz.py imports this module, so a top-level import would be circular.
+            from httk.atomistic.symmetry.xyz import operation_from_xyz
+
+            parsed = operation_from_xyz(matrix)
+            matrix, vector = parsed._matrix, parsed._vector
         self._matrix = FracVector(matrix)
         self._vector = FracVector(vector)
         if self._matrix.dim != (3, 3):

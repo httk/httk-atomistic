@@ -83,7 +83,7 @@ class RecognizedProtostructure(ProtostructureBackend):
         if not isinstance(obj, (StructureView, StructureBackend)):
             source_hints = cls._source_hints(hints)
             try:
-                StructureBackend.create(obj, **source_hints)
+                StructureBackend._select_backend(obj, **source_hints)
             except TypeError as exc:
                 # Only StructureBackend.create's own no-match error means this probe declines;
                 # TypeErrors raised after a structure adapter matched are real input errors.
@@ -98,7 +98,7 @@ class RecognizedProtostructure(ProtostructureBackend):
         elif isinstance(obj, StructureBackend):
             self._structure = obj
         else:
-            self._structure = StructureBackend.create(obj, **self._source_hints(hints))
+            self._structure = StructureBackend._select_backend(obj, **self._source_hints(hints))
         self._setting = hints.get("setting")
         self._standard = hints.get("standard")
         self._transform = hints.get("transform")

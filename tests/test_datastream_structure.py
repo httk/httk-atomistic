@@ -539,7 +539,7 @@ def test_asu_view_rejects_invalid_recognition_options_without_backend_work() -> 
 
     source = _CountingResolver(_plain_he())
     with pytest.raises(ValueError, match="'standard' must be an IT standard setting"):
-        ASUStructureView(source, standard=Spacegroup.for_setting("15:c1"), transform=SettingTransform.identity())
+        ASUStructureView(source, standard=Spacegroup.from_setting("15:c1"), transform=SettingTransform.identity())
     assert source.resolve_calls == 0
 
 

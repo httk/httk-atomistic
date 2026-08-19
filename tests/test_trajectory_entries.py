@@ -23,7 +23,7 @@ def _frame(index: int) -> UnitcellStructure:
     return UnitcellStructure(
         Cell([[2, 0, 0], [0, 2, 0], [0, 0, 2]]),
         Sites([[index, 0, 0]]),
-        [Species.create("Si")],
+        [Species.from_object("Si")],
         ["Si"],
     )
 

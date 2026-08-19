@@ -122,7 +122,7 @@ def test_construction_promotes_inputs_and_canonicalizes() -> None:
     assert {first: "value"}[second] == "value"
 
     with pytest.raises(ValueError, match="standard setting"):
-        Protostructure(Spacegroup.for_setting("15:c1"), [("e", "Na")])
+        Protostructure(Spacegroup.from_setting("15:c1"), [("e", "Na")])
     with pytest.raises(ValueError, match="non-empty"):
         Protostructure(225, [])
     with pytest.raises(ValueError, match="no Wyckoff letter"):
@@ -179,7 +179,7 @@ def test_exact_paths_preserve_species_and_match_structure_formula() -> None:
 
 
 def test_transform_scaled_source_uses_standard_conventional_scale() -> None:
-    transform = Spacegroup.for_setting("166:R").transform_from_standard
+    transform = Spacegroup.from_setting("166:R").transform_from_standard
     bi = Species("Bi", ("Bi",), (1,))
     oxygen = Species("O", ("O",), (1,))
     asu = ASUStructure(

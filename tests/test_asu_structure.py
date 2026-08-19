@@ -167,7 +167,7 @@ def test_a_volume_changing_transform_collapses_the_orbit_exactly() -> None:
     The standard setting's orbit is three times too big for the smaller cell, and the
     surplus points coincide *exactly* after wrapping. Nothing here is within a tolerance.
     """
-    rhombohedral = Spacegroup.for_setting("166:R")
+    rhombohedral = Spacegroup.from_setting("166:R")
     assert rhombohedral.transform_from_standard.determinant() == F(3)
 
     in_standard = ASUStructure(HEXAGONAL, 166, [WyckoffSite("a", NO_PARAMETERS, "Bi")], _species("Bi"))
@@ -234,7 +234,7 @@ def test_a_tabulated_setting_reports_itself() -> None:
         15,
         [WyckoffSite("e", FracVector(["1/3"]), "Si")],
         _species("Si"),
-        transform=Spacegroup.for_setting("15:c1").transform_from_standard,
+        transform=Spacegroup.from_setting("15:c1").transform_from_standard,
     )
     setting = asu.setting()
     assert setting is not None
@@ -260,7 +260,7 @@ def test_asu_structure_rejects_inconsistent_input() -> None:
 
 
 def test_asu_structure_keeps_a_tabulated_setting_local() -> None:
-    local = Spacegroup.for_setting("15:c1")
+    local = Spacegroup.from_setting("15:c1")
     asu = ASUStructure(CUBIC, local, [WyckoffSite("a", NO_PARAMETERS, "Na")], _species("Na"))
 
     assert asu.spacegroup == local

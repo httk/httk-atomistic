@@ -129,7 +129,7 @@ def _as_structure(obj: StructureLike) -> Any:
         ),
     ) or callable(getattr(obj, "resolve", None))
     if datastreamish:
-        backend = obj if isinstance(obj, StructureBackend) else StructureBackend.create(obj)
+        backend = obj if isinstance(obj, StructureBackend) else StructureBackend._select_backend(obj)
         resolver = getattr(backend, "resolve", None)
         return resolver() if callable(resolver) else backend
 

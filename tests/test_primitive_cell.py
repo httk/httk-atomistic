@@ -207,7 +207,7 @@ def test_plain_unitcell_recognition_path_handles_fcc() -> None:
 
 def test_spglib_recognizes_plain_rhombohedral_primitive_input() -> None:
     pytest.importorskip("spglib")
-    rhombohedral = Spacegroup.for_setting("166:R")
+    rhombohedral = Spacegroup.from_setting("166:R")
     transform = rhombohedral.transform_from_standard
     original = ASUStructure(
         transform.basis_to_setting(_hexagonal_basis()),

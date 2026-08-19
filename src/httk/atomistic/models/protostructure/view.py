@@ -1,5 +1,6 @@
 """Lazy protostructure recognition and presentation view."""
 
+import copyreg
 from typing import Any, Self
 
 from httk.core import unwrap
@@ -145,12 +146,11 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
         """
         return self._effective_protostructure()
 
-    @staticmethod
-    def _pickle_new() -> "ProtostructureView":
-        return object.__new__(ProtostructureView)
-
     def __reduce__(self) -> tuple[Any, tuple[Any, ...], dict[str, Any]]:
-        return type(self)._pickle_new, (), self.__getstate__()
+        # __new__ requires an ``obj`` argument, so bypass it via the stdlib
+        # reconstructor (object.__new__(cls), no __init__); state is restored
+        # through __setstate__.
+        return copyreg._reconstructor, (type(self), object, None), self.__getstate__()  # type: ignore[attr-defined]
 
     def __getstate__(self) -> dict[str, Any]:
         state = {

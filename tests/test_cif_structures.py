@@ -59,7 +59,7 @@ def _write_cif(
     symmetry_multiplicities: list[str] | None = None,
 ) -> Path:
     """A CIF for one setting, with its complete symmetry-operation list."""
-    spacegroup = Spacegroup.for_setting(setting)
+    spacegroup = Spacegroup.from_setting(setting)
     a, b, c, alpha, beta, gamma = parameters
     lines = [
         f"data_{name}",
@@ -182,7 +182,7 @@ def test_general_screen_keeps_equal_and_opposite_coordinate_positions(
 
 @pytest.mark.parametrize(("setting_name", "letter"), [("15:c1", "e"), ("166:R", "c"), ("224:1", "e")])
 def test_general_screen_uses_setting_local_wyckoff_rules(setting_name: str, letter: str) -> None:
-    setting = Spacegroup.for_setting(setting_name)
+    setting = Spacegroup.from_setting(setting_name)
     position = setting.wyckoff_position(letter)
     point = position.representative.coordinate([F(1, 7)] * position.free_count)
     screen = _general_position_screen(setting, Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), 1e-8)
@@ -698,7 +698,7 @@ def test_a_non_cif_payload_is_refused(tmp_path: Path) -> None:
 
 def _sg15_cif(tmp_path: Path, *, declaration: str) -> Path:
     """SG 15 operations, with whatever space-group declaration is passed."""
-    spacegroup = Spacegroup.for_setting("15:b1")
+    spacegroup = Spacegroup.from_setting("15:b1")
     operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
     path = tmp_path / "declared.cif"
     path.write_text(
@@ -1039,7 +1039,7 @@ def test_declared_containing_position_is_an_integrity_error_or_falls_back(
 
 @pytest.mark.parametrize("setting", ("48:1", "50:1", "50:1bca", "50:1cab", "73:ba-c", "126:1", "142:1", "222:1"))
 def test_zero_tolerance_float_screen_keeps_exact_matches(setting: str) -> None:
-    spacegroup = Spacegroup.for_setting(setting)
+    spacegroup = Spacegroup.from_setting(setting)
     standard = spacegroup.standard_setting()
     position = standard.wyckoff[-1]
     parameters = FracVector([F(1, 7), F(2, 7), F(3, 7)])

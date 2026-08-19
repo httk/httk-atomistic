@@ -22,7 +22,7 @@ def _frame(x: int) -> UnitcellStructure:
     return UnitcellStructure(
         Cell([[2, 0, 0], [0, 2, 0], [0, 0, 2]]),
         Sites([[x, 0, 0], [0, x, 0]]),
-        [Species.create("Na"), Species.create("Cl")],
+        [Species.from_object("Na"), Species.from_object("Cl")],
         ["Na", "Cl"],
     )
 

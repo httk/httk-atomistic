@@ -42,7 +42,7 @@ def test_charge_is_exact_and_none_is_not_zero() -> None:
     assert UnitcellStructureView(_structure("3/2")).charge == Fraction(3, 2)
     assert _structure("3/2").numeric().charge == 1.5
     exact = _structure(Fraction(1, 3))
-    assert same_crystal(exact, StructureBackend.create(exact.numeric()))
+    assert same_crystal(exact, StructureBackend._select_backend(exact.numeric()))
 
 
 def test_without_charges_preserves_other_species_decorations() -> None:
@@ -102,7 +102,7 @@ def test_conventional_cell_scales_charge_by_exact_site_multiplier() -> None:
         166,
         [WyckoffSite("a", FracVector(()), "Bi")],
         [Species("Bi", ("Bi",), (1,))],
-        transform=Spacegroup.for_setting("166:R").transform_from_standard,
+        transform=Spacegroup.from_setting("166:R").transform_from_standard,
         charge="2",
     )
 
@@ -113,8 +113,8 @@ def test_conventional_cell_scales_charge_by_exact_site_multiplier() -> None:
 
 
 def test_optimade_charge_is_read_from_private_attribute() -> None:
-    info = OptimadeDocument.create(json.dumps({"data": {"properties": {}}}), "https://example.test/info")
-    document = OptimadeDocument.create(
+    info = OptimadeDocument.from_response(json.dumps({"data": {"properties": {}}}), "https://example.test/info")
+    document = OptimadeDocument.from_response(
         json.dumps({"data": [{"id": "one", "type": "structures", "attributes": {"_httk_charge": 2.5}}]}),
         "https://example.test/structures",
     )
@@ -148,8 +148,8 @@ def test_writers_reject_charge_after_optimade_conversion() -> None:
         names["dimension_types"]: [1, 1, 1],
         "_httk_charge": 1,
     }
-    info = OptimadeDocument.create(json.dumps({"data": {"properties": properties}}), "https://example.test/info")
-    document = OptimadeDocument.create(
+    info = OptimadeDocument.from_response(json.dumps({"data": {"properties": properties}}), "https://example.test/info")
+    document = OptimadeDocument.from_response(
         json.dumps({"data": [{"id": "charged", "type": "structures", "attributes": attributes}]}),
         "https://example.test/structures",
     )

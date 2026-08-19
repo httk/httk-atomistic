@@ -481,7 +481,7 @@ def _find_symmetry(view: Any, tolerance: float) -> tuple[Spacegroup, SettingTran
     from httk.atomistic import data as symmetry_data
 
     spglib_default = symmetry_data.spglib_default_spacegroup_setting(standard.it_number)
-    standard_to_spglib = SettingTransform.for_hall_entry(spglib_default["hall_entry"]).operation
+    standard_to_spglib = SettingTransform.from_hall_entry(spglib_default["hall_entry"]).operation
 
     standard_to_own = own_to_spglib.inverse() * standard_to_spglib
     return standard, SettingTransform(standard_to_own.matrix, standard_to_own.vector)

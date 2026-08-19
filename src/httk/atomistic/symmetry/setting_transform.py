@@ -72,7 +72,7 @@ class SettingTransform:
         return cls(FracVector.eye((3, 3)), (0, 0, 0))
 
     @classmethod
-    def for_hall_entry(cls, hall_entry: str) -> Self:
+    def from_hall_entry(cls, hall_entry: str) -> Self:
         """Return the tabulated transform for one of the 527 known settings.
 
         ``hall_entry`` is the normalized Hall symbol of the setting, which names it
@@ -253,5 +253,5 @@ class SettingTransform:
         if self.is_identity():
             return "SettingTransform.identity()"
         if self._hall_entry is not None:
-            return f"SettingTransform.for_hall_entry({self._hall_entry!r})"
+            return f"SettingTransform.from_hall_entry({self._hall_entry!r})"
         return f"SettingTransform({self._operation.to_xyz()!r})"
