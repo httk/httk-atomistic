@@ -10,6 +10,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Self
 
+from httk.core import MISSING as _MISSING
 from httk.core.datastream import compression
 
 from .oszicar import read_oszicar
@@ -17,8 +18,6 @@ from .outcar import OutcarFile
 from .poscar_reader import read_poscar
 from .potcar import read_potcar_summary
 from .xdatcar import XdatcarFile
-
-_MISSING = object()
 
 
 def _compression_suffixes() -> tuple[str, ...]:

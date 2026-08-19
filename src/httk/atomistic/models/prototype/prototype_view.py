@@ -1,10 +1,9 @@
 """Lazy prototype-recognition view."""
 
-import copyreg
 from collections.abc import Callable
 from typing import Any, Self
 
-from httk.core import unwrap
+from httk.core import MISSING, unwrap
 
 from httk.atomistic.models.prototype.anonymize import canonical_dummy_assignment, dummy_species
 from httk.atomistic.models.prototype.anonymized import AnonymizedStructure
@@ -53,12 +52,14 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
 
     def __new__(
         cls,
-        obj: Any,
+        obj: Any = MISSING,
         *,
         tolerance: float | None = None,
         limit_denominator: int | None = None,
         **hints: Any,
     ) -> Self:
+        if obj is MISSING:  # pickle/copy rebuild an empty instance; __setstate__ restores it
+            return super().__new__(cls)
         if isinstance(obj, cls):
             if any(value is not None for value in (tolerance, limit_denominator)) or hints:
                 raise ValueError("PrototypeView rewrapping does not accept recognition arguments")
@@ -165,12 +166,6 @@ class PrototypeView(AnonymousStructureViewBase, Prototype):
         :return: The prototype value.
         """
         return self._effective_prototype()
-
-    def __reduce__(self) -> tuple[Any, tuple[Any, ...], dict[str, Any]]:
-        # __new__ requires an ``obj`` argument, so bypass it via the stdlib
-        # reconstructor (object.__new__(cls), no __init__); state is restored
-        # through __setstate__.
-        return copyreg._reconstructor, (type(self), object, None), self.__getstate__()  # type: ignore[attr-defined]
 
     def __getstate__(self) -> dict[str, Any]:
         state = {

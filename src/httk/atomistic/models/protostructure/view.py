@@ -1,9 +1,8 @@
 """Lazy protostructure recognition and presentation view."""
 
-import copyreg
 from typing import Any, Self
 
-from httk.core import unwrap
+from httk.core import MISSING, unwrap
 
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.protostructure import Protostructure
@@ -43,7 +42,7 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
 
     def __new__(
         cls,
-        obj: Any,
+        obj: Any = MISSING,
         *,
         setting: Any = None,
         standard: Any = None,
@@ -52,6 +51,8 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
         limit_denominator: int | None = None,
         **hints: Any,
     ) -> Self:
+        if obj is MISSING:  # pickle/copy rebuild an empty instance; __setstate__ restores it
+            return super().__new__(cls)
         if isinstance(obj, cls):
             if (
                 any(value is not None for value in (setting, standard, transform, tolerance, limit_denominator))
@@ -145,12 +146,6 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
         :return: The protostructure value.
         """
         return self._effective_protostructure()
-
-    def __reduce__(self) -> tuple[Any, tuple[Any, ...], dict[str, Any]]:
-        # __new__ requires an ``obj`` argument, so bypass it via the stdlib
-        # reconstructor (object.__new__(cls), no __init__); state is restored
-        # through __setstate__.
-        return copyreg._reconstructor, (type(self), object, None), self.__getstate__()  # type: ignore[attr-defined]
 
     def __getstate__(self) -> dict[str, Any]:
         state = {

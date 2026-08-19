@@ -12,6 +12,8 @@ from fractions import Fraction
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
+from httk.core import MISSING as _METADATA_UNSET
+
 from httk.atomistic.composition import (
     Assembly,
     ChemicalComposition,
@@ -706,9 +708,6 @@ class StructureSemanticsMixin:
         """
         symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
         return None if symmetry is None else symmetry.wyckoff_positions
-
-
-_METADATA_UNSET = object()
 
 
 def _resolve_view_metadata(

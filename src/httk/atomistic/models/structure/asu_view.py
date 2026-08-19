@@ -1,9 +1,8 @@
 """A lazy view presenting any structure as its asymmetric unit."""
 
-import copyreg
 from typing import Any, Self
 
-from httk.core import unwrap
+from httk.core import MISSING, MissingType, unwrap
 
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure
 from httk.atomistic.models.structure.backend import StructureBackend
@@ -114,7 +113,7 @@ class ASUStructureView(StructureView, ASUStructure):
 
     def __new__(
         cls,
-        obj: StructureLike,
+        obj: StructureLike | MissingType = MISSING,
         *,
         setting: Spacegroup | None = None,
         standard: Spacegroup | None = None,
@@ -124,6 +123,8 @@ class ASUStructureView(StructureView, ASUStructure):
         last_modified: Any = _METADATA_UNSET,
         **hints: Any,
     ) -> Self:
+        if obj is MISSING:  # pickle/copy rebuild an empty instance; __setstate__ restores it
+            return super().__new__(cls)
         explicit_setting = setting is not None
         explicit_standard_family = standard is not None or transform is not None
         _validate_recognition_options(setting, standard, transform)
@@ -351,12 +352,6 @@ class ASUStructureView(StructureView, ASUStructure):
         if isinstance(other, ASUStructureView):
             other._effective_asu()
         return ASUStructure.__eq__(self, other)
-
-    def __reduce__(self) -> tuple[Any, tuple[Any, ...], dict[str, Any]]:
-        # __new__ requires an ``obj`` argument, so bypass it via the stdlib
-        # reconstructor (object.__new__(cls), no __init__); state is restored
-        # through __setstate__.
-        return copyreg._reconstructor, (type(self), object, None), self.__getstate__()  # type: ignore[attr-defined]
 
     def __getstate__(self) -> dict[str, Any]:
         backend = self._pickle_backend()

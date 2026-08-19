@@ -18,6 +18,9 @@ from typing import Any, ClassVar, Self, cast
 from urllib.parse import urlsplit
 
 from httk.core import (
+    MISSING as _MISSING,
+)
+from httk.core import (
     EntryTypeDefinition,
     SurdVector,
     combined_precision,
@@ -55,7 +58,6 @@ from httk.atomistic.models.structure.semantics import (
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 _STRUCTURES_DEFINITION_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
-_MISSING = object()
 _COORDINATE_SPANS = frozenset(
     {
         "fundamental_domain",
