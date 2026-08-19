@@ -1820,7 +1820,7 @@ class ProtostructureRecord:
         occupations in the record's stored canonical order. It is a convenience and
         query column only; it is not the record's identity (the content id is), and it
         is NOT unique across distinct protostructures: species that share a name but
-        differ in any other :class:`Species` field (concentration, charges, spins,
+        differ in any other :class:`~httk.atomistic.Species` field (concentration, charges, spins,
         mass, precision, ...) collide on the same label, so a ``GROUP BY label`` may
         under-count distinct protostructures — count and deduplicate by row (content
         id), never by label.
