@@ -397,6 +397,10 @@ def list_representations(
     the same crystal in a larger cell; it too is not enumerated -- the exclusion there is "not a
     distinct representation at the same cell size", not "not the same crystal".
 
+    This honors the explicit ``target`` exactly and never flips an enantiomorphic group; normalizing an
+    enantiomorphic pair to its lower-numbered member is the closed-target canonicalizers'
+    (:func:`~httk.atomistic.canonicalize`, :func:`~httk.atomistic.canonical_asu`) job.
+
     :param structure: The crystal, as an asymmetric-unit structure.
     :param target: The target space group or IT number.
     :param tolerance: Cartesian acceptance tolerance passed to any upward lift; ``None`` derives it.
@@ -424,6 +428,10 @@ def canonicalize_full(
     selects the same representative the upward search's normal form does, over the same discrete
     normalizer crossing and modulo the continuous quotient.  It is idempotent -- re-running it on its
     own result in the same target returns that result.
+
+    This honors the explicit ``target`` exactly and never flips an enantiomorphic group; normalizing an
+    enantiomorphic pair to its lower-numbered member is the closed-target canonicalizers'
+    (:func:`~httk.atomistic.canonicalize`, :func:`~httk.atomistic.canonical_asu`) job.
 
     :param structure: The crystal, as an asymmetric-unit structure.
     :param target: The target space group or IT number.

@@ -131,6 +131,9 @@ class LiftResult:
         hop's parent standard frame.  ``path`` and ``shift`` document the lift route; they do not by
         themselves reconstruct ``asu``, since :func:`highest_symmetry` additionally passes each state
         through an unrecorded normal form and canonical orientation.  ``asu`` is authoritative.
+        When a default (chirality-normalizing) canonicalization flips an enantiomorphic terminal,
+        ``path`` and ``shift`` describe the route to the pre-flip higher-member terminal, while
+        ``asu``/``spacegroup`` carry the flipped lower-member result -- ``asu`` remains authoritative.
     :param residual: The largest wrapped fractional residual accepted.
     """
 
@@ -1383,6 +1386,66 @@ def _apply_normalizer_operation(structure: ASUStructure, operation: AffineOperat
         return None
 
 
+def _enantiomorph(structure: ASUStructure) -> ASUStructure | None:
+    """Flip a standard-setting structure in the HIGHER enantiomorph to its LOWER-numbered partner.
+
+    The genuine chirality flip negates-and-wraps every fractional coordinate (``f -> (-f) mod 1``,
+    i.e. Cartesian ``r -> -r``, an improper map) with the cell basis LEFT UNCHANGED -- the Gram matrix
+    and basis handedness are untouched -- and swaps the group to its enantiomorphic partner
+    (``it_number_enantiomorphic``).  This differs from :func:`_apply_normalizer_operation`, which
+    transforms sites and basis JOINTLY and re-identifies against the SAME group and so cannot express
+    this map: here the mirrored sites are re-identified against the PARTNER group and orbit
+    completeness is verified there.
+
+    Returns ``None`` (no flip) unless the structure is in the higher member of a pair, so it only ever
+    normalizes higher to lower.  Also returns ``None`` -- keeping the group -- when any site carries a
+    moment, since transforming an axial vector under an improper map is out of scope; magnetic
+    enantiomorphs are therefore left in their own group.  Precondition: ``structure`` is in the IT
+    standard setting (every enantiomorphic group is single-setting, and both call sites guarantee it).
+    """
+    partner_number = structure.spacegroup.record["it_number_enantiomorphic"]
+    if partner_number is None or partner_number >= structure.spacegroup.it_number:
+        return None
+    if any(site.moment is not None for site in structure.wyckoff_sites):
+        return None
+    partner = Spacegroup.standard(partner_number)
+    negate = AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
+    sites: list[WyckoffSite] = []
+    for site in structure.wyckoff_sites:
+        position = structure.spacegroup.wyckoff_position(site.wyckoff)
+        original = tuple(FracVector(point).normalize() for point in position.coordinates(site.free_params))
+        transformed = tuple(negate.apply_wrapped(point) for point in original)
+        matches = [partner.identify_wyckoff(point) for point in transformed]
+        if not matches or any(match is None for match in matches):
+            return None
+        first_match = matches[0]
+        if first_match is None:
+            return None
+        first_position, first_parameters = first_match
+        if any(match[0].letter != first_position.letter for match in matches[1:] if match is not None):
+            return None
+        expected = {
+            tuple(FracVector(point).normalize().to_fractions())
+            for point in first_position.coordinates(first_parameters)
+        }
+        actual = {tuple(point.to_fractions()) for point in transformed}
+        if expected != actual:
+            return None
+        sites.append(WyckoffSite(first_position.letter, first_parameters, site.species))
+    try:
+        return ASUStructure(
+            structure.cell,
+            partner,
+            sites,
+            structure.species,
+            transform=SettingTransform.identity(),
+            coordinate_precision=structure.coordinate_precision,
+            charge=structure.charge,
+        )
+    except ValueError:
+        return None
+
+
 def _integer_diagonalize(rows: tuple[tuple[int, ...], ...]) -> tuple[tuple[int, ...], list[list[int]]]:
     """Diagonalize an integer ``n x 3`` matrix by unimodular row and column operations.
 
@@ -2541,19 +2604,36 @@ def _canonical_entry(structure: ASUStructure) -> ASUStructure:
     return _normal_form(current)
 
 
-def _canonical_without_bfs(structure: ASUStructure) -> ASUStructure:
+def _canonical_without_bfs(structure: ASUStructure, *, preserve_chirality: bool = False) -> ASUStructure:
     """Return the canonical representative of ``structure`` within its own group -- no upward search.
 
     This is exactly the terminal ``highest_symmetry`` would emit if the entry state had no lifts:
     the canonical-entry normal form, placed in the standard orientation of its metric.  It is the
     deterministic, fully invariant representation of the *recognized* symmetry, without hunting for
     pseudosymmetry above it.
+
+    When the entry lands in the higher member of an enantiomorphic pair and ``preserve_chirality`` is
+    ``False`` (the default), an exact chirality flip (:func:`_enantiomorph`) normalizes it to the
+    lower-numbered partner, re-taking the partner group's normal form before the orientation step; a
+    moment-carrying structure is left in its own group.  ``preserve_chirality=True`` keeps the group.
     """
-    return _canonical_orientation(_canonical_entry(structure))
+    entry = _canonical_entry(structure)
+    # The normal-form pipeline strips moments before the flip would see them, so gate on the ORIGINAL
+    # input's moments -- a magnetic structure is left in its own group (see :func:`_enantiomorph`).
+    magnetic = any(site.moment is not None for site in structure.wyckoff_sites)
+    if not preserve_chirality and not magnetic:
+        flipped = _enantiomorph(entry)
+        if flipped is not None:
+            entry = _normal_form(flipped)
+    return _canonical_orientation(entry)
 
 
 def highest_symmetry(
-    structure: ASUStructure, *, tolerance: float | None = None, all_paths: bool = False
+    structure: ASUStructure,
+    *,
+    tolerance: float | None = None,
+    all_paths: bool = False,
+    preserve_chirality: bool = False,
 ) -> tuple[LiftResult, ...]:
     """Return all terminal upward lifts reached by breadth-first search.
 
@@ -2564,6 +2644,11 @@ def highest_symmetry(
         also keys on the accumulated path, so every distinct ``(terminal, path)`` pair is returned;
         the ``.asu`` representatives of the extra results are identical, only ``path`` differs.  The
         state cap therefore binds sooner under the flag.
+    :param preserve_chirality: When ``False`` (the default), a terminal landing in the higher member
+        of an enantiomorphic pair is flipped by an exact chirality transformation to its
+        lower-numbered partner and re-normal-formed in that partner group; when ``True`` the group is
+        kept.  The flip is applied only at terminal emission, never to mid-search states (the
+        Bärnighausen tables are per-group).
     :return: Deterministically ordered highest-symmetry representations.
     :raises ValueError: If the input is unsupported, or if the breadth-first search exceeds its
         visited-state cap.  A per-parent modular-solver branch-cap failure is not raised: that parent
@@ -2609,7 +2694,15 @@ def highest_symmetry(
         state, path, shift, residual = queue.pop(0)
         lifts = _highest_lifts(state, accepted_tolerance)
         if not lifts:
-            terminals.append(_terminal_result(_canonical_orientation(state), path, shift, residual))
+            emitted = state
+            if not preserve_chirality:
+                # An enantiomorphic higher member is flipped to its lower partner here, at terminal
+                # emission only; the partner's origin/orbit minimum is group-specific, so re-run the
+                # normal form in the partner group before the shared orientation/terminal path.
+                flipped = _enantiomorph(emitted)
+                if flipped is not None:
+                    emitted = _normal_form(flipped)
+            terminals.append(_terminal_result(_canonical_orientation(emitted), path, shift, residual))
             continue
         for result in lifts:
             next_state = _normal_form(result.asu)
@@ -2641,7 +2734,9 @@ def highest_symmetry(
     )
 
 
-def canonicalize(structure: ASUStructure, *, tolerance: float | None = None) -> LiftResult:
+def canonicalize(
+    structure: ASUStructure, *, tolerance: float | None = None, preserve_chirality: bool = False
+) -> LiftResult:
     """Return the first deterministic highest-symmetry representation.
 
     The result is the normalizer-canonical representative of the input's crystal: the same exact
@@ -2652,9 +2747,13 @@ def canonicalize(structure: ASUStructure, *, tolerance: float | None = None) -> 
 
     :param structure: The structure to canonicalize.
     :param tolerance: Cartesian acceptance tolerance, or the recognition-derived default.
+    :param preserve_chirality: When ``False`` (the default), a result in the higher member of an
+        enantiomorphic pair is normalized to its lower-numbered partner by an exact chirality flip
+        (magnetic structures excepted); ``True`` keeps the recognized group.  See
+        :func:`highest_symmetry`.
     :return: The canonical terminal lift.
     """
-    return highest_symmetry(structure, tolerance=tolerance)[0]
+    return highest_symmetry(structure, tolerance=tolerance, preserve_chirality=preserve_chirality)[0]
 
 
 def _supergroup_path(start: int, target: int) -> tuple[int, ...] | None:

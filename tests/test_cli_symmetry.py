@@ -85,6 +85,32 @@ def test_canonicalize_default(cif: Path, capsys) -> None:
     assert "IT 225" in out
 
 
+def test_preserve_chirality_flag_threads_to_both_branches(cif: Path, monkeypatch, capsys) -> None:
+    pytest.importorskip("spglib")  # the default (non-exact) branch recognizes with spglib
+    import httk.atomistic.cli as cli
+
+    calls: dict[str, bool] = {}
+    real_canonicalize, real_canonical_asu = cli.canonicalize, cli.canonical_asu
+
+    def spy_canonicalize(*args, preserve_chirality=False, **kwargs):
+        calls["exact"] = preserve_chirality
+        return real_canonicalize(*args, preserve_chirality=preserve_chirality, **kwargs)
+
+    def spy_canonical_asu(*args, preserve_chirality=False, **kwargs):
+        calls["default"] = preserve_chirality
+        return real_canonical_asu(*args, preserve_chirality=preserve_chirality, **kwargs)
+
+    monkeypatch.setattr(cli, "canonicalize", spy_canonicalize)
+    monkeypatch.setattr(cli, "canonical_asu", spy_canonical_asu)
+
+    assert _run(["canonicalize", str(cif), "--exact", "--preserve-chirality"]) == 0  # exact -> canonicalize
+    assert calls["exact"] is True
+    assert _run(["canonicalize", str(cif), "--preserve-chirality"]) == 0  # default -> canonical_asu
+    assert calls["default"] is True
+    assert _run(["canonicalize", str(cif), "--exact"]) == 0  # flag absent -> default False
+    assert calls["exact"] is False
+
+
 def test_canonicalize_exact_roundtrip(cif: Path, tmp_path: Path, capsys) -> None:
     out_path = tmp_path / "canon.cif"
     assert _run(["canonicalize", str(cif), "--exact", "-o", str(out_path)]) == 0

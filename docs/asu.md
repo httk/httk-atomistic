@@ -37,6 +37,24 @@ same answer whichever cell you hand it. That collapse fires only on exact
 rational invariance; a *noisy* supercell whose copies merely nearly coincide is
 snapped instead by `canonical_asu` below, within its tolerance.
 
+The 11 enantiomorphic space-group pairs (76/78, 91/95, 92/96, 144/145, 151/153,
+152/154, 169/170, 171/172, 178/179, 180/181, 212/213) describe the same crystal
+in two mirror-image handednesses. By default `canonicalize` and `canonical_asu`
+normalize a result in the higher-numbered member to its lower-numbered partner
+through an exact improper transformation (fractional coordinates `f → (−f) mod 1`
+with the cell basis unchanged — the Cartesian inversion), so a pair maps to one
+canonical representative and the two partners share canonical labels. (One edge
+case: a *hand-built exact* ASU already described in a left-handed cell of an
+enantiomorphic group hits the pre-existing chirality-preserving orientation
+ceiling — its left-handed cell is kept — so it still yields a distinct mirror
+representative; recognition-path inputs, whose spglib cells are right-handed, are
+unaffected.) Pass `preserve_chirality=True` to keep the recognized group and retain
+the distinction. Magnetic structures (any site carrying a moment) are never flipped
+— an axial moment does not transform trivially under an improper map — and are left
+in their own group regardless. The explicit-target functions `canonicalize_full`,
+`list_representations`, and `rerepresent` honor their target group exactly and are
+unaffected.
+
 For *measured* input — coordinates carrying noise — use `canonical_asu`, the
 one-liner that recognizes the symmetry within a tolerance (with spglib) and then
 canonicalizes the result exactly:
@@ -85,7 +103,9 @@ $ httk symmetry representations nacl.cif --target 166   # list distinct forms in
 
 `canonicalize` defaults to the tolerant `canonical_asu` path (`--lift` searches
 upward for higher pseudosymmetry); `--exact` runs the exact `canonicalize` on
-input that already carries declared symmetry. `rerepresent --target N` re-expresses
+input that already carries declared symmetry. Both normalize an enantiomorphic
+pair to its lower-numbered member by default; `--preserve-chirality` keeps the
+recognized group. `rerepresent --target N` re-expresses
 one crystal in a reachable group. Every subcommand accepts `--tolerance X` (a
 Cartesian distance) and reports operator errors — a missing spglib, an unrelated
 target — to stderr with a nonzero exit.

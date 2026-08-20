@@ -94,6 +94,7 @@ notebooks/disorder
 :caption: Details
 
 details/structures
+details/structural_classes
 details/asu
 details/precision
 details/periodicity

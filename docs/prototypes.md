@@ -184,6 +184,11 @@ alphabetically, a letter occupied `k >= 2` times prefixed by the integer `k`
 ...) built in group order with per-group summed conventional multiplicities
 reduced by their overall GCD.
 
+Because the default canonicalization pipeline normalizes an enantiomorphic pair
+to its lower-numbered member (see {doc}`asu`), the canonical labels of the two
+partners coincide under that default; run canonicalization with
+`preserve_chirality=True` to keep each member's own label.
+
 ### httk labels are not AFLOW labels
 
 The **httk group-ordering convention** orders the occupation groups

@@ -205,10 +205,10 @@ def test_loosest_fitting_member_wins_and_stops_the_sweep(monkeypatch: pytest.Mon
         recognitions += 1
         return real_recognize(*args, **kwargs)
 
-    def counting_stage(structure: ASUStructure) -> ASUStructure:
+    def counting_stage(structure: ASUStructure, **kwargs: object) -> ASUStructure:
         nonlocal stages
         stages += 1
-        return real_stage(structure)
+        return real_stage(structure, **kwargs)
 
     monkeypatch.setattr(canonical_module, "recognize_asu", counting_recognize)
     monkeypatch.setattr(canonical_module, "_canonical_without_bfs", counting_stage)
@@ -234,6 +234,28 @@ def test_asu_input_matches_the_expanded_path() -> None:
     from_view = canonical_asu(UnitcellStructureView(_nacl()))
     assert _site_key(from_asu) == _site_key(from_view)
     assert from_asu.cell.basis == from_view.cell.basis
+
+
+def _p4332() -> ASUStructure:
+    # SG 213 (P4_3 32), the HIGHER member of the enantiomorphic 212/213 pair.
+    return ASUStructure(
+        Cell(((7, 0, 0), (0, 7, 0), (0, 0, 7))),
+        213,
+        [WyckoffSite("c", FracVector((F(1, 13),)), "Si")],
+        _species("Si"),
+    )
+
+
+def test_enantiomorph_normalizes_to_the_lower_member_by_default() -> None:
+    pytest.importorskip("spglib")
+    view = UnitcellStructureView(_p4332())
+    # A genuinely chiral cell recognized in the higher member (213) is normalized to the lower one.
+    assert canonical_asu(view).spacegroup.it_number == 212
+    assert canonical_asu(view, preserve_chirality=True).spacegroup.it_number == 213
+    # Robust to sub-tolerance noise: recognition still lands in the pair, normalization still fires.
+    noisy = _perturbed(UnitcellStructure(*_expanded(_p4332())), 400_000)
+    assert canonical_asu(noisy).spacegroup.it_number == 212
+    assert canonical_asu(noisy, preserve_chirality=True).spacegroup.it_number == 213
 
 
 def test_missing_spglib_raises_the_recognition_import_error() -> None:

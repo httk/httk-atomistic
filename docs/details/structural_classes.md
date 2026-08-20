@@ -11,6 +11,8 @@ We use the prefix “Proto” for this. Hence
 
 * A **protostructure** is a structural representation specifying only the spacegroup (also distinguishing enantiomorphs), the occupied Wyckoff positions, and the species that occupy them.
 
+These `structuretype` and `protostructure` classifications still *distinguish* the two members of an enantiomorphic pair, as stated above. Note, however, that the default canonicalization pipeline (`canonicalize`, `canonical_asu`) instead maps an enantiomorphic pair to a single canonical representative — the lower-numbered member — mirroring the crystal exactly when needed. Passing `preserve_chirality=True` keeps each member in its own group and so retains the distinction these classifications draw.
+
 We can take the weaker geometrical representation one step further, down to:
 
 * A **chemical formula**, or “formula,” represents the structure only in terms of composition of the elements. The “Normalized Formula” gives the composition only in relative terms; any other unit cell representation can be condensed into a formula.
