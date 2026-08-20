@@ -133,3 +133,7 @@ then by alphabetical element symbol; the resulting positions receive
 `anonymous_symbol(0)`, `anonymous_symbol(1)`, and so on. Rendering is GCD-
 reduced at the same time. Thus equal amounts use alphabetical order, while a
 composition with ratios 4:12:4 becomes reduced `FeO3Sm` and anonymous `A3BC`.
+
+See {doc}`prototypes` and the full guide, {doc}`details/structural_classes`,
+for where `ChemicalFormula` and `Formulapattern` sit within the full
+material-information taxonomy.

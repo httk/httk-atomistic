@@ -1,4 +1,4 @@
-"""Validation and canonical labelling helpers for anonymized structures."""
+"""Validation and canonical labelling helpers for crystal patterns."""
 
 from collections.abc import Sequence
 from fractions import Fraction
@@ -9,7 +9,7 @@ from httk.atomistic.models.species.species import Species
 
 
 def dummy_species(label: str) -> Species:
-    """Return the exact dummy species used by anonymous structures.
+    """Return the exact dummy species used by crystal patterns.
 
     :param label: The anonymous symbol to use as the species name.
     :return: The canonical dummy species.

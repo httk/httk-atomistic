@@ -322,3 +322,7 @@ conversion contracts above:
   constructor.
 - Normalizer-canonicalized label rendering (the affine-normalizer pass that
   would make every faithful label canonical).
+
+The full guide, {doc}`details/structural_classes`, covers the naming rationale
+and how the classes relate to isopointal/isoconfigurational structures and
+AFLOW labels.

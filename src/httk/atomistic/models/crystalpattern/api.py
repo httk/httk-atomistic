@@ -1,4 +1,4 @@
-"""The minimal canonical anonymous-structure interface."""
+"""The minimal canonical crystal-pattern interface."""
 
 from abc import ABC, abstractmethod
 from fractions import Fraction

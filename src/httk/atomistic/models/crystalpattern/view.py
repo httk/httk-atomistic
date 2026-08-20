@@ -1,4 +1,4 @@
-"""Lazy anonymous-structure presentation view."""
+"""Lazy crystal-pattern presentation view."""
 
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Self
@@ -18,9 +18,9 @@ if TYPE_CHECKING:
 
 
 class CrystalPatternView(CrystalPatternViewBase, CrystalPattern):
-    r"""Present an anonymous or ordinary structure lazily as an anonymous structure.
+    r"""Present a crystal pattern or ordinary structure lazily as a crystal pattern.
 
-    :param obj: The anonymous-structure-like or structure-like object to present.
+    :param obj: The crystal-pattern-like or structure-like object to present.
     :param \*\*hints: Backend-selection hints.
     """
 
@@ -110,7 +110,7 @@ class CrystalPatternView(CrystalPatternViewBase, CrystalPattern):
     def unview(self) -> CrystalPattern:
         """Return the presented structure as a standalone value.
 
-        :return: The anonymous structure value.
+        :return: The crystal-pattern value.
         """
         if type(self._backend) is CrystalPattern:
             return self._backend

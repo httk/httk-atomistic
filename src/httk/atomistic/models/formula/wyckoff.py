@@ -23,10 +23,10 @@ from httk.atomistic.models.formula.notation import anonymous_symbol
 class WyckoffComposition(ChemicalFormulaBackend):
     r"""Represent the canonical composition of a Wyckoff-multiplicity-based backend.
 
-    Anonymous-structure and protopattern inputs use anonymous labels; protostructure
+    Crystal-pattern and protopattern inputs use anonymous labels; protostructure
     inputs retain their real elemental composition at the standard conventional-cell scale.
 
-    :param obj: The anonymous structure or protostructure to present.
+    :param obj: The crystal pattern or protostructure to present.
     :param \*\*hints: Backend-selection hints.
     """
 

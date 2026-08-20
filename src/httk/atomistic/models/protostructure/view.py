@@ -67,7 +67,7 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
 
         if isinstance(obj, (CrystalPatternBackend, CrystalPatternViewBase)):
             raise TypeError(
-                "a prototype/anonymous structure carries dummy species; a protostructure needs the real ones"
+                "a prototype or crystal pattern carries dummy species; a protostructure needs the real ones"
             )
 
         # A structuretype erases lazily to its protostructure through RecognizedProtostructure

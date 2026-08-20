@@ -117,7 +117,7 @@ from httk.atomistic.models.formula.structure import StructureComposition
 AnonymousFormula = Formulapattern
 AnonymousFormulaView = FormulapatternView
 
-# Crystalpattern imports follow both structure and formula imports: the crystal-pattern-to-formula
+# CrystalPattern imports follow both structure and formula imports: the crystal-pattern-to-formula
 # bridge and adapter deliberately depend on the completed lower-level family registrations.
 from httk.atomistic.models.crystalpattern.crystalpattern import CrystalPattern
 from httk.atomistic.models.crystalpattern.view import CrystalPatternView

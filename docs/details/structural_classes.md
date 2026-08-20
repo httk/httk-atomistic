@@ -32,7 +32,7 @@ We can take the weaker geometrical representation one step further, down to:
 
 Going in another direction, one can strip the absolute meaning of the chemical species and classify occupation only in terms of equivalent and non-equivalent species. The word that corresponds to Structure that we adopt for this is: “Pattern”. Hence:
 
-* A **crystal pattern**, `Crystalpattern`, has precise geometry but only an abstract representation that indicates which sites are occupied by equivalent species, i.e., an “occupation pattern” (and where the order of assignments is not regarded as relevant).
+* A **crystal pattern**, `CrystalPattern`, has precise geometry but only an abstract representation that indicates which sites are occupied by equivalent species, i.e., an “occupation pattern” (and where the order of assignments is not regarded as relevant).
 
 Following the above naming scheme to a less precise geometrical classification hence takes us to:
 
@@ -46,6 +46,6 @@ To cover a couple of other related names and explain how they differ:
 
 * **Isopointal structures**: account for the spacegroup (with or without distinguishing enantiomorphic groups) and the same complete Wyckoff sequence, including repeated independent occupations but excluding the chemical identity of the occupying atoms.
 * **Isoconfigurational structures**: isopointal structures further distinguished by geometrical classification (i.e., similarities in atomic coordinates and cell parameters, but sometimes with further requirements), however still described by colorless occupation.
-* **AFLOW labels*: very similar to httk protopatterns, except occupations are ordered by occupying element symbol, making the AFLOW labels different for, e.g., ZrO₂ (A2B_oP12_29_2a_a) and FeS₂ (AB2_oP12_29_a_2a).
+* **AFLOW labels**: very similar to httk protopatterns, except occupations are ordered by occupying element symbol, making the AFLOW labels different for, e.g., ZrO₂ (A2B_oP12_29_2a_a) and FeS₂ (AB2_oP12_29_a_2a).
 * **Extended AFLOW labels**: an extension of three digits is added to describe geometrical similarity (-001, -002, …), bringing them closer to our pattern types.
 * **Decorated AFLOW labels**: AFLOW labels are sometimes used with a “decoration” to indicate chemical species, although there does not seem to be one universal endorsed format. These decorations take AFLOW labels closer to httk protostructures.

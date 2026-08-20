@@ -40,7 +40,7 @@ class FundamentalDomainPatternView(CrystalPatternViewBase, FundamentalDomainPatt
     Recognition accepts optional ``tolerance`` and ``limit_denominator`` values through
     the recognition hints.
 
-    :param obj: The anonymous-structure-like or structure-like source.
+    :param obj: The crystal-pattern-like or structure-like source.
     :param \*\*hints: Backend-selection and recognition hints.
     """
 

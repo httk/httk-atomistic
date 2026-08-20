@@ -1,4 +1,4 @@
-"""The abstract backend for anonymous structures and prototypes."""
+"""The abstract backend for crystal patterns and prototypes."""
 
 from typing import Any, ClassVar
 
