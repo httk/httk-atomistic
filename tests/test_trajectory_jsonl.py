@@ -34,6 +34,7 @@ def test_jsonl_streams_and_registers_compression(tmp_path: Path) -> None:
     assert source.path == str(path)
     assert source.header["layout"] == "dense"
     assert source.header["x-httk-trajectory"]["format"] == "httk-trajectory-jsonl"
+    assert source.header["x-httk-trajectory"]["version"] == "2.1.0"
     assert source.nframes == 2
     assert list(source.frames())[1]["index"] == 1
     assert source.frame(-1)["observables"]["energy"] == -2.0
@@ -51,6 +52,31 @@ def test_jsonl_header_count_mismatch_is_an_issue(tmp_path: Path) -> None:
     source = TrajectoryJsonlFile(path)
     assert source.nframes == 3
     assert "nframes=3" in source.issues[0]
+
+
+def _rewrite_version(path: Path, version: str) -> None:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    header = json.loads(lines[0])
+    header["x-httk-trajectory"]["version"] = version
+    lines[0] = json.dumps(header)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+@pytest.mark.parametrize("version", ["2", "2.9.9"])
+def test_jsonl_reader_accepts_generation_two(tmp_path: Path, version: str) -> None:
+    path = tmp_path / "run.jsonl"
+    write_trajectory_jsonl(path, _header(), _frames())
+    _rewrite_version(path, version)
+    assert TrajectoryJsonlFile(path).nframes == 2
+
+
+@pytest.mark.parametrize("version", ["0.1", "3.0.0"])
+def test_jsonl_reader_rejects_other_generations(tmp_path: Path, version: str) -> None:
+    path = tmp_path / "run.jsonl"
+    write_trajectory_jsonl(path, _header(), _frames())
+    _rewrite_version(path, version)
+    with pytest.raises(ValueError, match="generation"):
+        _ = TrajectoryJsonlFile(path).header
 
 
 def test_jsonl_rejects_reads_after_close(tmp_path: Path) -> None:

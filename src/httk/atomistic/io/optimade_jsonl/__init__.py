@@ -1,13 +1,13 @@
 """Streaming OPTIMADE partial-data JSON Lines trajectories.
 
-The stable ``httk-trajectory-jsonl`` 0.1 format is one JSON object per line.
-The first line is the header::
+The stable ``httk-trajectory-jsonl`` format (generation 2) is one JSON object
+per line.  The first line is the header::
 
     {
       "optimade-partial-data": {"format": "1.2.0"},
       "layout": "dense",
       "x-httk-trajectory": {
-        "format": "httk-trajectory-jsonl", "version": "0.1",
+        "format": "httk-trajectory-jsonl", "version": "2.1.0",
         "species": [{"name": "Si", "chemical_symbols": ["Si"],
                      "concentration": [1.0]}],
         "species_at_sites": ["Si"],
@@ -41,6 +41,12 @@ the OPTIMADE partial-data JSON Lines framing (OPTIMADE 1.2, dense layout), but
 uses the ``x-httk-trajectory`` member because one line carries a complete frame
 and several properties.  A binary framing variant is deliberately deferred
 pending a separate design decision.
+
+The ``version`` field records the full httk release tag that wrote the file
+(currently ``"2.1.0"``).  Readers gate compatibility on the major format
+*generation* only: any version whose major component is ``2`` is accepted; the
+tag exists to record what actually wrote the file.  Bump the major only on a
+breaking format change.
 """
 
 import bz2
@@ -58,7 +64,8 @@ from httk.core import TextstreamFileView
 from httk.core.datastream.compression import split_compression_suffix
 
 FORMAT = "httk-trajectory-jsonl"
-VERSION = "0.1"
+VERSION = "2.1.0"  # full release tag the writer stamps into the header
+GENERATION = "2"  # accepted major format generation
 _PARTIAL_FORMAT = "1.2.0"
 
 
@@ -124,8 +131,11 @@ def _header_info(header: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, A
         raise ValueError(f"optimade-partial-data.format must be {_PARTIAL_FORMAT!r}")
     if partial.get("layout") != "dense":
         raise ValueError("trajectory JSONL requires the OPTIMADE dense layout")
-    if info.get("format") != FORMAT or info.get("version") != VERSION:
-        raise ValueError(f"x-httk-trajectory must declare format={FORMAT!r}, version={VERSION!r}")
+    version = info.get("version")
+    if info.get("format") != FORMAT or not isinstance(version, str) or version.split(".", 1)[0] != GENERATION:
+        raise ValueError(
+            f"x-httk-trajectory must declare format={FORMAT!r} with a major generation {GENERATION} version"
+        )
     for key in ("species", "species_at_sites", "observable_names", "reference_frames"):
         if key not in info:
             raise ValueError(f"trajectory JSONL header is missing {key!r}")
