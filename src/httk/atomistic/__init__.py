@@ -173,8 +173,7 @@ from httk.atomistic.models.structuretype.recognized import RecognizedStructurety
 from httk.atomistic.models.structuretype.structuretype import Structuretype
 from httk.atomistic.models.structuretype.view import StructuretypeView
 
-# Aliases for discoverability; canonical names are Protopattern and Prototype (see docs/prototypes.md).
-WyckoffPrototype = Protopattern
+# Alias for discoverability; canonical name is Prototype (see docs/prototypes.md).
 ProtopatternType = Prototype
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
@@ -392,7 +391,6 @@ __all__ = [
     "WyckoffOccupation",
     "WyckoffOccupationRecord",
     "WyckoffPosition",
-    "WyckoffPrototype",
     "WyckoffSite",
     "asu_structure_from_cif",
     "asu_structures_from_cif",

@@ -1,23 +1,5 @@
 """Register format adapters, readers, and writers implemented by :mod:`httk.atomistic`."""
 
-import importlib.util
-
-
-def _reject_legacy_httk_io() -> None:
-    """Fail fast if the retired httk-io distribution is co-installed.
-
-    Its ``httk.registry.io.io`` registrations collide with the ones here, so discovery
-    would otherwise crash with a cryptic duplicate-format error naming neither package.
-    """
-    if importlib.util.find_spec("httk.registry.io.io") is not None:
-        raise RuntimeError(
-            "the retired httk-io distribution is installed alongside httk-atomistic "
-            "(which now contains its I/O layer); run `pip uninstall httk-io`"
-        )
-
-
-_reject_legacy_httk_io()
-
 from httk.core.register import register_format_adapter
 
 register_format_adapter(

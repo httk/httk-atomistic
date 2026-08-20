@@ -60,7 +60,6 @@ new code use the canonical names.
 | Alias | Canonical |
 | --- | --- |
 | `AnonymousStructure`, `AnonymousStructureView`, `AnonymousStructureLike` | `CrystalPattern` family |
-| `WyckoffPrototype` | `Protopattern` |
 | `ProtopatternType` | `Prototype` |
 | `AnonymousFormula`, `AnonymousFormulaView` | `Formulapattern` family |
 
