@@ -45,6 +45,16 @@ Two conveniences smooth over real-world files:
   each repair instead of refusing the file, and stamps `repair=True` on the
   payload. Without it, such a loop is a hard `ValueError`.
 
+### Declared Wyckoff data
+
+The modern CIF atom-site declarations `_atom_site_site_symmetry_multiplicity`
+(International Tables multiplicity) and `_atom_site_site_symmetry_order` (the
+site-symmetry order) are honored when identifying Wyckoff positions. The deprecated
+`_atom_site_symmetry_multiplicity` tag is never parsed: if it is the only
+multiplicity-like tag in a block, httk ignores it and emits one info-level note for
+that block because legacy values are ambiguous between the two conventions. If a
+modern declaration is present as well, the deprecated tag is ignored silently.
+
 ## Lower-level API
 
 The runnable {doc}`/examples/parse_cif` walks the lower-level `read_cif`,

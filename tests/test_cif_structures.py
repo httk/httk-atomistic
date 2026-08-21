@@ -10,6 +10,7 @@ setting; the coordinates and occupancies in it are written by hand.
 """
 
 import fractions
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +58,8 @@ def _write_cif(
     declare_number: bool = True,
     wyckoff_labels: list[str] | None = None,
     symmetry_multiplicities: list[str] | None = None,
+    site_symmetry_orders: list[str] | None = None,
+    deprecated_symmetry_multiplicities: list[str] | None = None,
 ) -> Path:
     """A CIF for one setting, with its complete symmetry-operation list."""
     spacegroup = Spacegroup.from_setting(setting)
@@ -80,7 +83,9 @@ def _write_cif(
         "_atom_site_label",
         "_atom_site_type_symbol",
         *(["_atom_site_Wyckoff_label"] if wyckoff_labels is not None else []),
-        *(["_atom_site_symmetry_multiplicity"] if symmetry_multiplicities is not None else []),
+        *(["_atom_site_site_symmetry_multiplicity"] if symmetry_multiplicities is not None else []),
+        *(["_atom_site_site_symmetry_order"] if site_symmetry_orders is not None else []),
+        *(["_atom_site_symmetry_multiplicity"] if deprecated_symmetry_multiplicities is not None else []),
         "_atom_site_fract_x",
         "_atom_site_fract_y",
         "_atom_site_fract_z",
@@ -90,6 +95,8 @@ def _write_cif(
         declarations = [
             *([wyckoff_labels[index]] if wyckoff_labels is not None else []),
             *([symmetry_multiplicities[index]] if symmetry_multiplicities is not None else []),
+            *([site_symmetry_orders[index]] if site_symmetry_orders is not None else []),
+            *([deprecated_symmetry_multiplicities[index]] if deprecated_symmetry_multiplicities is not None else []),
         ]
         lines.append(f"{label} {symbol} {' '.join(declarations)} {x} {y} {z} {occupancy}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -798,6 +805,112 @@ def test_multiplicity_only_filter_mismatch_is_a_declaration_error(tmp_path: Path
         load(str(path))
 
 
+@pytest.mark.parametrize("repair", (False, True))
+def test_deprecated_multiplicity_is_ignored_with_one_info_note(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, repair: bool
+) -> None:
+    path = _write_cif(
+        tmp_path / "deprecated-only.cif",
+        "14:b1",
+        (5, 6, 7, 90, 90, 90),
+        [
+            ("X1", "X", ("0", "0", "0"), "1"),
+            ("X2", "X", ("0.123", "0.234", "0.345"), "1"),
+        ],
+        name="DeprecatedOnly",
+        deprecated_symmetry_multiplicities=["1", "1"],
+    )
+    with caplog.at_level(logging.INFO, logger="httk.atomistic.cif_structures"):
+        structure = load(str(path), repair=repair)
+
+    assert [site.wyckoff for site in structure.wyckoff_sites] == ["a", "e"]
+    records = [record for record in caplog.records if record.levelno == logging.INFO]
+    assert len(records) == 1
+    assert records[0].context == "cif"
+    assert "_atom_site_symmetry_multiplicity" in records[0].getMessage()
+    assert "deprecatedonly" in records[0].getMessage()
+
+
+def test_deprecated_multiplicity_is_silent_when_a_modern_tag_is_present(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_cif(
+        tmp_path / "deprecated-with-modern.cif",
+        "14:b1",
+        (5, 6, 7, 90, 90, 90),
+        [("X1", "X", ("0", "0", "0"), "1")],
+        name="DeprecatedWithModern",
+        symmetry_multiplicities=["2"],
+        deprecated_symmetry_multiplicities=["1"],
+    )
+    with caplog.at_level(logging.INFO, logger="httk.atomistic.cif_structures"):
+        structure = load(str(path))
+
+    assert [site.wyckoff for site in structure.wyckoff_sites] == ["a"]
+    assert not any("_atom_site_symmetry_multiplicity" in record.getMessage() for record in caplog.records)
+
+
+def test_site_symmetry_order_only_selects_its_wyckoff_stratum(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "order-only.cif",
+        "2",
+        (1, 1, 1, 90, 90, 90),
+        [("X1", "X", ("0.075", "0", "0"), "1")],
+        declare_number=False,
+        site_symmetry_orders=["1"],
+    )
+    structure = asu_structure_from_cif(load(str(path), raw=True)["blocks"][0], tolerance=0.1)
+    assert [(site.wyckoff, site.species) for site in structure.wyckoff_sites] == [("i", "X")]
+    assert len(UnitcellStructureView(structure).sites) == 2
+
+
+def test_impossible_site_symmetry_order_is_invalid_or_repaired(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_cif(
+        tmp_path / "order-invalid.cif",
+        "14:b1",
+        (5, 6, 7, 90, 90, 90),
+        [("X1", "X", ("0.123", "0.234", "0.345"), "1")],
+        site_symmetry_orders=["3"],
+    )
+    with pytest.raises(ValueError, match=r"invalid setting-local site-symmetry order '3'.*Remedy: load"):
+        load(str(path))
+    with caplog.at_level(logging.WARNING, logger="httk.atomistic.cif_structures"):
+        structure = load(str(path), repair=True)
+    assert [site.wyckoff for site in structure.wyckoff_sites] == ["e"]
+    assert "ignored declared Wyckoff data" in caplog.records[0].getMessage()
+    assert "site-symmetry order '3'" in caplog.records[0].getMessage()
+
+
+def test_site_symmetry_order_and_label_conflict_is_invalid(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "order-label-conflict.cif",
+        "14:b1",
+        (5, 6, 7, 90, 90, 90),
+        [("X1", "X", ("0", "0", "0"), "1")],
+        wyckoff_labels=["a"],
+        site_symmetry_orders=["1"],
+    )
+    with pytest.raises(ValueError, match="the declared letter and site-symmetry order identify different positions"):
+        load(str(path))
+
+
+def test_site_symmetry_order_and_multiplicity_conflict_is_invalid(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "order-multiplicity-conflict.cif",
+        "14:b1",
+        (5, 6, 7, 90, 90, 90),
+        [("X1", "X", ("0", "0", "0"), "1")],
+        symmetry_multiplicities=["4"],
+        site_symmetry_orders=["2"],
+    )
+    with pytest.raises(
+        ValueError, match="the declared multiplicity and site-symmetry order identify different positions"
+    ):
+        load(str(path))
+
+
 def test_repair_drops_mismatching_multiplicity_filter(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "multiplicity-mismatch-repair.cif",
@@ -836,9 +949,7 @@ def test_hm_only_unknown_declaration_is_ignored(tmp_path: Path) -> None:
 
 def test_a_hall_symbol_naming_no_setting_is_an_error(tmp_path: Path) -> None:
     block = load(str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall 'Not A Symbol'\n")), raw=True)["blocks"][0]
-    with pytest.raises(
-        ValueError, match=r"names no known space-group setting.*Remedy: load\(\.\.\., repair=True\)"
-    ):
+    with pytest.raises(ValueError, match=r"names no known space-group setting.*Remedy: load\(\.\.\., repair=True\)"):
         cif_setting(block)
 
 
@@ -905,9 +1016,7 @@ def test_repair_stamp_repairs_rounded_special_positions(tmp_path: Path, caplog: 
     ]
 
 
-def test_repair_keeps_a_partially_occupied_near_special_site(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_repair_keeps_a_partially_occupied_near_special_site(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "split.cif",
         Spacegroup.standard(149).setting,
@@ -1135,9 +1244,7 @@ def test_orbit_float_screen_uses_the_magnitude_of_a_negative_tolerance() -> None
     )
 
 
-def test_repair_compares_declared_letters_in_the_cif_setting(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_repair_compares_declared_letters_in_the_cif_setting(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "setting-local-letter.cif",
         "224:1",

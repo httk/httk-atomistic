@@ -13,6 +13,7 @@ rather than silently reinterpreted.
 """
 
 import fractions
+import logging
 import math
 import re
 from collections.abc import Mapping, Sequence
@@ -267,6 +268,7 @@ def asu_structure_from_cif(
     occupancy_precisions = data.get("occupancy_precisions")
     declared_wyckoff = data.get("_httk_atomistic_wyckoff_labels")
     declared_multiplicities = data.get("_httk_atomistic_symmetry_multiplicities")
+    declared_site_symmetry_orders = data.get("_httk_atomistic_site_symmetry_orders")
 
     species_by_name: dict[str, Species] = {}
     wyckoff_sites: list[WyckoffSite] = []
@@ -297,7 +299,7 @@ def asu_structure_from_cif(
         standard_point = coordinate.normalize()
         uncertainty = _site_uncertainty(data, index, uncertainty_metric) if derived_tolerance else None
         declared_position, declaration, declaration_error, declared_positions = _declared_wyckoff_position(
-            declared_wyckoff, declared_multiplicities, index, setting, standard
+            declared_wyckoff, declared_multiplicities, declared_site_symmetry_orders, index, setting, standard
         )
         orbit_screen: list[tuple[tuple[float, float, float], Any, FracVector]] | None = (
             [] if declaration is not None or repair else None
@@ -689,6 +691,7 @@ def _has_rounded_orbit_overlap(
 def _declared_wyckoff_position(
     wyckoff_labels: Any,
     multiplicities: Any,
+    site_symmetry_orders: Any,
     index: int,
     setting: Spacegroup,
     standard: Spacegroup,
@@ -705,6 +708,7 @@ def _declared_wyckoff_position(
 
     :param wyckoff_labels: The block's per-site Wyckoff label column, or ``None``.
     :param multiplicities: The block's per-site multiplicity column, or ``None``.
+    :param site_symmetry_orders: The block's per-site site-symmetry order column, or ``None``.
     :param index: The site's position in the block's site lists.
     :param setting: The identified setting the declarations are expressed in.
     :param standard: The standard setting the resolved position is mapped into.
@@ -713,24 +717,58 @@ def _declared_wyckoff_position(
     label = _site_declaration(wyckoff_labels, index)
     letter = None if label is None else label.lstrip("0123456789").lower()
     multiplicity = _site_declaration(multiplicities, index)
-    if label is None and multiplicity is None:
+    site_symmetry_order = _site_declaration(site_symmetry_orders, index)
+    if label is None and multiplicity is None and site_symmetry_order is None:
         return None, None, None, None
     declaration = ", ".join(
         item
         for item in (
             None if label is None else f"Wyckoff label {label!r}",
             None if multiplicity is None else f"multiplicity {multiplicity!r}",
+            None if site_symmetry_order is None else f"site-symmetry order {site_symmetry_order!r}",
         )
         if item is not None
     )
     positions = _setting_wyckoff_declarations(standard, setting)
+    general_multiplicity = max(local_multiplicity for _, _, local_multiplicity in positions)
+    declared_site_symmetry_order = None
+    if site_symmetry_order is not None:
+        try:
+            declared_site_symmetry_order = int(site_symmetry_order)
+        except ValueError:
+            return None, declaration, f"invalid setting-local site-symmetry order {site_symmetry_order!r}", None
+
+    if label is None and multiplicity is None:
+        assert declared_site_symmetry_order is not None
+        if declared_site_symmetry_order <= 0 or general_multiplicity % declared_site_symmetry_order != 0:
+            return None, declaration, f"invalid setting-local site-symmetry order {site_symmetry_order!r}", None
+        value = general_multiplicity // declared_site_symmetry_order
+        matching = tuple(position for _, position, local_multiplicity in positions if local_multiplicity == value)
+        if not matching:
+            return None, declaration, f"unknown setting-local site-symmetry order {site_symmetry_order!r}", None
+        candidates = tuple(
+            sorted(matching, key=lambda position: (position.free_count, position.multiplicity, position.letter))
+        )
+        return None, declaration, None, candidates
     if label is None:
         assert multiplicity is not None
         try:
-            value = int(multiplicity)
+            multiplicity_value = int(multiplicity)
         except ValueError:
             return None, declaration, f"invalid setting-local multiplicity {multiplicity!r}", None
-        matching = tuple(position for _, position, local_multiplicity in positions if local_multiplicity == value)
+        if (
+            declared_site_symmetry_order is not None
+            and declared_site_symmetry_order * multiplicity_value != general_multiplicity
+        ):
+            return (
+                None,
+                declaration,
+                "the declared multiplicity and site-symmetry order identify different positions",
+                None,
+            )
+        matching = tuple(
+            position for _, position, local_multiplicity in positions if local_multiplicity == multiplicity_value
+        )
         if not matching:
             return None, declaration, f"unknown setting-local multiplicity {multiplicity!r}", None
         candidates = tuple(
@@ -745,12 +783,32 @@ def _declared_wyckoff_position(
         )
         if by_letter is None:
             return None, declaration, f"unknown setting-local Wyckoff letter {label!r}", None
+        if (
+            declared_site_symmetry_order is not None
+            and general_multiplicity // by_letter[1] != declared_site_symmetry_order
+        ):
+            return (
+                None,
+                declaration,
+                "the declared letter and site-symmetry order identify different positions",
+                None,
+            )
     try:
         declared_multiplicity = None if multiplicity is None else int(multiplicity)
     except ValueError:
         return None, declaration, f"invalid setting-local multiplicity {multiplicity!r}", None
     by_multiplicity = None
     if declared_multiplicity is not None:
+        if (
+            declared_site_symmetry_order is not None
+            and declared_site_symmetry_order * declared_multiplicity != general_multiplicity
+        ):
+            return (
+                None,
+                declaration,
+                "the declared multiplicity and site-symmetry order identify different positions",
+                None,
+            )
         matching_positions = [
             position for _, position, multiplicity in positions if multiplicity == declared_multiplicity
         ]
@@ -1105,6 +1163,17 @@ def _read_cif_for_atomistic(
     blocks = []
     unparsed = []
     for name, raw_block in raw_blocks:
+        if (
+            "atom_site_symmetry_multiplicity" in raw_block
+            and "atom_site_site_symmetry_multiplicity" not in raw_block
+            and "atom_site_site_symmetry_order" not in raw_block
+        ):
+            logging.getLogger(__name__).info(
+                f"CIF block {name!r}: deprecated data name _atom_site_symmetry_multiplicity was ignored; "
+                "it is deprecated by the CIF core dictionary, and legacy values are ambiguous between "
+                "IT multiplicities and site-symmetry orders",
+                extra={"context": "cif"},
+            )
         if "atom_site_label" not in raw_block:
             continue
         try:
@@ -1118,7 +1187,8 @@ def _read_cif_for_atomistic(
                     "position_precisions": _position_precisions(raw_block),
                     "position_tokens": _position_tokens(raw_block),
                     "_httk_atomistic_wyckoff_labels": raw_block.get("atom_site_wyckoff_label"),
-                    "_httk_atomistic_symmetry_multiplicities": raw_block.get("atom_site_symmetry_multiplicity"),
+                    "_httk_atomistic_symmetry_multiplicities": raw_block.get("atom_site_site_symmetry_multiplicity"),
+                    "_httk_atomistic_site_symmetry_orders": raw_block.get("atom_site_site_symmetry_order"),
                     **({"_httk_atomistic_block_name": name} if repair else {}),
                 }
             )

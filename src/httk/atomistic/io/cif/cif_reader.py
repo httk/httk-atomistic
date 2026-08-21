@@ -48,6 +48,8 @@ _PROTECTED_LOOP_TAGS = frozenset(
         'atom_site_occupancy',
         'atom_site_wyckoff_label',
         'atom_site_symmetry_multiplicity',
+        'atom_site_site_symmetry_multiplicity',
+        'atom_site_site_symmetry_order',
         'httk_atom_site_fract_x_exact',
         'httk_atom_site_fract_y_exact',
         'httk_atom_site_fract_z_exact',
