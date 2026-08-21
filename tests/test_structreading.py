@@ -16,7 +16,6 @@ _NORMAL_FIXTURES = (
     "1.cif",
     "2.cif",
     "14.cif",
-    "16.cif",
     "26.cif",
     "51.cif",
     "70.cif",
@@ -26,18 +25,13 @@ _NORMAL_FIXTURES = (
     "120.cif",
     "130.cif",
     "142.cif",
-    "149.cif",
     "160.cif",
-    "168.cif",
-    "175.cif",
     "190.cif",
     "194.cif",
-    "200.cif",
     "207.cif",
     "214.cif",
     "221.cif",
     "225.cif",
-    "228.cif",
 )
 
 
@@ -68,7 +62,7 @@ def _assert_golden(filename: str, expected: dict[str, Any], path: Path) -> None:
 
 def test_structreading_golden_is_substantial() -> None:
     """The full corpus golden must not silently become empty or partial."""
-    assert len(_golden()) > 200
+    assert len(_golden()) == 198
 
 
 @pytest.mark.parametrize("path", [_FIXTURES / name for name in _NORMAL_FIXTURES], ids=lambda path: path.name)

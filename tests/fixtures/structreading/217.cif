@@ -5,123 +5,129 @@
 # http://www.crystallography.net/
 # based on data placed in the public domain by the contributors.
 #
-# The original file in cod had 
-#COD-MD5: 218512ace369189ac264625e0f2e41ff
-#
-# It was then processed with the FINDSYM tool by
-# Harold T. Stokes, Branton J. Campbell, Dorian M. Hatch
-# Brigham Young University, Provo, Utah, USA
-# which was used to update the structure information.
+# It was imported on Aug 21, 2026.
+# The COD ID was 1010134, the revision 301772
 #
 # The original header in COD and relevant COD data follows:
 #------------------------------------------------------------------------------
-#$Date: 2013-05-02 20:46:44 +0000 (Thu, 02 May 2013) $
-#$Revision: 84915 $
-#$URL: file:///home/coder/svn-repositories/cod/cif/1/51/14/1511475.cif $
+#$Date: 2025-08-18 15:29:48 +0300 (Mon, 18 Aug 2025) $
+#$Revision: 301772 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/01/01/1010134.cif $
 #------------------------------------------------------------------------------
-data_1511475
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/
+#
+# All data on this site have been placed in the public domain by the
+# contributors.
+#
+data_1010134
 loop_
 _publ_author_name
-'Sutula, R.A.'
-'Wang, F.E.'
-'Mitchell, M.A.'
-_publ_section_title
+'Natta, G.'
+_publ_section_title              'Struttura del tetrafluoruro de Silicio'
+_journal_coden_ASTM              GCITA9
+_journal_name_full               'Gazzetta Chimica Italiana'
+_journal_page_first              911
+_journal_page_last               922
+_journal_volume                  60
+_journal_year                    1930
+_chemical_formula_structural     'Si F4'
+_chemical_formula_sum            'F4 Si'
+_chemical_name_systematic        'Silicon fluoride'
+_space_group_crystal_system      cubic
+_space_group_IT_number           217
+_space_group_name_Hall           'I -4 2 3'
+_space_group_name_H-M_alt        'I -4 3 m'
+_cell_angle_alpha                90
+_cell_angle_beta                 90
+_cell_angle_gamma                90
+_cell_formula_units_Z            2
+_cell_length_a                   5.41(1)
+_cell_length_b                   5.41(1)
+_cell_length_c                   5.41(1)
+_cell_volume                     158.3
+_cod_depositor_comments
 ;
- The Crystal Structure Study of Li5 B4
-;
-_journal_name_full               'U.S. Ntis, Ad Rep. 1977 (Ad-Ao44545)'
-_journal_page_first              1
-_journal_page_last               35
-_journal_volume                  1977
-_journal_year                    1977
-_chemical_name_systematic        'Li5 B4'
-_citation_journal_id_ASTM        XADRCH
-_[local]_cod_data_source_file    boron4-x_104.cif
-_[local]_cod_data_source_block   B4Li5
-_cod_original_cell_volume        119.8231
-_cod_database_code               1511475
+ Changing the space group from "P 42 3 2" to "I -4 3 m" after consulting the
+ original publication.
 
-#
-# Data extracted using the FINDSYM utility follows
-#
- 
-_audit_creation_method FINDSYM
- 
-_symmetry_space_group_name_H-M "I -4 3 m"
-_symmetry_space_group_name_Hall 'I -4 2 3'
-_[local]_omdb_cod_original_Hall 'I 2 2 3'
-_symmetry_Int_Tables_number 217
- 
-_cell_length_a    4.93000
-_cell_length_b    4.93000
-_cell_length_c    4.93000
-_cell_angle_alpha 90.00000
-_cell_angle_beta  90.00000
-_cell_angle_gamma 90.00000
- 
+ Antanas Vaitkus,
+ 2018-07-16
+;
+_cod_original_sg_symbol_Hall     'P 42 3 2'
+_cod_database_code               1010134
 loop_
 _space_group_symop_id
 _space_group_symop_operation_xyz
 1 x,y,z
-2 x,-y,-z
-3 -x,y,-z
-4 -x,-y,z
-5 y,z,x
-6 y,-z,-x
-7 -y,z,-x
-8 -y,-z,x
+2 y,-x,-z
+3 -x,-y,z
+4 -y,x,-z
+5 x,-y,-z
+6 -y,-x,z
+7 -x,y,-z
+8 y,x,z
 9 z,x,y
-10 z,-x,-y
-11 -z,x,-y
-12 -z,-x,y
-13 y,x,z
-14 y,-x,-z
-15 -y,x,-z
-16 -y,-x,z
-17 x,z,y
-18 x,-z,-y
-19 -x,z,-y
-20 -x,-z,y
+10 x,-z,-y
+11 -z,-x,y
+12 -x,z,-y
+13 z,-x,-y
+14 -x,-z,y
+15 -z,x,-y
+16 x,z,y
+17 y,z,x
+18 y,-z,-x
+19 -z,-y,x
+20 -y,z,-x
 21 z,y,x
-22 z,-y,-x
+22 -y,-z,x
 23 -z,y,-x
-24 -z,-y,x
+24 z,-y,-x
 25 x+1/2,y+1/2,z+1/2
-26 x+1/2,-y+1/2,-z+1/2
-27 -x+1/2,y+1/2,-z+1/2
-28 -x+1/2,-y+1/2,z+1/2
-29 y+1/2,z+1/2,x+1/2
-30 y+1/2,-z+1/2,-x+1/2
-31 -y+1/2,z+1/2,-x+1/2
-32 -y+1/2,-z+1/2,x+1/2
+26 y+1/2,-x+1/2,-z+1/2
+27 -x+1/2,-y+1/2,z+1/2
+28 -y+1/2,x+1/2,-z+1/2
+29 x+1/2,-y+1/2,-z+1/2
+30 -y+1/2,-x+1/2,z+1/2
+31 -x+1/2,y+1/2,-z+1/2
+32 y+1/2,x+1/2,z+1/2
 33 z+1/2,x+1/2,y+1/2
-34 z+1/2,-x+1/2,-y+1/2
-35 -z+1/2,x+1/2,-y+1/2
-36 -z+1/2,-x+1/2,y+1/2
-37 y+1/2,x+1/2,z+1/2
-38 y+1/2,-x+1/2,-z+1/2
-39 -y+1/2,x+1/2,-z+1/2
-40 -y+1/2,-x+1/2,z+1/2
-41 x+1/2,z+1/2,y+1/2
-42 x+1/2,-z+1/2,-y+1/2
-43 -x+1/2,z+1/2,-y+1/2
-44 -x+1/2,-z+1/2,y+1/2
+34 x+1/2,-z+1/2,-y+1/2
+35 -z+1/2,-x+1/2,y+1/2
+36 -x+1/2,z+1/2,-y+1/2
+37 z+1/2,-x+1/2,-y+1/2
+38 -x+1/2,-z+1/2,y+1/2
+39 -z+1/2,x+1/2,-y+1/2
+40 x+1/2,z+1/2,y+1/2
+41 y+1/2,z+1/2,x+1/2
+42 y+1/2,-z+1/2,-x+1/2
+43 -z+1/2,-y+1/2,x+1/2
+44 -y+1/2,z+1/2,-x+1/2
 45 z+1/2,y+1/2,x+1/2
-46 z+1/2,-y+1/2,-x+1/2
+46 -y+1/2,-z+1/2,x+1/2
 47 -z+1/2,y+1/2,-x+1/2
-48 -z+1/2,-y+1/2,x+1/2
- 
+48 z+1/2,-y+1/2,-x+1/2
 loop_
 _atom_site_label
 _atom_site_type_symbol
 _atom_site_symmetry_multiplicity
-_atom_site_Wyckoff_label
+_atom_site_Wyckoff_symbol
 _atom_site_fract_x
 _atom_site_fract_y
 _atom_site_fract_z
 _atom_site_occupancy
-B1 B 8 c 0.42500 0.42500 0.42500 0.125
-B2 B 8 c 0.17500 0.17500 0.17500 0.375
-Li1 Li 8 c 0.17500 0.17500 0.17500 0.625
- 
-
+_atom_site_calc_flag
+Si1 Si4+ 2 a 0 0 0 1 d
+F1 F1- 8 c 0.172(2) 0.172(2) 0.172(2) 1 d
+loop_
+_atom_type_symbol
+_atom_type_oxidation_number
+Si4+ 4
+F1- -1
+loop_
+_cod_related_entry_id
+_cod_related_entry_database
+_cod_related_entry_code
+1 AMCSD 0017064
+2 PubChem 24556
