@@ -14,6 +14,7 @@ import sys
 from collections import Counter
 from collections.abc import Callable, Sequence
 from fractions import Fraction
+from pathlib import Path
 from typing import Any
 
 from httk.core import load, save
@@ -31,7 +32,7 @@ from httk.atomistic import (
 from httk.atomistic.symmetry.lift import canonicalize
 
 #: Everything a handler may raise that is the operator's problem rather than a defect.
-#: Anything here is reported as ``PROGRAM: message`` and exits ``2`` -- notably ImportError
+#: Anything here is reported as ``PROGRAM: message`` and exits ``1`` -- notably ImportError
 #: for a missing spglib on the tolerant paths, and ValueError for an unrelated target.
 _ERRORS = (OSError, ValueError, KeyError, TypeError, ImportError)
 
@@ -151,8 +152,9 @@ def _handle_canonicalize(arguments: argparse.Namespace, context: CLIContext, pro
         )
         print(f"canonical form (lift={arguments.lift}):")
     _print_structure(result)
-    if arguments.out is not None:
-        _save(result, arguments.out)
+    destination = _destination(arguments)
+    if destination is not None:
+        _save(result, destination)
     return 0
 
 
@@ -162,8 +164,9 @@ def _handle_rerepresent(arguments: argparse.Namespace, context: CLIContext, prog
     result = rerepresent(asu, arguments.target, tolerance=arguments.tolerance)
     print(f"re-represented in IT {arguments.target}:")
     _print_structure(result)
-    if arguments.out is not None:
-        _save(result, arguments.out)
+    destination = _destination(arguments)
+    if destination is not None:
+        _save(result, destination)
     return 0
 
 
@@ -194,7 +197,13 @@ def _add_tolerance(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_output(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("-o", "--out", metavar="OUT", help="save the resulting structure to OUT (e.g. a CIF)")
+    output = parser.add_mutually_exclusive_group()
+    output.add_argument("-o", "--out", metavar="OUT", help="save one resulting structure to OUT")
+    output.add_argument(
+        "--out-dir",
+        metavar="DIR",
+        help="save each result under its input basename in DIR",
+    )
 
 
 def _add_target(parser: argparse.ArgumentParser) -> None:
@@ -213,13 +222,13 @@ def build_parser(program: str) -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(metavar="COMMAND")
 
     info = subparsers.add_parser("info", help="report a structure's declared and recognized symmetry")
-    info.add_argument("file", metavar="FILE", help="the structure file to inspect")
+    info.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to inspect")
     info.add_argument("--recognize", action="store_true", help="also recognize the symmetry from the geometry")
     _add_tolerance(info)
     info.set_defaults(handler=_handle_info, help_parser=info)
 
     canon = subparsers.add_parser("canonicalize", help="canonicalize a structure's symmetry")
-    canon.add_argument("file", metavar="FILE", help="the structure file to canonicalize")
+    canon.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to canonicalize")
     _add_output(canon)
     _add_tolerance(canon)
     canon.add_argument("--lift", action="store_true", help="search upward for higher pseudosymmetry (spglib path)")
@@ -236,14 +245,14 @@ def build_parser(program: str) -> argparse.ArgumentParser:
     canon.set_defaults(handler=_handle_canonicalize, help_parser=canon)
 
     rerep = subparsers.add_parser("rerepresent", help="re-represent a structure in a target space group")
-    rerep.add_argument("file", metavar="FILE", help="the structure file to re-represent")
+    rerep.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to re-represent")
     _add_target(rerep)
     _add_output(rerep)
     _add_tolerance(rerep)
     rerep.set_defaults(handler=_handle_rerepresent, help_parser=rerep)
 
     reps = subparsers.add_parser("representations", help="list a structure's representations in a target group")
-    reps.add_argument("file", metavar="FILE", help="the structure file to enumerate")
+    reps.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to enumerate")
     _add_target(reps)
     _add_tolerance(reps)
     reps.set_defaults(handler=_handle_representations, help_parser=reps)
@@ -268,14 +277,44 @@ def command(argv: Sequence[str], context: CLIContext) -> int:
     if handler is None:
         getattr(arguments, "help_parser", parser).print_help()
         return 0
-    try:
-        return handler(arguments, context, parser.prog)
-    except _ERRORS as error:
-        print(f"{parser.prog}: {error}", file=sys.stderr)
+    files: list[str] = arguments.files
+    if getattr(arguments, "out", None) is not None and len(files) != 1:
+        print(f"{parser.prog}: -o/--out requires exactly one FILE", file=sys.stderr)
         return 2
+    out_dir = getattr(arguments, "out_dir", None)
+    if out_dir is not None:
+        basenames = [Path(filename).name for filename in files]
+        if len(basenames) != len(set(basenames)):
+            print(f"{parser.prog}: --out-dir requires distinct input basenames", file=sys.stderr)
+            return 2
+        try:
+            Path(out_dir).mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            print(f"{parser.prog}: {error}", file=sys.stderr)
+            return 2
+
+    failed = False
+    for filename in files:
+        arguments.file = filename
+        if len(files) > 1:
+            print(f"==> {filename} <==")
+        try:
+            handler(arguments, context, parser.prog)
+        except _ERRORS as error:
+            print(f"{parser.prog}: {filename}: {error}", file=sys.stderr)
+            failed = True
+    return 1 if failed else 0
+
+
+def _destination(arguments: argparse.Namespace) -> str | None:
+    """Return the output selected for the current input file."""
+
+    if arguments.out is not None:
+        return str(arguments.out)
+    if arguments.out_dir is not None:
+        return str(Path(arguments.out_dir) / Path(arguments.file).name)
+    return None
 
 
 if __name__ == "__main__":
-    from pathlib import Path
-
     raise SystemExit(command(sys.argv[1:], CLIContext("httk", Path.cwd())))

@@ -94,11 +94,11 @@ The same operations are available as `httk symmetry`, taking a structure file
 (CIF, POSCAR) and printing a human-readable report; `-o` saves the result.
 
 ```console
-$ httk symmetry info nacl.cif                    # declared group, cell, Wyckoff occupation
-$ httk symmetry info measured.poscar --recognize # also recognize symmetry from the geometry
-$ httk symmetry canonicalize nacl.cif -o out.cif # canonical form of noisy input (spglib), saved
-$ httk symmetry canonicalize nacl.cif --exact    # exact, spglib-free (needs declared symmetry)
-$ httk symmetry representations nacl.cif --target 166   # list distinct forms in a related group
+$ httk symmetry info nacl.cif other.cif                    # inspect one or more structures
+$ httk symmetry info --recognize measured.poscar           # also recognize symmetry from the geometry
+$ httk symmetry canonicalize -o out.cif nacl.cif           # save one canonical form
+$ httk symmetry canonicalize --exact --out-dir canonical/ *.cif  # save a batch by input basename
+$ httk symmetry representations --target 166 nacl.cif      # list distinct forms in a related group
 ```
 
 `canonicalize` defaults to the tolerant `canonical_asu` path (`--lift` searches

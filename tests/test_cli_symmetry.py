@@ -69,6 +69,18 @@ def test_info_on_unitcell_has_no_declared_symmetry(poscar: Path, capsys) -> None
     assert "none declared" in out
 
 
+def test_info_batches_and_continues_after_failure(cif: Path, tmp_path: Path, capsys) -> None:
+    second = tmp_path / "second.cif"
+    save(_rocksalt(), str(second))
+
+    assert _run(["info", str(cif), str(tmp_path / "missing.cif"), str(second)]) == 1
+    captured = capsys.readouterr()
+    assert captured.out.count("input: ASUStructure") == 2
+    assert f"==> {cif} <==" in captured.out
+    assert f"==> {second} <==" in captured.out
+    assert "missing.cif" in captured.err
+
+
 def test_info_repairs_cif_and_logs_warning(capsys, caplog) -> None:
     fixture = Path(__file__).parent / "fixtures" / "malformed_auxiliary_loop.cif"
     with caplog.at_level("WARNING", logger="httk"):
@@ -107,14 +119,14 @@ def test_info_does_not_retry_internal_repair_type_error(monkeypatch, capsys) -> 
 
     monkeypatch.setattr(cli, "load", failing_load)
 
-    assert command(["info", "broken.cif"], CLIContext("httk", Path.cwd())) == 2
+    assert command(["info", "broken.cif"], CLIContext("httk", Path.cwd())) == 1
     assert calls == [("broken.cif", {"repair": True})]
     assert "boom repair failure" in capsys.readouterr().err
 
 
 def test_info_recognize(poscar: Path, capsys) -> None:
     pytest.importorskip("spglib")
-    assert _run(["info", str(poscar), "--recognize"]) == 0
+    assert _run(["info", "--recognize", str(poscar)]) == 0
     out = capsys.readouterr().out
     assert "recognized" in out
     assert "IT 225" in out
@@ -146,17 +158,17 @@ def test_preserve_chirality_flag_threads_to_both_branches(cif: Path, monkeypatch
     monkeypatch.setattr(cli, "canonicalize", spy_canonicalize)
     monkeypatch.setattr(cli, "canonical_asu", spy_canonical_asu)
 
-    assert _run(["canonicalize", str(cif), "--exact", "--preserve-chirality"]) == 0  # exact -> canonicalize
+    assert _run(["canonicalize", "--exact", "--preserve-chirality", str(cif)]) == 0  # exact -> canonicalize
     assert calls["exact"] is True
-    assert _run(["canonicalize", str(cif), "--preserve-chirality"]) == 0  # default -> canonical_asu
+    assert _run(["canonicalize", "--preserve-chirality", str(cif)]) == 0  # default -> canonical_asu
     assert calls["default"] is True
-    assert _run(["canonicalize", str(cif), "--exact"]) == 0  # flag absent -> default False
+    assert _run(["canonicalize", "--exact", str(cif)]) == 0  # flag absent -> default False
     assert calls["exact"] is False
 
 
 def test_canonicalize_exact_roundtrip(cif: Path, tmp_path: Path, capsys) -> None:
     out_path = tmp_path / "canon.cif"
-    assert _run(["canonicalize", str(cif), "--exact", "-o", str(out_path)]) == 0
+    assert _run(["canonicalize", "--exact", "-o", str(out_path), str(cif)]) == 0
     assert f"saved: {out_path}" in capsys.readouterr().out
     reloaded = load(str(out_path))
     assert isinstance(reloaded, ASUStructure)
@@ -164,8 +176,26 @@ def test_canonicalize_exact_roundtrip(cif: Path, tmp_path: Path, capsys) -> None
     assert _key(canonicalize(reloaded).asu) == _key(expected)
 
 
+def test_canonicalize_batch_out_dir(tmp_path: Path, capsys) -> None:
+    first = tmp_path / "first.cif"
+    second = tmp_path / "second.cif"
+    save(_rocksalt(), str(first))
+    save(_rocksalt(), str(second))
+    out_dir = tmp_path / "canonical"
+
+    assert _run(["canonicalize", "--exact", "--out-dir", str(out_dir), str(first), str(second)]) == 0
+    assert (out_dir / first.name).is_file()
+    assert (out_dir / second.name).is_file()
+    assert capsys.readouterr().out.count("saved:") == 2
+
+
+def test_single_output_rejects_multiple_inputs(cif: Path, tmp_path: Path, capsys) -> None:
+    assert _run(["canonicalize", "-o", str(tmp_path / "one.cif"), str(cif), str(cif)]) == 2
+    assert "requires exactly one FILE" in capsys.readouterr().err
+
+
 def test_rerepresent(cif: Path, capsys) -> None:
-    assert _run(["rerepresent", str(cif), "--target", "166"]) == 0
+    assert _run(["rerepresent", "--target", "166", str(cif)]) == 0
     out = capsys.readouterr().out
     assert "re-represented in IT 166" in out
     assert "IT 166" in out
@@ -175,13 +205,13 @@ def test_rerepresent_save_poscar(cif: Path, tmp_path: Path, capsys) -> None:
     # A trigonal rerepresentation has an irrational cell that CIF cannot write exactly, but POSCAR
     # (float cell) saves it, proving the -o wiring for rerepresent.
     out_path = tmp_path / "trigonal.POSCAR"
-    assert _run(["rerepresent", str(cif), "--target", "166", "-o", str(out_path)]) == 0
+    assert _run(["rerepresent", "--target", "166", "-o", str(out_path), str(cif)]) == 0
     assert f"saved: {out_path}" in capsys.readouterr().out
     assert out_path.is_file()
 
 
 def test_representations_count_and_letters(cif: Path, capsys) -> None:
-    assert _run(["representations", str(cif), "--target", "166"]) == 0
+    assert _run(["representations", "--target", "166", str(cif)]) == 0
     out = capsys.readouterr().out
     assert "representations in IT 166: 2" in out
     # Both letter assignments of the deterministic pair are present.
@@ -190,12 +220,12 @@ def test_representations_count_and_letters(cif: Path, capsys) -> None:
 
 
 def test_unrelated_target_errors(cif: Path, capsys) -> None:
-    assert _run(["representations", str(cif), "--target", "191"]) == 2
+    assert _run(["representations", "--target", "191", str(cif)]) == 1
     assert "unrelated" in capsys.readouterr().err
 
 
 def test_exact_on_unitcell_errors(poscar: Path, capsys) -> None:
-    assert _run(["canonicalize", str(poscar), "--exact"]) == 2
+    assert _run(["canonicalize", "--exact", str(poscar)]) == 1
     assert "requires an input with declared symmetry" in capsys.readouterr().err
 
 
