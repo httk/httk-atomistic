@@ -344,11 +344,11 @@ def test_coincident_cif_sites_with_different_species_are_rejected(tmp_path: Path
         [("Ca1", "Ca2+", ("0", "0", "0"), "1"), ("O1", "O2-", ("0", "0", "0"), "1")],
         name="Conflict",
     )
-    with pytest.raises(ValueError, match=r"different species.*Remedy: load\(\.\.\., autocorrect=True\)"):
+    with pytest.raises(ValueError, match=r"different species.*Remedy: load\(\.\.\., repair=True\)"):
         _ = load(str(path)).sites
 
 
-def test_autocorrect_drops_a_later_coincident_disorder_site(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_repair_drops_a_later_coincident_disorder_site(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "conflict.cif",
         Spacegroup.standard(1).setting,
@@ -358,7 +358,7 @@ def test_autocorrect_drops_a_later_coincident_disorder_site(tmp_path: Path, capl
     )
 
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        asu = load(str(path), autocorrect=True)
+        asu = load(str(path), repair=True)
 
     assert [site.species for site in asu.wyckoff_sites] == ["Ca2+"]
     assert [species.name for species in asu.species] == ["Ca2+"]
@@ -435,14 +435,14 @@ def test_core_load_adapts_single_cif_and_raw_keeps_payload(tmp_path: Path) -> No
     assert payload["format"] == "cif"
 
 
-def test_clean_cif_is_unchanged_when_autocorrect_is_disabled(tmp_path: Path) -> None:
+def test_clean_cif_is_unchanged_when_repair_is_disabled(tmp_path: Path) -> None:
     path = _rocksalt_cif(tmp_path)
-    assert load(str(path), raw=True) == load(str(path), raw=True, autocorrect=False)
+    assert load(str(path), raw=True) == load(str(path), raw=True, repair=False)
 
 
-def test_clean_cif_load_is_unchanged_by_autocorrect(tmp_path: Path) -> None:
+def test_clean_cif_load_is_unchanged_by_repair(tmp_path: Path) -> None:
     path = _rocksalt_cif(tmp_path)
-    assert load(str(path), autocorrect=True) == load(str(path))
+    assert load(str(path), repair=True) == load(str(path))
 
 
 def test_the_cell_is_exact_not_the_files_rounded_basis(tmp_path: Path) -> None:
@@ -730,7 +730,7 @@ def test_normalized_hermann_mauguin_lookup() -> None:
 
 
 @pytest.mark.parametrize(("filename", "it_number"), [("93.cif", 93), ("101.cif", 101)])
-def test_materials_project_hm_declarations_load_without_autocorrect(filename: str, it_number: int) -> None:
+def test_materials_project_hm_declarations_load_without_repair(filename: str, it_number: int) -> None:
     path = Path(__file__).parent / "fixtures" / "structreading" / filename
     raw = load(str(path), raw=True)
     assert raw["blocks"][0]["space_group_nbr"] == str(it_number)
@@ -798,9 +798,9 @@ def test_multiplicity_only_filter_mismatch_is_a_declaration_error(tmp_path: Path
         load(str(path))
 
 
-def test_autocorrect_drops_mismatching_multiplicity_filter(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_repair_drops_mismatching_multiplicity_filter(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
-        tmp_path / "multiplicity-mismatch-autocorrect.cif",
+        tmp_path / "multiplicity-mismatch-repair.cif",
         "2",
         (1, 1, 1, 90, 90, 90),
         [("X1", "X", ("0.100000", "0.200000", "0.300000"), "1")],
@@ -808,7 +808,7 @@ def test_autocorrect_drops_mismatching_multiplicity_filter(tmp_path: Path, caplo
         symmetry_multiplicities=["1"],
     )
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        structure = load(str(path), autocorrect=True)
+        structure = load(str(path), repair=True)
     assert [(site.wyckoff, site.species) for site in structure.wyckoff_sites] == [("i", "X")]
     assert len(UnitcellStructureView(structure).sites) == 2
     assert "ignored declared Wyckoff data" in caplog.records[0].getMessage()
@@ -837,18 +837,18 @@ def test_hm_only_unknown_declaration_is_ignored(tmp_path: Path) -> None:
 def test_a_hall_symbol_naming_no_setting_is_an_error(tmp_path: Path) -> None:
     block = load(str(_sg15_cif(tmp_path, declaration="_space_group_name_Hall 'Not A Symbol'\n")), raw=True)["blocks"][0]
     with pytest.raises(
-        ValueError, match=r"names no known space-group setting.*Remedy: load\(\.\.\., autocorrect=True\)"
+        ValueError, match=r"names no known space-group setting.*Remedy: load\(\.\.\., repair=True\)"
     ):
         cif_setting(block)
 
 
-def test_autocorrect_ignores_an_unrecognized_declared_setting(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_repair_ignores_an_unrecognized_declared_setting(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _sg15_cif(tmp_path, declaration="_space_group_name_Hall 'Not A Symbol'\n")
 
-    with pytest.raises(ValueError, match=r"Remedy: load\(\.\.\., autocorrect=True\)"):
+    with pytest.raises(ValueError, match=r"Remedy: load\(\.\.\., repair=True\)"):
         load(str(path))
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        asu = load(str(path), autocorrect=True)
+        asu = load(str(path), repair=True)
 
     assert asu.setting() is not None
     assert asu.setting().setting == "15:b1"
@@ -879,10 +879,10 @@ def test_unrecognized_declaration_identifies_sg_228_from_operations(tmp_path: Pa
 
     with pytest.raises(ValueError, match="names no known space-group setting"):
         load(str(path))
-    assert load(str(path), autocorrect=True).setting().setting == "228:2"
+    assert load(str(path), repair=True).setting().setting == "228:2"
 
 
-def test_autocorrect_stamp_repairs_rounded_special_positions(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_repair_stamp_repairs_rounded_special_positions(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "rounded.cif",
         Spacegroup.standard(149).setting,
@@ -892,8 +892,8 @@ def test_autocorrect_stamp_repairs_rounded_special_positions(tmp_path: Path, cap
     )
     assert len(UnitcellStructureView(load(str(path))).sites) == 3
 
-    payload = load(str(path), raw=True, autocorrect=True)
-    assert payload["autocorrect"] is True
+    payload = load(str(path), raw=True, repair=True)
+    assert payload["repair"] is True
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
         asu = asu_structures_from_cif(payload)[0]
 
@@ -905,7 +905,7 @@ def test_autocorrect_stamp_repairs_rounded_special_positions(tmp_path: Path, cap
     ]
 
 
-def test_autocorrect_keeps_a_partially_occupied_near_special_site(
+def test_repair_keeps_a_partially_occupied_near_special_site(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     path = _write_cif(
@@ -917,7 +917,7 @@ def test_autocorrect_keeps_a_partially_occupied_near_special_site(
     )
     strict = load(str(path))
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        corrected = load(str(path), autocorrect=True)
+        corrected = load(str(path), repair=True)
 
     assert len(UnitcellStructureView(strict).sites) == len(UnitcellStructureView(corrected).sites) == 3
     assert caplog.records == []
@@ -936,13 +936,13 @@ def test_declared_special_position_is_assigned_strictly(tmp_path: Path, caplog: 
 
     strict = load(str(path))
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        corrected = load(str(path), autocorrect=True)
+        corrected = load(str(path), repair=True)
 
     assert len(UnitcellStructureView(strict).sites) == len(UnitcellStructureView(corrected).sites) == 1
     assert caplog.records == []
 
 
-def test_autocorrect_keeps_a_declared_general_orbit(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_repair_keeps_a_declared_general_orbit(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "declared-general.cif",
         Spacegroup.standard(149).setting,
@@ -953,7 +953,7 @@ def test_autocorrect_keeps_a_declared_general_orbit(tmp_path: Path, caplog: pyte
         symmetry_multiplicities=["3"],
     )
     strict = load(str(path))
-    payload = load(str(path), raw=True, autocorrect=True)
+    payload = load(str(path), raw=True, repair=True)
     assert payload["blocks"][0]["_httk_atomistic_wyckoff_labels"] == ["k"]
     assert payload["blocks"][0]["_httk_atomistic_symmetry_multiplicities"] == ["3"]
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
@@ -977,11 +977,11 @@ def test_invalid_declared_position_is_an_integrity_error_or_falls_back(
     )
 
     with pytest.raises(
-        ValueError, match=r"N1.*invalid declaration.*measured distance.*Remedy: load\(\.\.\., autocorrect=True\)"
+        ValueError, match=r"N1.*invalid declaration.*measured distance.*Remedy: load\(\.\.\., repair=True\)"
     ):
         load(str(path))
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        corrected = load(str(path), autocorrect=True)
+        corrected = load(str(path), repair=True)
 
     assert len(UnitcellStructureView(corrected).sites) == 6
     assert len(caplog.records) == 1
@@ -1001,7 +1001,7 @@ def test_invalid_declaration_fallback_uses_the_undeclared_rounded_site_path(
     )
 
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        corrected = load(str(path), autocorrect=True)
+        corrected = load(str(path), repair=True)
 
     assert len(UnitcellStructureView(corrected).sites) == 1
     warnings = [record.getMessage() for record in caplog.records]
@@ -1030,7 +1030,7 @@ def test_declared_containing_position_is_an_integrity_error_or_falls_back(
     with pytest.raises(ValueError, match=r"declares Wyckoff position 'k'.*more-specific Wyckoff position 'd'"):
         load(str(path))
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        corrected = load(str(path), autocorrect=True)
+        corrected = load(str(path), repair=True)
 
     assert len(UnitcellStructureView(corrected).sites) == 1
     assert any("Wyckoff position 'd'" in record.getMessage() for record in caplog.records)
@@ -1135,7 +1135,7 @@ def test_orbit_float_screen_uses_the_magnitude_of_a_negative_tolerance() -> None
     )
 
 
-def test_autocorrect_compares_declared_letters_in_the_cif_setting(
+def test_repair_compares_declared_letters_in_the_cif_setting(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     path = _write_cif(
@@ -1149,7 +1149,7 @@ def test_autocorrect_compares_declared_letters_in_the_cif_setting(
 
     strict = load(str(path))
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        corrected = load(str(path), autocorrect=True)
+        corrected = load(str(path), repair=True)
 
     assert [(site.wyckoff, site.species) for site in strict.wyckoff_sites] == [("i", "X")]
     assert strict.setting().setting == "224:1"
@@ -1158,7 +1158,7 @@ def test_autocorrect_compares_declared_letters_in_the_cif_setting(
     assert caplog.records == []
 
 
-def test_autocorrect_compares_declared_multiplicities_in_the_cif_setting(
+def test_repair_compares_declared_multiplicities_in_the_cif_setting(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     path = _write_cif(
@@ -1173,7 +1173,7 @@ def test_autocorrect_compares_declared_multiplicities_in_the_cif_setting(
 
     strict = load(str(path))
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        corrected = load(str(path), autocorrect=True)
+        corrected = load(str(path), repair=True)
 
     assert [(site.wyckoff, site.species) for site in strict.wyckoff_sites] == [("b", "X1")]
     assert strict.setting().setting == "160:R"
@@ -1189,12 +1189,12 @@ def test_a_hall_symbol_naming_the_wrong_group_is_an_error(tmp_path: Path) -> Non
         cif_setting(block)
 
 
-def test_autocorrect_does_not_override_a_contradictory_known_declaration(tmp_path: Path) -> None:
+def test_repair_does_not_override_a_contradictory_known_declaration(tmp_path: Path) -> None:
     path = _sg15_cif(tmp_path, declaration="_space_group_name_Hall 'P 1'\n")
     errors = []
-    for autocorrect in (False, True):
+    for repair in (False, True):
         with pytest.raises(ValueError) as caught:
-            load(str(path), autocorrect=autocorrect)
+            load(str(path), repair=repair)
         errors.append(str(caught.value))
 
     assert errors[0] == errors[1]

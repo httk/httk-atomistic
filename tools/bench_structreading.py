@@ -12,11 +12,11 @@ from httk.core import load
 
 
 def _read(path: Path) -> bool:
-    """Read one CIF, returning whether autocorrect was needed."""
+    """Read one CIF, returning whether repair was needed."""
     try:
         load(str(path))
     except ValueError:
-        load(str(path), autocorrect=True)
+        load(str(path), repair=True)
         return True
     return False
 
@@ -45,12 +45,12 @@ def main() -> int:
         results, total = _pass(paths)
 
     for path, elapsed, fallback in results:
-        print(f"{path.name}: {elapsed:.6f}s" + (" (autocorrect)" if fallback else ""))
+        print(f"{path.name}: {elapsed:.6f}s" + (" (repair)" if fallback else ""))
     times = [elapsed for _, elapsed, _ in results]
     print(f"total: {total:.6f}s")
     print(f"mean: {statistics.mean(times):.6f}s")
     print(f"median: {statistics.median(times):.6f}s")
-    print(f"autocorrect fallbacks: {sum(fallback for _, _, fallback in results)}")
+    print(f"repair fallbacks: {sum(fallback for _, _, fallback in results)}")
     if args.profile:
         output = io.StringIO()
         pstats.Stats(profiler, stream=output).sort_stats("tottime").print_stats(25)

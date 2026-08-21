@@ -8,7 +8,7 @@ from httk.atomistic.io.cif.cif_parser import read_cif_asus
 from httk.atomistic.io.cif.cif_reader import _PROTECTED_LOOP_TAGS, read_cif
 
 FIXTURE = Path(__file__).parent / "fixtures" / "malformed_auxiliary_loop.cif"
-HINT = " (an auxiliary loop like this can be dropped by loading with autocorrect=True, which applies documented repairs with warnings)"
+HINT = " (an auxiliary loop like this can be dropped by loading with repair=True, which applies documented repairs with warnings)"
 
 
 def test_protected_set_includes_atom_declaration_tags():
@@ -18,7 +18,7 @@ def test_protected_set_includes_atom_declaration_tags():
     } <= _PROTECTED_LOOP_TAGS
 
 
-def test_autocorrect_drops_malformed_auxiliary_loop_and_stamps_payload(caplog):
+def test_repair_drops_malformed_auxiliary_loop_and_stamps_payload(caplog):
     with pytest.raises(ValueError) as error:
         read_cif(FIXTURE)
     assert HINT in str(error.value)
@@ -26,9 +26,9 @@ def test_autocorrect_drops_malformed_auxiliary_loop_and_stamps_payload(caplog):
     with caplog.at_level(logging.WARNING):
         reader = resolve_callable("httk.atomistic.io.cif:read_cif_asus")
         assert reader is read_cif_asus
-        payload = reader(FIXTURE, autocorrect=True)
+        payload = reader(FIXTURE, repair=True)
 
-    assert payload["autocorrect"] is True
+    assert payload["repair"] is True
     assert payload["blocks"][0]["labels"] == ["Na1"]
     assert len(caplog.records) == 1
     record = caplog.records[0]
@@ -38,33 +38,33 @@ def test_autocorrect_drops_malformed_auxiliary_loop_and_stamps_payload(caplog):
     assert "dropped" in record.message
 
 
-def test_autocorrect_does_not_drop_malformed_atom_site_loop(tmp_path):
+def test_repair_does_not_drop_malformed_atom_site_loop(tmp_path):
     atom_site_fixture = tmp_path / "malformed_atom_site.cif"
     atom_site_fixture.write_text(FIXTURE.read_text(encoding="utf-8").replace("_audit_tag", "_atom_site_occupancy"))
 
-    for autocorrect in (False, True):
+    for repair in (False, True):
         with pytest.raises(ValueError) as error:
-            read_cif(atom_site_fixture, autocorrect=autocorrect)
+            read_cif(atom_site_fixture, repair=repair)
         assert HINT not in str(error.value)
 
 
-def test_autocorrect_does_not_drop_malformed_modulation_loop(tmp_path):
+def test_repair_does_not_drop_malformed_modulation_loop(tmp_path):
     modulation_fixture = tmp_path / "malformed_modulation.cif"
     modulation_fixture.write_text(FIXTURE.read_text(encoding="utf-8").replace("_audit_tag", "_cell_wave_vector_x"))
 
-    for autocorrect in (False, True):
+    for repair in (False, True):
         with pytest.raises(ValueError) as error:
-            read_cif(modulation_fixture, autocorrect=autocorrect)
+            read_cif(modulation_fixture, repair=repair)
         assert HINT not in str(error.value)
 
 
-def test_autocorrect_does_not_drop_malformed_wyckoff_declaration_loop(tmp_path):
+def test_repair_does_not_drop_malformed_wyckoff_declaration_loop(tmp_path):
     wyckoff_fixture = tmp_path / "malformed_wyckoff.cif"
     wyckoff_fixture.write_text(FIXTURE.read_text(encoding="utf-8").replace("_audit_tag", "_atom_site_Wyckoff_label"))
 
-    for autocorrect in (False, True):
+    for repair in (False, True):
         with pytest.raises(ValueError) as error:
-            read_cif(wyckoff_fixture, autocorrect=autocorrect)
+            read_cif(wyckoff_fixture, repair=repair)
         assert HINT not in str(error.value)
 
 
@@ -104,7 +104,7 @@ def test_structural_only_preserves_malformed_auxiliary_loop_policy():
         read_cif(FIXTURE, structural_only=True)
     assert HINT in str(error.value)
 
-    _, block = read_cif(FIXTURE, structural_only=True, autocorrect=True)[0][0]
+    _, block = read_cif(FIXTURE, structural_only=True, repair=True)[0][0]
     assert "audit_tag" not in block
     assert block["atom_site_label"] == ["Na1"]
 

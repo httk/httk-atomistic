@@ -36,7 +36,7 @@ def structreading_golden(path: str | Path) -> dict[str, Any]:
 
     :param path: CIF file to read.
     :return: JSON-serializable exact interpretation of the file.
-    :raises ValueError: If strict and autocorrect reading both fail, or a repair warning is unknown.
+    :raises ValueError: If strict and repair reading both fail, or a repair warning is unknown.
     """
     source = str(path)
     try:
@@ -48,7 +48,7 @@ def structreading_golden(path: str | Path) -> dict[str, Any]:
         logger = logging.getLogger()
         logger.addHandler(handler)
         try:
-            raw = load(source, raw=True, autocorrect=True)
+            raw = load(source, raw=True, repair=True)
             structure = asu_structures_from_cif(raw)[0]
         finally:
             logger.removeHandler(handler)
@@ -94,7 +94,7 @@ def _stable_error_prefix(error: ValueError) -> str:
 
 
 def _repair_category(message: str) -> str:
-    """Translate one documented autocorrect warning into its stable category.
+    """Translate one documented repair warning into its stable category.
 
     :param message: The rendered repair warning.
     :return: A category name suitable for a platform-stable golden.
@@ -110,4 +110,4 @@ def _repair_category(message: str) -> str:
     for marker, category in categories.items():
         if marker in message:
             return category
-    raise ValueError(f"unrecognized CIF autocorrect warning: {message}")
+    raise ValueError(f"unrecognized CIF repair warning: {message}")

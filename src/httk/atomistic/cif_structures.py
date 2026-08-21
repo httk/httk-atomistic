@@ -146,9 +146,7 @@ def _definitely_general(own_point: FracVector, screen: _GeneralPositionScreen) -
     )
 
 
-def asu_structures_from_cif(
-    payload: Mapping[str, Any], *, autocorrect: bool = False, **options: Any
-) -> list[ASUStructure]:
+def asu_structures_from_cif(payload: Mapping[str, Any], *, repair: bool = False, **options: Any) -> list[ASUStructure]:
     r"""Return every structure in a loaded CIF payload, one per structural data block.
 
     Accepts either a whole loaded payload (with ``blocks``) or a single block.
@@ -159,13 +157,13 @@ def asu_structures_from_cif(
     could not be interpreted does not read as a file that contained nothing.
 
     :param payload: The loaded whole-CIF payload or one loaded CIF block.
-    :param autocorrect: Apply documented CIF input repairs, also enabled by a stamped payload.
+    :param repair: Apply documented CIF input repairs, also enabled by a stamped payload.
     :param \*\*options: Options forwarded to :func:`asu_structure_from_cif`.
     :return: One asymmetric-unit structure for each structural data block.
     :raises ValueError: If the payload has no interpretable structural data or a block is invalid.
     """
     options.setdefault("allow_large_cif_uncertainty", bool(payload.get(_ALLOW_LARGE_CIF_UNCERTAINTY, False)))
-    options.setdefault("autocorrect", autocorrect or bool(payload.get("autocorrect", False)))
+    options.setdefault("repair", repair or bool(payload.get("repair", False)))
     blocks = payload.get("blocks")
     if blocks is None:
         return [asu_structure_from_cif(payload, **options)]
@@ -187,7 +185,7 @@ def asu_structure_from_cif(
     limit_denominator: int | None = None,
     trust_declared_symmetry: bool = True,
     allow_large_cif_uncertainty: bool = False,
-    autocorrect: bool = False,
+    repair: bool = False,
 ) -> ASUStructure:
     """Build an exact :class:`~httk.atomistic.ASUStructure` from a neutral CIF mapping.
 
@@ -220,7 +218,7 @@ def asu_structure_from_cif(
     :param limit_denominator: The maximum denominator for snapped free parameters, if supplied.
     :param trust_declared_symmetry: Whether to validate the declared symmetry before matching operations.
     :param allow_large_cif_uncertainty: Whether to allow positional uncertainty at or above one angstrom.
-    :param autocorrect: Apply documented CIF input repairs with warnings.
+    :param repair: Apply documented CIF input repairs with warnings.
     :return: The exact asymmetric-unit structure.
     :raises ValueError: If the block format, symmetry, coordinates, occupancies, or Wyckoff matches are invalid.
     """
@@ -233,7 +231,7 @@ def asu_structure_from_cif(
     except ValueError as error:
         declared = _declared_symmetry(data)
         if (
-            not autocorrect
+            not repair
             or not trust_declared_symmetry
             or declared is None
             or "names no known space-group setting" not in str(error)
@@ -302,7 +300,7 @@ def asu_structure_from_cif(
             declared_wyckoff, declared_multiplicities, index, setting, standard
         )
         orbit_screen: list[tuple[tuple[float, float, float], Any, FracVector]] | None = (
-            [] if declaration is not None or autocorrect else None
+            [] if declaration is not None or repair else None
         )
         ignored_declaration: tuple[str, str] | None = None
         if declaration is not None and declared_position is not None:
@@ -369,10 +367,10 @@ def asu_structure_from_cif(
         else:
             match = None
         if declaration_error is not None:
-            if not autocorrect:
+            if not repair:
                 raise ValueError(
                     f"CIF site {labels[index]!r} has invalid declaration {declaration!r}: {declaration_error}. "
-                    "Remedy: load(..., autocorrect=True) ignores the declaration and searches the coordinates."
+                    "Remedy: load(..., repair=True) ignores the declaration and searches the coordinates."
                 )
             assert declaration is not None  # an error always describes a present declaration
             ignored_declaration = declaration, declaration_error
@@ -402,7 +400,7 @@ def asu_structure_from_cif(
                 orbit_screen=orbit_screen,
                 general_screen=general_screen,
             )
-        if autocorrect and declaration is None and match is not None:
+        if repair and declaration is None and match is not None:
             assert orbit_screen is not None
             if _has_rounded_orbit_overlap(standard, transform, match, cell, tolerance, orbit_screen):
                 corrected_match = _snap(
@@ -470,7 +468,7 @@ def asu_structure_from_cif(
         species_by_name,
         labels,
         block_name=_block_name(data),
-        autocorrect=autocorrect,
+        repair=repair,
         coordinate_precision=data.get("coordinate_precision"),
     )
     used_species = {site.species for site in proof.wyckoff_sites}
@@ -492,7 +490,7 @@ def _deduplicate_wyckoff_sites(
     labels: Sequence[str],
     *,
     block_name: str,
-    autocorrect: bool,
+    repair: bool,
     coordinate_precision: Any,
 ) -> _ValidatedASUProof:
     """Remove redundant identical-species CIF orbits before building the ASU."""
@@ -527,7 +525,7 @@ def _deduplicate_wyckoff_sites(
         ]
         if conflicts:
             key, previous = conflicts[0]
-            if autocorrect and len(overlaps) == len(keys):
+            if repair and len(overlaps) == len(keys):
                 _cif_warning(
                     f"CIF block {block_name!r}, site {labels[index]!r}: dropped co-located disorder site; "
                     "the ASU model cannot represent co-located different-species sites and occupancy "
@@ -536,7 +534,7 @@ def _deduplicate_wyckoff_sites(
                 continue
             raise ValueError(
                 f"{site!r} coincides with {previous[1]!r} at {key} but has a different species. "
-                "Remedy: load(..., autocorrect=True) keeps the first co-located site and drops the later one."
+                "Remedy: load(..., repair=True) keeps the first co-located site and drops the later one."
             )
         if overlaps:
             if len(overlaps) == len(keys):
@@ -867,7 +865,7 @@ def _cif_warning(message: str) -> None:
 
 
 def _block_name(data: Mapping[str, Any]) -> str:
-    """The CIF data-block name retained by the autocorrect reader bridge."""
+    """The CIF data-block name retained by the repair reader bridge."""
     return str(data.get("_httk_atomistic_block_name", "<unnamed>"))
 
 
@@ -970,7 +968,7 @@ def _declared_settings(data: Mapping[str, Any]) -> tuple[list[Mapping[str, Any]]
             raise ValueError(
                 f"this CIF declares the Hall symbol {written!r}, which names no known space-group "
                 f"setting. Pass trust_declared_symmetry=False to ignore the declaration and identify "
-                f"the setting from the symmetry operations alone. Remedy: load(..., autocorrect=True) "
+                f"the setting from the symmetry operations alone. Remedy: load(..., repair=True) "
                 f"ignores an unrecognized declared symmetry and identifies the setting from the operations."
             ) from None
         return [record], f"the Hall symbol {written!r}"
@@ -1094,14 +1092,14 @@ def _parse_type_symbol(symbol: str) -> tuple[str, fractions.Fraction | None]:
 
 
 def _read_cif_for_atomistic(
-    source: Any, *, allow_large_cif_uncertainty: bool = False, autocorrect: bool = False
+    source: Any, *, allow_large_cif_uncertainty: bool = False, repair: bool = False
 ) -> Mapping[str, Any]:
     """Read CIF and carry the atomistic override to its adapter."""
     from httk.atomistic.io.cif import read_cif
     from httk.atomistic.io.cif.cif_parser import cifblock_to_asu
 
-    if autocorrect:
-        raw_blocks, header = read_cif(source, allow_cif2=False, autocorrect=True, structural_only=True)
+    if repair:
+        raw_blocks, header = read_cif(source, allow_cif2=False, repair=True, structural_only=True)
     else:
         raw_blocks, header = read_cif(source, allow_cif2=False, structural_only=True)
     blocks = []
@@ -1121,12 +1119,12 @@ def _read_cif_for_atomistic(
                     "position_tokens": _position_tokens(raw_block),
                     "_httk_atomistic_wyckoff_labels": raw_block.get("atom_site_wyckoff_label"),
                     "_httk_atomistic_symmetry_multiplicities": raw_block.get("atom_site_symmetry_multiplicity"),
-                    **({"_httk_atomistic_block_name": name} if autocorrect else {}),
+                    **({"_httk_atomistic_block_name": name} if repair else {}),
                 }
             )
     payload: dict[str, Any] = {"format": "cif", "blocks": blocks, "unparsed": unparsed, "header": header}
-    if autocorrect:
-        payload["autocorrect"] = True
+    if repair:
+        payload["repair"] = True
     if not allow_large_cif_uncertainty:
         return payload
     return {**payload, _ALLOW_LARGE_CIF_UNCERTAINTY: True}

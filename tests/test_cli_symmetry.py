@@ -69,6 +69,49 @@ def test_info_on_unitcell_has_no_declared_symmetry(poscar: Path, capsys) -> None
     assert "none declared" in out
 
 
+def test_info_repairs_cif_and_logs_warning(capsys, caplog) -> None:
+    fixture = Path(__file__).parent / "fixtures" / "malformed_auxiliary_loop.cif"
+    with caplog.at_level("WARNING", logger="httk"):
+        assert command(["info", str(fixture)], CLIContext("httk", Path.cwd())) == 0
+
+    out = capsys.readouterr().out
+    assert "input: ASUStructure" in out
+    assert "sites: 1" in out
+    assert any(
+        record.name.startswith("httk")
+        and record.levelno >= 30
+        and "dropped malformed auxiliary loop" in record.getMessage()
+        for record in caplog.records
+    )
+
+
+def test_info_falls_back_for_poscar_reader(tmp_path: Path, capsys) -> None:
+    path = tmp_path / "POSCAR"
+    path.write_text(
+        "NaCl\n1.0\n5 0 0\n0 5 0\n0 0 5\nNa Cl\n1 1\nDirect\n0 0 0\n0.5 0.5 0.5\n",
+        encoding="utf-8",
+    )
+
+    assert command(["info", str(path)], CLIContext("httk", tmp_path)) == 0
+    assert "input: UnitcellStructure" in capsys.readouterr().out
+
+
+def test_info_does_not_retry_internal_repair_type_error(monkeypatch, capsys) -> None:
+    from httk.atomistic import cli
+
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    def failing_load(filename: str, **options: object) -> object:
+        calls.append((filename, options))
+        raise TypeError("boom repair failure")
+
+    monkeypatch.setattr(cli, "load", failing_load)
+
+    assert command(["info", "broken.cif"], CLIContext("httk", Path.cwd())) == 2
+    assert calls == [("broken.cif", {"repair": True})]
+    assert "boom repair failure" in capsys.readouterr().err
+
+
 def test_info_recognize(poscar: Path, capsys) -> None:
     pytest.importorskip("spglib")
     assert _run(["info", str(poscar), "--recognize"]) == 0
@@ -87,7 +130,7 @@ def test_canonicalize_default(cif: Path, capsys) -> None:
 
 def test_preserve_chirality_flag_threads_to_both_branches(cif: Path, monkeypatch, capsys) -> None:
     pytest.importorskip("spglib")  # the default (non-exact) branch recognizes with spglib
-    import httk.atomistic.cli as cli
+    from httk.atomistic import cli
 
     calls: dict[str, bool] = {}
     real_canonicalize, real_canonical_asu = cli.canonicalize, cli.canonical_asu
@@ -174,3 +217,28 @@ def test_end_to_end_registration_smoke(cif: Path) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "declared space group: IT 225" in result.stdout
+
+
+def test_module_reports_repair_warning_to_stderr() -> None:
+    fixture = Path(__file__).parent / "fixtures" / "malformed_auxiliary_loop.cif"
+    argv = [sys.executable, "-m", "httk.atomistic.cli", "info", str(fixture)]
+    result = subprocess.run(
+        argv,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "dropped malformed auxiliary loop" in result.stderr
+    assert "input: ASUStructure" in result.stdout
+
+    merged = subprocess.run(
+        argv,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    assert merged.returncode == 0, merged.stdout
+    assert merged.stdout.index("dropped malformed auxiliary loop") < merged.stdout.index("input: ASUStructure")

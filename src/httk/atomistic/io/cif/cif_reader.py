@@ -149,7 +149,7 @@ def _read_cif_loop(
     allow_cif2: bool = False,
     *,
     block_name: str,
-    autocorrect: bool = False,
+    repair: bool = False,
     structural_only: bool = False,
 ) -> dict[str, list[Any]] | None:
     noteol = False
@@ -171,7 +171,7 @@ def _read_cif_loop(
     if structural_only and header and _is_repairable_loop(header) and not allow_cif2:
         count = _skip_cif_loop(f, pragmatic)
         counts = {name: count // len(header) + (index < count % len(header)) for index, name in enumerate(header)}
-        _validate_loop_counts(header, counts, block_name, autocorrect)
+        _validate_loop_counts(header, counts, block_name, repair)
         return None
 
     # _read_cif_data_value recognizes and rewinds the next loop/data/tag token, so
@@ -186,18 +186,18 @@ def _read_cif_loop(
             continue
         break
     counts = {name: len(values) for name, values in loop_data.items()}
-    if not _validate_loop_counts(header, counts, block_name, autocorrect):
+    if not _validate_loop_counts(header, counts, block_name, repair):
         return None
     return loop_data
 
 
-def _validate_loop_counts(header: list[str], counts: dict[str, int], block_name: str, autocorrect: bool) -> bool:
-    """Apply the common strict/autocorrect policy to CIF loop column counts."""
+def _validate_loop_counts(header: list[str], counts: dict[str, int], block_name: str, repair: bool) -> bool:
+    """Apply the common strict/repair policy to CIF loop column counts."""
     if len(set(counts.values())) > 1:
         rendered_counts = ", ".join(f"{name}={count}" for name, count in counts.items())
         message = f"CIF loop with {len(header)} columns has mismatched value counts: {rendered_counts}"
         if _is_repairable_loop(header):
-            if autocorrect:
+            if repair:
                 logger.warning(
                     "CIF block %r: dropped malformed auxiliary loop starting with _%s",
                     block_name,
@@ -205,7 +205,7 @@ def _validate_loop_counts(header: list[str], counts: dict[str, int], block_name:
                     extra={'context': 'cif'},
                 )
                 return False
-            message += " (an auxiliary loop like this can be dropped by loading with autocorrect=True, which applies documented repairs with warnings)"
+            message += " (an auxiliary loop like this can be dropped by loading with repair=True, which applies documented repairs with warnings)"
         raise ValueError(message)
     return True
 
@@ -424,7 +424,7 @@ def _read_cif_data_block(
     allow_cif2: bool = False,
     *,
     block_name: str,
-    autocorrect: bool = False,
+    repair: bool = False,
     structural_only: bool = False,
 ) -> dict[str, Any]:
     data_items: dict[str, Any] = {}
@@ -443,7 +443,7 @@ def _read_cif_data_block(
                 pragmatic,
                 allow_cif2,
                 block_name=block_name,
-                autocorrect=autocorrect,
+                repair=repair,
                 structural_only=structural_only,
             )
             if loopdata is None:
@@ -476,7 +476,7 @@ def _read_cif(
     f: _RewindableIterator,
     pragmatic: bool,
     allow_cif2: bool,
-    autocorrect: bool,
+    repair: bool,
     structural_only: bool,
 ) -> tuple[list[tuple[str, dict[str, Any]]], str]:
     header = ""
@@ -502,7 +502,7 @@ def _read_cif(
                         pragmatic,
                         allow_cif2,
                         block_name=data_block_name,
-                        autocorrect=autocorrect,
+                        repair=repair,
                         structural_only=structural_only,
                     ),
                 )
@@ -515,7 +515,7 @@ def read_cif(
     pragmatic: bool = True,
     allow_cif2: bool = False,
     *,
-    autocorrect: bool = False,
+    repair: bool = False,
     structural_only: bool = False,
 ) -> tuple[list[tuple[str, dict[str, Any]]], str]:
     """Read CIF text as ``(data_blocks, header)``.
@@ -526,12 +526,12 @@ def read_cif(
     :param source: A filename, open text stream, or iterable of CIF lines.
     :param pragmatic: Accept selected common deviations from strict CIF tokenization.
     :param allow_cif2: Parse CIF2 list values in addition to CIF1 data.
-    :param autocorrect: Drop malformed auxiliary loops and warn about each repair.
+    :param repair: Drop malformed auxiliary loops and warn about each repair.
     :param structural_only: Retain only tags consumed by httk's structural adapters and skip auxiliary CIF1 loops.
     :return: The data blocks and the leading comment header.
     :raises ValueError: If a loop contains mismatched column value counts.
     """
     if isinstance(source, (str, os.PathLike)):
         with TextstreamFileView(Path(source)) as stream:
-            return _read_cif(_RewindableIterator(stream), pragmatic, allow_cif2, autocorrect, structural_only)
-    return _read_cif(_RewindableIterator(source), pragmatic, allow_cif2, autocorrect, structural_only)
+            return _read_cif(_RewindableIterator(stream), pragmatic, allow_cif2, repair, structural_only)
+    return _read_cif(_RewindableIterator(source), pragmatic, allow_cif2, repair, structural_only)

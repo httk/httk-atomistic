@@ -5,6 +5,8 @@ The subcommands are thin wrappers over the public symmetry API
 :func:`~httk.atomistic.rerepresent`, :func:`~httk.atomistic.list_representations`,
 :func:`~httk.atomistic.recognize_asu`): they load a file, run one operation, print a
 human-readable report on stdout, and optionally save the resulting structure.
+Inputs are loaded with ``repair=True`` where the format supports it; repair warnings
+are reported on stderr through the ``httk`` logging channel before the report.
 """
 
 import argparse
@@ -12,6 +14,7 @@ import sys
 from collections import Counter
 from collections.abc import Callable, Sequence
 from fractions import Fraction
+from typing import Any
 
 from httk.core import load, save
 from httk.core.cli import CLIContext
@@ -33,6 +36,17 @@ from httk.atomistic.symmetry.lift import canonicalize
 _ERRORS = (OSError, ValueError, KeyError, TypeError, ImportError)
 
 Handler = Callable[[argparse.Namespace, CLIContext, str], int]
+
+
+def _load(filename: str) -> Any:
+    """Load a structure file, applying documented input repairs where the format supports them."""
+
+    try:
+        return load(filename, repair=True)
+    except TypeError as error:
+        if "unexpected keyword argument 'repair'" not in str(error):
+            raise
+        return load(filename)
 
 
 def _num(value: object) -> str:
@@ -103,7 +117,7 @@ def _save(asu: ASUStructure, destination: str) -> None:
 
 
 def _handle_info(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
-    loaded = load(arguments.file)
+    loaded = _load(arguments.file)
     view = UnitcellStructureView(loaded)
     print(f"input: {type(loaded).__name__}")
     if isinstance(loaded, ASUStructure):
@@ -126,7 +140,7 @@ def _handle_info(arguments: argparse.Namespace, context: CLIContext, prog: str) 
 
 
 def _handle_canonicalize(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
-    loaded = load(arguments.file)
+    loaded = _load(arguments.file)
     if arguments.exact:
         asu = _require_asu(loaded, "canonicalize --exact")
         result = canonicalize(asu, tolerance=arguments.tolerance, preserve_chirality=arguments.preserve_chirality).asu
@@ -143,7 +157,7 @@ def _handle_canonicalize(arguments: argparse.Namespace, context: CLIContext, pro
 
 
 def _handle_rerepresent(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
-    loaded = load(arguments.file)
+    loaded = _load(arguments.file)
     asu = _require_asu(loaded, "rerepresent")
     result = rerepresent(asu, arguments.target, tolerance=arguments.tolerance)
     print(f"re-represented in IT {arguments.target}:")
@@ -154,7 +168,7 @@ def _handle_rerepresent(arguments: argparse.Namespace, context: CLIContext, prog
 
 
 def _handle_representations(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
-    loaded = load(arguments.file)
+    loaded = _load(arguments.file)
     asu = _require_asu(loaded, "representations")
     representations = list_representations(asu, arguments.target, tolerance=arguments.tolerance)
     print(f"representations in IT {arguments.target}: {len(representations)}")

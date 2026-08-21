@@ -39,10 +39,10 @@ Two conveniences smooth over real-world files:
   block cannot be interpreted, so `load` omits it from `blocks` and records the
   reason in `unparsed` (the underlying parser raises a `ValueError` that the
   loader catches per block).
-- **Autocorrect.** Passing `autocorrect=True` to `load` (or to `read_cif` /
+- **Repair.** Passing `repair=True` to `load` (or to `read_cif` /
   `read_cif_asus`) drops a malformed *auxiliary* loop — one whose column counts do
   not line up and whose tags are not a protected structural family — warning about
-  each repair instead of refusing the file, and stamps `autocorrect=True` on the
+  each repair instead of refusing the file, and stamps `repair=True` on the
   payload. Without it, such a loop is a hard `ValueError`.
 
 ## Lower-level API
