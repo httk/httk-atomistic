@@ -116,11 +116,13 @@ def canonical_asu(
 
     Determinism: the recognition stage is floating-point/spglib-based, so its outcome is reproducible
     on one platform but may differ across floating-point architectures or spglib builds.  The exact
-    stage is platform-independent and erases spglib's representational freedom, so cross-platform
-    variation is confined to *which* symmetry is accepted near a tolerance boundary, never to *how* an
-    accepted symmetry is represented.  Free-parameter values are least-squares fits of the measured
-    coordinates, so two noisy measurements of the same crystal reach the same Wyckoff choices but
-    slightly different rational parameter values.
+    stage is platform-independent and erases spglib's representational freedom for ordinary rational
+    crystallographic Gram matrices, so cross-platform variation is confined to *which* symmetry is
+    accepted near a tolerance boundary, never to *how* an accepted symmetry is represented.  An exact
+    non-rational Gram whose canonical Cartesian factor requires nested radicals outside the supported
+    surd field remains idempotent but can retain its input's global Cartesian rotation.  Free-parameter
+    values are least-squares fits of the measured coordinates, so two noisy measurements of the same
+    crystal reach the same Wyckoff choices but slightly different rational parameter values.
 
     :param structure: The measured structure, ``UnitcellStructure`` or ``ASUStructure``.
     :param tolerance: The base Cartesian tolerance, or ``None`` to derive it from the structure's

@@ -55,7 +55,7 @@ from fractions import Fraction
 from functools import lru_cache
 from typing import Any
 
-from httk.core import FracVector, SurdVector
+from httk.core import FracVector, SurdScalar, SurdVector
 
 from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
@@ -1068,13 +1068,18 @@ def _canonical_sites(structure: ASUStructure) -> ASUStructure:
         if letter != site.wyckoff or tuple(parameters.to_fractions()) != tuple(site.free_params.to_fractions()):
             changed = True
         sites.append(WyckoffSite(letter, parameters, site.species))
+    ordered = sorted(
+        sites,
+        key=lambda site: (site.species, site.wyckoff, tuple(site.free_params.to_fractions())),
+    )
+    changed = changed or ordered != sites
     if not changed:
         return structure
     try:
         return ASUStructure(
             structure.cell,
             structure.spacegroup,
-            sites,
+            ordered,
             structure.species,
             transform=SettingTransform.identity(),
             coordinate_precision=structure.coordinate_precision,
@@ -1671,6 +1676,118 @@ def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
     return best
 
 
+@lru_cache(maxsize=50_000)
+def _metric_automorphism_operations(
+    gram: tuple[tuple[Fraction, ...], ...],
+) -> tuple[AffineOperation, ...]:
+    """Return every integral automorphism of one exact rational three-dimensional Gram matrix.
+
+    A Niggli-reduced Gram can still sit on a boundary with finitely many equally reduced bases.
+    For a row basis change ``B' = U B`` those are precisely the integral ``U`` satisfying
+    ``U G U.T = G``.  Each row ``u`` has fixed squared length ``u G u.T = G_ii`` and Cauchy in
+    the ``G`` metric gives ``u_k**2 <= G_ii * (G^-1)_kk``.  Those exact bounds make the search
+    finite without a heuristic radius.  The affine point map corresponding to ``U`` is
+    ``U.T().inv()``, because :func:`_apply_normalizer_operation` constructs
+    ``B' = M.T().inv() B`` for point matrix ``M``.
+
+    This is deliberately a metric stabilizer, not a search over adjacent Niggli domains: it closes
+    the finite ambiguity of a fixed reduced Gram (cubic has 48 signed permutations) while keeping
+    generic P1 input finite and exact.
+    """
+    # Rational LDL^T decomposition.  Enumerating the ellipsoid from the last coordinate backwards
+    # lets each assigned coordinate tighten the remaining radius.  The final coordinate is solved as
+    # an exact rational square, so an elongated cell costs linearly rather than as the volume of its
+    # axis-aligned bounding box.
+    lower = [[Fraction(int(row == column)) for column in range(3)] for row in range(3)]
+    diagonal = [Fraction(0), Fraction(0), Fraction(0)]
+    for column in range(3):
+        diagonal[column] = gram[column][column] - sum(
+            (lower[column][prior] * lower[column][prior] * diagonal[prior] for prior in range(column)),
+            Fraction(0),
+        )
+        for row in range(column + 1, 3):
+            lower[row][column] = (
+                gram[row][column]
+                - sum(
+                    (lower[row][prior] * lower[column][prior] * diagonal[prior] for prior in range(column)),
+                    Fraction(0),
+                )
+            ) / diagonal[column]
+
+    def exact_square_roots(value: Fraction) -> tuple[Fraction, ...]:
+        if value < 0:
+            return ()
+        numerator = math.isqrt(value.numerator)
+        denominator = math.isqrt(value.denominator)
+        if numerator * numerator != value.numerator or denominator * denominator != value.denominator:
+            return ()
+        root = Fraction(numerator, denominator)
+        return (root,) if root == 0 else (-root, root)
+
+    def candidates(target: Fraction) -> tuple[tuple[int, ...], ...]:
+        vector = [0, 0, 0]
+        found: list[tuple[int, ...]] = []
+
+        def search(index: int, used: Fraction) -> None:
+            remaining = target - used
+            if remaining < 0:
+                return
+            offset = sum((lower[row][index] * vector[row] for row in range(index + 1, 3)), Fraction(0))
+            bound = remaining / diagonal[index]
+            if index == 0:
+                for root in exact_square_roots(bound):
+                    exact_coordinate = root - offset
+                    if exact_coordinate.denominator == 1:
+                        vector[0] = exact_coordinate.numerator
+                        found.append(tuple(vector))
+                return
+
+            radius = math.isqrt(bound.numerator // bound.denominator)
+            # ``sqrt(bound) < radius + 1``.  Widening by two around ``-offset`` gives a compact
+            # conservative integer interval; the exact inequality below removes its fringe.
+            centre_floor = (-offset).numerator // (-offset).denominator
+            for integer_coordinate in range(centre_floor - radius - 2, centre_floor + radius + 3):
+                term = diagonal[index] * (Fraction(integer_coordinate) + offset) ** 2
+                if term > remaining:
+                    continue
+                vector[index] = integer_coordinate
+                search(index - 1, used + term)
+
+        search(2, Fraction(0))
+        return tuple(found)
+
+    row_candidates = tuple(candidates(gram[index][index]) for index in range(3))
+    operations: list[AffineOperation] = []
+    for first in row_candidates[0]:
+        for second in row_candidates[1]:
+            if _bilinear(gram, first, second) != gram[0][1]:
+                continue
+            for third in row_candidates[2]:
+                if _bilinear(gram, first, third) != gram[0][2] or _bilinear(gram, second, third) != gram[1][2]:
+                    continue
+                rows = (first, second, third)
+                if abs(_integer_determinant(rows)) != 1:
+                    continue
+                operations.append(AffineOperation(FracVector(rows).T().inv(), (0, 0, 0)))
+    return tuple(operations)
+
+
+def _p1_metric_automorphism_operations(structure: ASUStructure) -> tuple[AffineOperation, ...]:
+    """Return exact finite Gram stabilizers for a P1 cell, or none for a non-rational metric."""
+    metric = structure.cell.metric()
+    if not metric.is_rational:
+        return ()
+    gram = tuple(tuple(value for value in row) for row in metric.coefficient(1).to_fractions())
+    return _metric_automorphism_operations(gram)
+
+
+def _normalizer_metric_key(structure: ASUStructure, operation: AffineOperation) -> tuple[Any, ...]:
+    """Return the exact Gram key after one joint affine re-expression, without rematching sites."""
+    basis_change = SurdVector(operation.matrix.T().inv())
+    metric = basis_change * structure.cell.metric() * basis_change.T()
+    return tuple(metric._element((row, column)) for row in range(3) for column in range(3))
+
+
 def _demote_sites(structure: ASUStructure) -> ASUStructure:
     """Re-label any site whose expanded orbit degenerates onto a more-special Wyckoff position.
 
@@ -1711,34 +1828,33 @@ def _demote_sites(structure: ASUStructure) -> ASUStructure:
 
 
 def _normal_form(structure: ASUStructure) -> ASUStructure:
-    """Return a deterministic canonical representative of one state within its own space group.
+    """Return the compact normal-form state used while traversing upward lifts.
 
-    Sites mislabeled onto a special coordinate are demoted first, then the normalizer quotients are
-    collapsed: the candidate images are every affine-normalizer coset crossed with every discrete
-    Euclidean-normalizer translation (both including the identity), each followed by the
-    continuous-translation quotient.  Every accepted image is the same Cartesian crystal re-expressed
-    in the same group -- ``_apply_normalizer_operation`` re-identifies the Wyckoff sites and rejects
-    anything that is not -- so collapsing them to the least sorted-site key cannot lose a reachable
-    terminal and yields a description-invariant representative.  The least key wins in a deterministic
-    order (tabulated coset order, then sorted translations); each site is finally stored at its
-    canonical orbit representative.  Basis-choice invariance for the same lattice comes separately,
-    from the Niggli reduction of triclinic (SG 1/2) entries in :func:`highest_symmetry`, not from
-    this per-group normal form.
+    Search states retain the established, setting-compatible affine-coset quotient: it removes
+    origin and ordinary normalizer duplicates without changing a cell into an alternative valid
+    setting that could strand a later tabulated lift.  The broad coset-times-group metric quotient
+    is intentionally deferred to :func:`_terminal_normal_form`, where no further lift needs the
+    current setting.  P1 has only the identity space-group operation, so its finite exact Gram
+    stabilizer is safe and closes boundary-equivalent Niggli bases already at entry.
     """
     structure = _demote_sites(structure)
     identity_matrix = FracVector.eye((3, 3))
     operations = [AffineOperation.identity()]
-    try:
-        record = data.affine_normalizer_coset_record(structure.spacegroup.hall_entry)
-    except KeyError:
-        record = None
-    if record is not None:
-        system = structure.spacegroup.crystal_system
-        operations.extend(
-            AffineOperation.from_record(coset)
-            for coset in record.get("affine_normalizer_cosets", ())
-            if system in coset["compatible_systems"]
-        )
+    if structure.spacegroup.it_number == 1:
+        operations.extend(_p1_metric_automorphism_operations(structure))
+    else:
+        try:
+            record = data.affine_normalizer_coset_record(structure.spacegroup.hall_entry)
+        except KeyError:
+            record = None
+        if record is not None:
+            system = structure.spacegroup.crystal_system
+            operations.extend(
+                AffineOperation.from_record(coset)
+                for coset in record.get("affine_normalizer_cosets", ())
+                if system in coset["compatible_systems"]
+            )
+    operations = list(dict.fromkeys(operations))
     translations = _discrete_normalizer_translations(structure.spacegroup)
     best: ASUStructure | None = None
     best_key: tuple[Any, ...] | None = None
@@ -1753,13 +1869,8 @@ def _normal_form(structure: ASUStructure) -> ASUStructure:
                 shifted = image
             if shifted is None:
                 continue
-            # A coset or discrete shift can change which origin is canonical, so re-run the
-            # continuous-translation quotient on each candidate.
             reduced = _translation_normal_form(shifted)
             if reduced.cell.basis.det().sign() < 0:
-                # A det=-1 coset yields a left-handed basis that the final canonical orientation would
-                # flip; normalize handedness (inversion is a same-crystal basis change) before keying,
-                # so the selected minimum matches the right-handed representative that is returned.
                 flipped = _apply_normalizer_operation(
                     reduced, AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
                 )
@@ -1768,6 +1879,125 @@ def _normal_form(structure: ASUStructure) -> ASUStructure:
             key = _site_key(reduced)
             if best_key is None or key < best_key:
                 best, best_key = reduced, key
+    return _canonical_sites(best) if best is not None else _canonical_sites(structure)
+
+
+def _terminal_normal_form(structure: ASUStructure) -> ASUStructure:
+    """Return a deterministic canonical representative of one state within its own space group.
+
+    Sites mislabeled onto a special coordinate are demoted first, then the normalizer quotients are
+    collapsed: the candidate images are every tabulated affine-normalizer coset expanded by every
+    member of the space group, crossed with every discrete Euclidean-normalizer translation (all
+    including the identity), each followed by the continuous-translation quotient.  The data records
+    are representatives modulo the space group, but applying one member jointly transforms the basis
+    and the coordinates, so applying only the representative is not equivalent to applying its whole
+    coset here.  Nor may the fixed-axes ``compatible_systems`` annotation prune this enumeration:
+    a valid normalizer can re-choose the axes of an equal-metric lattice (notably at Niggli boundary
+    metrics) even when it does not preserve the generic metric written in those axes.
+
+    Every accepted image is the same Cartesian crystal re-expressed in the same group --
+    ``_apply_normalizer_operation`` re-identifies the Wyckoff sites and rejects anything that is not
+    -- so collapsing them to the least exact joint metric/site key cannot lose a reachable terminal
+    and yields a description-invariant representative.  The least key wins in deterministic operation
+    and translation order; each site is finally stored at its canonical orbit representative.
+    Basis-choice invariance for a generic same lattice comes separately from the Niggli reduction of
+    triclinic (SG 1/2) entries in :func:`highest_symmetry`; this finite enumeration additionally
+    resolves its boundary-equivalent reduced bases.
+    """
+    structure = _demote_sites(structure)
+    identity_matrix = FracVector.eye((3, 3))
+    representatives = [AffineOperation.identity()]
+    if structure.spacegroup.it_number == 1:
+        # A P1 Niggli entry has no point-group operations to supply the finite stabilizer of a
+        # boundary Gram.  Enumerate that exact GL(3, Z) stabilizer directly instead of relying on
+        # the bounded, system-labelled affine table.
+        representatives.extend(_p1_metric_automorphism_operations(structure))
+    else:
+        try:
+            record = data.affine_normalizer_coset_record(structure.spacegroup.hall_entry)
+        except KeyError:
+            record = None
+        if record is not None:
+            representatives.extend(
+                AffineOperation.from_record(coset) for coset in record.get("affine_normalizer_cosets", ())
+            )
+    representatives = list(dict.fromkeys(representatives))
+    # Metric is the primary normal-form key and neither a discrete nor a continuous translation
+    # changes it.  Select its least exact tier before doing expensive Wyckoff rematching.  Every
+    # candidate is a tabulated normalizer (or a checked P1 Gram automorphism), so an operation in a
+    # higher metric tier cannot beat a successful member of this one.
+    by_metric: dict[tuple[Any, ...], list[tuple[AffineOperation, AffineOperation]]] = {}
+    for representative in representatives:
+        for group_operation in structure.spacegroup.symmetry_operations:
+            operation = representative * group_operation
+            metric_key = _normalizer_metric_key(structure, operation)
+            by_metric.setdefault(metric_key, []).append((representative, group_operation))
+    translations = _discrete_normalizer_translations(structure.spacegroup)
+    best: ASUStructure | None = None
+    best_key: tuple[Any, ...] | None = None
+    for metric_key in sorted(by_metric):
+        grouped: dict[AffineOperation, list[AffineOperation]] = {}
+        for representative, group_operation in by_metric[metric_key]:
+            grouped.setdefault(representative, []).append(group_operation)
+        for representative, group_operations in grouped.items():
+            image = _apply_normalizer_operation(structure, representative)
+            if image is None:
+                continue
+            for translation in translations:
+                if any(translation):
+                    shifted = _apply_normalizer_operation(
+                        image, AffineOperation(identity_matrix, FracVector(translation))
+                    )
+                else:
+                    shifted = image
+                if shifted is None:
+                    continue
+                # A coset or discrete shift can change which origin is canonical, so re-run the
+                # continuous-translation quotient on each candidate.
+                reduced = _translation_normal_form(shifted)
+                # The table is quotient-ed by G.  Because C normalizes G, the left-coset elements
+                # g*C cover the same quotient class as C*g.  Applying g after C leaves every complete
+                # transformed Wyckoff orbit unchanged as a set, but selects the jointly transformed
+                # basis g.T^-1 C.T^-1 B.  Factor that basis-only step here so Wyckoff rematching and
+                # the continuous origin gauge run once per C/translation rather than once per g*C.
+                for group_operation in group_operations:
+                    basis = SurdVector(group_operation.matrix.T().inv()) * reduced.cell.basis
+                    try:
+                        candidate = ASUStructure(
+                            Cell(
+                                basis,
+                                precision=reduced.cell.precision,
+                                periodicity=reduced.cell.periodicity,
+                            ),
+                            reduced.spacegroup,
+                            reduced.wyckoff_sites,
+                            reduced.species,
+                            transform=SettingTransform.identity(),
+                            coordinate_precision=reduced.coordinate_precision,
+                            charge=reduced.charge,
+                        )
+                    except ValueError:
+                        continue
+                    if candidate.cell.basis.det().sign() < 0:
+                        # A det=-1 coset yields a left-handed basis that the final canonical orientation
+                        # would flip; normalize handedness before keying, so the selected minimum matches
+                        # the right-handed representative that is returned.
+                        flipped = _apply_normalizer_operation(
+                            candidate, AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
+                        )
+                        if flipped is not None:
+                            candidate = _translation_normal_form(flipped)
+                    # Prefer a right-handed representative when the orbit supplies one.  Orientation
+                    # is canonicalized after this quotient, so raw Cartesian basis components must
+                    # not participate in the key: they would make the result depend on a global
+                    # rotation of the input.
+                    handedness_key = 0 if candidate.cell.basis.det().sign() > 0 else 1
+                    identity_key = 0 if representative.is_identity() and group_operation.is_identity() else 1
+                    key = (metric_key, _site_key(candidate), handedness_key, identity_key)
+                    if best_key is None or key < best_key:
+                        best, best_key = candidate, key
+        if best is not None:
+            break
     # Store each site at its canonical orbit representative so the returned free params, not just the
     # comparison key, are independent of which orbit point the input happened to carry.
     return _canonical_sites(best) if best is not None else _canonical_sites(structure)
@@ -2324,6 +2554,38 @@ def _terminal_result(
     return LiftResult(structure, structure.spacegroup, path, shift, residual)
 
 
+def _exact_triangular_basis(metric: SurdVector, *, left_handed: bool) -> SurdVector | None:
+    """Return an exact canonical Cartesian basis for a rational Gram matrix.
+
+    This is the three-dimensional Cholesky construction written in the surd field.  Every square
+    root taken is of a positive rational Schur complement, so the result is exact even when no
+    rational-angle :class:`CellParams` round-trip can reproduce the Gram.  A fixed Cartesian
+    reflection gives the corresponding left-handed orientation when required.
+    """
+    if not metric.is_rational:
+        return None
+    gram = metric.coefficient(1).to_fractions()
+    first = SurdScalar.sqrt_of(gram[0][0])
+    second_x = SurdScalar(gram[1][0]) / first
+    second_square = SurdScalar(gram[1][1]) - second_x * second_x
+    if not second_square.is_rational:
+        return None
+    second = SurdScalar.sqrt_of(second_square._rational_fraction())
+    third_x = SurdScalar(gram[2][0]) / first
+    third_y = (SurdScalar(gram[2][1]) - third_x * second_x) / second
+    third_square = SurdScalar(gram[2][2]) - third_x * third_x - third_y * third_y
+    if not third_square.is_rational:
+        return None
+    third = SurdScalar.sqrt_of(third_square._rational_fraction())
+    basis = SurdVector._from_scalar_grid(
+        [[first, SurdScalar(0), SurdScalar(0)], [second_x, second, SurdScalar(0)], [third_x, third_y, third]],
+        (3, 3),
+    )
+    if left_handed:
+        basis = basis * SurdVector(((1, 0, 0), (0, 1, 0), (0, 0, -1)))
+    return basis
+
+
 def _canonical_orientation(structure: ASUStructure) -> ASUStructure:
     """Put the cell in the standard crystallographic orientation for its exact Gram matrix.
 
@@ -2333,27 +2595,41 @@ def _canonical_orientation(structure: ASUStructure) -> ASUStructure:
     alone.  A det<0 (left-handed) basis -- which a det=-1 normalizer coset can leave behind -- is
     first re-expressed through inversion so the standard-orientation rebuild does not silently
     produce the enantiomorph.  In an enantiomorphic group inversion conjugates to the other group and
-    is rejected; the exact left-handed cell is then kept as-is (chirality-preserving, only cosmetic
-    orientation canonicity is lost).  The rebuild is otherwise accepted only when it reproduces the
-    Gram matrix exactly (the stored angles are approximate fractions, so it need not).
+    is rejected; the rebuild then uses a fixed left-handed Cartesian orientation instead.  That cell
+    is related to any other left-handed realization of the same Gram by a proper global rotation, so
+    physical chirality is preserved while raw Cartesian-frame dependence is removed.  The rebuild is
+    accepted only when it reproduces the Gram matrix exactly (the stored angles are approximate
+    fractions, so it need not).  A non-rational Gram whose canonical triangular factor would require
+    nested radicals outside :class:`SurdVector`'s multiquadratic field cannot be reoriented exactly;
+    that uncommon fallback is idempotent but retains the input's global Cartesian rotation.
     """
+    left_handed = False
     if structure.cell.basis.det().sign() < 0:
         # Inversion as a basis change: basis -> -B (right-handed), coords -> -x, Cartesian identical.
         inverted = _apply_normalizer_operation(
             structure, AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
         )
         if inverted is None:
-            # Enantiomorphic group: cannot invert without changing the crystal.  Keep the exact
-            # left-handed cell rather than letting the CellParams rebuild produce the enantiomorph.
-            return structure
-        structure = inverted
+            # Enantiomorphic group: inversion would change the crystal.  Keep the handedness and use
+            # a fixed left-handed Cartesian orientation below.
+            left_handed = True
+        else:
+            structure = inverted
     cell = structure.cell
-    lengths = cell.lengths
-    if any(not length.is_rational for length in lengths):
-        return structure
-    params = [length._rational_fraction() for length in lengths] + list(cell.angles)
+    oriented_basis = _exact_triangular_basis(cell.metric(), left_handed=left_handed)
+    if oriented_basis is None:
+        lengths = cell.lengths
+        if any(not length.is_rational for length in lengths):
+            return structure
+        params = [length._rational_fraction() for length in lengths] + list(cell.angles)
+        try:
+            oriented_basis = CellParams(params).basis
+            if left_handed:
+                oriented_basis = oriented_basis * SurdVector(((1, 0, 0), (0, 1, 0), (0, 0, -1)))
+        except ValueError:
+            return structure
     try:
-        oriented = Cell(CellParams(params).basis, precision=cell.precision, periodicity=cell.periodicity)
+        oriented = Cell(oriented_basis, precision=cell.precision, periodicity=cell.periodicity)
     except ValueError:
         return structure
     if oriented.basis == cell.basis or oriented.metric() != cell.metric():
@@ -2604,6 +2880,25 @@ def _canonical_entry(structure: ASUStructure) -> ASUStructure:
     return _normal_form(current)
 
 
+def _terminal_entry(structure: ASUStructure) -> ASUStructure:
+    """Return the no-BFS entry reduced by the terminal-only joint normal form.
+
+    This shares standardization, exact supercell collapse, and triclinic Niggli reduction with
+    :func:`_canonical_entry`, but deliberately does not pass through the search-state normal form.
+    A compatible-system state quotient can select a setting that is useful while lifting yet hides
+    an alternative terminal metric minimum; direct no-BFS canonicalization must compare the full
+    terminal orbit from the pre-state-normal-form entry.
+    """
+    current = _standard_input(structure)
+    if current.spacegroup.it_number == 1:
+        current = _primitive_reduced_entry(current)
+    else:
+        current = _isomorphic_reduced_entry(current)
+    if current.spacegroup.it_number in (1, 2):
+        current = _niggli_reduced_entry(current)
+    return _terminal_normal_form(current)
+
+
 def _canonical_without_bfs(structure: ASUStructure, *, preserve_chirality: bool = False) -> ASUStructure:
     """Return the canonical representative of ``structure`` within its own group -- no upward search.
 
@@ -2617,14 +2912,14 @@ def _canonical_without_bfs(structure: ASUStructure, *, preserve_chirality: bool 
     lower-numbered partner, re-taking the partner group's normal form before the orientation step; a
     moment-carrying structure is left in its own group.  ``preserve_chirality=True`` keeps the group.
     """
-    entry = _canonical_entry(structure)
+    entry = _terminal_entry(structure)
     # The normal-form pipeline strips moments before the flip would see them, so gate on the ORIGINAL
     # input's moments -- a magnetic structure is left in its own group (see :func:`_enantiomorph`).
     magnetic = any(site.moment is not None for site in structure.wyckoff_sites)
     if not preserve_chirality and not magnetic:
         flipped = _enantiomorph(entry)
         if flipped is not None:
-            entry = _normal_form(flipped)
+            entry = _terminal_normal_form(flipped)
     return _canonical_orientation(entry)
 
 
@@ -2694,14 +2989,14 @@ def highest_symmetry(
         state, path, shift, residual = queue.pop(0)
         lifts = _highest_lifts(state, accepted_tolerance)
         if not lifts:
-            emitted = state
+            emitted = _terminal_normal_form(state)
             if not preserve_chirality:
                 # An enantiomorphic higher member is flipped to its lower partner here, at terminal
                 # emission only; the partner's origin/orbit minimum is group-specific, so re-run the
                 # normal form in the partner group before the shared orientation/terminal path.
                 flipped = _enantiomorph(emitted)
                 if flipped is not None:
-                    emitted = _normal_form(flipped)
+                    emitted = _terminal_normal_form(flipped)
             terminals.append(_terminal_result(_canonical_orientation(emitted), path, shift, residual))
             continue
         for result in lifts:

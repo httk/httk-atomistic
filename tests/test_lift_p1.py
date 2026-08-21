@@ -10,10 +10,11 @@ import itertools
 import random
 from collections import Counter
 from fractions import Fraction as F
+from pathlib import Path
 from typing import Any
 
 import pytest
-from httk.core import FracVector, SurdVector
+from httk.core import FracVector, SurdVector, load
 
 import httk.atomistic.symmetry.lift as lift_module
 from httk.atomistic import (
@@ -24,6 +25,7 @@ from httk.atomistic import (
     UnitcellStructureView,
     WyckoffSite,
     backward_lift,
+    canonical_asu,
     canonicalize,
     data,
     highest_symmetry,
@@ -502,12 +504,15 @@ def test_canonical_orientation_preserves_chirality() -> None:
 
 
 def test_canonical_orientation_keeps_the_gram_exact() -> None:
-    # Rational lengths but an angle with no exact fraction: CellParams cannot reproduce the Gram, so
-    # the lift orientation is kept rather than introducing a ~1e-10 drift.
+    # Rational Gram but an angle with no exact Fraction: the direct exact triangular construction
+    # must preserve the Gram rather than introducing the old CellParams ~1e-10 drift.
     structure = ASUStructure(
         Cell(((3, 0, 4), (0, 6, 0), (0, 0, 13))), 3, [WyckoffSite("a", FracVector([F(1, 3)]), "Si")], _species("Si")
     )
-    assert lift_module._canonical_orientation(structure).cell.metric() == structure.cell.metric()
+    oriented = lift_module._canonical_orientation(structure)
+    assert oriented.cell.metric() == structure.cell.metric()
+    canonical = _canonical_without_bfs(structure)
+    assert _canonical_without_bfs(canonical) == canonical
 
 
 def test_left_handed_enantiomorphic_cell_is_handled_gracefully() -> None:
@@ -525,6 +530,7 @@ def test_left_handed_enantiomorphic_cell_is_handled_gracefully() -> None:
     assert first.spacegroup.it_number == 144
     assert first.cell.basis.det().sign() < 0  # chirality preserved, no enantiomorph
     assert _site_key(first) == _site_key(second) and first.cell.basis == second.cell.basis  # deterministic
+    assert _canonical_without_bfs(first) == first
 
 
 def test_chiral_multi_species_invariance_battery() -> None:
@@ -859,6 +865,72 @@ def test_scrambled_single_atom_po_canonicalizes_to_cubic() -> None:
     reference = _result_key(canonicalize(_expanded_p1(_SCRAMBLE_BATTERY["Po-221"]), tolerance=1e-3))
     assert reference[0] == 221
     assert _result_key(canonicalize(_scrambled_p1(_SCRAMBLE_BATTERY["Po-221"], 1), tolerance=1e-3)) == reference
+
+
+def test_p1_cubic_metric_stabilizer_normalizes_a_signed_permutation() -> None:
+    """A P1 result remains invariant across the finite boundary stabilizer of a cubic Niggli Gram."""
+    cell_rows = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
+    sites = [
+        WyckoffSite("a", FracVector((F(1, 7), F(2, 7), F(3, 7))), "C"),
+        WyckoffSite("a", FracVector((F(2, 7), F(4, 7), F(6, 7))), "O"),
+        WyckoffSite("a", FracVector((F(3, 7), F(5, 7), F(1, 7))), "N"),
+    ]
+    base = ASUStructure(Cell(cell_rows), 1, sites, _species("C", "O", "N"))
+    # det=+1; this is another Niggli-reduced cubic basis, not a shear to be removed by one path.
+    permuted = _rebased(cell_rows, sites, ["C", "O", "N"], FracVector(((0, 1, 0), (1, 0, 0), (0, 0, -1))))
+
+    first = canonical_asu(base, lift=False)
+    second = canonical_asu(permuted, lift=False)
+
+    assert first.spacegroup.it_number == second.spacegroup.it_number == 1
+    assert first.cell.basis == second.cell.basis
+    assert first.wyckoff_sites == second.wyckoff_sites
+    assert _canonical_without_bfs(first) == first
+
+
+def test_p1_elongated_metric_stabilizer_enumeration_is_exact() -> None:
+    gram = ((F(1), F(0), F(0)), (F(0), F(1), F(0)), (F(0), F(0), F(10_000)))
+    operations = lift_module._metric_automorphism_operations(gram)
+
+    assert len(operations) == 16
+    for operation in operations:
+        basis_change = operation.matrix.T().inv()
+        assert basis_change * FracVector(gram) * basis_change.T() == FracVector(gram)
+
+
+@pytest.mark.parametrize("number", (43, 82, 157, 215))
+def test_canonical_asu_fixture_scramble_normalizes_full_affine_cosets(number: int) -> None:
+    """A tabulated coset representative is expanded by its group members before normal-form keying."""
+    fixture = Path(__file__).with_name("fixtures") / "structreading" / f"{number}.cif"
+    source = load(str(fixture), repair=True)
+
+    reference = canonical_asu(UnitcellStructureView(source), lift=False)
+    scrambled = canonical_asu(_scrambled_p1(source, number * 1000 + 1), lift=False)
+
+    assert scrambled.spacegroup == reference.spacegroup
+    assert scrambled.cell.basis == reference.cell.basis
+    assert scrambled.wyckoff_sites == reference.wyckoff_sites
+    assert _canonical_without_bfs(reference) == reference
+    if number == 43:
+        # A proper Cartesian rotation changes no fractional data or chirality and must not influence
+        # the final tie between normalizer-equivalent cell bases.
+        rotation = SurdVector(((0, -1, 0), (1, 0, 0), (0, 0, 1)))
+        rotated = ASUStructure(
+            Cell(
+                source.cell.basis * rotation,
+                precision=source.cell.precision,
+                periodicity=source.cell.periodicity,
+            ),
+            source.spacegroup,
+            source.wyckoff_sites,
+            source.species,
+            transform=source.transform,
+            coordinate_precision=source.coordinate_precision,
+            charge=source.charge,
+        )
+        rotated_result = canonical_asu(UnitcellStructureView(rotated), lift=False)
+        assert rotated_result.cell.basis == reference.cell.basis
+        assert rotated_result.wyckoff_sites == reference.wyckoff_sites
 
 
 @pytest.mark.extended
