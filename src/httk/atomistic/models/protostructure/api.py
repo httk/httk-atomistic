@@ -3,9 +3,9 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Self, cast
 
+from httk.atomistic.models.formula.chromaformula_view import ChromaformulaView
 from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
-from httk.atomistic.models.formula.formulapattern_view import FormulapatternView
-from httk.atomistic.models.protopattern.notation import render_aflow_label
+from httk.atomistic.models.protochroma.notation import render_aflow_label
 
 if TYPE_CHECKING:
     from httk.atomistic.models.protostructure.backend import ProtostructureBackend
@@ -63,19 +63,19 @@ class ProtostructureAPI(ABC):
         return ChemicalFormulaView(cast("ProtostructureBackend", self))
 
     @property
-    def anonymous_formula(self) -> FormulapatternView:
+    def anonymous_formula(self) -> ChromaformulaView:
         """Return a reduced anonymous formula at the standard conventional-cell scale.
 
         :return: The conventional-cell anonymous formula view.
         """
-        return FormulapatternView(cast("ProtostructureBackend", self))
+        return ChromaformulaView(cast("ProtostructureBackend", self))
 
     @property
     def label(self) -> "ProtostructureLabel":
         """Return the httk protostructure label of this protostructure.
 
         The label's unsuffixed part orders classes by their Wyckoff letters, so it is the
-        protopattern label of the erased pattern; the suffix lists the class species names.
+        protochroma label of the erased form; the suffix lists the class species names.
         This is NOT an AFLOW label: AFLOW orders classes alphabetically by element (see
         :attr:`aflow_label`). Any faithful render is *the* protostructure label; the
         *canonical* protostructure label comes from a normalizer-canonical protostructure.

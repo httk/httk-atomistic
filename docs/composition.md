@@ -2,9 +2,9 @@
 
 The chemical-formula family gives one interface to elemental amounts and their
 canonical renderings. `Composition` is the immutable elemental value,
-`ChemicalFormula` is a canonical reduced formula, and `Formulapattern` is a
+`ChemicalFormula` is a canonical reduced formula, and `Chromaformula` is a
 canonical OPTIMADE anonymous formula (`AnonymousFormula` remains an alias).
-`CompositionView`, `ChemicalFormulaView`, and `FormulapatternView` present
+`CompositionView`, `ChemicalFormulaView`, and `ChromaformulaView` present
 compatible backends as those three values;
 the composition view is lazy, while the two formula views are eager. The
 information ordering is `composition ⊃ reduced formula ⊃ anonymous formula`:
@@ -21,7 +21,7 @@ render `chemical_formula_reduced`, with integer coefficients divided by their
 greatest common divisor, and `chemical_formula_anonymous`.
 
 `ChemicalFormula` is a strict canonical reduced formula: element symbols are
-alphabetical and coefficients are GCD-reduced. `Formulapattern` uses
+alphabetical and coefficients are GCD-reduced. `Chromaformula` uses
 consecutive labels `A`, `B`, ... and non-increasing coefficients. Both are
 subclasses of `str`. Their corresponding views retain a backend, so
 `unwrap()` can recover it.
@@ -31,7 +31,7 @@ The directionality rules follow the information ordering:
 - `ChemicalFormulaView` can present a complete real-element composition, but
   raises for anonymous labels, incomplete compositions (including an unknown
   `"X"` species), or an empty composition.
-- `FormulapatternView` can anonymize a complete real-element composition and
+- `ChromaformulaView` can anonymize a complete real-element composition and
   can preserve an already-anonymous formula. It raises for incomplete or empty
   compositions.
 - `CompositionView` can project real-element data, but raises when its source
@@ -99,15 +99,15 @@ presentation explicit:
 
 ```python
 from httk.atomistic import (
-    FormulapatternView,
+    ChromaformulaView,
     ChemicalFormulaView,
     CompositionView,
 )
 
 assert CompositionView({"Al": 2, "O": 3}).chemical_formula_reduced == "Al2O3"
 assert ChemicalFormulaView("Al2O3") == "Al2O3"
-assert FormulapatternView("A3B2") == "A3B2"
-assert FormulapatternView({"Al": 2, "O": 3}) == "A3B2"
+assert ChromaformulaView("A3B2") == "A3B2"
+assert ChromaformulaView({"Al": 2, "O": 3}) == "A3B2"
 ```
 
 A `str` in `ChemicalFormulaLike` is always a formula, never a filename. Load a
@@ -135,5 +135,5 @@ reduced at the same time. Thus equal amounts use alphabetical order, while a
 composition with ratios 4:12:4 becomes reduced `FeO3Sm` and anonymous `A3BC`.
 
 See {doc}`prototypes` and the full guide, {doc}`details/structural_classes`,
-for where `ChemicalFormula` and `Formulapattern` sit within the full
+for where `ChemicalFormula` and `Chromaformula` sit within the full
 material-information taxonomy.

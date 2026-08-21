@@ -15,8 +15,8 @@ from httk.atomistic import (
     Composition,
     CompositionView,
     FundamentalDomainStructure,
-    Formulapattern,
-    FormulapatternView,
+    Chromaformula,
+    ChromaformulaView,
     Spacegroup,
     Species,
     UnitcellStructure,
@@ -24,7 +24,7 @@ from httk.atomistic import (
     WyckoffSite,
 )
 from httk.atomistic.composition import project_composition
-from httk.atomistic.models.formula.formulapattern_string import FormulapatternString
+from httk.atomistic.models.formula.chromaformula_string import ChromaformulaString
 from httk.atomistic.models.formula.diagnostics import CompositionDiagnostic
 from httk.atomistic.models.formula.formula_string import FormulaString
 from httk.atomistic.models.formula.notation import parse_anonymous_formula, parse_reduced_formula
@@ -81,7 +81,7 @@ def test_value_and_view_construction_and_string_behavior() -> None:
     assert hash(formula) == hash("Al2O3")
     assert f"{formula}" == "Al2O3"
     assert CompositionView({"Al": 2, "O": 3}).amounts == (("Al", Fraction(2)), ("O", Fraction(3)))
-    assert FormulapatternView("A3B2") == "A3B2"
+    assert ChromaformulaView("A3B2") == "A3B2"
     with pytest.raises(TypeError):
         ChemicalFormulaView("not a formula")
 
@@ -89,7 +89,7 @@ def test_value_and_view_construction_and_string_behavior() -> None:
 def test_backend_kinds_and_round_trips() -> None:
     assert isinstance(ChemicalFormulaBackend._select_backend({"Al": 2}, kind="plain"), PlainComposition)
     assert isinstance(ChemicalFormulaBackend._select_backend("Al2O3", kind="formula"), FormulaString)
-    assert isinstance(ChemicalFormulaBackend._select_backend("A3B2", kind="anonymous"), FormulapatternString)
+    assert isinstance(ChemicalFormulaBackend._select_backend("A3B2", kind="anonymous"), ChromaformulaString)
     record = _normalized_composition_record_from_result(Composition({"Al": 2, "O": 3}))
     assert isinstance(ChemicalFormulaBackend._select_backend(record), RecordComposition)
     structure = _unitcell()
@@ -139,11 +139,11 @@ def test_asu_with_cached_composition_pickles() -> None:
 
 def test_formula_directionality_and_validation() -> None:
     with pytest.raises(ValueError, match="anonymous"):
-        ChemicalFormulaView(Formulapattern("A2B"))
+        ChemicalFormulaView(Chromaformula("A2B"))
     with pytest.raises(ValueError, match="anonymous"):
-        CompositionView(Formulapattern("A2B"))
-    assert FormulapatternView(ChemicalFormula("Al2O3")) == "A3B2"
-    assert FormulapatternView(Composition({"O": 2, "Al": 2})) == "AB"
+        CompositionView(Chromaformula("A2B"))
+    assert ChromaformulaView(ChemicalFormula("Al2O3")) == "A3B2"
+    assert ChromaformulaView(Composition({"O": 2, "Al": 2})) == "AB"
     incomplete = UnitcellStructure(
         [[3, 0, 0], [0, 3, 0], [0, 0, 3]],
         [[0, 0, 0]],
@@ -154,12 +154,12 @@ def test_formula_directionality_and_validation() -> None:
     with pytest.raises(ValueError, match="incomplete"):
         ChemicalFormulaView(incomplete_view)
     with pytest.raises(ValueError, match="incomplete"):
-        FormulapatternView(incomplete_view)
+        ChromaformulaView(incomplete_view)
     assert incomplete_view.complete is False
     with pytest.raises(ValueError, match="empty"):
         ChemicalFormulaView(Composition({}))
     with pytest.raises(ValueError, match="empty"):
-        FormulapatternView(Composition({}))
+        ChromaformulaView(Composition({}))
 
 
 def test_eager_formula_views_preserve_backend_hubs() -> None:
@@ -180,7 +180,7 @@ def test_eager_formula_views_preserve_backend_hubs() -> None:
     assert reduced.normalization_status == backend.normalization_status
     assert reduced.diagnostics == (diagnostic,)
 
-    anonymous = FormulapatternView(backend)
+    anonymous = ChromaformulaView(backend)
     assert str(anonymous) == "A3B2"
     assert anonymous.amounts == (("A", Fraction(6)), ("B", Fraction(4)))
     assert anonymous.uncertainties == (("A", Fraction(1, 5)), ("B", Fraction(1, 10)))
@@ -194,12 +194,12 @@ def test_synthesized_formula_text_is_parser_validated() -> None:
     with pytest.raises(ValueError):
         ChemicalFormulaView(_MalformedReducedBackend())
     with pytest.raises(ValueError):
-        FormulapatternView(_MalformedAnonymousBackend())
+        ChromaformulaView(_MalformedAnonymousBackend())
 
 
 def test_legacy_formula_aliases_are_canonical_identities() -> None:
-    assert AnonymousFormula is Formulapattern
-    assert AnonymousFormulaView is FormulapatternView
+    assert AnonymousFormula is Chromaformula
+    assert AnonymousFormulaView is ChromaformulaView
 
 
 @pytest.mark.parametrize("text", ["Al2O2", "H2", "OAl", "Al1O", "", "Aluminum"])

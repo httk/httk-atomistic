@@ -82,10 +82,10 @@ from httk.atomistic.storage.records import (
     ASUStructureRecord,
     FundamentalDomainPatternRecord,
     FundamentalDomainStructureRecord,
-    ProtopatternRecord,
+    ProtochromaRecord,
     ProtostructureRecord,
     PrototypeRecord,
-    StructuretypeRecord,
+    CrystallotypeRecord,
     UnitcellStructureRecord,
     validate_structure_record,
     ObservableSummaryRecord,
@@ -99,9 +99,9 @@ from httk.atomistic.models.structure.record import RecordStructure
 
 # Formula imports must follow the structure imports: formula record/like modules pull in
 # the storage stack, whose integration bridges depend on a fully initialized structure family.
-from httk.atomistic.models.formula.formulapattern import Formulapattern
-from httk.atomistic.models.formula.formulapattern_string import FormulapatternString
-from httk.atomistic.models.formula.formulapattern_view import FormulapatternView
+from httk.atomistic.models.formula.chromaformula import Chromaformula
+from httk.atomistic.models.formula.chromaformula_string import ChromaformulaString
+from httk.atomistic.models.formula.chromaformula_view import ChromaformulaView
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.formula.composition_view import CompositionView
@@ -113,37 +113,37 @@ from httk.atomistic.models.formula.plain import PlainComposition
 from httk.atomistic.models.formula.record import RecordComposition
 from httk.atomistic.models.formula.structure import StructureComposition
 
-# Alias for discoverability; canonical name is Formulapattern (see docs/prototypes.md).
-AnonymousFormula = Formulapattern
-AnonymousFormulaView = FormulapatternView
+# Alias for discoverability; canonical name is Chromaformula (see docs/prototypes.md).
+AnonymousFormula = Chromaformula
+AnonymousFormulaView = ChromaformulaView
 
-# CrystalPattern imports follow both structure and formula imports: the crystal-pattern-to-formula
+# Chromastructure imports follow both structure and formula imports: the chromastructure-to-formula
 # bridge and adapter deliberately depend on the completed lower-level family registrations.
-from httk.atomistic.models.crystalpattern.crystalpattern import CrystalPattern
-from httk.atomistic.models.crystalpattern.view import CrystalPatternView
-from httk.atomistic.models.crystalpattern.anonymized import AnonymizedStructure
-from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
-from httk.atomistic.models.crystalpattern.like import CrystalPatternLike
-from httk.atomistic.models.crystalpattern.fundamental import ASUPattern, FundamentalDomainPattern
-from httk.atomistic.models.crystalpattern.fundamental_view import FundamentalDomainPatternView
+from httk.atomistic.models.chromastructure.chromastructure import Chromastructure
+from httk.atomistic.models.chromastructure.view import ChromastructureView
+from httk.atomistic.models.chromastructure.anonymized import AnonymizedStructure
+from httk.atomistic.models.chromastructure.backend import ChromastructureBackend
+from httk.atomistic.models.chromastructure.like import ChromastructureLike
+from httk.atomistic.models.chromastructure.fundamental import ASUPattern, FundamentalDomainPattern
+from httk.atomistic.models.chromastructure.fundamental_view import FundamentalDomainPatternView
 from httk.atomistic.models.formula.wyckoff import WyckoffComposition
 
-# Alias for discoverability; canonical name is CrystalPattern (see docs/prototypes.md).
-AnonymousStructure = CrystalPattern
-AnonymousStructureView = CrystalPatternView
-AnonymousStructureLike = CrystalPatternLike
+# Alias for discoverability; canonical name is Chromastructure (see docs/prototypes.md).
+AnonymousStructure = Chromastructure
+AnonymousStructureView = ChromastructureView
+AnonymousStructureLike = ChromastructureLike
 
-# Protopattern imports follow the crystalpattern block and precede protostructure: the
-# element-free family reuses the formula bridge and crystalpattern recognition above, and
+# Protochroma imports follow the chromastructure block and precede protostructure: the
+# element-free family reuses the formula bridge and chromastructure recognition above, and
 # the protostructure family below extends its label notation.
-from httk.atomistic.models.protopattern.backend import ProtopatternBackend
-from httk.atomistic.models.protopattern.derived import DerivedProtopattern
-from httk.atomistic.models.protopattern.label import ProtopatternLabel
-from httk.atomistic.models.protopattern.label_string import ProtopatternLabelString
-from httk.atomistic.models.protopattern.like import ProtopatternLike
-from httk.atomistic.models.protopattern.occupation import ProtopatternOccupation
-from httk.atomistic.models.protopattern.protopattern import Protopattern
-from httk.atomistic.models.protopattern.view import ProtopatternView
+from httk.atomistic.models.protochroma.backend import ProtochromaBackend
+from httk.atomistic.models.protochroma.derived import DerivedProtochroma
+from httk.atomistic.models.protochroma.label import ProtochromaLabel
+from httk.atomistic.models.protochroma.label_string import ProtochromaLabelString
+from httk.atomistic.models.protochroma.like import ProtochromaLike
+from httk.atomistic.models.protochroma.occupation import ProtochromaOccupation
+from httk.atomistic.models.protochroma.protochroma import Protochroma
+from httk.atomistic.models.protochroma.view import ProtochromaView
 
 # Protostructure imports follow the prototype block: the geometry-free family bridges
 # through the completed formula and structure registrations above.
@@ -157,7 +157,7 @@ from httk.atomistic.models.protostructure.recognized import RecognizedProtostruc
 from httk.atomistic.models.protostructure.view import ProtostructureView
 
 # Prototype imports follow the protostructure block: the anonymous geometrical-class family
-# composes the completed crystalpattern (its representative) and protopattern (its erasure)
+# composes the completed chromastructure (its representative) and protochroma (its erasure)
 # registrations above.
 from httk.atomistic.models.prototype.backend import PrototypeBackend
 from httk.atomistic.models.prototype.like import PrototypeLike
@@ -165,16 +165,16 @@ from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.prototype.recognized import RecognizedPrototype
 from httk.atomistic.models.prototype.view import PrototypeView
 
-# Structuretype imports come last of the taxonomy families: the assigned geometrical-class
+# Crystallotype imports come last of the taxonomy families: the assigned geometrical-class
 # family composes the completed protostructure, structure, and prototype registrations above.
-from httk.atomistic.models.structuretype.backend import StructuretypeBackend
-from httk.atomistic.models.structuretype.like import StructuretypeLike
-from httk.atomistic.models.structuretype.recognized import RecognizedStructuretype
-from httk.atomistic.models.structuretype.structuretype import Structuretype
-from httk.atomistic.models.structuretype.view import StructuretypeView
+from httk.atomistic.models.crystallotype.backend import CrystallotypeBackend
+from httk.atomistic.models.crystallotype.like import CrystallotypeLike
+from httk.atomistic.models.crystallotype.recognized import RecognizedCrystallotype
+from httk.atomistic.models.crystallotype.crystallotype import Crystallotype
+from httk.atomistic.models.crystallotype.view import CrystallotypeView
 
 # Alias for discoverability; canonical name is Prototype (see docs/prototypes.md).
-ProtopatternType = Prototype
+Chromatype = Prototype
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
 from httk.atomistic.symmetry.setting_transform import SettingTransform
@@ -233,17 +233,17 @@ ChemicalFormulaBackend.backend_classes = [
     WyckoffComposition,
     PlainComposition,
     FormulaString,
-    FormulapatternString,
+    ChromaformulaString,
 ]
-CrystalPatternBackend.backend_classes = [AnonymizedStructure]
-ProtopatternBackend.backend_classes = [ProtopatternLabelString, DerivedProtopattern]
+ChromastructureBackend.backend_classes = [AnonymizedStructure]
+ProtochromaBackend.backend_classes = [ProtochromaLabelString, DerivedProtochroma]
 # The label-string probe is first: it is a cheap exact parse that either matches a
 # canonical label or declines, mirroring the record-first rationale, so recognition
 # sources never fall through it.
 ProtostructureBackend.backend_classes = [ProtostructureLabelString, RecognizedProtostructure]
 PrototypeBackend.backend_classes = [RecognizedPrototype]
-StructuretypeBackend.backend_classes = [RecognizedStructuretype]
-register_coercer(view_class_coercer([ChemicalFormulaView, FormulapatternView, CompositionView]), Any)
+CrystallotypeBackend.backend_classes = [RecognizedCrystallotype]
+register_coercer(view_class_coercer([ChemicalFormulaView, ChromaformulaView, CompositionView]), Any)
 StructureBackend.backend_classes = [
     RecordStructure,
     OptimadeStructure,
@@ -271,15 +271,15 @@ ASUStructureView.__httk_storage_record__ = ASUStructureRecord
 Trajectory.__httk_storage_record__ = TrajectoryRecord
 TrajectoryView.__httk_storage_record__ = TrajectoryRecord
 Protostructure.__httk_storage_record__ = ProtostructureRecord
-Protopattern.__httk_storage_record__ = ProtopatternRecord
-ProtopatternView.__httk_storage_record__ = ProtopatternRecord
+Protochroma.__httk_storage_record__ = ProtochromaRecord
+ProtochromaView.__httk_storage_record__ = ProtochromaRecord
 # ASUPattern is deliberately not storable (matches the phase-2 decision for ASUStructure).
 FundamentalDomainPattern.__httk_storage_record__ = FundamentalDomainPatternRecord
 FundamentalDomainPatternView.__httk_storage_record__ = FundamentalDomainPatternRecord
 Prototype.__httk_storage_record__ = PrototypeRecord
 PrototypeView.__httk_storage_record__ = PrototypeRecord
-Structuretype.__httk_storage_record__ = StructuretypeRecord
-StructuretypeView.__httk_storage_record__ = StructuretypeRecord
+Crystallotype.__httk_storage_record__ = CrystallotypeRecord
+CrystallotypeView.__httk_storage_record__ = CrystallotypeRecord
 
 __all__ = [
     "DEFAULT_TOLERANCE",
@@ -307,18 +307,23 @@ __all__ = [
     "ChemicalFormula",
     "ChemicalFormulaLike",
     "ChemicalFormulaView",
+    "Chromaformula",
+    "ChromaformulaView",
+    "Chromastructure",
+    "ChromastructureLike",
+    "ChromastructureView",
+    "Chromatype",
     "CollinearSiteMoments",
     "Composition",
     "CompositionView",
     "ConventionalCellResult",
     "CrystalAxisSiteMoments",
     "CrystalAxisSiteMomentsView",
-    "CrystalPattern",
-    "CrystalPatternLike",
-    "CrystalPatternView",
+    "Crystallotype",
+    "CrystallotypeLike",
+    "CrystallotypeRecord",
+    "CrystallotypeView",
     "DatastreamStructure",
-    "Formulapattern",
-    "FormulapatternView",
     "FundamentalDomainPattern",
     "FundamentalDomainPatternRecord",
     "FundamentalDomainPatternView",
@@ -337,13 +342,12 @@ __all__ = [
     "PlainTrajectory",
     "PlaneWaveFunctions",
     "PrimitiveCellResult",
-    "Protopattern",
-    "ProtopatternLabel",
-    "ProtopatternLike",
-    "ProtopatternOccupation",
-    "ProtopatternRecord",
-    "ProtopatternType",
-    "ProtopatternView",
+    "Protochroma",
+    "ProtochromaLabel",
+    "ProtochromaLike",
+    "ProtochromaOccupation",
+    "ProtochromaRecord",
+    "ProtochromaView",
     "Protostructure",
     "ProtostructureLabel",
     "ProtostructureLike",
@@ -370,10 +374,6 @@ __all__ = [
     "StructureLike",
     "StructurePath",
     "StructureSymmetry",
-    "Structuretype",
-    "StructuretypeLike",
-    "StructuretypeRecord",
-    "StructuretypeView",
     "SubgroupRepresentationResult",
     "SupercellResult",
     "SymopsStructure",

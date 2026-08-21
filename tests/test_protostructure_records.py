@@ -11,8 +11,8 @@ from httk.atomistic import (
     Cell,
     FundamentalDomainPattern,
     FundamentalDomainPatternRecord,
-    Protopattern,
-    ProtopatternRecord,
+    Protochroma,
+    ProtochromaRecord,
     Protostructure,
     ProtostructureRecord,
     Prototype,
@@ -20,30 +20,30 @@ from httk.atomistic import (
     PrototypeView,
     Spacegroup,
     Species,
-    Structuretype,
-    StructuretypeRecord,
-    StructuretypeView,
+    Crystallotype,
+    CrystallotypeRecord,
+    CrystallotypeView,
     WyckoffOccupationRecord,
     WyckoffSite,
 )
 from httk.atomistic.entries.prototypes import (
-    ProtopatternEntry,
+    ProtochromaEntry,
     ProtostructureEntry,
     PrototypeEntry,
-    StructuretypeEntry,
+    CrystallotypeEntry,
 )
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.storage.records import (
     _fundamental_domain_pattern_from_record,
     _fundamental_domain_pattern_record_from_value,
-    _protopattern_from_record,
-    _protopattern_record_from_value,
+    _protochroma_from_record,
+    _protochroma_record_from_value,
     _protostructure_from_record,
     _protostructure_record_from_value,
     _prototype_from_record,
     _prototype_record_from_value,
-    _structuretype_from_record,
-    _structuretype_record_from_value,
+    _crystallotype_from_record,
+    _crystallotype_record_from_value,
 )
 
 EMPTY: tuple[Fraction, ...] = ()
@@ -63,8 +63,8 @@ def _rocksalt_asu() -> ASUStructure:
     )
 
 
-def _rocksalt_protopattern() -> Protopattern:
-    return Protopattern(225, [("a", "A"), ("b", "B")])
+def _rocksalt_protochroma() -> Protochroma:
+    return Protochroma(225, [("a", "A"), ("b", "B")])
 
 
 def _hexagonal_fundamental_domain_pattern() -> FundamentalDomainPattern:
@@ -83,9 +83,9 @@ def _hexagonal_fundamental_domain_pattern() -> FundamentalDomainPattern:
 def test_record_identity_names_are_storage_names() -> None:
     for record_type in (
         ProtostructureRecord,
-        ProtopatternRecord,
+        ProtochromaRecord,
         PrototypeRecord,
-        StructuretypeRecord,
+        CrystallotypeRecord,
         FundamentalDomainPatternRecord,
         WyckoffOccupationRecord,
     ):
@@ -95,14 +95,14 @@ def test_record_identity_names_are_storage_names() -> None:
 
 
 def test_new_record_storage_names_are_suffix_free() -> None:
-    assert ProtopatternRecord.__httk_storage__.storage_name == "atomistic_protopattern"
+    assert ProtochromaRecord.__httk_storage__.storage_name == "atomistic_protochroma"
     assert PrototypeRecord.__httk_storage__.storage_name == "atomistic_prototype"
-    assert StructuretypeRecord.__httk_storage__.storage_name == "atomistic_structuretype"
+    assert CrystallotypeRecord.__httk_storage__.storage_name == "atomistic_crystallotype"
     assert FundamentalDomainPatternRecord.__httk_storage__.storage_name == "atomistic_fundamental_domain_pattern"
 
 
 def test_taxonomy_record_indexes_cover_it_number_and_label() -> None:
-    for record_type in (ProtostructureRecord, ProtopatternRecord, PrototypeRecord, StructuretypeRecord):
+    for record_type in (ProtostructureRecord, ProtochromaRecord, PrototypeRecord, CrystallotypeRecord):
         assert record_type.__httk_storage__.indexes == (("spacegroup_it_number",), ("label",))
 
 
@@ -150,27 +150,27 @@ def test_protostructure_record_rejects_out_of_range_it_number() -> None:
         )
 
 
-# --- protopattern record ---
+# --- protochroma record ---
 
 
-def test_protopattern_record_round_trips_and_labels() -> None:
-    value = _rocksalt_protopattern()
-    record = _protopattern_record_from_value(value)
+def test_protochroma_record_round_trips_and_labels() -> None:
+    value = _rocksalt_protochroma()
+    record = _protochroma_record_from_value(value)
     assert record.label == "AB_cF8_225_a_b"
-    assert _protopattern_from_record(record) == value
+    assert _protochroma_from_record(record) == value
 
 
-def test_protopattern_golden_content_id_is_layout_independent() -> None:
-    record = _protopattern_record_from_value(_rocksalt_protopattern())
-    assert record.id == content_id(_rocksalt_protopattern())
-    assert record.id == "1e3f5da5dbd250cc75e2939415dc1f5c1061fcd54a3b8509e18e9f11b1cd754a"
+def test_protochroma_golden_content_id_is_layout_independent() -> None:
+    record = _protochroma_record_from_value(_rocksalt_protochroma())
+    assert record.id == content_id(_rocksalt_protochroma())
+    assert record.id == "7fb1c7369fbdebeb076c4a30b80c09621f0a09883084f4758e412a79c0e7eef3"
 
 
-def test_protopattern_record_rejects_non_canonical_field_order() -> None:
-    good = _protopattern_record_from_value(_rocksalt_protopattern())
+def test_protochroma_record_rejects_non_canonical_field_order() -> None:
+    good = _protochroma_record_from_value(_rocksalt_protochroma())
     swapped = dataclasses.replace(good, wyckoff_letters=tuple(reversed(good.wyckoff_letters)))
     with pytest.raises(ValueError, match="not in canonical order"):
-        ProtopatternRecord.__httk_validate__(swapped)
+        ProtochromaRecord.__httk_validate__(swapped)
 
 
 # --- fundamental-domain-pattern record (the renamed geometric record) ---
@@ -216,7 +216,7 @@ def test_prototype_record_round_trips_representative_carrying() -> None:
 
 
 def test_prototype_record_round_trips_discriminator_only() -> None:
-    value = Prototype(_rocksalt_protopattern(), discriminator="001")
+    value = Prototype(_rocksalt_protochroma(), discriminator="001")
     record = _prototype_record_from_value(value)
     assert record.representative is None
     assert record.discriminator == "001"
@@ -224,7 +224,7 @@ def test_prototype_record_round_trips_discriminator_only() -> None:
 
 
 def test_prototype_record_requires_a_class_distinction() -> None:
-    good = _prototype_record_from_value(Prototype(_rocksalt_protopattern(), discriminator="001"))
+    good = _prototype_record_from_value(Prototype(_rocksalt_protochroma(), discriminator="001"))
     with pytest.raises(ValueError, match="at least one of representative or discriminator"):
         PrototypeRecord(
             spacegroup_it_number=good.spacegroup_it_number,
@@ -235,7 +235,7 @@ def test_prototype_record_requires_a_class_distinction() -> None:
 
 
 def test_prototype_record_rejects_permuted_class_labels() -> None:
-    good = _prototype_record_from_value(Prototype(_rocksalt_protopattern(), discriminator="001"))
+    good = _prototype_record_from_value(Prototype(_rocksalt_protochroma(), discriminator="001"))
     permuted = dataclasses.replace(good, labels=tuple(reversed(good.labels)))
     with pytest.raises(ValueError, match="not in canonical order"):
         PrototypeRecord.__httk_validate__(permuted)
@@ -247,67 +247,67 @@ def test_prototype_golden_content_ids_are_layout_independent() -> None:
     assert rep_record.id == content_id(representative_carrying)
     assert rep_record.id == "b30718b654cf19dc55cc6d065e361dff27c412d112288b634a9b963b99f897c5"
 
-    discriminator_only = Prototype(_rocksalt_protopattern(), discriminator="001")
+    discriminator_only = Prototype(_rocksalt_protochroma(), discriminator="001")
     disc_record = _prototype_record_from_value(discriminator_only)
     assert disc_record.id == content_id(discriminator_only)
     assert disc_record.id == "3ee6b735605d2804d0cfc58bc112a7696d031ed3b3ef267ccfb1fd45992da5a1"
 
 
-# --- structuretype record ---
+# --- crystallotype record ---
 
 
-def test_structuretype_record_round_trips_representative_carrying() -> None:
-    value = StructuretypeView(_rocksalt_asu()).unview()
-    record = _structuretype_record_from_value(value)
+def test_crystallotype_record_round_trips_representative_carrying() -> None:
+    value = CrystallotypeView(_rocksalt_asu()).unview()
+    record = _crystallotype_record_from_value(value)
     assert record.label == "AB_cF8_225_a_b:Na-Cl"
     assert record.representative is not None
     assert record.discriminator is None
-    assert _structuretype_from_record(record) == value
+    assert _crystallotype_from_record(record) == value
 
 
-def test_structuretype_record_round_trips_discriminator_only() -> None:
+def test_crystallotype_record_round_trips_discriminator_only() -> None:
     protostructure = Protostructure(225, [("a", Species("Na", ("Na",), (1,))), ("b", Species("Cl", ("Cl",), (1,)))])
-    value = Structuretype(protostructure, discriminator="001")
-    record = _structuretype_record_from_value(value)
+    value = Crystallotype(protostructure, discriminator="001")
+    record = _crystallotype_record_from_value(value)
     assert record.representative is None
     assert record.discriminator == "001"
-    assert _structuretype_from_record(record) == value
+    assert _crystallotype_from_record(record) == value
 
 
-def test_structuretype_record_requires_a_class_distinction() -> None:
-    good = _structuretype_record_from_value(
-        Structuretype(
+def test_crystallotype_record_requires_a_class_distinction() -> None:
+    good = _crystallotype_record_from_value(
+        Crystallotype(
             Protostructure(225, [("a", Species("Na", ("Na",), (1,))), ("b", Species("Cl", ("Cl",), (1,)))]),
             discriminator="001",
         )
     )
     with pytest.raises(ValueError, match="at least one of representative or discriminator"):
-        StructuretypeRecord(
+        CrystallotypeRecord(
             spacegroup_it_number=good.spacegroup_it_number,
             spacegroup_hall_entry=good.spacegroup_hall_entry,
             occupations=good.occupations,
         )
 
 
-def test_structuretype_record_rejects_non_canonical_occupation_order() -> None:
+def test_crystallotype_record_rejects_non_canonical_occupation_order() -> None:
     protostructure = Protostructure(225, [("a", Species("Na", ("Na",), (1,))), ("b", Species("Cl", ("Cl",), (1,)))])
-    good = _structuretype_record_from_value(Structuretype(protostructure, discriminator="001"))
+    good = _crystallotype_record_from_value(Crystallotype(protostructure, discriminator="001"))
     reordered = dataclasses.replace(good, occupations=tuple(reversed(good.occupations)))
     with pytest.raises(ValueError, match="not in canonical order"):
-        StructuretypeRecord.__httk_validate__(reordered)
+        CrystallotypeRecord.__httk_validate__(reordered)
 
 
-def test_structuretype_golden_content_ids_are_layout_independent() -> None:
-    representative_carrying = StructuretypeView(_rocksalt_asu()).unview()
-    rep_record = _structuretype_record_from_value(representative_carrying)
+def test_crystallotype_golden_content_ids_are_layout_independent() -> None:
+    representative_carrying = CrystallotypeView(_rocksalt_asu()).unview()
+    rep_record = _crystallotype_record_from_value(representative_carrying)
     assert rep_record.id == content_id(representative_carrying)
-    assert rep_record.id == "efe8fc1b7703b5eb8372a1af135bccacabd074206c68ca83a9bfe144e2d3b0c3"
+    assert rep_record.id == "27cc7f99302ff11db3febbdcfd02de914073fe75beb38adf3dad55c93a21a80a"
 
     protostructure = Protostructure(225, [("a", Species("Na", ("Na",), (1,))), ("b", Species("Cl", ("Cl",), (1,)))])
-    discriminator_only = Structuretype(protostructure, discriminator="001")
-    disc_record = _structuretype_record_from_value(discriminator_only)
+    discriminator_only = Crystallotype(protostructure, discriminator="001")
+    disc_record = _crystallotype_record_from_value(discriminator_only)
     assert disc_record.id == content_id(discriminator_only)
-    assert disc_record.id == "0f8ef6343ed42482f1591f4ba339f29359340709d907e458a4035b66709aac1a"
+    assert disc_record.id == "66b2ac605e1a9a75493ad41b937e0e689724dabff1b12dd561df8384c4b7826b"
 
 
 # --- occupation record guard (unchanged) ---
@@ -346,11 +346,11 @@ def test_sql_store_prototype_dedup_and_label_query() -> None:
     pytest.importorskip("sqlalchemy")
     from httk.store import Backend, SqlStore
 
-    first = _prototype_record_from_value(Prototype(_rocksalt_protopattern(), discriminator="001"))
+    first = _prototype_record_from_value(Prototype(_rocksalt_protochroma(), discriminator="001"))
     equal = _prototype_record_from_value(
-        Prototype(Protopattern(Spacegroup.standard(225), [("b", "B"), ("a", "A")]), discriminator="001")
+        Prototype(Protochroma(Spacegroup.standard(225), [("b", "B"), ("a", "A")]), discriminator="001")
     )
-    other = _prototype_record_from_value(Prototype(Protopattern(1, [("a", "A")]), discriminator="001"))
+    other = _prototype_record_from_value(Prototype(Protochroma(1, [("a", "A")]), discriminator="001"))
     with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={PrototypeEntry: PrototypeRecord})
         first_sid = store.save(first)
@@ -374,30 +374,30 @@ def test_sql_store_prototype_dedup_and_label_query() -> None:
         assert fetched.label == "AB_cF8_225_a_b"
 
 
-def test_sql_store_structuretype_representative_round_trips() -> None:
+def test_sql_store_crystallotype_representative_round_trips() -> None:
     pytest.importorskip("sqlalchemy")
     from httk.store import Backend, SqlStore
 
-    value = StructuretypeView(_rocksalt_asu()).unview()
-    record = _structuretype_record_from_value(value)
+    value = CrystallotypeView(_rocksalt_asu()).unview()
+    record = _crystallotype_record_from_value(value)
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructuretypeEntry: StructuretypeRecord})
+        store = SqlStore(database, entry_records={CrystallotypeEntry: CrystallotypeRecord})
         sid = store.save(record)
-        fetched = store.fetch(StructuretypeRecord, sid, eager=True)
+        fetched = store.fetch(CrystallotypeRecord, sid, eager=True)
 
     assert fetched.id == record.id
-    assert _structuretype_from_record(fetched) == value
+    assert _crystallotype_from_record(fetched) == value
 
 
-def test_sql_store_protopattern_round_trips() -> None:
+def test_sql_store_protochroma_round_trips() -> None:
     pytest.importorskip("sqlalchemy")
     from httk.store import Backend, SqlStore
 
-    record = _protopattern_record_from_value(_rocksalt_protopattern())
+    record = _protochroma_record_from_value(_rocksalt_protochroma())
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={ProtopatternEntry: ProtopatternRecord})
+        store = SqlStore(database, entry_records={ProtochromaEntry: ProtochromaRecord})
         sid = store.save(record)
-        fetched = store.fetch(ProtopatternRecord, sid, eager=True)
+        fetched = store.fetch(ProtochromaRecord, sid, eager=True)
 
     assert fetched.id == record.id
     assert fetched.label == "AB_cF8_225_a_b"

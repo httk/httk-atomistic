@@ -10,7 +10,7 @@ directly.
 
 from typing import Any, Self
 
-__all__ = ["ProtopatternEntry", "ProtostructureEntry", "PrototypeEntry", "StructuretypeEntry"]
+__all__ = ["CrystallotypeEntry", "ProtochromaEntry", "ProtostructureEntry", "PrototypeEntry"]
 
 
 class ProtostructureEntry:
@@ -31,19 +31,19 @@ class PrototypeEntry:
         raise TypeError("PrototypeEntry is a logical entry family; store a prototype representation directly")
 
 
-class ProtopatternEntry:
-    """Define the non-instantiable protopattern entry family."""
+class ProtochromaEntry:
+    """Define the non-instantiable protochroma entry family."""
 
-    type = "protopatterns"
-
-    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
-        raise TypeError("ProtopatternEntry is a logical entry family; store a protopattern representation directly")
-
-
-class StructuretypeEntry:
-    """Define the non-instantiable structuretype entry family."""
-
-    type = "structuretypes"
+    type = "protochromas"
 
     def __new__(cls, *args: Any, **kwargs: Any) -> Self:
-        raise TypeError("StructuretypeEntry is a logical entry family; store a structuretype representation directly")
+        raise TypeError("ProtochromaEntry is a logical entry family; store a protochroma representation directly")
+
+
+class CrystallotypeEntry:
+    """Define the non-instantiable crystallotype entry family."""
+
+    type = "crystallotypes"
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
+        raise TypeError("CrystallotypeEntry is a logical entry family; store a crystallotype representation directly")

@@ -4,30 +4,30 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Self, cast
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.crystalpattern.fundamental import FundamentalDomainPattern
-    from httk.atomistic.models.formula.formulapattern_view import FormulapatternView
-    from httk.atomistic.models.protopattern.backend import ProtopatternBackend
-    from httk.atomistic.models.protopattern.label import ProtopatternLabel
-    from httk.atomistic.models.protopattern.protopattern import Protopattern
+    from httk.atomistic.models.chromastructure.fundamental import FundamentalDomainPattern
+    from httk.atomistic.models.formula.chromaformula_view import ChromaformulaView
+    from httk.atomistic.models.protochroma.backend import ProtochromaBackend
+    from httk.atomistic.models.protochroma.label import ProtochromaLabel
+    from httk.atomistic.models.protochroma.protochroma import Protochroma
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
 class PrototypeAPI(ABC):
-    """The common interface for a protopattern refined by a geometrical class.
+    """The common interface for a protochroma refined by a geometrical class.
 
-    A prototype is a :class:`~httk.atomistic.models.protopattern.protopattern.Protopattern`
+    A prototype is a :class:`~httk.atomistic.models.protochroma.protochroma.Protochroma`
     plus a geometrical-class distinction. The class is pinned by a canonical *representative*
-    (a standard-setting :class:`~httk.atomistic.models.crystalpattern.fundamental.FundamentalDomainPattern`
+    (a standard-setting :class:`~httk.atomistic.models.chromastructure.fundamental.FundamentalDomainPattern`
     used only as the class anchor, never as exact-structure data) and/or an externally assigned
     *discriminator* string. At least one is present; equality compares exactly the information
     present. The discriminator is species-independent and is not part of the label. All
-    label, Pearson, and formula derivations delegate to the protopattern.
+    label, Pearson, and formula derivations delegate to the protochroma.
     """
 
     @property
     @abstractmethod
-    def protopattern(self) -> "Protopattern":
-        """Return the anonymous protopattern this prototype refines."""
+    def protochroma(self) -> "Protochroma":
+        """Return the anonymous protochroma this prototype refines."""
         raise NotImplementedError
 
     @property
@@ -44,25 +44,25 @@ class PrototypeAPI(ABC):
 
     @property
     def spacegroup(self) -> "Spacegroup":
-        """Return the standard-setting space group of the protopattern.
+        """Return the standard-setting space group of the protochroma.
 
         :return: The standard-setting space group.
         """
-        return self.protopattern.spacegroup
+        return self.protochroma.spacegroup
 
     @property
-    def label(self) -> "ProtopatternLabel":
-        """Return the httk protopattern label of this prototype's pattern.
+    def label(self) -> "ProtochromaLabel":
+        """Return the httk protochroma label of this prototype's protochroma.
 
         The discriminator names the geometrical class and is not part of the label. Any
-        faithful render is the protopattern label; the *canonical* protopattern label comes
-        from a normalizer-canonical pattern.
+        faithful render is the protochroma label; the *canonical* protochroma label comes
+        from a normalizer-canonical protochroma.
 
-        :return: The protopattern label view.
+        :return: The protochroma label view.
         """
-        from httk.atomistic.models.protopattern.label import ProtopatternLabel
+        from httk.atomistic.models.protochroma.label import ProtochromaLabel
 
-        return ProtopatternLabel(cast("ProtopatternBackend", self.protopattern))
+        return ProtochromaLabel(cast("ProtochromaBackend", self.protochroma))
 
     @property
     def pearson_symbol(self) -> str:
@@ -70,7 +70,7 @@ class PrototypeAPI(ABC):
 
         :return: The Pearson symbol, such as ``"cF8"``.
         """
-        return self.protopattern.pearson_symbol
+        return self.protochroma.pearson_symbol
 
     @property
     def nsites_conventional(self) -> int:
@@ -78,15 +78,15 @@ class PrototypeAPI(ABC):
 
         :return: The conventional-cell site count.
         """
-        return self.protopattern.nsites_conventional
+        return self.protochroma.nsites_conventional
 
     @property
-    def anonymous_formula(self) -> "FormulapatternView":
+    def anonymous_formula(self) -> "ChromaformulaView":
         """Return the reduced anonymous formula at the standard conventional-cell scale.
 
         :return: The conventional-cell anonymous formula view.
         """
-        return self.protopattern.anonymous_formula
+        return self.protochroma.anonymous_formula
 
     @property
     def prototype(self) -> Self:

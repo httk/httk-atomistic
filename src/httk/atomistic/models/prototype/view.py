@@ -13,13 +13,13 @@ from httk.atomistic.models.prototype.view_base import PrototypeViewBase
 class PrototypeView(PrototypeViewBase, Prototype):
     r"""Present a lazy anonymous geometrical-class prototype view.
 
-    Sources may be an existing prototype, a :class:`~httk.atomistic.models.structuretype.structuretype.Structuretype`
-    (erased to its anonymous class), or a pattern-like/structure-like source recognized to a
+    Sources may be an existing prototype, a :class:`~httk.atomistic.models.crystallotype.crystallotype.Crystallotype`
+    (erased to its anonymous class), or a chromastructure-like/structure-like source recognized to a
     representative-carrying prototype. Recognition of a raw structure accepts optional
     ``tolerance`` and ``limit_denominator`` values; resolution is deferred until the first
     field access.
 
-    :param obj: The prototype-like, structuretype-like, or structure-like source.
+    :param obj: The prototype-like, crystallotype-like, or structure-like source.
     :param \*\*hints: Backend-selection and recognition hints.
     """
 
@@ -27,7 +27,7 @@ class PrototypeView(PrototypeViewBase, Prototype):
     _resolved_prototype: Prototype | None
     _tolerance: float | None
     _limit_denominator: int | None
-    _DEFERRED_FIELDS = frozenset({"_protopattern", "_representative", "_discriminator"})
+    _DEFERRED_FIELDS = frozenset({"_protochroma", "_representative", "_discriminator"})
 
     def __new__(
         cls,
@@ -44,15 +44,15 @@ class PrototypeView(PrototypeViewBase, Prototype):
                 raise ValueError("PrototypeView rewrapping does not accept recognition arguments")
             return obj
 
-        # A structuretype erases lazily through RecognizedPrototype (adopted below); recognition
+        # A crystallotype erases lazily through RecognizedPrototype (adopted below); recognition
         # arguments are meaningless for it, so reject them up front like a prototype source.
-        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
-        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
+        from httk.atomistic.models.crystallotype.backend import CrystallotypeBackend
+        from httk.atomistic.models.crystallotype.view_base import CrystallotypeViewBase
 
-        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)) and (
+        if isinstance(obj, (CrystallotypeBackend, CrystallotypeViewBase)) and (
             any(value is not None for value in (tolerance, limit_denominator)) or hints
         ):
-            raise ValueError("PrototypeView recognition arguments cannot be used with a structuretype")
+            raise ValueError("PrototypeView recognition arguments cannot be used with a crystallotype")
 
         backend_hints = dict(hints)
         if tolerance is not None:
@@ -93,7 +93,7 @@ class PrototypeView(PrototypeViewBase, Prototype):
             resolved = backend.resolve()
         else:
             resolved = Prototype(
-                backend.protopattern,
+                backend.protochroma,
                 representative=backend.representative,
                 discriminator=backend.discriminator,
             )

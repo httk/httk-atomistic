@@ -22,13 +22,14 @@ from httk.atomistic._composition_values import as_fraction
 from httk.atomistic.composition import Assembly, ChemicalComposition, validate_assemblies
 from httk.atomistic.models._vector_guards import to_periodicity, to_precision
 from httk.atomistic.models.cell.cell import Cell
-from httk.atomistic.models.crystalpattern.fundamental import FundamentalDomainPattern
+from httk.atomistic.models.chromastructure.fundamental import FundamentalDomainPattern
+from httk.atomistic.models.crystallotype.crystallotype import Crystallotype
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
-from httk.atomistic.models.protopattern.occupation import ProtopatternOccupation
-from httk.atomistic.models.protopattern.protopattern import Protopattern
+from httk.atomistic.models.protochroma.occupation import ProtochromaOccupation
+from httk.atomistic.models.protochroma.protochroma import Protochroma
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.prototype.prototype import Prototype
@@ -37,7 +38,6 @@ from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.semantics import StructureSymmetry
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
-from httk.atomistic.models.structuretype.structuretype import Structuretype
 from httk.atomistic.models.trajectory.api import TrajectoryAPI
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 
@@ -48,19 +48,19 @@ __all__ = [
     "CellRecord",
     "ChemicalCompositionRecord",
     "CompositionAmountRecord",
+    "CrystallotypeRecord",
     "FundamentalDomainPatternRecord",
     "FundamentalDomainStructureRecord",
     "NormalizedCompositionAmountRecord",
     "NormalizedCompositionRecord",
     "ObservableSummaryRecord",
-    "ProtopatternRecord",
+    "ProtochromaRecord",
     "ProtostructureRecord",
     "PrototypeRecord",
     "SettingTransformRecord",
     "SitesRecord",
     "SpeciesConstituentRecord",
     "SpeciesRecord",
-    "StructuretypeRecord",
     "SymmetryRecord",
     "TrajectoryRecord",
     "UnitcellStructureRecord",
@@ -1824,8 +1824,8 @@ class ProtostructureRecord:
         """Expose the httk protostructure label as a deterministic query column.
 
         The label is the httk protostructure label
-        (``"AB_cF8_225_a_b:Na-Cl"`` for rocksalt): the protopattern label of the erased
-        pattern followed by ``:`` and the class species names. It is a convenience and
+        (``"AB_cF8_225_a_b:Na-Cl"`` for rocksalt): the protochroma label of the erased
+        form followed by ``:`` and the class species names. It is a convenience and
         query column only; it is not the record's identity (the content id is), and it
         is NOT unique across distinct protostructures: species that share a name but
         differ in any other :class:`~httk.atomistic.Species` field (concentration, charges, spins,
@@ -1969,13 +1969,13 @@ class FundamentalDomainPatternRecord:
 
 
 @dataclass(frozen=True)
-class ProtopatternRecord:
-    """Represent the durable backing for a geometry-free, element-free protopattern.
+class ProtochromaRecord:
+    """Represent the durable backing for a geometry-free, element-free protochroma.
 
     The record carries exactly the value identity of
-    :class:`~httk.atomistic.models.protopattern.protopattern.Protopattern`: its
+    :class:`~httk.atomistic.models.protochroma.protochroma.Protochroma`: its
     standard-setting space group and its class-partitioned occupied Wyckoff letters, in the
-    protopattern's canonical order. It has no cell, coordinates, or species.
+    protochroma's canonical order. It has no cell, coordinates, or species.
 
     :param spacegroup_it_number: The International Tables space-group number.
     :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
@@ -1984,11 +1984,11 @@ class ProtopatternRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_protopattern",
-        identity_name="atomistic_protopattern",
+        storage_name="atomistic_protochroma",
+        identity_name="atomistic_protochroma",
         indexes=(("spacegroup_it_number",), ("label",)),
     )
-    __httk_canonical_source__: ClassVar[type[Protopattern]] = Protopattern
+    __httk_canonical_source__: ClassVar[type[Protochroma]] = Protochroma
 
     spacegroup_it_number: int
     spacegroup_hall_entry: str
@@ -2005,40 +2005,40 @@ class ProtopatternRecord:
 
     @stored_property
     def label(self) -> str:
-        """Expose the httk protopattern label as a deterministic query column.
+        """Expose the httk protochroma label as a deterministic query column.
 
-        The label is the httk protopattern label (``"AB_cF8_225_a_b"`` for rocksalt's
-        pattern). It is a convenience and query column only; it is not the record's identity
+        The label is the httk protochroma label (``"AB_cF8_225_a_b"`` for rocksalt's
+        protochroma). It is a convenience and query column only; it is not the record's identity
         (the content id is).
 
-        :return: The httk protopattern label.
+        :return: The httk protochroma label.
         """
-        return _protopattern_label_from_fields(self.spacegroup_hall_entry, self.wyckoff_letters, self.labels)
+        return _protochroma_label_from_fields(self.spacegroup_hall_entry, self.wyckoff_letters, self.labels)
 
     def __post_init__(self) -> None:
         _validate_pattern_fields(type(self).__name__, self)
 
     @classmethod
-    def __httk_validate__(cls, record: "ProtopatternRecord") -> None:
-        """Validate the semantic protopattern record.
+    def __httk_validate__(cls, record: "ProtochromaRecord") -> None:
+        """Validate the semantic protochroma record.
 
         :param record: The record to validate.
         :return: ``None`` after successful validation.
         """
-        canonical = _protopattern_record_from_value(_protopattern_from_record(record))
+        canonical = _protochroma_record_from_value(_protochroma_from_record(record))
         _require_canonical(
-            "ProtopatternRecord",
+            "ProtochromaRecord",
             "wyckoff_letters/labels",
             (record.wyckoff_letters, record.labels),
             (canonical.wyckoff_letters, canonical.labels),
         )
 
     @classmethod
-    def __httk_project__(cls, pattern: Protopattern) -> Mapping[str, object]:
-        """Project a protopattern into durable fields.
+    def __httk_project__(cls, pattern: Protochroma) -> Mapping[str, object]:
+        """Project a protochroma into durable fields.
 
-        :param pattern: The protopattern to project.
-        :return: The projected protopattern fields.
+        :param pattern: The protochroma to project.
+        :return: The projected protochroma fields.
         """
         return {
             "spacegroup_it_number": pattern.spacegroup.it_number,
@@ -2053,7 +2053,7 @@ class PrototypeRecord:
     """Represent the durable backing for an anonymous geometrical-class prototype.
 
     The record carries the value identity of
-    :class:`~httk.atomistic.models.prototype.prototype.Prototype`: its canonical protopattern
+    :class:`~httk.atomistic.models.prototype.prototype.Prototype`: its canonical protochroma
     (as class-partitioned Wyckoff letters, always present) refined by a geometrical class. The
     class is pinned by a canonical ``representative`` fundamental-domain pattern and/or an
     externally assigned ``discriminator`` string; at least one is present. The discriminator is
@@ -2061,7 +2061,7 @@ class PrototypeRecord:
 
     :param spacegroup_it_number: The International Tables space-group number.
     :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
-    :param wyckoff_letters: The protopattern's occupied Wyckoff letters in canonical order.
+    :param wyckoff_letters: The protochroma's occupied Wyckoff letters in canonical order.
     :param labels: The aligned anonymous class labels.
     :param representative: The durable class representative, if one is held.
     :param discriminator: The externally assigned class discriminator, if one is held.
@@ -2091,15 +2091,15 @@ class PrototypeRecord:
 
     @stored_property
     def label(self) -> str:
-        """Expose the httk protopattern label as a deterministic query column.
+        """Expose the httk protochroma label as a deterministic query column.
 
         The discriminator names the geometrical class and is not part of the label, so
-        prototypes that share a protopattern but differ in class collide on this column; it
+        prototypes that share a protochroma but differ in class collide on this column; it
         is a convenience and query column only, not the record's identity (the content id is).
 
-        :return: The httk protopattern label.
+        :return: The httk protochroma label.
         """
-        return _protopattern_label_from_fields(self.spacegroup_hall_entry, self.wyckoff_letters, self.labels)
+        return _protochroma_label_from_fields(self.spacegroup_hall_entry, self.wyckoff_letters, self.labels)
 
     def __post_init__(self) -> None:
         _validate_pattern_fields(type(self).__name__, self)
@@ -2131,7 +2131,7 @@ class PrototypeRecord:
         :param prototype: The prototype to project.
         :return: The projected prototype fields.
         """
-        pattern = prototype.protopattern
+        pattern = prototype.protochroma
         return {
             "spacegroup_it_number": pattern.spacegroup.it_number,
             "spacegroup_hall_entry": pattern.spacegroup.hall_entry,
@@ -2143,11 +2143,11 @@ class PrototypeRecord:
 
 
 @dataclass(frozen=True)
-class StructuretypeRecord:
-    """Represent the durable backing for an assigned geometrical-class structuretype.
+class CrystallotypeRecord:
+    """Represent the durable backing for an assigned geometrical-class crystallotype.
 
     The record carries the value identity of
-    :class:`~httk.atomistic.models.structuretype.structuretype.Structuretype`: its geometry-free
+    :class:`~httk.atomistic.models.crystallotype.crystallotype.Crystallotype`: its geometry-free
     protostructure (occupied Wyckoff positions with real species) refined by a geometrical class.
     The class is pinned by a canonical ``representative`` fundamental-domain structure and/or an
     externally assigned ``discriminator`` string; at least one is present. The discriminator is
@@ -2161,11 +2161,11 @@ class StructuretypeRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_structuretype",
-        identity_name="atomistic_structuretype",
+        storage_name="atomistic_crystallotype",
+        identity_name="atomistic_crystallotype",
         indexes=(("spacegroup_it_number",), ("label",)),
     )
-    __httk_canonical_source__: ClassVar[type[Structuretype]] = Structuretype
+    __httk_canonical_source__: ClassVar[type[Crystallotype]] = Crystallotype
 
     spacegroup_it_number: int
     spacegroup_hall_entry: str
@@ -2186,7 +2186,7 @@ class StructuretypeRecord:
         """Expose the httk protostructure label as a deterministic query column.
 
         The discriminator names the geometrical class and is not part of the label, so
-        structuretypes that share a protostructure but differ in class collide on this column;
+        crystallotypes that share a protostructure but differ in class collide on this column;
         it is a convenience and query column only, not the record's identity (the content id is).
 
         :return: The httk protostructure label.
@@ -2195,50 +2195,50 @@ class StructuretypeRecord:
 
     def __post_init__(self) -> None:
         if not isinstance(self.spacegroup_it_number, int) or isinstance(self.spacegroup_it_number, bool):
-            raise TypeError("StructuretypeRecord spacegroup_it_number must be an integer")
+            raise TypeError("CrystallotypeRecord spacegroup_it_number must be an integer")
         if not 1 <= self.spacegroup_it_number <= 230:
-            raise ValueError("StructuretypeRecord spacegroup_it_number must be in [1, 230]")
+            raise ValueError("CrystallotypeRecord spacegroup_it_number must be in [1, 230]")
         if not isinstance(self.spacegroup_hall_entry, str) or not self.spacegroup_hall_entry:
-            raise TypeError("StructuretypeRecord spacegroup_hall_entry must be a non-empty string")
+            raise TypeError("CrystallotypeRecord spacegroup_hall_entry must be a non-empty string")
         occupations = tuple(self.occupations)
         if not occupations or not all(
             _effective_record_type(value) is WyckoffOccupationRecord for value in occupations
         ):
-            raise TypeError("StructuretypeRecord occupations must contain WyckoffOccupationRecord values")
+            raise TypeError("CrystallotypeRecord occupations must contain WyckoffOccupationRecord values")
         object.__setattr__(self, "occupations", occupations)
         if self.representative is not None and not isinstance(self.representative, FundamentalDomainStructureRecord):
-            raise TypeError("StructuretypeRecord representative must be a FundamentalDomainStructureRecord or None")
+            raise TypeError("CrystallotypeRecord representative must be a FundamentalDomainStructureRecord or None")
         _validate_class_distinction(type(self).__name__, self.representative, self.discriminator)
 
     @classmethod
-    def __httk_validate__(cls, record: "StructuretypeRecord") -> None:
-        """Validate the semantic structuretype record.
+    def __httk_validate__(cls, record: "CrystallotypeRecord") -> None:
+        """Validate the semantic crystallotype record.
 
         :param record: The record to validate.
         :return: ``None`` after successful validation.
         """
-        canonical = _structuretype_record_from_value(_structuretype_from_record(record))
-        _require_canonical("StructuretypeRecord", "occupations", record.occupations, canonical.occupations)
+        canonical = _crystallotype_record_from_value(_crystallotype_from_record(record))
+        _require_canonical("CrystallotypeRecord", "occupations", record.occupations, canonical.occupations)
 
     @classmethod
-    def __httk_project__(cls, structuretype: Structuretype) -> Mapping[str, object]:
-        """Project a structuretype into durable fields.
+    def __httk_project__(cls, crystallotype: Crystallotype) -> Mapping[str, object]:
+        """Project a crystallotype into durable fields.
 
-        :param structuretype: The structuretype to project.
-        :return: The projected structuretype fields.
+        :param crystallotype: The crystallotype to project.
+        :return: The projected crystallotype fields.
         """
-        protostructure = structuretype.protostructure
+        protostructure = crystallotype.protostructure
         return {
             "spacegroup_it_number": protostructure.spacegroup.it_number,
             "spacegroup_hall_entry": protostructure.spacegroup.hall_entry,
             "occupations": protostructure.occupations,
-            "representative": structuretype.representative,
-            "discriminator": structuretype.discriminator,
+            "representative": crystallotype.representative,
+            "discriminator": crystallotype.discriminator,
         }
 
 
 def _validate_pattern_fields(record_name: str, record: Any) -> None:
-    """Validate the shared space group and aligned Wyckoff-letter/label tuples of a pattern record."""
+    """Validate the shared space group and aligned Wyckoff-letter/label tuples of a protochroma or prototype record."""
     if not isinstance(record.spacegroup_it_number, int) or isinstance(record.spacegroup_it_number, bool):
         raise TypeError(f"{record_name} spacegroup_it_number must be an integer")
     if not 1 <= record.spacegroup_it_number <= 230:
@@ -2283,13 +2283,13 @@ def _require_canonical(record_name: str, field: str, stored: Any, canonical: Any
         )
 
 
-def _protostructure_record_label(record: "ProtostructureRecord | StructuretypeRecord") -> str:
-    """Render the httk protostructure label for a durable protostructure or structuretype record.
+def _protostructure_record_label(record: "ProtostructureRecord | CrystallotypeRecord") -> str:
+    """Render the httk protostructure label for a durable protostructure or crystallotype record.
 
-    :param record: The durable protostructure or structuretype record.
+    :param record: The durable protostructure or crystallotype record.
     :return: The httk protostructure label.
     """
-    from httk.atomistic.models.protopattern.notation import render_protostructure_label
+    from httk.atomistic.models.protochroma.notation import render_protostructure_label
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
@@ -2422,47 +2422,47 @@ def _domain_structure_record_from_value(
     return record_type(**values)
 
 
-def _protopattern_label_from_fields(
+def _protochroma_label_from_fields(
     spacegroup_hall_entry: str, wyckoff_letters: tuple[str, ...], labels: tuple[str, ...]
 ) -> str:
-    """Render the httk protopattern label from stored pattern fields.
+    """Render the httk protochroma label from stored protochroma fields.
 
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param wyckoff_letters: The occupied Wyckoff letters.
     :param labels: The aligned anonymous class labels.
-    :return: The protopattern label text.
+    :return: The protochroma label text.
     """
-    from httk.atomistic.models.protopattern.notation import render_protopattern_label
+    from httk.atomistic.models.protochroma.notation import render_protochroma_label
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     spacegroup = Spacegroup.from_hall_entry(spacegroup_hall_entry)
-    return render_protopattern_label(spacegroup, list(zip(wyckoff_letters, labels)))
+    return render_protochroma_label(spacegroup, list(zip(wyckoff_letters, labels)))
 
 
-def _protopattern_from_record(record: "ProtopatternRecord") -> Protopattern:
-    """Reconstruct a protopattern value from its durable record.
+def _protochroma_from_record(record: "ProtochromaRecord") -> Protochroma:
+    """Reconstruct a protochroma value from its durable record.
 
-    :param record: The durable protopattern record.
-    :return: The reconstructed protopattern value.
+    :param record: The durable protochroma record.
+    :return: The reconstructed protochroma value.
     """
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
-    return Protopattern(
+    return Protochroma(
         spacegroup,
-        tuple(ProtopatternOccupation(wyckoff, label) for wyckoff, label in zip(record.wyckoff_letters, record.labels)),
+        tuple(ProtochromaOccupation(wyckoff, label) for wyckoff, label in zip(record.wyckoff_letters, record.labels)),
     )
 
 
-def _protopattern_record_from_value(value: Protopattern) -> "ProtopatternRecord":
-    """Build a durable protopattern record from a protopattern value.
+def _protochroma_record_from_value(value: Protochroma) -> "ProtochromaRecord":
+    """Build a durable protochroma record from a protochroma value.
 
-    :param value: The protopattern value to store.
-    :return: The durable protopattern record.
+    :param value: The protochroma value to store.
+    :return: The durable protochroma record.
     """
-    return ProtopatternRecord(
+    return ProtochromaRecord(
         spacegroup_it_number=value.spacegroup.it_number,
         spacegroup_hall_entry=value.spacegroup.hall_entry,
         wyckoff_letters=tuple(occupation.wyckoff for occupation in value.occupations),
@@ -2474,7 +2474,7 @@ def _prototype_from_record(record: PrototypeRecord) -> Prototype:
     """Reconstruct a prototype value from its durable record.
 
     The model constructor re-checks that any representative agrees with the stored
-    protopattern.
+    protochroma.
 
     :param record: The durable prototype record.
     :return: The reconstructed prototype value.
@@ -2484,14 +2484,14 @@ def _prototype_from_record(record: PrototypeRecord) -> Prototype:
     spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
-    protopattern = Protopattern(
+    protochroma = Protochroma(
         spacegroup,
-        tuple(ProtopatternOccupation(wyckoff, label) for wyckoff, label in zip(record.wyckoff_letters, record.labels)),
+        tuple(ProtochromaOccupation(wyckoff, label) for wyckoff, label in zip(record.wyckoff_letters, record.labels)),
     )
     representative = (
         None if record.representative is None else _fundamental_domain_pattern_from_record(record.representative)
     )
-    return Prototype(protopattern, representative=representative, discriminator=record.discriminator)
+    return Prototype(protochroma, representative=representative, discriminator=record.discriminator)
 
 
 def _prototype_record_from_value(value: Prototype) -> PrototypeRecord:
@@ -2500,7 +2500,7 @@ def _prototype_record_from_value(value: Prototype) -> PrototypeRecord:
     :param value: The prototype value to store.
     :return: The durable prototype record.
     """
-    pattern = value.protopattern
+    pattern = value.protochroma
     representative = (
         None if value.representative is None else _fundamental_domain_pattern_record_from_value(value.representative)
     )
@@ -2514,14 +2514,14 @@ def _prototype_record_from_value(value: Prototype) -> PrototypeRecord:
     )
 
 
-def _structuretype_from_record(record: "StructuretypeRecord") -> Structuretype:
-    """Reconstruct a structuretype value from its durable record.
+def _crystallotype_from_record(record: "CrystallotypeRecord") -> Crystallotype:
+    """Reconstruct a crystallotype value from its durable record.
 
     The model constructor re-checks that any representative agrees with the stored
     protostructure occupations.
 
-    :param record: The durable structuretype record.
-    :return: The reconstructed structuretype value.
+    :param record: The durable crystallotype record.
+    :return: The reconstructed crystallotype value.
     """
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -2533,18 +2533,18 @@ def _structuretype_from_record(record: "StructuretypeRecord") -> Structuretype:
         tuple(WyckoffOccupation(value.wyckoff, _species_from_record(value.species)) for value in record.occupations),
     )
     representative = None if record.representative is None else _domain_structure_from_record(record.representative)
-    return Structuretype(protostructure, representative=representative, discriminator=record.discriminator)
+    return Crystallotype(protostructure, representative=representative, discriminator=record.discriminator)
 
 
-def _structuretype_record_from_value(value: Structuretype) -> "StructuretypeRecord":
-    """Build a durable structuretype record from a structuretype value.
+def _crystallotype_record_from_value(value: Crystallotype) -> "CrystallotypeRecord":
+    """Build a durable crystallotype record from a crystallotype value.
 
-    :param value: The structuretype value to store.
-    :return: The durable structuretype record.
+    :param value: The crystallotype value to store.
+    :return: The durable crystallotype record.
     """
     protostructure = value.protostructure
     representative = None if value.representative is None else _domain_structure_record_from_value(value.representative)
-    return StructuretypeRecord(
+    return CrystallotypeRecord(
         spacegroup_it_number=protostructure.spacegroup.it_number,
         spacegroup_hall_entry=protostructure.spacegroup.hall_entry,
         occupations=tuple(

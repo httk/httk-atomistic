@@ -62,23 +62,23 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
             return obj
 
         # Prototype-family inputs have dummy species; report the domain mismatch before backend probing.
-        from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
-        from httk.atomistic.models.crystalpattern.view_base import CrystalPatternViewBase
+        from httk.atomistic.models.chromastructure.backend import ChromastructureBackend
+        from httk.atomistic.models.chromastructure.view_base import ChromastructureViewBase
 
-        if isinstance(obj, (CrystalPatternBackend, CrystalPatternViewBase)):
+        if isinstance(obj, (ChromastructureBackend, ChromastructureViewBase)):
             raise TypeError(
-                "a prototype or crystal pattern carries dummy species; a protostructure needs the real ones"
+                "a prototype or chromastructure carries dummy species; a protostructure needs the real ones"
             )
 
-        # A structuretype erases lazily to its protostructure through RecognizedProtostructure
+        # A crystallotype erases lazily to its protostructure through RecognizedProtostructure
         # (adopted below); recognition arguments are meaningless for it, so reject them up front.
-        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
-        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
+        from httk.atomistic.models.crystallotype.backend import CrystallotypeBackend
+        from httk.atomistic.models.crystallotype.view_base import CrystallotypeViewBase
 
-        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)) and (
+        if isinstance(obj, (CrystallotypeBackend, CrystallotypeViewBase)) and (
             any(value is not None for value in (setting, standard, transform, tolerance, limit_denominator)) or hints
         ):
-            raise ValueError("ProtostructureView recognition arguments cannot be used with a structuretype")
+            raise ValueError("ProtostructureView recognition arguments cannot be used with a crystallotype")
 
         recognition_values = (setting, standard, transform, tolerance, limit_denominator)
         backend_hints = dict(hints)

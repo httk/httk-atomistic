@@ -68,12 +68,12 @@ register_entry_family(
     family="httk.atomistic.entries.prototypes:PrototypeEntry",
 )
 register_entry_family(
-    name="protopatterns",
-    family="httk.atomistic.entries.prototypes:ProtopatternEntry",
+    name="protochromas",
+    family="httk.atomistic.entries.prototypes:ProtochromaEntry",
 )
 register_entry_family(
-    name="structuretypes",
-    family="httk.atomistic.entries.prototypes:StructuretypeEntry",
+    name="crystallotypes",
+    family="httk.atomistic.entries.prototypes:CrystallotypeEntry",
 )
 
 register_entry_record(
@@ -87,12 +87,12 @@ register_entry_record(
     record="httk.atomistic.storage.records:PrototypeRecord",
 )
 register_entry_record(
-    name="atomistic-protopattern",
-    family="protopatterns",
-    record="httk.atomistic.storage.records:ProtopatternRecord",
+    name="atomistic-protochroma",
+    family="protochromas",
+    record="httk.atomistic.storage.records:ProtochromaRecord",
 )
 register_entry_record(
-    name="atomistic-structuretype",
-    family="structuretypes",
-    record="httk.atomistic.storage.records:StructuretypeRecord",
+    name="atomistic-crystallotype",
+    family="crystallotypes",
+    record="httk.atomistic.storage.records:CrystallotypeRecord",
 )
