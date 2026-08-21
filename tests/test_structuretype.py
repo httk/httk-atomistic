@@ -118,7 +118,7 @@ def test_label_and_aflow_label_delegate_to_the_protostructure() -> None:
     assert structuretype.label == "AB_cF8_225_a_b:Na-Cl"
     assert structuretype.aflow_label == structuretype.protostructure.aflow_label
     assert structuretype.pearson_symbol == "cF8"
-    assert structuretype.protopattern.label == "AB_cF8_225_a_b"
+    assert structuretype.prototemplate.label == "AB_cF8_225_a_b"
 
 
 def test_protostructure_view_erases_a_structuretype() -> None:
@@ -138,7 +138,7 @@ def test_prototype_view_erases_a_structuretype_and_carries_the_discriminator() -
     erased = PrototypeView(discriminator_only).unview()
     assert erased.discriminator == "XYZ"
     assert erased.representative is None
-    assert erased.protopattern.label == "AB_cF8_225_a_b"
+    assert erased.prototemplate.label == "AB_cF8_225_a_b"
 
 
 def test_recognition_from_exact_fundamental_domain_needs_no_spglib() -> None:

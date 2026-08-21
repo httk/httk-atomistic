@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING, Any, Self
 
 from httk.core import unwrap
 
-from httk.atomistic.models.protopattern.notation import render_protostructure_label
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.protostructure.view_base import ProtostructureViewBase
+from httk.atomistic.models.prototemplate.notation import render_protostructure_label
 
 if TYPE_CHECKING:
     from httk.atomistic.models.protostructure.like import ProtostructureLike
@@ -20,7 +20,7 @@ class ProtostructureLabel(ProtostructureViewBase, str):
     is the one obtained from a normalizer-canonical protostructure (for example one derived
     via ``canonical_asu``). This view renders the label with no affine-normalizer pass.
 
-    The unsuffixed part is the httk protopattern label of the erased pattern (classes
+    The unsuffixed part is the httk prototemplate label of the erased template (classes
     ordered by Wyckoff letters, not by element as AFLOW does), followed by ``:`` and the
     class species names in group order.
 

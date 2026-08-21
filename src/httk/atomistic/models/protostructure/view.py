@@ -62,12 +62,12 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
             return obj
 
         # Prototype-family inputs have dummy species; report the domain mismatch before backend probing.
-        from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
-        from httk.atomistic.models.crystalpattern.view_base import CrystalPatternViewBase
+        from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
+        from httk.atomistic.models.crystaltemplate.view_base import CrystalTemplateViewBase
 
-        if isinstance(obj, (CrystalPatternBackend, CrystalPatternViewBase)):
+        if isinstance(obj, (CrystalTemplateBackend, CrystalTemplateViewBase)):
             raise TypeError(
-                "a prototype or crystal pattern carries dummy species; a protostructure needs the real ones"
+                "a prototype or crystal template carries dummy species; a protostructure needs the real ones"
             )
 
         # A structuretype erases lazily to its protostructure through RecognizedProtostructure

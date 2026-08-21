@@ -2,15 +2,15 @@
 
 from typing import Any, Self
 
-from httk.atomistic.models.protopattern.notation import try_parse_protostructure
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
+from httk.atomistic.models.prototemplate.notation import try_parse_protostructure
 
 
 class ProtostructureLabelString(ProtostructureBackend):
     r"""Wrap a canonical httk protostructure label held as a plain string.
 
     The string must be a canonical label carrying a ``:`` species suffix; the unsuffixed
-    protopattern labels are declined (they belong to the protopattern family). Each name
+    prototemplate labels are declined (they belong to the prototemplate family). Each name
     becomes ``Species(name, (name,), (1,))``. Parsing is eager.
 
     :param obj: The canonical protostructure label text.

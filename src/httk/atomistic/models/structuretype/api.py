@@ -4,10 +4,10 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Self, cast
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.protopattern.protopattern import Protopattern
     from httk.atomistic.models.protostructure.backend import ProtostructureBackend
     from httk.atomistic.models.protostructure.label import ProtostructureLabel
     from httk.atomistic.models.protostructure.protostructure import Protostructure
+    from httk.atomistic.models.prototemplate.prototemplate import Prototemplate
     from httk.atomistic.models.structure.asu import FundamentalDomainStructure
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -22,7 +22,7 @@ class StructuretypeAPI(ABC):
     *discriminator* string. At least one is present; equality compares exactly the information
     present. The discriminator is species-independent and is not part of the label. Label and
     ``aflow_label`` derivations delegate to the protostructure; ``pearson_symbol`` and
-    ``protopattern`` come from the erased anonymous pattern.
+    ``prototemplate`` come from the erased anonymous template.
     """
 
     @property
@@ -52,14 +52,14 @@ class StructuretypeAPI(ABC):
         return self.protostructure.spacegroup
 
     @property
-    def protopattern(self) -> "Protopattern":
-        """Return the anonymous protopattern the protostructure erases to.
+    def prototemplate(self) -> "Prototemplate":
+        """Return the anonymous prototemplate the protostructure erases to.
 
-        :return: The erased protopattern value.
+        :return: The erased prototemplate value.
         """
-        from httk.atomistic.models.protopattern.derived import DerivedProtopattern
+        from httk.atomistic.models.prototemplate.derived import DerivedPrototemplate
 
-        return DerivedProtopattern(cast("ProtostructureBackend", self.protostructure)).resolve()
+        return DerivedPrototemplate(cast("ProtostructureBackend", self.protostructure)).resolve()
 
     @property
     def label(self) -> "ProtostructureLabel":
@@ -89,7 +89,7 @@ class StructuretypeAPI(ABC):
 
         :return: The Pearson symbol, such as ``"cF8"``.
         """
-        return self.protopattern.pearson_symbol
+        return self.prototemplate.pearson_symbol
 
     @property
     def nsites_conventional(self) -> int:

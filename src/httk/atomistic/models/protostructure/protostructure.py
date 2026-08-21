@@ -18,13 +18,13 @@ class Protostructure(ProtostructureBackend):
     ``Protostructure`` is the assigned-species, Wyckoff-positions-only cell of the
     material-information matrix:
 
-    ======================  ==============  ==============
-    Geometrical info        Anonymous       Assigned
-    ======================  ==============  ==============
-    Wyckoff positions only  Protopattern    Protostructure
-    Geometrical class       Prototype       Structuretype
-    Exact geometry          CrystalPattern  Structure
-    ======================  ==============  ==============
+    ======================  ===============  ==============
+    Geometrical info        Anonymous        Assigned
+    ======================  ===============  ==============
+    Wyckoff positions only  Prototemplate    Protostructure
+    Geometrical class       Prototype        Structuretype
+    Exact geometry          CrystalTemplate  Structure
+    ======================  ===============  ==============
 
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: The occupied Wyckoff positions and their species.

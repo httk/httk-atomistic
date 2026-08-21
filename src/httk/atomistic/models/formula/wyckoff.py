@@ -8,13 +8,13 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
-import httk.atomistic.models.protopattern.backend
-import httk.atomistic.models.protopattern.view_base
 import httk.atomistic.models.protostructure.backend
 import httk.atomistic.models.protostructure.view_base
+import httk.atomistic.models.prototemplate.backend
+import httk.atomistic.models.prototemplate.view_base
 from httk.atomistic.composition import project_composition
-from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
-from httk.atomistic.models.crystalpattern.view_base import CrystalPatternViewBase
+from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
+from httk.atomistic.models.crystaltemplate.view_base import CrystalTemplateViewBase
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.formula.notation import anonymous_symbol
@@ -23,10 +23,10 @@ from httk.atomistic.models.formula.notation import anonymous_symbol
 class WyckoffComposition(ChemicalFormulaBackend):
     r"""Represent the canonical composition of a Wyckoff-multiplicity-based backend.
 
-    Crystal-pattern and protopattern inputs use anonymous labels; protostructure
+    Crystal-template and prototemplate inputs use anonymous labels; protostructure
     inputs retain their real elemental composition at the standard conventional-cell scale.
 
-    :param obj: The crystal pattern or protostructure to present.
+    :param obj: The crystal template or protostructure to present.
     :param \*\*hints: Backend-selection hints.
     """
 
@@ -46,10 +46,10 @@ class WyckoffComposition(ChemicalFormulaBackend):
         if isinstance(
             obj,
             (
-                CrystalPatternBackend,
-                CrystalPatternViewBase,
-                httk.atomistic.models.protopattern.backend.ProtopatternBackend,
-                httk.atomistic.models.protopattern.view_base.ProtopatternViewBase,
+                CrystalTemplateBackend,
+                CrystalTemplateViewBase,
+                httk.atomistic.models.prototemplate.backend.PrototemplateBackend,
+                httk.atomistic.models.prototemplate.view_base.PrototemplateViewBase,
                 httk.atomistic.models.protostructure.backend.ProtostructureBackend,
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
             ),
@@ -61,8 +61,8 @@ class WyckoffComposition(ChemicalFormulaBackend):
         if isinstance(
             obj,
             (
-                CrystalPatternViewBase,
-                httk.atomistic.models.protopattern.view_base.ProtopatternViewBase,
+                CrystalTemplateViewBase,
+                httk.atomistic.models.prototemplate.view_base.PrototemplateViewBase,
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
             ),
         ):
@@ -75,8 +75,8 @@ class WyckoffComposition(ChemicalFormulaBackend):
         return isinstance(self._prototype, httk.atomistic.models.protostructure.backend.ProtostructureBackend)
 
     @property
-    def _is_protopattern(self) -> bool:
-        return isinstance(self._prototype, httk.atomistic.models.protopattern.backend.ProtopatternBackend)
+    def _is_prototemplate(self) -> bool:
+        return isinstance(self._prototype, httk.atomistic.models.prototemplate.backend.PrototemplateBackend)
 
     @cached_property
     def _projected(self) -> Composition:
@@ -102,7 +102,7 @@ class WyckoffComposition(ChemicalFormulaBackend):
     def _amounts(self) -> tuple[tuple[str, Fraction], ...]:
         if self._is_protostructure:
             return self._projected.amounts
-        if self._is_protopattern:
+        if self._is_prototemplate:
             counts: Counter[str] = Counter()
             for occupation, multiplicity in zip(self._prototype.occupations, self._prototype.multiplicities()):
                 counts[occupation.label] += multiplicity

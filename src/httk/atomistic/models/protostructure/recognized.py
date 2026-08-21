@@ -5,8 +5,8 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
-from httk.atomistic.models.crystalpattern.backend import CrystalPatternBackend
-from httk.atomistic.models.crystalpattern.view_base import CrystalPatternViewBase
+from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
+from httk.atomistic.models.crystaltemplate.view_base import CrystalTemplateViewBase
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.view_base import ChemicalFormulaViewBase
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
@@ -83,7 +83,7 @@ class RecognizedProtostructure(ProtostructureBackend):
                 raise TypeError("recognize_asu() needs both 'standard' and 'transform' when either is given")
             if not standard.is_standard_setting:
                 raise ValueError(f"'standard' must be an IT standard setting, got {standard.setting}")
-        if isinstance(obj, (CrystalPatternBackend, CrystalPatternViewBase)):
+        if isinstance(obj, (CrystalTemplateBackend, CrystalTemplateViewBase)):
             return None
         if isinstance(obj, (ChemicalFormulaBackend, ChemicalFormulaViewBase)):
             return None

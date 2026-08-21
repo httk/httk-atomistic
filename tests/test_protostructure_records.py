@@ -9,10 +9,10 @@ from httk.core.storage import content_id, storage_identity_name
 from httk.atomistic import (
     ASUStructure,
     Cell,
-    FundamentalDomainPattern,
-    FundamentalDomainPatternRecord,
-    Protopattern,
-    ProtopatternRecord,
+    FundamentalDomainTemplate,
+    FundamentalDomainTemplateRecord,
+    Prototemplate,
+    PrototemplateRecord,
     Protostructure,
     ProtostructureRecord,
     Prototype,
@@ -27,17 +27,17 @@ from httk.atomistic import (
     WyckoffSite,
 )
 from httk.atomistic.entries.prototypes import (
-    ProtopatternEntry,
+    PrototemplateEntry,
     ProtostructureEntry,
     PrototypeEntry,
     StructuretypeEntry,
 )
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.storage.records import (
-    _fundamental_domain_pattern_from_record,
-    _fundamental_domain_pattern_record_from_value,
-    _protopattern_from_record,
-    _protopattern_record_from_value,
+    _fundamental_domain_template_from_record,
+    _fundamental_domain_template_record_from_value,
+    _prototemplate_from_record,
+    _prototemplate_record_from_value,
     _protostructure_from_record,
     _protostructure_record_from_value,
     _prototype_from_record,
@@ -63,13 +63,13 @@ def _rocksalt_asu() -> ASUStructure:
     )
 
 
-def _rocksalt_protopattern() -> Protopattern:
-    return Protopattern(225, [("a", "A"), ("b", "B")])
+def _rocksalt_prototemplate() -> Prototemplate:
+    return Prototemplate(225, [("a", "A"), ("b", "B")])
 
 
-def _hexagonal_fundamental_domain_pattern() -> FundamentalDomainPattern:
+def _hexagonal_fundamental_domain_template() -> FundamentalDomainTemplate:
     dummy = Species("A", ("X",), (1,), labels=("A",))
-    return FundamentalDomainPattern(
+    return FundamentalDomainTemplate(
         Cell(CellParams((2, 2, 3, 90, 90, 120)).basis),
         191,
         (WyckoffSite("a", EMPTY, "A"),),
@@ -83,10 +83,10 @@ def _hexagonal_fundamental_domain_pattern() -> FundamentalDomainPattern:
 def test_record_identity_names_are_storage_names() -> None:
     for record_type in (
         ProtostructureRecord,
-        ProtopatternRecord,
+        PrototemplateRecord,
         PrototypeRecord,
         StructuretypeRecord,
-        FundamentalDomainPatternRecord,
+        FundamentalDomainTemplateRecord,
         WyckoffOccupationRecord,
     ):
         identity_name = storage_identity_name(record_type)
@@ -95,14 +95,14 @@ def test_record_identity_names_are_storage_names() -> None:
 
 
 def test_new_record_storage_names_are_suffix_free() -> None:
-    assert ProtopatternRecord.__httk_storage__.storage_name == "atomistic_protopattern"
+    assert PrototemplateRecord.__httk_storage__.storage_name == "atomistic_prototemplate"
     assert PrototypeRecord.__httk_storage__.storage_name == "atomistic_prototype"
     assert StructuretypeRecord.__httk_storage__.storage_name == "atomistic_structuretype"
-    assert FundamentalDomainPatternRecord.__httk_storage__.storage_name == "atomistic_fundamental_domain_pattern"
+    assert FundamentalDomainTemplateRecord.__httk_storage__.storage_name == "atomistic_fundamental_domain_template"
 
 
 def test_taxonomy_record_indexes_cover_it_number_and_label() -> None:
-    for record_type in (ProtostructureRecord, ProtopatternRecord, PrototypeRecord, StructuretypeRecord):
+    for record_type in (ProtostructureRecord, PrototemplateRecord, PrototypeRecord, StructuretypeRecord):
         assert record_type.__httk_storage__.indexes == (("spacegroup_it_number",), ("label",))
 
 
@@ -150,57 +150,57 @@ def test_protostructure_record_rejects_out_of_range_it_number() -> None:
         )
 
 
-# --- protopattern record ---
+# --- prototemplate record ---
 
 
-def test_protopattern_record_round_trips_and_labels() -> None:
-    value = _rocksalt_protopattern()
-    record = _protopattern_record_from_value(value)
+def test_prototemplate_record_round_trips_and_labels() -> None:
+    value = _rocksalt_prototemplate()
+    record = _prototemplate_record_from_value(value)
     assert record.label == "AB_cF8_225_a_b"
-    assert _protopattern_from_record(record) == value
+    assert _prototemplate_from_record(record) == value
 
 
-def test_protopattern_golden_content_id_is_layout_independent() -> None:
-    record = _protopattern_record_from_value(_rocksalt_protopattern())
-    assert record.id == content_id(_rocksalt_protopattern())
-    assert record.id == "1e3f5da5dbd250cc75e2939415dc1f5c1061fcd54a3b8509e18e9f11b1cd754a"
+def test_prototemplate_golden_content_id_is_layout_independent() -> None:
+    record = _prototemplate_record_from_value(_rocksalt_prototemplate())
+    assert record.id == content_id(_rocksalt_prototemplate())
+    assert record.id == "76024b65094dc39cd424f8baa2364759279a2bac73ea159a089f9c7a82179a72"
 
 
-def test_protopattern_record_rejects_non_canonical_field_order() -> None:
-    good = _protopattern_record_from_value(_rocksalt_protopattern())
+def test_prototemplate_record_rejects_non_canonical_field_order() -> None:
+    good = _prototemplate_record_from_value(_rocksalt_prototemplate())
     swapped = dataclasses.replace(good, wyckoff_letters=tuple(reversed(good.wyckoff_letters)))
     with pytest.raises(ValueError, match="not in canonical order"):
-        ProtopatternRecord.__httk_validate__(swapped)
+        PrototemplateRecord.__httk_validate__(swapped)
 
 
-# --- fundamental-domain-pattern record (the renamed geometric record) ---
+# --- fundamental-domain-template record (the renamed geometric record) ---
 
 
-def test_fundamental_domain_pattern_record_round_trips_surd_cell_and_free_parameters() -> None:
-    value = _hexagonal_fundamental_domain_pattern()
-    record = _fundamental_domain_pattern_record_from_value(value)
-    rebuilt = _fundamental_domain_pattern_from_record(record)
+def test_fundamental_domain_template_record_round_trips_surd_cell_and_free_parameters() -> None:
+    value = _hexagonal_fundamental_domain_template()
+    record = _fundamental_domain_template_record_from_value(value)
+    rebuilt = _fundamental_domain_template_from_record(record)
     assert rebuilt == value
     assert record.cell.basis  # surd basis retained as exact scalars
 
 
-def _two_site_fundamental_domain_pattern() -> FundamentalDomainPattern:
+def _two_site_fundamental_domain_template() -> FundamentalDomainTemplate:
     a = Species("A", ("X",), (1,), labels=("A",))
     b = Species("B", ("X",), (1,), labels=("B",))
-    return FundamentalDomainPattern(CELL, 225, (WyckoffSite("a", EMPTY, "A"), WyckoffSite("b", EMPTY, "B")), (a, b))
+    return FundamentalDomainTemplate(CELL, 225, (WyckoffSite("a", EMPTY, "A"), WyckoffSite("b", EMPTY, "B")), (a, b))
 
 
-def test_fundamental_domain_pattern_record_rejects_permuted_sites() -> None:
-    good = _fundamental_domain_pattern_record_from_value(_two_site_fundamental_domain_pattern())
+def test_fundamental_domain_template_record_rejects_permuted_sites() -> None:
+    good = _fundamental_domain_template_record_from_value(_two_site_fundamental_domain_template())
     permuted = dataclasses.replace(good, wyckoff_sites=tuple(reversed(good.wyckoff_sites)))
     with pytest.raises(ValueError, match="not in canonical order"):
-        FundamentalDomainPatternRecord.__httk_validate__(permuted)
+        FundamentalDomainTemplateRecord.__httk_validate__(permuted)
 
 
-def test_fundamental_domain_pattern_golden_content_id_is_layout_independent() -> None:
-    record = _fundamental_domain_pattern_record_from_value(_hexagonal_fundamental_domain_pattern())
-    assert record.id == content_id(_hexagonal_fundamental_domain_pattern())
-    assert record.id == "88b2a932cf8f4d83120b0eb1bee26240e1daac934e9252f493fc3f87a4994c8f"
+def test_fundamental_domain_template_golden_content_id_is_layout_independent() -> None:
+    record = _fundamental_domain_template_record_from_value(_hexagonal_fundamental_domain_template())
+    assert record.id == content_id(_hexagonal_fundamental_domain_template())
+    assert record.id == "53417ca2318eaebd8617819cab98c2dcf3f405553ae90b1ec665326d039c935e"
 
 
 # --- prototype record (new geometrical-class meaning) ---
@@ -216,7 +216,7 @@ def test_prototype_record_round_trips_representative_carrying() -> None:
 
 
 def test_prototype_record_round_trips_discriminator_only() -> None:
-    value = Prototype(_rocksalt_protopattern(), discriminator="001")
+    value = Prototype(_rocksalt_prototemplate(), discriminator="001")
     record = _prototype_record_from_value(value)
     assert record.representative is None
     assert record.discriminator == "001"
@@ -224,7 +224,7 @@ def test_prototype_record_round_trips_discriminator_only() -> None:
 
 
 def test_prototype_record_requires_a_class_distinction() -> None:
-    good = _prototype_record_from_value(Prototype(_rocksalt_protopattern(), discriminator="001"))
+    good = _prototype_record_from_value(Prototype(_rocksalt_prototemplate(), discriminator="001"))
     with pytest.raises(ValueError, match="at least one of representative or discriminator"):
         PrototypeRecord(
             spacegroup_it_number=good.spacegroup_it_number,
@@ -235,7 +235,7 @@ def test_prototype_record_requires_a_class_distinction() -> None:
 
 
 def test_prototype_record_rejects_permuted_class_labels() -> None:
-    good = _prototype_record_from_value(Prototype(_rocksalt_protopattern(), discriminator="001"))
+    good = _prototype_record_from_value(Prototype(_rocksalt_prototemplate(), discriminator="001"))
     permuted = dataclasses.replace(good, labels=tuple(reversed(good.labels)))
     with pytest.raises(ValueError, match="not in canonical order"):
         PrototypeRecord.__httk_validate__(permuted)
@@ -245,9 +245,9 @@ def test_prototype_golden_content_ids_are_layout_independent() -> None:
     representative_carrying = PrototypeView(_rocksalt_asu()).unview()
     rep_record = _prototype_record_from_value(representative_carrying)
     assert rep_record.id == content_id(representative_carrying)
-    assert rep_record.id == "b30718b654cf19dc55cc6d065e361dff27c412d112288b634a9b963b99f897c5"
+    assert rep_record.id == "f67b541efb6e04567a814bcc5f2201815b65b6c1f912a51c37da4fa658f29300"
 
-    discriminator_only = Prototype(_rocksalt_protopattern(), discriminator="001")
+    discriminator_only = Prototype(_rocksalt_prototemplate(), discriminator="001")
     disc_record = _prototype_record_from_value(discriminator_only)
     assert disc_record.id == content_id(discriminator_only)
     assert disc_record.id == "3ee6b735605d2804d0cfc58bc112a7696d031ed3b3ef267ccfb1fd45992da5a1"
@@ -346,11 +346,11 @@ def test_sql_store_prototype_dedup_and_label_query() -> None:
     pytest.importorskip("sqlalchemy")
     from httk.store import Backend, SqlStore
 
-    first = _prototype_record_from_value(Prototype(_rocksalt_protopattern(), discriminator="001"))
+    first = _prototype_record_from_value(Prototype(_rocksalt_prototemplate(), discriminator="001"))
     equal = _prototype_record_from_value(
-        Prototype(Protopattern(Spacegroup.standard(225), [("b", "B"), ("a", "A")]), discriminator="001")
+        Prototype(Prototemplate(Spacegroup.standard(225), [("b", "B"), ("a", "A")]), discriminator="001")
     )
-    other = _prototype_record_from_value(Prototype(Protopattern(1, [("a", "A")]), discriminator="001"))
+    other = _prototype_record_from_value(Prototype(Prototemplate(1, [("a", "A")]), discriminator="001"))
     with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={PrototypeEntry: PrototypeRecord})
         first_sid = store.save(first)
@@ -389,15 +389,15 @@ def test_sql_store_structuretype_representative_round_trips() -> None:
     assert _structuretype_from_record(fetched) == value
 
 
-def test_sql_store_protopattern_round_trips() -> None:
+def test_sql_store_prototemplate_round_trips() -> None:
     pytest.importorskip("sqlalchemy")
     from httk.store import Backend, SqlStore
 
-    record = _protopattern_record_from_value(_rocksalt_protopattern())
+    record = _prototemplate_record_from_value(_rocksalt_prototemplate())
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={ProtopatternEntry: ProtopatternRecord})
+        store = SqlStore(database, entry_records={PrototemplateEntry: PrototemplateRecord})
         sid = store.save(record)
-        fetched = store.fetch(ProtopatternRecord, sid, eager=True)
+        fetched = store.fetch(PrototemplateRecord, sid, eager=True)
 
     assert fetched.id == record.id
     assert fetched.label == "AB_cF8_225_a_b"

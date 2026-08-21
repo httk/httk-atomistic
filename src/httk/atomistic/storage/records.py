@@ -22,15 +22,15 @@ from httk.atomistic._composition_values import as_fraction
 from httk.atomistic.composition import Assembly, ChemicalComposition, validate_assemblies
 from httk.atomistic.models._vector_guards import to_periodicity, to_precision
 from httk.atomistic.models.cell.cell import Cell
-from httk.atomistic.models.crystalpattern.fundamental import FundamentalDomainPattern
+from httk.atomistic.models.crystaltemplate.fundamental import FundamentalDomainTemplate
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
-from httk.atomistic.models.protopattern.occupation import ProtopatternOccupation
-from httk.atomistic.models.protopattern.protopattern import Protopattern
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.protostructure import Protostructure
+from httk.atomistic.models.prototemplate.occupation import PrototemplateOccupation
+from httk.atomistic.models.prototemplate.prototemplate import Prototemplate
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
@@ -48,13 +48,13 @@ __all__ = [
     "CellRecord",
     "ChemicalCompositionRecord",
     "CompositionAmountRecord",
-    "FundamentalDomainPatternRecord",
     "FundamentalDomainStructureRecord",
+    "FundamentalDomainTemplateRecord",
     "NormalizedCompositionAmountRecord",
     "NormalizedCompositionRecord",
     "ObservableSummaryRecord",
-    "ProtopatternRecord",
     "ProtostructureRecord",
+    "PrototemplateRecord",
     "PrototypeRecord",
     "SettingTransformRecord",
     "SitesRecord",
@@ -1824,8 +1824,8 @@ class ProtostructureRecord:
         """Expose the httk protostructure label as a deterministic query column.
 
         The label is the httk protostructure label
-        (``"AB_cF8_225_a_b:Na-Cl"`` for rocksalt): the protopattern label of the erased
-        pattern followed by ``:`` and the class species names. It is a convenience and
+        (``"AB_cF8_225_a_b:Na-Cl"`` for rocksalt): the prototemplate label of the erased
+        template followed by ``:`` and the class species names. It is a convenience and
         query column only; it is not the record's identity (the content id is), and it
         is NOT unique across distinct protostructures: species that share a name but
         differ in any other :class:`~httk.atomistic.Species` field (concentration, charges, spins,
@@ -1876,12 +1876,12 @@ class ProtostructureRecord:
 
 
 @dataclass(frozen=True)
-class FundamentalDomainPatternRecord:
+class FundamentalDomainTemplateRecord:
     """Represent the durable backing for a standard-setting dummy-species fundamental domain.
 
-    The record carries the geometric per-structure fundamental-domain pattern: its
+    The record carries the geometric per-structure fundamental-domain template: its
     standard-setting space group, its cell (surd-capable), the symmetry-distinct Wyckoff
-    sites with their exact free parameters, and the distinct dummy species. Distinct patterns
+    sites with their exact free parameters, and the distinct dummy species. Distinct templates
     with different free parameters are distinct values, so no content deduplication is
     expected; the content identity remains deterministic.
 
@@ -1894,11 +1894,11 @@ class FundamentalDomainPatternRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_fundamental_domain_pattern",
-        identity_name="atomistic_fundamental_domain_pattern",
+        storage_name="atomistic_fundamental_domain_template",
+        identity_name="atomistic_fundamental_domain_template",
         indexes=(("spacegroup_it_number",), ("spacegroup_hall_entry",)),
     )
-    __httk_canonical_source__: ClassVar[type[FundamentalDomainPattern]] = FundamentalDomainPattern
+    __httk_canonical_source__: ClassVar[type[FundamentalDomainTemplate]] = FundamentalDomainTemplate
 
     cell: CellRecord
     wyckoff_sites: tuple[WyckoffSiteRecord, ...]
@@ -1917,65 +1917,65 @@ class FundamentalDomainPatternRecord:
 
     def __post_init__(self) -> None:
         if not isinstance(self.cell, CellRecord):
-            raise TypeError("FundamentalDomainPatternRecord cell must be a CellRecord")
+            raise TypeError("FundamentalDomainTemplateRecord cell must be a CellRecord")
         wyckoff_sites = tuple(self.wyckoff_sites)
         if not all(_effective_record_type(value) is WyckoffSiteRecord for value in wyckoff_sites):
-            raise TypeError("FundamentalDomainPatternRecord wyckoff_sites must contain WyckoffSiteRecord values")
+            raise TypeError("FundamentalDomainTemplateRecord wyckoff_sites must contain WyckoffSiteRecord values")
         species = tuple(self.species)
         if not all(_effective_record_type(value) is SpeciesRecord for value in species):
-            raise TypeError("FundamentalDomainPatternRecord species must contain SpeciesRecord values")
+            raise TypeError("FundamentalDomainTemplateRecord species must contain SpeciesRecord values")
         names = tuple(value.name for value in species)
         if len(names) != len(set(names)):
-            raise ValueError("FundamentalDomainPatternRecord species names must be unique")
+            raise ValueError("FundamentalDomainTemplateRecord species names must be unique")
         if not isinstance(self.spacegroup_it_number, int) or isinstance(self.spacegroup_it_number, bool):
-            raise TypeError("FundamentalDomainPatternRecord spacegroup_it_number must be an integer")
+            raise TypeError("FundamentalDomainTemplateRecord spacegroup_it_number must be an integer")
         if not 1 <= self.spacegroup_it_number <= 230:
-            raise ValueError("FundamentalDomainPatternRecord spacegroup_it_number must be in [1, 230]")
+            raise ValueError("FundamentalDomainTemplateRecord spacegroup_it_number must be in [1, 230]")
         if not isinstance(self.spacegroup_hall_entry, str) or not self.spacegroup_hall_entry:
-            raise TypeError("FundamentalDomainPatternRecord spacegroup_hall_entry must be a non-empty string")
+            raise TypeError("FundamentalDomainTemplateRecord spacegroup_hall_entry must be a non-empty string")
         if unknown := {value.species for value in wyckoff_sites} - set(names):
-            raise ValueError(f"FundamentalDomainPatternRecord references unknown species: {sorted(unknown)!r}")
+            raise ValueError(f"FundamentalDomainTemplateRecord references unknown species: {sorted(unknown)!r}")
         object.__setattr__(self, "wyckoff_sites", wyckoff_sites)
         object.__setattr__(self, "species", species)
         object.__setattr__(self, "coordinate_precision", to_precision(self.coordinate_precision))
 
     @classmethod
-    def __httk_validate__(cls, record: "FundamentalDomainPatternRecord") -> None:
-        """Validate the semantic fundamental-domain-pattern record.
+    def __httk_validate__(cls, record: "FundamentalDomainTemplateRecord") -> None:
+        """Validate the semantic fundamental-domain-template record.
 
         :param record: The record to validate.
         :return: ``None`` after successful validation.
         """
-        canonical = _fundamental_domain_pattern_record_from_value(_fundamental_domain_pattern_from_record(record))
+        canonical = _fundamental_domain_template_record_from_value(_fundamental_domain_template_from_record(record))
         _require_canonical(
-            "FundamentalDomainPatternRecord", "wyckoff_sites", record.wyckoff_sites, canonical.wyckoff_sites
+            "FundamentalDomainTemplateRecord", "wyckoff_sites", record.wyckoff_sites, canonical.wyckoff_sites
         )
 
     @classmethod
-    def __httk_project__(cls, pattern: FundamentalDomainPattern) -> Mapping[str, object]:
-        """Project a fundamental-domain pattern into durable fields.
+    def __httk_project__(cls, template: FundamentalDomainTemplate) -> Mapping[str, object]:
+        """Project a fundamental-domain template into durable fields.
 
-        :param pattern: The fundamental-domain pattern to project.
-        :return: The projected pattern fields.
+        :param template: The fundamental-domain template to project.
+        :return: The projected template fields.
         """
         return {
-            "cell": pattern.cell,
-            "wyckoff_sites": pattern.wyckoff_sites,
-            "species": pattern.species,
-            "spacegroup_it_number": pattern.spacegroup.it_number,
-            "spacegroup_hall_entry": pattern.spacegroup.hall_entry,
-            "coordinate_precision": pattern.coordinate_precision,
+            "cell": template.cell,
+            "wyckoff_sites": template.wyckoff_sites,
+            "species": template.species,
+            "spacegroup_it_number": template.spacegroup.it_number,
+            "spacegroup_hall_entry": template.spacegroup.hall_entry,
+            "coordinate_precision": template.coordinate_precision,
         }
 
 
 @dataclass(frozen=True)
-class ProtopatternRecord:
-    """Represent the durable backing for a geometry-free, element-free protopattern.
+class PrototemplateRecord:
+    """Represent the durable backing for a geometry-free, element-free prototemplate.
 
     The record carries exactly the value identity of
-    :class:`~httk.atomistic.models.protopattern.protopattern.Protopattern`: its
+    :class:`~httk.atomistic.models.prototemplate.prototemplate.Prototemplate`: its
     standard-setting space group and its class-partitioned occupied Wyckoff letters, in the
-    protopattern's canonical order. It has no cell, coordinates, or species.
+    prototemplate's canonical order. It has no cell, coordinates, or species.
 
     :param spacegroup_it_number: The International Tables space-group number.
     :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
@@ -1984,11 +1984,11 @@ class ProtopatternRecord:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="atomistic_protopattern",
-        identity_name="atomistic_protopattern",
+        storage_name="atomistic_prototemplate",
+        identity_name="atomistic_prototemplate",
         indexes=(("spacegroup_it_number",), ("label",)),
     )
-    __httk_canonical_source__: ClassVar[type[Protopattern]] = Protopattern
+    __httk_canonical_source__: ClassVar[type[Prototemplate]] = Prototemplate
 
     spacegroup_it_number: int
     spacegroup_hall_entry: str
@@ -2005,46 +2005,46 @@ class ProtopatternRecord:
 
     @stored_property
     def label(self) -> str:
-        """Expose the httk protopattern label as a deterministic query column.
+        """Expose the httk prototemplate label as a deterministic query column.
 
-        The label is the httk protopattern label (``"AB_cF8_225_a_b"`` for rocksalt's
-        pattern). It is a convenience and query column only; it is not the record's identity
+        The label is the httk prototemplate label (``"AB_cF8_225_a_b"`` for rocksalt's
+        template). It is a convenience and query column only; it is not the record's identity
         (the content id is).
 
-        :return: The httk protopattern label.
+        :return: The httk prototemplate label.
         """
-        return _protopattern_label_from_fields(self.spacegroup_hall_entry, self.wyckoff_letters, self.labels)
+        return _prototemplate_label_from_fields(self.spacegroup_hall_entry, self.wyckoff_letters, self.labels)
 
     def __post_init__(self) -> None:
-        _validate_pattern_fields(type(self).__name__, self)
+        _validate_template_fields(type(self).__name__, self)
 
     @classmethod
-    def __httk_validate__(cls, record: "ProtopatternRecord") -> None:
-        """Validate the semantic protopattern record.
+    def __httk_validate__(cls, record: "PrototemplateRecord") -> None:
+        """Validate the semantic prototemplate record.
 
         :param record: The record to validate.
         :return: ``None`` after successful validation.
         """
-        canonical = _protopattern_record_from_value(_protopattern_from_record(record))
+        canonical = _prototemplate_record_from_value(_prototemplate_from_record(record))
         _require_canonical(
-            "ProtopatternRecord",
+            "PrototemplateRecord",
             "wyckoff_letters/labels",
             (record.wyckoff_letters, record.labels),
             (canonical.wyckoff_letters, canonical.labels),
         )
 
     @classmethod
-    def __httk_project__(cls, pattern: Protopattern) -> Mapping[str, object]:
-        """Project a protopattern into durable fields.
+    def __httk_project__(cls, template: Prototemplate) -> Mapping[str, object]:
+        """Project a prototemplate into durable fields.
 
-        :param pattern: The protopattern to project.
-        :return: The projected protopattern fields.
+        :param template: The prototemplate to project.
+        :return: The projected prototemplate fields.
         """
         return {
-            "spacegroup_it_number": pattern.spacegroup.it_number,
-            "spacegroup_hall_entry": pattern.spacegroup.hall_entry,
-            "wyckoff_letters": tuple(occupation.wyckoff for occupation in pattern.occupations),
-            "labels": tuple(occupation.label for occupation in pattern.occupations),
+            "spacegroup_it_number": template.spacegroup.it_number,
+            "spacegroup_hall_entry": template.spacegroup.hall_entry,
+            "wyckoff_letters": tuple(occupation.wyckoff for occupation in template.occupations),
+            "labels": tuple(occupation.label for occupation in template.occupations),
         }
 
 
@@ -2053,15 +2053,15 @@ class PrototypeRecord:
     """Represent the durable backing for an anonymous geometrical-class prototype.
 
     The record carries the value identity of
-    :class:`~httk.atomistic.models.prototype.prototype.Prototype`: its canonical protopattern
+    :class:`~httk.atomistic.models.prototype.prototype.Prototype`: its canonical prototemplate
     (as class-partitioned Wyckoff letters, always present) refined by a geometrical class. The
-    class is pinned by a canonical ``representative`` fundamental-domain pattern and/or an
+    class is pinned by a canonical ``representative`` fundamental-domain template and/or an
     externally assigned ``discriminator`` string; at least one is present. The discriminator is
     species-independent and is not part of the label.
 
     :param spacegroup_it_number: The International Tables space-group number.
     :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
-    :param wyckoff_letters: The protopattern's occupied Wyckoff letters in canonical order.
+    :param wyckoff_letters: The prototemplate's occupied Wyckoff letters in canonical order.
     :param labels: The aligned anonymous class labels.
     :param representative: The durable class representative, if one is held.
     :param discriminator: The externally assigned class discriminator, if one is held.
@@ -2078,7 +2078,7 @@ class PrototypeRecord:
     spacegroup_hall_entry: str
     wyckoff_letters: tuple[str, ...]
     labels: tuple[str, ...]
-    representative: FundamentalDomainPatternRecord | None = None
+    representative: FundamentalDomainTemplateRecord | None = None
     discriminator: str | None = None
 
     @property
@@ -2091,22 +2091,22 @@ class PrototypeRecord:
 
     @stored_property
     def label(self) -> str:
-        """Expose the httk protopattern label as a deterministic query column.
+        """Expose the httk prototemplate label as a deterministic query column.
 
         The discriminator names the geometrical class and is not part of the label, so
-        prototypes that share a protopattern but differ in class collide on this column; it
+        prototypes that share a prototemplate but differ in class collide on this column; it
         is a convenience and query column only, not the record's identity (the content id is).
 
-        :return: The httk protopattern label.
+        :return: The httk prototemplate label.
         """
-        return _protopattern_label_from_fields(self.spacegroup_hall_entry, self.wyckoff_letters, self.labels)
+        return _prototemplate_label_from_fields(self.spacegroup_hall_entry, self.wyckoff_letters, self.labels)
 
     def __post_init__(self) -> None:
-        _validate_pattern_fields(type(self).__name__, self)
+        _validate_template_fields(type(self).__name__, self)
         if self.representative is not None and _effective_record_type(self.representative) is not (
-            FundamentalDomainPatternRecord
+            FundamentalDomainTemplateRecord
         ):
-            raise TypeError("PrototypeRecord representative must be a FundamentalDomainPatternRecord or None")
+            raise TypeError("PrototypeRecord representative must be a FundamentalDomainTemplateRecord or None")
         _validate_class_distinction(type(self).__name__, self.representative, self.discriminator)
 
     @classmethod
@@ -2131,12 +2131,12 @@ class PrototypeRecord:
         :param prototype: The prototype to project.
         :return: The projected prototype fields.
         """
-        pattern = prototype.protopattern
+        template = prototype.prototemplate
         return {
-            "spacegroup_it_number": pattern.spacegroup.it_number,
-            "spacegroup_hall_entry": pattern.spacegroup.hall_entry,
-            "wyckoff_letters": tuple(occupation.wyckoff for occupation in pattern.occupations),
-            "labels": tuple(occupation.label for occupation in pattern.occupations),
+            "spacegroup_it_number": template.spacegroup.it_number,
+            "spacegroup_hall_entry": template.spacegroup.hall_entry,
+            "wyckoff_letters": tuple(occupation.wyckoff for occupation in template.occupations),
+            "labels": tuple(occupation.label for occupation in template.occupations),
             "representative": prototype.representative,
             "discriminator": prototype.discriminator,
         }
@@ -2237,8 +2237,8 @@ class StructuretypeRecord:
         }
 
 
-def _validate_pattern_fields(record_name: str, record: Any) -> None:
-    """Validate the shared space group and aligned Wyckoff-letter/label tuples of a pattern record."""
+def _validate_template_fields(record_name: str, record: Any) -> None:
+    """Validate the shared space group and aligned Wyckoff-letter/label tuples of a template record."""
     if not isinstance(record.spacegroup_it_number, int) or isinstance(record.spacegroup_it_number, bool):
         raise TypeError(f"{record_name} spacegroup_it_number must be an integer")
     if not 1 <= record.spacegroup_it_number <= 230:
@@ -2289,7 +2289,7 @@ def _protostructure_record_label(record: "ProtostructureRecord | StructuretypeRe
     :param record: The durable protostructure or structuretype record.
     :return: The httk protostructure label.
     """
-    from httk.atomistic.models.protopattern.notation import render_protostructure_label
+    from httk.atomistic.models.prototemplate.notation import render_protostructure_label
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
@@ -2315,18 +2315,18 @@ def _protostructure_from_record(record: ProtostructureRecord) -> Protostructure:
     )
 
 
-def _fundamental_domain_pattern_from_record(record: FundamentalDomainPatternRecord) -> FundamentalDomainPattern:
-    """Reconstruct a fundamental-domain pattern value from its durable record.
+def _fundamental_domain_template_from_record(record: FundamentalDomainTemplateRecord) -> FundamentalDomainTemplate:
+    """Reconstruct a fundamental-domain template value from its durable record.
 
-    :param record: The durable fundamental-domain-pattern record.
-    :return: The reconstructed fundamental-domain pattern value.
+    :param record: The durable fundamental-domain-template record.
+    :return: The reconstructed fundamental-domain template value.
     """
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
-    return FundamentalDomainPattern(
+    return FundamentalDomainTemplate(
         _cell_from_record(record.cell),
         spacegroup,
         tuple(
@@ -2357,15 +2357,15 @@ def _protostructure_record_from_value(value: Protostructure) -> ProtostructureRe
     )
 
 
-def _fundamental_domain_pattern_record_from_value(
-    value: FundamentalDomainPattern,
-) -> FundamentalDomainPatternRecord:
-    """Build a durable fundamental-domain-pattern record from a pattern value.
+def _fundamental_domain_template_record_from_value(
+    value: FundamentalDomainTemplate,
+) -> FundamentalDomainTemplateRecord:
+    """Build a durable fundamental-domain-template record from a template value.
 
-    :param value: The fundamental-domain pattern value to store.
-    :return: The durable fundamental-domain-pattern record.
+    :param value: The fundamental-domain template value to store.
+    :return: The durable fundamental-domain-template record.
     """
-    return FundamentalDomainPatternRecord(
+    return FundamentalDomainTemplateRecord(
         cell=CellRecord(**cast(dict[str, Any], CellRecord.__httk_project__(value.cell))),
         wyckoff_sites=tuple(
             WyckoffSiteRecord(**cast(dict[str, Any], WyckoffSiteRecord.__httk_project__(site)))
@@ -2422,47 +2422,47 @@ def _domain_structure_record_from_value(
     return record_type(**values)
 
 
-def _protopattern_label_from_fields(
+def _prototemplate_label_from_fields(
     spacegroup_hall_entry: str, wyckoff_letters: tuple[str, ...], labels: tuple[str, ...]
 ) -> str:
-    """Render the httk protopattern label from stored pattern fields.
+    """Render the httk prototemplate label from stored template fields.
 
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param wyckoff_letters: The occupied Wyckoff letters.
     :param labels: The aligned anonymous class labels.
-    :return: The protopattern label text.
+    :return: The prototemplate label text.
     """
-    from httk.atomistic.models.protopattern.notation import render_protopattern_label
+    from httk.atomistic.models.prototemplate.notation import render_prototemplate_label
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     spacegroup = Spacegroup.from_hall_entry(spacegroup_hall_entry)
-    return render_protopattern_label(spacegroup, list(zip(wyckoff_letters, labels)))
+    return render_prototemplate_label(spacegroup, list(zip(wyckoff_letters, labels)))
 
 
-def _protopattern_from_record(record: "ProtopatternRecord") -> Protopattern:
-    """Reconstruct a protopattern value from its durable record.
+def _prototemplate_from_record(record: "PrototemplateRecord") -> Prototemplate:
+    """Reconstruct a prototemplate value from its durable record.
 
-    :param record: The durable protopattern record.
-    :return: The reconstructed protopattern value.
+    :param record: The durable prototemplate record.
+    :return: The reconstructed prototemplate value.
     """
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
-    return Protopattern(
+    return Prototemplate(
         spacegroup,
-        tuple(ProtopatternOccupation(wyckoff, label) for wyckoff, label in zip(record.wyckoff_letters, record.labels)),
+        tuple(PrototemplateOccupation(wyckoff, label) for wyckoff, label in zip(record.wyckoff_letters, record.labels)),
     )
 
 
-def _protopattern_record_from_value(value: Protopattern) -> "ProtopatternRecord":
-    """Build a durable protopattern record from a protopattern value.
+def _prototemplate_record_from_value(value: Prototemplate) -> "PrototemplateRecord":
+    """Build a durable prototemplate record from a prototemplate value.
 
-    :param value: The protopattern value to store.
-    :return: The durable protopattern record.
+    :param value: The prototemplate value to store.
+    :return: The durable prototemplate record.
     """
-    return ProtopatternRecord(
+    return PrototemplateRecord(
         spacegroup_it_number=value.spacegroup.it_number,
         spacegroup_hall_entry=value.spacegroup.hall_entry,
         wyckoff_letters=tuple(occupation.wyckoff for occupation in value.occupations),
@@ -2474,7 +2474,7 @@ def _prototype_from_record(record: PrototypeRecord) -> Prototype:
     """Reconstruct a prototype value from its durable record.
 
     The model constructor re-checks that any representative agrees with the stored
-    protopattern.
+    prototemplate.
 
     :param record: The durable prototype record.
     :return: The reconstructed prototype value.
@@ -2484,14 +2484,14 @@ def _prototype_from_record(record: PrototypeRecord) -> Prototype:
     spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
-    protopattern = Protopattern(
+    prototemplate = Prototemplate(
         spacegroup,
-        tuple(ProtopatternOccupation(wyckoff, label) for wyckoff, label in zip(record.wyckoff_letters, record.labels)),
+        tuple(PrototemplateOccupation(wyckoff, label) for wyckoff, label in zip(record.wyckoff_letters, record.labels)),
     )
     representative = (
-        None if record.representative is None else _fundamental_domain_pattern_from_record(record.representative)
+        None if record.representative is None else _fundamental_domain_template_from_record(record.representative)
     )
-    return Prototype(protopattern, representative=representative, discriminator=record.discriminator)
+    return Prototype(prototemplate, representative=representative, discriminator=record.discriminator)
 
 
 def _prototype_record_from_value(value: Prototype) -> PrototypeRecord:
@@ -2500,15 +2500,15 @@ def _prototype_record_from_value(value: Prototype) -> PrototypeRecord:
     :param value: The prototype value to store.
     :return: The durable prototype record.
     """
-    pattern = value.protopattern
+    template = value.prototemplate
     representative = (
-        None if value.representative is None else _fundamental_domain_pattern_record_from_value(value.representative)
+        None if value.representative is None else _fundamental_domain_template_record_from_value(value.representative)
     )
     return PrototypeRecord(
-        spacegroup_it_number=pattern.spacegroup.it_number,
-        spacegroup_hall_entry=pattern.spacegroup.hall_entry,
-        wyckoff_letters=tuple(occupation.wyckoff for occupation in pattern.occupations),
-        labels=tuple(occupation.label for occupation in pattern.occupations),
+        spacegroup_it_number=template.spacegroup.it_number,
+        spacegroup_hall_entry=template.spacegroup.hall_entry,
+        wyckoff_letters=tuple(occupation.wyckoff for occupation in template.occupations),
+        labels=tuple(occupation.label for occupation in template.occupations),
         representative=representative,
         discriminator=value.discriminator,
     )

@@ -54,13 +54,13 @@ class Structuretype(StructuretypeBackend):
     ``Structuretype`` is the assigned-species, geometrical-class cell of the
     material-information matrix:
 
-    ======================  ==============  ==============
-    Geometrical info        Anonymous       Assigned
-    ======================  ==============  ==============
-    Wyckoff positions only  Protopattern    Protostructure
-    Geometrical class       Prototype       Structuretype
-    Exact geometry          CrystalPattern  Structure
-    ======================  ==============  ==============
+    ======================  ===============  ==============
+    Geometrical info        Anonymous        Assigned
+    ======================  ===============  ==============
+    Wyckoff positions only  Prototemplate    Protostructure
+    Geometrical class       Prototype        Structuretype
+    Exact geometry          CrystalTemplate  Structure
+    ======================  ===============  ==============
 
     :param protostructure: The geometry-free protostructure, as any protostructure-like value.
         When omitted it is derived from ``representative``; it is required when only

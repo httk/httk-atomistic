@@ -2,12 +2,12 @@
 
 ## Overview
 
-| Geometrical information | Anonymous occupation | Assigned species  |
-| ----------------------- | -------------------- | ----------------- |
-| None                    | `Formulapattern`     | `ChemicalFormula` |
-| Wyckoff only            | `Protopattern`       | `Protostructure`  |
-| Geometrical class       | `Prototype` (`Patterntype`)        | `Structuretype`   |
-| Exact geometry          | `CrystalPattern`     | `Structure`       |
+| Geometrical information | Anonymous occupation  | Assigned species  |
+| ----------------------- | --------------------- | ----------------- |
+| None                    | `Formulatemplate`     | `ChemicalFormula` |
+| Wyckoff only            | `Prototemplate`       | `Protostructure`  |
+| Geometrical class       | `Prototype`           | `Structuretype`   |
+| Exact geometry          | `CrystalTemplate`     | `Structure`       |
 
 ## Details
 
@@ -30,22 +30,22 @@ We can take the weaker geometrical representation one step further, down to:
 
 * A **chemical formula**, `ChemicalFormula`, represents the structure only in terms of composition of the elements. The “Normalized Formula” gives the composition only in relative terms; any other unit cell representation can be condensed into a formula.
 
-Going in another direction, one can strip the absolute meaning of the chemical species and classify occupation only in terms of equivalent and non-equivalent species. The word that corresponds to Structure that we adopt for this is: “Pattern”. Hence:
+Going in another direction, one can strip the absolute meaning of the chemical species and classify occupation only in terms of equivalent and non-equivalent species. The word that corresponds to Structure that we adopt for this is: “Template” (the sites carry placeholder/equivalence assignments — a template into which real species may later be filled in). Hence:
 
-* A **crystal pattern**, `CrystalPattern`, has precise geometry but only an abstract representation that indicates which sites are occupied by equivalent species, i.e., an “occupation pattern” (and where the order of assignments is not regarded as relevant).
+* A **crystal template**, `CrystalTemplate`, has precise geometry but only an abstract representation that indicates which sites are occupied by equivalent species, i.e., an anonymous occupation template (and where the order of assignments is not regarded as relevant).
 
 Following the above naming scheme to a less precise geometrical classification hence takes us to:
 
-* A **crystal pattern type** or **patterntype** is our more systematic name of the more commonly used **prototype** that we adopt in our naming, `Prototype`; a structural representation based only on geometrical classification and occupation pattern.
+* A **crystal template type** would, following this naming scheme systematically, be a **templatetype**; but the more commonly used **prototype** is the already-established name for this, so that is the one we adopt, `Prototype`. It is a structural representation based only on geometrical classification and occupation template. (“Templatetype” is only a prose explanation of where `Prototype` sits in the scheme; there is no such code name or alias.)
 
 And the next step is then:
 
-* A **protopattern** is a structural representation specifying spacegroup, occupied Wyckoff positions, and their occupation pattern.
+* A **prototemplate** is a structural representation specifying spacegroup, occupied Wyckoff positions, and their occupation template.
 
 To cover a couple of other related names and explain how they differ:
 
 * **Isopointal structures**: account for the spacegroup (with or without distinguishing enantiomorphic groups) and the same complete Wyckoff sequence, including repeated independent occupations but excluding the chemical identity of the occupying atoms.
 * **Isoconfigurational structures**: isopointal structures further distinguished by geometrical classification (i.e., similarities in atomic coordinates and cell parameters, but sometimes with further requirements), however still described by colorless occupation.
-* **AFLOW labels**: very similar to httk protopatterns, except occupations are ordered by occupying element symbol, making the AFLOW labels different for, e.g., ZrO₂ (A2B_oP12_29_2a_a) and FeS₂ (AB2_oP12_29_a_2a).
-* **Extended AFLOW labels**: an extension of three digits is added to describe geometrical similarity (-001, -002, …), bringing them closer to our pattern types.
+* **AFLOW labels**: very similar to httk prototemplates, except occupations are ordered by occupying element symbol, making the AFLOW labels different for, e.g., ZrO₂ (A2B_oP12_29_2a_a) and FeS₂ (AB2_oP12_29_a_2a).
+* **Extended AFLOW labels**: an extension of three digits is added to describe geometrical similarity (-001, -002, …), bringing them closer to our prototypes (templatetypes).
 * **Decorated AFLOW labels**: AFLOW labels are sometimes used with a “decoration” to indicate chemical species, although there does not seem to be one universal endorsed format. These decorations take AFLOW labels closer to httk protostructures.

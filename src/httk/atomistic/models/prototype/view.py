@@ -14,7 +14,7 @@ class PrototypeView(PrototypeViewBase, Prototype):
     r"""Present a lazy anonymous geometrical-class prototype view.
 
     Sources may be an existing prototype, a :class:`~httk.atomistic.models.structuretype.structuretype.Structuretype`
-    (erased to its anonymous class), or a pattern-like/structure-like source recognized to a
+    (erased to its anonymous class), or a template-like/structure-like source recognized to a
     representative-carrying prototype. Recognition of a raw structure accepts optional
     ``tolerance`` and ``limit_denominator`` values; resolution is deferred until the first
     field access.
@@ -27,7 +27,7 @@ class PrototypeView(PrototypeViewBase, Prototype):
     _resolved_prototype: Prototype | None
     _tolerance: float | None
     _limit_denominator: int | None
-    _DEFERRED_FIELDS = frozenset({"_protopattern", "_representative", "_discriminator"})
+    _DEFERRED_FIELDS = frozenset({"_prototemplate", "_representative", "_discriminator"})
 
     def __new__(
         cls,
@@ -93,7 +93,7 @@ class PrototypeView(PrototypeViewBase, Prototype):
             resolved = backend.resolve()
         else:
             resolved = Prototype(
-                backend.protopattern,
+                backend.prototemplate,
                 representative=backend.representative,
                 discriminator=backend.discriminator,
             )

@@ -4,35 +4,35 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Self, cast
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.crystalpattern.fundamental import FundamentalDomainPattern
-    from httk.atomistic.models.formula.formulapattern_view import FormulapatternView
-    from httk.atomistic.models.protopattern.backend import ProtopatternBackend
-    from httk.atomistic.models.protopattern.label import ProtopatternLabel
-    from httk.atomistic.models.protopattern.protopattern import Protopattern
+    from httk.atomistic.models.crystaltemplate.fundamental import FundamentalDomainTemplate
+    from httk.atomistic.models.formula.formulatemplate_view import FormulatemplateView
+    from httk.atomistic.models.prototemplate.backend import PrototemplateBackend
+    from httk.atomistic.models.prototemplate.label import PrototemplateLabel
+    from httk.atomistic.models.prototemplate.prototemplate import Prototemplate
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
 class PrototypeAPI(ABC):
-    """The common interface for a protopattern refined by a geometrical class.
+    """The common interface for a prototemplate refined by a geometrical class.
 
-    A prototype is a :class:`~httk.atomistic.models.protopattern.protopattern.Protopattern`
+    A prototype is a :class:`~httk.atomistic.models.prototemplate.prototemplate.Prototemplate`
     plus a geometrical-class distinction. The class is pinned by a canonical *representative*
-    (a standard-setting :class:`~httk.atomistic.models.crystalpattern.fundamental.FundamentalDomainPattern`
+    (a standard-setting :class:`~httk.atomistic.models.crystaltemplate.fundamental.FundamentalDomainTemplate`
     used only as the class anchor, never as exact-structure data) and/or an externally assigned
     *discriminator* string. At least one is present; equality compares exactly the information
     present. The discriminator is species-independent and is not part of the label. All
-    label, Pearson, and formula derivations delegate to the protopattern.
+    label, Pearson, and formula derivations delegate to the prototemplate.
     """
 
     @property
     @abstractmethod
-    def protopattern(self) -> "Protopattern":
-        """Return the anonymous protopattern this prototype refines."""
+    def prototemplate(self) -> "Prototemplate":
+        """Return the anonymous prototemplate this prototype refines."""
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def representative(self) -> "FundamentalDomainPattern | None":
+    def representative(self) -> "FundamentalDomainTemplate | None":
         """Return the canonical class representative, if one is held."""
         raise NotImplementedError
 
@@ -44,25 +44,25 @@ class PrototypeAPI(ABC):
 
     @property
     def spacegroup(self) -> "Spacegroup":
-        """Return the standard-setting space group of the protopattern.
+        """Return the standard-setting space group of the prototemplate.
 
         :return: The standard-setting space group.
         """
-        return self.protopattern.spacegroup
+        return self.prototemplate.spacegroup
 
     @property
-    def label(self) -> "ProtopatternLabel":
-        """Return the httk protopattern label of this prototype's pattern.
+    def label(self) -> "PrototemplateLabel":
+        """Return the httk prototemplate label of this prototype's template.
 
         The discriminator names the geometrical class and is not part of the label. Any
-        faithful render is the protopattern label; the *canonical* protopattern label comes
-        from a normalizer-canonical pattern.
+        faithful render is the prototemplate label; the *canonical* prototemplate label comes
+        from a normalizer-canonical template.
 
-        :return: The protopattern label view.
+        :return: The prototemplate label view.
         """
-        from httk.atomistic.models.protopattern.label import ProtopatternLabel
+        from httk.atomistic.models.prototemplate.label import PrototemplateLabel
 
-        return ProtopatternLabel(cast("ProtopatternBackend", self.protopattern))
+        return PrototemplateLabel(cast("PrototemplateBackend", self.prototemplate))
 
     @property
     def pearson_symbol(self) -> str:
@@ -70,7 +70,7 @@ class PrototypeAPI(ABC):
 
         :return: The Pearson symbol, such as ``"cF8"``.
         """
-        return self.protopattern.pearson_symbol
+        return self.prototemplate.pearson_symbol
 
     @property
     def nsites_conventional(self) -> int:
@@ -78,15 +78,15 @@ class PrototypeAPI(ABC):
 
         :return: The conventional-cell site count.
         """
-        return self.protopattern.nsites_conventional
+        return self.prototemplate.nsites_conventional
 
     @property
-    def anonymous_formula(self) -> "FormulapatternView":
+    def anonymous_formula(self) -> "FormulatemplateView":
         """Return the reduced anonymous formula at the standard conventional-cell scale.
 
         :return: The conventional-cell anonymous formula view.
         """
-        return self.protopattern.anonymous_formula
+        return self.prototemplate.anonymous_formula
 
     @property
     def prototype(self) -> Self:
