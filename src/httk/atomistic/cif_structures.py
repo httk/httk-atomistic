@@ -254,7 +254,11 @@ def asu_structure_from_cif(
         # tolerance depends on the precision and the cell, not on how many atoms there are.
         tolerance = _tolerance_from_cif(data, cell)
     assert tolerance is not None
-    general_screen = _general_position_screen(setting, cell, tolerance)
+    from httk.atomistic.symmetry.recognition import _SAFETY_FACTOR
+
+    general_screens: dict[float, _GeneralPositionScreen | None] = {
+        tolerance: _general_position_screen(setting, cell, tolerance)
+    }
     uncertainty_metric = None
     if derived_tolerance:
         metric = cell.metric()
@@ -298,6 +302,15 @@ def asu_structure_from_cif(
 
         standard_point = coordinate.normalize()
         uncertainty = _site_uncertainty(data, index, uncertainty_metric) if derived_tolerance else None
+        site_tolerance = tolerance
+        if uncertainty is not None and data.get("position_precisions") is not None:
+            site_tolerance = math.sqrt(uncertainty[0].to_float())
+            basis_precision = data.get("basis_precision")
+            if basis_precision is not None:
+                site_tolerance = max(site_tolerance, float(basis_precision) * _SAFETY_FACTOR)
+        if site_tolerance not in general_screens:
+            general_screens[site_tolerance] = _general_position_screen(setting, cell, site_tolerance)
+        general_screen = general_screens[site_tolerance]
         declared_position, declaration, declaration_error, declared_positions = _declared_wyckoff_position(
             declared_wyckoff, declared_multiplicities, declared_site_symmetry_orders, index, setting, standard
         )
@@ -312,7 +325,7 @@ def asu_structure_from_cif(
                 coordinate,
                 cell,
                 transform,
-                tolerance,
+                site_tolerance,
                 uncertainty=uncertainty,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 positions=(declared_position,),
@@ -322,7 +335,7 @@ def asu_structure_from_cif(
                 declaration_error = (
                     f"does not lie on its declared Wyckoff position {declared_position.letter!r}: "
                     f"measured distance {_nearest_wyckoff_distance(declared_position, standard_point, coordinate, cell, transform):.6g} "
-                    f"exceeds tolerance {tolerance:.6g}"
+                    f"exceeds tolerance {site_tolerance:.6g}"
                 )
             elif match is not None:
                 assert orbit_screen is not None
@@ -331,7 +344,7 @@ def asu_structure_from_cif(
                     transform,
                     match,
                     cell,
-                    tolerance,
+                    site_tolerance,
                     orbit_screen,
                     include_coincident=True,
                     expected_distinct=_setting_local_multiplicity(standard, setting, declared_position),
@@ -342,7 +355,7 @@ def asu_structure_from_cif(
                         coordinate,
                         cell,
                         transform,
-                        tolerance,
+                        site_tolerance,
                         allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                         most_specific=True,
                     )
@@ -358,7 +371,7 @@ def asu_structure_from_cif(
                 coordinate,
                 cell,
                 transform,
-                tolerance,
+                site_tolerance,
                 uncertainty=uncertainty,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 positions=declared_positions,
@@ -383,7 +396,7 @@ def asu_structure_from_cif(
                 coordinate,
                 cell,
                 transform,
-                tolerance,
+                site_tolerance,
                 uncertainty=uncertainty,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 orbit_screen=orbit_screen,
@@ -396,7 +409,7 @@ def asu_structure_from_cif(
                 coordinate,
                 cell,
                 transform,
-                tolerance,
+                site_tolerance,
                 uncertainty=uncertainty,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 orbit_screen=orbit_screen,
@@ -404,14 +417,14 @@ def asu_structure_from_cif(
             )
         if repair and declaration is None and match is not None:
             assert orbit_screen is not None
-            if _has_rounded_orbit_overlap(standard, transform, match, cell, tolerance, orbit_screen):
+            if _has_rounded_orbit_overlap(standard, transform, match, cell, site_tolerance, orbit_screen):
                 corrected_match = _snap(
                     standard,
                     standard_point,
                     coordinate,
                     cell,
                     transform,
-                    tolerance,
+                    site_tolerance,
                     allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                     most_specific=True,
                 )
@@ -434,7 +447,7 @@ def asu_structure_from_cif(
                 )
             raise ValueError(
                 f"CIF site {labels[index]!r} at {tuple(coordinate.to_fractions())} does not lie on any "
-                f"Wyckoff position of {setting.setting} within {tolerance}; the file's coordinates and its "
+                f"Wyckoff position of {setting.setting} within {site_tolerance}; the file's coordinates and its "
                 f"symmetry operations disagree"
             )
         letter, parameters = match

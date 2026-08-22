@@ -388,6 +388,52 @@ def test_a_coarsely_written_file_is_matched_at_the_precision_it_claims(tmp_path:
     assert len(UnitcellStructureView(derived).sites) == 4
 
 
+def test_cif_site_precision_controls_default_wyckoff_tolerance(tmp_path: Path) -> None:
+    spacegroup = Spacegroup.standard(2)
+    operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
+    path = tmp_path / "site-precision.cif"
+    path.write_text(
+        "data_x\n_cell_length_a 5.0000\n_cell_length_b 5.0000\n_cell_length_c 5.0000\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 90\n"
+        "_space_group_IT_number 2\n"
+        f"loop_\n_space_group_symop_operation_xyz\n{operations}\n"
+        "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
+        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        "Si1 Si 0.49(2) 0 0\nGe1 Ge 0 0.499432 0\n",
+        encoding="utf-8",
+    )
+    block = load(str(path), raw=True)["blocks"][0]
+
+    derived = asu_structure_from_cif(block)
+    assert derived.coordinate_precision == F(1, 50)
+    assert [site.wyckoff for site in derived.wyckoff_sites] == ["d", "i"]
+
+    overridden = asu_structure_from_cif(block, tolerance=0.2)
+    assert [site.wyckoff for site in overridden.wyckoff_sites] == ["d", "c"]
+
+
+def test_cif_aggregate_precision_fallback_does_not_use_three_axis_uncertainty(tmp_path: Path) -> None:
+    spacegroup = Spacegroup.standard(2)
+    operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
+    path = tmp_path / "aggregate-precision.cif"
+    path.write_text(
+        "data_x\n_cell_length_a 5.0000\n_cell_length_b 5.0000\n_cell_length_c 5.0000\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 90\n"
+        "_space_group_IT_number 2\n"
+        f"loop_\n_space_group_symop_operation_xyz\n{operations}\n"
+        "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
+        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        "X1 X 0.45(2) 0.5000 0.5000\n",
+        encoding="utf-8",
+    )
+    block = dict(load(str(path), raw=True)["blocks"][0])
+    assert block["coordinate_precision"] == F(1, 50)
+    block.pop("position_precisions")
+
+    derived = asu_structure_from_cif(block)
+    assert derived.wyckoff_sites[0].wyckoff == "i"
+
+
 def test_cif_positional_uncertainty_warns_at_the_warning_threshold(tmp_path: Path) -> None:
     path = _coarse_cif(tmp_path, "0.5")
     with collect_reports(level="warning") as collection:
