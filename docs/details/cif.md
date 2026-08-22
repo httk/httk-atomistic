@@ -87,6 +87,11 @@ Parenthesized standard uncertainties are retained as precision information. The 
 the final written digit and the stated uncertainty controls the tolerance; `5.6402(3)` is
 therefore treated as precise to `0.0003`, not `0.0001`.
 
+The conventional literals `0.0`, `0.5`, and `1.0` make no decimal-precision claim. In
+crystallographic tables they commonly spell exact special values rather than measurements
+known only to ±0.05. Signed spellings such as `-0.5` follow the same rule. Extra written
+digits remain significant: `0.50` claims a decimal step of `0.01`.
+
 Coordinate precision is converted to a Cartesian distance using the cell. A projected
 positional uncertainty of one ångström or more is a hard safety error because it can make
 many unrelated Wyckoff positions plausible. A caller who has inspected the source may opt
@@ -207,14 +212,22 @@ values in `(1, 1.05]` clamp to one, with a warning. Values outside that band rem
 A commensurate mCIF is represented natively as `SymopsStructure`: the listed rows, exact
 spatial or magnetic operations, centering operations, time-reversal flags, species, and
 site moments are retained before expansion. Decimal moments are converted to exact rationals
-before any operation is applied. Both Cartesian and crystal-axis moment bases are supported.
+before any operation is applied. Their componentwise decimal steps, ESDs, and
+`_atom_site_moment.symmform` strings remain aligned with the listed sites. Both Cartesian and
+crystal-axis moment bases are supported.
 
 Native expansion applies every operation and transforms axial moments with the operation
 determinant and time reversal. It preserves independent co-located source rows, which is
-necessary for magnetic disorder. If one source row maps to the same site with two different
-exact moments, expansion rejects the contradiction rather than averaging it. Small printed
-rounding differences can therefore make a literally inconsistent source fail exact magnetic
-expansion even when its moment-free geometry is valid.
+necessary for magnetic disorder. When stabilizer operations map one source row onto itself,
+the reader derives their exact invariant moment subspace. A source central value already in
+that subspace is unchanged. Otherwise, a componentwise weighted projection uses half of each
+last-decimal step and any explicit ESD; the projection is accepted only when every component
+remains within its source claim. The expanded view then carries the exact invariant result,
+while `listed_site_moments` retains the literal source values. An incompatibility outside the
+source claims remains an error. Recognized linear `symmform` declarations are checked against
+the reconciled moment. The declared operations remain authoritative: a contradictory
+`symmform` is retained as source metadata and warned about rather than rotating or deleting a
+moment that the operations support.
 
 Incommensurate structural or magnetic modulation produces a `ModulatedStructure`. The data is
 identified and retained, but ordinary unit-cell/ASU expansion is not currently implemented.
@@ -293,7 +306,8 @@ The following conditions need source correction or an explicit caller decision:
 - ordinary-CIF co-located occupancies above one;
 - gross individual occupancy violations beyond the repair band;
 - conflicting atom-type masses;
-- exact magnetic stabilizer operations that assign different moments to one source site;
+- magnetic stabilizer constraints incompatible with the componentwise source resolution and
+  ESDs;
 - incommensurate modulation when an ordinary expanded unit cell is requested.
 
 The current sampled COD instances are recorded in the workspace's `DATA/cod_issues.md`.

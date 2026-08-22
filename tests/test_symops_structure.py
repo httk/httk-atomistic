@@ -136,6 +136,82 @@ def test_duplicate_position_with_different_moment_is_rejected() -> None:
         _ = structure.sites
 
 
+def test_rounded_moment_is_projected_onto_its_exact_stabilizer_subspace() -> None:
+    cell = _cell()
+    structure = SymopsStructure(
+        cell,
+        [[F(1, 2), F(1, 2), F(1, 2)]],
+        _species(),
+        ("Fe",),
+        ("x,y,z,+1", "z,x,y,+1"),
+        site_moments=CrystalAxisSiteMoments([[F("0.255"), F("0.255"), F("0.2555")]], cell),
+        moment_component_resolutions=((F("0.001"), F("0.001"), F("0.0001")),),
+        moment_component_esds=((None, None, None),),
+        moment_symmforms=("mx,mx,mx",),
+    )
+
+    assert _moment_rows(structure.listed_site_moments) == ((F("0.255"), F("0.255"), F("0.2555")),)
+    assert _moment_rows(structure.site_moments) == ((F(1303, 5100),) * 3,)
+    assert structure.moment_component_resolutions == ((F(1, 1000), F(1, 1000), F(1, 10000)),)
+    assert structure.moment_symmforms == ("mx,mx,mx",)
+
+
+def test_explicit_esds_weight_a_magnetic_stabilizer_projection() -> None:
+    cell = _cell()
+    structure = SymopsStructure(
+        cell,
+        [[0, 0, 0]],
+        _species(),
+        ("Fe",),
+        ("x,y,z,+1", "-x+y,y,z,-1"),
+        site_moments=CrystalAxisSiteMoments([[F("-0.159"), F("-0.319"), F("2.991")]], cell),
+        moment_component_resolutions=((F("0.001"),) * 3,),
+        moment_component_esds=((F("0.009"), F("0.018"), F("0.017")),),
+        moment_symmforms=("mx,2mx,mz",),
+    )
+
+    assert _moment_rows(structure.site_moments) == ((F("-0.15925"), F("-0.3185"), F("2.991")),)
+
+
+def test_moment_stabilizer_projection_rejects_a_change_outside_source_claims() -> None:
+    cell = _cell()
+    structure = SymopsStructure(
+        cell,
+        [[0, 0, 0]],
+        _species(),
+        ("Fe",),
+        ("x,y,z,+1", "z,x,y,+1"),
+        site_moments=CrystalAxisSiteMoments([[F("0.2"), F("0.2"), F("0.3")]], cell),
+        moment_component_resolutions=((F("0.001"),) * 3,),
+        moment_component_esds=((None, None, None),),
+    )
+
+    with pytest.raises(ValueError, match="beyond source resolution/ESD"):
+        _ = structure.site_moments
+
+
+def test_recognized_moment_symmetry_form_is_validated_without_overriding_operations(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    cell = _cell()
+    structure = SymopsStructure(
+        cell,
+        [[0, 0, 0]],
+        _species(),
+        ("Fe",),
+        ("x,y,z,+1",),
+        site_moments=CrystalAxisSiteMoments([[1, 0, 0]], cell),
+        moment_component_resolutions=((F(1, 1000),) * 3,),
+        moment_symmforms=("0,0,mz",),
+    )
+
+    with caplog.at_level("WARNING", logger="httk.atomistic.models.structure.symops"):
+        _ = structure.site_moments
+
+    assert _moment_rows(structure.site_moments) == ((1, 0, 0),)
+    assert any("moment symmetry form" in record.getMessage() for record in caplog.records)
+
+
 def test_independent_colocated_rows_preserve_constituent_moments() -> None:
     species = (Species("Fe", ("Fe",), (F(1, 2),)), Species("Mn", ("Mn",), (F(1, 2),)))
     structure = SymopsStructure(

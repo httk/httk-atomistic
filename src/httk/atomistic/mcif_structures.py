@@ -128,6 +128,9 @@ def _structure_from_mcif_block(data: Mapping[str, Any], block_name: str) -> Symo
         species_at_sites,
         _symops(data, block_name),
         site_moments=site_moments,
+        moment_component_resolutions=data.get("magmom_component_resolutions"),
+        moment_component_esds=data.get("magmom_component_esds"),
+        moment_symmforms=data.get("magmom_symmforms"),
         bns_number=data.get("bns_nbr"),
         bns_label=data.get("bns_name"),
     )

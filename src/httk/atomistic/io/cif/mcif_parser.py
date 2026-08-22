@@ -237,7 +237,8 @@ def _parse_moments(block, *, resolution=True) -> tuple[Any, ...] | None:
     If resolution=False:
         moments, labels, moment_basis
     If resolution=True:
-        moments, labels, moment_basis, magmom_precision
+        moments, labels, moment_basis, magmom_precision, component_resolutions,
+        component_esds, symmforms
 
     ``magmom_precision`` is in μB for either frame: crystalaxis components are
     specified along the unit lattice axes.
@@ -268,7 +269,7 @@ def _parse_moments(block, *, resolution=True) -> tuple[Any, ...] | None:
         xs, ys, zs = (_get(tag) for tag in CIF_TAGS['magnetic_cartesian_moment'])
         moment_basis = "cartesian"
         if not _len_ok(xs, ys, zs, n):
-            return None if not resolution else (None, None, None, None)
+            return None if not resolution else (None, None, None, None, None, None, None)
 
     # Labels must be unique
     if n != len(set(labels)):
@@ -276,6 +277,8 @@ def _parse_moments(block, *, resolution=True) -> tuple[Any, ...] | None:
 
     moments = []
     component_claims: list[object] = []
+    component_resolutions: list[tuple[Any, Any, Any]] = []
+    component_esds: list[tuple[Any, Any, Any]] = []
 
     for i in range(n):
         if resolution:
@@ -293,6 +296,8 @@ def _parse_moments(block, *, resolution=True) -> tuple[Any, ...] | None:
                     mz_meta['esd'],
                 ]
             )
+            component_resolutions.append((mx_meta['precision'], my_meta['precision'], mz_meta['precision']))
+            component_esds.append((mx_meta['esd'], my_meta['esd'], mz_meta['esd']))
 
         moments.append((cif_exact_token(xs[i]), cif_exact_token(ys[i]), cif_exact_token(zs[i])))
 
@@ -304,7 +309,22 @@ def _parse_moments(block, *, resolution=True) -> tuple[Any, ...] | None:
     # μB for both moment bases.
     mag_res = combined_precision(component_claims)
 
-    return moments, labels, moment_basis, mag_res
+    raw_symmforms = _get('atom_site_moment.symmform')
+    if raw_symmforms and len(raw_symmforms) != n:
+        raise ValueError("Magnetic moment symmetry-form column has a different length from its labels.")
+    symmforms = tuple(None if value in ("?", ".") else str(value) for value in raw_symmforms)
+    if not symmforms:
+        symmforms = (None,) * n
+
+    return (
+        moments,
+        labels,
+        moment_basis,
+        mag_res,
+        tuple(component_resolutions),
+        tuple(component_esds),
+        symmforms,
+    )
 
 
 def _parse_alg_op(
@@ -378,9 +398,9 @@ def _parse_mag_asu_cell(cifblock: dict[str, Any]) -> tuple[Any, ...]:
     asu = parse_asu_cell(cifblock)
     moments_result = _parse_moments(cifblock, resolution=True)
     if moments_result is None:
-        return asu, None, None, None
+        return asu, None, None, None, None, None, None
 
-    cif_moments, momlabels, moment_basis, magres = moments_result
+    cif_moments, momlabels, moment_basis, magres, resolutions, esds, symmforms = moments_result
 
     if cif_moments is None:
         return (
@@ -388,12 +408,29 @@ def _parse_mag_asu_cell(cifblock: dict[str, Any]) -> tuple[Any, ...]:
             None,
             None,
             magres,
+            None,
+            None,
+            None,
         )
 
     moments_map = {label: (mom[0], mom[1], mom[2]) for label, mom in zip(momlabels, cif_moments)}
+    resolutions_map = dict(zip(momlabels, resolutions))
+    esds_map = dict(zip(momlabels, esds))
+    symmforms_map = dict(zip(momlabels, symmforms))
     magmoms_exact = tuple(moments_map.get(i, ("0", "0", "0")) for i in asu.labels)
+    component_resolutions = tuple(resolutions_map.get(label, (None, None, None)) for label in asu.labels)
+    component_esds = tuple(esds_map.get(label, (None, None, None)) for label in asu.labels)
+    aligned_symmforms = tuple(symmforms_map.get(label) for label in asu.labels)
 
-    return asu, magmoms_exact, moment_basis, magres
+    return (
+        asu,
+        magmoms_exact,
+        moment_basis,
+        magres,
+        component_resolutions,
+        component_esds,
+        aligned_symmforms,
+    )
 
 
 def _get_magnetic_fourier_info(cifblock: dict[str, Any]) -> tuple[bool, list[str]]:
@@ -456,6 +493,9 @@ def cifblock_to_mag_asu(cifblock: dict[str, Any], *, error_on_nonmag: bool = Fal
         magmoms_exact,
         moment_basis,
         magres,
+        moment_component_resolutions,
+        moment_component_esds,
+        moment_symmforms,
     ) = _parse_mag_asu_cell(cifblock)
     structural_q, magnetic_q, mod_dim, has_struct_mod, has_mag_mod, struct_mod_atoms, mag_mod_atoms = _parse_modulation(
         cifblock
@@ -541,6 +581,9 @@ def cifblock_to_mag_asu(cifblock: dict[str, Any], *, error_on_nonmag: bool = Fal
         'coordinate_precision': asu.coordinate_precision,
         'basis_precision': asu.basis_precision,
         'magmom_precision': magres,
+        'magmom_component_resolutions': moment_component_resolutions,
+        'magmom_component_esds': moment_component_esds,
+        'magmom_symmforms': moment_symmforms,
         'labels': asu.labels,
     }
 

@@ -79,6 +79,18 @@ def test_signed_exponent_with_esd_has_consistent_value_and_metadata() -> None:
     assert meta == {"precision": F(1, 100), "esd": F(3, 100)}
 
 
+@pytest.mark.parametrize("literal", ["0.0", "+0.5", "-0.5", "1.0"])
+def test_conventional_cif_special_values_make_no_precision_claim(literal: str) -> None:
+    _value, meta = parse_cif_float(literal, meta=True)
+    assert meta == {"precision": None, "esd": None}
+
+
+def test_extra_digits_on_a_cif_special_value_restore_a_precision_claim() -> None:
+    for literal in ("0.00", "0.50", "1.00"):
+        _value, meta = parse_cif_float(literal, meta=True)
+        assert meta["precision"] == F(1, 100)
+
+
 # --- CIF ---
 
 
@@ -88,11 +100,10 @@ def test_cif_reports_coordinate_and_basis_precision(tmp_path: Path) -> None:
     assert data["basis_precision"] == F(1, 10000)
 
 
-def test_the_coarsest_coordinate_wins(tmp_path: Path) -> None:
-    """One sloppy value really does mean the whole table is only that good."""
+def test_conventional_half_coordinates_do_not_widen_precision(tmp_path: Path) -> None:
     sites = "Na1 Na 0.123456 0.123456 0.123456 \nCl1 Cl 0.5 0.5 0.5 \n"
     data = single_asu_from_cif_file(str(_cif(tmp_path, cell=CUBIC_CELL, sites=sites)))
-    assert data["coordinate_precision"] == F(1, 10)
+    assert data["coordinate_precision"] == F(1, 1000000)
 
 
 @pytest.mark.skipif(

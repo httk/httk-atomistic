@@ -80,6 +80,11 @@ _CIF_NUM_RE = re.compile(
     r'(?:[eE](?P<exp>[+-]?\d+))?$'  # optional exponent
 )
 
+# Conventional crystallographic special values: one decimal place here communicates the
+# exact special coordinate/occupancy, not an experimental resolution of one tenth. Signed
+# spellings follow the same rule because the sign is parsed separately.
+_CIF_UNKNOWN_PRECISION_DECIMALS = frozenset({"0.0", "0.5", "1.0"})
+
 
 @overload
 def parse_cif_float(token: str, *, meta: Literal[False] = ..., pragmatic: bool = ...) -> float | None: ...
@@ -161,6 +166,8 @@ def parse_cif_float(
 
     # Precision implied by the digits written, scaled by any exponent.
     precision = decimal_precision(mant_str)
+    if exp == 0 and mant_str in _CIF_UNKNOWN_PRECISION_DECIMALS:
+        precision = None
     if precision is not None and exp:
         precision = precision * Fraction(10) ** exp
 

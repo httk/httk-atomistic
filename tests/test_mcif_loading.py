@@ -130,6 +130,45 @@ def test_decimal_moments_are_converted_to_exact_rationals_before_expansion() -> 
     assert _moment_rows(UnitcellStructureView(structure).site_moments) == ((Fraction(239, 50), Fraction(-239, 50), 0),)
 
 
+def test_mcif_preserves_component_resolution_esd_and_symmetry_form(tmp_path: Path) -> None:
+    path = tmp_path / "moment-metadata.mcif"
+    path.write_text(
+        """data_moment_metadata
+_cell_length_a 5
+_cell_length_b 5
+_cell_length_c 5
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+loop_
+_space_group_symop_magn_operation.xyz
+'x,y,z,+1'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Fe1 Fe 0 0 0
+loop_
+_atom_site_moment.label
+_atom_site_moment.crystalaxis_x
+_atom_site_moment.crystalaxis_y
+_atom_site_moment.crystalaxis_z
+_atom_site_moment.symmform
+Fe1 -0.159(9) -0.319(18) 0.0 mx,2mx,0
+""",
+        encoding="utf-8",
+    )
+
+    structure = load(path)
+
+    assert structure.moment_component_resolutions == ((Fraction(1, 1000), Fraction(1, 1000), None),)
+    assert structure.moment_component_esds == ((Fraction(9, 1000), Fraction(18, 1000), None),)
+    assert structure.moment_symmforms == ("mx,2mx,0",)
+    assert structure.listed_site_moments.precision == Fraction(18, 1000)
+
+
 def test_spatial_projection_deduplicates_symmetry_images_within_source_precision() -> None:
     block = {
         "format": "mcif",
