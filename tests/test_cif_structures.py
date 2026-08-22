@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from httk.core import FracVector, decimal_precision, load
+from httk.core import FracVector, decimal_precision, load, save
 from httk.core.report import collect_reports
 
 from httk.atomistic import (
@@ -403,6 +403,19 @@ def test_disordered_217_is_read_without_losing_chemistry() -> None:
     ]
     assert asu.chemical_formula_reduced == "B4Li5"
     assert len(UnitcellStructureView(asu).sites) == 16
+
+
+def test_disordered_217_read_write_read_preserves_species_and_orbits(tmp_path: Path) -> None:
+    source = load(str(Path(__file__).with_name("fixtures") / "disorder" / "217.cif"))
+    destination = tmp_path / "217.cif"
+
+    save(source, destination)
+    restored = load(destination)
+
+    assert restored.species == source.species
+    assert restored.wyckoff_sites == source.wyckoff_sites
+    assert restored.spacegroup == source.spacegroup
+    assert restored.cell == source.cell
 
 
 # --- reading ---

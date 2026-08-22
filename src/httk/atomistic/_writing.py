@@ -96,14 +96,77 @@ def _cell_parameters(cell: Any) -> tuple[str, ...]:
     return rendered
 
 
-def _species_fields(species: Any) -> tuple[str, str]:
-    if len(species.chemical_symbols) != 1 or len(species.concentration) != 1:
-        raise ValueError(f"CIF serializer cannot represent mixed species {species.name!r} exactly")
-    occupancy = _render(species.concentration[0], field="occupancy")
-    precision = species.concentration_precision[0]
+def _occupancy(species: Any, index: int) -> str:
+    occupancy = _render(species.concentration[index], field="occupancy")
+    precision = species.concentration_precision[index]
     if precision is not None and "." not in occupancy and precision.denominator in (10, 100, 1000, 10000):
         occupancy += "." + "0" * (len(str(precision.denominator)) - 1)
-    return species.chemical_symbols[0], occupancy
+    return occupancy
+
+
+def _type_symbol(species: Any, index: int) -> str:
+    """Return the CIF atom-type spelling for one OPTIMADE species constituent."""
+    symbol = species.chemical_symbols[index]
+    label = None if species.labels is None else species.labels[index]
+    if symbol == "H" and label in {"D", "T"}:
+        base = label
+    elif symbol == "X":
+        base = label or "X"
+    elif symbol == "vacancy":
+        base = "vacancy"
+    else:
+        base = symbol
+    charge = None if species.charges is None else species.charges[index]
+    if charge is None:
+        return base
+    if charge.denominator != 1:
+        raise ValueError(f"CIF serializer cannot represent species charges: fractional {charge} on atom type {base!r}")
+    magnitude = abs(charge.numerator)
+    if charge == 0:
+        candidate = f"{base}0"
+    elif symbol == "X":
+        candidate = f"{base}{'+' if charge > 0 else '-'}{magnitude}"
+    else:
+        candidate = f"{base}{magnitude}{'+' if charge > 0 else '-'}"
+
+    from httk.atomistic.cif_structures import _decode_type_symbol
+
+    decoded = _decode_type_symbol(candidate, None)
+    if (decoded.chemical_symbol, decoded.charge, decoded.species_label) != (symbol, charge, label):
+        raise ValueError(f"CIF serializer cannot represent species charges: state {charge} on constituent {base!r}")
+    return candidate
+
+
+def _source_labels(species: Any, indices: list[int], fallback: str) -> list[str]:
+    """Recover source row labels for constituents of a read-derived mixed species."""
+    if len(indices) == 1:
+        return [species.original_name or fallback]
+    name_parts = species.name.split("/")
+    if len(name_parts) == len(indices):
+        return name_parts
+    labels = []
+    for offset, index in enumerate(indices, start=1):
+        label = None if species.labels is None else species.labels[index]
+        labels.append(label or f"{fallback}_{offset}")
+    return labels
+
+
+def _require_cif_projection(backend: Any) -> None:
+    """Reject structure state for which this CIF serializer has no exact channel."""
+    source = unwrap(backend)
+    assemblies = getattr(source, "assemblies", getattr(backend, "assemblies", None))
+    if assemblies is not None:
+        raise TypeError("This structure cannot be represented as CIF because it has assemblies")
+    composition = getattr(source, "chemical_composition", getattr(backend, "chemical_composition", None))
+    if composition is not None:
+        raise TypeError("This structure cannot be represented as CIF because it has a declared chemical composition")
+    charge = getattr(source, "charge", getattr(backend, "charge", None))
+    if charge is not None:
+        raise ValueError("This structure cannot be represented as CIF because it has a charge")
+    for species in getattr(source, "species", getattr(backend, "species", ())):
+        for field in ("spins", "attached", "nattached"):
+            if getattr(species, field, None) is not None:
+                raise ValueError(f"This structure cannot be represented as CIF because species has {field}")
 
 
 def _block(
@@ -117,25 +180,52 @@ def _block(
     by_name = {species.name: species for species in structure.species}
     symbols: list[str] = []
     occupancies: list[str] = []
-    written_labels = []
+    written_labels: list[str] = []
+    written_positions: list[FracVector] = []
+    atom_type_masses: dict[str, float] = {}
     has_nondefault_occupancy = False
-    for label in labels:
+    for position, label in zip(positions, labels):
         species = by_name[label]
-        symbol, occupancy = _species_fields(species)
-        symbols.append(symbol)
-        occupancies.append(occupancy)
-        has_nondefault_occupancy |= species.concentration[0] != 1 or species.concentration_precision[0] is not None
-        written_labels.append(species.original_name or label)
+        nonvacancy = [index for index, symbol in enumerate(species.chemical_symbols) if symbol != "vacancy"]
+        indices = nonvacancy or [0]
+        if len(indices) == 1 and species.labels is not None:
+            index = indices[0]
+            constituent_label = species.labels[index]
+            symbol = species.chemical_symbols[index]
+            if constituent_label is not None and not (
+                symbol == "X" or (symbol == "H" and constituent_label in {"D", "T"})
+            ):
+                raise ValueError("CIF serializer cannot represent this single-constituent species label exactly")
+        source_labels = _source_labels(species, indices, label)
+        for index, source_label in zip(indices, source_labels):
+            symbol = _type_symbol(species, index)
+            occupancy = _occupancy(species, index)
+            symbols.append(symbol)
+            occupancies.append(occupancy)
+            written_labels.append(source_label)
+            written_positions.append(position)
+            has_nondefault_occupancy |= (
+                species.concentration[index] != 1 or species.concentration_precision[index] is not None
+            )
+            if species.mass is not None:
+                mass = species.mass[index]
+                previous = atom_type_masses.get(symbol)
+                if previous is not None and previous != mass:
+                    raise ValueError(f"CIF serializer cannot represent two masses for atom type {symbol!r}")
+                atom_type_masses[symbol] = mass
     return {
         "format": "cif",
         "cell_parameters_exact": _cell_parameters(structure.cell),
         "positions_exact": [
-            tuple(_render(value, field="fractional coordinate") for value in row.to_fractions()) for row in positions
+            tuple(_render(value, field="fractional coordinate") for value in row.to_fractions())
+            for row in written_positions
         ],
         "symops_xyz": tuple(operation.wrapped().to_xyz() for operation in symops),
         "occupancies_exact": tuple(occupancies) if has_nondefault_occupancy else None,
         "symbols": tuple(symbols),
         "labels": tuple(written_labels),
+        "atom_type_symbols": tuple(atom_type_masses),
+        "atom_type_masses": tuple(atom_type_masses.values()),
         "space_group_nbr": str(spacegroup.it_number),
         "space_group_name_hm": spacegroup.hermann_mauguin,
         "space_group_name_hall": spacegroup.hall_symbol,
@@ -153,7 +243,7 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
     serializer never silently turns an exact structure into a float.
     """
     if isinstance(obj, FundamentalDomainStructure):
-        require_bare_atomic_projection(obj, "CIF")
+        _require_cif_projection(obj)
         setting = obj.setting()
         if setting is None:
             raise ValueError(
@@ -163,12 +253,11 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
         operations = tuple(
             obj.transform.symop_to_setting(operation) for operation in obj.spacegroup.symmetry_operations
         )
-        positions = [
-            site.representative.normalize()
-            if site.representative is not None
-            else obj._representatives_for_site(site)[0]
-            for site in obj.wyckoff_sites
-        ]
+        # Serialize the exact Wyckoff representative reconstructed from the ASU state.
+        # A retained source coordinate may only have been close enough to snap onto that
+        # position; writing the rounded source coordinate with fresh high precision can make
+        # the next reader miss the special position and change its Wyckoff orbit.
+        positions = [obj._representatives_for_site(site)[0] for site in obj.wyckoff_sites]
         return {
             "format": "cif",
             "blocks": [
@@ -179,7 +268,7 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
         }
 
     structure = UnitcellStructureView(obj)
-    require_bare_atomic_projection(structure, "CIF")
+    _require_cif_projection(structure)
     identity = AffineOperation.identity()
     labels = list(structure.species_at_sites)
     return {

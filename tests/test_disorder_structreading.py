@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from httk.core import load, save
 
 from httk.atomistic._structreading import structreading_golden
 
@@ -58,3 +59,20 @@ def test_disorder_structreading_fixtures(path: Path) -> None:
     :param path: In-repository disorder CIF fixture.
     """
     _assert_golden(path.name, _golden()[path.name], path)
+
+
+@pytest.mark.parametrize("path", sorted(_FIXTURES.glob("*.cif")), ids=lambda path: path.name)
+def test_disorder_cif_roundtrip(path: Path, tmp_path: Path) -> None:
+    """Preserve every disorder fixture's species and exact ASU orbit declaration through CIF."""
+    source = load(path, repair=True)
+    destination = tmp_path / path.name
+
+    save(source, destination)
+    restored = load(destination)
+
+    assert restored.species == source.species
+    assert restored.spacegroup == source.spacegroup
+    assert restored.cell == source.cell
+    assert [(site.wyckoff, site.species, site.free_params) for site in restored.wyckoff_sites] == [
+        (site.wyckoff, site.species, site.free_params) for site in source.wyckoff_sites
+    ]

@@ -63,10 +63,12 @@ def test_info_on_declared_symmetry(cif: Path, capsys) -> None:
 
 
 def test_info_on_unitcell_has_no_declared_symmetry(poscar: Path, capsys) -> None:
+    pytest.importorskip("spglib")
     assert _run(["info", str(poscar)]) == 0
     out = capsys.readouterr().out
     assert "input: UnitcellStructure" in out
     assert "none declared" in out
+    assert "recognized space group: IT 225" in out
 
 
 def test_info_batches_and_continues_after_failure(cif: Path, tmp_path: Path, capsys) -> None:
@@ -97,7 +99,15 @@ def test_info_repairs_cif_and_logs_warning(capsys, caplog) -> None:
     )
 
 
+def test_info_no_repair_keeps_strict_cif_reading(capsys) -> None:
+    fixture = Path(__file__).parent / "fixtures" / "malformed_auxiliary_loop.cif"
+
+    assert command(["info", "--no-repair", str(fixture)], CLIContext("httk", Path.cwd())) == 1
+    assert "can be dropped by loading with repair=True" in capsys.readouterr().err
+
+
 def test_info_falls_back_for_poscar_reader(tmp_path: Path, capsys) -> None:
+    pytest.importorskip("spglib")
     path = tmp_path / "POSCAR"
     path.write_text(
         "NaCl\n1.0\n5 0 0\n0 5 0\n0 0 5\nNa Cl\n1 1\nDirect\n0 0 0\n0.5 0.5 0.5\n",
@@ -105,7 +115,51 @@ def test_info_falls_back_for_poscar_reader(tmp_path: Path, capsys) -> None:
     )
 
     assert command(["info", str(path)], CLIContext("httk", tmp_path)) == 0
-    assert "input: UnitcellStructure" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "input: UnitcellStructure" in out
+    assert "recognized space group: IT 221" in out
+
+
+def test_info_reads_mcif_through_structural_asu_view(capsys) -> None:
+    pytest.importorskip("spglib")
+    fixture = Path(__file__).parent / "fixtures" / "magnetic_centered.mcif"
+
+    assert _run(["info", str(fixture)]) == 0
+    out = capsys.readouterr().out
+    assert "input: SymopsStructure" in out
+    assert "recognized space group: IT 229" in out
+    assert "sites: 2 (Fe 2)" in out
+
+
+def test_info_prints_floats_by_default_and_rationals_with_exact(tmp_path: Path, capsys) -> None:
+    path = tmp_path / "fractional.cif"
+    path.write_text(
+        """data_fractional
+_cell_length_a 5
+_cell_length_b 5
+_cell_length_c 5
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+_space_group_IT_number 1
+loop_
+_space_group_symop_operation_xyz
+'x,y,z'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Si1 Si 1/3 0 0
+""",
+        encoding="utf-8",
+    )
+
+    assert _run(["info", str(path)]) == 0
+    assert "free params: 0.333333, 0, 0" in capsys.readouterr().out
+    assert _run(["info", "--exact", str(path)]) == 0
+    assert "free params: 1/3, 0, 0" in capsys.readouterr().out
 
 
 def test_info_does_not_retry_internal_repair_type_error(monkeypatch, capsys) -> None:

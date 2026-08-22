@@ -44,11 +44,17 @@ def test_cif_save_load_preserves_exact_p1_structure(tmp_path):
     assert recovered.wyckoff_sites[0].representative.to_fractions()[0] == Fraction(1, 3)
 
 
-def test_cif_save_refuses_disorder_instead_of_writing_it_lossily(tmp_path):
+def test_cif_save_load_preserves_disorder_without_writing_it_lossily(tmp_path):
     original = load(Path(__file__).with_name("fixtures") / "disorder" / "217.cif")
+    destination = tmp_path / "disorder.cif"
 
-    with pytest.raises(ValueError, match="cannot be represented as CIF"):
-        save(original, tmp_path / "disorder.cif")
+    save(original, destination)
+    recovered = load(destination)
+
+    assert recovered.species == original.species
+    assert [(site.wyckoff, site.species, site.free_params) for site in recovered.wyckoff_sites] == [
+        (site.wyckoff, site.species, site.free_params) for site in original.wyckoff_sites
+    ]
 
 
 def test_cif_save_load_preserves_compression_suffixes(tmp_path):

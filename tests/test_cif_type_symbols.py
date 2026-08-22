@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from httk.core import load
+from httk.core import load, save
 
 from httk.atomistic.cif_structures import _CIF_CORE_TYPE_SYMBOLS, _decode_type_symbol
 
@@ -123,9 +123,7 @@ def test_a_vacancy_type_loads_with_zero_mass(tmp_path: Path) -> None:
     ("symbol_tag", "mass_tag"),
     [("_atom_type_symbol", "_atom_type_mass"), ("_atom_type.symbol", "_atom_type.atomic_mass")],
 )
-def test_atom_type_mass_overrides_the_default_isotope_mass(
-    tmp_path: Path, symbol_tag: str, mass_tag: str
-) -> None:
+def test_atom_type_mass_overrides_the_default_isotope_mass(tmp_path: Path, symbol_tag: str, mass_tag: str) -> None:
     path = tmp_path / "mass.cif"
     atom_types = f"loop_\n{symbol_tag}\n{mass_tag}\nD0 2.0141\n"
     path.write_text(_single_site("D0", atom_type_loop=atom_types), encoding="utf-8")
@@ -136,6 +134,20 @@ def test_atom_type_mass_overrides_the_default_isotope_mass(
     assert species.concentration == (Fraction(1, 2), Fraction(1, 2))
     assert species.mass == (2.0141, 0.0)
     assert species.labels == ("D", None)
+
+
+def test_deuterium_disorder_and_stated_mass_survive_cif_roundtrip(tmp_path: Path) -> None:
+    source_path = tmp_path / "source.cif"
+    atom_types = "loop_\n_atom_type_symbol\n_atom_type_mass\nD 2.0141\n"
+    source_path.write_text(_single_site("D", atom_type_loop=atom_types), encoding="utf-8")
+    source = load(source_path)
+    destination = tmp_path / "roundtrip.cif"
+
+    save(source, destination)
+    restored = load(destination)
+
+    assert restored.species == source.species
+    assert "_atom_type_mass" in destination.read_text(encoding="utf-8")
 
 
 @pytest.mark.skipif(not _COD_DEUTERIDE.exists(), reason="workspace-only real-data fixture not present")

@@ -22,6 +22,8 @@ from httk.core.cli import CLIContext
 
 from httk.atomistic import (
     ASUStructure,
+    ASUStructureView,
+    UnitcellStructure,
     UnitcellStructureView,
     canonical_asu,
     list_representations,
@@ -39,32 +41,32 @@ _ERRORS = (OSError, ValueError, KeyError, TypeError, ImportError)
 Handler = Callable[[argparse.Namespace, CLIContext, str], int]
 
 
-def _load(filename: str) -> Any:
+def _load(filename: str, *, repair: bool = True) -> Any:
     """Load a structure file, applying documented input repairs where the format supports them."""
 
     try:
-        return load(filename, repair=True)
+        return load(filename, repair=repair)
     except TypeError as error:
         if "unexpected keyword argument 'repair'" not in str(error):
             raise
         return load(filename)
 
 
-def _num(value: object) -> str:
-    """Render a cell length or angle compactly and stably (``5.0`` -> ``5``)."""
+def _num(value: object, *, exact: bool = False) -> str:
+    """Render a number either exactly or as a compact float."""
 
-    return f"{float(value):g}"  # type: ignore[arg-type]
-
-
-def _fractions(values: Sequence[Fraction]) -> str:
-    """Render exact free-parameter values, or a marker when there are none."""
-
-    return ", ".join(str(value) for value in values) if values else "none"
+    return str(value) if exact else f"{float(value):g}"  # type: ignore[arg-type]
 
 
-def _print_cell(view: UnitcellStructureView) -> None:
-    lengths = [_num(length) for length in view.cell.lengths]
-    angles = [_num(angle) for angle in view.cell.angles]
+def _fractions(values: Sequence[Fraction], *, exact: bool = False) -> str:
+    """Render free-parameter values, or a marker when there are none."""
+
+    return ", ".join(_num(value, exact=exact) for value in values) if values else "none"
+
+
+def _print_cell(view: UnitcellStructureView, *, exact: bool = False) -> None:
+    lengths = [_num(length, exact=exact) for length in view.cell.lengths]
+    angles = [_num(angle, exact=exact) for angle in view.cell.angles]
     print(f"  cell: a={lengths[0]} b={lengths[1]} c={lengths[2]} alpha={angles[0]} beta={angles[1]} gamma={angles[2]}")
 
 
@@ -82,20 +84,48 @@ def _print_group(asu: ASUStructure, *, label: str = "space group") -> None:
     )
 
 
-def _print_wyckoff(asu: ASUStructure) -> None:
+def _print_wyckoff(asu: ASUStructure, *, exact: bool = False) -> None:
     print("  wyckoff occupation:")
     for site in asu.wyckoff_sites:
-        params = _fractions(list(site.free_params.to_fractions()))
+        params = _fractions(list(site.free_params.to_fractions()), exact=exact)
         print(f"    {site.wyckoff}  {site.species}  free params: {params}")
 
 
-def _print_structure(asu: ASUStructure, *, label: str = "space group") -> None:
+def _print_structure(asu: ASUStructure, *, label: str = "space group", exact: bool = False) -> None:
     """Print the full readable report for one asymmetric-unit structure."""
 
     _print_group(asu, label=label)
-    _print_cell(UnitcellStructureView(asu))
+    _print_cell(UnitcellStructureView(asu), exact=exact)
     _print_counts(UnitcellStructureView(asu))
-    _print_wyckoff(asu)
+    _print_wyckoff(asu, exact=exact)
+
+
+def _asu_for_info(loaded: Any, *, tolerance: float | None) -> ASUStructure:
+    """Resolve any ordinary structure through the ASU view used by symmetry reporting."""
+    source = loaded
+    if not isinstance(loaded, ASUStructure):
+        unitcell = UnitcellStructureView(loaded)
+        if unitcell.site_moments is not None:
+            # ``info`` reports crystallographic spatial symmetry. Magnetic moments can lower
+            # that symmetry or prevent an ASU from representing an antiferromagnetic orbit,
+            # so project only that decoration away while retaining the structural backend data.
+            source = UnitcellStructure(
+                unitcell.cell,
+                unitcell.sites,
+                unitcell.species,
+                unitcell.species_at_sites,
+                molecular=unitcell.molecular,
+                assemblies=unitcell.assemblies,
+                symmetry=unitcell.symmetry,
+                chemical_composition=unitcell.chemical_composition,
+                chemical_formula_descriptive=unitcell.chemical_formula_descriptive,
+                chemical_formula_hill=unitcell.chemical_formula_hill,
+                optimization_type=unitcell.optimization_type,
+                immutable_id=unitcell.immutable_id,
+                last_modified=unitcell.last_modified,
+                charge=unitcell.charge,
+            )
+    return ASUStructureView(source, tolerance=tolerance).resolve()
 
 
 def _require_asu(loaded: object, operation: str) -> ASUStructure:
@@ -118,25 +148,22 @@ def _save(asu: ASUStructure, destination: str) -> None:
 
 
 def _handle_info(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
-    loaded = _load(arguments.file)
-    view = UnitcellStructureView(loaded)
+    loaded = _load(arguments.file, repair=arguments.repair)
+    asu = _asu_for_info(loaded, tolerance=arguments.tolerance)
     print(f"input: {type(loaded).__name__}")
     if isinstance(loaded, ASUStructure):
-        _print_group(loaded, label="declared space group")
-        _print_cell(view)
-        _print_counts(view)
-        _print_wyckoff(loaded)
+        _print_structure(asu, label="declared space group", exact=arguments.exact)
     else:
         print("  declared space group: none declared")
-        _print_cell(view)
-        _print_counts(view)
+        _print_structure(asu, label="recognized space group", exact=arguments.exact)
 
     if arguments.recognize:
+        view = UnitcellStructureView(loaded)
         tolerance = structure_tolerance(view) if arguments.tolerance is None else arguments.tolerance
         recognized = recognize_asu(view, tolerance=tolerance)
-        print(f"recognized (tolerance {_num(tolerance)}):")
+        print(f"recognized (tolerance {_num(tolerance, exact=arguments.exact)}):")
         _print_group(recognized)
-        _print_wyckoff(recognized)
+        _print_wyckoff(recognized, exact=arguments.exact)
     return 0
 
 
@@ -224,8 +251,15 @@ def build_parser(program: str) -> argparse.ArgumentParser:
     info = subparsers.add_parser("info", help="report a structure's declared and recognized symmetry")
     info.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to inspect")
     info.add_argument("--recognize", action="store_true", help="also recognize the symmetry from the geometry")
+    info.add_argument("--exact", action="store_true", help="print exact rational values instead of floats")
+    info.add_argument(
+        "--no-repair",
+        dest="repair",
+        action="store_false",
+        help="disable documented input repairs (repairs are enabled by default)",
+    )
     _add_tolerance(info)
-    info.set_defaults(handler=_handle_info, help_parser=info)
+    info.set_defaults(handler=_handle_info, help_parser=info, repair=True)
 
     canon = subparsers.add_parser("canonicalize", help="canonicalize a structure's symmetry")
     canon.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to canonicalize")
