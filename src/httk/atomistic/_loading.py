@@ -1,7 +1,6 @@
 """Private neutral-payload adapters used by the core loading registry."""
 
 import fractions
-import math
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -146,10 +145,20 @@ def _coordinate_precision(data: Mapping[str, Any], raw_basis: SurdVector) -> fra
     if not data["cartesian"]:
         return fractions.Fraction(precision)
 
-    shortest = min(math.dist((0.0, 0.0, 0.0), row) for row in raw_basis.to_floats())
-    if shortest <= 0:
-        return None
-    return fractions.Fraction(precision) / fractions.Fraction(str(shortest)).limit_denominator(10**12)
+    # A Cartesian row vector transforms as reduced = Cartesian * basis^-1. If each
+    # Cartesian component carries the same absolute bound p, reduced component j is
+    # bounded by p * sum_i |basis^-1[i, j]|. The largest column sum is therefore the
+    # conservative scalar precision needed by Sites. This is exact for a POSCAR basis,
+    # whose decimal tokens are rational, and remains safe for skewed cells where dividing
+    # by the shortest lattice-vector length can severely underestimate the uncertainty.
+    inverse_surd = raw_basis.inv()
+    if not inverse_surd.is_rational:
+        raise RuntimeError("a POSCAR decimal basis unexpectedly produced an irrational inverse")
+    inverse = inverse_surd.coefficient(1).to_fractions()
+    factor = max(
+        sum((abs(inverse[row][column]) for row in range(3)), start=fractions.Fraction()) for column in range(3)
+    )
+    return fractions.Fraction(precision) * factor
 
 
 _STRUCTURE_ADAPTERS: dict[str, Callable[[Mapping[str, Any]], Any]] = {

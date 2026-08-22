@@ -248,9 +248,21 @@ def test_poscar_direct_coordinates_pass_their_precision_through() -> None:
 
 
 def test_poscar_cartesian_coordinates_are_converted_to_fractional() -> None:
-    """A Cartesian precision is a length; dividing by the shortest edge makes it fractional."""
+    """An orthogonal Cartesian precision transforms through the inverse basis."""
     structure = build_poscar(read_poscar(io.StringIO(_poscar(mode="Cartesian", coords="2.8200 2.8200 2.8200"))))
     assert float(structure.coordinate_precision) == pytest.approx(1e-4 / 5.64)
+
+
+def test_poscar_cartesian_precision_uses_a_conservative_skew_cell_bound() -> None:
+    source = _poscar(mode="Cartesian", coords="0.1234 0.1234 0.1234").replace(
+        "5.6400 0.0000 0.0000\n0.0000 5.6400 0.0000\n0.0000 0.0000 5.6400",
+        "1.0000 0.0000 0.0000\n1.0000 1.0000 0.0000\n0.0000 0.0000 1.0000",
+    )
+
+    structure = build_poscar(read_poscar(io.StringIO(source)))
+
+    # For this row-vector basis, max_j sum_i |basis^-1[i,j]| is exactly 2.
+    assert structure.coordinate_precision == F(1, 5000)
 
 
 def test_the_poscar_scale_multiplies_the_basis_precision() -> None:

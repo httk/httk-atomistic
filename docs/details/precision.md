@@ -62,20 +62,25 @@ them.
 both are present the **coarser** wins, that being the weaker and therefore safer claim — so
 `5.6402(3)` is precise to `3e-4`, not to the `1e-4` its four decimals alone would suggest.
 
-**POSCAR** has no uncertainty concept, so the digits are all there is. Two conversions
-happen when the structure is built, because they need the assembled cell:
+**POSCAR** has no uncertainty concept, so the digits are all there is. Direct coordinates
+written exactly as the conventional special fractions `0.0`, `0.5`, or `1.0` make no
+precision claim; signed forms follow the same rule. Extra written digits remain significant,
+so `0.500` claims a step of `1e-3`. Two conversions happen when the structure is built,
+because they need the assembled cell:
 
-- Cartesian coordinates are a *length*, so they are divided by the shortest cell edge to
-  become fractional.
+- Cartesian coordinates are lengths. Their componentwise precision is transformed through
+  the exact inverse cell basis, and the largest resulting component bound becomes the scalar
+  fractional-coordinate precision. This remains conservative for skewed cells.
 - The cell vectors are multiplied by the scaling factor, so their precision scales with
   them. The scaling factor's **own** digits are deliberately not charged as uncertainty: it
   defines units rather than being measured apart from the rows it scales, and charging it
   would declare a 5.64 Å cell precise to only half an ångström because the file wrote
   `1.0`.
 
-Across a set of values the **coarsest** wins: a structure is only as precisely stated as
-its least precisely stated number, so one sloppy `0.5` in a table of six-decimal
-coordinates really does mean the table is good to `1e-1`.
+Across a set of values the **coarsest claimed precision** wins: a structure is only as
+precisely stated as its least precisely stated non-special number. Thus `0.50` in a table of
+six-decimal coordinates limits the table to `1e-2`, while a conventional Direct-coordinate
+`0.5` does not override the other coordinates' claim.
 
 A value written as an exact rational — `1/3` — states a value rather than a measurement and
 contributes nothing at all, rather than dragging the table down to the width of its last

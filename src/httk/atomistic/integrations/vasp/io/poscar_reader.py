@@ -34,6 +34,11 @@ from ._text import source_lines
 
 _POTCAR_SUFFIX = re.compile(r"^([A-Z][a-z]?)[_/.]")
 
+# In Direct coordinates these spell crystallographic special fractions, not values rounded
+# to one decimal place. Match CIF's format-specific rule, including signed forms and a
+# numerically zero exponent, without changing httk-core's general decimal semantics.
+_DIRECT_UNKNOWN_PRECISION = re.compile(r"^[+-]?(?:0\.0|0\.5|1\.0)(?:[eE][+-]?0+)?$")
+
 
 def _strip_potcar_suffix(token: str) -> str:
     """Drop a POTCAR-flavor suffix, keeping the leading element symbol.
@@ -63,6 +68,14 @@ def _parse_flag(token: str, lineno: int) -> bool:
     raise ValueError(f"Malformed POSCAR line {lineno}: expected a selective-dynamics flag 'T' or 'F', got {token!r}.")
 
 
+def _coordinate_precision(coords: list[list[str]], *, cartesian: bool) -> Any:
+    """Return the coarsest token precision, exempting special Direct fractions."""
+    tokens = (token for row in coords for token in row)
+    if cartesian:
+        return combined_precision(tokens)
+    return combined_precision(None if _DIRECT_UNKNOWN_PRECISION.fullmatch(token) else token for token in tokens)
+
+
 def read_poscar(source: Any) -> dict[str, Any]:
     """Parse a VASP POSCAR/CONTCAR into a neutral, string-preserving mapping.
 
@@ -89,10 +102,12 @@ def read_poscar(source: Any) -> dict[str, Any]:
     Three further keys report how precisely the file wrote its numbers, each the coarsest
     claim among the tokens it covers, or ``None`` when none of them claim anything:
     ``cell_precision``, ``scale_precision``, and ``coordinate_precision``. They are the
-    precisions of the tokens **as written**, deliberately not converted: the cell vectors
-    are still to be multiplied by the scaling factor, and the coordinates may be Cartesian
-    or fractional depending on ``cartesian``. Doing that conversion needs the assembled
-    cell, so it belongs to whoever builds the structure —
+    precisions of the tokens **as written**, deliberately not converted. In Direct mode,
+    conventional special fractions written exactly as ``0.0``, ``0.5``, or ``1.0`` make no
+    precision claim; signed forms follow the same rule. The cell vectors are still to be
+    multiplied by the scaling factor, and Cartesian coordinates are still to be transformed
+    into the fractional frame. Doing those conversions needs the assembled cell, so it
+    belongs to whoever builds the structure —
     :func:`httk.core.load` — not to the reader.
 
     :param source: POSCAR/CONTCAR filename, text stream, or iterable of source lines.
@@ -182,7 +197,7 @@ def _read_poscar(lines: Iterator[str]) -> dict[str, Any]:
         "format": "vasp-poscar",
         "cell_precision": combined_precision(token for row in cell for token in row),
         "scale_precision": combined_precision([scale]),
-        "coordinate_precision": combined_precision(token for row in coords for token in row),
+        "coordinate_precision": _coordinate_precision(coords, cartesian=cartesian),
         "comment": comment,
         "scale": scale,
         "volume": volume,

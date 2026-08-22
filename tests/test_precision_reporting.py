@@ -265,9 +265,22 @@ def test_poscar_reports_its_token_precisions() -> None:
     assert data["coordinate_precision"] == F(1, 1000)
 
 
-def test_poscar_precision_is_the_coarsest_token() -> None:
-    coarse = POSCAR.replace("0.500 0.500 0.500", "0.5 0.5 0.5")
-    assert read_poscar(io.StringIO(coarse))["coordinate_precision"] == F(1, 10)
+def test_poscar_direct_special_fractions_do_not_widen_precision() -> None:
+    special = POSCAR.replace("0.500 0.500 0.500", "0.5 0.5 1.0")
+    assert read_poscar(io.StringIO(special))["coordinate_precision"] == F(1, 100000)
+
+
+@pytest.mark.parametrize("literal", ["0.0", "+0.5", "-0.5", "1.0"])
+def test_poscar_direct_special_fractions_alone_make_no_precision_claim(literal: str) -> None:
+    special = POSCAR.replace("0.00000 0.00000 0.00000", f"{literal} {literal} {literal}").replace(
+        "0.500 0.500 0.500", f"{literal} {literal} {literal}"
+    )
+    assert read_poscar(io.StringIO(special))["coordinate_precision"] is None
+
+
+def test_poscar_cartesian_values_are_not_treated_as_special_fractions() -> None:
+    cartesian = POSCAR.replace("Direct", "Cartesian").replace("0.500 0.500 0.500", "0.5 0.5 1.0")
+    assert read_poscar(io.StringIO(cartesian))["coordinate_precision"] == F(1, 10)
 
 
 def test_a_volume_scaled_poscar_reports_no_scale_precision() -> None:
