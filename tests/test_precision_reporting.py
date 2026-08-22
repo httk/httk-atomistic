@@ -11,6 +11,7 @@ import io
 from pathlib import Path
 
 import pytest
+from httk.core import decimal_precision
 
 from httk.atomistic.integrations.vasp.io import read_poscar
 from httk.atomistic.io.cif.cif_parser import parse_cif_float, single_asu_from_cif_file
@@ -92,6 +93,14 @@ def test_the_coarsest_coordinate_wins(tmp_path: Path) -> None:
     sites = "Na1 Na 0.123456 0.123456 0.123456 \nCl1 Cl 0.5 0.5 0.5 \n"
     data = single_asu_from_cif_file(str(_cif(tmp_path, cell=CUBIC_CELL, sites=sites)))
     assert data["coordinate_precision"] == F(1, 10)
+
+
+@pytest.mark.skipif(
+    decimal_precision("0.") is not None, reason="requires unreleased core trailing-point precision semantics"
+)
+def test_cif_trailing_point_coordinates_do_not_widen_precision(tmp_path: Path) -> None:
+    data = single_asu_from_cif_file(str(_cif(tmp_path, cell=CUBIC_CELL, sites="Na1 Na 0. 1. 0.25 \n")))
+    assert data["coordinate_precision"] == F(1, 100)
 
 
 def test_a_stated_uncertainty_widens_the_precision(tmp_path: Path) -> None:
