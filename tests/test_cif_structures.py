@@ -309,13 +309,14 @@ def test_rational_uncertainty_metric_is_exactly_equivalent(tmp_path: Path) -> No
     ("raw", "symbol", "charge"),
     [
         ("Ca2+", "Ca", F(2)),
-        ("O2-", "O", F(-2)),
-        ("Cu+", "Cu", F(1)),
+        ("O2-", "X", F(-2)),
+        ("Cu+", "X", F(1)),
         ("Ti0", "Ti", F(0)),
         ("Ti", "Ti", None),
-        ("O-2", "O", F(-2)),
-        ("Na+1", "Na", F(1)),
-        ("P+5", "P", F(5)),
+        ("D0", "H", F(0)),
+        ("O-2", "X", F(-2)),
+        ("Na+1", "X", F(1)),
+        ("P+5", "X", F(5)),
     ],
 )
 def test_cif_type_symbol_parsing(raw: str, symbol: str, charge: fractions.Fraction | None) -> None:
@@ -327,8 +328,8 @@ def test_decorated_cif_symbols_load_as_species_charges() -> None:
 
     assert {species.name: species.charges for species in structure.species} == {
         "Ca2+": (F(2),),
-        "O2-": (F(-2),),
-        "Cu+": (F(1),),
+        "O1-": (F(-1),),
+        "Cu1+": (F(1),),
         "Ti0": (F(0),),
     }
 
@@ -348,7 +349,7 @@ def test_coincident_cif_sites_with_different_species_are_rejected(tmp_path: Path
         tmp_path / "conflict.cif",
         Spacegroup.standard(1).setting,
         (1, 1, 1, 90, 90, 90),
-        [("Ca1", "Ca2+", ("0", "0", "0"), "1"), ("O1", "O2-", ("0", "0", "0"), "1")],
+        [("Ca1", "Ca2+", ("0", "0", "0"), "1"), ("O1", "O1-", ("0", "0", "0"), "1")],
         name="Conflict",
     )
     with pytest.raises(ValueError, match=r"co-located sites.*occupancies sum to 2"):
@@ -360,7 +361,7 @@ def test_repair_never_drops_an_overoccupied_coincident_site(tmp_path: Path, capl
         tmp_path / "conflict.cif",
         Spacegroup.standard(1).setting,
         (1, 1, 1, 90, 90, 90),
-        [("Ca1", "Ca2+", ("0", "0", "0"), "1"), ("O1", "O2-", ("0", "0", "0"), "1")],
+        [("Ca1", "Ca2+", ("0", "0", "0"), "1"), ("O1", "O1-", ("0", "0", "0"), "1")],
         name="Conflict",
     )
 
@@ -376,7 +377,7 @@ def test_coincident_partial_sites_form_one_mixed_species(tmp_path: Path) -> None
         tmp_path / "mixed.cif",
         Spacegroup.standard(1).setting,
         (1, 1, 1, 90, 90, 90),
-        [("Ca1", "Ca2+", ("0", "0", "0"), ".25"), ("O1", "O2-", ("0", "0", "0"), ".75")],
+        [("Ca1", "Ca2+", ("0", "0", "0"), ".25"), ("O1", "O1-", ("0", "0", "0"), ".75")],
         name="Mixed",
     )
 
@@ -387,7 +388,7 @@ def test_coincident_partial_sites_form_one_mixed_species(tmp_path: Path) -> None
     species = asu.species[0]
     assert species.chemical_symbols == ("Ca", "O")
     assert species.concentration == (F(1, 4), F(3, 4))
-    assert species.charges == (F(2), F(-2))
+    assert species.charges == (F(2), F(-1))
     assert species.labels == ("Ca1", "O1")
     assert species.normalized
 

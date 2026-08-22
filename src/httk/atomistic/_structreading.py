@@ -99,7 +99,7 @@ def structreading_golden(path: str | Path) -> dict[str, Any]:
                 for diagnostic in composition.diagnostics
             ],
         },
-        "formula": str(expanded.formula),
+        "formula": expanded.chemical_formula_reduced,
         "expanded_site_count": len(expanded.sites),
     }
 

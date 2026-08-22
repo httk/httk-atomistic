@@ -1,5 +1,6 @@
 """Build magnetic structures from neutral mCIF mappings."""
 
+import logging
 from collections.abc import Mapping
 from typing import Any
 
@@ -13,7 +14,7 @@ from httk.atomistic.models.structure.symops import SymopsStructure
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.xyz import operation_from_xyz, operation_from_xyzt
 
-from .cif_structures import _cell_from_cif, _exact_positions, _parse_type_symbol, _species_name
+from .cif_structures import _cell_from_cif, _decode_type_symbol, _exact_positions, _species_name
 
 __all__ = ["symops_structures_from_mcif"]
 
@@ -65,8 +66,10 @@ def _species(data: Mapping[str, Any], symbols: list[str], labels: list[str]) -> 
     occupancies = data.get("occupancies")
     occupancies_exact = data.get("occupancies_exact")
     occupancy_precisions = data.get("occupancy_precisions")
+    masses = data.get("masses")
     by_name: dict[str, Species] = {}
     species_at_sites: list[str] = []
+    warned_type_symbols: set[str] = set()
     for index, (symbol, label) in enumerate(zip(symbols, labels)):
         if occupancies_exact is not None and occupancies_exact[index] is not None:
             occupancy = occupancies_exact[index]
@@ -77,17 +80,27 @@ def _species(data: Mapping[str, Any], symbols: list[str], labels: list[str]) -> 
         else:
             occupancy = occupancies[index]
         raw_symbol = symbol
-        symbol, charge = _parse_type_symbol(raw_symbol)
+        stated_mass = None if masses is None else masses[index]
+        decoded = _decode_type_symbol(raw_symbol, stated_mass)
+        if not decoded.recognized and raw_symbol not in warned_type_symbols:
+            logging.getLogger(__name__).warning(
+                f"unrecognized CIF atom-type symbol {raw_symbol!r}; represented as chemical symbol 'X' "
+                f"with species label {decoded.species_label!r}",
+                extra={"context": "cif"},
+            )
+            warned_type_symbols.add(raw_symbol)
         name = _species_name(raw_symbol, label, occupancy)
         if name not in by_name:
             precision = None if occupancy_precisions is None else occupancy_precisions[index]
             by_name[name] = Species(
                 name=name,
-                chemical_symbols=(symbol,),
+                chemical_symbols=(decoded.chemical_symbol,),
                 concentration=(occupancy,),
+                mass=(decoded.mass,) if decoded.mass is not None else None,
                 original_name=None if label == raw_symbol else label,
                 concentration_precision=(precision,) if occupancy_precisions is not None else None,
-                charges=(charge,) if charge is not None else None,
+                charges=(decoded.charge,) if decoded.charge is not None else None,
+                labels=(decoded.species_label,) if decoded.species_label is not None else None,
             )
         species_at_sites.append(name)
     return list(by_name.values()), species_at_sites

@@ -19,7 +19,7 @@ import math
 import re
 from collections.abc import Mapping, Sequence
 from functools import cache
-from typing import Any
+from typing import Any, NamedTuple
 
 from httk.core import FracVector, decimal_precision
 
@@ -40,10 +40,234 @@ __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
 
 _ALLOW_LARGE_CIF_UNCERTAINTY = "_httk_atomistic_allow_large_cif_uncertainty"
 
-_TYPE_SYMBOL = re.compile(
-    r"^(?P<symbol>[A-Z][a-z]?)(?:(?P<magnitude>\d+)?(?P<sign>[+-])|"
-    r"(?P<presign>[+-])(?P<premagnitude>\d+)|(?P<neutral>0))?$"
+_CIF_CORE_TYPE_SYMBOLS = frozenset(
+    [
+        "H",
+        "D",
+        "H1-",
+        "He",
+        "Li",
+        "Li1+",
+        "Be",
+        "Be2+",
+        "B",
+        "C",
+        "N",
+        "O",
+        "O1-",
+        "F",
+        "F1-",
+        "Ne",
+        "Na",
+        "Na1+",
+        "Mg",
+        "Mg2+",
+        "Al",
+        "Al3+",
+        "Si",
+        "Si4+",
+        "P",
+        "S",
+        "Cl",
+        "Cl1-",
+        "Ar",
+        "K",
+        "K1+",
+        "Ca",
+        "Ca2+",
+        "Sc",
+        "Sc3+",
+        "Ti",
+        "Ti2+",
+        "Ti3+",
+        "Ti4+",
+        "V",
+        "V2+",
+        "V3+",
+        "V5+",
+        "Cr",
+        "Cr2+",
+        "Cr3+",
+        "Mn",
+        "Mn2+",
+        "Mn3+",
+        "Mn4+",
+        "Fe",
+        "Fe2+",
+        "Fe3+",
+        "Co",
+        "Co2+",
+        "Co3+",
+        "Ni",
+        "Ni2+",
+        "Ni3+",
+        "Cu",
+        "Cu1+",
+        "Cu2+",
+        "Zn",
+        "Zn2+",
+        "Ga",
+        "Ga3+",
+        "Ge",
+        "Ge4+",
+        "As",
+        "Se",
+        "Br",
+        "Br1-",
+        "Kr",
+        "Rb",
+        "Rb1+",
+        "Sr",
+        "Sr2+",
+        "Y",
+        "Y3+",
+        "Zr",
+        "Zr4+",
+        "Nb",
+        "Nb3+",
+        "Nb5+",
+        "Mo",
+        "Mo3+",
+        "Mo5+",
+        "Mo6+",
+        "Tc",
+        "Ru",
+        "Ru3+",
+        "Ru4+",
+        "Rh",
+        "Rh3+",
+        "Rh4+",
+        "Pd",
+        "Pd2+",
+        "Pd4+",
+        "Ag",
+        "Ag1+",
+        "Ag2+",
+        "Cd",
+        "Cd2+",
+        "In",
+        "In3+",
+        "Sn",
+        "Sn2+",
+        "Sn4+",
+        "Sb",
+        "Sb3+",
+        "Sb5+",
+        "Te",
+        "I",
+        "I1-",
+        "Xe",
+        "Cs",
+        "Cs1+",
+        "Ba",
+        "Ba2+",
+        "La",
+        "La3+",
+        "Ce",
+        "Ce3+",
+        "Ce4+",
+        "Pr",
+        "Pr3+",
+        "Pr4+",
+        "Nd",
+        "Nd3+",
+        "Pm",
+        "Sm",
+        "Sm3+",
+        "Eu",
+        "Eu2+",
+        "Eu3+",
+        "Gd",
+        "Gd3+",
+        "Tb",
+        "Tb3+",
+        "Dy",
+        "Dy3+",
+        "Ho",
+        "Ho3+",
+        "Er",
+        "Er3+",
+        "Tm",
+        "Tm3+",
+        "Yb",
+        "Yb2+",
+        "Yb3+",
+        "Lu",
+        "Lu3+",
+        "Hf",
+        "Hf4+",
+        "Ta",
+        "Ta5+",
+        "W",
+        "W6+",
+        "Re",
+        "Os",
+        "Os4+",
+        "Ir",
+        "Ir3+",
+        "Ir4+",
+        "Pt",
+        "Pt2+",
+        "Pt4+",
+        "Au",
+        "Au1+",
+        "Au3+",
+        "Hg",
+        "Hg1+",
+        "Hg2+",
+        "Tl",
+        "TL1+",
+        "Tl1+",
+        "Tl3+",
+        "Pb",
+        "Pb2+",
+        "Pb4+",
+        "Bi",
+        "Bi3+",
+        "Bi5+",
+        "Po",
+        "At",
+        "Rn",
+        "Fr",
+        "Ra",
+        "Ra2+",
+        "Ac",
+        "Ac3+",
+        "Th",
+        "Th4+",
+        "Pa",
+        "U",
+        "U3+",
+        "U4+",
+        "U6+",
+        "Np",
+        "Np3+",
+        "Np4+",
+        "Np6+",
+        "Pu",
+        "Pu3+",
+        "Pu4+",
+        "Pu6+",
+        "Am",
+        "Cm",
+        "Bk",
+        "Cf",
+    ]
 )
+
+_TYPE_SYMBOL_SUFFIX_CHARGE = re.compile(r"^(?P<label>.+?)(?P<magnitude>\d+)?(?P<sign>[+-])$")
+_TYPE_SYMBOL_PREFIX_CHARGE = re.compile(r"^(?P<label>.+?)(?P<sign>[+-])(?P<magnitude>\d+)$")
+
+
+class _DecodedCIFType(NamedTuple):
+    """Semantic interpretation of one CIF atom-type symbol."""
+
+    chemical_symbol: str
+    charge: fractions.Fraction | None
+    species_label: str | None
+    mass: float | None
+    recognized: bool
+
 
 CIF_POSITIONAL_UNCERTAINTY_WARNING = fractions.Fraction(1, 10)
 CIF_POSITIONAL_UNCERTAINTY_ERROR = fractions.Fraction(1)
@@ -271,6 +495,7 @@ def asu_structure_from_cif(
     occupancies = data.get("occupancies")
     occupancies_exact = data.get("occupancies_exact")
     occupancy_precisions = data.get("occupancy_precisions")
+    masses = data.get("masses")
     declared_wyckoff = data.get("_httk_atomistic_wyckoff_labels")
     declared_multiplicities = data.get("_httk_atomistic_symmetry_multiplicities")
     declared_site_symmetry_orders = data.get("_httk_atomistic_site_symmetry_orders")
@@ -278,6 +503,7 @@ def asu_structure_from_cif(
     species_by_name: dict[str, Species] = {}
     wyckoff_sites: list[WyckoffSite] = []
     warning_uncertainties: list[Any] = []
+    warned_type_symbols: set[str] = set()
     for index, coordinate in enumerate(coordinates):
         if occupancies_exact is not None and occupancies_exact[index] is not None:
             occupancy = occupancies_exact[index]
@@ -289,16 +515,25 @@ def asu_structure_from_cif(
             occupancy = occupancies[index]
         occupancy_precision = None if occupancy_precisions is None else occupancy_precisions[index]
         raw_symbol = symbols[index]
-        symbol, charge = _parse_type_symbol(raw_symbol)
+        stated_mass = None if masses is None else masses[index]
+        decoded = _decode_type_symbol(raw_symbol, stated_mass)
+        if not decoded.recognized and raw_symbol not in warned_type_symbols:
+            _cif_warning(
+                f"unrecognized CIF atom-type symbol {raw_symbol!r}; represented as chemical symbol 'X' "
+                f"with species label {decoded.species_label!r}"
+            )
+            warned_type_symbols.add(raw_symbol)
         name = _species_name(raw_symbol, labels[index], occupancy)
         if name not in species_by_name:
             species_by_name[name] = Species(
                 name=name,
-                chemical_symbols=(symbol,),
+                chemical_symbols=(decoded.chemical_symbol,),
                 concentration=(occupancy,),
+                mass=(decoded.mass,) if decoded.mass is not None else None,
                 original_name=None if labels[index] == symbols[index] else labels[index],
                 concentration_precision=(occupancy_precision,) if occupancy_precisions is not None else None,
-                charges=(charge,) if charge is not None else None,
+                charges=(decoded.charge,) if decoded.charge is not None else None,
+                labels=(decoded.species_label,) if decoded.species_label is not None else None,
             )
 
         standard_point = coordinate.normalize()
@@ -601,6 +836,7 @@ def _combine_cif_species(sources: Sequence[tuple[Species, str]], *, block_name: 
     precisions: list[fractions.Fraction | None]
     charges: list[fractions.Fraction | None] | None
     labels: list[str | None] | None
+    masses: list[float] | None
     if len(distinct) == 1:
         species, _ = distinct[0]
         symbols = list(species.chemical_symbols)
@@ -608,6 +844,7 @@ def _combine_cif_species(sources: Sequence[tuple[Species, str]], *, block_name: 
         precisions = list(species.concentration_precision or (None,) * len(symbols))
         charges = None if species.charges is None else list(species.charges)
         labels = None if species.labels is None else list(species.labels)
+        masses = None if species.mass is None else list(species.mass)
         name = species.name
         original_name = species.original_name
     else:
@@ -617,6 +854,8 @@ def _combine_cif_species(sources: Sequence[tuple[Species, str]], *, block_name: 
                 fractions.Fraction,
                 fractions.Fraction | None,
                 fractions.Fraction | None,
+                float | None,
+                str,
                 str,
             ]
         ] = []
@@ -624,12 +863,17 @@ def _combine_cif_species(sources: Sequence[tuple[Species, str]], *, block_name: 
             if len(species.chemical_symbols) != 1:
                 raise ValueError("internal CIF disorder aggregation expected one constituent per source row")
             source_precisions = species.concentration_precision
+            constituent_species_labels = species.labels
             constituents.append(
                 (
                     species.chemical_symbols[0],
                     species.concentration[0],
                     None if source_precisions is None else source_precisions[0],
                     None if species.charges is None else species.charges[0],
+                    None if species.mass is None else species.mass[0],
+                    source_label
+                    if constituent_species_labels is None
+                    else constituent_species_labels[0] or source_label,
                     source_label,
                 )
             )
@@ -638,7 +882,7 @@ def _combine_cif_species(sources: Sequence[tuple[Species, str]], *, block_name: 
                 item[0],
                 item[3] is None,
                 "" if item[3] is None else str(item[3]),
-                item[4],
+                item[5],
                 item[1],
             )
         )
@@ -646,15 +890,34 @@ def _combine_cif_species(sources: Sequence[tuple[Species, str]], *, block_name: 
         concentrations = [item[1] for item in constituents]
         precisions = [item[2] for item in constituents]
         charges = [item[3] for item in constituents]
-        labels = [item[4] for item in constituents]
-        name = "/".join(item[4] for item in constituents)
+        mass_values = [item[4] for item in constituents]
+        has_nonvacancy_mass = any(
+            symbol != "vacancy" and mass is not None for symbol, mass in zip(symbols, mass_values)
+        )
+        if has_nonvacancy_mass:
+            if any(symbol != "vacancy" and mass is None for symbol, mass in zip(symbols, mass_values)):
+                raise ValueError(
+                    "CIF disorder orbit gives masses for only some constituents; the Species mass list "
+                    "cannot represent that partial declaration exactly"
+                )
+            masses = []
+            for symbol, mass in zip(symbols, mass_values):
+                if symbol == "vacancy":
+                    masses.append(0.0)
+                else:
+                    assert mass is not None
+                    masses.append(mass)
+        else:
+            masses = None
+        labels = [item[5] for item in constituents]
+        name = "/".join(item[6] for item in constituents)
         original_name = None
 
     normalized, _, total, width = normalization(tuple(concentrations), tuple(precisions))
     if total > 1 and not normalized:
-        source_labels = ", ".join(repr(label) for _, label in distinct)
+        source_label_text = ", ".join(repr(label) for _, label in distinct)
         raise ValueError(
-            f"CIF block {block_name!r}, co-located sites {source_labels}: occupancies sum to {total}, "
+            f"CIF block {block_name!r}, co-located sites {source_label_text}: occupancies sum to {total}, "
             "outside their stated precision around one"
         )
     if total < 1:
@@ -665,11 +928,14 @@ def _combine_cif_species(sources: Sequence[tuple[Species, str]], *, block_name: 
             charges.append(None)
         if labels is not None:
             labels.append(None)
+        if masses is not None:
+            masses.append(0.0)
 
     return Species(
         name=name,
         chemical_symbols=symbols,
         concentration=concentrations,
+        mass=masses,
         original_name=original_name,
         concentration_precision=precisions,
         charges=charges,
@@ -1244,28 +1510,50 @@ def _species_name(symbol: str, label: str, occupancy: Any) -> str:
 
 
 def _parse_type_symbol(symbol: str) -> tuple[str, fractions.Fraction | None]:
-    """Split a CIF type symbol into an element symbol and an optional charge.
+    """Return the chemical symbol and charge represented by a CIF type symbol.
 
     :param symbol: The raw ``_atom_site_type_symbol`` value.
-    :return: The element symbol and its explicit charge, if the value is decorated.
+    :return: The mapped chemical symbol and its explicit charge, if stated.
     """
-    match = _TYPE_SYMBOL.fullmatch(symbol)
-    if match is None:
-        return symbol, None
-    element = match.group("symbol")
-    if element not in SYMBOLS:
-        return symbol, None
-    magnitude = match.group("magnitude")
-    sign = match.group("sign")
-    if match.group("presign") is not None:
-        magnitude = match.group("premagnitude")
-        sign = match.group("presign")
-    if match.group("neutral") is not None:
-        return element, fractions.Fraction(0)
-    if sign is None:
-        return element, None
-    charge = fractions.Fraction(1 if magnitude is None else int(magnitude))
-    return element, charge if sign == "+" else -charge
+    decoded = _decode_type_symbol(symbol, None)
+    return decoded.chemical_symbol, decoded.charge
+
+
+def _type_symbol_parts(symbol: str) -> tuple[str, fractions.Fraction | None]:
+    """Remove a conventional charge suffix while retaining arbitrary CIF labels."""
+    suffix = _TYPE_SYMBOL_SUFFIX_CHARGE.fullmatch(symbol)
+    if suffix is not None:
+        magnitude = fractions.Fraction(int(suffix.group("magnitude") or 1))
+        return suffix.group("label"), magnitude if suffix.group("sign") == "+" else -magnitude
+    prefix = _TYPE_SYMBOL_PREFIX_CHARGE.fullmatch(symbol)
+    if prefix is not None:
+        magnitude = fractions.Fraction(int(prefix.group("magnitude")))
+        return prefix.group("label"), magnitude if prefix.group("sign") == "+" else -magnitude
+    if len(symbol) > 1 and symbol.endswith("0"):
+        return symbol[:-1], fractions.Fraction(0)
+    return symbol, None
+
+
+def _decode_type_symbol(symbol: str, stated_mass: float | None) -> _DecodedCIFType:
+    """Interpret CIF core symbols, isotopes, pseudo-sites, and arbitrary labels."""
+    raw = symbol.strip()
+    label, charge = _type_symbol_parts(raw)
+    if label == "TL":
+        label = "Tl"
+
+    if label == "D":
+        return _DecodedCIFType("H", charge, "D", 2.008 if stated_mass is None else stated_mass, True)
+    if label == "T":
+        return _DecodedCIFType("H", charge, "T", 3.0160 if stated_mass is None else stated_mass, True)
+    if label == "X":
+        return _DecodedCIFType("X", charge, None, stated_mass, True)
+    if label in {"Vac", "Va", "vacancy"}:
+        return _DecodedCIFType("vacancy", charge, None, 0.0, True)
+
+    neutral_core_symbol = charge == 0 and label in _CIF_CORE_TYPE_SYMBOLS
+    if (raw in _CIF_CORE_TYPE_SYMBOLS or neutral_core_symbol) and label in SYMBOLS:
+        return _DecodedCIFType(label, charge, None, stated_mass, True)
+    return _DecodedCIFType("X", charge, label, stated_mass, False)
 
 
 def _read_cif_for_atomistic(

@@ -50,12 +50,32 @@ Two conveniences smooth over real-world files:
 Site occupancy is represented without discarding chemistry. When several atom-site rows
 generate exactly the same symmetry orbit, the reader combines their elements, occupancies,
 charges, and source labels into one mixed `Species`. When a site's total occupancy is below
-one outside its stated precision, the remaining fraction is represented by an explicit
-`"vacancy"` constituent. A total above one outside its stated precision is invalid in both
-strict and repair modes; `repair=True` never resolves it by dropping a constituent.
+one, the remaining fraction is represented by an explicit `"vacancy"` constituent. A total
+above one outside its stated precision is invalid in both strict and repair modes;
+`repair=True` never resolves it by dropping a constituent.
 
 Orbits that only partly overlap remain invalid, because they do not describe one shared
 crystallographic site and cannot be combined as a species composition.
+
+Writing this richer representation is not implemented yet. Saving an `ASUStructure` whose
+species carries disorder, labels, isotope masses, or charges raises instead of silently
+projecting those fields away. Read→write→read is therefore safe for the writer's ordered,
+bare-element subset, but currently unavailable for disordered or isotope-bearing CIFs.
+
+### Atom-type symbols and isotopes
+
+The CIF core dictionary's standard `_atom_type_symbol` values are interpreted as their
+elements and optional oxidation states. The widespread isotope symbols `D` and `T` become
+hydrogen constituents with species labels `D` and `T` and default masses 2.008 and 3.0160
+u. An `_atom_type_mass` or `_atom_type.atomic_mass` table overrides those defaults. `X`
+maps to OPTIMADE's non-chemical `"X"`; `Vac`, `Va`, and `vacancy` map to `"vacancy"` with
+zero mass.
+
+Any other CIF-valid type symbol remains readable in strict mode. The reader emits one
+warning per distinct unrecognized symbol, represents its chemistry as `"X"`, and preserves
+the symbol without a charge suffix in the aligned species label. This covers conventional
+pseudo-sites such as `M`, `R`, `LP`, and `Lp`, as well as arbitrary values such as `dummy`
+or `FeNi`, without pretending that they name chemical elements.
 
 ### Declared Wyckoff data
 

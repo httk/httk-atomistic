@@ -1,4 +1,7 @@
 from fractions import Fraction
+from pathlib import Path
+
+import pytest
 
 from httk.core import FracVector, load, save
 
@@ -39,6 +42,13 @@ def test_cif_save_load_preserves_exact_p1_structure(tmp_path):
     assert same_crystal(UnitcellStructureView(original), UnitcellStructureView(recovered))
     assert recovered.spacegroup.it_number == original.spacegroup.it_number
     assert recovered.wyckoff_sites[0].representative.to_fractions()[0] == Fraction(1, 3)
+
+
+def test_cif_save_refuses_disorder_instead_of_writing_it_lossily(tmp_path):
+    original = load(Path(__file__).with_name("fixtures") / "disorder" / "217.cif")
+
+    with pytest.raises(ValueError, match="cannot be represented as CIF"):
+        save(original, tmp_path / "disorder.cif")
 
 
 def test_cif_save_load_preserves_compression_suffixes(tmp_path):

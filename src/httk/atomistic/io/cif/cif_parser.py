@@ -413,6 +413,47 @@ def _parse_atoms_with_precision(block: Mapping[str, Any]) -> tuple[Any, ...]:
     return (*parsed, combined_precision(claims))
 
 
+def _atom_type_masses(cifblock: Mapping[str, Any], site_symbols: list[str]) -> list[float | None] | None:
+    """Resolve optional atom-type masses onto atom-site type symbols.
+
+    Both CIF1 underscore names and CIF2/DDLm dotted names are accepted. A mass table is
+    useful for isotopes, but it remains optional; an absent table returns ``None`` rather
+    than inventing conventional elemental masses.
+
+    :param cifblock: Normalized CIF data for one data block.
+    :param site_symbols: Atom-site type symbols in site order.
+    :return: One mass per site, or ``None`` when the block gives no atom-type masses.
+    :raises ValueError: If the atom-type symbol and mass columns do not align or conflict.
+    """
+    type_symbols = _first_tag(cifblock, 'atom_type_symbol', 'atom_type.symbol')
+    raw_masses = _first_tag(
+        cifblock,
+        'atom_type_mass',
+        'atom_type.mass',
+        'atom_type_atomic_mass',
+        'atom_type.atomic_mass',
+    )
+    if raw_masses is None:
+        return None
+    if type_symbols is None:
+        raise ValueError("CIF block gives atom-type masses without atom-type symbols")
+    symbols = type_symbols if isinstance(type_symbols, list) else [type_symbols]
+    masses = raw_masses if isinstance(raw_masses, list) else [raw_masses]
+    if len(symbols) != len(masses):
+        raise ValueError(
+            "CIF atom-type symbol and mass columns have mismatched lengths: "
+            f"atom_type_symbol={len(symbols)}, atom_type_mass={len(masses)}"
+        )
+    by_symbol: dict[str, float | None] = {}
+    for raw_symbol, raw_mass in zip(symbols, masses):
+        symbol = str(raw_symbol).strip()
+        mass = parse_cif_float(str(raw_mass))
+        if symbol in by_symbol and by_symbol[symbol] != mass:
+            raise ValueError(f"CIF atom type {symbol!r} has conflicting masses")
+        by_symbol[symbol] = mass
+    return [by_symbol.get(symbol) for symbol in site_symbols]
+
+
 def _parse_uc_with_precision(block: Mapping[str, Any]) -> tuple[tuple[float | None, ...], Fraction | None]:
     """The six cell parameters, and how precisely the cell was stated.
 
@@ -690,6 +731,7 @@ def cifblock_to_asu(cifblock: Mapping[str, Any]) -> dict[str, Any]:
         'occupancies_exact': asu.occupancies_exact,
         'occupancy_precisions': asu.occupancy_precisions,
         'symbols': asu.symbols,
+        'masses': _atom_type_masses(cifblock, asu.symbols),
         'symops_xyz': tuple(symops_xyz),
         'incomm': incomm,
         'space_group_nbr': space_group_nbr,
