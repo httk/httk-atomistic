@@ -1,0 +1,26 @@
+httk.atomistic.models.crystaltemplate.like
+==========================================
+
+.. py:module:: httk.atomistic.models.crystaltemplate.like
+
+.. autoapi-nested-parse::
+
+   The accepted-input union for crystal templates.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.crystaltemplate.like.CrystalTemplateLike
+
+
+Module Contents
+---------------
+
+.. py:type:: CrystalTemplateLike
+   :canonical: httk.atomistic.models.crystaltemplate.backend.CrystalTemplateBackend | httk.atomistic.models.crystaltemplate.view_base.CrystalTemplateViewBase | httk.atomistic.models.crystaltemplate.crystaltemplate.CrystalTemplate | httk.atomistic.models.crystaltemplate.fundamental.FundamentalDomainTemplate
+
+

@@ -1,0 +1,121 @@
+httk.atomistic.models.prototype.api
+===================================
+
+.. py:module:: httk.atomistic.models.prototype.api
+
+.. autoapi-nested-parse::
+
+   The anonymous geometrical-class prototype interface.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.api.PrototypeAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: PrototypeAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   The common interface for a prototemplate refined by a geometrical class.
+
+   A prototype is a :class:`~httk.atomistic.models.prototemplate.prototemplate.Prototemplate`
+   plus a geometrical-class distinction. The class is pinned by a canonical *representative*
+   (a standard-setting :class:`~httk.atomistic.models.crystaltemplate.fundamental.FundamentalDomainTemplate`
+   used only as the class anchor, never as exact-structure data) and/or an externally assigned
+   *discriminator* string. At least one is present; equality compares exactly the information
+   present. The discriminator is species-independent and is not part of the label. All
+   label, Pearson, and formula derivations delegate to the prototemplate.
+
+
+   .. py:property:: prototemplate
+      :type: httk.atomistic.models.prototemplate.prototemplate.Prototemplate
+
+      :abstractmethod:
+
+
+      Return the anonymous prototemplate this prototype refines.
+
+
+   .. py:property:: representative
+      :type: FundamentalDomainTemplate | None
+
+      :abstractmethod:
+
+
+      Return the canonical class representative, if one is held.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+      :abstractmethod:
+
+
+      Return the externally assigned class discriminator, if one is held.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group of the prototemplate.
+
+      :return: The standard-setting space group.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.prototemplate.label.PrototemplateLabel
+
+
+      Return the httk prototemplate label of this prototype's template.
+
+      The discriminator names the geometrical class and is not part of the label. Any
+      faithful render is the prototemplate label; the *canonical* prototemplate label comes
+      from a normalizer-canonical template.
+
+      :return: The prototemplate label view.
+
+
+   .. py:property:: pearson_symbol
+      :type: str
+
+
+      Return the Pearson symbol at the standard conventional-cell scale.
+
+      :return: The Pearson symbol, such as ``"cF8"``.
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the total number of sites in the standard conventional cell.
+
+      :return: The conventional-cell site count.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatemplate_view.FormulatemplateView
+
+
+      Return the reduced anonymous formula at the standard conventional-cell scale.
+
+      :return: The conventional-cell anonymous formula view.
+
+
+   .. py:property:: prototype
+      :type: Self
+
+
+      Return this prototype value.
+
+

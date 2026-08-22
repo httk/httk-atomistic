@@ -1,0 +1,129 @@
+httk.atomistic.models.trajectory.view
+=====================================
+
+.. py:module:: httk.atomistic.models.trajectory.view
+
+.. autoapi-nested-parse::
+
+   Present trajectory backends through the lazy canonical view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.trajectory.view.TrajectoryView
+
+
+Module Contents
+---------------
+
+.. py:class:: TrajectoryView(obj, **hints)
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.trajectory.backend.TrajectoryBackend`\ ], :py:obj:`httk.atomistic.models.trajectory.api.TrajectoryAPI`
+
+
+   Present any trajectory backend through the canonical trajectory API.
+
+   :param obj: A trajectory backend or another accepted trajectory value.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Return the number of frames.
+
+
+   .. py:method:: frame(i)
+
+      Return one frame by index.
+
+      :param i: Frame index.
+      :return: The requested unit-cell structure.
+
+
+
+   .. py:method:: frames()
+
+      Iterate over the frames.
+
+      :return: An iterator of unit-cell structures.
+
+
+
+   .. py:property:: reference_frames
+      :type: tuple[int, Ellipsis] | None
+
+
+      Return stored reference-frame indexes, or ``None``.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Return the constant distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Return the constant species name at each site.
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, Ellipsis]
+
+
+      Return the names of available per-frame observables.
+
+
+   .. py:property:: observable_summaries
+      :type: tuple[Any, Ellipsis]
+
+
+      Return backend-provided observable summaries, if any.
+
+
+   .. py:property:: immutable_id
+      :type: str | None
+
+
+      Return the backend immutable identifier, if available.
+
+
+   .. py:property:: last_modified
+      :type: Any
+
+
+      Return the backend modification marker, if available.
+
+
+   .. py:property:: source_locator
+      :type: str | None
+
+
+      Return the source locator, if available.
+
+
+   .. py:method:: observable(name)
+
+      Return one observable's values in frame order.
+
+      :param name: Observable name.
+      :return: The observable values.
+      :raises KeyError: If the observable is unavailable.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the original value wrapped by the backend.
+
+
+

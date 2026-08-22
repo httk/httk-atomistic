@@ -1,0 +1,419 @@
+httk.atomistic.models.structure.asu
+===================================
+
+.. py:module:: httk.atomistic.models.structure.asu
+
+.. autoapi-nested-parse::
+
+   A crystal structure held as its asymmetric unit.
+
+   An :class:`ASUStructure` records only the symmetry-distinct sites — the asymmetric unit —
+   plus the space group needed to regenerate the rest. Where a :class:`~httk.atomistic.UnitcellStructure`
+   lists every atom in the cell, this lists one representative per orbit as a Wyckoff letter
+   and the values of that position's free parameters.
+
+   **Any setting, including non-standard ones.** Wyckoff data is recorded directly against
+   the tabulated setting it arrived in. No change of basis is done merely to store or expand
+   it. A setting that appears in no table remains representable by recording the Wyckoff data
+   against the standard setting together with an exact transform into the structure's own
+   coordinates.
+
+   **Expansion is exact and needs no tolerance.** Reduced coordinates, symmetry operations,
+   Wyckoff parameters, and the setting transform are all exact rationals, and the vendored
+   orbits are complete and pre-deduplicated. So generating the full cell is affine arithmetic
+   over the rationals with an exact equality test at the end — no coordinate grid, no
+   snapping, no neighbour search. Tolerance enters this class only where a *measured*
+   structure is first recognized as symmetric, never in expansion.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.asu.WyckoffSite
+   httk.atomistic.models.structure.asu.FundamentalDomainStructure
+   httk.atomistic.models.structure.asu.ASUStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: WyckoffSite
+
+   Represent one symmetry-distinct site.
+
+   ``wyckoff`` is a bare letter (``"e"``, not ``"4e"``) naming a position of the
+   structure's stored setting, and ``free_params`` holds one exact value per degree of freedom
+   of that position — none at all for a fixed position such as an inversion centre.
+   ``species`` names one of the owning structure's species.
+
+   Moment data uses verbatim-copy semantics: every expanded orbit image carries the same
+   moment. This is physically meaningful only when the site symmetry preserves that moment;
+   magnetic structures that break it must be represented as a unit cell (or via
+   ``SymopsStructure``, coming later).
+
+   Partial occupancy needs nothing special here: it lives in the referenced
+   :class:`~httk.atomistic.Species`, which already carries a composition.
+
+   :param wyckoff: The Wyckoff letter in the structure's stored setting.
+   :param free_params: The free values for the Wyckoff position.
+   :param species: The name of the owning structure's species.
+   :param representative: An optional retained representative coordinate.
+   :param moment: An optional moment assigned to the site.
+
+
+   .. py:attribute:: wyckoff
+      :type:  str
+
+
+   .. py:attribute:: free_params
+      :type:  httk.core.FracVector
+
+
+   .. py:attribute:: species
+      :type:  str
+
+
+   .. py:attribute:: representative
+      :type:  httk.core.FracVector | None
+      :value: None
+
+
+
+   .. py:attribute:: moment
+      :type:  httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+      :value: None
+
+
+
+   .. py:property:: free_count
+      :type: int
+
+
+      How many free parameters this site carries.
+
+
+.. py:class:: FundamentalDomainStructure(cell, spacegroup, wyckoff_sites, species, transform = None, coordinate_precision = None, *, molecular = False, assemblies = None, chemical_composition = None, chemical_formula_descriptive = None, chemical_formula_hill = None, optimization_type = None, immutable_id = None, last_modified = None, charge = None, _validated_proof = None)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.semantics.StructureSemanticsMixin`, :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent a crystal structure by one exact site per symmetry orbit.
+
+   Holds the cell in the structure's own setting, the space-group setting that names its
+   Wyckoff data, an optional transform from that setting to the structure's own, one
+   :class:`WyckoffSite` per symmetry-distinct site, and the species they name.
+   On first expansion, a site whose orbit contributes no new points raises ``ValueError``
+   because it duplicates an earlier site's orbit.
+
+   :param cell: The cell in the structure's own setting.
+   :param spacegroup: The setting that names the stored Wyckoff data.
+   :param wyckoff_sites: The symmetry-distinct site definitions.
+   :param species: The species referenced by the site definitions.
+   :param transform: The change of basis from the stored setting to the structure's setting.
+   :param coordinate_precision: The precision recorded for the reduced coordinates.
+   :param molecular: Whether the structure describes molecular entities.
+   :param assemblies: Optional correlations among domain sites.
+   :param chemical_composition: Optional chemical composition metadata.
+   :param chemical_formula_descriptive: Optional descriptive chemical formula.
+   :param chemical_formula_hill: Optional Hill chemical formula.
+   :param optimization_type: Optional optimization provenance.
+   :param immutable_id: Optional immutable source identifier.
+   :param last_modified: Optional source modification timestamp.
+   :param charge: An explicitly assigned charge for the expanded cell content; it is not
+       derived from the species.
+   :param _validated_proof: Internal proof that the supplied CIF expansion already validates
+       the representatives.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'asu'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the cell in the structure's own setting.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Expose the setting that names the stored Wyckoff data.
+
+
+   .. py:property:: transform
+      :type: httk.atomistic.symmetry.setting_transform.SettingTransform
+
+
+      Expose the transform from the stored setting to the structure's setting.
+
+
+   .. py:property:: transform_from_standard
+      :type: httk.atomistic.symmetry.setting_transform.SettingTransform
+
+
+      Return the exact transform from the IT standard setting to this structure.
+
+
+   .. py:property:: wyckoff_sites
+      :type: tuple[WyckoffSite, Ellipsis]
+
+
+      Expose the symmetry-distinct sites.
+
+
+   .. py:property:: domain_sites
+      :type: tuple[WyckoffSite, Ellipsis]
+
+
+      Expose the directly stored fundamental-domain sites.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose the species referenced by the sites.
+
+
+   .. py:property:: coordinate_precision
+      :type: fractions.Fraction | None
+
+
+      Expose the recorded precision of the reduced coordinates.
+
+      Fractional, and expressed in **this structure's own setting** — the frame the data
+      arrived in — so it needs no transforming on the way to the expanded sites. Recording
+      it here is what lets an asymmetric unit say how good the data behind it was, rather
+      than leaving that to be guessed again downstream.
+
+      It is provenance, never an operating parameter: expansion remains exact and uses no
+      tolerance at all.
+
+      :return: The fractional precision, or ``None`` when it is unknown.
+
+
+   .. py:property:: asu
+      :type: FundamentalDomainStructure
+
+
+      Expose this structure as its own fundamental domain.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Expose the cell's periodic directions.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Expose whether molecular semantics are enabled.
+
+
+   .. py:property:: domain_species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose species names for the directly represented domain sites.
+
+
+   .. py:method:: cartesian_sites()
+
+      Compute the exact Cartesian positions of the represented sites.
+
+      :return: The Cartesian representative positions in the exact surd representation.
+
+
+
+   .. py:property:: fractional_site_positions
+      :type: list[list[float]]
+
+
+      Expose representative positions as floating-point coordinates.
+
+
+   .. py:property:: nsites
+      :type: int
+
+
+      Expose the number of directly represented sites.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the fundamental-domain coordinate span.
+
+
+   .. py:property:: space_group_it_number
+      :type: int
+
+
+      Expose the space group's International Tables number.
+
+
+   .. py:property:: space_group_symbol_hall
+      :type: str | None
+
+
+      Expose the Hall symbol for the active setting.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin
+      :type: str | None
+
+
+      Expose the Hermann–Mauguin symbol for the active setting.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin_extended
+      :type: str | None
+
+
+      Expose the extended Hermann–Mauguin symbol for the active setting.
+
+
+   .. py:property:: space_group_symmetry_operations_xyz
+      :type: tuple[str, Ellipsis]
+
+
+      Expose the active setting's symmetry operations in ``xyz`` notation.
+
+
+   .. py:property:: wyckoff_positions
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose Wyckoff positions in the active setting.
+
+
+   .. py:property:: is_standard_setting
+      :type: bool
+
+
+      Expose whether the structure uses its space group's standard setting.
+
+
+   .. py:method:: setting()
+
+      The tabulated setting this structure is written in, or ``None`` if untabulated.
+
+      A structure in an arbitrary setting is perfectly representable but has no tabulated
+      name; that is the point of storing the transform rather than a setting label.
+
+      A transform looked up from the tables remembers which setting it came from, but one
+      that was constructed directly does not, so an equal transform is also matched
+      against the group's tabulated settings. An identity transform means the stored
+      tabulated setting is already the structure's own setting.
+
+      :return: The matching tabulated setting, or ``None`` when untabulated.
+
+
+
+   .. py:method:: expand_sites()
+
+      Every site of the unit cell, as exact reduced coordinates in this structure's setting.
+
+      The orbit of each asymmetric-unit site is generated directly from its stored
+      setting's table, wrapped into ``[0, 1)``, and deduplicated by exact equality. Only an
+      untabulated setting uses the stored transform. Deduplication then also handles a
+      transform that shrinks the cell; the opposite case, a transform onto a larger cell,
+      is covered by
+      :meth:`~httk.atomistic.SettingTransform.lattice_cosets`.
+
+      :return: All unit-cell sites in the structure's exact setting.
+
+
+
+   .. py:method:: expand_species_at_sites()
+
+      Expose the species names produced by :meth:`expand_sites`.
+
+      :return: Species names in expanded site order.
+
+
+
+   .. py:method:: expand_site_moments()
+
+      Expand one exact moment for every represented site.
+
+      :return: Expanded site moments, or ``None`` when moments are unstated.
+
+
+
+   .. py:method:: multiplicities()
+
+      How many cell sites each asymmetric-unit site generates, in order.
+
+      Usually the Wyckoff position's tabulated multiplicity, but not always: a setting
+      transform that changes the cell volume changes the count too, by a factor of three
+      for the rhombohedral-axes settings.
+
+      :return: The number of expanded sites generated by each domain site.
+
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose representative or expanded sites according to the semantics.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose representative or expanded species names according to the semantics.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose representative or expanded site moments.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned exact charge of the expanded cell.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, Ellipsis] | None
+
+
+      Expose correlations among the domain sites.
+
+
+.. py:class:: ASUStructure(cell, spacegroup, wyckoff_sites, species, transform = None, coordinate_precision = None, *, molecular = False, assemblies = None, chemical_composition = None, chemical_formula_descriptive = None, chemical_formula_hill = None, optimization_type = None, immutable_id = None, last_modified = None, charge = None, _validated_proof = None)
+
+   Bases: :py:obj:`FundamentalDomainStructure`
+
+
+   Assert that a fundamental domain is a true asymmetric unit.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the asymmetric-unit coordinate span.
+
+

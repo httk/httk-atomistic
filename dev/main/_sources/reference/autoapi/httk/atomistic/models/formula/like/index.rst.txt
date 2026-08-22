@@ -1,0 +1,28 @@
+httk.atomistic.models.formula.like
+==================================
+
+.. py:module:: httk.atomistic.models.formula.like
+
+.. autoapi-nested-parse::
+
+   The accepted-input union for chemical-formula functions.
+
+   A ``str`` in this union is always a formula, never a filename.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.like.ChemicalFormulaLike
+
+
+Module Contents
+---------------
+
+.. py:type:: ChemicalFormulaLike
+   :canonical: httk.atomistic.models.formula.backend.ChemicalFormulaBackend | httk.atomistic.models.formula.view_base.ChemicalFormulaViewBase | httk.atomistic.models.formula.composition.Composition | httk.atomistic.models.formula.formula.ChemicalFormula | httk.atomistic.models.formula.formulatemplate.Formulatemplate | httk.atomistic.models.crystaltemplate.backend.CrystalTemplateBackend | httk.atomistic.models.crystaltemplate.view_base.CrystalTemplateViewBase | httk.atomistic.models.crystaltemplate.crystaltemplate.CrystalTemplate | httk.atomistic.models.crystaltemplate.fundamental.FundamentalDomainTemplate | httk.atomistic.models.prototemplate.backend.PrototemplateBackend | httk.atomistic.models.prototemplate.view_base.PrototemplateViewBase | httk.atomistic.models.prototemplate.prototemplate.Prototemplate | httk.atomistic.models.protostructure.backend.ProtostructureBackend | httk.atomistic.models.protostructure.view_base.ProtostructureViewBase | httk.atomistic.models.protostructure.protostructure.Protostructure | httk.atomistic.storage.records.NormalizedCompositionRecord | httk.atomistic.models.structure.backend.StructureBackend | httk.atomistic.models.structure.view.StructureView | str | Mapping[str, Any]
+
+

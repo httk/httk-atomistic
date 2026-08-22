@@ -1,0 +1,80 @@
+httk.atomistic.models.crystaltemplate.anonymized
+================================================
+
+.. py:module:: httk.atomistic.models.crystaltemplate.anonymized
+
+.. autoapi-nested-parse::
+
+   Backend adapting an ordinary structure to an anonymous unit cell.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.crystaltemplate.anonymized.AnonymizedStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: AnonymizedStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.crystaltemplate.backend.CrystalTemplateBackend`
+
+
+   Project an ordinary structure lazily to anonymous species.
+
+   :param obj: The ordinary structure to anonymize.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :value: 'structure'
+
+
+
+   .. py:method:: resolve()
+
+      Return the complete anonymized structure.
+
+
+
+   .. py:property:: cell
+
+      Return the source cell.
+
+
+   .. py:property:: sites
+
+      Return the source reduced sites.
+
+
+   .. py:property:: species
+
+      Return the canonical dummy species.
+
+
+   .. py:property:: species_at_sites
+
+      Return dummy species names in site order.
+
+
+   .. py:property:: coordinate_precision
+
+      Return the source coordinate precision.
+
+
+   .. py:property:: basis_precision
+
+      Return the source basis precision.
+
+
+   .. py:method:: unwrap()
+
+      Return the original ordinary structure.
+
+
+

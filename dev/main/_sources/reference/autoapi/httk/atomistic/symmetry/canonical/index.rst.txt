@@ -1,0 +1,106 @@
+httk.atomistic.symmetry.canonical
+=================================
+
+.. py:module:: httk.atomistic.symmetry.canonical
+
+.. autoapi-nested-parse::
+
+   A one-liner canonical form for noisy input: tolerant recognition composed with exact lifting.
+
+   :func:`canonical_asu` bridges the two layers.  The tolerant layer (:func:`~httk.atomistic.recognize_asu`,
+   backed by spglib) snaps a measured structure onto a space group within a Cartesian tolerance.  Because
+   a measured structure can sit just inside or just outside a tolerance boundary, recognition is swept
+   over a few symprec multiples from loosest to tightest, and the first member that fits within the
+   *base* tolerance wins -- so a looser member rescues a boundary flip without ever accepting more than
+   the claimed noise.  The exact layer then fixes that winner's representation deterministically: by
+   default (``lift=False``) it returns the canonical representative *within the recognized group*
+   (setting, origin, orbit representatives, basis orientation all fixed) without searching upward;
+   ``lift=True`` additionally runs :func:`~httk.atomistic.canonicalize` to hunt higher pseudosymmetry the
+   recognition missed.
+
+   This module is deliberately outside ``lift.py``: ``lift`` imports ``recognition`` (for its tolerance
+   helpers) and stays spglib-free, while this composer imports both.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.canonical.canonical_asu
+
+
+Module Contents
+---------------
+
+.. py:function:: canonical_asu(structure, *, tolerance = None, factors = (Fraction(1, 5), 1, 5), lift = False, preserve_chirality = False)
+
+   Return the canonical :class:`~httk.atomistic.ASUStructure` of a measured structure's symmetry.
+
+   This is the noisy-input counterpart to :func:`~httk.atomistic.canonicalize`: it recognizes the
+   symmetry of a measured structure with spglib and then canonicalizes the result exactly.
+
+   An :class:`~httk.atomistic.ASUStructure` input is expanded to its unit cell first and the symmetry
+   is re-recognized from the actual coordinates -- always from the geometry, never the declared
+   label.  Re-recognition can raise a declared symmetry (a hand-written low-symmetry cell whose
+   coordinates in fact support more) and can also lower it (a declared symmetry the coordinates do
+   not support at the derived tolerance).
+
+   Recognition is swept over the ``base * factor`` symprecs from loosest to tightest.  A member is
+   accepted only when its recognized model reproduces every input site within the **base** tolerance
+   (never the swept one), by an injective same-species match, and matches the per-species site counts.
+   The first accepted member wins -- by the same operation-count monotonicity the loosest fitting
+   member is the highest-symmetry one -- so recognition (and the expensive stage) runs once in the
+   common case, and a looser member still rescues a tolerance-boundary flip a tighter one fails.
+
+   ``lift`` selects the expensive stage applied to that winner:
+
+   * ``lift=False`` (default): it is mapped to the deterministic canonical representative *within its
+     recognized group* -- the exact terminal representation (setting, origin, orbit representatives,
+     basis orientation all fixed), returned *without* searching upward.  The result is the canonical
+     form of the recognized symmetry; no pseudosymmetry above it is sought.  Per-structure cost is
+     essentially recognition-bound.
+   * ``lift=True``: it is additionally run through the exact upward search
+     (:func:`~httk.atomistic.canonicalize`) to find higher pseudosymmetry the recognition missed.
+     This is exact but can be expensive -- minutes and beyond for low-symmetry, many-atom cells.
+
+   Tolerance bound: the recognition stage is held to the base tolerance -- every returned atom sits
+   within ``base`` of the input.  Under ``lift=False`` that is the whole bound (no further hops).
+   Under ``lift=True`` each lift hop can move coordinates and snap the metric by up to another
+   ``base`` and the residual/path are not re-checked here, so the returned structure's distance from
+   the input is bounded roughly by ``base * (1 + hops)``.
+
+   Determinism: the recognition stage is floating-point/spglib-based, so its outcome is reproducible
+   on one platform but may differ across floating-point architectures or spglib builds.  The exact
+   stage is platform-independent and erases spglib's representational freedom for ordinary rational
+   crystallographic Gram matrices, so cross-platform variation is confined to *which* symmetry is
+   accepted near a tolerance boundary, never to *how* an accepted symmetry is represented.  An exact
+   non-rational Gram whose canonical Cartesian factor requires nested radicals outside the supported
+   surd field remains idempotent but can retain its input's global Cartesian rotation.  Free-parameter
+   values are least-squares fits of the measured coordinates, so two noisy measurements of the same
+   crystal reach the same Wyckoff choices but slightly different rational parameter values.
+
+   :param structure: The measured structure, ``UnitcellStructure`` or ``ASUStructure``.
+   :param tolerance: The base Cartesian tolerance, or ``None`` to derive it from the structure's
+       stated precision (:func:`~httk.atomistic.symmetry.recognition.structure_tolerance`).
+   :param factors: Multipliers for the recognition symprec sweep; each candidate symprec is
+       ``base * factor``.
+   :param lift: Whether to search upward for pseudosymmetry above the recognized group (default
+       ``False``: return the canonical representative of the recognized symmetry).
+   :param preserve_chirality: How enantiomorphic space groups are canonicalized.  By default
+       (``False``) a result landing in the higher member of one of the 11 enantiomorphic pairs
+       (76/78, 91/95, 92/96, 144/145, 151/153, 152/154, 169/170, 171/172, 178/179, 180/181, 212/213)
+       is mapped to the LOWER-numbered member by an exact chirality-flipping transformation
+       (fractional coordinates ``f -> (-f) mod 1`` with the cell basis unchanged -- the Cartesian
+       inversion ``r -> -r`` -- and the group swapped to its partner), so an enantiomorphic pair shares
+       one canonical representative and the canonical labels of the two partners coincide.  Set
+       ``True`` to keep the recognized group and retain the distinction.  A structure carrying site
+       moments is never flipped (axial vectors are out of scope under improper maps) and is left in
+       its own group regardless of this flag.
+   :return: The canonical asymmetric unit.
+   :raises ImportError: If spglib is unavailable when symmetry must be searched (the error names the
+       ``httk-atomistic[default]`` extra).
+   :raises ValueError: If recognition fails or is rejected at every swept tolerance.
+
+

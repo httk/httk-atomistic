@@ -1,0 +1,180 @@
+httk.atomistic.models.crystaltemplate.fundamental
+=================================================
+
+.. py:module:: httk.atomistic.models.crystaltemplate.fundamental
+
+.. autoapi-nested-parse::
+
+   The standard-setting dummy-species fundamental-domain value.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.crystaltemplate.fundamental.FundamentalDomainTemplate
+   httk.atomistic.models.crystaltemplate.fundamental.ASUTemplate
+
+
+Module Contents
+---------------
+
+.. py:class:: FundamentalDomainTemplate(cell, spacegroup, wyckoff_sites, species = None, coordinate_precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.crystaltemplate.backend.CrystalTemplateBackend`
+
+
+   Store a standard-setting fundamental domain with dummy species labels.
+
+   ``FundamentalDomainTemplate`` is the fundamental-domain member of the ``CrystalTemplate``
+   family, the anonymous-species, exact-geometry cell of the material-information matrix:
+
+   ======================  ===============  ==============
+   Geometrical info        Anonymous        Assigned
+   ======================  ===============  ==============
+   Wyckoff positions only  Prototemplate    Protostructure
+   Geometrical class       Prototype        Structuretype
+   Exact geometry          CrystalTemplate  Structure
+   ======================  ===============  ==============
+
+   :param cell: The standard-setting cell geometry.
+   :param spacegroup: The standard-setting space group.
+   :param wyckoff_sites: The symmetry-distinct site definitions.
+   :param species: The distinct dummy species definitions.
+   :param coordinate_precision: The precision recorded for the reduced coordinates.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'asu'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the standard-setting cell.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: wyckoff_sites
+      :type: tuple[httk.atomistic.models.structure.asu.WyckoffSite, Ellipsis]
+
+
+      Return the symmetry-distinct site definitions.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Return the distinct dummy species.
+
+
+   .. py:property:: coordinate_precision
+
+      Return the reduced-coordinate precision.
+
+
+   .. py:property:: basis_precision
+
+      Return the cell-basis precision.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Return the expanded standard-setting sites.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Return dummy species names in expanded site order.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Return the periodic directions.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int
+
+
+      Return the number of periodic directions.
+
+
+   .. py:property:: nsites
+      :type: int
+
+
+      Return the number of expanded sites.
+
+
+   .. py:method:: cartesian_sites()
+
+      Return the exact Cartesian expanded site positions.
+
+
+
+   .. py:method:: multiplicities()
+
+      Return the standard-setting multiplicity for each Wyckoff site.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the number of sites in the conventional cell.
+
+
+   .. py:property:: prototype
+      :type: Self
+
+
+      Return this prototype value.
+
+
+   .. py:property:: prototemplate
+      :type: httk.atomistic.models.prototemplate.prototemplate.Prototemplate
+
+
+      Return the anonymous prototemplate this fundamental domain folds to.
+
+      The template keeps this domain's occupied Wyckoff letters and their dummy-species
+      class partition; the exact geometry is discarded. The template's constructor
+      re-canonicalizes the class labels by the pinned group-ordering rule.
+
+      :return: The folded :class:`~httk.atomistic.models.prototemplate.prototemplate.Prototemplate`.
+
+
+.. py:class:: ASUTemplate(cell, spacegroup, wyckoff_sites, species = None, coordinate_precision = None)
+
+   Bases: :py:obj:`FundamentalDomainTemplate`
+
+
+   Assert that a fundamental-domain template is a true asymmetric unit.
+
+   Mirror :class:`~httk.atomistic.models.structure.asu.ASUStructure`: mark a
+   :class:`FundamentalDomainTemplate` whose Wyckoff sites are known to span a real
+   asymmetric unit rather than merely a fundamental domain. The family exposes no
+   ``site_coordinate_span`` hook, so this marker adds no state and inherits the
+   fundamental-domain equality and representation.
+
+

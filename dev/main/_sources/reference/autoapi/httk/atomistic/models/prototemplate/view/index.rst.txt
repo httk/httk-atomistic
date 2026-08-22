@@ -1,0 +1,53 @@
+httk.atomistic.models.prototemplate.view
+========================================
+
+.. py:module:: httk.atomistic.models.prototemplate.view
+
+.. autoapi-nested-parse::
+
+   Lazy prototemplate erasure and presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototemplate.view.PrototemplateView
+
+
+Module Contents
+---------------
+
+.. py:class:: PrototemplateView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.prototemplate.view_base.PrototemplateViewBase`, :py:obj:`httk.atomistic.models.prototemplate.prototemplate.Prototemplate`
+
+
+   Present a lazy standard-setting prototemplate view.
+
+   Sources may be an existing prototemplate, a protostructure (real species erased to
+   anonymous classes), or a fundamental-domain/structure source recognized and
+   discretized. Erasure is deferred until the first field access.
+
+   :param obj: The prototemplate-like or structure-like source.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the erased prototemplate as a standalone value.
+
+      :return: The prototemplate value.
+
+
+

@@ -1,0 +1,58 @@
+httk.atomistic.models.prototemplate.label_string
+================================================
+
+.. py:module:: httk.atomistic.models.prototemplate.label_string
+
+.. autoapi-nested-parse::
+
+   Backend wrapping a raw canonical prototemplate label string.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototemplate.label_string.PrototemplateLabelString
+
+
+Module Contents
+---------------
+
+.. py:class:: PrototemplateLabelString(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.prototemplate.backend.PrototemplateBackend`
+
+
+   Wrap a canonical prototemplate label held as a plain string.
+
+   The string must be a canonical unsuffixed prototemplate label (no ``:`` species
+   suffix); anything else is declined. Parsing is eager, so the wrapped value is
+   validated at adoption.
+
+   :param obj: The canonical prototemplate label text.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :value: 'prototemplate'
+
+
+
+   .. py:property:: spacegroup
+
+      Return the standard-setting space group of the parsed label.
+
+
+   .. py:property:: occupations
+
+      Return the class-partitioned occupations of the parsed label.
+
+
+   .. py:method:: unwrap()
+
+      Return the original label text.
+
+
+

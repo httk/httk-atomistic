@@ -1,0 +1,51 @@
+httk.atomistic.models.moments.api
+=================================
+
+.. py:module:: httk.atomistic.models.moments.api
+
+.. autoapi-nested-parse::
+
+   The minimal canonical site-moments interface for httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.api.SiteMomentsAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: SiteMomentsAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Abstract base class for the canonical per-site magnetic-moments interface.
+
+   ``cartesian_moments`` is the exact Nx3 Cartesian interchange format, in Bohr magnetons.
+   A collinear representation has no axis and therefore raises from that accessor instead of
+   fabricating one.
+
+
+   .. py:property:: cartesian_moments
+      :type: httk.core.SurdVector
+
+      :abstractmethod:
+
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      How precisely the moments were stated, in Bohr magnetons, or ``None``.
+
+      Concrete rather than abstract, so a backend with no source of precision inherits
+      ``None`` instead of breaking.
+
+

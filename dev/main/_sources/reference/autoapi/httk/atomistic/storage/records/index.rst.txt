@@ -1,0 +1,1234 @@
+httk.atomistic.storage.records
+==============================
+
+.. py:module:: httk.atomistic.storage.records
+
+.. autoapi-nested-parse::
+
+   Frozen storage records for complete atomistic structures.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.storage.records.SpeciesConstituentRecord
+   httk.atomistic.storage.records.SpeciesRecord
+   httk.atomistic.storage.records.AssemblyGroupRecord
+   httk.atomistic.storage.records.AssemblyRecord
+   httk.atomistic.storage.records.WyckoffSiteRecord
+   httk.atomistic.storage.records.SettingTransformRecord
+   httk.atomistic.storage.records.SymmetryRecord
+   httk.atomistic.storage.records.CompositionAmountRecord
+   httk.atomistic.storage.records.ChemicalCompositionRecord
+   httk.atomistic.storage.records.NormalizedCompositionRecord
+   httk.atomistic.storage.records.NormalizedCompositionAmountRecord
+   httk.atomistic.storage.records.CellRecord
+   httk.atomistic.storage.records.SitesRecord
+   httk.atomistic.storage.records.UnitcellStructureRecord
+   httk.atomistic.storage.records.FundamentalDomainStructureRecord
+   httk.atomistic.storage.records.ASUStructureRecord
+   httk.atomistic.storage.records.ObservableSummaryRecord
+   httk.atomistic.storage.records.TrajectoryRecord
+   httk.atomistic.storage.records.WyckoffOccupationRecord
+   httk.atomistic.storage.records.ProtostructureRecord
+   httk.atomistic.storage.records.FundamentalDomainTemplateRecord
+   httk.atomistic.storage.records.PrototemplateRecord
+   httk.atomistic.storage.records.PrototypeRecord
+   httk.atomistic.storage.records.StructuretypeRecord
+
+
+Module Contents
+---------------
+
+.. py:class:: SpeciesConstituentRecord
+
+   Represent one aligned, optionally decorated species constituent.
+
+   :param chemical_symbol: The constituent's chemical symbol.
+   :param concentration: The constituent occupancy.
+   :param mass: The constituent mass, if stated.
+   :param charge: The constituent charge, if stated.
+   :param spin: The constituent spin, if stated.
+   :param label: The constituent label, if stated.
+   :param concentration_precision: The occupancy precision, if stated.
+
+
+   .. py:attribute:: chemical_symbol
+      :type:  str
+
+
+   .. py:attribute:: concentration
+      :type:  fractions.Fraction
+
+
+   .. py:attribute:: mass
+      :type:  float | None
+      :value: None
+
+
+
+   .. py:attribute:: charge
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+   .. py:attribute:: spin
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+   .. py:attribute:: label
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: concentration_precision
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+.. py:class:: SpeciesRecord
+
+   Represent a frozen storable snapshot of an atomistic species.
+
+   Hand-built records are shape-checked on construction and semantically validated at the
+   storage boundary or explicitly through the validation hook.
+
+   :param name: The species name.
+   :param constituents: The aligned constituent records.
+   :param original_name: The source species name, if stated.
+   :param attached: The attached constituent symbols, if stated.
+   :param nattached: The counts corresponding to ``attached``, if stated.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: constituents
+      :type:  tuple[SpeciesConstituentRecord, Ellipsis]
+
+
+   .. py:attribute:: original_name
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: attached
+      :type:  tuple[str, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: nattached
+      :type:  tuple[int, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:property:: chemical_symbols
+      :type: tuple[str, Ellipsis]
+
+
+      Expose the constituent chemical symbols.
+
+      :return: The chemical symbols in constituent order.
+
+
+   .. py:property:: concentration
+      :type: tuple[fractions.Fraction, Ellipsis]
+
+
+      Expose the constituent occupancies.
+
+      :return: The concentrations in constituent order.
+
+
+   .. py:property:: mass
+      :type: tuple[float, Ellipsis] | None
+
+
+      Expose the constituent masses.
+
+      :return: The masses in constituent order, or ``None`` when unstated.
+
+
+   .. py:property:: concentration_precision
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Expose the constituent occupancy precision.
+
+      :return: The precisions in constituent order, or ``None`` when unstated.
+
+
+   .. py:property:: charges
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Expose the constituent charges.
+
+      :return: The charges in constituent order, or ``None`` when unstated.
+
+
+   .. py:property:: spins
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Expose the constituent spins.
+
+      :return: The spins in constituent order, or ``None`` when unstated.
+
+
+   .. py:property:: labels
+      :type: tuple[str | None, Ellipsis] | None
+
+
+      Expose the constituent labels.
+
+      :return: The labels in constituent order, or ``None`` when unstated.
+
+
+.. py:class:: AssemblyGroupRecord
+
+   Represent one exact site-index group in a stored assembly.
+
+   :param sites: The distinct non-negative site indexes in the group.
+
+
+   .. py:attribute:: sites
+      :type:  tuple[int, Ellipsis]
+
+
+.. py:class:: AssemblyRecord
+
+   Represent the exact durable form of an assembly.
+
+   :param groups: The site-index groups.
+   :param group_probabilities: The probability of each group.
+   :param group_probabilities_precision: The probability precision, if stated.
+
+
+   .. py:attribute:: groups
+      :type:  tuple[AssemblyGroupRecord, Ellipsis]
+
+
+   .. py:attribute:: group_probabilities
+      :type:  tuple[fractions.Fraction, Ellipsis]
+
+
+   .. py:attribute:: group_probabilities_precision
+      :type:  tuple[fractions.Fraction, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:property:: sites_in_groups
+      :type: tuple[tuple[int, Ellipsis], Ellipsis]
+
+
+      Expose the site indexes grouped by assembly value.
+
+      :return: The site indexes in group order.
+
+
+.. py:class:: WyckoffSiteRecord
+
+   Represent an exact Wyckoff site with its retained representative.
+
+   The owning record's ``domain_sites`` field is storage-visible and deliberately unchanged.
+
+   :param wyckoff: The Wyckoff letter.
+   :param free_parameters: The exact free-parameter values.
+   :param species: The owning species name.
+   :param representative: The retained representative coordinate, if present.
+   :param moment_kind: The site-moment kind, if present.
+   :param moment: The flattened exact site-moment components, if present.
+   :param moment_precision: The site-moment precision, if present.
+
+
+   .. py:attribute:: wyckoff
+      :type:  str
+
+
+   .. py:attribute:: free_parameters
+      :type:  tuple[fractions.Fraction, Ellipsis]
+
+
+   .. py:attribute:: species
+      :type:  str
+
+
+   .. py:attribute:: representative
+      :type:  tuple[fractions.Fraction, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: moment_kind
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: moment
+      :type:  tuple[httk.core.SurdScalar, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: moment_precision
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+.. py:class:: SettingTransformRecord
+
+   Represent an exact stored-setting-to-own transform.
+
+   Hand-built records are shape-checked on construction and semantically validated at the
+   storage boundary or explicitly through the validation hook.
+
+   :param matrix: The stored-setting-to-own fractional coordinate matrix.
+   :param vector: The stored-setting-to-own fractional origin shift.
+   :param hall_entry: The normalized Hall entry, if known.
+
+
+   .. py:attribute:: matrix
+      :type:  Annotated[httk.core.FracVector, httk.core.storage.markers.Shape(3, 3)]
+
+
+   .. py:attribute:: vector
+      :type:  tuple[fractions.Fraction, Ellipsis]
+
+
+   .. py:attribute:: hall_entry
+      :type:  Annotated[str | None, IdentitySkip()]
+      :value: None
+
+
+
+.. py:class:: SymmetryRecord
+
+   Represent optional symmetry metadata for a unit-cell structure.
+
+   Hand-built records are shape-checked on construction and semantically validated at the
+   storage boundary or explicitly through the validation hook.
+
+   :param space_group_it_number: The International Tables space-group number, if known.
+   :param space_group_symbol_hall: The Hall symbol, if known.
+   :param space_group_symbol_hermann_mauguin: The Hermann-Mauguin symbol, if known.
+   :param space_group_symbol_hermann_mauguin_extended: The extended Hermann-Mauguin symbol, if known.
+   :param space_group_symmetry_operations_xyz: The symmetry operations in xyz form, if known.
+   :param wyckoff_positions: The Wyckoff position symbols, if known.
+
+
+   .. py:attribute:: space_group_it_number
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symbol_hall
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symbol_hermann_mauguin
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symbol_hermann_mauguin_extended
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symmetry_operations_xyz
+      :type:  tuple[str, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: wyckoff_positions
+      :type:  tuple[str, Ellipsis] | None
+      :value: None
+
+
+
+.. py:class:: CompositionAmountRecord
+
+   Represent one exact declared element amount.
+
+   :param element: The element symbol.
+   :param amount: The exact element amount.
+   :param precision: The amount precision, if stated.
+
+
+   .. py:attribute:: element
+      :type:  str
+
+
+   .. py:attribute:: amount
+      :type:  fractions.Fraction
+
+
+   .. py:attribute:: precision
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+.. py:class:: ChemicalCompositionRecord
+
+   Represent a durable authoritative or implicit composition declaration.
+
+   :param amounts: The exact element amounts.
+   :param mode: The composition declaration mode.
+
+
+   .. py:attribute:: amounts
+      :type:  tuple[CompositionAmountRecord, Ellipsis]
+
+
+   .. py:attribute:: mode
+      :type:  str
+
+
+.. py:class:: NormalizedCompositionRecord
+
+   Represent the authoritative exact elemental composition of a structure.
+
+   This relation is semantic normalized data, not a rendered-formula cache. It
+   retains each exact central element amount together with its source precision,
+   and makes the same complete-composition facts available to every durable
+   structure backing for response construction and exact filtering.
+
+   :param amounts: The normalized element amounts.
+   :param complete: Whether the composition accounts for all structure content.
+
+
+   .. py:attribute:: amounts
+      :type:  tuple[NormalizedCompositionAmountRecord, Ellipsis]
+
+
+   .. py:attribute:: complete
+      :type:  bool
+
+
+.. py:class:: NormalizedCompositionAmountRecord
+
+   Represent one exact normalized composition ratio.
+
+   :param element: The element symbol.
+   :param ratio: The exact normalized element ratio.
+   :param amount: The exact source element amount.
+   :param precision: The source amount precision, if stated.
+
+
+   .. py:attribute:: element
+      :type:  str
+
+
+   .. py:attribute:: ratio
+      :type:  fractions.Fraction
+
+
+   .. py:attribute:: amount
+      :type:  fractions.Fraction
+
+
+   .. py:attribute:: precision
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+.. py:class:: CellRecord
+
+   Represent an exact durable cell basis, precision, and periodicity.
+
+   Hand-built records are shape-checked on construction and semantically validated at the
+   storage boundary.
+
+   :param basis: The row-major exact cell basis values.
+   :param precision: The absolute basis precision, if stated.
+   :param periodicity: The flags identifying periodic basis rows.
+
+
+   .. py:attribute:: basis
+      :type:  tuple[httk.core.SurdScalar, Ellipsis]
+
+
+   .. py:attribute:: precision
+      :type:  fractions.Fraction | None
+
+
+   .. py:attribute:: periodicity
+      :type:  tuple[bool, Ellipsis]
+
+
+.. py:class:: SitesRecord
+
+   Represent exact durable reduced coordinates and their stated precision.
+
+   :param reduced_coords: The exact reduced coordinates, one site per row.
+   :param precision: The fractional coordinate precision, if stated.
+
+
+   .. py:attribute:: reduced_coords
+      :type:  Annotated[httk.core.FracVector, httk.core.storage.markers.Shape(0, 3)]
+
+
+   .. py:attribute:: precision
+      :type:  fractions.Fraction | None
+
+
+.. py:class:: UnitcellStructureRecord
+
+   Represent the native durable backing for an explicit unit-cell structure.
+
+   Hand-built records are shape-checked on construction and semantically validated at the
+   storage boundary or explicitly through the validation hook. The record's content identity
+   is independent of its storage layout.
+
+   :param cell: The durable cell record.
+   :param sites: The durable site-coordinate record.
+   :param species: The distinct durable species records.
+   :param species_at_sites: The species name occupying each site.
+   :param normalized_composition: The authoritative normalized composition.
+   :param charge: The explicitly assigned cell charge, if stated.
+   :param site_moments_kind: The site-moment kind, if stated.
+   :param site_moments: The flattened exact site-moment components, if stated.
+   :param site_moments_precision: The site-moment precision, if stated.
+   :param molecular: Whether the structure describes molecular entities.
+   :param assemblies: The site assemblies, if stated.
+   :param symmetry: The symmetry metadata, if stated.
+   :param chemical_composition: The chemical composition declaration, if stated.
+   :param chemical_formula_descriptive: The descriptive formula, if stated.
+   :param chemical_formula_hill: The Hill formula, if stated.
+   :param optimization_type: The optimization provenance, if stated.
+   :param immutable_id: The immutable source identifier, if stated.
+   :param last_modified: The source modification timestamp, if stated.
+
+
+   .. py:attribute:: cell
+      :type:  CellRecord
+
+
+   .. py:attribute:: sites
+      :type:  SitesRecord
+
+
+   .. py:attribute:: species
+      :type:  tuple[SpeciesRecord, Ellipsis]
+
+
+   .. py:attribute:: species_at_sites
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: normalized_composition
+      :type:  NormalizedCompositionRecord
+
+
+   .. py:attribute:: charge
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+   .. py:attribute:: site_moments_kind
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: site_moments
+      :type:  tuple[httk.core.SurdScalar, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: site_moments_precision
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+   .. py:attribute:: molecular
+      :type:  bool
+      :value: False
+
+
+
+   .. py:attribute:: assemblies
+      :type:  tuple[AssemblyRecord, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: symmetry
+      :type:  SymmetryRecord | None
+      :value: None
+
+
+
+   .. py:attribute:: chemical_composition
+      :type:  ChemicalCompositionRecord | None
+      :value: None
+
+
+
+   .. py:attribute:: chemical_formula_descriptive
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: chemical_formula_hill
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: optimization_type
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: immutable_id
+      :type:  Annotated[str | None, IdentitySkip()]
+      :value: None
+
+
+
+   .. py:attribute:: last_modified
+      :type:  Annotated[datetime.datetime | None, IdentitySkip()]
+      :value: None
+
+
+
+   .. py:property:: type
+      :type: str
+
+
+      Expose the OPTIMADE entry type.
+
+      :return: ``structures``.
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the layout-independent content identifier.
+
+      :return: The content identifier for this record.
+
+
+.. py:class:: FundamentalDomainStructureRecord
+
+   Represent the native durable backing for a symmetry fundamental domain.
+
+   Hand-built records are shape-checked on construction and semantically validated at the
+   storage boundary or explicitly through the validation hook. The record's content identity
+   is independent of its storage layout.
+
+   :param cell: The durable cell record.
+   :param domain_sites: The symmetry-distinct durable site records.
+   :param species: The distinct durable species records.
+   :param spacegroup_it_number: The International Tables space-group number.
+   :param spacegroup_hall_entry: The setting that names the stored Wyckoff data.
+   :param setting_transform: The stored-setting-to-own transform.
+   :param coordinate_precision: The reduced-coordinate precision, if stated.
+   :param normalized_composition: The authoritative normalized composition.
+   :param charge: The explicitly assigned cell charge, if stated.
+   :param molecular: Whether the structure describes molecular entities.
+   :param assemblies: The site assemblies, if stated.
+   :param chemical_composition: The chemical composition declaration, if stated.
+   :param chemical_formula_descriptive: The descriptive formula, if stated.
+   :param chemical_formula_hill: The Hill formula, if stated.
+   :param optimization_type: The optimization provenance, if stated.
+   :param immutable_id: The immutable source identifier, if stated.
+   :param last_modified: The source modification timestamp, if stated.
+
+
+   .. py:attribute:: cell
+      :type:  CellRecord
+
+
+   .. py:attribute:: domain_sites
+      :type:  tuple[WyckoffSiteRecord, Ellipsis]
+
+
+   .. py:attribute:: species
+      :type:  tuple[SpeciesRecord, Ellipsis]
+
+
+   .. py:attribute:: spacegroup_it_number
+      :type:  int
+
+
+   .. py:attribute:: spacegroup_hall_entry
+      :type:  str
+
+
+   .. py:attribute:: setting_transform
+      :type:  SettingTransformRecord
+
+
+   .. py:attribute:: coordinate_precision
+      :type:  fractions.Fraction | None
+
+
+   .. py:attribute:: normalized_composition
+      :type:  NormalizedCompositionRecord
+
+
+   .. py:attribute:: charge
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+   .. py:attribute:: molecular
+      :type:  bool
+      :value: False
+
+
+
+   .. py:attribute:: assemblies
+      :type:  tuple[AssemblyRecord, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: chemical_composition
+      :type:  ChemicalCompositionRecord | None
+      :value: None
+
+
+
+   .. py:attribute:: chemical_formula_descriptive
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: chemical_formula_hill
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: optimization_type
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: immutable_id
+      :type:  Annotated[str | None, IdentitySkip()]
+      :value: None
+
+
+
+   .. py:attribute:: last_modified
+      :type:  Annotated[datetime.datetime | None, IdentitySkip()]
+      :value: None
+
+
+
+   .. py:property:: type
+      :type: str
+
+
+      Expose the OPTIMADE entry type.
+
+      :return: ``structures``.
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the layout-independent content identifier.
+
+      :return: The content identifier for this record.
+
+
+.. py:class:: ASUStructureRecord
+
+   Bases: :py:obj:`FundamentalDomainStructureRecord`
+
+
+   Represent the native durable backing for an asserted asymmetric unit.
+
+   Inherit the fundamental-domain constructor fields and validation contract while retaining
+   the asymmetric-unit record identity.
+
+
+   .. py:property:: type
+      :type: str
+
+
+      Expose the OPTIMADE entry type.
+
+      :return: ``structures``.
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the layout-independent content identifier.
+
+      :return: The content identifier for this record.
+
+
+.. py:class:: ObservableSummaryRecord
+
+   Represent a bounded numeric summary for one trajectory observable.
+
+   :param name: The observable name.
+   :param first: The first finite value, if available.
+   :param last: The last finite value, if available.
+   :param minimum: The minimum finite value, if available.
+   :param maximum: The maximum finite value, if available.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: first
+      :type:  float | None
+      :value: None
+
+
+
+   .. py:attribute:: last
+      :type:  float | None
+      :value: None
+
+
+
+   .. py:attribute:: minimum
+      :type:  float | None
+      :value: None
+
+
+
+   .. py:attribute:: maximum
+      :type:  float | None
+      :value: None
+
+
+
+.. py:class:: TrajectoryRecord
+
+   Represent bounded trajectory identity and reference-frame summary.
+
+   Frame data is never stored in this record. Hand-built records are shape-checked on
+   construction and semantically validated at the storage boundary or explicitly through
+   the validation hook.
+
+   :param nframes: The total number of trajectory frames.
+   :param species: The distinct durable species records.
+   :param species_at_sites: The species name occupying each site.
+   :param reference_frame_indexes: The sorted indexes of retained reference frames.
+   :param reference_frame_structures: The retained reference-frame records.
+   :param observable_summaries: The summaries of trajectory observables.
+   :param source_locator: The source locator, if stated.
+   :param immutable_id: The immutable source identifier, if stated.
+   :param last_modified: The source modification timestamp, if stated.
+
+
+   .. py:attribute:: nframes
+      :type:  int
+
+
+   .. py:attribute:: species
+      :type:  tuple[SpeciesRecord, Ellipsis]
+
+
+   .. py:attribute:: species_at_sites
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: reference_frame_indexes
+      :type:  tuple[int, Ellipsis]
+
+
+   .. py:attribute:: reference_frame_structures
+      :type:  tuple[UnitcellStructureRecord, Ellipsis]
+
+
+   .. py:attribute:: observable_summaries
+      :type:  tuple[ObservableSummaryRecord, Ellipsis]
+
+
+   .. py:attribute:: source_locator
+      :type:  Annotated[str | None, IdentitySkip()]
+      :value: None
+
+
+
+   .. py:attribute:: immutable_id
+      :type:  Annotated[str | None, IdentitySkip()]
+      :value: None
+
+
+
+   .. py:attribute:: last_modified
+      :type:  Annotated[datetime.datetime | None, IdentitySkip()]
+      :value: None
+
+
+
+   .. py:property:: type
+      :type: str
+
+
+      Expose the OPTIMADE entry type.
+
+      :return: ``trajectories``.
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the layout-independent content identifier.
+
+      :return: The content identifier for this record.
+
+
+.. py:class:: WyckoffOccupationRecord
+
+   Represent one occupied standard-setting Wyckoff orbit and its real species.
+
+   The occupation carries a real (possibly disordered) ``SpeciesRecord``; it is
+   the durable analogue of :class:`~httk.atomistic.models.protostructure.occupation.WyckoffOccupation`.
+
+   :param wyckoff: The Wyckoff letter in the standard setting.
+   :param species: The durable real species occupying the orbit.
+
+
+   .. py:attribute:: wyckoff
+      :type:  str
+
+
+   .. py:attribute:: species
+      :type:  SpeciesRecord
+
+
+.. py:class:: ProtostructureRecord
+
+   Represent the durable backing for a geometry-free protostructure.
+
+   The record carries exactly the value identity of
+   :class:`~httk.atomistic.models.protostructure.protostructure.Protostructure`: its
+   standard-setting space group and its occupied Wyckoff positions with real species,
+   in the protostructure's canonical order (sorted by species name then Wyckoff letter).
+   It has no cell or coordinates. The record's content identity is independent of its
+   storage layout, and two equal protostructures produce the same content identity.
+
+   :param spacegroup_it_number: The International Tables space-group number.
+   :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
+   :param occupations: The occupied Wyckoff positions and their real species.
+
+
+   .. py:attribute:: spacegroup_it_number
+      :type:  int
+
+
+   .. py:attribute:: spacegroup_hall_entry
+      :type:  str
+
+
+   .. py:attribute:: occupations
+      :type:  tuple[WyckoffOccupationRecord, Ellipsis]
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the layout-independent content identifier.
+
+      :return: The content identifier for this record.
+
+
+   .. py:property:: label
+      :type: str
+
+
+      Expose the httk protostructure label as a deterministic query column.
+
+      The label is the httk protostructure label
+      (``"AB_cF8_225_a_b:Na-Cl"`` for rocksalt): the prototemplate label of the erased
+      template followed by ``:`` and the class species names. It is a convenience and
+      query column only; it is not the record's identity (the content id is), and it
+      is NOT unique across distinct protostructures: species that share a name but
+      differ in any other :class:`~httk.atomistic.Species` field (concentration, charges, spins,
+      mass, precision, ...) collide on the same label, so a ``GROUP BY label`` may
+      under-count distinct protostructures — count and deduplicate by row (content
+      id), never by label.
+
+      :return: The httk protostructure label.
+
+
+.. py:class:: FundamentalDomainTemplateRecord
+
+   Represent the durable backing for a standard-setting dummy-species fundamental domain.
+
+   The record carries the geometric per-structure fundamental-domain template: its
+   standard-setting space group, its cell (surd-capable), the symmetry-distinct Wyckoff
+   sites with their exact free parameters, and the distinct dummy species. Distinct templates
+   with different free parameters are distinct values, so no content deduplication is
+   expected; the content identity remains deterministic.
+
+   :param cell: The durable standard-setting cell record.
+   :param wyckoff_sites: The symmetry-distinct durable Wyckoff site records.
+   :param species: The distinct durable dummy species records.
+   :param spacegroup_it_number: The International Tables space-group number.
+   :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
+   :param coordinate_precision: The reduced-coordinate precision, if stated.
+
+
+   .. py:attribute:: cell
+      :type:  CellRecord
+
+
+   .. py:attribute:: wyckoff_sites
+      :type:  tuple[WyckoffSiteRecord, Ellipsis]
+
+
+   .. py:attribute:: species
+      :type:  tuple[SpeciesRecord, Ellipsis]
+
+
+   .. py:attribute:: spacegroup_it_number
+      :type:  int
+
+
+   .. py:attribute:: spacegroup_hall_entry
+      :type:  str
+
+
+   .. py:attribute:: coordinate_precision
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the layout-independent content identifier.
+
+      :return: The content identifier for this record.
+
+
+.. py:class:: PrototemplateRecord
+
+   Represent the durable backing for a geometry-free, element-free prototemplate.
+
+   The record carries exactly the value identity of
+   :class:`~httk.atomistic.models.prototemplate.prototemplate.Prototemplate`: its
+   standard-setting space group and its class-partitioned occupied Wyckoff letters, in the
+   prototemplate's canonical order. It has no cell, coordinates, or species.
+
+   :param spacegroup_it_number: The International Tables space-group number.
+   :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
+   :param wyckoff_letters: The occupied Wyckoff letters in canonical order.
+   :param labels: The aligned anonymous class labels.
+
+
+   .. py:attribute:: spacegroup_it_number
+      :type:  int
+
+
+   .. py:attribute:: spacegroup_hall_entry
+      :type:  str
+
+
+   .. py:attribute:: wyckoff_letters
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: labels
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the layout-independent content identifier.
+
+      :return: The content identifier for this record.
+
+
+   .. py:property:: label
+      :type: str
+
+
+      Expose the httk prototemplate label as a deterministic query column.
+
+      The label is the httk prototemplate label (``"AB_cF8_225_a_b"`` for rocksalt's
+      template). It is a convenience and query column only; it is not the record's identity
+      (the content id is).
+
+      :return: The httk prototemplate label.
+
+
+.. py:class:: PrototypeRecord
+
+   Represent the durable backing for an anonymous geometrical-class prototype.
+
+   The record carries the value identity of
+   :class:`~httk.atomistic.models.prototype.prototype.Prototype`: its canonical prototemplate
+   (as class-partitioned Wyckoff letters, always present) refined by a geometrical class. The
+   class is pinned by a canonical ``representative`` fundamental-domain template and/or an
+   externally assigned ``discriminator`` string; at least one is present. The discriminator is
+   species-independent and is not part of the label.
+
+   :param spacegroup_it_number: The International Tables space-group number.
+   :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
+   :param wyckoff_letters: The prototemplate's occupied Wyckoff letters in canonical order.
+   :param labels: The aligned anonymous class labels.
+   :param representative: The durable class representative, if one is held.
+   :param discriminator: The externally assigned class discriminator, if one is held.
+
+
+   .. py:attribute:: spacegroup_it_number
+      :type:  int
+
+
+   .. py:attribute:: spacegroup_hall_entry
+      :type:  str
+
+
+   .. py:attribute:: wyckoff_letters
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: labels
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: representative
+      :type:  FundamentalDomainTemplateRecord | None
+      :value: None
+
+
+
+   .. py:attribute:: discriminator
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the layout-independent content identifier.
+
+      :return: The content identifier for this record.
+
+
+   .. py:property:: label
+      :type: str
+
+
+      Expose the httk prototemplate label as a deterministic query column.
+
+      The discriminator names the geometrical class and is not part of the label, so
+      prototypes that share a prototemplate but differ in class collide on this column; it
+      is a convenience and query column only, not the record's identity (the content id is).
+
+      :return: The httk prototemplate label.
+
+
+.. py:class:: StructuretypeRecord
+
+   Represent the durable backing for an assigned geometrical-class structuretype.
+
+   The record carries the value identity of
+   :class:`~httk.atomistic.models.structuretype.structuretype.Structuretype`: its geometry-free
+   protostructure (occupied Wyckoff positions with real species) refined by a geometrical class.
+   The class is pinned by a canonical ``representative`` fundamental-domain structure and/or an
+   externally assigned ``discriminator`` string; at least one is present. The discriminator is
+   species-independent and is not part of the label.
+
+   :param spacegroup_it_number: The International Tables space-group number.
+   :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
+   :param occupations: The occupied Wyckoff positions and their real species.
+   :param representative: The durable class representative, if one is held.
+   :param discriminator: The externally assigned class discriminator, if one is held.
+
+
+   .. py:attribute:: spacegroup_it_number
+      :type:  int
+
+
+   .. py:attribute:: spacegroup_hall_entry
+      :type:  str
+
+
+   .. py:attribute:: occupations
+      :type:  tuple[WyckoffOccupationRecord, Ellipsis]
+
+
+   .. py:attribute:: representative
+      :type:  FundamentalDomainStructureRecord | None
+      :value: None
+
+
+
+   .. py:attribute:: discriminator
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the layout-independent content identifier.
+
+      :return: The content identifier for this record.
+
+
+   .. py:property:: label
+      :type: str
+
+
+      Expose the httk protostructure label as a deterministic query column.
+
+      The discriminator names the geometrical class and is not part of the label, so
+      structuretypes that share a protostructure but differ in class collide on this column;
+      it is a convenience and query column only, not the record's identity (the content id is).
+
+      :return: The httk protostructure label.
+
+

@@ -1,0 +1,52 @@
+httk.atomistic.models.crystaltemplate.fundamental_view
+======================================================
+
+.. py:module:: httk.atomistic.models.crystaltemplate.fundamental_view
+
+.. autoapi-nested-parse::
+
+   Lazy prototype-recognition view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.crystaltemplate.fundamental_view.FundamentalDomainTemplateView
+
+
+Module Contents
+---------------
+
+.. py:class:: FundamentalDomainTemplateView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.crystaltemplate.view_base.CrystalTemplateViewBase`, :py:obj:`httk.atomistic.models.crystaltemplate.fundamental.FundamentalDomainTemplate`
+
+
+   Recognize a lazy standard-setting prototype view from a structure.
+
+   Recognition accepts optional ``tolerance`` and ``limit_denominator`` values through
+   the recognition hints.
+
+   :param obj: The crystal-template-like or structure-like source.
+   :param \*\*hints: Backend-selection and recognition hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the recognized prototype as a standalone value.
+
+      :return: The prototype value.
+
+
+

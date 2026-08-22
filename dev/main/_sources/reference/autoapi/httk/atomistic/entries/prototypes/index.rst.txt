@@ -1,0 +1,72 @@
+httk.atomistic.entries.prototypes
+=================================
+
+.. py:module:: httk.atomistic.entries.prototypes
+
+.. autoapi-nested-parse::
+
+   Logical entry families for the geometry-free and dummy-species prototype records.
+
+   These are non-instantiable family markers used as storage-layout keys and as the
+   targets of :func:`~httk.core.register.register_entry_family`. OPTIMADE serving
+   (definitions and providers) for these families is intentionally not part of this
+   module; store a :class:`~httk.atomistic.storage.records.ProtostructureRecord` or
+   :class:`~httk.atomistic.storage.records.PrototypeRecord` (or their source values)
+   directly.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.prototypes.ProtostructureEntry
+   httk.atomistic.entries.prototypes.PrototypeEntry
+   httk.atomistic.entries.prototypes.PrototemplateEntry
+   httk.atomistic.entries.prototypes.StructuretypeEntry
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtostructureEntry
+
+   Define the non-instantiable protostructure entry family.
+
+
+   .. py:attribute:: type
+      :value: 'protostructures'
+
+
+
+.. py:class:: PrototypeEntry
+
+   Define the non-instantiable prototype entry family.
+
+
+   .. py:attribute:: type
+      :value: 'prototypes'
+
+
+
+.. py:class:: PrototemplateEntry
+
+   Define the non-instantiable prototemplate entry family.
+
+
+   .. py:attribute:: type
+      :value: 'prototemplates'
+
+
+
+.. py:class:: StructuretypeEntry
+
+   Define the non-instantiable structuretype entry family.
+
+
+   .. py:attribute:: type
+      :value: 'structuretypes'
+
+
+

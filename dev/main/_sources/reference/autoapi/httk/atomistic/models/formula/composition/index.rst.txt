@@ -1,0 +1,147 @@
+httk.atomistic.models.formula.composition
+=========================================
+
+.. py:module:: httk.atomistic.models.formula.composition
+
+.. autoapi-nested-parse::
+
+   The immutable canonical elemental composition value.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.composition.Composition
+
+
+Module Contents
+---------------
+
+.. py:class:: Composition(amounts, uncertainties = None, complete = True, exact = None, normalized = True, normalization_status = None, diagnostics = ())
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Store an immutable projected composition and its formula diagnostics.
+
+   :param amounts: The projected elemental amounts in symbol order.
+   :param uncertainties: The corresponding amount precisions, if known.
+   :param complete: Whether the projection contains no unknown elemental content.
+   :param exact: Whether all projected amounts are exact.
+   :param normalized: Whether all contributing probabilities and concentrations normalize.
+   :param normalization_status: The combined normalization status.
+   :param diagnostics: The non-fatal issues found during projection.
+
+
+   .. py:attribute:: amounts
+      :type:  tuple[tuple[str, fractions.Fraction], Ellipsis]
+      :value: ()
+
+
+      Ordered ``(label, exact amount)`` pairs for this chemical formula.
+
+      Labels are element symbols in alphabetical order unless ``is_anonymous``, in
+      which case they are OPTIMADE anonymous symbols in canonical
+      (descending-coefficient) order.
+
+
+   .. py:attribute:: uncertainties
+      :type:  tuple[tuple[str, fractions.Fraction | None], Ellipsis]
+      :value: ()
+
+
+      Per-amount absolute uncertainties, or ``None`` where exactness is unstated.
+
+
+   .. py:attribute:: complete
+      :type:  bool
+      :value: True
+
+
+      Whether the formula accounts for all represented elemental material.
+
+
+   .. py:attribute:: exact
+      :type:  bool
+      :value: True
+
+
+      Whether all formula amounts are exact rather than precision-bounded.
+
+
+   .. py:attribute:: normalized
+      :type:  bool
+      :value: True
+
+
+      Whether the formula is normalized within the stated precision.
+
+
+   .. py:attribute:: normalization_status
+      :type:  str
+      :value: 'exact'
+
+
+      The formula's normalization status derived from exactness and normalization.
+
+
+   .. py:attribute:: diagnostics
+      :type:  tuple[httk.atomistic.models.formula.diagnostics.CompositionDiagnostic, Ellipsis]
+      :value: ()
+
+
+      Non-fatal structured diagnostics associated with the formula.
+
+
+   .. py:property:: amount_mapping
+      :type: collections.abc.Mapping[str, fractions.Fraction]
+
+
+      Return the projected amounts as a read-only mapping.
+
+
+   .. py:property:: uncertainty_mapping
+      :type: collections.abc.Mapping[str, fractions.Fraction | None]
+
+
+      Return the projected amount precisions as a read-only mapping.
+
+
+   .. py:property:: elements
+      :type: tuple[str, Ellipsis]
+
+
+      Return the projected element symbols in amount order.
+
+
+   .. py:property:: nelements
+      :type: int
+
+
+      Return the number of projected elements.
+
+
+   .. py:property:: elements_ratios
+      :type: tuple[fractions.Fraction, Ellipsis]
+
+
+      Return the projected amounts normalized by their total.
+
+
+   .. py:property:: chemical_formula_reduced
+      :type: str | None
+
+
+      Return the reduced chemical formula, if the composition is complete.
+
+
+   .. py:property:: chemical_formula_anonymous
+      :type: str | None
+
+
+      Return the anonymous formula, if the composition is complete.
+
+

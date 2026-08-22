@@ -1,0 +1,34 @@
+httk.atomistic.models.prototemplate.backend
+===========================================
+
+.. py:module:: httk.atomistic.models.prototemplate.backend
+
+.. autoapi-nested-parse::
+
+   The abstract prototemplate backend.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototemplate.backend.PrototemplateBackend
+
+
+Module Contents
+---------------
+
+.. py:class:: PrototemplateBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`PrototemplateBackend`\ ], :py:obj:`httk.atomistic.models.prototemplate.api.PrototemplateAPI`
+
+
+   Backend root for standard-setting anonymous crystal keys.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+

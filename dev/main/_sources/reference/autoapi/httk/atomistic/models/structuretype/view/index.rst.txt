@@ -1,0 +1,54 @@
+httk.atomistic.models.structuretype.view
+========================================
+
+.. py:module:: httk.atomistic.models.structuretype.view
+
+.. autoapi-nested-parse::
+
+   Lazy structuretype recognition and presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structuretype.view.StructuretypeView
+
+
+Module Contents
+---------------
+
+.. py:class:: StructuretypeView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structuretype.view_base.StructuretypeViewBase`, :py:obj:`httk.atomistic.models.structuretype.structuretype.Structuretype`
+
+
+   Present a lazy assigned geometrical-class structuretype view.
+
+   Sources may be an existing structuretype or a structure-like source recognized to a
+   representative-carrying structuretype. Recognition of a raw structure accepts optional
+   ``tolerance`` and ``limit_denominator`` values; resolution is deferred until the first
+   field access.
+
+   :param obj: The structuretype-like or structure-like source.
+   :param \*\*hints: Backend-selection and recognition hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the recognized structuretype as a standalone value.
+
+      :return: The structuretype value.
+
+
+

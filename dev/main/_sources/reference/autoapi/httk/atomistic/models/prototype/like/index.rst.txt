@@ -1,0 +1,26 @@
+httk.atomistic.models.prototype.like
+====================================
+
+.. py:module:: httk.atomistic.models.prototype.like
+
+.. autoapi-nested-parse::
+
+   The accepted-input union for prototypes.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.like.PrototypeLike
+
+
+Module Contents
+---------------
+
+.. py:type:: PrototypeLike
+   :canonical: httk.atomistic.models.prototype.backend.PrototypeBackend | httk.atomistic.models.prototype.view_base.PrototypeViewBase | httk.atomistic.models.prototype.prototype.Prototype
+
+

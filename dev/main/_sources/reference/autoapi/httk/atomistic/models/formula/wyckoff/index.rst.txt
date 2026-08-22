@@ -1,0 +1,103 @@
+httk.atomistic.models.formula.wyckoff
+=====================================
+
+.. py:module:: httk.atomistic.models.formula.wyckoff
+
+.. autoapi-nested-parse::
+
+   Formula bridge for Wyckoff-multiplicity-based backends.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.wyckoff.WyckoffComposition
+
+
+Module Contents
+---------------
+
+.. py:class:: WyckoffComposition(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Represent the canonical composition of a Wyckoff-multiplicity-based backend.
+
+   Crystal-template and prototemplate inputs use anonymous labels; protostructure
+   inputs retain their real elemental composition at the standard conventional-cell scale.
+
+   :param obj: The crystal template or protostructure to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :value: 'wyckoff'
+
+
+
+   .. py:property:: is_anonymous
+      :type: bool
+
+
+      Return whether this composition uses anonymous labels.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+
+      Return the canonical composition amounts.
+
+
+   .. py:property:: uncertainties
+      :type: tuple[tuple[str, fractions.Fraction | None], Ellipsis]
+
+
+      Return the composition amount precisions.
+
+
+   .. py:property:: complete
+      :type: bool
+
+
+      Return whether all represented elemental material is known.
+
+
+   .. py:property:: exact
+      :type: bool
+
+
+      Return whether all composition amounts are exact.
+
+
+   .. py:property:: normalized
+      :type: bool
+
+
+      Return whether the composition is normalized within precision.
+
+
+   .. py:property:: normalization_status
+      :type: str
+
+
+      Return the composition's normalization status.
+
+
+   .. py:property:: diagnostics
+
+      Return non-fatal diagnostics associated with the composition.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the Wyckoff-composition backend.
+
+      :return: The unwrapped source object.
+
+
+

@@ -1,0 +1,231 @@
+httk.atomistic.models.prototype
+===============================
+
+.. py:module:: httk.atomistic.models.prototype
+
+.. autoapi-nested-parse::
+
+   The anonymous geometrical-class prototype family.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/prototype/api/index
+   /reference/autoapi/httk/atomistic/models/prototype/backend/index
+   /reference/autoapi/httk/atomistic/models/prototype/like/index
+   /reference/autoapi/httk/atomistic/models/prototype/prototype/index
+   /reference/autoapi/httk/atomistic/models/prototype/recognized/index
+   /reference/autoapi/httk/atomistic/models/prototype/view/index
+   /reference/autoapi/httk/atomistic/models/prototype/view_base/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.PrototypeLike
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.PrototypeAPI
+   httk.atomistic.models.prototype.PrototypeBackend
+   httk.atomistic.models.prototype.Prototype
+   httk.atomistic.models.prototype.PrototypeViewBase
+
+
+Package Contents
+----------------
+
+.. py:class:: PrototypeAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   The common interface for a prototemplate refined by a geometrical class.
+
+   A prototype is a :class:`~httk.atomistic.models.prototemplate.prototemplate.Prototemplate`
+   plus a geometrical-class distinction. The class is pinned by a canonical *representative*
+   (a standard-setting :class:`~httk.atomistic.models.crystaltemplate.fundamental.FundamentalDomainTemplate`
+   used only as the class anchor, never as exact-structure data) and/or an externally assigned
+   *discriminator* string. At least one is present; equality compares exactly the information
+   present. The discriminator is species-independent and is not part of the label. All
+   label, Pearson, and formula derivations delegate to the prototemplate.
+
+
+   .. py:property:: prototemplate
+      :type: httk.atomistic.models.prototemplate.prototemplate.Prototemplate
+
+      :abstractmethod:
+
+
+      Return the anonymous prototemplate this prototype refines.
+
+
+   .. py:property:: representative
+      :type: FundamentalDomainTemplate | None
+
+      :abstractmethod:
+
+
+      Return the canonical class representative, if one is held.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+      :abstractmethod:
+
+
+      Return the externally assigned class discriminator, if one is held.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group of the prototemplate.
+
+      :return: The standard-setting space group.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.prototemplate.label.PrototemplateLabel
+
+
+      Return the httk prototemplate label of this prototype's template.
+
+      The discriminator names the geometrical class and is not part of the label. Any
+      faithful render is the prototemplate label; the *canonical* prototemplate label comes
+      from a normalizer-canonical template.
+
+      :return: The prototemplate label view.
+
+
+   .. py:property:: pearson_symbol
+      :type: str
+
+
+      Return the Pearson symbol at the standard conventional-cell scale.
+
+      :return: The Pearson symbol, such as ``"cF8"``.
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the total number of sites in the standard conventional cell.
+
+      :return: The conventional-cell site count.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatemplate_view.FormulatemplateView
+
+
+      Return the reduced anonymous formula at the standard conventional-cell scale.
+
+      :return: The conventional-cell anonymous formula view.
+
+
+   .. py:property:: prototype
+      :type: Self
+
+
+      Return this prototype value.
+
+
+.. py:class:: PrototypeBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`PrototypeBackend`\ ], :py:obj:`httk.atomistic.models.prototype.api.PrototypeAPI`
+
+
+   Backend root for anonymous geometrical-class prototypes.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+
+.. py:type:: PrototypeLike
+   :canonical: httk.atomistic.models.prototype.backend.PrototypeBackend | httk.atomistic.models.prototype.view_base.PrototypeViewBase | httk.atomistic.models.prototype.prototype.Prototype
+
+
+.. py:class:: Prototype(prototemplate = None, *, representative = None, discriminator = None)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.backend.PrototypeBackend`
+
+
+   Store a prototemplate refined by an anonymous geometrical-class distinction.
+
+   The class distinction is pinned by a canonical *representative* (a standard-setting
+   :class:`~httk.atomistic.models.crystaltemplate.fundamental.FundamentalDomainTemplate`
+   holding one exact realization used only as the class anchor, never as exact-structure
+   data) and/or an externally assigned *discriminator* string. At least one is required;
+   both may be given. Equality compares exactly the information present, so a
+   representative-only value is never equal to a discriminator-only value. The discriminator
+   names a species-independent class and is not part of the label.
+
+   ``Prototype`` is the anonymous-species, geometrical-class cell of the
+   material-information matrix:
+
+   ======================  ===============  ==============
+   Geometrical info        Anonymous        Assigned
+   ======================  ===============  ==============
+   Wyckoff positions only  Prototemplate    Protostructure
+   Geometrical class       Prototype        Structuretype
+   Exact geometry          CrystalTemplate  Structure
+   ======================  ===============  ==============
+
+   :param prototemplate: The anonymous prototemplate, as any prototemplate-like value. When
+       omitted it is derived from ``representative``; it is required when only
+       ``discriminator`` is given.
+   :param representative: The canonical class representative, if one is known.
+   :param discriminator: The externally assigned class discriminator, if one is known.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'prototype'
+
+
+
+   .. py:property:: prototemplate
+      :type: httk.atomistic.models.prototemplate.prototemplate.Prototemplate
+
+
+      Return the anonymous prototemplate this prototype refines.
+
+
+   .. py:property:: representative
+      :type: httk.atomistic.models.crystaltemplate.fundamental.FundamentalDomainTemplate | None
+
+
+      Return the canonical class representative, if one is held.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return the externally assigned class discriminator, if one is held.
+
+
+.. py:class:: PrototypeViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.prototype.backend.PrototypeBackend`\ ]
+
+
+   Base class for views presenting prototype backends.
+
+

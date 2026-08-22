@@ -1,0 +1,192 @@
+httk.atomistic.composition
+==========================
+
+.. py:module:: httk.atomistic.composition
+
+.. autoapi-nested-parse::
+
+   Exact, precision-aware chemical composition projection.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.composition.CompositionDiagnostic
+   httk.atomistic.composition.Assembly
+   httk.atomistic.composition.ChemicalComposition
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.composition.validate_assemblies
+   httk.atomistic.composition.derive_structure_features
+   httk.atomistic.composition.project_composition
+
+
+Module Contents
+---------------
+
+.. py:class:: CompositionDiagnostic
+
+   Record a non-fatal issue encountered while projecting composition.
+
+   :param code: The stable diagnostic code.
+   :param message: The human-readable diagnostic message.
+   :param subject: The composition subject involved, if any.
+   :param total: The calculated total, if applicable.
+   :param width: The precision width used for the diagnostic, if applicable.
+
+
+   .. py:attribute:: code
+      :type:  str
+
+
+   .. py:attribute:: message
+      :type:  str
+
+
+   .. py:attribute:: subject
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: total
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+   .. py:attribute:: width
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+.. py:class:: Assembly
+
+   Represent one site-disorder assembly without normalizing its probabilities.
+
+   :param sites_in_groups: The non-overlapping site-index groups in the assembly.
+   :param group_probabilities: The probability assigned to each group.
+   :param group_probabilities_precision: The precision of each group probability, if known.
+
+
+   .. py:attribute:: sites_in_groups
+      :type:  tuple[tuple[int, Ellipsis], Ellipsis]
+
+
+   .. py:attribute:: group_probabilities
+      :type:  tuple[fractions.Fraction, Ellipsis]
+
+
+   .. py:attribute:: group_probabilities_precision
+      :type:  tuple[fractions.Fraction | None, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:property:: normalized
+      :type: bool
+
+
+      Whether the group probabilities sum to one within their precision.
+
+
+   .. py:property:: normalization_status
+      :type: str
+
+
+      Return the probability normalization status.
+
+
+   .. py:property:: normalization_diagnostic
+      :type: httk.atomistic.models.formula.diagnostics.CompositionDiagnostic | None
+
+
+      Return the normalization diagnostic, if the probabilities are outside precision.
+
+
+.. py:class:: ChemicalComposition(amounts, mode = 'implicit', amounts_precision = None)
+
+   Store explicit elemental amounts as additional or authoritative composition.
+
+   ``implicit`` amounts supplement the site-derived composition; ``full`` amounts replace it
+   while still recording a mismatch diagnostic when the two disagree.
+
+   :param amounts: The positive amounts for named chemical elements.
+   :param mode: Whether the amounts are ``"implicit"`` or authoritative ``"full"`` values.
+   :param amounts_precision: The precision of the stated amounts, if known.
+
+
+   .. py:attribute:: amounts
+      :type:  tuple[tuple[str, fractions.Fraction], Ellipsis]
+
+
+   .. py:attribute:: amounts_precision
+      :type:  tuple[tuple[str, fractions.Fraction | None], Ellipsis]
+
+
+   .. py:attribute:: mode
+      :type:  Literal['implicit', 'full']
+
+
+   .. py:property:: elements
+      :type: tuple[str, Ellipsis]
+
+
+      Return the element symbols in the stored amount order.
+
+
+   .. py:property:: amount_mapping
+      :type: collections.abc.Mapping[str, fractions.Fraction]
+
+
+      Return the elemental amounts as a read-only mapping.
+
+
+   .. py:property:: precision_mapping
+      :type: collections.abc.Mapping[str, fractions.Fraction | None]
+
+
+      Return the amount precisions as a read-only mapping.
+
+
+.. py:function:: validate_assemblies(assemblies, nsites = None)
+
+   Validate global assembly site ownership for a structure.
+
+   :param assemblies: The assemblies to validate.
+   :param nsites: The structure site count used to bound site indices, if supplied.
+   :return: The validated assemblies in their input order.
+   :raises TypeError: If an item is not an :class:`Assembly`.
+   :raises ValueError: If a site index is out of bounds or occurs in multiple assemblies.
+
+
+.. py:function:: derive_structure_features(structure)
+
+   Return the exact-composition features present on a structure.
+
+   :param structure: The structure whose composition-related features are inspected.
+   :return: The feature names in alphabetical order.
+
+
+.. py:function:: project_composition(structure)
+
+   Project a structure to exact elemental amounts without normalization.
+
+   Site multiplicities, disorder, assemblies, attached elements, and explicit composition
+   semantics are combined without silently renormalizing their stated values.
+
+   :param structure: The unit-cell or asymmetric-unit structure to project.
+   :return: The projected composition and its completeness, precision, and diagnostics.
+   :raises TypeError: If the structure has an invalid explicit chemical composition.
+   :raises ValueError: If a structure site refers to an unknown species or has invalid assemblies.
+
+

@@ -1,0 +1,131 @@
+httk.atomistic.models.structuretype.api
+=======================================
+
+.. py:module:: httk.atomistic.models.structuretype.api
+
+.. autoapi-nested-parse::
+
+   The assigned geometrical-class structuretype interface.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structuretype.api.StructuretypeAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: StructuretypeAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   The common interface for a protostructure refined by a geometrical class.
+
+   A structuretype is a :class:`~httk.atomistic.models.protostructure.protostructure.Protostructure`
+   plus a geometrical-class distinction. The class is pinned by a canonical *representative*
+   (a standard-setting :class:`~httk.atomistic.models.structure.asu.FundamentalDomainStructure`
+   used only as the class anchor, never as exact-structure data) and/or an externally assigned
+   *discriminator* string. At least one is present; equality compares exactly the information
+   present. The discriminator is species-independent and is not part of the label. Label and
+   ``aflow_label`` derivations delegate to the protostructure; ``pearson_symbol`` and
+   ``prototemplate`` come from the erased anonymous template.
+
+
+   .. py:property:: protostructure
+      :type: httk.atomistic.models.protostructure.protostructure.Protostructure
+
+      :abstractmethod:
+
+
+      Return the geometry-free protostructure this structuretype refines.
+
+
+   .. py:property:: representative
+      :type: FundamentalDomainStructure | None
+
+      :abstractmethod:
+
+
+      Return the canonical class representative, if one is held.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+      :abstractmethod:
+
+
+      Return the externally assigned class discriminator, if one is held.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group of the protostructure.
+
+      :return: The standard-setting space group.
+
+
+   .. py:property:: prototemplate
+      :type: httk.atomistic.models.prototemplate.prototemplate.Prototemplate
+
+
+      Return the anonymous prototemplate the protostructure erases to.
+
+      :return: The erased prototemplate value.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.protostructure.label.ProtostructureLabel
+
+
+      Return the httk protostructure label of this structuretype.
+
+      The discriminator names the geometrical class and is not part of the label. Any
+      faithful render is the protostructure label; the *canonical* protostructure label
+      comes from a normalizer-canonical protostructure.
+
+      :return: The protostructure label view.
+
+
+   .. py:property:: aflow_label
+      :type: str
+
+
+      Return the AFLOW-style label of this structuretype's protostructure.
+
+      :return: The AFLOW-style label text.
+
+
+   .. py:property:: pearson_symbol
+      :type: str
+
+
+      Return the Pearson symbol at the standard conventional-cell scale.
+
+      :return: The Pearson symbol, such as ``"cF8"``.
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the total number of sites in the standard conventional cell.
+
+      :return: The conventional-cell site count.
+
+
+   .. py:property:: structuretype
+      :type: Self
+
+
+      Return this structuretype value.
+
+

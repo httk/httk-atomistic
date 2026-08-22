@@ -1,0 +1,247 @@
+httk.atomistic.models.structure.symops
+======================================
+
+.. py:module:: httk.atomistic.models.structure.symops
+
+.. autoapi-nested-parse::
+
+   A structure represented by a CIF site's own complete symmetry operations.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.symops.SymopsStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: SymopsStructure(cell, sites, species, species_at_sites, symops, *, site_moments = None, moment_component_resolutions = None, moment_component_esds = None, moment_symmforms = None, bns_number = None, bns_label = None, chemical_composition = None, chemical_formula_descriptive = None, chemical_formula_hill = None, optimization_type = None, immutable_id = None, last_modified = None, charge = None)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.semantics.StructureSemanticsMixin`, :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent a magCIF cell, listed sites, and its complete symmetry-operation list.
+
+   The operations are taken as declared. They are not checked for group closure: magCIF
+   lists complete coset representatives, and an incomplete list consequently under-expands.
+   Expansion is exact and deduplicates only by normalized fractional coordinates, species,
+   and exact transformed moments.
+
+   :param cell: The cell geometry.
+   :param sites: The listed site coordinates.
+   :param species: The distinct species definitions.
+   :param species_at_sites: The species name occupying each listed site.
+   :param symops: The declared spatial or magnetic symmetry operations.
+   :param site_moments: Optional moments aligned with the listed sites.
+   :param moment_component_resolutions: Optional decimal steps for each listed moment
+       component, aligned in the moment backend's native frame.
+   :param moment_component_esds: Optional standard uncertainties for each listed moment
+       component, aligned in the moment backend's native frame.
+   :param moment_symmforms: Optional source magnetic symmetry-form declarations aligned
+       with the listed sites.
+   :param bns_number: Optional Belov–Neronova–Smirnova number.
+   :param bns_label: Optional Belov–Neronova–Smirnova label.
+   :param chemical_composition: Optional chemical composition metadata.
+   :param chemical_formula_descriptive: Optional descriptive chemical formula.
+   :param chemical_formula_hill: Optional Hill chemical formula.
+   :param optimization_type: Optional optimization provenance.
+   :param immutable_id: Optional immutable source identifier.
+   :param last_modified: Optional source modification timestamp.
+   :param charge: An explicitly assigned charge for the cell content.
+   :raises TypeError: If an input component or magnetic label has the wrong kind.
+   :raises ValueError: If component lengths, operations, or semantic values are invalid.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'symops'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the cell geometry.
+
+      :return: The exact cell.
+
+
+   .. py:property:: listed_sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the sites before symmetry expansion.
+
+      :return: The listed site coordinates.
+
+
+   .. py:property:: listed_species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose species names before symmetry expansion.
+
+      :return: Listed site species names in input order.
+
+
+   .. py:property:: listed_site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose moments before symmetry expansion.
+
+      :return: Listed site moments, or ``None`` when unstated.
+
+
+   .. py:property:: moment_component_resolutions
+      :type: tuple[tuple[fractions.Fraction | None, Ellipsis], Ellipsis] | None
+
+
+      Expose source decimal steps for each listed moment component, in its native frame.
+
+
+   .. py:property:: moment_component_esds
+      :type: tuple[tuple[fractions.Fraction | None, Ellipsis], Ellipsis] | None
+
+
+      Expose source ESDs for each listed moment component, in its native frame.
+
+
+   .. py:property:: moment_symmforms
+      :type: tuple[str | None, Ellipsis] | None
+
+
+      Expose source `_atom_site_moment.symmform` declarations aligned with listed sites.
+
+
+   .. py:property:: symops
+      :type: tuple[tuple[httk.atomistic.symmetry.affine_operation.AffineOperation, int], Ellipsis]
+
+
+      Expose normalized spatial and time-reversal operations.
+
+      :return: Operation and time-reversal pairs in declaration order.
+
+
+   .. py:property:: bns_number
+      :type: str | None
+
+
+      Expose the Belov–Neronova–Smirnova number.
+
+      :return: The BNS number, or ``None`` when unstated.
+
+
+   .. py:property:: bns_label
+      :type: str | None
+
+
+      Expose the Belov–Neronova–Smirnova label.
+
+      :return: The BNS label, or ``None`` when unstated.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose the distinct species.
+
+      :return: Species referenced by the listed sites.
+
+
+   .. py:property:: coordinate_precision
+      :type: Any
+
+
+      Expose the listed-coordinate precision.
+
+      :return: The fractional coordinate precision.
+
+
+   .. py:property:: basis_precision
+      :type: Any
+
+
+      Expose the cell-basis precision.
+
+      :return: The basis precision.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Expose the cell periodicity flags.
+
+      :return: Periodicity flags for the three cell directions.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Expose whether the structure is molecular.
+
+      :return: Always ``False`` for this backend.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the coordinate span of the listed sites.
+
+      :return: ``"unit_cell"``.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned charge.
+
+      :return: The charge, or ``None`` when unstated.
+
+
+   .. py:method:: cartesian_sites()
+
+      Compute exact Cartesian positions for the expanded sites.
+
+      :return: Cartesian positions in the exact surd representation.
+
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the symmetry-expanded sites.
+
+      :return: Expanded site coordinates.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose species names for the expanded sites.
+
+      :return: Expanded site species names in site order.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose moments transformed onto the expanded sites.
+
+      :return: Expanded site moments, or ``None`` when moments were unstated.
+
+

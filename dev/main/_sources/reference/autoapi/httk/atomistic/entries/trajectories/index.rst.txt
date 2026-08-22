@@ -1,0 +1,111 @@
+httk.atomistic.entries.trajectories
+===================================
+
+.. py:module:: httk.atomistic.entries.trajectories
+
+.. autoapi-nested-parse::
+
+   Project trajectories onto the OPTIMADE trajectories entry-provider contract.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.trajectories.TRAJECTORY_FRAME_MATERIALIZATION_LIMIT
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.trajectories.TrajectoryEntry
+   httk.atomistic.entries.trajectories.TrajectoryEntryProvider
+
+
+Module Contents
+---------------
+
+.. py:data:: TRAJECTORY_FRAME_MATERIALIZATION_LIMIT
+   :value: 100
+
+
+.. py:class:: TrajectoryEntry
+
+   Define the non-instantiable OPTIMADE trajectory entry family.
+
+
+   .. py:attribute:: type
+      :value: 'trajectories'
+
+
+
+   .. py:attribute:: definition_id
+      :value: 'https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/trajectories'
+
+
+
+   .. py:method:: entry_type_definition()
+      :classmethod:
+
+
+      Load the trajectory definition with httk extensions.
+
+      :return: The extended OPTIMADE ``trajectories`` definition.
+
+
+
+.. py:class:: TrajectoryEntryProvider(entries, *, extra_definitions = None, properties = None)
+
+   Bases: :py:obj:`httk.core.EntryProvider`
+
+
+   Serve trajectory metadata and bounded frame projections.
+
+   Native frame lists are materialized only through
+   :data:`httk.atomistic.entries.trajectories.TRAJECTORY_FRAME_MATERIALIZATION_LIMIT`
+   (100) frames. Larger or
+   record-backed trajectories still serve the entry, frame count, references,
+   and null frame properties. Recover their frame data by re-reading the original source
+   files or the JSONL container; partial-data serving is planned.
+
+   :param entries: Entries keyed by explicit ids, or entries whose ids are derived from their
+       representations; explicit entries may be ``None``.
+   :param extra_definitions: Additional property definitions to expose.
+   :param properties: Per-entry custom property values validated against the definition.
+
+
+   .. py:method:: entry_types()
+
+      Return the trajectory entry type served by this provider.
+
+      :return: The ``trajectories`` entry-type definition.
+
+
+
+   .. py:method:: property_keys(entry_type)
+
+      Map served trajectory properties to storage keys.
+
+      :param entry_type: The entry type to inspect.
+      :return: Served-property to storage-key mappings.
+      :raises KeyError: If ``entry_type`` is not ``trajectories``.
+
+
+
+   .. py:method:: records(entry_type)
+
+      Project trajectories into OPTIMADE records.
+
+      Native frame lists are served only for trajectories up to the materialization limit;
+      larger and record-backed trajectories serve null frame properties.
+
+      :param entry_type: The entry type to project.
+      :return: The projected records.
+      :raises KeyError: If ``entry_type`` is not ``trajectories``.
+
+
+

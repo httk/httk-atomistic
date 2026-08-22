@@ -1,0 +1,123 @@
+httk.atomistic.integrations.pymatgen.models
+===========================================
+
+.. py:module:: httk.atomistic.integrations.pymatgen.models
+
+.. autoapi-nested-parse::
+
+   Pymatgen interoperability without importing the optional dependency.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.pymatgen.models.PymatgenStructureProtocol
+   httk.atomistic.integrations.pymatgen.models.PymatgenStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: PymatgenStructureProtocol
+
+   Bases: :py:obj:`Protocol`
+
+
+   The three native attributes that identify a pymatgen structure.
+
+   ``lattice`` supplies the cell and periodicity, ``frac_coords`` supplies the reduced
+   coordinates, and ``species_and_occu`` supplies one per-site composition mapping. This
+   small surface is disjoint from ASE ``Atoms`` and httk structure objects while allowing
+   pymatgen-compatible duck-typed inputs without importing pymatgen.
+
+
+   .. py:attribute:: lattice
+      :type:  Any
+
+
+   .. py:attribute:: frac_coords
+      :type:  Any
+
+
+   .. py:attribute:: species_and_occu
+      :type:  Any
+
+
+.. py:class:: PymatgenStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Import a pymatgen-compatible structure eagerly.
+
+   Pymatgen ``properties``, site labels, and site properties other than ``magmom`` are
+   intentionally discarded because they have no exact httk structure-family counterpart.
+   Pymatgen ``DummySpecies`` values with the default zero oxidation state are imported
+   with an unstated charge because pymatgen cannot distinguish that default from an
+   explicitly supplied zero; nonzero dummy oxidation states remain exact charges.
+
+   Partial occupancy and its exact ``Fraction`` values are retained. An occupancy
+   shortfall becomes an explicit vacancy constituent, which views omit when exporting
+   to pymatgen. The original object remains available through :meth:`unwrap`.
+
+   :param obj: A pymatgen ``Structure`` object or compatible duck-typed object.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'pymatgen'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the converted cell and periodicity.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Return the converted reduced coordinates.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Return the imported distinct species and occupancies.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Return the imported species name at each site.
+
+
+   .. py:property:: site_moments
+      :type: Any
+
+
+      Return imported collinear or Cartesian site moments, if present.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Return the exact structure charge, or ``None`` when unstated.
+
+
+   .. py:method:: unwrap()
+
+      Return the original pymatgen-compatible object.
+
+
+

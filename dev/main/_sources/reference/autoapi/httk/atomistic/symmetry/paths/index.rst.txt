@@ -1,0 +1,194 @@
+httk.atomistic.symmetry.paths
+=============================
+
+.. py:module:: httk.atomistic.symmetry.paths
+
+.. autoapi-nested-parse::
+
+   Exact symmetry-preserving structure alignment and interpolation.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.paths.CommonSubgroupResult
+   httk.atomistic.symmetry.paths.StructurePath
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.paths.represent_like
+   httk.atomistic.symmetry.paths.list_representations
+   httk.atomistic.symmetry.paths.canonicalize_full
+   httk.atomistic.symmetry.paths.common_subgroup_representation
+   httk.atomistic.symmetry.paths.interpolate_structures
+
+
+Module Contents
+---------------
+
+.. py:class:: CommonSubgroupResult
+
+   Two aligned structures in their highest common subgroup.
+
+   :param first: The first input represented in the common subgroup's standard setting.
+   :param second: The second input represented and aligned to ``first``.
+   :param spacegroup: The selected highest common subgroup in standard setting.
+
+
+   .. py:attribute:: first
+      :type:  httk.atomistic.models.structure.asu.ASUStructure
+
+
+   .. py:attribute:: second
+      :type:  httk.atomistic.models.structure.asu.ASUStructure
+
+
+   .. py:attribute:: spacegroup
+      :type:  httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+.. py:class:: StructurePath
+
+   A finite exact interpolation path between two aligned asymmetric units.
+
+   :param frames: The endpoint-inclusive asymmetric-unit frames.
+   :param spacegroup: The shared space group and setting of all frames.
+   :param start: The first frame.
+   :param end: The last frame.
+
+
+   .. py:attribute:: frames
+      :type:  tuple[httk.atomistic.models.structure.asu.ASUStructure, Ellipsis]
+
+
+   .. py:attribute:: spacegroup
+      :type:  httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+   .. py:attribute:: start
+      :type:  httk.atomistic.models.structure.asu.ASUStructure
+
+
+   .. py:attribute:: end
+      :type:  httk.atomistic.models.structure.asu.ASUStructure
+
+
+.. py:function:: represent_like(structure, reference, *, tolerance = None)
+
+   Represent a structure in a reference's group and setting.
+
+   The input is first sent through :func:`~httk.atomistic.symmetry.lift.rerepresent`, then equivalent affine-normalizer
+   coset images of that one descent realization are scored against the reference. This is
+   deliberately bounded: tabulated variants of alternate multi-hop descent paths are not
+   enumerated because :func:`~httk.atomistic.symmetry.lift.rerepresent` exposes only its deterministic selected realization.
+   Site pairing is brute force and capped at 40,320 permutations per class; larger classes
+   require a future assignment solver.
+
+   :param structure: The structure to represent.
+   :param reference: The structure supplying the group, setting, and alignment target.
+   :param tolerance: Cartesian tolerance passed to upward rerepresentation.
+   :return: The input represented in the reference's group and setting.
+   :raises ValueError: If the groups are unrelated, signatures differ, or the input is
+       unsupported by the exact symmetry machinery.
+
+
+.. py:function:: list_representations(structure, target, *, tolerance = None)
+
+   Return every distinct representation of one crystal in a target group's standard setting.
+
+   The crystal is first expressed once in ``target`` by
+   :func:`~httk.atomistic.symmetry.lift.rerepresent` -- an exact descent for a subgroup target, a
+   round-trip-gated lift for a supergroup target, itself for the same group -- and the full discrete
+   affine-normalizer orbit of that one realization is then enumerated.  Every representation is
+   returned in its continuous-translation normal form (otherwise a polar or triclinic target would
+   have infinitely many), deduplicated by exact orbit-canonical site key and cell gram, and sorted by
+   that key.
+
+   **Scope.**  When ``target`` is the crystal's *own* full symmetry group, two representations differ
+   only by an element of that group's affine normalizer, so this one orbit is the complete set --
+   modulo the continuous normalizer and limited only by the bounded tabulated coset table.  For a
+   PROPER-SUBGROUP (or supergroup) target only the normalizer orbit of the single
+   :func:`~httk.atomistic.symmetry.lift.rerepresent` embedding is returned; inequivalent embeddings
+   reachable by *other* descent chains -- the same crystal at the same cell size but a genuinely
+   different site placement -- are deliberately out of scope and are NOT returned, because
+   enumerating every chain is combinatorially explosive for deep targets (many tabulated chains), so
+   a single canonical embedding is chosen.  Representations needing an untabulated conventional-cell
+   re-choice (the A.5 recell-class freedom) are likewise not generated.  A supercell description is
+   the same crystal in a larger cell; it too is not enumerated -- the exclusion there is "not a
+   distinct representation at the same cell size", not "not the same crystal".
+
+   This honors the explicit ``target`` exactly and never flips an enantiomorphic group; normalizing an
+   enantiomorphic pair to its lower-numbered member is the closed-target canonicalizers'
+   (:func:`~httk.atomistic.canonicalize`, :func:`~httk.atomistic.canonical_asu`) job.
+
+   :param structure: The crystal, as an asymmetric-unit structure.
+   :param target: The target space group or IT number.
+   :param tolerance: Cartesian acceptance tolerance passed to any upward lift; ``None`` derives it.
+   :return: The distinct representations in ``target``'s standard setting, sorted by canonical key.
+   :raises ValueError: If ``target`` is unrelated to the crystal's group, or the input is
+       unsupported by the exact symmetry machinery.
+
+
+.. py:function:: canonicalize_full(structure, target, *, tolerance = None)
+
+   Return the canonically least representation of a crystal in a target group's standard setting.
+
+   The least element, by exact orbit-canonical site key then cell gram, of
+   :func:`list_representations`.  On the crystal's own group this is a normalizer-canonical form: it
+   selects the same representative the upward search's normal form does, over the same discrete
+   normalizer crossing and modulo the continuous quotient.  It is idempotent -- re-running it on its
+   own result in the same target returns that result.
+
+   This honors the explicit ``target`` exactly and never flips an enantiomorphic group; normalizing an
+   enantiomorphic pair to its lower-numbered member is the closed-target canonicalizers'
+   (:func:`~httk.atomistic.canonicalize`, :func:`~httk.atomistic.canonical_asu`) job.
+
+   :param structure: The crystal, as an asymmetric-unit structure.
+   :param target: The target space group or IT number.
+   :param tolerance: Cartesian acceptance tolerance passed to any upward lift; ``None`` derives it.
+   :return: The canonically least representation in ``target``'s standard setting.
+   :raises ValueError: If ``target`` is unrelated, or the input is unsupported.
+
+
+.. py:function:: common_subgroup_representation(first, second, *, tolerance = None)
+
+   Represent two structures in their highest common subgroup.
+
+   Common subgroups are ordered by descending symmetry-operation count and then descending
+   International Tables number. The first group for which both exact descents succeed is
+   selected; the second structure is then aligned to the first by
+   :func:`~httk.atomistic.symmetry.paths.represent_like`.
+
+   :param first: The first structure.
+   :param second: The second structure.
+   :param tolerance: Cartesian tolerance passed to upward rerepresentation.
+   :return: The two aligned structures and their selected common subgroup.
+   :raises ValueError: If no common subgroup can represent both structures.
+
+
+.. py:function:: interpolate_structures(start, end, *, steps, tolerance = None)
+
+   Build an exact symmetry-preserving linear interpolation.
+
+   Free parameters follow the wrapped shortest rational displacement and cell bases are
+   linearly interpolated in the shared setting. Every intermediate frame is expanded so a
+   collision with an already occupied orbit is reported with its step index. Frames carry
+   the start structure's setting transform, while their Wyckoff parameters remain standard-
+   setting values.
+
+   :param start: The first endpoint.
+   :param end: The second endpoint.
+   :param steps: Number of endpoint-inclusive frames, at least two.
+   :param tolerance: Cartesian tolerance passed to upward rerepresentation.
+   :return: The exact interpolation path.
+   :raises ValueError: If endpoints cannot be aligned, charges differ, or an intermediate
+       frame is invalid.
+
+

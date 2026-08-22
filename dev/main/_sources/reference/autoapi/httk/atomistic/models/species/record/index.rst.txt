@@ -1,0 +1,140 @@
+httk.atomistic.models.species.record
+====================================
+
+.. py:module:: httk.atomistic.models.species.record
+
+.. autoapi-nested-parse::
+
+   Backend for an exact stored species record.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.species.record.RecordSpecies
+
+
+Module Contents
+---------------
+
+.. py:class:: RecordSpecies(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.species.backend.SpeciesBackend`
+
+
+   Backend for a species stored in an exact record.
+
+   :param obj: The stored species record.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: name
+      :type: str
+
+
+      Return the species name.
+
+      :return: The species name.
+
+
+   .. py:property:: chemical_symbols
+      :type: tuple[str, Ellipsis]
+
+
+      Return the constituent symbols.
+
+      :return: The chemical symbols.
+
+
+   .. py:property:: concentration
+      :type: tuple[fractions.Fraction, Ellipsis]
+
+
+      Return the constituent concentrations.
+
+      :return: The concentrations.
+
+
+   .. py:property:: concentration_precision
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Return the concentration precision metadata.
+
+      :return: Per-constituent precision, or ``None`` when unavailable.
+
+
+   .. py:property:: charges
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Return the constituent charges.
+
+      :return: The charges, or ``None`` when unstated.
+
+
+   .. py:property:: spins
+      :type: tuple[fractions.Fraction | None, Ellipsis] | None
+
+
+      Return the constituent spins.
+
+      :return: The spins, or ``None`` when unstated.
+
+
+   .. py:property:: labels
+      :type: tuple[str | None, Ellipsis] | None
+
+
+      Return the constituent labels.
+
+      :return: The labels, or ``None`` when unstated.
+
+
+   .. py:property:: mass
+      :type: tuple[float, Ellipsis] | None
+
+
+      Return the constituent masses.
+
+      :return: The masses, or ``None`` when unstated.
+
+
+   .. py:property:: attached
+      :type: tuple[str, Ellipsis] | None
+
+
+      Return the attached constituent symbols.
+
+      :return: The attached symbols, or ``None`` when unstated.
+
+
+   .. py:property:: nattached
+      :type: tuple[int, Ellipsis] | None
+
+
+      Return the attached counts.
+
+      :return: The attached counts, or ``None`` when unstated.
+
+
+   .. py:property:: original_name
+      :type: str | None
+
+
+      Return the original source name.
+
+      :return: The original name, or ``None`` when unstated.
+
+
+   .. py:method:: unwrap()
+
+      Return the stored species record.
+
+      :return: The source record.
+
+
+

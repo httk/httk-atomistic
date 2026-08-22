@@ -1,0 +1,117 @@
+httk.atomistic.models.cell.params
+=================================
+
+.. py:module:: httk.atomistic.models.cell.params
+
+.. autoapi-nested-parse::
+
+   Backend wrapping cell parameters (a, b, c, alpha, beta, gamma).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.params.CellParams
+
+
+Module Contents
+---------------
+
+.. py:class:: CellParams(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.cell.backend.CellBackend`
+
+
+   Backend for a cell backed by cell parameters ``(a, b, c, alpha, beta, gamma)``.
+
+   The native representation is a flat length-6 vector-like of the cell-vector lengths
+   ``a``/``b``/``c`` and the angles ``alpha``/``beta``/``gamma`` in degrees, stored as exact
+   :class:`~fractions.Fraction` values (parsed via
+   :func:`~httk.core.exactmath.any_to_fraction`). The exact ``basis`` is derived lazily and
+   cached using the standard crystallographic orientation convention (first cell vector along x,
+   second in the xy-plane); for the common Niven angles it is exact (radicals intact). Since
+   parameters carry no separate length factor, ``scale`` is the exact ``1`` and
+   ``unscaled_basis == basis``. Parameters carry neither orientation nor periodicity, so a cell
+   → parameters → cell round-trip reproduces lengths and angles, and reproduces volume only for
+   a fully periodic source. Reconstruction uses the fully periodic default and therefore discards
+   any non-3D periodicity as well as the original orientation.
+   ``unwrap`` returns the original raw object.
+
+   :param obj: The six cell parameters in crystallographic order.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: basis
+      :type: httk.core.SurdVector
+
+
+      Return the basis derived from the stored parameters.
+
+      :return: The standard-orientation cell vectors.
+
+
+   .. py:property:: scale
+      :type: httk.core.SurdScalar
+
+
+      Return the unit scale factor.
+
+      :return: The factor applied to ``unscaled_basis``.
+
+
+   .. py:property:: unscaled_basis
+      :type: httk.core.SurdVector
+
+
+      Return the parameter-derived basis before scaling.
+
+      :return: The cell vectors.
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      Return the source precision supplied with these cell parameters.
+
+      :return: The absolute length precision, or ``None`` when unstated.
+
+
+   .. py:property:: lengths
+      :type: tuple[httk.core.SurdScalar, Ellipsis]
+
+
+      Return the natively stored cell-vector lengths.
+
+      :return: The exact stored ``a``, ``b``, and ``c`` lengths.
+
+
+   .. py:property:: angles
+      :type: tuple[fractions.Fraction, Ellipsis]
+
+
+      Return the natively stored cell angles in degrees.
+
+      :return: The exact stored ``alpha``, ``beta``, and ``gamma`` angles.
+
+
+   .. py:property:: params
+      :type: tuple[fractions.Fraction, Ellipsis]
+
+
+      The stored ``(a, b, c, alpha, beta, gamma)`` in degrees.
+
+      :return: The exact cell parameters.
+
+
+   .. py:method:: unwrap()
+
+      Return the original parameter object.
+
+      :return: The raw parameter representation.
+
+
+

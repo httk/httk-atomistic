@@ -1,0 +1,75 @@
+httk.atomistic.models.structuretype.recognized
+==============================================
+
+.. py:module:: httk.atomistic.models.structuretype.recognized
+
+.. autoapi-nested-parse::
+
+   The structure-to-structuretype recognition adapter.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structuretype.recognized.RecognizedStructuretype
+
+
+Module Contents
+---------------
+
+.. py:class:: RecognizedStructuretype(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structuretype.backend.StructuretypeBackend`
+
+
+   Recognize an ordinary structure lazily as a structuretype.
+
+   The source is used as the geometrical-class anchor: it is standardized to its IT
+   standard-setting fundamental domain (through
+   :func:`~httk.atomistic.symmetry.standardization.conventional_cell`, which the crystaltemplate
+   template-view also routes through — an exact fundamental domain without spglib and a raw
+   structure with it) and kept as the real-species representative. The protostructure derives
+   from that representative, so the resulting structuretype is representative-carrying and has
+   no discriminator.
+
+   :param obj: The structure-like source to recognize.
+   :param \*\*hints: Backend-selection and recognition hints.
+
+
+   .. py:attribute:: kind
+      :value: 'structure'
+
+
+
+   .. py:method:: resolve()
+
+      Return the complete recognized structuretype.
+
+
+
+   .. py:property:: protostructure
+
+      Return the recognized geometry-free protostructure.
+
+
+   .. py:property:: representative
+
+      Return the recognized canonical class representative.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return ``None``; a recognized structuretype carries no discriminator.
+
+
+   .. py:method:: unwrap()
+
+      Return the original recognition source.
+
+
+

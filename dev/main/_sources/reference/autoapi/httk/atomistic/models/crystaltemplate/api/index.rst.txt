@@ -1,0 +1,94 @@
+httk.atomistic.models.crystaltemplate.api
+=========================================
+
+.. py:module:: httk.atomistic.models.crystaltemplate.api
+
+.. autoapi-nested-parse::
+
+   The minimal canonical crystal-template interface.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.crystaltemplate.api.CrystalTemplateAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: CrystalTemplateAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   The common interface for dummy-species structures and prototypes.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+      :abstractmethod:
+
+
+      Return the structure cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+      :abstractmethod:
+
+
+      Return the reduced sites.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+      :abstractmethod:
+
+
+      Return the distinct dummy species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+      :abstractmethod:
+
+
+      Return dummy species names in site order.
+
+
+   .. py:property:: coordinate_precision
+      :type: fractions.Fraction | None
+
+
+      Return the reduced-coordinate precision, if known.
+
+
+   .. py:property:: basis_precision
+      :type: fractions.Fraction | None
+
+
+      Return the cell-basis precision, if known.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatemplate_view.FormulatemplateView
+
+
+      Return the canonical anonymous formula at the represented site scale.
+
+
+   .. py:property:: is_canonical
+      :type: bool
+
+
+      Return whether site counts assign consecutive canonical anonymous labels.
+
+

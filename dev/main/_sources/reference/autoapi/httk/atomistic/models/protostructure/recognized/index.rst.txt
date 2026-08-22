@@ -1,0 +1,62 @@
+httk.atomistic.models.protostructure.recognized
+===============================================
+
+.. py:module:: httk.atomistic.models.protostructure.recognized
+
+.. autoapi-nested-parse::
+
+   The structure-to-protostructure recognition adapter.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protostructure.recognized.RecognizedProtostructure
+
+
+Module Contents
+---------------
+
+.. py:class:: RecognizedProtostructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.protostructure.backend.ProtostructureBackend`
+
+
+   Project an ordinary structure lazily to a protostructure.
+
+   :param obj: The ordinary structure to recognize.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :value: 'structure'
+
+
+
+   .. py:method:: resolve()
+
+      Return the complete recognized protostructure.
+
+
+
+   .. py:property:: spacegroup
+
+      Return the recognized standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, Ellipsis]
+
+
+      Return the recognized occupied Wyckoff positions.
+
+
+   .. py:method:: unwrap()
+
+      Return the original source (an ordinary structure or a structuretype).
+
+
+

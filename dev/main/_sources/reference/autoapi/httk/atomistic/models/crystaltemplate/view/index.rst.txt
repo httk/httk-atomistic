@@ -1,0 +1,80 @@
+httk.atomistic.models.crystaltemplate.view
+==========================================
+
+.. py:module:: httk.atomistic.models.crystaltemplate.view
+
+.. autoapi-nested-parse::
+
+   Lazy crystal-template presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.crystaltemplate.view.CrystalTemplateView
+
+
+Module Contents
+---------------
+
+.. py:class:: CrystalTemplateView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.crystaltemplate.view_base.CrystalTemplateViewBase`, :py:obj:`httk.atomistic.models.crystaltemplate.crystaltemplate.CrystalTemplate`
+
+
+   Present a crystal template or ordinary structure lazily as a crystal template.
+
+   :param obj: The crystal-template-like or structure-like object to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: periodicity
+
+      Return the presented periodic directions.
+
+
+   .. py:property:: nperiodic_dimensions
+
+      Return the number of presented periodic directions.
+
+
+   .. py:property:: nsites
+
+      Return the number of presented sites.
+
+
+   .. py:method:: cartesian_sites()
+
+      Return the exact Cartesian presented site positions.
+
+
+
+   .. py:property:: coordinate_precision
+
+      Return the presented coordinate precision.
+
+
+   .. py:property:: basis_precision
+
+      Return the presented basis precision.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the presented structure as a standalone value.
+
+      :return: The crystal-template value.
+
+
+

@@ -1,0 +1,69 @@
+httk.atomistic.models.prototemplate.derived
+===========================================
+
+.. py:module:: httk.atomistic.models.prototemplate.derived
+
+.. autoapi-nested-parse::
+
+   The structure/protostructure-to-prototemplate erasure adapter.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototemplate.derived.DerivedPrototemplate
+
+
+Module Contents
+---------------
+
+.. py:class:: DerivedPrototemplate(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.prototemplate.backend.PrototemplateBackend`
+
+
+   Erase a protostructure or structure lazily to an anonymous prototemplate.
+
+   A protostructure-family source has its real species erased to anonymous classes by the
+   pinned group-ordering rule. A crystaltemplate-family (fundamental-domain) or
+   structure-family source is routed through
+   :class:`~httk.atomistic.models.crystaltemplate.fundamental_view.FundamentalDomainTemplateView`
+   recognition and then discretized to its Wyckoff letters and anonymous classes. An exact
+   fundamental-domain source needs no spglib; a raw structure source does.
+
+   :param obj: The protostructure-like or structure-like source to erase.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :value: 'prototemplate'
+
+
+
+   .. py:method:: resolve()
+
+      Return the complete erased prototemplate.
+
+
+
+   .. py:property:: spacegroup
+
+      Return the erased standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototemplate.occupation.PrototemplateOccupation, Ellipsis]
+
+
+      Return the erased class-partitioned occupations.
+
+
+   .. py:method:: unwrap()
+
+      Return the original erasure source.
+
+
+

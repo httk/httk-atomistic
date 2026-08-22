@@ -1,0 +1,30 @@
+httk.atomistic.models.structuretype.view_base
+=============================================
+
+.. py:module:: httk.atomistic.models.structuretype.view_base
+
+.. autoapi-nested-parse::
+
+   The abstract structuretype view base.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structuretype.view_base.StructuretypeViewBase
+
+
+Module Contents
+---------------
+
+.. py:class:: StructuretypeViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.structuretype.backend.StructuretypeBackend`\ ]
+
+
+   Base class for views presenting structuretype backends.
+
+

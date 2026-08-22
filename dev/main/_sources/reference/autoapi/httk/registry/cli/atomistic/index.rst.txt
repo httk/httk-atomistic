@@ -1,0 +1,14 @@
+httk.registry.cli.atomistic
+===========================
+
+.. py:module:: httk.registry.cli.atomistic
+
+.. autoapi-nested-parse::
+
+   Register the ``httk symmetry`` command implemented by :mod:`httk.atomistic`.
+
+   The handler is a lazy ``"module:callable"`` reference, so root help resolves nothing
+   and ``httk symmetry`` imports argparse and the symmetry machinery only when it runs.
+
+
+

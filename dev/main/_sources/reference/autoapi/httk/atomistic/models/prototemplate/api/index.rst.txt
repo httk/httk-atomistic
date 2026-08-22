@@ -1,0 +1,111 @@
+httk.atomistic.models.prototemplate.api
+=======================================
+
+.. py:module:: httk.atomistic.models.prototemplate.api
+
+.. autoapi-nested-parse::
+
+   The geometry-free prototemplate interface.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototemplate.api.PrototemplateAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: PrototemplateAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   The common interface for a space group with class-partitioned Wyckoff letters.
+
+   A prototemplate is the information content of an unsuffixed AFLOW-style label: a space
+   group, its occupied Wyckoff letters, and the partition of those occupations into
+   anonymous species classes. It carries no chemical elements and no continuous degrees
+   of freedom. All derivations use the standard-setting conventional-cell scale.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+      :abstractmethod:
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototemplate.occupation.PrototemplateOccupation, Ellipsis]
+
+      :abstractmethod:
+
+
+      Return the occupied Wyckoff positions in canonical order.
+
+
+   .. py:method:: multiplicities()
+
+      Return tabulated standard-setting multiplicities for each occupation.
+
+      :return: The standard-setting multiplicity for each occupation.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the total number of sites in the standard conventional cell.
+
+      :return: The conventional-cell site count.
+
+
+   .. py:property:: pearson_symbol
+      :type: str
+
+
+      Return the Pearson symbol at the standard conventional-cell scale.
+
+      :return: The Pearson symbol, such as ``"cF8"``.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.prototemplate.label.PrototemplateLabel
+
+
+      Return the httk prototemplate label of this template.
+
+      Any faithful render is the prototemplate label; the *canonical* prototemplate label
+      is the one obtained from a normalizer-canonical template.
+
+      :return: The prototemplate label view.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatemplate_view.FormulatemplateView
+
+
+      Return the reduced anonymous formula at the standard conventional-cell scale.
+
+      The anonymous amounts are the per-class conventional multiplicities. This differs
+      from the label's own anonymous prefix, which follows group order rather than the
+      canonical non-increasing formula order.
+
+      :return: The conventional-cell anonymous formula view.
+
+
+   .. py:property:: prototemplate
+      :type: Self
+
+
+      Return this prototemplate value.
+
+

@@ -1,0 +1,34 @@
+httk.atomistic.models.crystaltemplate.backend
+=============================================
+
+.. py:module:: httk.atomistic.models.crystaltemplate.backend
+
+.. autoapi-nested-parse::
+
+   The abstract backend for crystal templates and prototypes.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.crystaltemplate.backend.CrystalTemplateBackend
+
+
+Module Contents
+---------------
+
+.. py:class:: CrystalTemplateBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`CrystalTemplateBackend`\ ], :py:obj:`httk.atomistic.models.crystaltemplate.api.CrystalTemplateAPI`
+
+
+   Backend root for the dummy-species crystal-template family.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+

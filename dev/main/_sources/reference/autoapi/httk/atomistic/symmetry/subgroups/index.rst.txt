@@ -1,0 +1,195 @@
+httk.atomistic.symmetry.subgroups
+=================================
+
+.. py:module:: httk.atomistic.symmetry.subgroups
+
+.. autoapi-nested-parse::
+
+   Graph queries and exact transformations for Bärnighausen subgroup trees.
+
+   The vendored tables contain maximal subgroup relations and their standard-setting
+   transformations for all 230 space-group types. Only those one-hop relations are
+   tabulated; closures and the inverted supergroup graph are derived here.
+
+   The split-affine convention pinned by ``tests/test_subgroups.py`` is that a
+   :class:`WyckoffSplitPiece` operation maps a parent standard-setting coordinate directly
+   to a child standard-setting coordinate. The tabulated
+   :class:`SubgroupTransform` operation has matrix ``M`` with the child basis on the
+   left: ``B_child = M.T() * B_parent``. At the affine-coordinate level it maps child
+   coordinates into parent coordinates, ``f_parent = f_child * M.T() + v``; its inverse
+   matrix is the coordinate basis change used by the split operations (up to their listed
+   origin translations).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.subgroups.SubgroupRepresentationResult
+   httk.atomistic.symmetry.subgroups.WyckoffSplitPiece
+   httk.atomistic.symmetry.subgroups.SubgroupTransform
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.subgroups.maximal_subgroups
+   httk.atomistic.symmetry.subgroups.minimal_supergroups
+   httk.atomistic.symmetry.subgroups.subgroup_closure
+   httk.atomistic.symmetry.subgroups.supergroup_closure
+   httk.atomistic.symmetry.subgroups.subgroup_transforms
+
+
+Module Contents
+---------------
+
+.. py:class:: SubgroupRepresentationResult
+
+   Store an exact asymmetric-unit representation in a subgroup.
+
+   :param asu: The subgroup-standard-setting asymmetric unit with identity transform.
+   :param spacegroup: The subgroup space group in its standard setting.
+   :param path: The selected maximal-subgroup transforms, in parent-first order.
+   :param multiplier: The exact child-to-parent cell-content ratio.
+
+
+   .. py:attribute:: asu
+      :type:  httk.atomistic.models.structure.asu.ASUStructure
+
+
+   .. py:attribute:: spacegroup
+      :type:  httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+   .. py:attribute:: path
+      :type:  tuple[SubgroupTransform, Ellipsis]
+
+
+   .. py:attribute:: multiplier
+      :type:  fractions.Fraction
+
+
+.. py:class:: WyckoffSplitPiece
+
+   One child Wyckoff piece in a maximal subgroup transformation.
+
+   :param letter: The child-setting Wyckoff letter as tabulated.
+   :param xyz: The tabulated coordinate expression, for display and provenance.
+   :param operation: The exact affine map from a parent standard-setting coordinate
+       directly to a child standard-setting coordinate.
+
+
+   .. py:attribute:: letter
+      :type:  str
+
+
+   .. py:attribute:: xyz
+      :type:  str
+
+
+   .. py:attribute:: operation
+      :type:  httk.atomistic.symmetry.affine_operation.AffineOperation
+
+
+.. py:class:: SubgroupTransform
+
+   One exact standard-setting transformation in a maximal subgroup table entry.
+
+   :param parent: The parent space group in its IT standard setting.
+   :param subgroup: The subgroup in its IT standard setting.
+   :param index: The tabulated subgroup index ``[G:H]``.
+   :param subgroup_type: The tabulated relation type, ``"t"`` or ``"k"``.
+   :param k_subtype: The tabulated ``k`` subtype, or ``None`` for a ``t`` relation.
+   :param operation: The exact tabulated affine basis change from child to parent
+       coordinates. If its matrix is ``M`` and vector is ``v``, it evaluates as
+       ``f_parent = f_child * M.T() + v``; the child basis is ``M.T() * parent_basis``.
+   :param splittings: An immutable mapping from parent Wyckoff letters to child pieces.
+
+
+   .. py:attribute:: parent
+      :type:  httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+   .. py:attribute:: subgroup
+      :type:  httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+   .. py:attribute:: index
+      :type:  int
+
+
+   .. py:attribute:: subgroup_type
+      :type:  str
+
+
+   .. py:attribute:: k_subtype
+      :type:  str | None
+
+
+   .. py:attribute:: operation
+      :type:  httk.atomistic.symmetry.affine_operation.AffineOperation
+
+
+   .. py:attribute:: splittings
+      :type:  collections.abc.Mapping[str, tuple[WyckoffSplitPiece, Ellipsis]]
+
+
+.. py:function:: maximal_subgroups(spacegroup)
+
+   Return the distinct tabulated maximal-subgroup IT numbers.
+
+   Self-referencing isomorphic entries are excluded from graph navigation.
+
+   :param spacegroup: A space group or IT number identifying the parent.
+   :return: Sorted unique target IT numbers, excluding ``spacegroup`` itself.
+   :raises KeyError: If the IT number has no vendored subgroup record.
+
+
+.. py:function:: minimal_supergroups(spacegroup)
+
+   Return the distinct tabulated minimal-supergroup IT numbers.
+
+   Self-referencing isomorphic entries are excluded from graph navigation.
+
+   :param spacegroup: A space group or IT number identifying the subgroup.
+   :return: Sorted unique parent IT numbers, excluding ``spacegroup`` itself.
+   :raises KeyError: If the IT number has no vendored subgroup record.
+
+
+.. py:function:: subgroup_closure(spacegroup, *, include_self = False)
+
+   Return the graph-derived transitive subgroup closure.
+
+   :param spacegroup: A space group or IT number identifying the parent.
+   :param include_self: Include the root IT number in the result.
+   :return: Sorted reachable subgroup IT numbers.
+   :raises KeyError: If the IT number has no vendored subgroup record.
+
+
+.. py:function:: supergroup_closure(spacegroup, *, include_self = False)
+
+   Return the graph-derived transitive supergroup closure.
+
+   :param spacegroup: A space group or IT number identifying the subgroup.
+   :param include_self: Include the root IT number in the result.
+   :return: Sorted reachable supergroup IT numbers.
+   :raises KeyError: If the IT number has no vendored subgroup record.
+
+
+.. py:function:: subgroup_transforms(parent, subgroup)
+
+   Return every tabulated transform for one parent/target pair.
+
+   Results retain table order, including self-targeted isomorphic entries. The returned
+   tuple is empty when the pair has no tabulated relation.
+
+   :param parent: The parent space group or IT number.
+   :param subgroup: The subgroup space group or IT number.
+   :return: All exact standard-setting transformations for the pair.
+   :raises KeyError: If either IT number has no vendored subgroup record.
+
+

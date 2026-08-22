@@ -1,0 +1,30 @@
+httk.atomistic.models.crystaltemplate.view_base
+===============================================
+
+.. py:module:: httk.atomistic.models.crystaltemplate.view_base
+
+.. autoapi-nested-parse::
+
+   The abstract view base for crystal templates.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.crystaltemplate.view_base.CrystalTemplateViewBase
+
+
+Module Contents
+---------------
+
+.. py:class:: CrystalTemplateViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.crystaltemplate.backend.CrystalTemplateBackend`\ ]
+
+
+   Base class for views presenting crystal-template backends.
+
+

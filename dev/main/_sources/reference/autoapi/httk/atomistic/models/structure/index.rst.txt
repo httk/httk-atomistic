@@ -1,0 +1,2505 @@
+httk.atomistic.models.structure
+===============================
+
+.. py:module:: httk.atomistic.models.structure
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/structure/api/index
+   /reference/autoapi/httk/atomistic/models/structure/asu/index
+   /reference/autoapi/httk/atomistic/models/structure/asu_view/index
+   /reference/autoapi/httk/atomistic/models/structure/backend/index
+   /reference/autoapi/httk/atomistic/models/structure/comparison/index
+   /reference/autoapi/httk/atomistic/models/structure/datastream/index
+   /reference/autoapi/httk/atomistic/models/structure/like/index
+   /reference/autoapi/httk/atomistic/models/structure/modulated/index
+   /reference/autoapi/httk/atomistic/models/structure/numeric/index
+   /reference/autoapi/httk/atomistic/models/structure/numeric_view/index
+   /reference/autoapi/httk/atomistic/models/structure/optimade/index
+   /reference/autoapi/httk/atomistic/models/structure/plain/index
+   /reference/autoapi/httk/atomistic/models/structure/plain_view/index
+   /reference/autoapi/httk/atomistic/models/structure/record/index
+   /reference/autoapi/httk/atomistic/models/structure/semantics/index
+   /reference/autoapi/httk/atomistic/models/structure/symops/index
+   /reference/autoapi/httk/atomistic/models/structure/unitcell/index
+   /reference/autoapi/httk/atomistic/models/structure/unitcell_view/index
+   /reference/autoapi/httk/atomistic/models/structure/view/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.StructureLike
+   httk.atomistic.models.structure.OptimizationType
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.StructureAPI
+   httk.atomistic.models.structure.ASUStructure
+   httk.atomistic.models.structure.FundamentalDomainStructure
+   httk.atomistic.models.structure.WyckoffSite
+   httk.atomistic.models.structure.StructureBackend
+   httk.atomistic.models.structure.DatastreamStructure
+   httk.atomistic.models.structure.NumericUnitcellStructure
+   httk.atomistic.models.structure.NumericUnitcellStructureView
+   httk.atomistic.models.structure.OptimadeStructure
+   httk.atomistic.models.structure.PlainStructure
+   httk.atomistic.models.structure.PlainStructureView
+   httk.atomistic.models.structure.RecordStructure
+   httk.atomistic.models.structure.StructureSemanticsMixin
+   httk.atomistic.models.structure.StructureSymmetry
+   httk.atomistic.models.structure.UnitcellStructure
+   httk.atomistic.models.structure.UnitcellStructureView
+   httk.atomistic.models.structure.StructureView
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.same_crystal
+   httk.atomistic.models.structure.initialize_semantics
+   httk.atomistic.models.structure.validate_descriptive_formula
+   httk.atomistic.models.structure.validate_hill_formula
+   httk.atomistic.models.structure.validate_optimization_type
+
+
+Package Contents
+----------------
+
+.. py:class:: StructureAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Define the canonical structure interface.
+
+   It declares the Unitcell quartet that every structure backend produces from its
+   own native representation and every structure view builds its presentation
+   from: ``cell``, ``sites``, ``species``, and ``species_at_sites``. This is the
+   single interchange format; there is no pairwise conversion between backends.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+      :abstractmethod:
+
+
+      Expose the structure's cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+      :abstractmethod:
+
+
+      Expose the structure's site coordinates.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+      :abstractmethod:
+
+
+      Expose the structure's distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+      :abstractmethod:
+
+
+      Expose the species occupying each site.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned net charge of the cell content.
+
+      ``None`` means unstated and is never derived from the species; it is distinct
+      from an explicit zero.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose optional per-site magnetic moments in ``sites`` order.
+
+      ``None`` means "nothing stated", not "zero moments".
+
+      :return: The site moments, or ``None`` when they are unstated.
+
+
+   .. py:method:: without_charges()
+
+      Return an EXPLICIT lossy projection that drops declared oxidation states.
+
+      The canonical structure components and semantic metadata are preserved. A structure
+      without species charges is returned by identity; charged structures are rebuilt in the
+      canonical unit-cell family.
+
+      :return: A charge-free structure, or this structure when already charge-free.
+
+
+
+   .. py:property:: composition
+      :type: httk.atomistic.models.formula.composition.Composition
+
+
+      Project the canonical components into an elemental composition.
+
+
+   .. py:property:: elements
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose the complete composition's element symbols, if available.
+
+
+   .. py:property:: nelements
+      :type: int | None
+
+
+      Expose the complete composition's element count, if available.
+
+
+   .. py:property:: elements_ratios
+      :type: tuple[fractions.Fraction, Ellipsis] | None
+
+
+      Expose complete composition ratios, if available.
+
+
+   .. py:property:: chemical_formula_reduced
+      :type: str | None
+
+
+      Expose the reduced formula derived from a complete composition.
+
+
+   .. py:property:: chemical_formula_anonymous
+      :type: str | None
+
+
+      Expose the anonymous formula derived from a complete composition.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      Expose an explicitly supplied descriptive formula, when available.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      Expose an explicitly supplied Hill formula, when available.
+
+
+   .. py:property:: dimension_types
+      :type: tuple[int, Ellipsis] | None
+
+
+      Expose cell periodicity as OPTIMADE dimension flags.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int | None
+
+
+      Expose the number of periodic cell directions.
+
+
+   .. py:property:: nsites
+      :type: int | None
+
+
+      Expose the number of canonical site-coordinate rows.
+
+
+   .. py:method:: multiplicities()
+
+      Return how many unit-cell sites each represented site contributes.
+
+      The canonical structure interface presents a unit cell, so each row contributes
+      once. Symmetry-reduced representations override this with their orbit counts.
+
+      :return: One multiplicity per represented site.
+
+
+
+   .. py:property:: structure_features
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose composition-related features derived from canonical components.
+
+
+.. py:class:: ASUStructure(cell, spacegroup, wyckoff_sites, species, transform = None, coordinate_precision = None, *, molecular = False, assemblies = None, chemical_composition = None, chemical_formula_descriptive = None, chemical_formula_hill = None, optimization_type = None, immutable_id = None, last_modified = None, charge = None, _validated_proof = None)
+
+   Bases: :py:obj:`FundamentalDomainStructure`
+
+
+   Assert that a fundamental domain is a true asymmetric unit.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the asymmetric-unit coordinate span.
+
+
+.. py:class:: FundamentalDomainStructure(cell, spacegroup, wyckoff_sites, species, transform = None, coordinate_precision = None, *, molecular = False, assemblies = None, chemical_composition = None, chemical_formula_descriptive = None, chemical_formula_hill = None, optimization_type = None, immutable_id = None, last_modified = None, charge = None, _validated_proof = None)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.semantics.StructureSemanticsMixin`, :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent a crystal structure by one exact site per symmetry orbit.
+
+   Holds the cell in the structure's own setting, the space-group setting that names its
+   Wyckoff data, an optional transform from that setting to the structure's own, one
+   :class:`WyckoffSite` per symmetry-distinct site, and the species they name.
+   On first expansion, a site whose orbit contributes no new points raises ``ValueError``
+   because it duplicates an earlier site's orbit.
+
+   :param cell: The cell in the structure's own setting.
+   :param spacegroup: The setting that names the stored Wyckoff data.
+   :param wyckoff_sites: The symmetry-distinct site definitions.
+   :param species: The species referenced by the site definitions.
+   :param transform: The change of basis from the stored setting to the structure's setting.
+   :param coordinate_precision: The precision recorded for the reduced coordinates.
+   :param molecular: Whether the structure describes molecular entities.
+   :param assemblies: Optional correlations among domain sites.
+   :param chemical_composition: Optional chemical composition metadata.
+   :param chemical_formula_descriptive: Optional descriptive chemical formula.
+   :param chemical_formula_hill: Optional Hill chemical formula.
+   :param optimization_type: Optional optimization provenance.
+   :param immutable_id: Optional immutable source identifier.
+   :param last_modified: Optional source modification timestamp.
+   :param charge: An explicitly assigned charge for the expanded cell content; it is not
+       derived from the species.
+   :param _validated_proof: Internal proof that the supplied CIF expansion already validates
+       the representatives.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'asu'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the cell in the structure's own setting.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Expose the setting that names the stored Wyckoff data.
+
+
+   .. py:property:: transform
+      :type: httk.atomistic.symmetry.setting_transform.SettingTransform
+
+
+      Expose the transform from the stored setting to the structure's setting.
+
+
+   .. py:property:: transform_from_standard
+      :type: httk.atomistic.symmetry.setting_transform.SettingTransform
+
+
+      Return the exact transform from the IT standard setting to this structure.
+
+
+   .. py:property:: wyckoff_sites
+      :type: tuple[WyckoffSite, Ellipsis]
+
+
+      Expose the symmetry-distinct sites.
+
+
+   .. py:property:: domain_sites
+      :type: tuple[WyckoffSite, Ellipsis]
+
+
+      Expose the directly stored fundamental-domain sites.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose the species referenced by the sites.
+
+
+   .. py:property:: coordinate_precision
+      :type: fractions.Fraction | None
+
+
+      Expose the recorded precision of the reduced coordinates.
+
+      Fractional, and expressed in **this structure's own setting** — the frame the data
+      arrived in — so it needs no transforming on the way to the expanded sites. Recording
+      it here is what lets an asymmetric unit say how good the data behind it was, rather
+      than leaving that to be guessed again downstream.
+
+      It is provenance, never an operating parameter: expansion remains exact and uses no
+      tolerance at all.
+
+      :return: The fractional precision, or ``None`` when it is unknown.
+
+
+   .. py:property:: asu
+      :type: FundamentalDomainStructure
+
+
+      Expose this structure as its own fundamental domain.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Expose the cell's periodic directions.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Expose whether molecular semantics are enabled.
+
+
+   .. py:property:: domain_species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose species names for the directly represented domain sites.
+
+
+   .. py:method:: cartesian_sites()
+
+      Compute the exact Cartesian positions of the represented sites.
+
+      :return: The Cartesian representative positions in the exact surd representation.
+
+
+
+   .. py:property:: fractional_site_positions
+      :type: list[list[float]]
+
+
+      Expose representative positions as floating-point coordinates.
+
+
+   .. py:property:: nsites
+      :type: int
+
+
+      Expose the number of directly represented sites.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the fundamental-domain coordinate span.
+
+
+   .. py:property:: space_group_it_number
+      :type: int
+
+
+      Expose the space group's International Tables number.
+
+
+   .. py:property:: space_group_symbol_hall
+      :type: str | None
+
+
+      Expose the Hall symbol for the active setting.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin
+      :type: str | None
+
+
+      Expose the Hermann–Mauguin symbol for the active setting.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin_extended
+      :type: str | None
+
+
+      Expose the extended Hermann–Mauguin symbol for the active setting.
+
+
+   .. py:property:: space_group_symmetry_operations_xyz
+      :type: tuple[str, Ellipsis]
+
+
+      Expose the active setting's symmetry operations in ``xyz`` notation.
+
+
+   .. py:property:: wyckoff_positions
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose Wyckoff positions in the active setting.
+
+
+   .. py:property:: is_standard_setting
+      :type: bool
+
+
+      Expose whether the structure uses its space group's standard setting.
+
+
+   .. py:method:: setting()
+
+      The tabulated setting this structure is written in, or ``None`` if untabulated.
+
+      A structure in an arbitrary setting is perfectly representable but has no tabulated
+      name; that is the point of storing the transform rather than a setting label.
+
+      A transform looked up from the tables remembers which setting it came from, but one
+      that was constructed directly does not, so an equal transform is also matched
+      against the group's tabulated settings. An identity transform means the stored
+      tabulated setting is already the structure's own setting.
+
+      :return: The matching tabulated setting, or ``None`` when untabulated.
+
+
+
+   .. py:method:: expand_sites()
+
+      Every site of the unit cell, as exact reduced coordinates in this structure's setting.
+
+      The orbit of each asymmetric-unit site is generated directly from its stored
+      setting's table, wrapped into ``[0, 1)``, and deduplicated by exact equality. Only an
+      untabulated setting uses the stored transform. Deduplication then also handles a
+      transform that shrinks the cell; the opposite case, a transform onto a larger cell,
+      is covered by
+      :meth:`~httk.atomistic.SettingTransform.lattice_cosets`.
+
+      :return: All unit-cell sites in the structure's exact setting.
+
+
+
+   .. py:method:: expand_species_at_sites()
+
+      Expose the species names produced by :meth:`expand_sites`.
+
+      :return: Species names in expanded site order.
+
+
+
+   .. py:method:: expand_site_moments()
+
+      Expand one exact moment for every represented site.
+
+      :return: Expanded site moments, or ``None`` when moments are unstated.
+
+
+
+   .. py:method:: multiplicities()
+
+      How many cell sites each asymmetric-unit site generates, in order.
+
+      Usually the Wyckoff position's tabulated multiplicity, but not always: a setting
+      transform that changes the cell volume changes the count too, by a factor of three
+      for the rhombohedral-axes settings.
+
+      :return: The number of expanded sites generated by each domain site.
+
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose representative or expanded sites according to the semantics.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose representative or expanded species names according to the semantics.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose representative or expanded site moments.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned exact charge of the expanded cell.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, Ellipsis] | None
+
+
+      Expose correlations among the domain sites.
+
+
+.. py:class:: WyckoffSite
+
+   Represent one symmetry-distinct site.
+
+   ``wyckoff`` is a bare letter (``"e"``, not ``"4e"``) naming a position of the
+   structure's stored setting, and ``free_params`` holds one exact value per degree of freedom
+   of that position — none at all for a fixed position such as an inversion centre.
+   ``species`` names one of the owning structure's species.
+
+   Moment data uses verbatim-copy semantics: every expanded orbit image carries the same
+   moment. This is physically meaningful only when the site symmetry preserves that moment;
+   magnetic structures that break it must be represented as a unit cell (or via
+   ``SymopsStructure``, coming later).
+
+   Partial occupancy needs nothing special here: it lives in the referenced
+   :class:`~httk.atomistic.Species`, which already carries a composition.
+
+   :param wyckoff: The Wyckoff letter in the structure's stored setting.
+   :param free_params: The free values for the Wyckoff position.
+   :param species: The name of the owning structure's species.
+   :param representative: An optional retained representative coordinate.
+   :param moment: An optional moment assigned to the site.
+
+
+   .. py:attribute:: wyckoff
+      :type:  str
+
+
+   .. py:attribute:: free_params
+      :type:  httk.core.FracVector
+
+
+   .. py:attribute:: species
+      :type:  str
+
+
+   .. py:attribute:: representative
+      :type:  httk.core.FracVector | None
+      :value: None
+
+
+
+   .. py:attribute:: moment
+      :type:  httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+      :value: None
+
+
+
+   .. py:property:: free_count
+      :type: int
+
+
+      How many free parameters this site carries.
+
+
+.. py:class:: StructureBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`StructureBackend`\ ], :py:obj:`httk.atomistic.models.structure.api.StructureAPI`
+
+
+   Define the base class for crystal-structure backends.
+
+   Concrete backends carry a native representation and produce the canonical
+   Unitcell quartet declared by ``StructureAPI`` from it.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+
+.. py:function:: same_crystal(first, second)
+
+   Compare two structures as crystallographic descriptions.
+
+   True when they have the same cell and the same *multiset* of occupied sites, comparing
+   each site by its species and its reduced coordinate wrapped into ``[0, 1)``. Site order
+   is ignored, and so is which lattice translate of a site was written down.
+
+   The explicitly assigned cell charge and the site moments also participate in the
+   comparison. Recorded coordinate, basis, and moment precision do not, nor do other
+   semantic metadata such as formulas, assemblies, or source identifiers.
+
+   The comparison is exact, not approximate: reduced coordinates are exact rationals and
+   cell bases are exact, so two structures that differ by any amount at all compare
+   unequal. There is deliberately no tolerance parameter — a tolerant comparison belongs
+   with the recognition step that snaps a measured structure onto an idealised one, not
+   here.
+
+   Periodicity takes part in two ways. Cells must agree on it, so a slab is never the same
+   crystal as the bulk with the same lattice vectors. And only the periodic directions are
+   wrapped, since along the others there is no lattice translate to be indifferent about —
+   an atom at ``1.05`` really is somewhere else than one at ``0.05``. The comparison stays
+   exact in the frame as written: two descriptions of the same slab that differ in their
+   non-periodic frame vector compare unequal, because reconciling them would need an origin
+   convention this function deliberately does not have.
+
+   Accepts anything structure-like on either side, so a
+   :class:`~httk.atomistic.UnitcellStructure` may be compared directly against an
+   :class:`~httk.atomistic.ASUStructure` without expanding it by hand.
+
+   :param first: The first structure-like value.
+   :param second: The second structure-like value.
+   :return: Whether the structures describe the same crystal.
+
+
+.. py:class:: DatastreamStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent a structure source parsed only when its data is first accessed.
+
+   Requests are intentionally reader-only: an OPTIMADE-shaped Request is declined so
+   its headers are never lost by replacing it with ``fetch(url)``. Open streams are
+   one-shot sources; a failed parse is not cached, but consumed data cannot be replayed.
+   Network URL strings require core network consent; wrapping a URL in
+   :class:`~httk.core.DatastreamURL` supplies that consent explicitly.
+
+   :param obj: A path, URL, stream, request, or core datastream source.
+   :param \*\*hints: Backend-selection and reader-name hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'datastream'
+
+
+
+   .. py:method:: resolve()
+
+      Resolve and return the memoized native structure.
+
+      :return: The parsed native structure.
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the source structure's cell.
+
+      :return: The resolved cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the source structure's sites.
+
+      :return: The resolved sites.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose the source structure's species.
+
+      :return: The resolved distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose the species occupying each resolved site.
+
+      :return: Site species names in site order.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose optional moments from the resolved structure.
+
+      :return: Site moments, or ``None`` when they are unstated.
+
+
+   .. py:property:: charge
+      :type: Any
+
+
+      Expose the resolved structure's assigned charge.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:method:: unwrap()
+
+      Return the original lazy source.
+
+      :return: The path, URL, request, or stream supplied at construction.
+
+
+
+.. py:type:: StructureLike
+   :canonical: httk.atomistic.models.structure.backend.StructureBackend | httk.atomistic.models.structure.view.StructureView | httk.atomistic.models.structure.unitcell.UnitcellStructure | httk.atomistic.storage.records.UnitcellStructureRecord | httk.atomistic.storage.records.FundamentalDomainStructureRecord | httk.atomistic.storage.records.ASUStructureRecord | httk.atomistic.models.structure.asu.FundamentalDomainStructure | httk.core.optimade.OptimadeResource | str | os.PathLike[str] | httk.core.DatastreamURL | urllib.request.Request | io.IOBase | httk.core.datastream.TextstreamBackend | httk.core.datastream.TextstreamView | httk.core.datastream.BytestreamBackend | httk.core.datastream.BytestreamView | httk.atomistic.integrations.ase.models.ASEAtomsProtocol | httk.atomistic.integrations.pymatgen.models.PymatgenStructureProtocol | tuple[httk.core.VectorLike, httk.core.VectorLike, Any] | list[Any]
+
+
+.. py:class:: NumericUnitcellStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Backend recognizing the plain-numpy structure quartet.
+
+   The wrapped object must expose ``NumericCell``/``NumericSites`` values through
+   ``cell``/``sites`` and the usual ``species``/``species_at_sites`` attributes.
+   Its exact quartet is taken from an ``exact`` :class:`~httk.atomistic.models.structure.unitcell.UnitcellStructure` when available,
+   then from the component presentations' ``exact`` values. If neither component
+   carries an exact value, the numeric ``basis`` and ``reduced_coords`` arrays are
+   passed through the vector family into ``Cell`` and ``Sites``. That last route is
+   exact embedding of the floats: their binary float64 values, rather than their
+   decimal spellings, become the exact values.
+
+   :param obj: The numeric structure presentation to wrap.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the exact cell quartet component.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the exact sites quartet component.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose the exact structure's distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose the exact species name for each site.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned exact charge.
+
+
+   .. py:method:: unwrap()
+
+      Return the wrapped numeric presentation object.
+
+
+
+.. py:class:: NumericUnitcellStructureView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.semantics.StructureSemanticsMixin`, :py:obj:`httk.atomistic.models.structure.view.StructureView`
+
+
+   A plain-numpy presentation of a :class:`~httk.atomistic.UnitcellStructure`.
+
+   Where a ``UnitcellStructure`` holds its geometry exactly (a surd ``cell`` basis, rational reduced
+   coordinates, and an exact Cartesian frame), this view mirrors that interface but returns
+   plain numpy numbers: its :attr:`cell` is a :class:`~httk.atomistic.models.cell.numeric.NumericCell`, its
+   :attr:`sites` a :class:`~httk.atomistic.models.sites.numeric.NumericSites`, and :meth:`cartesian_sites` a
+   ``float64`` numpy array. The ``species``/``species_at_sites`` are passed through unchanged.
+   It is for callers who do not need exact arithmetic and just want numpy arrays.
+
+   The presentation is numpy-backed, so constructing it **requires numpy** (the
+   ``httk-atomistic[numpy]`` extra) and raises :class:`ImportError` eagerly when it is unavailable.
+   The exact object is always one hop away via :attr:`exact`.
+
+   This is a view, not a ``UnitcellStructure`` subclass. Its exact ``UnitcellStructure`` is built lazily on
+   first access to exact geometry.
+
+   :param obj: The structure backend or source to present.
+   :param \*\*hints: Backend-selection hints passed to structure coercion.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.numeric.NumericCell
+
+
+      The cell as a :class:`~httk.atomistic.models.cell.numeric.NumericCell`.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.numeric.NumericSites
+
+
+      The sites as a :class:`~httk.atomistic.models.sites.numeric.NumericSites`.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      The distinct species, passed through unchanged.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      The species name occupying each site, passed through unchanged.
+
+
+   .. py:property:: charge
+      :type: float | None
+
+
+      Expose the explicitly assigned charge as a floating-point value.
+
+
+   .. py:property:: site_moments
+      :type: httk.core.NumericVector | None
+
+
+      Expose Cartesian site moments as numeric values.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, Ellipsis] | None
+
+
+      Expose site correlations.
+
+
+   .. py:method:: cartesian_sites()
+
+      The Cartesian site positions as an ``(N, 3)`` ``float64`` numpy array.
+
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Expose the cell's periodic directions.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int
+
+
+      Expose the number of periodic directions.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the presented structure's coordinate span.
+
+
+   .. py:property:: lattice_vectors
+      :type: list[list[float]]
+
+
+      Expose the cell vectors as numeric coordinates.
+
+
+   .. py:property:: fractional_site_positions
+      :type: list[list[float]]
+
+
+      Expose reduced site positions as numeric coordinates.
+
+
+   .. py:property:: cartesian_site_positions
+      :type: list[list[float]]
+
+
+      Expose Cartesian site positions as numeric coordinates.
+
+
+   .. py:property:: exact
+      :type: httk.atomistic.models.structure.unitcell.UnitcellStructure
+
+
+      The exact :class:`~httk.atomistic.UnitcellStructure` this view presents.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object wrapped by the backend.
+
+
+
+   .. py:method:: unview()
+
+      Reject conversion to a standalone plain numeric value.
+
+      :return: Never; this view has no standalone plain value.
+      :raises TypeError: Always, because this view has no standalone plain value.
+
+
+
+.. py:class:: OptimadeStructure(obj = None, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent an OPTIMADE structure resource as a lazy structure backend.
+
+   Construction merely retains the resource.  The canonical structure quartet
+   is decoded one component at a time, so an incomplete remote resource is
+   still storable, inspectable, and round-trippable.
+
+   OPTIMADE dictionaries are presented through exact local values and converted to
+   floats only at presentation boundaries. Species dictionaries may retain the
+   ``_httk_charges``, ``_httk_spins``, and ``_httk_labels`` extensions.
+
+   :param obj: The OPTIMADE resource to retain.
+   :param \*\*hints: Backend-selection hints, including optional ``resource`` or ``kind``.
+
+
+   .. py:attribute:: resource
+      :type:  httk.core.optimade.OptimadeResource
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'optimade'
+
+
+
+   .. py:attribute:: entry_type_definition_id
+      :type:  ClassVar[str]
+      :value: 'https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures'
+
+
+
+   .. py:method:: unwrap()
+
+      Return the exact authoritative source resource by identity.
+
+      :return: The original OPTIMADE resource.
+
+
+
+   .. py:property:: raw
+      :type: collections.abc.Mapping[str, object]
+
+
+      Expose the immutable JSON API resource envelope.
+
+      :return: The decoded resource envelope, including source spelling and extensions.
+
+
+   .. py:property:: composition
+      :type: httk.atomistic.models.formula.composition.Composition
+
+
+      Project the source-backed composition, retaining implicit or source-only ratios.
+
+      :return: The projected composition.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If source composition fields are inconsistent.
+
+
+   .. py:property:: formula
+      :type: str
+
+
+      Present the reduced formula as an eager ``str`` formula view.
+
+      :return: The reduced formula as a
+          :class:`~httk.atomistic.models.formula.formula_view.ChemicalFormulaView`.
+      :raises ValueError: If the composition is incomplete or empty.
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the JSON API resource identifier without inferring it from a remote label.
+
+      :return: The resource identifier.
+
+
+   .. py:property:: type
+      :type: str
+
+
+      Expose the JSON API resource type identifier without inferring it from a remote label.
+
+      :return: The resource type.
+
+
+   .. py:property:: immutable_id
+      :type: str | None
+
+
+      Expose the portable immutable source identifier.
+
+      :return: The identifier, or ``None`` when absent.
+
+
+   .. py:property:: last_modified
+      :type: datetime.datetime | None
+
+
+      Expose the portable source modification timestamp.
+
+      :return: The timestamp, or ``None`` when absent.
+
+
+   .. py:property:: elements
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose the validated portable element symbols.
+
+      :return: Alphabetically ordered element symbols, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If related source composition fields disagree.
+
+
+   .. py:property:: nelements
+      :type: int | None
+
+
+      Expose the validated portable element count.
+
+      :return: The element count, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If related source composition fields disagree.
+
+
+   .. py:property:: elements_ratios
+      :type: tuple[fractions.Fraction, Ellipsis] | None
+
+
+      Expose exact portable element ratios.
+
+      :return: Non-negative ratios summing to one, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the ratios are invalid or inconsistent.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      Expose the validated descriptive chemical formula.
+
+      :return: The descriptive formula, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid.
+
+
+   .. py:property:: chemical_formula_reduced
+      :type: str | None
+
+
+      Expose the validated reduced chemical formula.
+
+      :return: The reduced formula, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid or inconsistent.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      Expose the validated Hill chemical formula.
+
+      :return: The Hill formula, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid or inconsistent.
+
+
+   .. py:property:: chemical_formula_anonymous
+      :type: str | None
+
+
+      Expose the validated anonymous chemical formula.
+
+      :return: The anonymous formula, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source formula is invalid or inconsistent.
+
+
+   .. py:property:: dimension_types
+      :type: tuple[int, Ellipsis] | None
+
+
+      Expose portable periodicity flags.
+
+      :return: Three ``0``/``1`` flags, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the flags are invalid or inconsistent.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int | None
+
+
+      Expose the portable periodic-dimension count.
+
+      :return: The count from zero through three, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the count is invalid or inconsistent.
+
+
+   .. py:property:: nsites
+      :type: int | None
+
+
+      Expose the portable site count.
+
+      :return: The non-negative site count, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If related arrays disagree with the count.
+
+
+   .. py:property:: structure_features
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose validated OPTIMADE structure-feature flags.
+
+      :return: Canonically ordered feature flags, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If flags are invalid or inconsistent.
+
+
+   .. py:property:: lattice_vectors
+      :type: tuple[tuple[fractions.Fraction, fractions.Fraction, fractions.Fraction] | None, Ellipsis] | None
+
+
+      Expose exact lattice vectors from the OPTIMADE source.
+
+      :return: Three vectors, with ``None`` for non-periodic directions, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If vectors conflict with periodicity.
+
+
+   .. py:property:: fractional_site_positions
+      :type: tuple[tuple[fractions.Fraction, fractions.Fraction, fractions.Fraction], Ellipsis] | None
+
+
+      Expose exact fractional site positions.
+
+      :return: Fractional positions, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If supplied coordinate arrays disagree.
+
+
+   .. py:property:: cartesian_site_positions
+      :type: tuple[tuple[fractions.Fraction, fractions.Fraction, fractions.Fraction], Ellipsis] | None
+
+
+      Expose exact Cartesian site positions.
+
+      :return: Cartesian positions, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If supplied coordinate arrays disagree.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the source coordinate span.
+
+      :return: The OPTIMADE coordinate-span value, defaulting to ``"unit_cell"``.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the span is invalid or lacks required symmetry.
+
+
+   .. py:property:: site_coordinate_span_description
+      :type: str | None
+
+
+      Expose the description for an ``"other"`` coordinate span.
+
+      :return: The span description, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If a description is invalid or used for another span.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Expose whether the native unit-cell projection carries molecular placement.
+
+      :return: Whether the coordinate span is ``"molecular_unit_cell"``.
+
+
+   .. py:property:: coordinate_precision
+      :type: fractions.Fraction | None
+
+
+      Expose the source precision for reduced coordinates.
+
+      :return: The fractional precision, or ``None`` when unavailable.
+
+
+   .. py:property:: basis_precision
+      :type: fractions.Fraction | None
+
+
+      Expose the source precision for lattice vectors.
+
+      :return: The basis precision, or ``None`` when unavailable.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.cartesian.CartesianSiteMoments | None
+
+
+      Expose source Cartesian site moments.
+
+      :return: Cartesian moments, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If moment rows are invalid or cannot be aligned to sites.
+
+
+   .. py:property:: symmetry
+      :type: httk.atomistic.models.structure.semantics.StructureSymmetry
+
+
+      Build typed source symmetry metadata for the common unit-cell view layer.
+
+      :return: Validated symmetry metadata.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If supplied symmetry fields are inconsistent.
+
+
+   .. py:property:: optimization_type
+      :type: str | None
+
+
+      Expose the source optimization provenance.
+
+      :return: The normalized optimization type, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source value is not a string.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, Ellipsis] | None
+
+
+      Expose validated source site assemblies.
+
+      :return: Assemblies, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If assemblies are invalid or inconsistent.
+
+
+   .. py:property:: space_group_symbol_hall
+      :type: str | None
+
+
+      Expose the source Hall space-group symbol.
+
+      :return: The symbol, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the symbol conflicts with source symmetry.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin
+      :type: str | None
+
+
+      Expose the source short Hermann–Mauguin symbol.
+
+      :return: The symbol, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the symbol conflicts with source symmetry.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin_extended
+      :type: str | None
+
+
+      Expose the source extended Hermann–Mauguin symbol.
+
+      :return: The symbol, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the symbol conflicts with source symmetry.
+
+
+   .. py:property:: space_group_it_number
+      :type: int | None
+
+
+      Expose the source International Tables space-group number.
+
+      :return: The number, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the number conflicts with source symmetry.
+
+
+   .. py:property:: space_group_symmetry_operations_xyz
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose the declared raw ``xyz`` symmetry-operation strings.
+
+      :return: The source operation strings, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If operations are invalid or inconsistent.
+
+
+   .. py:property:: wyckoff_positions
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose source Wyckoff letters aligned with the represented sites.
+
+      :return: Wyckoff letters, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If letters are invalid or misaligned.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the projected exact cell.
+
+      :return: The native cell projection.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source cannot project a unit cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the projected exact sites.
+
+      :return: The native site projection.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source cannot project site coordinates.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose decoded species definitions.
+
+      :return: Distinct species definitions.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If source species dictionaries are invalid.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose decoded species names for each site.
+
+      :return: Site species names in site order.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If names do not align with source sites.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the private exact charge extension.
+
+      :return: The assigned charge, or ``None`` when absent.
+      :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source charge is not numeric.
+
+
+.. py:class:: PlainStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent a crystal structure backed by an spglib-like triple.
+
+   The native representation is a length-3 ``(lattice, positions, numbers)`` list
+   or tuple, where ``lattice`` is 3x3, ``positions`` is Nx3 reduced coordinates,
+   and ``numbers`` is the length-N sequence of atomic numbers. The quartet is
+   derived lazily and cached: ``cell`` is a ``Cell``, ``sites`` a ``Sites``,
+   ``species`` one single-element ``Species`` per distinct atomic number, and
+   ``unwrap`` returns the original triple.
+   :param obj: The primitive structure triple to wrap.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the cell derived from the lattice.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the reduced coordinates derived from the positions.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose one species definition for each distinct atomic number.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose the species name occupying each site.
+
+
+   .. py:method:: unwrap()
+
+      Return the original primitive structure triple.
+
+      :return: The wrapped lattice, positions, and atomic numbers.
+
+
+
+.. py:class:: PlainStructureView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.view.StructureView`, :py:obj:`tuple`
+
+
+   A view presenting an underlying structure backend as a primitive triple.
+
+   This view is a genuine ``(lattice, positions, numbers)`` tuple, built eagerly
+   and immutable. Because the primitive representation carries only bare atomic
+   numbers, every site's species must be a single, unattached chemical element
+   (see ``Species.is_single_element``); otherwise a TypeError is raised.
+
+   :param obj: The structure backend or source to present.
+   :param \*\*hints: Backend-selection hints passed to structure coercion.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw value wrapped by the backend.
+
+      :return: The original source value.
+
+
+
+   .. py:method:: unview()
+
+      Return this presentation as an ordinary primitive triple.
+
+      :return: The lattice, positions, and atomic numbers.
+
+
+
+.. py:class:: RecordStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Expose a storage record through the existing structure view family.
+
+   Unit-cell records expose their stored components directly; fundamental-domain and
+   asymmetric-unit records expand through the native domain structure when a unit-cell
+   view is requested.
+
+   :param obj: The unit-cell, fundamental-domain, or asymmetric-unit record.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: composition
+      :type: httk.atomistic.models.formula.composition_view.CompositionView
+
+
+      Expose the record's authoritative normalized composition.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the record-backed cell.
+
+      :return: The cell, directly from a unit-cell record or from the expanded domain.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the record-backed sites.
+
+      :return: The sites, directly from a unit-cell record or from the expanded domain.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose the record-backed distinct species.
+
+      :return: The species referenced by the structure.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose the species occupying each record-backed site.
+
+      :return: Site species names in site order.
+
+
+   .. py:property:: site_moments
+      :type: Any
+
+
+      Expose optional record-backed site moments.
+
+      :return: Site moments, or ``None`` when they are unstated.
+
+
+   .. py:property:: charge
+      :type: Any
+
+
+      Expose the record's explicitly assigned charge.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Expose whether the record describes a molecular unit cell.
+
+      :return: Whether molecular semantics are enabled.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, Ellipsis] | None
+
+
+      Expose the record's site assemblies.
+
+      :return: Assemblies, or ``None`` when they are unstated.
+
+
+   .. py:property:: symmetry
+      :type: httk.atomistic.models.structure.semantics.StructureSymmetry | None
+
+
+      Expose the record's symmetry metadata.
+
+      :return: Symmetry metadata, or ``None`` when it is absent.
+
+
+   .. py:property:: chemical_composition
+      :type: Any
+
+
+      Expose the record's chemical composition.
+
+      :return: Chemical composition, or ``None`` when it is absent.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      Expose the record's descriptive chemical formula.
+
+      :return: The descriptive formula, or ``None`` when it is absent.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      Expose the record's Hill chemical formula.
+
+      :return: The Hill formula, or ``None`` when it is absent.
+
+
+   .. py:property:: optimization_type
+      :type: str | None
+
+
+      Expose the record's optimization provenance.
+
+      :return: The optimization type, or ``None`` when it is absent.
+
+
+   .. py:property:: immutable_id
+      :type: str | None
+
+
+      Expose the record's immutable source identifier.
+
+      :return: The identifier, or ``None`` when it is absent.
+
+
+   .. py:property:: last_modified
+      :type: Any
+
+
+      Expose the record's modification timestamp.
+
+      :return: The timestamp, or ``None`` when it is absent.
+
+
+   .. py:property:: asu
+      :type: httk.atomistic.models.structure.asu.ASUStructure | httk.atomistic.models.structure.asu.FundamentalDomainStructure | None
+
+
+      Expose the native domain structure when the record stores one.
+
+      :return: The native asymmetric or fundamental domain, or ``None`` for unit-cell records.
+
+
+   .. py:method:: unwrap()
+
+      Return the exact fetched record rather than a reconstructed structure.
+
+      :return: The original storage record.
+
+
+
+.. py:data:: OptimizationType
+
+.. py:class:: StructureSemanticsMixin
+
+   Provide semantics shared by unit-cell, fundamental-domain, and ASU structures.
+
+
+   .. py:property:: type
+      :type: str
+
+
+      Expose the logical OPTIMADE entry family.
+
+      :return: ``"structures"``.
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the stable content identity of this exact representation.
+
+      :return: The content identifier.
+
+
+   .. py:property:: immutable_id
+      :type: str | None
+
+
+      Expose the immutable source identifier.
+
+      :return: The identifier, or ``None`` when it is unstated.
+
+
+   .. py:property:: last_modified
+      :type: datetime.datetime | None
+
+
+      Expose the source modification timestamp.
+
+      :return: The timestamp, or ``None`` when it is unstated.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, Ellipsis] | None
+
+
+      Expose site assemblies.
+
+      :return: The assemblies, or ``None`` when they are unstated.
+
+
+   .. py:property:: chemical_composition
+      :type: httk.atomistic.composition.ChemicalComposition | None
+
+
+      Expose the supplied chemical composition.
+
+      :return: The composition, or ``None`` when it is unstated.
+
+
+   .. py:property:: composition
+      :type: httk.atomistic.models.formula.composition_view.CompositionView
+
+
+      Present a lazy view over this structure's projected composition.
+
+      ``isinstance(self.composition, Composition)`` holds, and projection runs
+      on first data access.
+
+      :return: The lazy composition view of this structure.
+
+
+   .. py:property:: elements
+      :type: tuple[str, Ellipsis]
+
+
+      Expose the composition's element symbols.
+
+      :return: Element symbols in composition order.
+
+
+   .. py:property:: nelements
+      :type: int
+
+
+      Expose the number of composition elements.
+
+      :return: The number of distinct elements.
+
+
+   .. py:property:: elements_ratios
+      :type: tuple[fractions.Fraction, Ellipsis]
+
+
+      Expose normalized composition element ratios.
+
+      :return: Element ratios in :attr:`elements` order.
+
+
+   .. py:property:: chemical_formula_reduced
+      :type: str | None
+
+
+      Expose the reduced composition formula.
+
+      :return: The reduced formula, or ``None`` when unavailable.
+
+
+   .. py:property:: formula
+      :type: httk.atomistic.models.formula.formula_view.ChemicalFormulaView
+
+
+      Present the reduced formula as a genuine ``str`` subclass view.
+
+      ``unwrap()`` recovers this structure.
+
+      :return: The reduced formula as a
+          :class:`~httk.atomistic.models.formula.formula_view.ChemicalFormulaView`.
+      :raises ValueError: If the composition is incomplete (including any ``"X"``
+          species) or empty.
+
+
+   .. py:property:: chemical_formula_anonymous
+      :type: str | None
+
+
+      Expose the anonymous composition formula.
+
+      :return: The anonymous formula, or ``None`` when unavailable.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      Expose the descriptive chemical formula.
+
+      :return: The formula, or ``None`` when it is unstated.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      Expose the Hill chemical formula.
+
+      :return: The formula, or ``None`` when it is unstated.
+
+
+   .. py:property:: optimization_type
+      :type: str | None
+
+
+      Expose the optimization provenance.
+
+      :return: The optimization type, or ``None`` when it is unstated.
+
+
+   .. py:property:: dimension_types
+      :type: tuple[int, int, int]
+
+
+      Expose periodicity as OPTIMADE dimension flags.
+
+      :return: Three ``0``/``1`` flags for the cell directions.
+
+
+   .. py:property:: lattice_vectors
+      :type: list[list[float]]
+
+
+      Expose the cell basis at the float presentation boundary.
+
+      :return: The three lattice vectors as float rows.
+
+
+   .. py:property:: fractional_site_positions
+      :type: list[list[float]]
+
+
+      Expose reduced site positions at the float presentation boundary.
+
+      :return: Fractional positions as float rows.
+
+
+   .. py:property:: cartesian_site_positions
+      :type: list[list[float]]
+
+
+      Expose Cartesian site positions at the float presentation boundary.
+
+      :return: Cartesian positions as float rows.
+
+
+   .. py:property:: nsites
+      :type: int
+
+
+      Expose the number of represented sites.
+
+      :return: The site count.
+
+
+   .. py:property:: structure_features
+      :type: tuple[str, Ellipsis]
+
+
+      Expose derived OPTIMADE structure-feature flags.
+
+      :return: Feature flags in canonical order.
+
+
+   .. py:property:: site_coordinate_span_description
+      :type: str | None
+
+
+      Expose the optional description for a non-standard coordinate span.
+
+      :return: The span description, or ``None`` when unavailable.
+
+
+   .. py:property:: space_group_it_number
+      :type: int | None
+
+
+      Expose the International Tables space-group number.
+
+      :return: The number, or ``None`` when symmetry is unstated.
+
+
+   .. py:property:: space_group_symbol_hall
+      :type: str | None
+
+
+      Expose the Hall space-group symbol.
+
+      :return: The Hall symbol, or ``None`` when symmetry is unstated.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin
+      :type: str | None
+
+
+      Expose the short Hermann–Mauguin symbol.
+
+      :return: The symbol, or ``None`` when symmetry is unstated.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin_extended
+      :type: str | None
+
+
+      Expose the extended Hermann–Mauguin symbol.
+
+      :return: The symbol, or ``None`` when symmetry is unstated.
+
+
+   .. py:property:: space_group_symmetry_operations_xyz
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose the declared raw ``xyz`` symmetry operations.
+
+      :return: The operation strings, or the identity for a periodic structure without
+          explicit operations.
+
+
+   .. py:property:: wyckoff_positions
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose the site-aligned Wyckoff positions.
+
+      :return: Wyckoff letters, or ``None`` when they are unstated.
+
+
+.. py:class:: StructureSymmetry
+
+   Store optional, explicitly supplied symmetry metadata for a unit-cell structure.
+
+   :param space_group_it_number: Optional International Tables space-group number.
+   :param space_group_symbol_hall: Optional Hall symbol.
+   :param space_group_symbol_hermann_mauguin: Optional short Hermann–Mauguin symbol.
+   :param space_group_symbol_hermann_mauguin_extended: Optional extended Hermann–Mauguin symbol.
+   :param space_group_symmetry_operations_xyz: Optional declared raw ``xyz`` operations.
+   :param wyckoff_positions: Optional Wyckoff letters aligned with represented sites.
+   :raises TypeError: If a symbol is not a string.
+   :raises ValueError: If the metadata is invalid or mutually inconsistent.
+
+
+   .. py:attribute:: space_group_it_number
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symbol_hall
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symbol_hermann_mauguin
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symbol_hermann_mauguin_extended
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symmetry_operations_xyz
+      :type:  tuple[str, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: wyckoff_positions
+      :type:  tuple[str, Ellipsis] | None
+      :value: None
+
+
+
+   .. py:attribute:: matched_settings
+      :type:  ClassVar[tuple[collections.abc.Mapping[str, Any], Ellipsis]]
+
+
+.. py:function:: initialize_semantics(owner, *, nsites, molecular, assemblies, symmetry, chemical_composition, chemical_formula_descriptive, chemical_formula_hill, optimization_type, immutable_id = None, last_modified = None)
+
+   Validate and store shared structure semantics on an owner.
+
+   :param owner: The structure receiving the semantic fields.
+   :param nsites: The number of represented sites.
+   :param molecular: Whether the structure describes a molecular unit cell.
+   :param assemblies: Optional site assemblies.
+   :param symmetry: Optional structure symmetry metadata.
+   :param chemical_composition: Optional supplied chemical composition.
+   :param chemical_formula_descriptive: Optional descriptive formula.
+   :param chemical_formula_hill: Optional Hill formula.
+   :param optimization_type: Optional optimization provenance.
+   :param immutable_id: Optional immutable source identifier.
+   :param last_modified: Optional timezone-aware source timestamp.
+   :raises TypeError: If a supplied semantic value has the wrong kind.
+   :raises ValueError: If supplied semantics are invalid or inconsistent.
+
+
+.. py:function:: validate_descriptive_formula(formula)
+
+   Validate the permissive OPTIMADE descriptive-formula token and bracket grammar.
+
+   :param formula: The formula to validate, or ``None``.
+   :return: The unchanged formula, or ``None``.
+   :raises ValueError: If the formula is empty, malformed, or contains unknown tokens.
+
+
+.. py:function:: validate_hill_formula(formula, composition)
+
+   Validate an explicitly assigned Hill formula without inventing its molecular scale.
+
+   :param formula: The formula to validate, or ``None``.
+   :param composition: Optional complete composition to cross-check.
+   :return: The unchanged formula, or ``None``.
+   :raises ValueError: If the formula syntax, order, elements, or ratios are invalid.
+
+
+.. py:function:: validate_optimization_type(value)
+
+   Validate an OPTIMADE optimization type.
+
+   :param value: The optimization type to validate, or ``None``.
+   :return: The validated value.
+   :raises ValueError: If the value is not one of the supported optimization types.
+
+
+.. py:class:: UnitcellStructure(cell, sites, species = None, species_at_sites = None, *, site_moments = None, molecular = False, assemblies = None, symmetry = None, chemical_composition = None, chemical_formula_descriptive = None, chemical_formula_hill = None, optimization_type = None, immutable_id = None, last_modified = None, charge = None)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.semantics.StructureSemanticsMixin`, :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent a crystal structure in the Unitcell representation.
+
+   A UnitcellStructure holds a ``cell`` (a ``Cell`` of 3x3 cell vectors), ``sites`` (a ``Sites``
+   of Nx3 reduced coordinates), a list of ``species`` (each a ``Species``), and a
+   length-N ``species_at_sites`` giving the species name occupying each site. Inputs are
+   normalized on construction through the component families: the cell, sites, and each
+   species are passed through their ``*Like`` unions, and every ``species_at_sites`` name
+   must match one of the (uniquely named) species. When ``species`` is omitted,
+   ``species_at_sites`` may itself contain species-like values; the distinct species table
+   is then inferred in first-occurrence order.
+
+   The numeric model is exact and split by purpose. The fractional frame — reduced coordinates
+   and symmetry — is rational and lives in ``sites`` as a :class:`~httk.core.FracVector`. The
+   Cartesian frame — where radicals such as the hexagonal ``sqrt(3)`` appear — is exact in the
+   squarefree-radical field: ``cell.basis`` is a :class:`~httk.core.SurdVector` and
+   :meth:`cartesian_sites` returns the exact Cartesian positions. Pure magnitudes (bond-length
+   comparisons) stay rational-exact via ``cell.metric()``. Floats appear only at the presentation
+   and JSON boundaries.
+
+   :param cell: The unit-cell geometry.
+   :param sites: The reduced coordinates of the sites.
+   :param species: The distinct species definitions. Omit this to infer them from
+       ``species_at_sites``.
+   :param species_at_sites: The species name occupying each site; this value is required.
+   :param site_moments: Optional magnetic moments aligned with the sites.
+   :param molecular: Whether the structure describes a molecular unit cell.
+   :param assemblies: Optional correlations among sites.
+   :param symmetry: Optional symmetry metadata.
+   :param chemical_composition: Optional chemical composition metadata.
+   :param chemical_formula_descriptive: Optional descriptive chemical formula.
+   :param chemical_formula_hill: Optional Hill chemical formula.
+   :param optimization_type: Optional optimization provenance.
+   :param immutable_id: Optional immutable source identifier.
+   :param last_modified: Optional source modification timestamp.
+   :param charge: An explicitly assigned charge for the cell content; it is not derived
+       from the species, and an explicit zero remains distinct from an unstated charge.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'unitcell'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the cell geometry.
+
+      :return: The cell in the structure's exact representation.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the reduced site coordinates.
+
+      :return: The sites in the structure's exact representation.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, Ellipsis]
+
+
+      Expose the distinct species.
+
+      :return: The species referenced by the structure.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, Ellipsis]
+
+
+      Expose the species name occupying each site.
+
+      :return: Site species names in site order.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose optional per-site magnetic moments in ``sites`` order.
+
+      :return: Site moments, or ``None`` when they are unstated.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned exact charge of the cell.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:property:: coordinate_precision
+      :type: fractions.Fraction | None
+
+
+      Expose the precision recorded for the reduced coordinates.
+
+      Read through from :attr:`sites`. Dimensionless — see :meth:`cartesian_precision`
+      for the corresponding length.
+
+      :return: The fractional precision, or ``None`` when it is unknown.
+
+
+   .. py:property:: basis_precision
+      :type: fractions.Fraction | None
+
+
+      Expose the precision recorded for the cell basis.
+
+      Read through from :attr:`cell`.
+
+      :return: The absolute precision, or ``None`` when it is unknown.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Expose which cell directions are periodic.
+
+      Read through from :attr:`cell`, where the full account lives. ``(True, True, True)``
+      for an ordinary crystal, which is what a structure built without saying otherwise is.
+
+      :return: The periodicity flags for the cell directions.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the coordinate span asserted by this representation.
+
+      :return: ``unit_cell`` or ``molecular_unit_cell``.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Expose whether this structure describes a molecular unit cell.
+
+      :return: Whether molecular semantics are enabled.
+
+
+   .. py:property:: symmetry
+      :type: httk.atomistic.models.structure.semantics.StructureSymmetry | None
+
+
+      Expose the optional symmetry metadata.
+
+      :return: The symmetry metadata, or ``None`` when it is absent.
+
+
+   .. py:method:: cartesian_precision()
+
+      The coordinate precision as a length, or ``None`` if it is unknown.
+
+      This is the number a real tolerance wants — an interatomic matching tolerance or an
+      spglib ``symprec`` is a distance, and a fractional precision is not. A coordinate
+      good to ``1e-4`` of a cell edge means something quite different in a 3 Å cell and a
+      30 Å one.
+
+      Computed as the fractional precision times the *longest* cell edge, which is the
+      conservative choice: it is the largest displacement that fractional uncertainty can
+      produce along any axis. The cell's own precision is folded in as well, since a cell
+      stated to ``1e-3`` cannot place an atom better than that however many digits the
+      coordinates carry.
+
+      :return: The conservative Cartesian precision, or ``None`` when the coordinate
+          precision is unknown.
+
+
+
+   .. py:method:: cartesian_sites()
+
+      Compute the exact Cartesian site positions.
+
+      Under the row-vector convention this is ``reduced_coords * cell.basis`` (each Cartesian
+      position is the sum over lattice vectors ``sum_k reduced[k] * basis[k]``). The reduced
+      coordinates are rational (a ``FracVector``), the cell basis carries the radicals (a
+      ``SurdVector``), so the product is exact in the surd field — the hexagonal ``sqrt(3)``
+      survives into the Cartesian positions.
+
+      :return: The Cartesian positions in the exact surd representation.
+
+
+
+   .. py:method:: numeric()
+
+      Create a plain-numpy presentation of this structure.
+
+      :return: The numpy-backed structure view.
+      :raises ImportError: If numpy is unavailable.
+
+
+
+   .. py:method:: supercell(transformation, *, max_sites = 100000)
+
+      Build an exact supercell from an integer transformation.
+
+      :param transformation: The lattice transformation to apply.
+      :param max_sites: The maximum permitted number of sites, or ``None`` for no limit.
+      :return: The generated supercell and transformation metadata.
+
+
+
+   .. py:method:: orthogonal_supercell(multiplier = None, *, tolerance = None, max_multiplier = None, search_radius = 1, max_sites = 100000)
+
+      Build a deterministically selected orthogonal supercell.
+
+      :param multiplier: The requested volume multiplier, or ``None`` to search.
+      :param tolerance: The geometric tolerance used during the search.
+      :param max_multiplier: The largest multiplier considered when searching.
+      :param search_radius: The integer search radius for candidate transformations.
+      :param max_sites: The maximum permitted number of sites, or ``None`` for no limit.
+      :return: The generated supercell and transformation metadata.
+
+
+
+   .. py:method:: cubic_supercell(multiplier = None, *, tolerance = None, max_multiplier = None, search_radius = 1, max_sites = 100000)
+
+      Build a deterministically selected cubic supercell.
+
+      :param multiplier: The requested volume multiplier, or ``None`` to search.
+      :param tolerance: The geometric tolerance used during the search.
+      :param max_multiplier: The largest multiplier considered when searching.
+      :param search_radius: The integer search radius for candidate transformations.
+      :param max_sites: The maximum permitted number of sites, or ``None`` for no limit.
+      :return: The generated supercell and transformation metadata.
+
+
+
+   .. py:method:: conventional_cell(*, tolerance = None, limit_denominator = None)
+
+      Express this structure in its conventional standard-setting cell.
+
+      :param tolerance: The tolerance used when standardizing the structure.
+      :param limit_denominator: The denominator limit used for rationalizing measured
+          coordinates.
+      :return: The standardized structure and its transformation metadata.
+
+
+
+.. py:class:: UnitcellStructureView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.view.StructureView`, :py:obj:`httk.atomistic.models.structure.unitcell.UnitcellStructure`
+
+
+   A view presenting an underlying structure backend as a ``UnitcellStructure``.
+
+   This view is a genuine ``UnitcellStructure``, so it can be passed anywhere a UnitcellStructure
+   is accepted. Each component is normalized lazily on first access. For an
+   ASU-backed view, accessing ``cell`` or ``species`` never triggers expansion.
+
+   An ASU backend is expanded when unit-cell sites, species-at-sites, moments, or
+   assemblies are requested. Assembly correlations that cannot be mapped from the
+   fundamental domain to the full cell raise an error.
+
+   :param obj: The structure backend or source to present.
+   :param \**hints: Backend-selection and metadata options passed to construction.
+   :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source
+       declares a coordinate span that cannot be projected as a native unit cell.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose the site's magnetic moments.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned charge.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw value wrapped by the backend.
+
+      :return: The original source value.
+
+
+
+   .. py:method:: unview()
+
+      Materialize this presentation as a standalone unit-cell structure.
+
+      :return: The exact unit-cell structure represented by this view.
+
+
+
+   .. py:property:: immutable_id
+      :type: str | None
+
+
+      Expose the immutable source identifier.
+
+
+   .. py:property:: last_modified
+      :type: Any
+
+
+      Expose the source modification timestamp.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Expose whether the presented structure is molecular.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the unit-cell coordinate span.
+
+
+   .. py:property:: symmetry
+      :type: Any
+
+
+      Expose the optional symmetry metadata.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, Ellipsis] | None
+
+
+      Expose site correlations in the presented unit cell.
+
+
+   .. py:property:: chemical_composition
+      :type: Any
+
+
+      Expose the optional chemical composition metadata.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      Expose the optional descriptive chemical formula.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      Expose the optional Hill chemical formula.
+
+
+   .. py:property:: optimization_type
+      :type: str | None
+
+
+      Expose the optional optimization provenance.
+
+
+   .. py:property:: site_coordinate_span_description
+      :type: str | None
+
+
+      Expose the optional coordinate-span description.
+
+
+   .. py:property:: space_group_it_number
+      :type: int | None
+
+
+      Expose the optional space-group number.
+
+
+   .. py:property:: space_group_symbol_hall
+      :type: str | None
+
+
+      Expose the optional Hall symbol.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin
+      :type: str | None
+
+
+      Expose the optional Hermann–Mauguin symbol.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin_extended
+      :type: str | None
+
+
+      Expose the optional extended Hermann–Mauguin symbol.
+
+
+   .. py:property:: space_group_symmetry_operations_xyz
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose the optional symmetry operations in ``xyz`` notation.
+
+
+   .. py:property:: wyckoff_positions
+      :type: tuple[str, Ellipsis] | None
+
+
+      Expose the optional Wyckoff positions.
+
+
+.. py:class:: StructureView
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`\ ]
+
+
+   Define the base class for crystal-structure views.
+
+

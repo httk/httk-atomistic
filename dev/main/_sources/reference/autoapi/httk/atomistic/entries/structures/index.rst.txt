@@ -1,0 +1,98 @@
+httk.atomistic.entries.structures
+=================================
+
+.. py:module:: httk.atomistic.entries.structures
+
+.. autoapi-nested-parse::
+
+   Project atomistic structures onto the neutral OPTIMADE entry-provider contract.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.structures.StructureEntry
+   httk.atomistic.entries.structures.StructureEntryProvider
+
+
+Module Contents
+---------------
+
+.. py:class:: StructureEntry
+
+   Define the non-instantiable OPTIMADE structure entry family.
+
+
+   .. py:attribute:: type
+      :value: 'structures'
+
+
+
+   .. py:attribute:: definition_id
+      :value: 'https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures'
+
+
+
+   .. py:method:: entry_type_definition()
+      :classmethod:
+
+
+      Load the standard structure definition with atomistic extensions.
+
+      :return: The extended OPTIMADE ``structures`` definition.
+
+
+
+.. py:class:: StructureEntryProvider(entries, *, extra_definitions = None, properties = None)
+
+   Bases: :py:obj:`httk.core.EntryProvider`
+
+
+   Serve complete OPTIMADE v1.3 structure records from atomistic structures.
+
+   A mapping keeps the convenient ``{"example": structure}`` form and its explicit
+   served ids. An iterable of natural structures uses each representation's structural
+   content id. Entry metadata lives on the structures themselves.
+
+   Custom properties may extend the schema, but standard OPTIMADE fields are a pure
+   projection of the entry and structure and cannot be replaced by custom values.
+
+   :param entries: Entries keyed by explicit ids, or entries whose ids are derived from their
+       representations; explicit entries may be ``None``.
+   :param extra_definitions: Additional property definitions to expose.
+   :param properties: Per-entry custom property values validated against the definition.
+
+
+   .. py:method:: entry_types()
+
+      Return the structure entry type served by this provider.
+
+      :return: The ``structures`` entry-type definition.
+
+
+
+   .. py:method:: property_keys(entry_type)
+
+      Map served structure properties to storage keys.
+
+      :param entry_type: The entry type to inspect.
+      :return: Served-property to storage-key mappings.
+      :raises KeyError: If ``entry_type`` is not ``structures``.
+
+
+
+   .. py:method:: records(entry_type)
+
+      Project the provider's structures into OPTIMADE records.
+
+      ``None`` entries produce rows with null structure properties.
+
+      :param entry_type: The entry type to project.
+      :return: The projected records.
+      :raises KeyError: If ``entry_type`` is not ``structures``.
+
+
+
