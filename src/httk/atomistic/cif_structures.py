@@ -13,6 +13,7 @@ rather than silently reinterpreted.
 """
 
 import fractions
+import itertools
 import logging
 import math
 import re
@@ -302,6 +303,8 @@ def asu_structure_from_cif(
 
         standard_point = coordinate.normalize()
         uncertainty = _site_uncertainty(data, index, uncertainty_metric) if derived_tolerance else None
+        position_bounds = data.get("position_snap_bounds")
+        coordinate_bounds = None if not derived_tolerance or position_bounds is None else position_bounds[index]
         site_tolerance = tolerance
         if uncertainty is not None and data.get("position_precisions") is not None:
             site_tolerance = math.sqrt(uncertainty[0].to_float())
@@ -327,6 +330,7 @@ def asu_structure_from_cif(
                 transform,
                 site_tolerance,
                 uncertainty=uncertainty,
+                coordinate_bounds=coordinate_bounds,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 positions=(declared_position,),
                 orbit_screen=orbit_screen,
@@ -356,6 +360,7 @@ def asu_structure_from_cif(
                         cell,
                         transform,
                         site_tolerance,
+                        coordinate_bounds=coordinate_bounds,
                         allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                         most_specific=True,
                     )
@@ -373,6 +378,7 @@ def asu_structure_from_cif(
                 transform,
                 site_tolerance,
                 uncertainty=uncertainty,
+                coordinate_bounds=coordinate_bounds,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 positions=declared_positions,
                 orbit_screen=orbit_screen,
@@ -398,6 +404,7 @@ def asu_structure_from_cif(
                 transform,
                 site_tolerance,
                 uncertainty=uncertainty,
+                coordinate_bounds=coordinate_bounds,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 orbit_screen=orbit_screen,
                 general_screen=general_screen,
@@ -411,6 +418,7 @@ def asu_structure_from_cif(
                 transform,
                 site_tolerance,
                 uncertainty=uncertainty,
+                coordinate_bounds=coordinate_bounds,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 orbit_screen=orbit_screen,
                 general_screen=general_screen,
@@ -425,6 +433,7 @@ def asu_structure_from_cif(
                     cell,
                     transform,
                     site_tolerance,
+                    coordinate_bounds=coordinate_bounds,
                     allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                     most_specific=True,
                 )
@@ -1291,10 +1300,12 @@ def _read_cif_for_atomistic(
         except Exception as error:
             unparsed.append({"block": name, "reason": f"{type(error).__name__}: {error}"})
         else:
+            position_precisions, position_snap_bounds = _position_precision_metadata(raw_block)
             blocks.append(
                 {
                     **block,
-                    "position_precisions": _position_precisions(raw_block),
+                    "position_precisions": position_precisions,
+                    "position_snap_bounds": position_snap_bounds,
                     "position_tokens": _position_tokens(raw_block),
                     "_httk_atomistic_wyckoff_labels": raw_block.get("atom_site_wyckoff_label"),
                     "_httk_atomistic_symmetry_multiplicities": raw_block.get("atom_site_site_symmetry_multiplicity"),
@@ -1310,8 +1321,13 @@ def _read_cif_for_atomistic(
     return {**payload, _ALLOW_LARGE_CIF_UNCERTAINTY: True}
 
 
-def _position_precisions(block: Mapping[str, Any]) -> list[tuple[fractions.Fraction | None, ...]]:
-    """Preserve per-component CIF digit/ESD precision for the compatibility reader bridge."""
+def _position_precision_metadata(
+    block: Mapping[str, Any],
+) -> tuple[
+    list[tuple[fractions.Fraction | None, ...]],
+    list[tuple[fractions.Fraction | None, ...]],
+]:
+    """Preserve per-component uncertainty and snapping bounds for the reader bridge."""
     from httk.core import combined_precision
 
     from httk.atomistic.io.cif.cif_parser import cif_exact_token, parse_cif_float
@@ -1319,9 +1335,11 @@ def _position_precisions(block: Mapping[str, Any]) -> list[tuple[fractions.Fract
     columns = [block[f"atom_site_fract_{axis}"] for axis in "xyz"]
     companions = [block.get(f"httk_atom_site_fract_{axis}_exact") for axis in "xyz"]
     has_companion = any(value is not None for value in companions)
-    result = []
+    precisions = []
+    snap_bounds = []
     for index, values in enumerate(zip(*columns)):
         row: list[fractions.Fraction | None] = []
+        bounds_row: list[fractions.Fraction | None] = []
         for axis, value in enumerate(values):
             companion = companions[axis]
             companion_value = companion[index] if isinstance(companion, list) and index < len(companion) else None
@@ -1329,16 +1347,86 @@ def _position_precisions(block: Mapping[str, Any]) -> list[tuple[fractions.Fract
                 has_companion and cif_exact_token(value) in {"0", "1"}
             ):
                 row.append(None)
+                bounds_row.append(fractions.Fraction())
             else:
                 meta = parse_cif_float(value, meta=True)[1]
                 row.append(combined_precision((meta["precision"], meta["esd"])))
-        result.append(tuple(row))
-    return result
+                digit_bound = None if meta["precision"] is None else meta["precision"] / 2
+                bound = combined_precision((digit_bound, meta["esd"]))
+                bounds_row.append(None if bound is None or bound >= fractions.Fraction(1, 2) else bound)
+        precisions.append(tuple(row))
+        snap_bounds.append(tuple(bounds_row))
+    return precisions, snap_bounds
 
 
 def _position_tokens(block: Mapping[str, Any]) -> list[tuple[str, ...]]:
     """Preserve raw CIF coordinate tokens for precise uncertainty diagnostics."""
     return list(zip(*(block[f"atom_site_fract_{axis}"] for axis in "xyz")))
+
+
+def _parameters_inside_coordinate_bounds(
+    branch: Any,
+    own_point: FracVector,
+    transform: SettingTransform,
+    bounds: Sequence[fractions.Fraction | None],
+) -> FracVector | None:
+    """Return branch parameters whose coordinate lies inside the periodic component box."""
+    rank = len(branch.free)
+    if rank not in (1, 2):
+        return None
+
+    zero = [fractions.Fraction()] * rank
+    base = transform.to_setting(branch.coordinate(zero)).to_fractions()
+    columns = []
+    for parameter in range(rank):
+        basis_parameters = zero.copy()
+        basis_parameters[parameter] = fractions.Fraction(1)
+        point = transform.to_setting(branch.coordinate(basis_parameters)).to_fractions()
+        columns.append(tuple(value - origin for value, origin in zip(point, base)))
+    coefficients = tuple(tuple(column[row] for column in columns) for row in range(3))
+    own = own_point.to_fractions()
+
+    constrained = []
+    for row, bound in enumerate(bounds):
+        if bound is None:
+            continue
+        coefficient = coefficients[row]
+        offset = base[row] - own[row]
+        minimum = offset + sum((min(value, 0) for value in coefficient), start=fractions.Fraction())
+        maximum = offset + sum((max(value, 0) for value in coefficient), start=fractions.Fraction())
+        integers = range(math.ceil(minimum - bound), math.floor(maximum + bound) + 1)
+        constrained.append((coefficient, offset, bound, integers))
+
+    for lattice_shifts in itertools.product(*(item[3] for item in constrained)):
+        inequalities: list[tuple[tuple[fractions.Fraction, ...], fractions.Fraction]] = []
+        for (coefficient, offset, bound, _), shift in zip(constrained, lattice_shifts):
+            inequalities.append((coefficient, fractions.Fraction(shift) - offset + bound))
+            inequalities.append((tuple(-value for value in coefficient), offset - shift + bound))
+        for parameter in range(rank):
+            axis = tuple(fractions.Fraction(index == parameter) for index in range(rank))
+            inequalities.append((axis, fractions.Fraction(1)))
+            inequalities.append((tuple(-value for value in axis), fractions.Fraction()))
+
+        for active in itertools.combinations(inequalities, rank):
+            solution: tuple[fractions.Fraction, ...]
+            if rank == 1:
+                pivot = active[0][0][0]
+                if pivot == 0:
+                    continue
+                solution = (active[0][1] / pivot,)
+            else:
+                (a, b), (c, d) = (item[0] for item in active)
+                first, second = (item[1] for item in active)
+                determinant = a * d - b * c
+                if determinant == 0:
+                    continue
+                solution = ((first * d - b * second) / determinant, (a * second - first * c) / determinant)
+            if all(
+                sum((value * parameter for value, parameter in zip(row, solution)), start=fractions.Fraction()) <= limit
+                for row, limit in inequalities
+            ):
+                return FracVector(solution).normalize()
+    return None
 
 
 def _snap(
@@ -1350,6 +1438,7 @@ def _snap(
     tolerance: float,
     *,
     uncertainty: tuple[Any, str] | None = None,
+    coordinate_bounds: Sequence[fractions.Fraction | None] | None = None,
     allow_large_cif_uncertainty: bool = False,
     most_specific: bool = False,
     positions: Sequence[Any] | None = None,
@@ -1358,13 +1447,39 @@ def _snap(
 ) -> tuple[str, FracVector] | None:
     """The most specific Wyckoff position within ``tolerance``, and its free parameters.
 
-    Floating point screens branch candidates at twice the tolerance, but an exact distance
-    check still accepts every result. ``positions`` limits the search to authoritative CIF
-    declarations; otherwise every standard position is tried in its established order.
+    Floating point screens branch candidates at twice the tolerance, but exact distance and
+    per-component coordinate bounds still decide every result. ``positions`` limits the search
+    to authoritative CIF declarations; otherwise every standard position is tried in its established order.
     """
     from httk.atomistic.symmetry.recognition import _cartesian_distance_squared
 
     identity = transform.is_identity()
+
+    def inside_coordinate_bounds(candidate: FracVector) -> bool:
+        if coordinate_bounds is None:
+            return True
+        return all(
+            bound is None or abs((own - snapped + fractions.Fraction(1, 2)) % 1 - fractions.Fraction(1, 2)) <= bound
+            for own, snapped, bound in zip(own_point.to_fractions(), candidate.to_fractions(), coordinate_bounds)
+        )
+
+    def accepted_parameters(branch: Any, parameters: FracVector, *, general: bool) -> FracVector | None:
+        candidate = branch.coordinate(parameters)
+        if not identity:
+            candidate = transform.to_setting(candidate)
+        if not inside_coordinate_bounds(candidate) and coordinate_bounds is not None:
+            bounded_parameters = _parameters_inside_coordinate_bounds(branch, own_point, transform, coordinate_bounds)
+            if bounded_parameters is None:
+                return None
+            parameters = bounded_parameters
+            candidate = branch.coordinate(bounded_parameters)
+            if not identity:
+                candidate = transform.to_setting(candidate)
+        if _cartesian_distance_squared(own_point - candidate, cell) > limit:
+            return None
+        if general or candidate.normalize() != own_point.normalize():
+            reject_large_uncertainty()
+        return parameters
 
     def finish(letter: str, parameters: FracVector) -> tuple[str, FracVector]:
         if orbit_screen is not None:
@@ -1403,7 +1518,7 @@ def _snap(
                     )
         return letter, parameters
 
-    exact_first = positions is None and not most_specific
+    exact_first = coordinate_bounds is None and positions is None and not most_specific
 
     def reject_large_uncertainty() -> None:
         if uncertainty is not None:
@@ -1414,7 +1529,7 @@ def _snap(
                     f"{math.sqrt(projected.to_float()):.6g} Å; pass allow_large_cif_uncertainty=True to override"
                 )
 
-    if not exact_first:
+    if not exact_first and coordinate_bounds is None:
         reject_large_uncertainty()
     elif general_screen is not None and _definitely_general(own_point, general_screen):
         reject_large_uncertainty()
@@ -1445,7 +1560,9 @@ def _snap(
         ]
         float_geometry = basis, point, matrix, vector
         screen = None if _float_screen_slack(screen_values) is None else (tolerance * 2 + 1e-9) ** 2
-    candidates = standard.wyckoff if positions is None else positions
+    candidates = sorted(
+        standard.wyckoff if positions is None else positions, key=lambda item: (item.multiplicity, item.letter)
+    )
     deferred: list[tuple[Any, Any]] = []
     matches: list[tuple[int, str, FracVector]] = []
     for position in candidates:
@@ -1453,10 +1570,8 @@ def _snap(
             reject_large_uncertainty()
             for deferred_position, deferred_branch in deferred:
                 parameters = deferred_branch.nearest_parameters(standard_point)
-                candidate = deferred_branch.coordinate(parameters)
-                if not identity:
-                    candidate = transform.to_setting(candidate)
-                if _cartesian_distance_squared(own_point - candidate, cell) <= limit:
+                parameters = accepted_parameters(deferred_branch, parameters, general=False)
+                if parameters is not None:
                     return finish(deferred_position.letter, parameters)
             exact_first = False
         for branch in position.branches:
@@ -1497,26 +1612,22 @@ def _snap(
                 deferred.append((position, branch))
                 continue
             parameters = branch.nearest_parameters(standard_point)
-            candidate = branch.coordinate(parameters)
-            if not identity:
-                candidate = transform.to_setting(candidate)
-            if _cartesian_distance_squared(own_point - candidate, cell) <= limit:
+            parameters = accepted_parameters(branch, parameters, general=position.free_count == 3)
+            if parameters is not None:
                 if not most_specific:
                     return finish(position.letter, parameters)
-                matches.append((position.free_count, position.letter, parameters))
+                matches.append((position.multiplicity, position.letter, parameters))
                 break
     if exact_first:
         reject_large_uncertainty()
         for position, branch in deferred:
             parameters = branch.nearest_parameters(standard_point)
-            candidate = branch.coordinate(parameters)
-            if not identity:
-                candidate = transform.to_setting(candidate)
-            if _cartesian_distance_squared(own_point - candidate, cell) <= limit:
+            parameters = accepted_parameters(branch, parameters, general=False)
+            if parameters is not None:
                 return finish(position.letter, parameters)
     if not matches:
         return None
-    _, letter, parameters = min(matches, key=lambda match: match[0])
+    _, letter, parameters = min(matches)
     return finish(letter, parameters)
 
 

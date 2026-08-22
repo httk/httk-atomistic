@@ -355,9 +355,7 @@ def test_coincident_cif_sites_with_different_species_are_rejected(tmp_path: Path
         _ = load(str(path)).sites
 
 
-def test_repair_never_drops_an_overoccupied_coincident_site(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_repair_never_drops_an_overoccupied_coincident_site(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "conflict.cif",
         Spacegroup.standard(1).setting,
@@ -1024,7 +1022,7 @@ def test_unrecognized_declaration_identifies_sg_228_from_operations(tmp_path: Pa
     assert load(str(path), repair=True).setting().setting == "228:2"
 
 
-def test_repair_stamp_repairs_rounded_special_positions(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_repair_stamp_preserves_strict_precision_snap(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "rounded.cif",
         Spacegroup.standard(149).setting,
@@ -1032,7 +1030,7 @@ def test_repair_stamp_repairs_rounded_special_positions(tmp_path: Path, caplog: 
         [("N1", "N", ("0.33333", "0.66667", "0.50000"), "1")],
         name="Rounded",
     )
-    assert len(UnitcellStructureView(load(str(path))).sites) == 3
+    assert len(UnitcellStructureView(load(str(path))).sites) == 1
 
     payload = load(str(path), raw=True, repair=True)
     assert payload["repair"] is True
@@ -1041,13 +1039,10 @@ def test_repair_stamp_repairs_rounded_special_positions(tmp_path: Path, caplog: 
 
     assert [(site.wyckoff, site.species) for site in asu.wyckoff_sites] == [("d", "N")]
     assert len(UnitcellStructureView(asu).sites) == 1
-    warnings = [record.getMessage() for record in caplog.records]
-    assert warnings == [
-        "CIF block 'rounded', site 'N1': snapped its rounded coordinate to the more-specific Wyckoff position 'd'"
-    ]
+    assert caplog.records == []
 
 
-def test_repair_keeps_a_partially_occupied_near_special_site(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_partial_occupancy_uses_the_same_precision_snap(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "split.cif",
         Spacegroup.standard(149).setting,
@@ -1059,7 +1054,7 @@ def test_repair_keeps_a_partially_occupied_near_special_site(tmp_path: Path, cap
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
         corrected = load(str(path), repair=True)
 
-    assert len(UnitcellStructureView(strict).sites) == len(UnitcellStructureView(corrected).sites) == 3
+    assert len(UnitcellStructureView(strict).sites) == len(UnitcellStructureView(corrected).sites) == 1
     assert caplog.records == []
 
 
@@ -1146,7 +1141,7 @@ def test_invalid_declaration_fallback_uses_the_undeclared_rounded_site_path(
     assert len(UnitcellStructureView(corrected).sites) == 1
     warnings = [record.getMessage() for record in caplog.records]
     assert any("Wyckoff label 'z'" in warning and "Wyckoff position 'd'" in warning for warning in warnings)
-    assert any(warning.endswith("more-specific Wyckoff position 'd'") for warning in warnings)
+    assert len(warnings) == 1
 
 
 @pytest.mark.parametrize("value", ("", "?"))
@@ -1173,8 +1168,9 @@ def test_declared_containing_position_is_an_integrity_error_or_falls_back(
         corrected = load(str(path), repair=True)
 
     assert len(UnitcellStructureView(corrected).sites) == 1
-    assert any("Wyckoff position 'd'" in record.getMessage() for record in caplog.records)
-    assert any(record.getMessage().endswith("more-specific Wyckoff position 'd'") for record in caplog.records)
+    warnings = [record.getMessage() for record in caplog.records]
+    assert len(warnings) == 1
+    assert "more-specific Wyckoff position 'd'" in warnings[0]
 
 
 @pytest.mark.parametrize("setting", ("48:1", "50:1", "50:1bca", "50:1cab", "73:ba-c", "126:1", "142:1", "222:1"))

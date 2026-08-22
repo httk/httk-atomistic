@@ -356,12 +356,11 @@ def test_recognition_uses_the_derived_tolerance_by_default() -> None:
 def test_a_coarsely_written_file_is_matched_at_the_precision_it_claims(tmp_path: Path) -> None:
     """The measured payoff, not a claimed one.
 
-    This site is meant to sit on Wyckoff ``4e`` of SG 15 (``0, y, 1/4``) but the file rounds
-    it to three decimals, putting it 0.005 A off in x and 0.007 A off in z. Judged against a
-    fixed 1e-3 tolerance it misses the special position entirely, lands on the general
-    position, and generates eight atoms where the structure has four — a materially wrong
-    answer, silently. The precision the file itself states justifies 0.014 A, at which it is
-    recognized correctly.
+    This site is meant to sit on Wyckoff ``4e`` of SG 15 (``0, y, 1/4``) and explicitly states
+    one-last-digit ESDs in x and z. Judged against a fixed 1e-3 Cartesian tolerance it misses
+    the special position, lands on the general position, and generates eight atoms where the
+    structure has four — a materially wrong answer, silently. The ESDs justify the component
+    corrections, at which it is recognized correctly.
     """
     spacegroup = Spacegroup.from_setting("15:b1")
     operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
@@ -373,7 +372,7 @@ def test_a_coarsely_written_file_is_matched_at_the_precision_it_claims(tmp_path:
         f"loop_\n_space_group_symop_operation_xyz\n{operations}\n"
         "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
         "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
-        "Si1 Si 0.001 0.333 0.251\n",
+        "Si1 Si 0.001(1) 0.333 0.251(1)\n",
         encoding="utf-8",
     )
     block = load(str(path), raw=True)["blocks"][0]
@@ -399,10 +398,11 @@ def test_cif_site_precision_controls_default_wyckoff_tolerance(tmp_path: Path) -
         f"loop_\n_space_group_symop_operation_xyz\n{operations}\n"
         "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
         "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
-        "Si1 Si 0.49(2) 0 0\nGe1 Ge 0 0.499432 0\n",
+        "Si1 Si 0.49(2) 0 0\nGe1 Ge 0 0.499999 0\n",
         encoding="utf-8",
     )
     block = load(str(path), raw=True)["blocks"][0]
+    assert block["position_snap_bounds"] == [(F(1, 50), None, None), (None, F(1, 2_000_000), None)]
 
     derived = asu_structure_from_cif(block)
     assert derived.coordinate_precision == F(1, 50)
@@ -432,6 +432,65 @@ def test_cif_aggregate_precision_fallback_does_not_use_three_axis_uncertainty(tm
 
     derived = asu_structure_from_cif(block)
     assert derived.wyckoff_sites[0].wyckoff == "i"
+
+
+def test_cif_snap_prefers_lower_multiplicity_then_earlier_letter(tmp_path: Path) -> None:
+    spacegroup = Spacegroup.standard(2)
+    operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
+    path = tmp_path / "ambiguous-snap.cif"
+    path.write_text(
+        "data_x\n_cell_length_a 1.0000\n_cell_length_b 1.0000\n_cell_length_c 1.0000\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 90\n"
+        "_space_group_IT_number 2\n"
+        f"loop_\n_space_group_symop_operation_xyz\n{operations}\n"
+        "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
+        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        "Si1 Si 0.25(25) 0.25(25) 0.25(25)\n",
+        encoding="utf-8",
+    )
+
+    structure = asu_structure_from_cif(load(str(path), raw=True)["blocks"][0])
+    assert structure.wyckoff_sites[0].wyckoff == "a"
+    assert spacegroup.wyckoff_position("a").multiplicity < spacegroup.wyckoff_position("i").multiplicity
+
+
+def test_cif_snap_prefers_approximate_higher_symmetry_over_exact_lower_symmetry(tmp_path: Path) -> None:
+    spacegroup = Spacegroup.standard(194)
+    operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
+    path = tmp_path / "special-before-exact.cif"
+    path.write_text(
+        "data_x\n_cell_length_a 5.0000\n_cell_length_b 5.0000\n_cell_length_c 8.0000\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 120\n"
+        "_space_group_IT_number 194\n"
+        f"loop_\n_space_group_symop_operation_xyz\n{operations}\n"
+        "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
+        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        "Zr1 Zr 0.3333 0.6667 0.4323(9)\n",
+        encoding="utf-8",
+    )
+
+    structure = asu_structure_from_cif(load(str(path), raw=True)["blocks"][0])
+    assert structure.wyckoff_sites[0].wyckoff == "f"
+    assert spacegroup.wyckoff_position("f").multiplicity < spacegroup.wyckoff_position("k").multiplicity
+
+
+def test_cif_snap_finds_a_coupled_wyckoff_point_inside_the_rounding_box(tmp_path: Path) -> None:
+    spacegroup = Spacegroup.standard(177)
+    operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
+    path = tmp_path / "coupled-rounding.cif"
+    path.write_text(
+        "data_x\n_cell_length_a 1.00000000\n_cell_length_b 1.00000000\n_cell_length_c 1.00000000\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 120\n"
+        "_space_group_IT_number 177\n"
+        f"loop_\n_space_group_symop_operation_xyz\n{operations}\n"
+        "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
+        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        "Se1 Se 0.11178605 0.55589303 0.50000000\n",
+        encoding="utf-8",
+    )
+
+    structure = asu_structure_from_cif(load(str(path), raw=True)["blocks"][0])
+    assert structure.wyckoff_sites[0].wyckoff == "m"
 
 
 def test_cif_positional_uncertainty_warns_at_the_warning_threshold(tmp_path: Path) -> None:
