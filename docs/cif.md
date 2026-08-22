@@ -1,5 +1,9 @@
 # Reading and writing CIF files
 
+The full description of exact numeric handling, repair policy, atom-type symbols,
+disorder, magnetic expansion, and spatial mCIF projection is in
+{doc}`details/cif`.
+
 *httk-atomistic* ships the CIF/mCIF parser, reader and writer stack under
 `httk.atomistic.io.cif`, and registers its readers with *httk-core* through
 `httk.registry.io.atomistic`. Importing `httk.core` therefore discovers the

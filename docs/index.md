@@ -96,6 +96,7 @@ notebooks/disorder
 details/structures
 details/structural_classes
 details/asu
+details/cif
 details/precision
 details/periodicity
 ```
