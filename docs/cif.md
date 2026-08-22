@@ -45,6 +45,18 @@ Two conveniences smooth over real-world files:
   each repair instead of refusing the file, and stamps `repair=True` on the
   payload. Without it, such a loop is a hard `ValueError`.
 
+### Partial occupancy and disorder
+
+Site occupancy is represented without discarding chemistry. When several atom-site rows
+generate exactly the same symmetry orbit, the reader combines their elements, occupancies,
+charges, and source labels into one mixed `Species`. When a site's total occupancy is below
+one outside its stated precision, the remaining fraction is represented by an explicit
+`"vacancy"` constituent. A total above one outside its stated precision is invalid in both
+strict and repair modes; `repair=True` never resolves it by dropping a constituent.
+
+Orbits that only partly overlap remain invalid, because they do not describe one shared
+crystallographic site and cannot be combined as a species composition.
+
 ### Declared Wyckoff data
 
 The modern CIF atom-site declarations `_atom_site_site_symmetry_multiplicity`

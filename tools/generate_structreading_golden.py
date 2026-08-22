@@ -29,7 +29,7 @@ def main() -> int:
         help="compressed JSON golden to write",
     )
     args = parser.parse_args()
-    files = sorted(args.corpus.glob("*.cif"))
+    files = sorted(path for path in args.corpus.glob("*.cif") if not path.name.startswith("."))
     if not files:
         parser.error(f"no CIF files in {args.corpus}")
     golden = {path.name: structreading_golden(path) for path in files}

@@ -2,9 +2,9 @@
 
 This directory contains 33 CIFs separated from the ordered structure-reading corpus:
 32 representatives with explicit partial site occupancy, plus the former disordered
-space-group-217 fixture. Some co-located different-species sites cannot yet be
-represented losslessly by the ASU model; their committed golden records deliberately
-pin the current repair behavior, including its warning and chemistry loss.
+space-group-217 fixture. The CIF reader combines co-located partial-occupancy rows into
+one mixed `Species` and represents an unoccupied remainder explicitly as `vacancy`, so
+the committed golden records pin the complete disorder chemistry.
 
 Regenerate the disorder golden after an intentional reading-semantics change:
 

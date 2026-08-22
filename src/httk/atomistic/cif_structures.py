@@ -33,7 +33,7 @@ from httk.atomistic.symmetry.symop_key import symop_key_v1
 from httk.atomistic.symmetry.xyz import operation_from_xyz
 
 from . import data as symmetry_data
-from ._composition_values import as_fraction
+from ._composition_values import as_fraction, normalization
 
 __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
 
@@ -463,22 +463,20 @@ def asu_structure_from_cif(
             f"maximum is {math.sqrt(maximum.to_float()):.6g} Å"
         )
 
-    proof = _deduplicate_wyckoff_sites(
+    proof, canonical_species = _deduplicate_wyckoff_sites(
         standard,
         transform,
         wyckoff_sites,
         species_by_name,
         labels,
         block_name=_block_name(data),
-        repair=repair,
         coordinate_precision=data.get("coordinate_precision"),
     )
-    used_species = {site.species for site in proof.wyckoff_sites}
     return ASUStructure._from_validated_proof(
         cell,
         standard,
         proof,
-        [species for name, species in species_by_name.items() if name in used_species],
+        canonical_species,
         transform,
         data.get("coordinate_precision"),
     )
@@ -492,20 +490,16 @@ def _deduplicate_wyckoff_sites(
     labels: Sequence[str],
     *,
     block_name: str,
-    repair: bool,
     coordinate_precision: Any,
-) -> _ValidatedASUProof:
-    """Remove redundant identical-species CIF orbits before building the ASU."""
-    seen: dict[tuple[fractions.Fraction, ...], tuple[str, WyckoffSite]] = {}
+) -> tuple[_ValidatedASUProof, tuple[Species, ...]]:
+    """Collapse repeated CIF orbits and combine co-located disorder losslessly."""
     cosets = transform.lattice_cosets()
     identity = transform.is_identity()
-    canonical: list[WyckoffSite] = []
-    coordinates: list[tuple[fractions.Fraction, ...]] = []
-    species_at_sites: list[str] = []
-    counts: list[int] = []
+    groups: list[tuple[frozenset[tuple[fractions.Fraction, ...]], list[int]]] = []
+    group_at_coordinate: dict[tuple[fractions.Fraction, ...], int] = {}
     for index, site in enumerate(sites):
         position = spacegroup.wyckoff_position(site.wyckoff)
-        keys = (
+        keys = frozenset(
             {tuple(point.normalize().to_fractions()) for point in position.coordinates(site.free_params)}
             if identity
             else {
@@ -514,47 +508,150 @@ def _deduplicate_wyckoff_sites(
                 for coset in cosets
             }
         )
-        overlaps: list[tuple[tuple[fractions.Fraction, ...], tuple[str, WyckoffSite]]] = []
-        for key in keys:
-            previous = seen.get(key)
-            if previous is None:
-                continue
-            overlaps.append((key, previous))
-        conflicts = [
-            (key, previous)
-            for key, previous in overlaps
-            if species_by_name[previous[0]] != species_by_name[site.species]
-        ]
-        if conflicts:
-            key, previous = conflicts[0]
-            if repair and len(overlaps) == len(keys):
-                _cif_warning(
-                    f"CIF block {block_name!r}, site {labels[index]!r}: dropped co-located disorder site; "
-                    "the ASU model cannot represent co-located different-species sites and occupancy "
-                    "information is lost"
-                )
-                continue
-            raise ValueError(
-                f"{site!r} coincides with {previous[1]!r} at {key} but has a different species. "
-                "Remedy: load(..., repair=True) keeps the first co-located site and drops the later one."
-            )
-        if overlaps:
-            if len(overlaps) == len(keys):
-                continue
+        overlapping_groups = {group_at_coordinate[key] for key in keys if key in group_at_coordinate}
+        if not overlapping_groups:
+            group_index = len(groups)
+            groups.append((keys, [index]))
+            group_at_coordinate.update((key, group_index) for key in keys)
+            continue
+        if len(overlapping_groups) != 1:
+            raise ValueError(f"{site!r} partially overlaps earlier orbits; the CIF is not a valid ASU")
+        group_index = next(iter(overlapping_groups))
+        previous_keys, members = groups[group_index]
+        if keys != previous_keys:
             raise ValueError(f"{site!r} partially overlaps an earlier orbit; the CIF is not a valid ASU")
-        canonical.append(site)
-        seen.update({key: (site.species, site) for key in keys})
+        members.append(index)
+
+    canonical: list[WyckoffSite] = []
+    canonical_species: dict[str, Species] = {}
+    coordinates: list[tuple[fractions.Fraction, ...]] = []
+    species_at_sites: list[str] = []
+    counts: list[int] = []
+    for keys, members in groups:
+        source_sites = [sites[index] for index in members]
+        source_species = [(species_by_name[site.species], labels[index]) for site, index in zip(source_sites, members)]
+        species = _combine_cif_species(source_species, block_name=block_name)
+        previous = canonical_species.get(species.name)
+        if previous is not None and previous != species:
+            source_labels = ", ".join(repr(labels[index]) for index in members)
+            raise ValueError(
+                f"CIF block {block_name!r} uses site labels {source_labels} to form species name "
+                f"{species.name!r}, but that name already describes a different species"
+            )
+        canonical_species.setdefault(species.name, species)
+        representative = source_sites[0]
+        canonical.append(
+            WyckoffSite(
+                representative.wyckoff,
+                representative.free_params,
+                species.name,
+                representative.representative,
+                representative.moment,
+            )
+        )
         ordered = sorted(keys)
         coordinates.extend(ordered)
-        species_at_sites.extend((site.species,) * len(ordered))
+        species_at_sites.extend((species.name,) * len(ordered))
         counts.append(len(ordered))
     reduced = FracVector([list(point) for point in coordinates]) if coordinates else FracVector(())
-    return _ValidatedASUProof._issue_from_cif_deduplication(
-        spacegroup,
-        transform,
-        canonical,
-        (reduced, tuple(species_at_sites), tuple(counts)),
-        coordinate_precision,
+    return (
+        _ValidatedASUProof._issue_from_cif_deduplication(
+            spacegroup,
+            transform,
+            canonical,
+            (reduced, tuple(species_at_sites), tuple(counts)),
+            coordinate_precision,
+        ),
+        tuple(canonical_species.values()),
+    )
+
+
+def _combine_cif_species(sources: Sequence[tuple[Species, str]], *, block_name: str) -> Species:
+    """Combine the distinct CIF rows for one orbit and make vacancies explicit."""
+    distinct: list[tuple[Species, str]] = []
+    for source in sources:
+        if any(source[0] == previous[0] for previous in distinct):
+            continue
+        distinct.append(source)
+
+    symbols: list[str]
+    concentrations: list[fractions.Fraction]
+    precisions: list[fractions.Fraction | None]
+    charges: list[fractions.Fraction | None] | None
+    labels: list[str | None] | None
+    if len(distinct) == 1:
+        species, _ = distinct[0]
+        symbols = list(species.chemical_symbols)
+        concentrations = list(species.concentration)
+        precisions = list(species.concentration_precision or (None,) * len(symbols))
+        charges = None if species.charges is None else list(species.charges)
+        labels = None if species.labels is None else list(species.labels)
+        name = species.name
+        original_name = species.original_name
+    else:
+        constituents: list[
+            tuple[
+                str,
+                fractions.Fraction,
+                fractions.Fraction | None,
+                fractions.Fraction | None,
+                str,
+            ]
+        ] = []
+        for species, source_label in distinct:
+            if len(species.chemical_symbols) != 1:
+                raise ValueError("internal CIF disorder aggregation expected one constituent per source row")
+            source_precisions = species.concentration_precision
+            constituents.append(
+                (
+                    species.chemical_symbols[0],
+                    species.concentration[0],
+                    None if source_precisions is None else source_precisions[0],
+                    None if species.charges is None else species.charges[0],
+                    source_label,
+                )
+            )
+        constituents.sort(
+            key=lambda item: (
+                item[0],
+                item[3] is None,
+                "" if item[3] is None else str(item[3]),
+                item[4],
+                item[1],
+            )
+        )
+        symbols = [item[0] for item in constituents]
+        concentrations = [item[1] for item in constituents]
+        precisions = [item[2] for item in constituents]
+        charges = [item[3] for item in constituents]
+        labels = [item[4] for item in constituents]
+        name = "/".join(item[4] for item in constituents)
+        original_name = None
+
+    normalized, _, total, width = normalization(tuple(concentrations), tuple(precisions))
+    if total > 1 and not normalized:
+        source_labels = ", ".join(repr(label) for _, label in distinct)
+        raise ValueError(
+            f"CIF block {block_name!r}, co-located sites {source_labels}: occupancies sum to {total}, "
+            "outside their stated precision around one"
+        )
+    if total < 1:
+        symbols.append("vacancy")
+        concentrations.append(1 - total)
+        precisions.append(width)
+        if charges is not None:
+            charges.append(None)
+        if labels is not None:
+            labels.append(None)
+
+    return Species(
+        name=name,
+        chemical_symbols=symbols,
+        concentration=concentrations,
+        original_name=original_name,
+        concentration_precision=precisions,
+        charges=charges,
+        labels=labels,
     )
 
 

@@ -1,7 +1,6 @@
 """Exact, private canonical form for CIF structure-reading regression fixtures."""
 
 import logging
-from collections import Counter
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
@@ -58,17 +57,17 @@ def structreading_golden(path: str | Path) -> dict[str, Any]:
         repairs = []
 
     block = raw["blocks"][0]
-    species_symbols = {species.name: species.chemical_symbols[0] for species in structure.species}
+    species = sorted((_species_record(value) for value in structure.species), key=lambda value: value["name"])
     sites = sorted(
         (
-            species_symbols[site.species],
+            site.species,
             site.wyckoff,
             tuple(str(value) for value in site.free_params.to_fractions()),
         )
         for site in structure.wyckoff_sites
     )
     expanded = UnitcellStructureView(structure)
-    formula = dict(sorted(Counter(species_symbols[name] for name in expanded.species_at_sites).items()))
+    composition = expanded.composition
     setting = structure.setting()
     if setting is None:
         raise ValueError("structure has no identified setting; cannot build a golden record")
@@ -78,9 +77,57 @@ def structreading_golden(path: str | Path) -> dict[str, Any]:
         "hall_entry": setting.hall_entry,
         "it_number": structure.spacegroup.it_number,
         "cell_parameters": [str(Fraction(value)) for value in block["cell_parameters_exact"]],
-        "sites": [[symbol, letter, list(parameters)] for symbol, letter, parameters in sites],
-        "formula": formula,
+        "species": species,
+        "sites": [[name, letter, list(parameters)] for name, letter, parameters in sites],
+        "composition": {
+            "amounts": [[symbol, str(amount)] for symbol, amount in composition.amounts],
+            "uncertainties": [
+                [symbol, None if width is None else str(width)] for symbol, width in composition.uncertainties
+            ],
+            "complete": composition.complete,
+            "exact": composition.exact,
+            "normalized": composition.normalized,
+            "normalization_status": composition.normalization_status,
+            "diagnostics": [
+                {
+                    "code": diagnostic.code,
+                    "message": diagnostic.message,
+                    "subject": diagnostic.subject,
+                    "total": None if diagnostic.total is None else str(diagnostic.total),
+                    "width": None if diagnostic.width is None else str(diagnostic.width),
+                }
+                for diagnostic in composition.diagnostics
+            ],
+        },
+        "formula": str(expanded.formula),
         "expanded_site_count": len(expanded.sites),
+    }
+
+
+def _species_record(species: Any) -> dict[str, Any]:
+    """Return every lossless species field in a JSON-stable form.
+
+    :param species: Species value read from the CIF.
+    :return: Exact JSON-serializable species representation.
+    """
+
+    def exact_values(values: Any) -> list[str | None] | None:
+        if values is None:
+            return None
+        return [None if value is None else str(value) for value in values]
+
+    return {
+        "name": species.name,
+        "chemical_symbols": list(species.chemical_symbols),
+        "concentration": [str(value) for value in species.concentration],
+        "concentration_precision": exact_values(species.concentration_precision),
+        "mass": None if species.mass is None else list(species.mass),
+        "original_name": species.original_name,
+        "attached": None if species.attached is None else list(species.attached),
+        "nattached": None if species.nattached is None else list(species.nattached),
+        "charges": exact_values(species.charges),
+        "spins": exact_values(species.spins),
+        "labels": None if species.labels is None else list(species.labels),
     }
 
 
@@ -102,7 +149,6 @@ def _repair_category(message: str) -> str:
     """
     categories = {
         "ignored declared symmetry": "unrecognized_declared_symmetry",
-        "dropped co-located disorder site": "co_located_disorder_site",
         "snapped its rounded coordinate": "rounded_coordinate_snap",
         "ignored declared Wyckoff data": "invalid_declared_wyckoff",
         "dropped malformed auxiliary loop": "malformed_auxiliary_loop",

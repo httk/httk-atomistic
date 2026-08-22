@@ -351,11 +351,13 @@ def test_coincident_cif_sites_with_different_species_are_rejected(tmp_path: Path
         [("Ca1", "Ca2+", ("0", "0", "0"), "1"), ("O1", "O2-", ("0", "0", "0"), "1")],
         name="Conflict",
     )
-    with pytest.raises(ValueError, match=r"different species.*Remedy: load\(\.\.\., repair=True\)"):
+    with pytest.raises(ValueError, match=r"co-located sites.*occupancies sum to 2"):
         _ = load(str(path)).sites
 
 
-def test_repair_drops_a_later_coincident_disorder_site(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_repair_never_drops_an_overoccupied_coincident_site(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     path = _write_cif(
         tmp_path / "conflict.cif",
         Spacegroup.standard(1).setting,
@@ -365,18 +367,43 @@ def test_repair_drops_a_later_coincident_disorder_site(tmp_path: Path, caplog: p
     )
 
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        asu = load(str(path), repair=True)
+        with pytest.raises(ValueError, match=r"co-located sites.*occupancies sum to 2"):
+            load(str(path), repair=True)
 
-    assert [site.species for site in asu.wyckoff_sites] == ["Ca2+"]
-    assert [species.name for species in asu.species] == ["Ca2+"]
-    assert len(UnitcellStructureView(asu).sites) == 1
-    warnings = [record.getMessage() for record in caplog.records]
-    assert warnings == [
-        (
-            "CIF block 'conflict', site 'O1': dropped co-located disorder site; the ASU model cannot represent "
-            "co-located different-species sites and occupancy information is lost"
-        )
+    assert caplog.records == []
+
+
+def test_coincident_partial_sites_form_one_mixed_species(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "mixed.cif",
+        Spacegroup.standard(1).setting,
+        (1, 1, 1, 90, 90, 90),
+        [("Ca1", "Ca2+", ("0", "0", "0"), ".25"), ("O1", "O2-", ("0", "0", "0"), ".75")],
+        name="Mixed",
+    )
+
+    asu = load(str(path))
+
+    assert [(site.wyckoff, site.species) for site in asu.wyckoff_sites] == [("a", "Ca1/O1")]
+    assert len(asu.species) == 1
+    species = asu.species[0]
+    assert species.chemical_symbols == ("Ca", "O")
+    assert species.concentration == (F(1, 4), F(3, 4))
+    assert species.charges == (F(2), F(-2))
+    assert species.labels == ("Ca1", "O1")
+    assert species.normalized
+
+
+def test_disordered_217_is_read_without_losing_chemistry() -> None:
+    asu = load(str(Path(__file__).with_name("fixtures") / "disorder" / "217.cif"))
+
+    assert [(site.wyckoff, site.species) for site in asu.wyckoff_sites] == [("c", "B1"), ("c", "B2/Li1")]
+    assert [(species.name, species.chemical_symbols, species.concentration) for species in asu.species] == [
+        ("B1", ("B", "vacancy"), (F(1, 8), F(7, 8))),
+        ("B2/Li1", ("B", "Li"), (F(3, 8), F(5, 8))),
     ]
+    assert asu.chemical_formula_reduced == "B4Li5"
+    assert len(UnitcellStructureView(asu).sites) == 16
 
 
 # --- reading ---
@@ -537,9 +564,11 @@ def test_occupancies_survive_into_the_structure(tmp_path: Path) -> None:
         name="Partial",
     )
     asu = load(str(path))
-    concentrations = {species.name: species.concentration for species in asu.species}
-    assert concentrations["Na1"] == (0.5,)
-    assert concentrations["Cl"] == (1.0,)
+    species = {value.name: value for value in asu.species}
+    assert species["Na1"].chemical_symbols == ("Na", "vacancy")
+    assert species["Na1"].concentration == (F(1, 2), F(1, 2))
+    assert species["Cl"].chemical_symbols == ("Cl",)
+    assert species["Cl"].concentration == (F(1),)
     # A partially occupied site is named for its CIF label, since two sites of one element
     # can carry different occupancies.
     assert [site.species for site in asu.wyckoff_sites] == ["Na1", "Cl"]
@@ -554,10 +583,12 @@ def test_neutral_exact_occupancies_preserve_central_values_and_precision(tmp_pat
 
     asu = asu_structure_from_cif(payload)
     concentrations = {species.name: species for species in asu.species}
-    assert concentrations["Na1"].concentration == (F(1, 2),)
-    assert concentrations["Na1"].concentration_precision == (F(7, 10000),)
-    assert concentrations["Cl1"].concentration == (F(1, 3),)
-    assert concentrations["Cl1"].concentration_precision == (None,)
+    assert concentrations["Na1"].chemical_symbols == ("Na", "vacancy")
+    assert concentrations["Na1"].concentration == (F(1, 2), F(1, 2))
+    assert concentrations["Na1"].concentration_precision == (F(7, 10000), F(7, 10000))
+    assert concentrations["Cl1"].chemical_symbols == ("Cl", "vacancy")
+    assert concentrations["Cl1"].concentration == (F(1, 3), F(2, 3))
+    assert concentrations["Cl1"].concentration_precision == (None, None)
 
 
 def test_neutral_missing_occupancy_is_not_treated_as_full_occupancy(tmp_path: Path) -> None:
