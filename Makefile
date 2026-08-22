@@ -5,7 +5,7 @@ DIST_DIR ?= dist
 # between httk repositories (read by docs/conf.py via HTTK_DOCS_BASE_URL).
 DOCS_BASE_URL ?= https://docs.httk.org
 
-.PHONY: docs docs-live docs-clean docs-inventories docs-lock docs-lock-check optimade-defs symmetry-data clean dist-clean dist dist-check release-check format format-check typecheck typecheck_pyright lint test test_fastfail test-extended test-extended-fastfail audit
+.PHONY: docs docs-live docs-clean docs-inventories docs-lock docs-lock-check optimade-defs symmetry-data clean dist-clean dist dist-check release-check format format-check typecheck typecheck_pyright lint test test_fastfail test-extended test-extended-fastfail benchmarks audit
 
 docs: docs-clean
 	HTTK_DOCS_BASE_URL=$(DOCS_BASE_URL) $(PYTHON) -m sphinx -E -a -b html -W --keep-going docs docs/_build/html
@@ -116,6 +116,10 @@ test-extended:
 
 test-extended-fastfail:
 	HTTK_TEST_PROFILE=extended $(PYTHON) -m pytest -q -m "" -x
+
+benchmarks:
+	$(PYTHON) benchmarks/bench_lift_p1.py
+	$(PYTHON) benchmarks/bench_vasp_trajectory_jsonl.py
 
 check: format-check typecheck typecheck_pyright test
 

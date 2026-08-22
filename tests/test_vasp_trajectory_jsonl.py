@@ -1,7 +1,6 @@
 """VASP trajectory to JSONL conversion."""
 
 from pathlib import Path
-from time import perf_counter
 
 import httk.core
 import pytest
@@ -105,19 +104,3 @@ def test_vasp_structure_view_kind_dispatch(tmp_path: Path) -> None:
     view = UnitcellStructureView(backend, kind=VASPStructure.kind)
     assert view._backend is backend
     assert view.unwrap() is source
-
-
-AL_300K = Path(__file__).parents[2] / "electronic-structure-example-data" / "MD" / "VASP" / "Al_300K"
-
-
-@pytest.mark.extended
-@pytest.mark.skipif(not AL_300K.is_dir(), reason="workspace Al_300K fixture is unavailable")
-def test_workspace_al_300k_jsonl_probe(tmp_path: Path) -> None:
-    start = perf_counter()
-    source = VASPTrajectory(AL_300K)
-    output = tmp_path / "Al_300K.traj.jsonl"
-    httk.core.save(source, output)
-    loaded = httk.core.load(output)
-    elapsed = perf_counter() - start
-    print(f"Al_300K JSONL conversion: {loaded.nframes} frames in {elapsed:.2f}s")
-    assert loaded.nframes == 10000

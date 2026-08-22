@@ -88,6 +88,7 @@ def _p1(structure: ASUStructure) -> ASUStructure:
     )
 
 
+@pytest.mark.extended
 def test_own_group_enumerates_both_letter_assignments() -> None:
     zincblende = _zincblende()
     representations = list_representations(zincblende, 216)
@@ -100,6 +101,7 @@ def test_own_group_enumerates_both_letter_assignments() -> None:
     assert len({_key(r) for r in representations}) == len(representations)
 
 
+@pytest.mark.extended
 def test_descent_representations_are_distinct_same_crystal_and_pinned() -> None:
     rocksalt = _rocksalt()
     representations = list_representations(rocksalt, 166)
@@ -110,6 +112,7 @@ def test_descent_representations_are_distinct_same_crystal_and_pinned() -> None:
     assert _same_crystal(representations[0], rocksalt)
 
 
+@pytest.mark.extended
 def test_ascent_returns_the_ground_truth_representation() -> None:
     rocksalt = _rocksalt()
     child = subgroup_representation(rocksalt, 12).asu  # the pinned GT C2/m image
@@ -131,6 +134,7 @@ def test_size_proxy_rejects_a_same_crystal_supercell() -> None:
     assert not _same_crystal_same_size(supercell, minimal)
 
 
+@pytest.mark.extended
 def test_inequivalent_subgroup_embedding_is_out_of_scope() -> None:
     # Completeness boundary (documented scope): a representation from another descent chain
     # (225 -> 139 -> 69 -> 12) is the same crystal at the same cell size, yet is NOT returned --
