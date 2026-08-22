@@ -23,6 +23,7 @@ from httk.core.cli import CLIContext
 from httk.atomistic import (
     ASUStructure,
     ASUStructureView,
+    SymopsStructure,
     UnitcellStructure,
     UnitcellStructureView,
     canonical_asu,
@@ -31,6 +32,7 @@ from httk.atomistic import (
     rerepresent,
     structure_tolerance,
 )
+from httk.atomistic.mcif_structures import _mcif_spatial_tolerance, _spatial_structure_from_mcif
 from httk.atomistic.symmetry.lift import canonicalize
 
 #: Everything a handler may raise that is the operator's problem rather than a defect.
@@ -100,11 +102,14 @@ def _print_structure(asu: ASUStructure, *, label: str = "space group", exact: bo
     _print_wyckoff(asu, exact=exact)
 
 
-def _asu_for_info(loaded: Any, *, tolerance: float | None) -> ASUStructure:
+def _asu_for_info(loaded: Any, *, tolerance: float | None, repair: bool = False) -> ASUStructure:
     """Resolve any ordinary structure through the ASU view used by symmetry reporting."""
     source = loaded
+    if isinstance(loaded, SymopsStructure):
+        projection_tolerance = _mcif_spatial_tolerance(loaded) if tolerance is None else tolerance
+        source = _spatial_structure_from_mcif(loaded, tolerance=projection_tolerance, repair=repair)
     if not isinstance(loaded, ASUStructure):
-        unitcell = UnitcellStructureView(loaded)
+        unitcell = UnitcellStructureView(source)
         if unitcell.site_moments is not None:
             # ``info`` reports crystallographic spatial symmetry. Magnetic moments can lower
             # that symmetry or prevent an ASU from representing an antiferromagnetic orbit,
@@ -149,7 +154,7 @@ def _save(asu: ASUStructure, destination: str) -> None:
 
 def _handle_info(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
     loaded = _load(arguments.file, repair=arguments.repair)
-    asu = _asu_for_info(loaded, tolerance=arguments.tolerance)
+    asu = _asu_for_info(loaded, tolerance=arguments.tolerance, repair=arguments.repair)
     print(f"input: {type(loaded).__name__}")
     if isinstance(loaded, ASUStructure):
         _print_structure(asu, label="declared space group", exact=arguments.exact)
@@ -158,7 +163,9 @@ def _handle_info(arguments: argparse.Namespace, context: CLIContext, prog: str) 
         _print_structure(asu, label="recognized space group", exact=arguments.exact)
 
     if arguments.recognize:
-        view = UnitcellStructureView(loaded)
+        # ``asu`` is also the moment-free, disorder-combined spatial projection for an
+        # mCIF. Recognizing the raw magnetic backend would bypass that projection.
+        view = UnitcellStructureView(asu)
         tolerance = structure_tolerance(view) if arguments.tolerance is None else arguments.tolerance
         recognized = recognize_asu(view, tolerance=tolerance)
         print(f"recognized (tolerance {_num(tolerance, exact=arguments.exact)}):")

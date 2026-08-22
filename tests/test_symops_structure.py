@@ -136,6 +136,22 @@ def test_duplicate_position_with_different_moment_is_rejected() -> None:
         _ = structure.sites
 
 
+def test_independent_colocated_rows_preserve_constituent_moments() -> None:
+    species = (Species("Fe", ("Fe",), (F(1, 2),)), Species("Mn", ("Mn",), (F(1, 2),)))
+    structure = SymopsStructure(
+        _cell(),
+        [[0, 0, 0], [0, 0, 0]],
+        species,
+        ("Fe", "Mn"),
+        ("x,y,z,+1",),
+        site_moments=CrystalAxisSiteMoments([[1, 0, 0], [0, 0, 0]], _cell()),
+    )
+
+    assert structure.sites.reduced_coords.to_fractions() == [[F(0), F(0), F(0)], [F(0), F(0), F(0)]]
+    assert structure.species_at_sites == ("Fe", "Mn")
+    assert _moment_rows(structure.site_moments) == ((1, 0, 0), (0, 0, 0))
+
+
 def test_views_expand_symops_and_asu_recognition_checks_moment_uniformity() -> None:
     structure = _symops([[F(1, 4), 0, 0]], ("x,y,z", "-x,-y,-z"))
     hand_built = UnitcellStructure(_cell(), [[F(1, 4), 0, 0], [F(3, 4), 0, 0]], _species(), ("Fe", "Fe"))

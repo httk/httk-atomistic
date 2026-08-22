@@ -26,6 +26,7 @@ from httk.core import FracVector, decimal_precision
 from httk.atomistic.elements import SYMBOLS
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import CellParams
+from httk.atomistic.models.cell.view import CellView
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite, _ValidatedASUProof
 from httk.atomistic.symmetry.setting_transform import SettingTransform
@@ -39,6 +40,7 @@ from ._composition_values import as_fraction, normalization
 __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
 
 _ALLOW_LARGE_CIF_UNCERTAINTY = "_httk_atomistic_allow_large_cif_uncertainty"
+_MAX_REPAIR_OCCUPANCY_EXCESS = fractions.Fraction(1, 20)
 
 _CIF_CORE_TYPE_SYMBOLS = frozenset(
     [
@@ -514,6 +516,12 @@ def asu_structure_from_cif(
         else:
             occupancy = occupancies[index]
         occupancy_precision = None if occupancy_precisions is None else occupancy_precisions[index]
+        occupancy = _repair_cif_occupancy(
+            occupancy,
+            label=labels[index],
+            block_name=_block_name(data),
+            repair=repair,
+        )
         raw_symbol = symbols[index]
         stated_mass = None if masses is None else masses[index]
         decoded = _decode_type_symbol(raw_symbol, stated_mass)
@@ -823,7 +831,13 @@ def _deduplicate_wyckoff_sites(
     )
 
 
-def _combine_cif_species(sources: Sequence[tuple[Species, str]], *, block_name: str) -> Species:
+def _combine_cif_species(
+    sources: Sequence[tuple[Species, str]],
+    *,
+    block_name: str,
+    repair_overoccupancy: bool = False,
+    drop_partial_masses: bool = False,
+) -> Species:
     """Combine the distinct CIF rows for one orbit and make vacancies explicit."""
     distinct: list[tuple[Species, str]] = []
     for source in sources:
@@ -896,17 +910,24 @@ def _combine_cif_species(sources: Sequence[tuple[Species, str]], *, block_name: 
         )
         if has_nonvacancy_mass:
             if any(symbol != "vacancy" and mass is None for symbol, mass in zip(symbols, mass_values)):
-                raise ValueError(
-                    "CIF disorder orbit gives masses for only some constituents; the Species mass list "
-                    "cannot represent that partial declaration exactly"
+                if not drop_partial_masses:
+                    raise ValueError(
+                        "CIF disorder orbit gives masses for only some constituents; the Species mass list "
+                        "cannot represent that partial declaration exactly"
+                    )
+                _cif_warning(
+                    f"CIF block {block_name!r}: omitted partially declared constituent masses in the "
+                    "repaired spatial disorder projection"
                 )
-            masses = []
-            for symbol, mass in zip(symbols, mass_values):
-                if symbol == "vacancy":
-                    masses.append(0.0)
-                else:
-                    assert mass is not None
-                    masses.append(mass)
+                masses = None
+            else:
+                masses = []
+                for symbol, mass in zip(symbols, mass_values):
+                    if symbol == "vacancy":
+                        masses.append(0.0)
+                    else:
+                        assert mass is not None
+                        masses.append(mass)
         else:
             masses = None
         labels = [item[5] for item in constituents]
@@ -915,11 +936,20 @@ def _combine_cif_species(sources: Sequence[tuple[Species, str]], *, block_name: 
 
     normalized, _, total, width = normalization(tuple(concentrations), tuple(precisions))
     if total > 1 and not normalized:
-        source_label_text = ", ".join(repr(label) for _, label in distinct)
-        raise ValueError(
-            f"CIF block {block_name!r}, co-located sites {source_label_text}: occupancies sum to {total}, "
-            "outside their stated precision around one"
+        if not repair_overoccupancy or total - 1 > _MAX_REPAIR_OCCUPANCY_EXCESS:
+            source_label_text = ", ".join(repr(label) for _, label in distinct)
+            raise ValueError(
+                f"CIF block {block_name!r}, co-located sites {source_label_text}: occupancies sum to {total}, "
+                "outside their stated precision around one"
+            )
+        _cif_warning(
+            f"CIF block {block_name!r}: normalized co-located-site occupancies totaling {total} to one "
+            "in the repaired spatial disorder projection"
         )
+        concentrations = [value / total for value in concentrations]
+        precisions = [None if value is None else value / total for value in precisions]
+        width = None if width is None else width / total
+        total = fractions.Fraction(1)
     if total < 1:
         symbols.append("vacancy")
         concentrations.append(1 - total)
@@ -1482,7 +1512,7 @@ def _cell_from_cif(data: Mapping[str, Any]) -> Cell:
     if exact is not None and all(value is not None for value in exact):
         # The text the file wrote, so 5.6402 becomes 56402/10000 rather than the binary
         # value of float("5.6402").
-        return Cell(CellParams([fractions.Fraction(value) for value in exact]).basis, 1, precision)
+        return CellView(CellParams([fractions.Fraction(value) for value in exact], precision=precision))
     raise ValueError("CIF payload has no complete exact cell-parameter channel")
 
 
@@ -1507,6 +1537,21 @@ def _species_name(symbol: str, label: str, occupancy: Any) -> str:
     of the same element can carry different occupancies and would otherwise collide.
     """
     return symbol if as_fraction(occupancy, field="CIF occupancy")[0] == 1 else label
+
+
+def _repair_cif_occupancy(occupancy: Any, *, label: str, block_name: str, repair: bool) -> Any:
+    """Clamp an out-of-range refined occupancy only under explicit CIF repair."""
+    exact = as_fraction(occupancy, field="CIF occupancy")[0]
+    if 0 <= exact <= 1 or not repair:
+        return occupancy
+    if exact < -_MAX_REPAIR_OCCUPANCY_EXCESS or exact > 1 + _MAX_REPAIR_OCCUPANCY_EXCESS:
+        return occupancy
+    repaired = fractions.Fraction(0) if exact < 0 else fractions.Fraction(1)
+    _cif_warning(
+        f"CIF block {block_name!r}: clamped site {label!r} occupancy {exact} to {repaired} "
+        "because occupancies must lie in [0, 1]"
+    )
+    return repaired
 
 
 def _parse_type_symbol(symbol: str) -> tuple[str, fractions.Fraction | None]:
@@ -1550,8 +1595,11 @@ def _decode_type_symbol(symbol: str, stated_mass: float | None) -> _DecodedCIFTy
     if label in {"Vac", "Va", "vacancy"}:
         return _DecodedCIFType("vacancy", charge, None, 0.0, True)
 
-    neutral_core_symbol = charge == 0 and label in _CIF_CORE_TYPE_SYMBOLS
-    if (raw in _CIF_CORE_TYPE_SYMBOLS or neutral_core_symbol) and label in SYMBOLS:
+    # The core dictionary's conventional list is not exhaustive for charge spelling.
+    # Once a syntactically valid prefix/suffix charge has been removed, an elemental
+    # remainder is still that element (for example O-2, Fe+3, or Fe4+).
+    charged_element = charge is not None and label in SYMBOLS
+    if (raw in _CIF_CORE_TYPE_SYMBOLS or charged_element) and label in SYMBOLS:
         return _DecodedCIFType(label, charge, None, stated_mass, True)
     return _DecodedCIFType("X", charge, label, stated_mass, False)
 
@@ -1598,7 +1646,7 @@ def _read_cif_for_atomistic(
                     "_httk_atomistic_wyckoff_labels": raw_block.get("atom_site_wyckoff_label"),
                     "_httk_atomistic_symmetry_multiplicities": raw_block.get("atom_site_site_symmetry_multiplicity"),
                     "_httk_atomistic_site_symmetry_orders": raw_block.get("atom_site_site_symmetry_order"),
-                    **({"_httk_atomistic_block_name": name} if repair else {}),
+                    "_httk_atomistic_block_name": name,
                 }
             )
     payload: dict[str, Any] = {"format": "cif", "blocks": blocks, "unparsed": unparsed, "header": header}

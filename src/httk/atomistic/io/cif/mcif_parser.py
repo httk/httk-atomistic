@@ -25,6 +25,7 @@ from httk.core import combined_precision
 
 from ._xyz_expr import _parse_linear_expr, _parse_linear_expr_algebraic
 from .cif_parser import (
+    _atom_type_masses,
     _cell_parameter_tokens,
     cif_exact_token,
     parse_asu_cell,
@@ -524,6 +525,7 @@ def cifblock_to_mag_asu(cifblock: dict[str, Any], *, error_on_nonmag: bool = Fal
         'occupancies_exact': asu.occupancies_exact,
         'occupancy_precisions': asu.occupancy_precisions,
         'symbols': asu.symbols,
+        'masses': _atom_type_masses(cifblock, asu.symbols),
         'symops_xyz': tuple(raw_symops),
         'incomm': incomm,
         'space_group_nbr': space_group_nbr,
@@ -546,24 +548,28 @@ def cifblock_to_mag_asu(cifblock: dict[str, Any], *, error_on_nonmag: bool = Fal
 
 
 def mag_asus_from_mcif_file(
-    source: str | os.PathLike[str] | Iterable[str], *, error_on_nonmag: bool = False
+    source: str | os.PathLike[str] | Iterable[str], *, error_on_nonmag: bool = False, repair: bool = False
 ) -> list[dict[str, Any]]:
     """Read every mcif data block as a neutral magnetic asymmetric-unit payload.
 
     :param source: A filename, open text stream, or iterable of mcif lines.
     :param error_on_nonmag: Reject blocks without usable magnetic moment columns.
+    :param repair: Apply documented, warning-emitting CIF repairs while preserving structural data.
     :return: Magnetic payloads for the data blocks in the source.
     :raises ValueError: If the mcif stream or a selected block is invalid.
     """
-    cifblocks, _header = read_cif(source, allow_cif2=True)
+    cifblocks, _header = read_cif(source, allow_cif2=True, repair=repair)
 
     outputs = []
     for name, cifblock in cifblocks:
-        outputs += [cifblock_to_mag_asu(cifblock, error_on_nonmag=error_on_nonmag)]
+        block = cifblock_to_mag_asu(cifblock, error_on_nonmag=error_on_nonmag)
+        if repair:
+            block["repair"] = True
+        outputs.append(block)
     return outputs
 
 
-def read_mcif_asus(source: str | os.PathLike[str] | Iterable[str]) -> dict[str, Any]:
+def read_mcif_asus(source: str | os.PathLike[str] | Iterable[str], *, repair: bool = False) -> dict[str, Any]:
     """Read an mcif into the neutral payload used by the ``.mcif`` loader.
 
     Magnetic positions and moments remain exact central tokens, symmetry operations remain
@@ -571,10 +577,11 @@ def read_mcif_asus(source: str | os.PathLike[str] | Iterable[str]) -> dict[str, 
     sites are skipped; blocks that cannot be interpreted are reported in ``unparsed``.
 
     :param source: A filename, open text stream, or iterable of mcif lines.
+    :param repair: Apply documented, warning-emitting CIF repairs while preserving structural data.
     :return: A neutral mcif payload containing magnetic blocks, unparsed reasons, and the header.
     :raises ValueError: If the mcif stream contains malformed data that prevents parsing.
     """
-    cifblocks, header = read_cif(source, allow_cif2=True)
+    cifblocks, header = read_cif(source, allow_cif2=True, repair=repair)
     blocks = []
     unparsed = []
     for name, cifblock in cifblocks:
@@ -584,20 +591,24 @@ def read_mcif_asus(source: str | os.PathLike[str] | Iterable[str]) -> dict[str, 
             blocks.append(cifblock_to_mag_asu(cifblock))
         except Exception as error:
             unparsed.append({'block': name, 'reason': f'{type(error).__name__}: {error}'})
-    return {'format': 'mcif', 'blocks': blocks, 'unparsed': unparsed, 'header': header}
+    payload: dict[str, Any] = {'format': 'mcif', 'blocks': blocks, 'unparsed': unparsed, 'header': header}
+    if repair:
+        payload['repair'] = True
+    return payload
 
 
 def single_mag_asu_from_mcif_file(
-    source: str | os.PathLike[str] | Iterable[str], *, error_on_nonmag: bool = False
+    source: str | os.PathLike[str] | Iterable[str], *, error_on_nonmag: bool = False, repair: bool = False
 ) -> dict[str, Any]:
     """Return the first structural mcif block as a neutral magnetic payload.
 
     :param source: A filename, open text stream, or iterable of mcif lines.
     :param error_on_nonmag: Reject the selected block without usable magnetic moments.
+    :param repair: Apply documented, warning-emitting CIF repairs while preserving structural data.
     :return: The first magnetic asymmetric-unit payload.
     :raises ValueError: If no structural block is available or the selected block is invalid.
     """
-    cifblocks, _header = read_cif(source, allow_cif2=True)
+    cifblocks, _header = read_cif(source, allow_cif2=True, repair=repair)
 
     # Get the first cifblock with atomic sites
     for name, cifblock in cifblocks:
@@ -606,4 +617,7 @@ def single_mag_asu_from_mcif_file(
     else:
         raise ValueError("No structural block found in mcif")
 
-    return cifblock_to_mag_asu(cifblock, error_on_nonmag=error_on_nonmag)
+    result = cifblock_to_mag_asu(cifblock, error_on_nonmag=error_on_nonmag)
+    if repair:
+        result["repair"] = True
+    return result

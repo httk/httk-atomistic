@@ -72,7 +72,9 @@ def _operation(parts: Sequence[str]) -> AffineOperation:
     rows = []
     translations = []
     for part in parts:
-        row, translation = _parse_linear_expression(part, ("x", "y", "z"))
+        # CIFs in the wild commonly capitalize the conventional coordinate variables.
+        # The variable names are semantic here, so accept either case.
+        row, translation = _parse_linear_expression(part.lower(), ("x", "y", "z"))
         rows.append(row)
         translations.append(translation)
     return AffineOperation(rows, translations)

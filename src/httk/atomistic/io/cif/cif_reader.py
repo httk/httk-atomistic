@@ -534,12 +534,25 @@ def read_cif(
     :param source: A filename, open text stream, or iterable of CIF lines.
     :param pragmatic: Accept selected common deviations from strict CIF tokenization.
     :param allow_cif2: Parse CIF2 list values in addition to CIF1 data.
-    :param repair: Drop malformed auxiliary loops and warn about each repair.
+    :param repair: Apply documented, warning-emitting CIF repairs, including malformed
+        auxiliary-loop removal and a Latin-1 fallback for legacy files.
     :param structural_only: Retain only tags consumed by httk's structural adapters and skip auxiliary CIF1 loops.
     :return: The data blocks and the leading comment header.
     :raises ValueError: If a loop contains mismatched column value counts.
     """
     if isinstance(source, (str, os.PathLike)):
-        with TextstreamFileView(Path(source)) as stream:
-            return _read_cif(_RewindableIterator(stream), pragmatic, allow_cif2, repair, structural_only)
+        path = Path(source)
+        try:
+            with TextstreamFileView(path) as stream:
+                return _read_cif(_RewindableIterator(stream), pragmatic, allow_cif2, repair, structural_only)
+        except UnicodeDecodeError:
+            if not repair:
+                raise
+            logger.warning(
+                "CIF file %r is not valid UTF-8; decoded it as Latin-1 under repair=True",
+                str(path),
+                extra={"context": "cif"},
+            )
+            with TextstreamFileView(path, encoding="latin-1") as stream:
+                return _read_cif(_RewindableIterator(stream), pragmatic, allow_cif2, repair, structural_only)
     return _read_cif(_RewindableIterator(source), pragmatic, allow_cif2, repair, structural_only)

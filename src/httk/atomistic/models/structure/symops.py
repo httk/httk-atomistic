@@ -298,7 +298,7 @@ class SymopsStructure(StructureSemanticsMixin, StructureBackend):
         source_moments = self._listed_site_moments
         source_rows = None if source_moments is None else _moment_rows(source_moments, self._cell)
         generated: list[tuple[tuple[Any, ...], str, tuple[Any, ...] | Any]] = []
-        seen: dict[tuple[Any, ...], tuple[str, tuple[Any, ...] | Any]] = {}
+        seen: dict[tuple[Any, ...], list[tuple[str, tuple[Any, ...] | Any, int]]] = {}
 
         for site_index, (site, species) in enumerate(zip(self._listed_sites, self._listed_species_at_sites)):
             block: list[tuple[tuple[Any, ...], str, tuple[Any, ...] | Any]] = []
@@ -311,16 +311,19 @@ class SymopsStructure(StructureSemanticsMixin, StructureBackend):
                     moment = time_reversal * int(operation.determinant()) * source_rows[site_index]
                 else:
                     moment = _transform_lattice_moment(source_rows[site_index], operation, time_reversal)
-                previous = seen.get(position_key)
-                if previous is not None:
-                    if previous != (species, moment):
-                        raise ValueError(
-                            "internally inconsistent structure: operation "
-                            f"{operation_index} maps site {site_index} onto an already-generated site "
-                            "with a different species/moment"
-                        )
+                previous = seen.get(position_key, [])
+                if any(
+                    previous_species == species and previous_moment == moment
+                    for previous_species, previous_moment, _ in previous
+                ):
                     continue
-                seen[position_key] = (species, moment)
+                if previous and any(previous_site == site_index for _, _, previous_site in previous):
+                    raise ValueError(
+                        "internally inconsistent structure: operation "
+                        f"{operation_index} maps site {site_index} onto an already-generated site "
+                        "with a different species/moment"
+                    )
+                seen.setdefault(position_key, []).append((species, moment, site_index))
                 block.append((position_key, species, moment))
             generated.extend(sorted(block, key=lambda item: item[0]))
 

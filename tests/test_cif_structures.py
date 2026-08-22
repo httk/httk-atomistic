@@ -309,14 +309,14 @@ def test_rational_uncertainty_metric_is_exactly_equivalent(tmp_path: Path) -> No
     ("raw", "symbol", "charge"),
     [
         ("Ca2+", "Ca", F(2)),
-        ("O2-", "X", F(-2)),
-        ("Cu+", "X", F(1)),
+        ("O2-", "O", F(-2)),
+        ("Cu+", "Cu", F(1)),
         ("Ti0", "Ti", F(0)),
         ("Ti", "Ti", None),
         ("D0", "H", F(0)),
-        ("O-2", "X", F(-2)),
-        ("Na+1", "X", F(1)),
-        ("P+5", "X", F(5)),
+        ("O-2", "O", F(-2)),
+        ("Na+1", "Na", F(1)),
+        ("P+5", "P", F(5)),
     ],
 )
 def test_cif_type_symbol_parsing(raw: str, symbol: str, charge: fractions.Fraction | None) -> None:
@@ -352,7 +352,7 @@ def test_coincident_cif_sites_with_different_species_are_rejected(tmp_path: Path
         [("Ca1", "Ca2+", ("0", "0", "0"), "1"), ("O1", "O1-", ("0", "0", "0"), "1")],
         name="Conflict",
     )
-    with pytest.raises(ValueError, match=r"co-located sites.*occupancies sum to 2"):
+    with pytest.raises(ValueError, match=r"CIF block 'conflict'.*co-located sites.*occupancies sum to 2"):
         _ = load(str(path)).sites
 
 
@@ -365,11 +365,31 @@ def test_repair_never_drops_an_overoccupied_coincident_site(tmp_path: Path, capl
         name="Conflict",
     )
 
-    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        with pytest.raises(ValueError, match=r"co-located sites.*occupancies sum to 2"):
-            load(str(path), repair=True)
+    with (
+        caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"),
+        pytest.raises(ValueError, match=r"co-located sites.*occupancies sum to 2"),
+    ):
+        load(str(path), repair=True)
 
     assert caplog.records == []
+
+
+def test_repair_clamps_an_individual_refined_occupancy(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    path = _write_cif(
+        tmp_path / "refined.cif",
+        Spacegroup.standard(1).setting,
+        (1, 1, 1, 90, 90, 90),
+        [("O1", "O", ("0", "0", "0"), "1.013")],
+        name="Refined",
+    )
+
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        load(path)
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        repaired = load(path, repair=True)
+
+    assert repaired.species[0].concentration == (1,)
+    assert any("clamped site 'O1' occupancy" in record.getMessage() for record in caplog.records)
 
 
 def test_coincident_partial_sites_form_one_mixed_species(tmp_path: Path) -> None:

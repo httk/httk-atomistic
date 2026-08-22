@@ -182,7 +182,7 @@ def test_fundamental_domain_equality_includes_charge() -> None:
 
 
 @pytest.mark.parametrize("field", ["charge", "decorations"])
-def test_plain_and_file_writers_reject_unencoded_state(field: str) -> None:
+def test_plain_and_poscar_writers_reject_unencoded_state(field: str) -> None:
     species = Species("Si", ("Si",), (1,), charges=(1,)) if field == "decorations" else Species("Si", ("Si",), (1,))
     structure = UnitcellStructureView(
         UnitcellStructure(
@@ -198,6 +198,18 @@ def test_plain_and_file_writers_reject_unencoded_state(field: str) -> None:
     with pytest.raises(ValueError, match=message):
         PlainStructureView(structure)
     with pytest.raises(ValueError, match=message):
-        _cif_payload_from_structure(structure)
-    with pytest.raises(ValueError, match=message):
         _poscar_payload_from_structure(structure)
+
+
+def test_cif_writer_encodes_integral_species_charge() -> None:
+    species = Species("Si", ("Si",), (1,), charges=(1,))
+    structure = UnitcellStructure(
+        Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
+        [[0, 0, 0]],
+        [species],
+        ["Si"],
+    )
+
+    payload = _cif_payload_from_structure(structure)
+
+    assert payload["blocks"][0]["symbols"] == ("Si1+",)

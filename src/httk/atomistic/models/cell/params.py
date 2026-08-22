@@ -7,7 +7,7 @@ from typing import Any, Self
 
 from httk.core import SurdScalar, SurdVector, exactmath
 
-from httk.atomistic.models._vector_guards import is_params6, to_fracvector
+from httk.atomistic.models._vector_guards import is_params6, to_fracvector, to_precision
 from httk.atomistic.models.cell.backend import CellBackend
 
 # Deterministic precision for the rational fallback when an angle is not a special angle
@@ -93,6 +93,7 @@ class CellParams(CellBackend):
     _raw: Any
     _params: tuple[fractions.Fraction, ...]
     _basis_cache: SurdVector | None
+    _precision: fractions.Fraction | None
 
     @classmethod
     def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
@@ -120,6 +121,7 @@ class CellParams(CellBackend):
         self._raw = obj
         self._params = params
         self._basis_cache = None
+        self._precision = to_precision(hints.get("precision"))
 
     @staticmethod
     def _describes_valid_cell(alpha: fractions.Fraction, beta: fractions.Fraction, gamma: fractions.Fraction) -> bool:
@@ -160,6 +162,14 @@ class CellParams(CellBackend):
         :return: The cell vectors.
         """
         return self.basis
+
+    @property
+    def precision(self) -> fractions.Fraction | None:
+        """Return the source precision supplied with these cell parameters.
+
+        :return: The absolute length precision, or ``None`` when unstated.
+        """
+        return self._precision
 
     @property
     def lengths(self) -> tuple[SurdScalar, ...]:

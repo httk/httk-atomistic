@@ -98,7 +98,11 @@ def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_T
         return tolerance
 
     cap = _half_minimum_separation(view)
-    return tolerance if cap is None or tolerance < cap else cap
+    # Leave a small relative margin as well as stepping below the float boundary. A
+    # one-ULP step alone can be lost when the later Cartesian squared-distance path
+    # recomputes the same separation through matrix arithmetic.
+    strict_cap = None if cap is None else math.nextafter(cap * (1 - 1e-12), 0.0)
+    return tolerance if strict_cap is None or tolerance < strict_cap else strict_cap
 
 
 def _half_minimum_separation(view: Any) -> float | None:
@@ -239,10 +243,10 @@ def _recognize(
                 f"{standard.setting} within a tolerance of {tolerance}; the structure does not have "
                 f"the symmetry it was given"
             )
-        position, branch, parameters = match
+        position, branch, parameters, coset = match
         if limit_denominator is not None and position.free_count:
             parameters = FracVector([value.limit_denominator(limit_denominator) for value in parameters.to_fractions()])
-        snapped_own = transform.to_setting(branch.coordinate(parameters)).normalize()
+        snapped_own = (transform.to_setting(branch.coordinate(parameters)) + coset).normalize()
         placed.append((position, parameters, snapped_own))
 
     return _group_into_orbits(view, standard, transform, placed, species_at_sites, cell, tolerance)
@@ -255,11 +259,11 @@ def _place_on_position(
     cell: Any,
     transform: SettingTransform,
     tolerance: float,
-) -> tuple[WyckoffPosition, WyckoffBranch, FracVector] | None:
+) -> tuple[WyckoffPosition, WyckoffBranch, FracVector, FracVector] | None:
     """The most specific Wyckoff position within ``tolerance`` of a site.
 
-    Returns the position, the orbit branch the site sits on, and that branch's free
-    parameters. Positions are tried most specific first, so a site a hair away from a
+    Returns the position, the orbit branch the site sits on, that branch's free
+    parameters, and the matched setting-lattice coset. Positions are tried most specific first, so a site a hair away from a
     special position is recognized as being on it rather than as a general-position site
     that happens to sit there. The general position matches everything with zero
     displacement, so the walk always terminates for a coordinate inside the cell.
@@ -270,12 +274,14 @@ def _place_on_position(
     grouping is done by orbit membership rather than by comparing parameters.
     """
     tolerance_squared = tolerance * tolerance
+    cosets = transform.lattice_cosets()
     for position in standard.wyckoff:
         for branch in position.branches:
             parameters = branch.nearest_parameters(standard_point)
             candidate = transform.to_setting(branch.coordinate(parameters))
-            if _cartesian_distance_squared(own_point - candidate, cell) <= tolerance_squared:
-                return position, branch, parameters
+            for coset in cosets:
+                if _cartesian_distance_squared(own_point - candidate - coset, cell) <= tolerance_squared:
+                    return position, branch, parameters, coset
     return None
 
 
@@ -287,6 +293,38 @@ def _cartesian_distance_squared(difference: FracVector, cell: Any) -> float:
     """
     shortest = SurdVector(difference.normalize_half()) * cell.basis
     return float(shortest.lengthsqr().to_float())
+
+
+def _orbit_has_bijective_members(
+    member_indices: Sequence[int],
+    placed: Sequence[tuple[WyckoffPosition, FracVector, FracVector]],
+    orbit: Sequence[FracVector],
+    cell: Any,
+    tolerance: float,
+) -> bool:
+    """Whether the candidate input sites occupy every generated orbit point once."""
+    candidates = {
+        member: tuple(
+            index for index, point in enumerate(orbit) if _lies_in_orbit(placed[member][2], (point,), cell, tolerance)
+        )
+        for member in member_indices
+    }
+    if any(not choices for choices in candidates.values()):
+        return False
+    matched_orbit: dict[int, int] = {}
+
+    def augment(member: int, visited: set[int]) -> bool:
+        for orbit_index in candidates[member]:
+            if orbit_index in visited:
+                continue
+            visited.add(orbit_index)
+            previous = matched_orbit.get(orbit_index)
+            if previous is None or augment(previous, visited):
+                matched_orbit[orbit_index] = member
+                return True
+        return False
+
+    return all(augment(member, set()) for member in member_indices)
 
 
 def _group_into_orbits(
@@ -358,6 +396,11 @@ def _group_into_orbits(
                 f"Wyckoff position {position.multiplicity}{position.letter} generates {len(orbit)} sites "
                 f"but only {len(members)} of them are present; the structure is not symmetric under "
                 f"{standard.setting} as claimed"
+            )
+        if not _orbit_has_bijective_members(members, placed, orbit, cell, tolerance):
+            raise ValueError(
+                f"Wyckoff position {position.multiplicity}{position.letter} generates {len(orbit)} sites, "
+                "but the input does not occupy each generated position exactly once"
             )
 
         for other in members:

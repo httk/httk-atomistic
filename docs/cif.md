@@ -39,33 +39,42 @@ Two conveniences smooth over real-world files:
   block cannot be interpreted, so `load` omits it from `blocks` and records the
   reason in `unparsed` (the underlying parser raises a `ValueError` that the
   loader catches per block).
-- **Repair.** Passing `repair=True` to `load` (or to `read_cif` /
-  `read_cif_asus`) drops a malformed *auxiliary* loop — one whose column counts do
-  not line up and whose tags are not a protected structural family — warning about
-  each repair instead of refusing the file, and stamps `repair=True` on the
-  payload. Without it, such a loop is a hard `ValueError`.
+- **Repair.** Passing `repair=True` enables a bounded set of warning-emitting
+  repairs and stamps `repair=True` on neutral payloads. The low-level reader drops
+  malformed *auxiliary* loops whose column counts do not line up and retries legacy
+  non-UTF-8 path inputs as Latin-1. During `load`, the structure adapter additionally
+  ignores invalid declared Wyckoff metadata in favor of the coordinates and clamps
+  an individual refined occupancy no more than `0.05` outside `[0, 1]` to the nearest
+  boundary. Larger violations remain errors. Strict loading rejects each of those cases.
 
 ### Partial occupancy and disorder
 
 Site occupancy is represented without discarding chemistry. When several atom-site rows
 generate exactly the same symmetry orbit, the reader combines their elements, occupancies,
 charges, and source labels into one mixed `Species`. When a site's total occupancy is below
-one, the remaining fraction is represented by an explicit `"vacancy"` constituent. A total
-above one outside its stated precision is invalid in both strict and repair modes;
-`repair=True` never resolves it by dropping a constituent.
+one, the remaining fraction is represented by an explicit `"vacancy"` constituent. A
+co-located total above one outside its stated precision remains invalid for an ordinary CIF
+even in repair mode; no constituent is silently dropped. For the moment-free spatial report
+of an mCIF, repair mode may instead normalize a co-located mixture whose total is at most
+`1.05` and omit
+a mass channel declared for only some constituents. Both lossy projections emit warnings and
+leave the native magnetic structure unchanged.
 
 Orbits that only partly overlap remain invalid, because they do not describe one shared
 crystallographic site and cannot be combined as a species composition.
 
-Writing this richer representation is not implemented yet. Saving an `ASUStructure` whose
-species carries disorder, labels, isotope masses, or charges raises instead of silently
-projecting those fields away. Read→write→read is therefore safe for the writer's ordered,
-bare-element subset, but currently unavailable for disordered or isotope-bearing CIFs.
+The CIF writer emits one atom-site row per non-vacancy constituent, preserving occupancies,
+source labels, integral charge spellings, isotope/pseudo-site labels, and declared masses.
+Read→write→read is covered over the disorder fixture corpus. State without an exact CIF
+channel—fractional charges, spins, attached species, assemblies, a net structure charge, or
+an independently declared composition—is rejected rather than projected away.
 
 ### Atom-type symbols and isotopes
 
 The CIF core dictionary's standard `_atom_type_symbol` values are interpreted as their
-elements and optional oxidation states. The widespread isotope symbols `D` and `T` become
+elements and optional oxidation states. Both magnitude-before-sign (`Fe3+`) and the common
+sign-before-magnitude spelling (`Fe+3`) are accepted when the remaining token is an element.
+The widespread isotope symbols `D` and `T` become
 hydrogen constituents with species labels `D` and `T` and default masses 2.008 and 3.0160
 u. An `_atom_type_mass` or `_atom_type.atomic_mass` table overrides those defaults. `X`
 maps to OPTIMADE's non-chemical `"X"`; `Vac`, `Va`, and `vacancy` map to `"vacancy"` with

@@ -4,7 +4,6 @@ from fractions import Fraction
 from pathlib import Path
 
 import pytest
-
 from httk.core import load, save
 
 from httk.atomistic.cif_structures import _CIF_CORE_TYPE_SYMBOLS, _decode_type_symbol
@@ -72,7 +71,7 @@ def test_special_type_symbols_have_explicit_semantics(
     assert decoded.mass == mass
 
 
-@pytest.mark.parametrize("raw", ["M", "R", "LP", "Lp", "dummy", "FeNi", "Fe4+"])
+@pytest.mark.parametrize("raw", ["M", "R", "LP", "Lp", "dummy", "FeNi"])
 def test_unrecognized_type_symbols_warn_and_are_preserved_as_labels(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, raw: str
 ) -> None:
@@ -83,14 +82,27 @@ def test_unrecognized_type_symbols_warn_and_are_preserved_as_labels(
         structure = load(path)
 
     species = structure.species[0]
-    expected_label = "Fe" if raw == "Fe4+" else raw
     assert species.chemical_symbols == ("X", "vacancy")
-    assert species.labels == (expected_label, None)
+    assert species.labels == (raw, None)
     assert species.name == "site1"
     assert [record.getMessage() for record in caplog.records] == [
-        f"unrecognized CIF atom-type symbol {raw!r}; represented as chemical symbol 'X' "
-        f"with species label {expected_label!r}"
+        (f"unrecognized CIF atom-type symbol {raw!r}; represented as chemical symbol 'X' with species label {raw!r}")
     ]
+
+
+@pytest.mark.parametrize(
+    ("raw", "symbol", "charge"),
+    [("Fe4+", "Fe", 4), ("Fe+3", "Fe", 3), ("O-2", "O", -2), ("Na+1", "Na", 1), ("Cl-", "Cl", -1)],
+)
+def test_charge_spelling_variants_retain_the_element(tmp_path: Path, raw: str, symbol: str, charge: int) -> None:
+    path = tmp_path / "charged.cif"
+    path.write_text(_single_site(raw, occupancy="1"), encoding="utf-8")
+
+    species = load(path).species[0]
+
+    assert species.chemical_symbols == (symbol,)
+    assert species.charges == (charge,)
+    assert species.labels is None
 
 
 def test_a_full_unknown_type_uses_the_cif_symbol_as_its_species_name(

@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import httk.core
+import pytest
 
 CIF_TEXT = """#a small header
 data_nacl
@@ -107,6 +108,34 @@ def test_load_mcif_returns_a_tagged_neutral_payload(tmp_path):
     assert "basis" not in block
     assert "positions" not in block
     assert "symops" not in block
+
+
+def test_load_mcif_forwards_repair_to_the_shared_cif_reader(tmp_path):
+    path = tmp_path / "repair.mcif"
+    text = (Path(__file__).with_name("fixtures") / "malformed_auxiliary_loop.cif").read_text(encoding="utf-8")
+    path.write_text(
+        text.replace("_space_group_symop_operation_xyz\n'x,y,z'", "_space_group_symop_magn_operation.xyz\n'x,y,z,+1'"),
+        encoding="utf-8",
+    )
+
+    payload = httk.core.load(path, raw=True, repair=True)
+
+    assert len(payload["blocks"]) == 1
+    assert payload["unparsed"] == []
+
+
+def test_repair_decodes_non_utf8_cif_as_latin1(tmp_path, caplog):
+    path = tmp_path / "latin1.cif"
+    path.write_bytes(("# 90¼ rotation\n" + CIF_TEXT).encode("latin-1"))
+
+    with pytest.raises(UnicodeDecodeError):
+        httk.core.load(path, raw=True)
+    with caplog.at_level("WARNING", logger="httk.atomistic.io.cif.cif_reader"):
+        payload = httk.core.load(path, raw=True, repair=True)
+
+    assert payload["format"] == "cif"
+    assert "90¼ rotation" in payload["header"]
+    assert any("decoded it as Latin-1" in record.getMessage() for record in caplog.records)
 
 
 def test_missing_atom_site_columns_are_named(tmp_path):

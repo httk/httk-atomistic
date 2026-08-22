@@ -73,6 +73,28 @@ class CellView(CellViewBase, Cell):
         object.__setattr__(self, "_periodicity", to_periodicity(self._backend.periodicity))
 
     @cached_property
+    def lengths(self) -> tuple[SurdScalar, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """Present the backend's native cell-vector lengths without re-deriving them.
+
+        :return: The three exact or backend-native cell-vector lengths.
+        """
+        values = tuple(to_surdscalar(value) for value in self._backend.lengths)
+        if len(values) != 3:
+            raise ValueError("Cell lengths must contain exactly three values")
+        return values
+
+    @cached_property
+    def angles(self) -> tuple[fractions.Fraction, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """Present the backend's native crystallographic angles without re-deriving them.
+
+        :return: The three cell angles in degrees.
+        """
+        values = tuple(fractions.Fraction(value) for value in self._backend.angles)
+        if len(values) != 3:
+            raise ValueError("Cell angles must contain exactly three values")
+        return values
+
+    @cached_property
     def _unscaled_basis(self) -> SurdVector:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
         self._fill_unscaled_basis()
         return self.__dict__["_unscaled_basis"]
@@ -109,7 +131,11 @@ class CellView(CellViewBase, Cell):
     def unview(self) -> Cell:
         """Return this presentation as a standalone cell.
 
-        :return: The exact cell representation.
+        The original backend remains available through :meth:`unwrap`. For a parameter
+        backend with a non-special angle, the standalone basis uses that backend's
+        documented deterministic rational approximation.
+
+        :return: The standalone basis representation.
         """
         # The folded design makes a genuine Cell backend exactly the presented value: reuse it.
         backend = self._backend

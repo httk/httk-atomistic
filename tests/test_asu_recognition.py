@@ -19,7 +19,9 @@ from httk.core import FracVector, unwrap
 from httk.atomistic import (
     ASUStructure,
     ASUStructureView,
+    Cell,
     SettingTransform,
+    Sites,
     Spacegroup,
     Species,
     UnitcellStructure,
@@ -97,6 +99,58 @@ def test_round_trip_through_a_volume_changing_transform() -> None:
     recovered = recognize_asu(expanded, setting=rhombohedral)
     assert recovered.multiplicities() == (1,)
     assert expanded.sites.reduced_coords == UnitcellStructureView(recovered).sites.reduced_coords
+
+
+def test_recognition_places_every_image_in_a_supercell_coset() -> None:
+    """A supercell image maps back to its standard Wyckoff site."""
+    transform = SettingTransform([["1/2", 0, 0], [0, 1, 0], [0, 0, 1]])
+    original = ASUStructure(
+        [[2, 0, 0], [0, 1, 0], [0, 0, 1]],
+        1,
+        [WyckoffSite("a", FracVector((0, 0, 0)), "H")],
+        _species("H"),
+        transform=transform,
+    )
+    expanded = UnitcellStructureView(original)
+    assert expanded.sites.reduced_coords.to_fractions() == [[F(0), F(0), F(0)], [F(1, 2), F(0), F(0)]]
+
+    recovered = recognize_asu(expanded, standard=Spacegroup.standard(1), transform=transform)
+
+    assert [(site.wyckoff, site.species) for site in recovered.wyckoff_sites] == [("a", "H")]
+    assert recovered.multiplicities() == (2,)
+    assert expanded.sites.reduced_coords == UnitcellStructureView(recovered).sites.reduced_coords
+
+
+def test_recognition_rejects_duplicate_supercell_cosets() -> None:
+    """Two copies in one coset cannot stand in for one site in each coset."""
+    transform = SettingTransform([["1/2", 0, 0], [0, 1, 0], [0, 0, 1]])
+    duplicated = UnitcellStructure(
+        [[2, 0, 0], [0, 1, 0], [0, 0, 1]],
+        [[0, 0, 0], [0, 0, 0]],
+        _species("H"),
+        ("H", "H"),
+    )
+
+    with pytest.raises(ValueError, match="does not occupy each generated position exactly once"):
+        recognize_asu(duplicated, standard=Spacegroup.standard(1), transform=transform)
+
+
+def test_tolerance_cap_keeps_split_sites_off_the_same_special_position() -> None:
+    """The half-separation cap must be strict after Cartesian float arithmetic."""
+    split = UnitcellStructure(
+        Cell(((5, 0, 0), (0, F(820817, 25000), 0), (0, 0, 7))),
+        Sites(
+            ((F(123, 1000), F(493, 100000), F(234, 1000)), (F(123, 1000), F(99507, 100000), F(234, 1000))),
+            F(1, 100),
+        ),
+        _species("H"),
+        ("H", "H"),
+    )
+
+    recovered = recognize_asu(split, standard=Spacegroup.standard(6), transform=SettingTransform.identity())
+
+    assert recovered.multiplicities() == (2,)
+    assert len(UnitcellStructureView(recovered).sites) == 2
 
 
 def test_round_trip_through_an_untabulated_setting() -> None:

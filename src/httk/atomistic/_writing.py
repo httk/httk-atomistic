@@ -119,6 +119,21 @@ def _type_symbol(species: Any, index: int) -> str:
     charge = None if species.charges is None else species.charges[index]
     if charge is None:
         return base
+
+    from httk.atomistic.cif_structures import _decode_type_symbol
+
+    # A read-derived, single-constituent species commonly retains the source atom-type
+    # spelling as its name. Reuse it when it decodes to this exact constituent so forms
+    # such as ``P+5`` survive a read/write/read cycle instead of becoming ``P5+``.
+    source_candidate = species.name
+    source_decoded = _decode_type_symbol(source_candidate, None)
+    if (source_decoded.chemical_symbol, source_decoded.charge, source_decoded.species_label) == (
+        symbol,
+        charge,
+        label,
+    ):
+        return source_candidate
+
     if charge.denominator != 1:
         raise ValueError(f"CIF serializer cannot represent species charges: fractional {charge} on atom type {base!r}")
     magnitude = abs(charge.numerator)
@@ -128,8 +143,6 @@ def _type_symbol(species: Any, index: int) -> str:
         candidate = f"{base}{'+' if charge > 0 else '-'}{magnitude}"
     else:
         candidate = f"{base}{magnitude}{'+' if charge > 0 else '-'}"
-
-    from httk.atomistic.cif_structures import _decode_type_symbol
 
     decoded = _decode_type_symbol(candidate, None)
     if (decoded.chemical_symbol, decoded.charge, decoded.species_label) != (symbol, charge, label):

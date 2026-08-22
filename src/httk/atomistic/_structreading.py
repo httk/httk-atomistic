@@ -152,6 +152,10 @@ def _repair_category(message: str) -> str:
         "snapped its rounded coordinate": "rounded_coordinate_snap",
         "ignored declared Wyckoff data": "invalid_declared_wyckoff",
         "dropped malformed auxiliary loop": "malformed_auxiliary_loop",
+        "decoded it as Latin-1": "latin1_fallback",
+        "clamped site": "occupancy_clamped",
+        "normalized co-located-site occupancies": "occupancy_normalized",
+        "omitted partially declared constituent masses": "partial_masses_omitted",
     }
     for marker, category in categories.items():
         if marker in message:

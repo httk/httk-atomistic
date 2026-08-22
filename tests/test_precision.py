@@ -334,7 +334,9 @@ def test_the_tolerance_is_capped_below_half_the_closest_approach() -> None:
         ["Na", "Cl"],
     )
     # Uncapped this would be 0.1 * 5 * 2 = 1.0 A, far enough to merge the two sites.
-    assert structure_tolerance(close) == pytest.approx(0.25)
+    tolerance = structure_tolerance(close)
+    assert tolerance == pytest.approx(0.25)
+    assert tolerance < 0.25
 
 
 def test_the_cap_does_not_engage_for_well_separated_atoms() -> None:

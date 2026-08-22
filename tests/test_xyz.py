@@ -14,6 +14,7 @@ from httk.atomistic.symmetry import (
     ("text", "vector"),
     (
         ("x,y,z", (0, 0, 0)),
+        ("+X,+Y,+Z", (0, 0, 0)),
         ("-x+1/2,y-0.25,-z-1.25", (Fraction(1, 2), Fraction(-1, 4), Fraction(-5, 4))),
         ("x+0.3333,y,z", (Fraction(3333, 10000), 0, 0)),
     ),

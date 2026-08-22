@@ -2,13 +2,14 @@
 
 import subprocess
 import sys
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
 from httk.core import CLIContext, FracVector, load, save
 
-from httk.atomistic import ASUStructure, Cell, Species, WyckoffSite
-from httk.atomistic.cli import command
+from httk.atomistic import ASUStructure, Cell, Sites, Species, SymopsStructure, WyckoffSite
+from httk.atomistic.cli import _asu_for_info, command
 from httk.atomistic.symmetry.lift import canonicalize
 
 
@@ -129,6 +130,63 @@ def test_info_reads_mcif_through_structural_asu_view(capsys) -> None:
     assert "input: SymopsStructure" in out
     assert "recognized space group: IT 229" in out
     assert "sites: 2 (Fe 2)" in out
+
+
+def test_info_combines_mcif_disorder_before_spatial_expansion(tmp_path: Path, capsys) -> None:
+    pytest.importorskip("spglib")
+    path = tmp_path / "disorder.mcif"
+    path.write_text(
+        """data_disorder
+_cell_length_a 5
+_cell_length_b 5
+_cell_length_c 5
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+loop_
+_space_group_symop_magn_operation.xyz
+'x,y,z,+1'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+Fe1 Fe 0 0 0 0.75
+Mn1 Mn 0 0 0 0.25
+loop_
+_atom_site_moment.label
+_atom_site_moment.crystalaxis_x
+_atom_site_moment.crystalaxis_y
+_atom_site_moment.crystalaxis_z
+Fe1 1 0 0
+""",
+        encoding="utf-8",
+    )
+
+    assert _run(["info", "--recognize", str(path)]) == 0
+    out = capsys.readouterr().out
+    assert "recognized space group: IT 221" in out
+    assert "sites: 1 (Fe1/Mn1 1)" in out
+
+
+def test_info_uses_structure_tolerance_after_mcif_spatial_projection() -> None:
+    pytest.importorskip("spglib")
+    structure = SymopsStructure(
+        Cell(((10, 0, 0), (0, 11, 0), (0, 0, 12)), precision=Fraction(1, 1000)),
+        Sites(
+            ((Fraction(1, 10), Fraction(1, 5), Fraction(3, 10)), (Fraction(89, 100), Fraction(4, 5), Fraction(7, 10))),
+            Fraction(1, 100),
+        ),
+        (Species("Fe", ("Fe",), (1,)),),
+        ("Fe", "Fe"),
+        ("x,y,z,+1",),
+    )
+
+    recognized = _asu_for_info(structure, tolerance=None)
+
+    assert recognized.spacegroup.it_number == 2
 
 
 def test_info_prints_floats_by_default_and_rationals_with_exact(tmp_path: Path, capsys) -> None:
