@@ -30,6 +30,7 @@ from httk.atomistic import (
     recognize_asu,
     same_crystal,
 )
+from httk.atomistic.symmetry import recognition as recognition_module
 
 F = fractions.Fraction
 
@@ -287,6 +288,20 @@ def test_view_recognizes_a_plain_structure() -> None:
 
 
 # --- spglib ---
+
+
+def test_spglib_transform_keeps_a_data_derived_origin_shift() -> None:
+    """An arbitrary origin is not rounded onto the small crystallographic-fraction grid."""
+    operation = recognition_module._exact_operation(
+        [[1.0, 0.0, 0.0], [0.0, 1.0 / 3.0, 0.0], [0.0, 0.0, 1.0]],
+        [1.0 / 3.0, 0.96857143, 0.0],
+    )
+
+    # True setting constants retain their clean exact value, while an atom-selected origin keeps
+    # the measured decimal rather than being displaced to the closest denominator <= 48.
+    assert operation.matrix[1][1] == F(1, 3)
+    assert operation.vector[0] == F(1, 3)
+    assert operation.vector[1] == F(96857143, 100000000)
 
 
 def test_asu_view_no_arguments_uses_spglib() -> None:

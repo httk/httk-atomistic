@@ -17,8 +17,9 @@ from httk.atomistic import (
     WyckoffSite,
     build_supercell,
     canonical_asu,
+    same_crystal,
 )
-from httk.atomistic.symmetry.canonical import _fits_within
+from httk.atomistic.symmetry.canonical import _fits_within, _p1_fallback
 from httk.atomistic.symmetry.lift import _site_key
 
 
@@ -70,12 +71,12 @@ def test_nacl_noise_below_tolerance_canonicalizes_to_the_reference() -> None:
     assert _site_key(noisy) == _site_key(reference)
 
 
-def test_rutile_free_parameter_is_a_least_squares_fit_near_the_reference() -> None:
+def test_rutile_free_parameter_stays_near_the_reference() -> None:
     pytest.importorskip("spglib")
     reference = canonical_asu(UnitcellStructureView(_rutile()))
     noisy = canonical_asu(_perturbed(UnitcellStructure(*_expanded(_rutile())), 400_000))
-    # Same group, setting and Wyckoff multiset; the free parameter is a least-squares fit of the
-    # measured coordinates, so it lands NEAR the reference value but is not exactly equal.
+    # Same group, setting and Wyckoff multiset; exact P1 preconditioning can absorb this perturbation
+    # into the canonical origin, so the fitted free parameter may equal the reference exactly.
     assert noisy.spacegroup.it_number == reference.spacegroup.it_number == 136
 
     def multiset(asu: ASUStructure) -> list[tuple[str, str]]:
@@ -84,7 +85,6 @@ def test_rutile_free_parameter_is_a_least_squares_fit_near_the_reference() -> No
     assert multiset(noisy) == multiset(reference)
     reference_x = next(s.free_params.to_fractions()[0] for s in reference.wyckoff_sites if s.species == "O")
     noisy_x = next(s.free_params.to_fractions()[0] for s in noisy.wyckoff_sites if s.species == "O")
-    assert reference_x != noisy_x
     assert abs(noisy_x - reference_x) < F(1, 1000)  # well within the fractional tolerance of the 4.6 cell
 
 
@@ -140,6 +140,33 @@ def test_fits_within_requires_an_injective_match() -> None:
     assert _fits_within(view, valid, 0.02)
 
 
+def test_fits_within_finds_a_non_greedy_bijective_match() -> None:
+    # Input 0 can use either model, while input 1 can use only model 0. A nearest-pair greedy
+    # algorithm consumes model 0 for input 0 and fails; the valid bijection is input 0 -> model 1,
+    # input 1 -> model 0.
+    cell = Cell(((1, 0, 0), (0, 1, 0), (0, 0, 1)))
+    inputs = ASUStructure(
+        cell,
+        1,
+        [
+            WyckoffSite("a", FracVector((0, 0, 0)), "Na"),
+            WyckoffSite("a", FracVector((F(1, 10), 0, 0)), "Na"),
+        ],
+        _species("Na"),
+    )
+    model = ASUStructure(
+        cell,
+        1,
+        [
+            WyckoffSite("a", FracVector((F(4, 100), 0, 0)), "Na"),
+            WyckoffSite("a", FracVector((F(94, 100), 0, 0)), "Na"),
+        ],
+        _species("Na"),
+    )
+
+    assert _fits_within(UnitcellStructureView(inputs), model, 0.07)
+
+
 def test_symprec_sweep_rescues_a_tolerance_boundary_flip() -> None:
     pytest.importorskip("spglib")
     # NaCl shifted +1e-4 on every coordinate: recognition fails at the tight symprec (base/5) but
@@ -149,22 +176,27 @@ def test_symprec_sweep_rescues_a_tolerance_boundary_flip() -> None:
     shifted = [[value + F(1, 10000) for value in row] for row in coords]
     noisy = UnitcellStructure(cell, shifted, species, species_at)
     assert canonical_asu(noisy, factors=(F(1, 5), 1, 5)).spacegroup.it_number == 225
-    with pytest.raises(ValueError, match="within tolerance"):
-        canonical_asu(noisy, factors=(F(1, 5),))
+    # P1 preconditioning removes the global shift before spglib, so even the tight member now sees
+    # the same cubic geometry rather than needing the loose boundary rescue.
+    assert canonical_asu(noisy, factors=(F(1, 5),)).spacegroup.it_number == 225
 
 
-def test_all_members_failing_lists_every_attempted_tolerance() -> None:
+def test_all_members_failing_fall_back_to_exact_p1(caplog: pytest.LogCaptureFixture) -> None:
     pytest.importorskip("spglib")
-    # Two Na sites 5e-5 A apart merge at every swept symprec, so no member reproduces the input; the
-    # error lists each attempted symprec (loosest first).
+    # Two Na sites 5e-5 A apart merge at every swept symprec, so no recognized member reproduces the
+    # input. The fallback keeps every exact input site in P1 instead.
     two_close_na = UnitcellStructure(
         Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))),
         [[0, 0, 0], [0, 0, F(1, 100000)], [F(1, 2), F(1, 2), F(1, 2)]],
         _species("Na", "Cl"),
         ["Na", "Na", "Cl"],
     )
-    with pytest.raises(ValueError, match=r"tried \[0\.005.*0\.001.*0\.0002"):
-        canonical_asu(two_close_na, tolerance=1e-3, factors=(F(1, 5), 1, 5))
+    result = canonical_asu(two_close_na, tolerance=1e-3, factors=(F(1, 5), 1, 5))
+
+    assert result.spacegroup.it_number == 1
+    assert same_crystal(_p1_fallback(UnitcellStructureView(two_close_na), []), two_close_na)
+    assert len(UnitcellStructureView(result).sites) == len(two_close_na.sites)
+    assert "using its exact P1 geometry" in caplog.text
 
 
 def test_default_and_lift_agree_on_a_clean_structure() -> None:
@@ -233,10 +265,11 @@ def test_loosest_fitting_member_wins_and_stops_the_sweep(monkeypatch: pytest.Mon
     monkeypatch.setattr(canonical_module, "recognize_asu", counting_recognize)
     monkeypatch.setattr(canonical_module, "_canonical_without_bfs", counting_stage)
     # Clean NaCl: the loosest symprec (base*5) already recognizes and fits, so the sweep stops after
-    # one recognition and the expensive stage runs once -- no matter how many factors are passed.
+    # one recognition; exact canonicalization runs once for P1 preconditioning and once for the
+    # recognized result -- no matter how many factors are passed.
     canonical_asu(UnitcellStructureView(_nacl()), factors=(F(1, 5), 1, 5))
     assert recognitions == 1
-    assert stages == 1
+    assert stages == 2
 
 
 def test_result_is_deterministic() -> None:

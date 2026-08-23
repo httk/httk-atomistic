@@ -610,9 +610,10 @@ def _find_symmetry(
 
     Two conversions matter here and are easy to get wrong:
 
-    * spglib reports its transformation as floats. They are small rationals in practice, so
-      they are recovered exactly with a bounded denominator; the fixed coordinates in the
-      vendored tables all have denominators dividing 12.
+    * spglib reports its transformation as floats. The matrix is a small crystallographic
+      rational, but the origin shift can be fixed by an input atom and consequently carry the
+      full precision of the measured coordinates. They are recovered with separate denominator
+      bounds so an arbitrary inversion centre is not rounded to a nearby crystallographic fraction.
     * spglib standardizes to *its* default setting, which differs from the International
       Tables standard setting for the 24 space groups with two origin choices. The two are
       bridged explicitly through the tabulated spglib-default setting rather than assumed
@@ -678,17 +679,28 @@ def _exact_operation(matrix: Any, vector: Any) -> Any:
     """An exact affine operation from spglib's floating-point transformation."""
     from httk.atomistic.symmetry.affine_operation import AffineOperation
 
-    def exact(value: Any) -> fractions.Fraction:
-        return fractions.Fraction(float(value)).limit_denominator(_SPGLIB_MAX_DENOMINATOR)
+    def exact_matrix(value: Any) -> fractions.Fraction:
+        return fractions.Fraction(float(value)).limit_denominator(_SPGLIB_MATRIX_MAX_DENOMINATOR)
+
+    def exact_origin(value: Any) -> fractions.Fraction:
+        floating = float(value)
+        crystallographic = fractions.Fraction(floating).limit_denominator(_SPGLIB_MATRIX_MAX_DENOMINATOR)
+        if abs(float(crystallographic) - floating) <= _SPGLIB_SMALL_RATIONAL_TOLERANCE:
+            return crystallographic
+        # An arbitrary origin is data-derived, not a crystallographic constant. Retain twelve
+        # decimal places -- well beyond spglib's useful positional tolerance -- on one common
+        # decimal grid instead of accepting a best-approximant denominator that then multiplies
+        # every measured free parameter into an enormous, relatively-prime fraction.
+        return fractions.Fraction(f"{floating:.12f}")
 
     return AffineOperation(
-        [[exact(entry) for entry in row] for row in matrix],
-        [exact(entry) for entry in vector],
+        [[exact_matrix(entry) for entry in row] for row in matrix],
+        [exact_origin(entry) for entry in vector],
     )
 
 
-#: Denominator bound when recovering spglib's floating-point transformation exactly.
-#: Change-of-basis entries and origin shifts between settings are built from halves,
-#: thirds, quarters, sixths and eighths; 48 leaves generous headroom without inventing
-#: precision that is not there.
-_SPGLIB_MAX_DENOMINATOR = 48
+#: Change-of-basis entries are crystallographic halves, thirds, quarters, sixths, and eighths.
+_SPGLIB_MATRIX_MAX_DENOMINATOR = 48
+
+#: Preserve true crystallographic origin fractions when spglib's float is merely round-off away.
+_SPGLIB_SMALL_RATIONAL_TOLERANCE = 1e-12

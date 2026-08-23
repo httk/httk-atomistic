@@ -493,6 +493,26 @@ def test_canonical_orientation_keeps_the_gram_exact() -> None:
     assert _canonical_without_bfs(canonical) == canonical
 
 
+def test_canonical_orientation_breaks_an_unrepresentable_cubic_frame_tie() -> None:
+    """Point-group-related frames agree even when exact Cholesky needs nested radicals."""
+    basis = SurdVector(
+        {
+            1: FracVector(((5427, 0, -4418), (0, 0, -4418), (-5427, 0, -4418)), denom=2000),
+            3: FracVector(((0, 1809, 0), (0, -3618, 0), (0, 1809, 0)), denom=2000),
+        },
+        (3, 3),
+    )
+    point_rotation = SurdVector(((0, 0, -1), (0, -1, 0), (-1, 0, 0)))
+    sites = [WyckoffSite("a", FracVector(()), "Si")]
+    first = ASUStructure(Cell(basis), 221, sites, _species("Si"))
+    second = ASUStructure(Cell(point_rotation * basis), 221, sites, _species("Si"))
+
+    # sqrt(g00) is not a single supported squarefree radical here, so the metric-only triangular
+    # rebuild deliberately declines. The terminal point-group orbit must still select one frame.
+    assert lift_module._exact_triangular_basis(first.cell.metric(), left_handed=False) is None
+    assert _canonical_without_bfs(first) == _canonical_without_bfs(second)
+
+
 def test_left_handed_enantiomorphic_cell_is_handled_gracefully() -> None:
     # SG 144 (P3_1) is enantiomorphic: the -I re-expression conjugates to P3_2 and is rejected, so
     # the exact left-handed cell must be kept (N1) rather than the assert firing or -O silently

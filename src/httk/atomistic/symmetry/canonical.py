@@ -1,24 +1,26 @@
 """A one-liner canonical form for noisy input: tolerant recognition composed with exact lifting.
 
-:func:`canonical_asu` bridges the two layers.  The tolerant layer (:func:`~httk.atomistic.recognize_asu`,
-backed by spglib) snaps a measured structure onto a space group within a Cartesian tolerance.  Because
+:func:`canonical_asu` bridges the two layers. Before tolerant recognition, the exact unit-cell geometry
+is normalized as P1, giving spglib one deterministic basis, origin, and site order for every exact
+re-expression of the same measured structure. The tolerant layer (:func:`~httk.atomistic.recognize_asu`,
+backed by spglib) then snaps that stable input onto a space group within a Cartesian tolerance. Because
 a measured structure can sit just inside or just outside a tolerance boundary, recognition is swept
 over a few symprec multiples from loosest to tightest, and the first member that fits within the
-*base* tolerance wins -- so a looser member rescues a boundary flip without ever accepting more than
-the claimed noise.  The exact layer then fixes that winner's representation deterministically: by
-default (``lift=False``) it returns the canonical representative *within the recognized group*
-(setting, origin, orbit representatives, basis orientation all fixed) without searching upward;
-``lift=True`` additionally runs :func:`~httk.atomistic.canonicalize` to hunt higher pseudosymmetry the
-recognition missed.
+*base* tolerance wins. The exact layer finally fixes that winner's representation deterministically:
+by default (``lift=False``) it returns the canonical representative *within the recognized group*;
+``lift=True`` additionally runs :func:`~httk.atomistic.canonicalize` to hunt higher pseudosymmetry.
 
 This module is deliberately outside ``lift.py``: ``lift`` imports ``recognition`` (for its tolerance
 helpers) and stays spglib-free, while this composer imports both.
 """
 
+import logging
 from collections import Counter
 from fractions import Fraction
 
-from httk.atomistic.models.structure.asu import ASUStructure
+from httk.core import FracVector
+
+from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.symmetry.lift import _canonical_without_bfs, canonicalize
@@ -27,14 +29,51 @@ from httk.atomistic.symmetry.recognition import recognize_asu, structure_toleran
 __all__ = ["canonical_asu"]
 
 
+def _exact_p1(view: UnitcellStructureView) -> ASUStructure:
+    """Return the exact unit-cell geometry as a P1 asymmetric unit."""
+    sites = [
+        WyckoffSite("a", FracVector(coordinate).normalize(), species)
+        for coordinate, species in zip(view.sites.reduced_coords.to_fractions(), view.species_at_sites)
+    ]
+    return ASUStructure(
+        view.cell,
+        1,
+        sites,
+        view.species,
+        coordinate_precision=view.sites.precision,
+        charge=view.charge,
+    )
+
+
+def _p1_fallback(view: UnitcellStructureView, failures: list[str]) -> ASUStructure:
+    """Report failed recognition and return the exact unit-cell geometry as P1.
+
+    Exhausting spglib's tolerance sweep proves only that no higher symmetry could be
+    recognized reliably. P1 needs no recognition or coordinate snapping: every input row
+    is already one general-position orbit representative. Invalid coincident rows remain
+    invalid and are rejected by ``ASUStructure`` when the fallback is expanded downstream.
+    """
+    if view.site_moments is not None:
+        raise ValueError(
+            "no symmetry fit the structure and exact P1 fallback does not yet support site moments; "
+            f"tried [{', '.join(failures)}]"
+        )
+    logging.getLogger(__name__).warning(
+        "no symmetry fit the structure within the requested tolerance sweep; using its exact P1 geometry",
+        extra={"context": "symmetry", "attempts": tuple(failures)},
+    )
+    return _exact_p1(view)
+
+
 def _fits_within(view: UnitcellStructureView, recognized: ASUStructure, tolerance: float) -> bool:
     """Whether the recognized model reproduces every input site within ``tolerance`` (Cartesian).
 
     The recognized ASU lives in the input's own frame, so its expansion shares the input cell.  The
-    match is *injective*: each input site is paired with a distinct same-species model site, greedily
-    over pairs sorted by distance, so two input sites cannot both claim one model site and leave a
-    third model site orphaned.  Every input site must find such a partner within ``tolerance`` and the
-    per-species counts must match, so a model that drops, adds, or merges atoms is rejected.
+    match is *bijective*: an augmenting-path bipartite matcher pairs every input site with a distinct
+    same-species model site within ``tolerance``. A greedy nearest-pair matcher is insufficient here:
+    assigning a flexible input to the closest model can strand another input that had only that model
+    available, and the outcome then depends on site ordering. Per-species counts must also match, so a
+    model that drops, adds, or merges atoms is rejected.
 
     This is the tolerant layer, so distances are computed in plain floats (a per-component
     minimum-image wrap -- an upper bound on the true minimum-image distance, exact for the
@@ -50,25 +89,78 @@ def _fits_within(view: UnitcellStructureView, recognized: ASUStructure, toleranc
         return False
     basis = view.cell.basis.to_floats()
     limit = tolerance * tolerance
-    pairs: list[tuple[float, int, int]] = []
+    candidates: list[list[tuple[float, int]]] = [[] for _ in input_coords]
     for i, (coordinate, species) in enumerate(zip(input_coords, input_species)):
         for m, (other, other_species) in enumerate(zip(model_coords, model_species)):
             if other_species != species:
                 continue
             wrapped = [coordinate[k] - other[k] - round(coordinate[k] - other[k]) for k in range(3)]
             cartesian = [sum(wrapped[k] * basis[k][axis] for k in range(3)) for axis in range(3)]
-            pairs.append((sum(component * component for component in cartesian), i, m))
-    pairs.sort()
-    claimed_inputs: set[int] = set()
-    claimed_models: set[int] = set()
-    for distance, i, m in pairs:
-        if distance > limit:
-            break  # pairs are sorted, so no unclaimed input can still be matched within tolerance
-        if i in claimed_inputs or m in claimed_models:
+            distance = sum(component * component for component in cartesian)
+            if distance <= limit:
+                candidates[i].append((distance, m))
+    if any(not choices for choices in candidates):
+        return False
+    for choices in candidates:
+        choices.sort()
+
+    # Deterministic Kuhn-style augmenting paths, implemented iteratively so large cells do not risk
+    # Python's recursion limit. Start with the most constrained inputs to keep paths short.
+    model_for_input: dict[int, int] = {}
+    input_for_model: dict[int, int] = {}
+    for root in sorted(range(len(input_coords)), key=lambda index: (len(candidates[index]), index)):
+        queue = [root]
+        seen_inputs = {root}
+        seen_models: set[int] = set()
+        previous_input: dict[int, int] = {}
+        terminal: int | None = None
+        while queue and terminal is None:
+            current = queue.pop(0)
+            for _distance, model in candidates[current]:
+                if model in seen_models:
+                    continue
+                seen_models.add(model)
+                previous_input[model] = current
+                matched = input_for_model.get(model)
+                if matched is None:
+                    terminal = model
+                    break
+                if matched not in seen_inputs:
+                    seen_inputs.add(matched)
+                    queue.append(matched)
+        if terminal is None:
+            return False
+        model = terminal
+        while True:
+            current = previous_input[model]
+            previous_model = model_for_input.get(current)
+            model_for_input[current] = model
+            input_for_model[model] = current
+            if previous_model is None:
+                break
+            model = previous_model
+    return True
+
+
+def _recognition_sweep(
+    view: UnitcellStructureView,
+    base: float,
+    factors: tuple[Fraction | float | int, ...],
+) -> tuple[ASUStructure | None, list[str]]:
+    """Return the loosest fitting recognized model and diagnostics for failed members."""
+    failures: list[str] = []
+    for factor in sorted(factors, key=lambda value: -float(value)):
+        symprec = base * float(factor)
+        try:
+            recognized = recognize_asu(view, tolerance=symprec, _retain_found_transform=True)
+        except ValueError as error:
+            failures.append(f"{symprec:g}: {error}")
             continue
-        claimed_inputs.add(i)
-        claimed_models.add(m)
-    return len(claimed_inputs) == len(input_coords)
+        if not _fits_within(view, recognized, base):
+            failures.append(f"{symprec:g}: recognized model exceeds the base tolerance")
+            continue
+        return recognized, failures
+    return None, failures
 
 
 def canonical_asu(
@@ -81,8 +173,10 @@ def canonical_asu(
 ) -> ASUStructure:
     """Return the canonical :class:`~httk.atomistic.ASUStructure` of a measured structure's symmetry.
 
-    This is the noisy-input counterpart to :func:`~httk.atomistic.canonicalize`: it recognizes the
-    symmetry of a measured structure with spglib and then canonicalizes the result exactly.
+    This is the noisy-input counterpart to :func:`~httk.atomistic.canonicalize`: it first normalizes
+    the exact measured geometry in P1, recognizes its symmetry with spglib, and then canonicalizes the
+    recognized result exactly. P1 preconditioning prevents spglib's tolerance-boundary result from
+    depending on an equivalent input shear, origin shift, or site ordering.
 
     An :class:`~httk.atomistic.ASUStructure` input is expanded to its unit cell first and the symmetry
     is re-recognized from the actual coordinates -- always from the geometry, never the declared
@@ -102,8 +196,7 @@ def canonical_asu(
     * ``lift=False`` (default): it is mapped to the deterministic canonical representative *within its
       recognized group* -- the exact terminal representation (setting, origin, orbit representatives,
       basis orientation all fixed), returned *without* searching upward.  The result is the canonical
-      form of the recognized symmetry; no pseudosymmetry above it is sought.  Per-structure cost is
-      essentially recognition-bound.
+      form of the recognized symmetry; no pseudosymmetry above it is sought.
     * ``lift=True``: it is additionally run through the exact upward search
       (:func:`~httk.atomistic.canonicalize`) to find higher pseudosymmetry the recognition missed.
       This is exact but can be expensive -- minutes and beyond for low-symmetry, many-atom cells.
@@ -144,10 +237,23 @@ def canonical_asu(
     :return: The canonical asymmetric unit.
     :raises ImportError: If spglib is unavailable when symmetry must be searched (the error names the
         ``httk-atomistic[default]`` extra).
-    :raises ValueError: If recognition fails or is rejected at every swept tolerance.
+    If recognition fails or is rejected at every swept tolerance, the exact unit-cell
+    geometry is canonicalized as P1 instead. This fallback performs no tolerance-level
+    snapping and therefore cannot invent symmetry that spglib did not establish.
     """
-    view = UnitcellStructureView(structure)
-    base = structure_tolerance(view) if tolerance is None else float(tolerance)
+    source_view = UnitcellStructureView(structure)
+    base = structure_tolerance(source_view) if tolerance is None else float(tolerance)
+
+    # spglib is not representation-invariant near a tolerance boundary: equivalent lattice shears
+    # can make it return different snapped models. Canonicalize the exact, unsnapped geometry as P1
+    # first so every such description reaches spglib in the same frame. Magnetic normal forms are not
+    # yet supported by the exact P1 path, so retain the established direct-recognition behavior there.
+    normalized_p1: ASUStructure | None = None
+    if source_view.site_moments is None:
+        normalized_p1 = _canonical_without_bfs(_exact_p1(source_view), preserve_chirality=True)
+        view = UnitcellStructureView(normalized_p1)
+    else:
+        view = source_view
 
     # Loosest symprec first: by the spglib op-count monotonicity assumption a looser symprec never
     # recognizes fewer operations, so the FIRST member that both recognizes and fits within the base
@@ -155,23 +261,29 @@ def canonical_asu(
     # canonicalization stage) once in the common case.
     # ponytail: if monotonicity ever fails, this (like the earlier tier prune) can settle for the rare
     # lower-symmetry loosest member where an all-members scan would have found a higher tighter one.
-    failures: list[str] = []
-    winner: ASUStructure | None = None
-    for factor in sorted(factors, key=lambda value: -float(value)):
-        symprec = base * float(factor)
-        try:
-            recognized = recognize_asu(view, tolerance=symprec, _retain_found_transform=True)
-        except ValueError as error:
-            failures.append(f"{symprec:g}: {error}")
-            continue
-        if not _fits_within(view, recognized, base):
-            failures.append(f"{symprec:g}: recognized model exceeds the base tolerance")
-            continue
-        winner = recognized
-        break
+    winner, failures = _recognition_sweep(view, base, factors)
+
+    # Some spglib paths (notably a chiral cubic primitive frame) fail even though the original
+    # conventional frame recognizes cleanly. Deterministic preconditioning is preferred when it
+    # works, but direct recognition remains a rescue before the exact P1 fallback.
+    if normalized_p1 is not None and (winner is None or winner.spacegroup.it_number == 1):
+        direct_winner, direct_failures = _recognition_sweep(source_view, base, factors)
+        failures.extend(f"original frame {failure}" for failure in direct_failures)
+        if direct_winner is not None and (
+            winner is None
+            or len(direct_winner.spacegroup.symmetry_operations) > len(winner.spacegroup.symmetry_operations)
+        ):
+            winner = direct_winner
 
     if winner is None:
-        raise ValueError(f"no symmetry fit the structure within tolerance {base:g}; tried [{', '.join(failures)}]")
+        if normalized_p1 is None:
+            winner = _p1_fallback(view, failures)
+        else:
+            logging.getLogger(__name__).warning(
+                "no symmetry fit the structure within the requested tolerance sweep; using its exact P1 geometry",
+                extra={"context": "symmetry", "attempts": tuple(failures)},
+            )
+            winner = normalized_p1
 
     if lift:
         return canonicalize(winner, tolerance=base, preserve_chirality=preserve_chirality).asu

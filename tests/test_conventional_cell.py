@@ -9,16 +9,16 @@ from httk.core import FracVector, SurdVector
 
 from httk.atomistic import (
     Assembly,
-    WyckoffSite,
     ASUStructure,
     ASUStructureView,
     Cell,
     SettingTransform,
     Spacegroup,
     Species,
-    UnitcellStructure,
     StructureLike,
+    UnitcellStructure,
     UnitcellStructureView,
+    WyckoffSite,
     conventional_cell,
     recognize_asu,
     same_crystal,
@@ -257,7 +257,9 @@ def test_an_untabulated_half_determinant_transform_can_have_a_subunit_multiplier
     assert result.multiplier == F(1, 2)
 
 
-def test_plain_structure_path_matches_recognized_asu_path_and_forwards_tolerance() -> None:
+def test_plain_structure_path_matches_recognized_asu_path_and_forwards_tolerance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     expanded = UnitcellStructureView(_rocksalt())
     plain = UnitcellStructure(
         expanded.cell,
@@ -277,8 +279,21 @@ def test_plain_structure_path_matches_recognized_asu_path_and_forwards_tolerance
         one_site.species_at_sites,
     )
     assert conventional_cell(noisy, tolerance=1e-3).spacegroup.it_number == 221
-    with pytest.raises(ValueError, match="Wyckoff position|not symmetric"):
-        conventional_cell(noisy, tolerance=1e-8)
+
+    # A common translation of a one-site crystal is an origin choice, not structural noise. Verify
+    # the tight tolerance is forwarded explicitly instead of relying on the old, incorrect behavior
+    # that rounded spglib's data-derived origin onto a small-fraction grid and rejected this cell.
+    module = importlib.import_module("httk.atomistic.symmetry.standardization")
+    original_recognize = module.recognize_asu
+    captured: dict[str, Any] = {}
+
+    def capture_recognition(structure: StructureLike, **kwargs: Any) -> ASUStructure:
+        captured.update(kwargs)
+        return original_recognize(structure, **kwargs)
+
+    monkeypatch.setattr(module, "recognize_asu", capture_recognition)
+    assert conventional_cell(noisy, tolerance=1e-8).spacegroup.it_number == 221
+    assert captured["tolerance"] == 1e-8
 
 
 def test_plain_structure_path_forwards_limit_denominator(

@@ -1699,6 +1699,43 @@ def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
             for index in axes:
                 translation[index] = (-values[index]) % 1
             candidates.add(tuple(translation))
+
+    if structure.spacegroup.it_number == 1:
+        # In P1 every site is its own general-position orbit and all three origin directions are
+        # free. The generic path below needlessly re-identifies all N sites through the Wyckoff
+        # tables for each of the N candidate origins (and this is repeated for every boundary-metric
+        # automorphism). Compare the translated rows directly, then build only the winning image.
+        # This is the same exact _site_key: P1's canonical orbit representative is the wrapped point.
+        def p1_key(candidate: tuple[Fraction, ...]) -> tuple[tuple[str, str, tuple[Fraction, ...]], ...]:
+            shift = FracVector(candidate)
+            return tuple(
+                sorted(
+                    (
+                        site.species,
+                        "a",
+                        tuple((site.free_params + shift).normalize().to_fractions()),
+                    )
+                    for site in structure.wyckoff_sites
+                )
+            )
+
+        winner = min(candidates, key=p1_key)
+        if not any(winner):
+            return structure
+        shift = FracVector(winner)
+        return ASUStructure(
+            structure.cell,
+            structure.spacegroup,
+            [
+                WyckoffSite("a", (site.free_params + shift).normalize(), site.species, moment=site.moment)
+                for site in structure.wyckoff_sites
+            ],
+            structure.species,
+            transform=SettingTransform.identity(),
+            coordinate_precision=structure.coordinate_precision,
+            charge=structure.charge,
+        )
+
     best = structure
     best_key = _site_key(structure)
     for candidate in sorted(candidates):
@@ -1827,6 +1864,11 @@ def _normalizer_metric_key(structure: ASUStructure, operation: AffineOperation) 
     basis_change = SurdVector(operation.matrix.T().inv())
     metric = basis_change * structure.cell.metric() * basis_change.T()
     return tuple(metric._element((row, column)) for row in range(3) for column in range(3))
+
+
+def _basis_key(basis: SurdVector) -> tuple[Any, ...]:
+    """Return Cartesian basis components in deterministic row-major order."""
+    return tuple(basis._element((row, column)) for row in range(3) for column in range(3))
 
 
 def _demote_sites(structure: ASUStructure) -> ASUStructure:
@@ -2056,8 +2098,9 @@ def _terminal_normal_form(structure: ASUStructure) -> ASUStructure:
                     # candidate that can improve the current best, rather than hundreds of identical-
                     # site temporary structures per metric tier.
                     handedness_key = 0 if basis.det().sign() > 0 else 1
+                    basis_key = _basis_key(basis)
                     identity_key = 0 if representative.is_identity() and group_operation.is_identity() else 1
-                    key = (metric_key, site_keys[id(site_source)], handedness_key, identity_key)
+                    key = (metric_key, site_keys[id(site_source)], handedness_key, basis_key, identity_key)
                     if best_key is not None and key >= best_key:
                         continue
                     try:
@@ -2076,10 +2119,12 @@ def _terminal_normal_form(structure: ASUStructure) -> ASUStructure:
                         )
                     except ValueError:
                         continue
-                    # Prefer a right-handed representative when the orbit supplies one.  Orientation
-                    # is canonicalized after this quotient, so raw Cartesian basis components must
-                    # not participate in the key: they would make the result depend on a global
-                    # rotation of the input.
+                    # Prefer a right-handed representative when the orbit supplies one. The raw
+                    # Cartesian components are only the final tie-break after metric, sites, and
+                    # handedness. Normally the orientation rebuild replaces them with a function of
+                    # the Gram matrix. When that rebuild would require unsupported nested radicals,
+                    # this tie-break still collapses the finite point-group frame ambiguity exposed
+                    # by equivalent basis scrambles in the input's shared Cartesian frame.
                     if best_key is None or key < best_key:
                         best, best_key = candidate, key
         if best is not None:
