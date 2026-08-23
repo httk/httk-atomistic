@@ -176,7 +176,16 @@ def _recognition_sweep(
         except ValueError as error:
             failures.append(f"{symprec:g}: {error}")
             continue
-        if not _fits_within(view, recognized, base):
+        # Some spglib results are only invalidated when their ASU is expanded lazily. This happens,
+        # for example, when a loose symprec merges two distinct partially occupied split sites and
+        # recognition assigns both to the same special-position orbit. Such a candidate is simply a
+        # failed member of the tolerance sweep; a tighter member may preserve both legitimate sites.
+        try:
+            fits = _fits_within(view, recognized, base)
+        except ValueError as error:
+            failures.append(f"{symprec:g}: recognized model is structurally invalid: {error}")
+            continue
+        if not fits:
             failures.append(f"{symprec:g}: recognized model exceeds the base tolerance")
             continue
         return recognized, failures

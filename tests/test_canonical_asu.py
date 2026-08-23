@@ -181,6 +181,33 @@ def test_symprec_sweep_rescues_a_tolerance_boundary_flip() -> None:
     assert canonical_asu(noisy, factors=(F(1, 5),)).spacegroup.it_number == 225
 
 
+def test_symprec_sweep_rejects_a_structurally_invalid_loose_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A lazy expansion error rejects one candidate rather than aborting the whole sweep."""
+    fit_calls = 0
+
+    def staged_fit(_view: UnitcellStructureView, _recognized: ASUStructure, _tolerance: float) -> bool:
+        nonlocal fit_calls
+        fit_calls += 1
+        if fit_calls == 1:
+            raise ValueError("loose symprec merged two split sites")
+        return True
+
+    monkeypatch.setattr(canonical_module, "recognize_asu", lambda *_args, **_kwargs: _nacl())
+    monkeypatch.setattr(canonical_module, "_fits_within", staged_fit)
+
+    winner, failures = canonical_module._recognition_sweep(
+        UnitcellStructureView(_nacl()),
+        0.1,
+        (1, 5),
+    )
+
+    assert winner is not None and winner.spacegroup.it_number == 225
+    assert fit_calls == 2
+    assert failures == ["0.5: recognized model is structurally invalid: loose symprec merged two split sites"]
+
+
 def test_all_members_failing_fall_back_to_exact_p1(caplog: pytest.LogCaptureFixture) -> None:
     pytest.importorskip("spglib")
     # Two Na sites 5e-5 A apart merge at every swept symprec, so no recognized member reproduces the
