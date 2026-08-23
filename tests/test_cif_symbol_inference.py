@@ -1,10 +1,11 @@
 """Inferring atom-site element symbols from labels when a CIF omits the type-symbol column."""
 
+import logging
 from pathlib import Path
 
 import pytest
 
-from httk.atomistic.io.cif.cif_parser import _symbol_from_label, read_cif_asus, single_asu_from_cif_file
+from httk.atomistic.io.cif.cif_parser import _symbol_from_label, read_cif_asus
 
 # COD diopside; its atom_site loop carries no _atom_site_type_symbol column.
 COD_DIOPSIDE = Path(__file__).resolve().parents[2] / "DATA/COD/cif/1/00/00/1000008.cif"
@@ -55,26 +56,36 @@ def test_symbol_from_label(label, expected):
     assert _symbol_from_label(label) == expected
 
 
-def test_symbols_inferred_from_labels_with_warning(tmp_path):
+def test_symbols_inferred_from_labels_at_debug(tmp_path, caplog):
     src = tmp_path / "no_type_symbol.cif"
     src.write_text(_loop(["MgM1", "CaM2", "SiT", "O1", "OW1"]), encoding="utf-8")
 
-    with pytest.warns(RuntimeWarning, match="inferred from _atom_site_label"):
+    with caplog.at_level(logging.DEBUG, logger="httk.atomistic.io.cif.cif_parser"):
         payload = read_cif_asus(str(src))
 
     assert payload["blocks"], payload["unparsed"]
     assert payload["blocks"][0]["symbols"] == ["Mg", "Ca", "Si", "O", "O"]
+    assert len(caplog.records) == 1
+    assert caplog.records[0].levelno == logging.DEBUG
+    assert caplog.records[0].context == "cif"
+    assert "inferred from _atom_site_label" in caplog.records[0].getMessage()
 
 
-def test_uninferable_label_raises_naming_it(tmp_path):
+def test_uninferable_label_maps_to_x_with_warning(tmp_path, caplog):
     src = tmp_path / "bad_label.cif"
     src.write_text(_loop(["MgM1", "Zz1"]), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Zz1"):
-        single_asu_from_cif_file(str(src))
+    with caplog.at_level(logging.WARNING, logger="httk.atomistic.io.cif.cif_parser"):
+        payload = read_cif_asus(str(src))
+
+    assert payload["blocks"][0]["symbols"] == ["Mg", "X"]
+    assert len(caplog.records) == 1
+    assert caplog.records[0].levelno == logging.WARNING
+    assert caplog.records[0].context == "cif"
+    assert "mapped to X for: Zz1" in caplog.records[0].getMessage()
 
 
-def test_present_type_symbol_column_is_unchanged(tmp_path, recwarn):
+def test_present_type_symbol_column_is_unchanged(tmp_path, caplog):
     text = _CELL + (
         "loop_\n"
         "_atom_site_type_symbol\n"
@@ -88,16 +99,18 @@ def test_present_type_symbol_column_is_unchanged(tmp_path, recwarn):
     src = tmp_path / "with_type_symbol.cif"
     src.write_text(text, encoding="utf-8")
 
-    payload = read_cif_asus(str(src))
+    with caplog.at_level(logging.DEBUG, logger="httk.atomistic.io.cif.cif_parser"):
+        payload = read_cif_asus(str(src))
 
     assert payload["blocks"][0]["symbols"] == ["Mg", "O"]
-    assert not [w for w in recwarn.list if "inferred from _atom_site_label" in str(w.message)]
+    assert not [record for record in caplog.records if "inferred from _atom_site_label" in record.getMessage()]
 
 
 @pytest.mark.skipif(not COD_DIOPSIDE.exists(), reason="workspace-only real-data fixture not present")
-def test_cod_diopside_reads_without_type_symbol_column():
-    with pytest.warns(RuntimeWarning, match="inferred from _atom_site_label"):
+def test_cod_diopside_reads_without_type_symbol_column(caplog):
+    with caplog.at_level(logging.DEBUG, logger="httk.atomistic.io.cif.cif_parser"):
         payload = read_cif_asus(str(COD_DIOPSIDE))
 
     assert payload["blocks"], payload["unparsed"]
     assert payload["blocks"][0]["symbols"] == ["Mg", "Ca", "Si", "O", "O", "O"]
+    assert any(record.levelno == logging.DEBUG for record in caplog.records)

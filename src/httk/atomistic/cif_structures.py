@@ -1653,7 +1653,7 @@ def _read_cif_for_atomistic(
             and "atom_site_site_symmetry_multiplicity" not in raw_block
             and "atom_site_site_symmetry_order" not in raw_block
         ):
-            logging.getLogger(__name__).info(
+            logging.getLogger(__name__).debug(
                 f"CIF block {name!r}: deprecated data name _atom_site_symmetry_multiplicity was ignored; "
                 "it is deprecated by the CIF core dictionary, and legacy values are ambiguous between "
                 "IT multiplicities and site-symmetry orders",

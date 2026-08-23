@@ -871,7 +871,7 @@ def test_multiplicity_only_filter_mismatch_is_a_declaration_error(tmp_path: Path
 
 
 @pytest.mark.parametrize("repair", (False, True))
-def test_deprecated_multiplicity_is_ignored_with_one_info_note(
+def test_deprecated_multiplicity_is_ignored_with_one_debug_note(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, repair: bool
 ) -> None:
     path = _write_cif(
@@ -885,11 +885,11 @@ def test_deprecated_multiplicity_is_ignored_with_one_info_note(
         name="DeprecatedOnly",
         deprecated_symmetry_multiplicities=["1", "1"],
     )
-    with caplog.at_level(logging.INFO, logger="httk.atomistic.cif_structures"):
+    with caplog.at_level(logging.DEBUG, logger="httk.atomistic.cif_structures"):
         structure = load(str(path), repair=repair)
 
     assert [site.wyckoff for site in structure.wyckoff_sites] == ["a", "e"]
-    records = [record for record in caplog.records if record.levelno == logging.INFO]
+    records = [record for record in caplog.records if record.levelno == logging.DEBUG]
     assert len(records) == 1
     assert records[0].context == "cif"
     assert "_atom_site_symmetry_multiplicity" in records[0].getMessage()
@@ -908,7 +908,7 @@ def test_deprecated_multiplicity_is_silent_when_a_modern_tag_is_present(
         symmetry_multiplicities=["2"],
         deprecated_symmetry_multiplicities=["1"],
     )
-    with caplog.at_level(logging.INFO, logger="httk.atomistic.cif_structures"):
+    with caplog.at_level(logging.DEBUG, logger="httk.atomistic.cif_structures"):
         structure = load(str(path))
 
     assert [site.wyckoff for site in structure.wyckoff_sites] == ["a"]

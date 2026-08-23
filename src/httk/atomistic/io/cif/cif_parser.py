@@ -306,20 +306,21 @@ def _parse_atoms(block: Mapping[str, Any]) -> tuple[Any, ...]:
 
     if not isinstance(syms, list) and isinstance(lbs, list):
         # The CIF core dictionary makes _atom_site_type_symbol optional; when it is absent the
-        # element is derivable from the label, so infer it rather than refusing the file.
+        # element is usually derivable from the label, so infer it rather than refusing the file.
         inferred = [_symbol_from_label(lab) for lab in lbs]
         unresolved = [lab for lab, sym in zip(lbs, inferred) if sym is None]
         if unresolved:
-            raise ValueError(
-                "CIF block has no _atom_site_type_symbol column and the element could not be "
-                f"inferred from _atom_site_label for: {', '.join(unresolved)}"
+            logging.getLogger(__name__).warning(
+                "CIF block has no _atom_site_type_symbol column; element symbols could not be cleanly "
+                f"inferred from _atom_site_label and were mapped to X for: {', '.join(unresolved)}",
+                extra={'context': 'cif'},
             )
-        warnings.warn(
-            "CIF block has no _atom_site_type_symbol column; element symbols inferred from _atom_site_label",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-        syms = cast(list[str], inferred)
+        else:
+            logging.getLogger(__name__).debug(
+                "CIF block has no _atom_site_type_symbol column; element symbols inferred from _atom_site_label",
+                extra={'context': 'cif'},
+            )
+        syms = [symbol if symbol is not None else 'X' for symbol in inferred]
 
     missing = [
         f'_{name}'
