@@ -44,6 +44,7 @@ from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.species.view import SpeciesView
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.semantics import StructureSemanticsMixin, initialize_semantics
+from httk.atomistic.models.structure.unitcell import _check_referenced_species_concentrations
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
@@ -271,6 +272,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         if len(names) != len(set(names)):
             raise ValueError("ASUStructure species names must be unique")
         known = set(names)
+        _check_referenced_species_concentrations(tuple(site.species for site in self._wyckoff_sites), self._species)
         for site in self._wyckoff_sites:
             if site.species not in known:
                 raise ValueError(f"ASUStructure site references unknown species name: {site.species!r}")

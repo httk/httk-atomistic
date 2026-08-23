@@ -69,7 +69,6 @@ def test_anonymization_rejects_unsupported_structure_features_on_first_derivatio
         (Species("mixed", ("Na", "Cl"), (Fraction(1, 2), Fraction(1, 2))), "single real element"),
         (Species("unknown", ("X",), (1,)), "single real element"),
         (Species("vacancy", ("vacancy",), (1,)), "single real element"),
-        (Species("attached", ("Na",), (1,), attached=("H",), nattached=(1,)), "single real element"),
     ]
     for species, message in cases:
         structure = UnitcellStructure(CELL, [[0, 0, 0]], (species,), (species.name,))
@@ -84,16 +83,20 @@ def test_anonymous_structures_are_not_structure_like() -> None:
         UnitcellStructureView(value)
 
 
-def test_anonymization_rejects_unused_species_on_derivation_and_contradictory_kind() -> None:
+def test_anonymization_ignores_implicit_atoms_attachments_and_duplicate_element_names() -> None:
     structure = UnitcellStructure(
         CELL,
-        [[0, 0, 0]],
-        (Species("Na1", ("Na",), (1,)), Species("Na2", ("Na",), (1,))),
-        ("Na1",),
+        SITES,
+        (
+            Species("Na1", ("Na",), (1,)),
+            Species("Na2", ("Na",), (1,), attached=("H",), nattached=(1,)),
+            Species("H1", ("H",), (5,)),
+        ),
+        ("Na1", "Na2"),
     )
     view = CrystalTemplateView(structure)
-    with pytest.raises(ValueError, match="Na2"):
-        _ = view.species
+    assert tuple(value.name for value in view.species) == ("A",)
+    assert view.species_at_sites == ("A", "A")
     # A contradictory ``kind`` is a dispatch error and still surfaces at construction.
     with pytest.raises(TypeError):
         CrystalTemplateView(structure, kind="bogus")

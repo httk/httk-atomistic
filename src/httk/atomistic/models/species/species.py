@@ -36,7 +36,9 @@ class Species(SpeciesBackend):
 
     A species has a ``name`` (unique within a structure; it need not be a chemical
     symbol), a list of ``chemical_symbols`` composing it, and a matching list of
-    ``concentration`` values. Each chemical symbol is an element symbol, or one of
+    non-negative ``concentration`` values. Concentrations on represented sites must
+    lie in ``[0, 1]``; an unrepresented species may instead carry an aggregate implicit-atom
+    count. Each chemical symbol is an element symbol, or one of
     the pseudo-symbols ``"X"`` (unknown) or ``"vacancy"``. The optional ``mass``,
     ``attached``, ``nattached``, and ``original_name`` fields carry the remaining
     OPTIMADE species information; ``attached`` and ``nattached`` must be given
@@ -118,8 +120,8 @@ class Species(SpeciesBackend):
         inferred_precision: list[fractions.Fraction | None] = []
         for value in self.concentration:
             central, width = as_fraction(value, field="Species concentration")
-            if not 0 <= central <= 1:
-                raise ValueError("Species concentration values must be in [0, 1]")
+            if central < 0:
+                raise ValueError("Species concentration values must be non-negative")
             concentration.append(central)
             inferred_precision.append(width)
         object.__setattr__(self, "concentration", tuple(concentration))

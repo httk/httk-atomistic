@@ -514,6 +514,7 @@ def asu_structure_from_cif(
     debug_uncertainties: list[Any] = []
     warned_type_symbols: set[str] = set()
     for index, exact_position in enumerate(exact_positions):
+        dummy = calc_flags is not None and str(calc_flags[index]).lower() == "dum"
         if occupancies_exact is not None and occupancies_exact[index] is not None:
             occupancy = occupancies_exact[index]
         elif occupancies is None:
@@ -523,12 +524,15 @@ def asu_structure_from_cif(
         else:
             occupancy = occupancies[index]
         occupancy_precision = None if occupancy_precisions is None else occupancy_precisions[index]
-        occupancy = _repair_cif_occupancy(
-            occupancy,
-            label=labels[index],
-            block_name=_block_name(data),
-            repair=repair,
-        )
+        if not dummy:
+            occupancy = _repair_cif_occupancy(
+                occupancy,
+                label=labels[index],
+                block_name=_block_name(data),
+                repair=repair,
+            )
+            if not 0 <= as_fraction(occupancy, field="CIF occupancy")[0] <= 1:
+                raise ValueError(f"CIF occupancy for site {labels[index]!r} must lie in [0, 1]")
         raw_symbol = symbols[index]
         stated_mass = None if masses is None else masses[index]
         decoded = _decode_type_symbol(raw_symbol, stated_mass)
@@ -538,7 +542,6 @@ def asu_structure_from_cif(
                 f"with species label {decoded.species_label!r}"
             )
             warned_type_symbols.add(raw_symbol)
-        dummy = calc_flags is not None and str(calc_flags[index]).lower() == "dum"
         attached_count = None if attached_hydrogens is None else attached_hydrogens[index]
         name = labels[index] if dummy or attached_count else _species_name(raw_symbol, labels[index], occupancy)
         if name not in species_by_name:

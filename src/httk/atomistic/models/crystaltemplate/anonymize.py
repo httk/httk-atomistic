@@ -51,37 +51,26 @@ def canonical_dummy_assignment(amounts: Sequence[tuple[str, Fraction | int]]) ->
 def require_anonymizable(structure: Any) -> None:
     """Reject structure features outside this phase's deliberate scope.
 
-    Only fully occupied, single-real-element site species are anonymized. Future phases may
-    add merge or label-preserving modes for decorated species; this mode intentionally refuses
-    those cases, as well as assemblies, stated compositions, and site moments.
+    Only fully occupied, single-real-element site species are anonymized. Unrepresented species,
+    site attachments, and distinct names for the same represented element do not change the
+    anonymous site geometry. Assemblies, stated compositions, and site moments remain unsupported.
 
     :param structure: The structure whose representation is being anonymized.
     :raises ValueError: If the structure contains unsupported composition features.
     """
     names = tuple(structure.species_at_sites)
     by_name = {species.name: species for species in structure.species}
-    unused = sorted(set(by_name) - set(names))
-    if unused:
-        raise ValueError(f"cannot anonymize structure: species {unused[0]!r} is unused")
-    used: list[Species] = []
     for name in names:
         try:
             species = by_name[name]
         except KeyError as exc:
             raise ValueError(f"cannot anonymize structure: unknown species {name!r}") from exc
-        if not species.is_single_element:
+        if (
+            len(species.chemical_symbols) != 1
+            or species.chemical_symbols[0] in {"X", "vacancy"}
+            or species.concentration != (Fraction(1),)
+        ):
             raise ValueError(f"cannot anonymize structure: species {name!r} is not a single real element")
-        used.append(species)
-
-    elements: dict[str, str] = {}
-    for species in used:
-        element = species.chemical_symbols[0]
-        previous = elements.get(element)
-        if previous is not None and previous != species.name:
-            raise ValueError(
-                f"cannot anonymize structure: distinct species {previous!r} and {species.name!r} share element {element!r}"
-            )
-        elements[element] = species.name
     if getattr(structure, "assemblies", None) is not None:
         raise ValueError("cannot anonymize structure: assemblies are not supported")
     if getattr(structure, "chemical_composition", None) is not None:

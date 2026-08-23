@@ -26,6 +26,7 @@ from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.semantics import StructureSemanticsMixin, initialize_semantics
 from httk.atomistic.models.structure.unitcell import (
+    _check_referenced_species_concentrations,
     _check_site_moments,
     _check_sites_length,
     _check_species_at_sites,
@@ -347,6 +348,7 @@ class SymopsStructure(StructureSemanticsMixin, StructureBackend):
         _check_sites_length(norm_sites, norm_species_at_sites)
         _check_species_names(norm_species)
         _check_species_at_sites(norm_species_at_sites, norm_species)
+        _check_referenced_species_concentrations(norm_species_at_sites, norm_species)
         norm_site_moments = _norm_site_moments(site_moments)
         _check_site_moments(norm_site_moments, norm_sites, norm_cell)
         component_resolutions = _normalize_moment_claims(

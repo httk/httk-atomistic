@@ -107,6 +107,12 @@ def _check_species_at_sites(species_at_sites: Sequence[str], species: Sequence[S
             raise ValueError(f"UnitcellStructure species_at_sites references unknown species name: {name!r}")
 
 
+def _check_referenced_species_concentrations(species_at_sites: Sequence[str], species: Sequence[Species]) -> None:
+    referenced = set(species_at_sites)
+    if any(value > 1 for item in species if item.name in referenced for value in item.concentration):
+        raise ValueError("species assigned to sites must have concentration values in [0, 1]")
+
+
 def _check_sites_length(sites: Sites, species_at_sites: Sequence[str]) -> None:
     if len(species_at_sites) != len(sites):
         raise ValueError("UnitcellStructure species_at_sites must have the same length as sites")
@@ -190,6 +196,7 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
         _check_sites_length(norm_sites, norm_species_at_sites)
         _check_species_names(norm_species)
         _check_species_at_sites(norm_species_at_sites, norm_species)
+        _check_referenced_species_concentrations(norm_species_at_sites, norm_species)
         norm_site_moments = _norm_site_moments(site_moments)
         _check_site_moments(norm_site_moments, norm_sites, norm_cell)
 

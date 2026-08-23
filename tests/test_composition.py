@@ -78,8 +78,10 @@ def test_species_validation_and_normalization_diagnostic() -> None:
         Species("bad", ("C",), (1,), original_name=1)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="mass values cannot be bool"):
         Species("bad", ("C",), (1,), mass=(True,))
-    for value in (-1, 2, float("nan"), float("inf")):
-        with pytest.raises(ValueError, match=r"\[0, 1\]|finite"):
+    with pytest.raises(ValueError, match="non-negative"):
+        Species("bad", ("Ge",), (-1,))
+    for value in (float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="finite"):
             Species("bad", ("Ge",), (value,))
     for mass in (-1, float("nan"), float("inf")):
         with pytest.raises(ValueError, match="mass"):

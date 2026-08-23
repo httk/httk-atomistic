@@ -120,7 +120,8 @@ An atom-site row whose `_atom_site_calc_flag` is `dum` declares an atom with no 
 coordinates. The row is omitted from the structure's represented sites but retained as a
 `Species` definition with its stated occupancy. Its species name appears in
 `structure.implicit_atoms`, and `structure_features` consequently contains
-`"implicit_atoms"`.
+`"implicit_atoms"`. Unlike an occupancy probability on a represented site, this value can
+be an aggregate count greater than one.
 
 A positive `_atom_site_attached_hydrogens` value is represented on that row's `Species` as
 `attached=("H",)` and the matching `nattached` count. Zero or an unknown value adds no

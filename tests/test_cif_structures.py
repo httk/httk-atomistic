@@ -150,31 +150,36 @@ def test_cif_dummy_sites_become_implicit_species_and_attached_hydrogens(tmp_path
         tmp_path / "implicit.cif",
         "1",
         (5, 5, 5, 90, 90, 90),
-        [("C1", "C", ("0.123", "0.234", "0.345"), "1"), ("O1", "O", (".", ".", "."), "0.5")],
-        attached_hydrogens=["3", "0"],
-        calc_flags=["d", "dum"],
+        [
+            ("C1", "C", ("0.123", "0.234", "0.345"), "1"),
+            ("O1", "O", (".", ".", "."), "0.5"),
+            ("H1", "H", ("-1", "-1", "-1"), "5"),
+        ],
+        attached_hydrogens=["3", "0", "0"],
+        calc_flags=["d", "dum", "dum"],
     )
 
     structure = load(path)
     by_name = {species.name: species for species in structure.species}
 
     assert structure.domain_species_at_sites == ("C1",)
-    assert structure.implicit_atoms == ("O1",)
+    assert structure.implicit_atoms == ("O1", "H1")
     assert structure.structure_features == ("implicit_atoms", "site_attachments")
     assert by_name["C1"].attached == ("H",)
     assert by_name["C1"].nattached == (3,)
     assert by_name["O1"].chemical_symbols == ("O",)
     assert by_name["O1"].concentration == (F(1, 2),)
+    assert by_name["H1"].concentration == (F(5),)
 
     destination = tmp_path / "implicit-roundtrip.cif"
     save(structure, destination)
     raw = load(destination, raw=True)["blocks"][0]
     restored = load(destination)
 
-    assert raw["attached_hydrogens"] == [3, 0]
-    assert raw["calc_flags"] == ["d", "dum"]
+    assert raw["attached_hydrogens"] == [3, 0, 0]
+    assert raw["calc_flags"] == ["d", "dum", "dum"]
     assert restored.species == structure.species
-    assert restored.implicit_atoms == ("O1",)
+    assert restored.implicit_atoms == ("O1", "H1")
     assert restored.structure_features == ("implicit_atoms", "site_attachments")
 
 

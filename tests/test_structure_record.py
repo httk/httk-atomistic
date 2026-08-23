@@ -100,7 +100,7 @@ def _implicit_attached_asu() -> ASUStructure:
         (WyckoffSite("a", FracVector((Fraction(1, 8), Fraction(1, 4), Fraction(3, 8))), "C1"),),
         (
             Species("C1", ("C",), (1,), attached=("H",), nattached=(3,)),
-            Species("O1", ("O",), (Fraction(1, 2),)),
+            Species("H1", ("H",), (5,)),
         ),
     )
 
@@ -312,7 +312,7 @@ def test_sql_store_round_trips_implicit_atoms_and_site_attachments() -> None:
     assert stored_species["C1"].attached == ("H",)
     assert stored_species["C1"].nattached == (3,)
     assert restored.species == source.species
-    assert restored.implicit_atoms == ("O1",)
+    assert restored.implicit_atoms == ("H1",)
     assert restored.structure_features == ("implicit_atoms", "site_attachments")
 
 

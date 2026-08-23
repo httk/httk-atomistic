@@ -5,12 +5,12 @@ from httk.core import unwrap
 
 from httk.atomistic import (
     Cell,
-    Sites,
-    Species,
-    UnitcellStructure,
-    StructureBackend,
     PlainStructure,
     PlainStructureView,
+    Sites,
+    Species,
+    StructureBackend,
+    UnitcellStructure,
     UnitcellStructureView,
     atomic_number,
     symbol_of,
@@ -75,6 +75,8 @@ def test_species_valid_and_create_from_dict() -> None:
 
 
 def test_species_validation_errors() -> None:
+    with pytest.raises(ValueError, match="non-negative"):
+        Species(name="Na", chemical_symbols=("Na",), concentration=(-1,))
     with pytest.raises(ValueError):
         Species(name="Na", chemical_symbols=("Na",), concentration=(1.0, 0.0))
     with pytest.raises(ValueError):
@@ -91,6 +93,15 @@ def test_species_validation_errors() -> None:
         )
     with pytest.raises(ValueError):
         Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,), mass=(1.0, 2.0))
+
+
+def test_only_unrepresented_species_accept_aggregate_concentrations() -> None:
+    aggregate = Species("H1", ("H",), (5,))
+    structure = UnitcellStructure(CUBIC, [[0, 0, 0]], (Species("O", ("O",), (1,)), aggregate), ("O",))
+
+    assert structure.implicit_atoms == ("H1",)
+    with pytest.raises(ValueError, match="assigned to sites"):
+        UnitcellStructure(CUBIC, [[0, 0, 0]], (aggregate,), ("H1",))
 
 
 def test_species_is_single_element_cases() -> None:
