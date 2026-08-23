@@ -1,29 +1,29 @@
-"""The crystal-template family: dummy-species crystal templates and fundamental domains."""
+"""The structuretype family: dummy-species structuretypes and fundamental domains."""
 
 from typing import TYPE_CHECKING
 
 from .anonymize import canonical_dummy_assignment, dummy_species, is_dummy_species
-from .api import CrystalTemplateAPI
-from .backend import CrystalTemplateBackend
-from .crystaltemplate import CrystalTemplate
+from .api import StructuretypeAPI
+from .backend import StructuretypeBackend
 from .fundamental import ASUTemplate, FundamentalDomainTemplate
-from .like import CrystalTemplateLike
-from .view_base import CrystalTemplateViewBase
+from .like import StructuretypeLike
+from .structuretype import Structuretype
+from .view_base import StructuretypeViewBase
 
 if TYPE_CHECKING:
     from .fundamental_view import FundamentalDomainTemplateView
-    from .view import CrystalTemplateView
+    from .view import StructuretypeView
 
 __all__ = [
     "ASUTemplate",
-    "CrystalTemplate",
-    "CrystalTemplateAPI",
-    "CrystalTemplateBackend",
-    "CrystalTemplateLike",
-    "CrystalTemplateView",
-    "CrystalTemplateViewBase",
     "FundamentalDomainTemplate",
     "FundamentalDomainTemplateView",
+    "Structuretype",
+    "StructuretypeAPI",
+    "StructuretypeBackend",
+    "StructuretypeLike",
+    "StructuretypeView",
+    "StructuretypeViewBase",
     "canonical_dummy_assignment",
     "dummy_species",
     "is_dummy_species",
@@ -31,11 +31,11 @@ __all__ = [
 
 
 def __getattr__(name: str) -> object:
-    if name == "CrystalTemplateView":
-        from .view import CrystalTemplateView
+    if name == "StructuretypeView":
+        from .view import StructuretypeView
 
-        globals()[name] = CrystalTemplateView
-        return CrystalTemplateView
+        globals()[name] = StructuretypeView
+        return StructuretypeView
     if name == "FundamentalDomainTemplateView":
         from .fundamental_view import FundamentalDomainTemplateView
 

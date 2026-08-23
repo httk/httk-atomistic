@@ -5,15 +5,15 @@ from typing import Any, Self
 
 from httk.core import MISSING, unwrap
 
-from httk.atomistic.models.crystaltemplate.anonymize import canonical_dummy_assignment, dummy_species
-from httk.atomistic.models.crystaltemplate.anonymized import AnonymizedStructure
-from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
-from httk.atomistic.models.crystaltemplate.crystaltemplate import CrystalTemplate
-from httk.atomistic.models.crystaltemplate.fundamental import FundamentalDomainTemplate
-from httk.atomistic.models.crystaltemplate.view_base import CrystalTemplateViewBase
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
+from httk.atomistic.models.structuretype.anonymize import canonical_dummy_assignment, dummy_species
+from httk.atomistic.models.structuretype.anonymized import AnonymizedStructure
+from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
+from httk.atomistic.models.structuretype.structuretype import Structuretype
+from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
 from httk.atomistic.symmetry.standardization import conventional_cell
 
 
@@ -34,17 +34,17 @@ def _relabel_sites(
     return mapped_sites, mapped_species
 
 
-class FundamentalDomainTemplateView(CrystalTemplateViewBase, FundamentalDomainTemplate):
+class FundamentalDomainTemplateView(StructuretypeViewBase, FundamentalDomainTemplate):
     r"""Recognize a lazy standard-setting prototype view from a structure.
 
     Recognition accepts optional ``tolerance`` and ``limit_denominator`` values through
     the recognition hints.
 
-    :param obj: The crystal-template-like or structure-like source.
+    :param obj: The structuretype-like or structure-like source.
     :param \*\*hints: Backend-selection and recognition hints.
     """
 
-    _backend: CrystalTemplateBackend
+    _backend: StructuretypeBackend
     _resolved_prototype: FundamentalDomainTemplate | None
     _tolerance: float | None
     _limit_denominator: int | None
@@ -118,7 +118,7 @@ class FundamentalDomainTemplateView(CrystalTemplateViewBase, FundamentalDomainTe
             resolved = backend
         else:
             source: Any
-            anonymous_source = isinstance(backend, CrystalTemplate)
+            anonymous_source = isinstance(backend, Structuretype)
             if anonymous_source:
                 source = UnitcellStructure(
                     backend.cell,

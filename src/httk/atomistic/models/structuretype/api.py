@@ -1,20 +1,20 @@
-"""The minimal canonical crystal-template interface."""
+"""The minimal canonical structuretype interface."""
 
 from abc import ABC, abstractmethod
 from fractions import Fraction
 from typing import TYPE_CHECKING, cast
 
 from httk.atomistic.models.cell.cell import Cell
-from httk.atomistic.models.formula.formulatemplate_view import FormulatemplateView
+from httk.atomistic.models.formula.formulatype_view import FormulatypeView
 from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
+    from httk.atomistic.models.structuretype.backend import StructuretypeBackend
 
 
-class CrystalTemplateAPI(ABC):
+class StructuretypeAPI(ABC):
     """The common interface for dummy-species structures and prototypes."""
 
     @property
@@ -52,11 +52,11 @@ class CrystalTemplateAPI(ABC):
         return None
 
     @property
-    def anonymous_formula(self) -> FormulatemplateView:
+    def anonymous_formula(self) -> FormulatypeView:
         """Return the canonical anonymous formula at the represented site scale."""
         # The API root is only ever hosted by a backend in this family; the formula bridge
         # accepts that backend root rather than the abstract API protocol itself.
-        return FormulatemplateView(cast("CrystalTemplateBackend", self))
+        return FormulatypeView(cast("StructuretypeBackend", self))
 
     @property
     def is_canonical(self) -> bool:

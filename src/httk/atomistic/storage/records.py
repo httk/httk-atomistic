@@ -22,7 +22,6 @@ from httk.atomistic._composition_values import as_fraction
 from httk.atomistic.composition import Assembly, ChemicalComposition, validate_assemblies
 from httk.atomistic.models._vector_guards import to_periodicity, to_precision
 from httk.atomistic.models.cell.cell import Cell
-from httk.atomistic.models.crystaltemplate.fundamental import FundamentalDomainTemplate
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
@@ -36,6 +35,7 @@ from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.semantics import StructureSymmetry
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
+from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.models.trajectory.api import TrajectoryAPI
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Self, cast
 from httk.core import unwrap
 
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
-from httk.atomistic.models.formula.formulatemplate import Formulatemplate
+from httk.atomistic.models.formula.formulatype import Formulatype
 from httk.atomistic.models.formula.notation import (
     anonymous_symbol,
     parse_anonymous_formula,
@@ -18,10 +18,10 @@ if TYPE_CHECKING:
     from httk.atomistic.models.formula.like import ChemicalFormulaLike
 
 
-class FormulatemplateView(ChemicalFormulaViewBase, Formulatemplate):
+class FormulatypeView(ChemicalFormulaViewBase, Formulatype):
     r"""Present a complete composition as an eager canonical anonymous formula.
 
-    The canonical class name is ``FormulatemplateView``; the legacy
+    The canonical class name is ``FormulatypeView``; the legacy
     ``AnonymousFormulaView`` name remains available as an alias.
 
     :param obj: The chemical-formula-like object to present.
@@ -35,7 +35,7 @@ class FormulatemplateView(ChemicalFormulaViewBase, Formulatemplate):
             return obj
         backend = cls._prepare_backend(obj, hints)
         if backend.is_anonymous:
-            if type(backend) is Formulatemplate:
+            if type(backend) is Formulatype:
                 text = str(backend)
                 coefficients = backend._coefficients
             else:
@@ -122,15 +122,15 @@ class FormulatemplateView(ChemicalFormulaViewBase, Formulatemplate):
         """Return whether this formula uses anonymous labels."""
         return True
 
-    def unview(self) -> Formulatemplate:
+    def unview(self) -> Formulatype:
         """Return the presented formula as a standalone value.
 
         :return: The canonical anonymous formula value.
         """
         backend = self._backend
-        if type(backend) is Formulatemplate:
+        if type(backend) is Formulatype:
             return backend
-        return Formulatemplate(str(self))
+        return Formulatype(str(self))
 
     def unwrap(self) -> Any:
         """Return the raw object behind the backend.

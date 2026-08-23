@@ -4,9 +4,9 @@
 
 | Geometrical information | Anonymous occupation | Assigned species |
 | --- | --- | --- |
-| None | `Formulatemplate` | `ChemicalFormula` |
+| None | `Formulatype` | `ChemicalFormula` |
 | Wyckoff positions, optionally with a representative/discriminator | `Prototype` | `Protostructure` |
-| Exact geometry | `CrystalTemplate` | `Structure` |
+| Exact geometry | `Structuretype` | `Structure` |
 
 The middle row is intentionally represented by only two structural families.
 `Prototype` stores anonymous `PrototypeOccupation` values; `Protostructure`

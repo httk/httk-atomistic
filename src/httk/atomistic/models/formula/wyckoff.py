@@ -13,20 +13,20 @@ import httk.atomistic.models.protostructure.view_base
 import httk.atomistic.models.prototype.backend
 import httk.atomistic.models.prototype.view_base
 from httk.atomistic.composition import project_composition
-from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
-from httk.atomistic.models.crystaltemplate.view_base import CrystalTemplateViewBase
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.formula.notation import anonymous_symbol
+from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
 
 
 class WyckoffComposition(ChemicalFormulaBackend):
     r"""Represent the canonical composition of a Wyckoff-multiplicity-based backend.
 
-    Crystal-template and prototype inputs use anonymous labels; protostructure
+    Structuretype and prototype inputs use anonymous labels; protostructure
     inputs retain their real elemental composition at the standard conventional-cell scale.
 
-    :param obj: The crystal template or protostructure to present.
+    :param obj: The structuretype or protostructure to present.
     :param \*\*hints: Backend-selection hints.
     """
 
@@ -46,8 +46,8 @@ class WyckoffComposition(ChemicalFormulaBackend):
         if isinstance(
             obj,
             (
-                CrystalTemplateBackend,
-                CrystalTemplateViewBase,
+                StructuretypeBackend,
+                StructuretypeViewBase,
                 httk.atomistic.models.prototype.backend.PrototypeBackend,
                 httk.atomistic.models.prototype.view_base.PrototypeViewBase,
                 httk.atomistic.models.protostructure.backend.ProtostructureBackend,
@@ -61,7 +61,7 @@ class WyckoffComposition(ChemicalFormulaBackend):
         if isinstance(
             obj,
             (
-                CrystalTemplateViewBase,
+                StructuretypeViewBase,
                 httk.atomistic.models.prototype.view_base.PrototypeViewBase,
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
             ),

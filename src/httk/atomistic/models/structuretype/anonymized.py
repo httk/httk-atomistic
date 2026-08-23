@@ -6,19 +6,19 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
-from httk.atomistic.models.crystaltemplate.anonymize import (
+from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.models.structure.view import StructureView
+from httk.atomistic.models.structuretype.anonymize import (
     canonical_dummy_assignment,
     dummy_species,
     require_anonymizable,
 )
-from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
-from httk.atomistic.models.crystaltemplate.crystaltemplate import CrystalTemplate
-from httk.atomistic.models.structure.backend import StructureBackend
-from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
-from httk.atomistic.models.structure.view import StructureView
+from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+from httk.atomistic.models.structuretype.structuretype import Structuretype
 
 
-class AnonymizedStructure(CrystalTemplateBackend):
+class AnonymizedStructure(StructuretypeBackend):
     r"""Project an ordinary structure lazily to anonymous species.
 
     :param obj: The ordinary structure to anonymize.
@@ -42,7 +42,7 @@ class AnonymizedStructure(CrystalTemplateBackend):
         """
         if hints and hints.get("kind", "structure") != "structure":
             return None
-        if isinstance(obj, CrystalTemplateBackend):
+        if isinstance(obj, StructuretypeBackend):
             return None
         if not isinstance(obj, (StructureView, StructureBackend)):
             source_hints = cls._source_hints(hints)
@@ -69,7 +69,7 @@ class AnonymizedStructure(CrystalTemplateBackend):
         return resolver() if resolver is not None else self._structure
 
     @cached_property
-    def _derived(self) -> CrystalTemplate:
+    def _derived(self) -> Structuretype:
         view = UnitcellStructureView(self._effective_structure)
         require_anonymizable(view)
         species_by_name = {species.name: species for species in view.species}
@@ -83,9 +83,9 @@ class AnonymizedStructure(CrystalTemplateBackend):
         assignment = canonical_dummy_assignment(tuple(counts.items()))
         mapped_species = tuple(dummy_species(label) for label in assignment.values())
         mapped_sites = tuple(assignment[element_by_name[name]] for name in view.species_at_sites)
-        return CrystalTemplate(view.cell, view.sites, mapped_species, mapped_sites)
+        return Structuretype(view.cell, view.sites, mapped_species, mapped_sites)
 
-    def resolve(self) -> CrystalTemplate:
+    def resolve(self) -> Structuretype:
         """Return the complete anonymized structure."""
         return self._derived
 

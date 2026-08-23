@@ -6,7 +6,7 @@ from httk.atomistic import (
     Cell,
     ChemicalFormula,
     Composition,
-    Formulatemplate,
+    Formulatype,
     Species,
 )
 from httk.core.vectors import FracScalar, FracVector, SurdScalar, SurdVector
@@ -17,7 +17,7 @@ _NS = {
     "Cell": Cell,
     "Composition": Composition,
     "ChemicalFormula": ChemicalFormula,
-    "Formulatemplate": Formulatemplate,
+    "Formulatype": Formulatype,
     "FracVector": FracVector,
     "FracScalar": FracScalar,
     "SurdVector": SurdVector,
@@ -54,8 +54,8 @@ def test_formula_reprs_name_their_class() -> None:
     f = ChemicalFormula("Fe2O3")
     assert repr(f) == "ChemicalFormula('Fe2O3')"
     _roundtrips(f)
-    a = Formulatemplate("A3B2")
-    assert repr(a) == "Formulatemplate('A3B2')"
+    a = Formulatype("A3B2")
+    assert repr(a) == "Formulatype('A3B2')"
     _roundtrips(a)
 
 

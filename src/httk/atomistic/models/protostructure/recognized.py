@@ -6,8 +6,6 @@ from typing import Any, Self
 from httk.core import unwrap
 
 from httk.atomistic.models.cell.cell import Cell
-from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
-from httk.atomistic.models.crystaltemplate.view_base import CrystalTemplateViewBase
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.view_base import ChemicalFormulaViewBase
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
@@ -16,6 +14,8 @@ from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.view import StructureView
+from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
 from httk.atomistic.symmetry._standardization_common import (
     _matrix_column_sum_factor,
     _matrix_row_sum_factor,
@@ -83,7 +83,7 @@ class RecognizedProtostructure(ProtostructureBackend):
                 raise TypeError("recognize_asu() needs both 'standard' and 'transform' when either is given")
             if not standard.is_standard_setting:
                 raise ValueError(f"'standard' must be an IT standard setting, got {standard.setting}")
-        if isinstance(obj, (CrystalTemplateBackend, CrystalTemplateViewBase)):
+        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)):
             return None
         if isinstance(obj, (ChemicalFormulaBackend, ChemicalFormulaViewBase)):
             return None

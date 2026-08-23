@@ -3,11 +3,11 @@
 from collections.abc import Sequence
 from typing import ClassVar
 
-from httk.atomistic.models.crystaltemplate.fundamental import FundamentalDomainTemplate
 from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.prototype.backend import PrototypeBackend
 from httk.atomistic.models.prototype.notation import canonical_label_map
 from httk.atomistic.models.prototype.occupation import PrototypeOccupation
+from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 

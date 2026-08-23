@@ -14,8 +14,8 @@ from httk.atomistic import (
     ASUStructureView,
     ChemicalFormulaView,
     CompositionView,
-    Formulatemplate,
-    FormulatemplateView,
+    Formulatype,
+    FormulatypeView,
     FundamentalDomainTemplate,
     FundamentalDomainTemplateView,
     Spacegroup,
@@ -111,7 +111,7 @@ def test_exact_asu_path_and_expansion() -> None:
     assert prototype.multiplicities() == (4, 4)
     assert len(AnonymousStructureView(prototype).sites) == prototype.nsites_conventional
     assert prototype.anonymous_formula == "AB"
-    assert isinstance(FormulatemplateView(prototype), str)
+    assert isinstance(FormulatypeView(prototype), str)
     with pytest.raises(ValueError):
         FundamentalDomainTemplateView(asu, tolerance=1e-5)
     with pytest.raises(ValueError):
@@ -144,10 +144,10 @@ def test_anonymous_prototype_source_uses_original_labels() -> None:
 def test_formula_views_reduce_non_coprime_amounts_and_remain_parseable() -> None:
     asu = _rocksalt_asu()
     prototype = FundamentalDomainTemplateView(asu)
-    assert Formulatemplate(str(prototype.anonymous_formula)) == "AB"
+    assert Formulatype(str(prototype.anonymous_formula)) == "AB"
 
     real_structure = UnitcellStructureView(asu)
-    assert Formulatemplate(str(FormulatemplateView(real_structure))) == "AB"
+    assert Formulatype(str(FormulatypeView(real_structure))) == "AB"
     assert ChemicalFormulaView(real_structure) == "ClNa"
 
 
@@ -198,7 +198,7 @@ def test_prototype_view_resolves_nested_asu_source_once_across_value_operations(
 
 
 def test_prototype_view_retains_tolerance_and_denominator_and_resolves_source_once(monkeypatch) -> None:
-    module = __import__("httk.atomistic.models.crystaltemplate.fundamental_view", fromlist=["conventional_cell"])
+    module = __import__("httk.atomistic.models.structuretype.fundamental_view", fromlist=["conventional_cell"])
     source = CountingStructureResolver(_rocksalt_unitcell())
     captured: dict[str, object] = {}
 

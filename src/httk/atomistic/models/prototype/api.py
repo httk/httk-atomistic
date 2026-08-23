@@ -3,14 +3,14 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Self, cast
 
-from httk.atomistic.models.formula.formulatemplate_view import FormulatemplateView
+from httk.atomistic.models.formula.formulatype_view import FormulatypeView
 from httk.atomistic.models.prototype.notation import pearson_symbol, render_prototype_label
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.crystaltemplate.fundamental import FundamentalDomainTemplate
     from httk.atomistic.models.prototype.backend import PrototypeBackend
     from httk.atomistic.models.prototype.label import PrototypeLabel
     from httk.atomistic.models.prototype.occupation import PrototypeOccupation
+    from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
@@ -49,8 +49,8 @@ class PrototypeAPI(ABC):
         return pearson_symbol(self.spacegroup, self.nsites_conventional)
 
     @property
-    def anonymous_formula(self) -> FormulatemplateView:
-        return FormulatemplateView(cast("PrototypeBackend", self))
+    def anonymous_formula(self) -> FormulatypeView:
+        return FormulatypeView(cast("PrototypeBackend", self))
 
     @property
     def label(self) -> "PrototypeLabel":

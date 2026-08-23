@@ -6,9 +6,9 @@ species.
 
 | Geometrical information | Anonymous occupation | Assigned species |
 | --- | --- | --- |
-| None | `Formulatemplate` | `ChemicalFormula` |
+| None | `Formulatype` | `ChemicalFormula` |
 | Wyckoff positions, optionally with a representative/discriminator | `Prototype` | `Protostructure` |
-| Exact geometry | `CrystalTemplate` | `Structure` |
+| Exact geometry | `Structuretype` | `Structure` |
 
 `Prototype` and `Protostructure` are the two geometrical-classification keys. A
 base value contains only its standard-setting space group and occupied Wyckoff
@@ -77,7 +77,7 @@ and retains the source `FundamentalDomainTemplate` semantics.
 
 ## Exact boundary
 
-The conversion boundary is explicit. `CrystalTemplate`/`FundamentalDomainTemplate`
+The conversion boundary is explicit. `Structuretype`/`FundamentalDomainTemplate`
 reject real-species assumptions when producing anonymous data; `Protostructure`
 retains real species, including their exact metadata. No conversion silently
 approximates a representative: use an explicit lossy presentation when a

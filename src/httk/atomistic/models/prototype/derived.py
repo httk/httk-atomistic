@@ -5,7 +5,6 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
-from httk.atomistic.models.crystaltemplate.fundamental import FundamentalDomainTemplate
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.view_base import ProtostructureViewBase
 from httk.atomistic.models.prototype.backend import PrototypeBackend
@@ -14,6 +13,7 @@ from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
+from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 
 
 def _prototype_to_structure(prototype):

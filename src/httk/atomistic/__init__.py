@@ -97,9 +97,9 @@ from httk.atomistic.models.structure.record import RecordStructure
 
 # Formula imports must follow the structure imports: formula record/like modules pull in
 # the storage stack, whose integration bridges depend on a fully initialized structure family.
-from httk.atomistic.models.formula.formulatemplate import Formulatemplate
-from httk.atomistic.models.formula.formulatemplate_string import FormulatemplateString
-from httk.atomistic.models.formula.formulatemplate_view import FormulatemplateView
+from httk.atomistic.models.formula.formulatype import Formulatype
+from httk.atomistic.models.formula.formulatype_string import FormulatypeString
+from httk.atomistic.models.formula.formulatype_view import FormulatypeView
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.formula.composition_view import CompositionView
@@ -111,27 +111,27 @@ from httk.atomistic.models.formula.plain import PlainComposition
 from httk.atomistic.models.formula.record import RecordComposition
 from httk.atomistic.models.formula.structure import StructureComposition
 
-# Alias for discoverability; canonical name is Formulatemplate (see docs/prototypes.md).
-AnonymousFormula = Formulatemplate
-AnonymousFormulaView = FormulatemplateView
+# Alias for discoverability; canonical name is Formulatype (see docs/prototypes.md).
+AnonymousFormula = Formulatype
+AnonymousFormulaView = FormulatypeView
 
-# CrystalTemplate imports follow both structure and formula imports: the crystal-template-to-formula
+# Structuretype imports follow both structure and formula imports: the structuretype-to-formula
 # bridge and adapter deliberately depend on the completed lower-level family registrations.
-from httk.atomistic.models.crystaltemplate.crystaltemplate import CrystalTemplate
-from httk.atomistic.models.crystaltemplate.view import CrystalTemplateView
-from httk.atomistic.models.crystaltemplate.anonymized import AnonymizedStructure
-from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
-from httk.atomistic.models.crystaltemplate.like import CrystalTemplateLike
-from httk.atomistic.models.crystaltemplate.fundamental import ASUTemplate, FundamentalDomainTemplate
-from httk.atomistic.models.crystaltemplate.fundamental_view import FundamentalDomainTemplateView
+from httk.atomistic.models.structuretype.structuretype import Structuretype
+from httk.atomistic.models.structuretype.view import StructuretypeView
+from httk.atomistic.models.structuretype.anonymized import AnonymizedStructure
+from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+from httk.atomistic.models.structuretype.like import StructuretypeLike
+from httk.atomistic.models.structuretype.fundamental import ASUTemplate, FundamentalDomainTemplate
+from httk.atomistic.models.structuretype.fundamental_view import FundamentalDomainTemplateView
 from httk.atomistic.models.formula.wyckoff import WyckoffComposition
 
-# Alias for discoverability; canonical name is CrystalTemplate (see docs/prototypes.md).
-AnonymousStructure = CrystalTemplate
-AnonymousStructureView = CrystalTemplateView
-AnonymousStructureLike = CrystalTemplateLike
+# Alias for discoverability; canonical name is Structuretype (see docs/prototypes.md).
+AnonymousStructure = Structuretype
+AnonymousStructureView = StructuretypeView
+AnonymousStructureLike = StructuretypeLike
 
-# Protostructure imports follow the crystaltemplate block: the assigned-species
+# Protostructure imports follow the structuretype block: the assigned-species
 # classification family bridges through the completed formula and structure registrations.
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.label import ProtostructureLabel
@@ -143,7 +143,7 @@ from httk.atomistic.models.protostructure.recognized import RecognizedProtostruc
 from httk.atomistic.models.protostructure.view import ProtostructureView
 
 # Prototype imports follow the protostructure block: the anonymous family composes the
-# completed crystaltemplate (its representative) and protostructure (its erasure).
+# completed structuretype (its representative) and protostructure (its erasure).
 from httk.atomistic.models.prototype.backend import PrototypeBackend
 from httk.atomistic.models.prototype.derived import DerivedPrototype
 from httk.atomistic.models.prototype.label import PrototypeLabel
@@ -214,15 +214,15 @@ ChemicalFormulaBackend.backend_classes = [
     WyckoffComposition,
     PlainComposition,
     FormulaString,
-    FormulatemplateString,
+    FormulatypeString,
 ]
-CrystalTemplateBackend.backend_classes = [AnonymizedStructure]
+StructuretypeBackend.backend_classes = [AnonymizedStructure]
 # The label-string probe is first: it is a cheap exact parse that either matches a
 # canonical label or declines, mirroring the record-first rationale, so recognition
 # sources never fall through it.
 ProtostructureBackend.backend_classes = [ProtostructureLabelString, RecognizedProtostructure]
 PrototypeBackend.backend_classes = [PrototypeLabelString, DerivedPrototype, RecognizedPrototype]
-register_coercer(view_class_coercer([ChemicalFormulaView, FormulatemplateView, CompositionView]), Any)
+register_coercer(view_class_coercer([ChemicalFormulaView, FormulatypeView, CompositionView]), Any)
 StructureBackend.backend_classes = [
     RecordStructure,
     OptimadeStructure,
@@ -288,12 +288,9 @@ __all__ = [
     "ConventionalCellResult",
     "CrystalAxisSiteMoments",
     "CrystalAxisSiteMomentsView",
-    "CrystalTemplate",
-    "CrystalTemplateLike",
-    "CrystalTemplateView",
     "DatastreamStructure",
-    "Formulatemplate",
-    "FormulatemplateView",
+    "Formulatype",
+    "FormulatypeView",
     "FundamentalDomainStructure",
     "FundamentalDomainStructureRecord",
     "FundamentalDomainTemplate",
@@ -340,6 +337,9 @@ __all__ = [
     "StructureLike",
     "StructurePath",
     "StructureSymmetry",
+    "Structuretype",
+    "StructuretypeLike",
+    "StructuretypeView",
     "SubgroupRepresentationResult",
     "SupercellResult",
     "SymopsStructure",

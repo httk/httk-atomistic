@@ -17,7 +17,7 @@ from httk.atomistic import (
     ChemicalComposition,
     ChemicalFormulaView,
     CompositionView,
-    FormulatemplateView,
+    FormulatypeView,
     FundamentalDomainStructure,
     Protostructure,
     ProtostructureBackend,
@@ -258,7 +258,7 @@ def test_disorder_and_vacancy_project_with_tabulated_multiplicity() -> None:
     value = Protostructure(221, [("a", mixed), ("b", vacancy)])
     assert CompositionView(value).amounts == (("Fe", Fraction(1, 2)), ("Ni", Fraction(1, 2)))
     assert ChemicalFormulaView(value) == "FeNi"
-    assert FormulatemplateView(value) == "AB"
+    assert FormulatypeView(value) == "AB"
 
 
 def test_exact_paths_preserve_species_and_match_structure_formula() -> None:

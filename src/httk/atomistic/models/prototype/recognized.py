@@ -5,21 +5,21 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
-from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
-from httk.atomistic.models.crystaltemplate.view_base import CrystalTemplateViewBase
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.view_base import ChemicalFormulaViewBase
 from httk.atomistic.models.prototype.backend import PrototypeBackend
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.view import StructureView
+from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
 
 
 class RecognizedPrototype(PrototypeBackend):
     r"""Recognize an ordinary structure or template lazily as a prototype.
 
     The source is used as the geometrical-class anchor: it is recognized (through
-    :class:`~httk.atomistic.models.crystaltemplate.fundamental_view.FundamentalDomainTemplateView`,
+    :class:`~httk.atomistic.models.structuretype.fundamental_view.FundamentalDomainTemplateView`,
     which handles an exact fundamental domain without spglib and a raw structure with it) to a
     standard-setting dummy-species representative, and the anonymous prototype folds from
     that representative. The resulting prototype is representative-carrying and has no
@@ -53,7 +53,7 @@ class RecognizedPrototype(PrototypeBackend):
             return None
         if isinstance(obj, (ChemicalFormulaBackend, ChemicalFormulaViewBase)):
             return None
-        if isinstance(obj, (CrystalTemplateBackend, CrystalTemplateViewBase, StructureView, StructureBackend)):
+        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase, StructureView, StructureBackend)):
             return cls(obj, **hints)
         source_hints = {
             name: value for name, value in hints.items() if name not in ("kind", "tolerance", "limit_denominator")
@@ -73,7 +73,7 @@ class RecognizedPrototype(PrototypeBackend):
 
     @cached_property
     def _derived(self) -> Prototype:
-        from httk.atomistic.models.crystaltemplate.fundamental_view import FundamentalDomainTemplateView
+        from httk.atomistic.models.structuretype.fundamental_view import FundamentalDomainTemplateView
 
         source = self._source
         representative = FundamentalDomainTemplateView(

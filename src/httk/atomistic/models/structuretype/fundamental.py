@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.like import CellLike
 from httk.atomistic.models.cell.view import CellView
-from httk.atomistic.models.crystaltemplate.anonymize import dummy_species, is_dummy_species
-from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
 from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.like import SpeciesLike
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.species.view import SpeciesView
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure, WyckoffSite
+from httk.atomistic.models.structuretype.anonymize import dummy_species, is_dummy_species
+from httk.atomistic.models.structuretype.backend import StructuretypeBackend
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
@@ -23,10 +23,10 @@ if TYPE_CHECKING:
     from httk.atomistic.models.prototype.prototype import Prototype
 
 
-class FundamentalDomainTemplate(CrystalTemplateBackend):
+class FundamentalDomainTemplate(StructuretypeBackend):
     """Store a standard-setting fundamental domain with dummy species labels.
 
-    ``FundamentalDomainTemplate`` is the fundamental-domain member of the ``CrystalTemplate``
+    ``FundamentalDomainTemplate`` is the fundamental-domain member of the ``Structuretype``
     family, the anonymous-species, exact-geometry cell used as a representative for
     :class:`~httk.atomistic.models.prototype.prototype.Prototype`.
 

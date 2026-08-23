@@ -1,4 +1,4 @@
-"""Lazy crystal-template presentation view."""
+"""Lazy structuretype presentation view."""
 
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Self
@@ -6,27 +6,27 @@ from typing import TYPE_CHECKING, Any, Self
 from httk.core import unwrap
 
 from httk.atomistic.models.cell.cell import Cell
-from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
-from httk.atomistic.models.crystaltemplate.crystaltemplate import CrystalTemplate
-from httk.atomistic.models.crystaltemplate.view_base import CrystalTemplateViewBase
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
+from httk.atomistic.models.structuretype.backend import StructuretypeBackend
+from httk.atomistic.models.structuretype.structuretype import Structuretype
+from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.crystaltemplate.like import CrystalTemplateLike
     from httk.atomistic.models.structure.like import StructureLike
+    from httk.atomistic.models.structuretype.like import StructuretypeLike
 
 
-class CrystalTemplateView(CrystalTemplateViewBase, CrystalTemplate):
-    r"""Present a crystal template or ordinary structure lazily as a crystal template.
+class StructuretypeView(StructuretypeViewBase, Structuretype):
+    r"""Present a structuretype or ordinary structure lazily as a structuretype.
 
-    :param obj: The crystal-template-like or structure-like object to present.
+    :param obj: The structuretype-like or structure-like object to present.
     :param \*\*hints: Backend-selection hints.
     """
 
-    _backend: CrystalTemplateBackend
+    _backend: StructuretypeBackend
 
-    def __new__(cls, obj: "CrystalTemplateLike | StructureLike", **hints: Any) -> Self:
+    def __new__(cls, obj: "StructuretypeLike | StructureLike", **hints: Any) -> Self:
         if isinstance(obj, cls):
             return obj
         backend = cls._prepare_backend(obj, hints)
@@ -107,11 +107,11 @@ class CrystalTemplateView(CrystalTemplateViewBase, CrystalTemplate):
         """
         return unwrap(self._backend)
 
-    def unview(self) -> CrystalTemplate:
+    def unview(self) -> Structuretype:
         """Return the presented structure as a standalone value.
 
-        :return: The crystal-template value.
+        :return: The structuretype value.
         """
-        if type(self._backend) is CrystalTemplate:
+        if type(self._backend) is Structuretype:
             return self._backend
-        return CrystalTemplate(self.cell, self.sites, self.species, self.species_at_sites)
+        return Structuretype(self.cell, self.sites, self.species, self.species_at_sites)

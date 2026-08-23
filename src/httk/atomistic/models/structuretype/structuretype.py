@@ -5,8 +5,6 @@ from typing import Any, ClassVar
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.like import CellLike
-from httk.atomistic.models.crystaltemplate.anonymize import dummy_species, is_dummy_species
-from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
 from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.sites.like import SitesLike
 from httk.atomistic.models.sites.sites import Sites
@@ -19,18 +17,20 @@ from httk.atomistic.models.structure.unitcell import (
     _norm_species,
     _norm_species_at_sites,
 )
+from httk.atomistic.models.structuretype.anonymize import dummy_species, is_dummy_species
+from httk.atomistic.models.structuretype.backend import StructuretypeBackend
 
 
-class CrystalTemplate(CrystalTemplateBackend):
+class Structuretype(StructuretypeBackend):
     """Store a unit cell whose site identities are consecutive dummy labels.
 
-    ``CrystalTemplate`` is the anonymous-species, exact-geometry cell of the
+    ``Structuretype`` is the anonymous-species, exact-geometry cell of the
     material-information matrix:
 
     With no geometry the anonymous/assigned pair is
-    ``Formulatemplate``/``ChemicalFormula``; with Wyckoff information and optional
+    ``Formulatype``/``ChemicalFormula``; with Wyckoff information and optional
     disambiguation it is ``Prototype``/``Protostructure``; and with exact geometry it is
-    ``CrystalTemplate``/``Structure``.
+    ``Structuretype``/``Structure``.
 
     :param cell: The unit-cell geometry.
     :param sites: The reduced coordinates of the sites.
@@ -52,7 +52,7 @@ class CrystalTemplate(CrystalTemplateBackend):
         species_at_sites: Sequence[str] | None = None,
     ) -> None:
         if species_at_sites is None:
-            raise TypeError("CrystalTemplate species_at_sites is required")
+            raise TypeError("Structuretype species_at_sites is required")
         norm_cell = _norm_cell(cell)
         norm_sites = _norm_sites(sites)
         norm_species_at_sites = _norm_species_at_sites(species_at_sites)
@@ -62,16 +62,16 @@ class CrystalTemplate(CrystalTemplateBackend):
             norm_species = _norm_species(species)
         _check_sites_length(norm_sites, norm_species_at_sites)
         if len({value.name for value in norm_species}) != len(norm_species):
-            raise ValueError("CrystalTemplate species names must be unique")
+            raise ValueError("Structuretype species names must be unique")
         if any(not is_dummy_species(value) for value in norm_species):
-            raise ValueError("CrystalTemplate species must be dummy species")
+            raise ValueError("Structuretype species must be dummy species")
         known = {value.name for value in norm_species}
         for label in norm_species_at_sites:
             if label not in known:
-                raise ValueError(f"CrystalTemplate species_at_sites references unknown species name: {label!r}")
+                raise ValueError(f"Structuretype species_at_sites references unknown species name: {label!r}")
         expected = {anonymous_symbol(index) for index in range(len(norm_species))}
         if {value.name for value in norm_species} != expected:
-            raise ValueError("CrystalTemplate species labels must be consecutive anonymous symbols from 'A'")
+            raise ValueError("Structuretype species labels must be consecutive anonymous symbols from 'A'")
         self._cell = norm_cell
         self._sites = norm_sites
         self._species = norm_species
@@ -132,7 +132,7 @@ class CrystalTemplate(CrystalTemplateBackend):
         return self._cell.precision
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, CrystalTemplate):
+        if not isinstance(other, Structuretype):
             return NotImplemented
         return (
             self._cell == other._cell
@@ -144,6 +144,4 @@ class CrystalTemplate(CrystalTemplateBackend):
         )
 
     def __repr__(self) -> str:
-        return (
-            f"CrystalTemplate(cell={self._cell!r}, sites={self._sites!r}, species_at_sites={self._species_at_sites!r})"
-        )
+        return f"Structuretype(cell={self._cell!r}, sites={self._sites!r}, species_at_sites={self._species_at_sites!r})"
