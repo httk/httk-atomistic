@@ -938,10 +938,10 @@ def _capture_recell_applications(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
         finally:
             active[0] = False
 
-    def apply_spy(structure: Any, operation: Any) -> Any:
+    def apply_spy(structure: Any, operation: Any, **kwargs: Any) -> Any:
         if active[0]:
             operations.append(operation)
-        return real_apply(structure, operation)
+        return real_apply(structure, operation, **kwargs)
 
     monkeypatch.setattr(lift_module, "_recell_lifts", recell_spy)
     monkeypatch.setattr(lift_module, "_apply_normalizer_operation", apply_spy)

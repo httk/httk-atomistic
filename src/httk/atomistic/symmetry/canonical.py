@@ -266,6 +266,7 @@ def canonical_asu(
     :return: The canonical asymmetric unit.
     :raises ImportError: If spglib is unavailable when symmetry must be searched (the error names the
         ``httk-atomistic[default]`` extra).
+
     If recognition fails or is rejected at every swept tolerance, the exact unit-cell
     geometry is canonicalized as P1 instead. This fallback performs no tolerance-level
     snapping and therefore cannot invent symmetry that spglib did not establish.

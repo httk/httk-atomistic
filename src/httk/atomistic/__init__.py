@@ -82,10 +82,8 @@ from httk.atomistic.storage.records import (
     ASUStructureRecord,
     FundamentalDomainTemplateRecord,
     FundamentalDomainStructureRecord,
-    PrototemplateRecord,
     ProtostructureRecord,
     PrototypeRecord,
-    StructuretypeRecord,
     UnitcellStructureRecord,
     validate_structure_record,
     ObservableSummaryRecord,
@@ -133,20 +131,8 @@ AnonymousStructure = CrystalTemplate
 AnonymousStructureView = CrystalTemplateView
 AnonymousStructureLike = CrystalTemplateLike
 
-# Prototemplate imports follow the crystaltemplate block and precede protostructure: the
-# element-free family reuses the formula bridge and crystaltemplate recognition above, and
-# the protostructure family below extends its label notation.
-from httk.atomistic.models.prototemplate.backend import PrototemplateBackend
-from httk.atomistic.models.prototemplate.derived import DerivedPrototemplate
-from httk.atomistic.models.prototemplate.label import PrototemplateLabel
-from httk.atomistic.models.prototemplate.label_string import PrototemplateLabelString
-from httk.atomistic.models.prototemplate.like import PrototemplateLike
-from httk.atomistic.models.prototemplate.occupation import PrototemplateOccupation
-from httk.atomistic.models.prototemplate.prototemplate import Prototemplate
-from httk.atomistic.models.prototemplate.view import PrototemplateView
-
-# Protostructure imports follow the prototype block: the geometry-free family bridges
-# through the completed formula and structure registrations above.
+# Protostructure imports follow the crystaltemplate block: the assigned-species
+# classification family bridges through the completed formula and structure registrations.
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.label import ProtostructureLabel
 from httk.atomistic.models.protostructure.label_string import ProtostructureLabelString
@@ -156,22 +142,17 @@ from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.protostructure.recognized import RecognizedProtostructure
 from httk.atomistic.models.protostructure.view import ProtostructureView
 
-# Prototype imports follow the protostructure block: the anonymous geometrical-class family
-# composes the completed crystaltemplate (its representative) and prototemplate (its erasure)
-# registrations above.
+# Prototype imports follow the protostructure block: the anonymous family composes the
+# completed crystaltemplate (its representative) and protostructure (its erasure).
 from httk.atomistic.models.prototype.backend import PrototypeBackend
+from httk.atomistic.models.prototype.derived import DerivedPrototype
+from httk.atomistic.models.prototype.label import PrototypeLabel
+from httk.atomistic.models.prototype.label_string import PrototypeLabelString
 from httk.atomistic.models.prototype.like import PrototypeLike
+from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.prototype.recognized import RecognizedPrototype
 from httk.atomistic.models.prototype.view import PrototypeView
-
-# Structuretype imports come last of the taxonomy families: the assigned geometrical-class
-# family composes the completed protostructure, structure, and prototype registrations above.
-from httk.atomistic.models.structuretype.backend import StructuretypeBackend
-from httk.atomistic.models.structuretype.like import StructuretypeLike
-from httk.atomistic.models.structuretype.recognized import RecognizedStructuretype
-from httk.atomistic.models.structuretype.structuretype import Structuretype
-from httk.atomistic.models.structuretype.view import StructuretypeView
 
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
@@ -203,6 +184,7 @@ from httk.atomistic.symmetry.paths import (
     interpolate_structures,
     list_representations,
     represent_like,
+    structure_delta,
 )
 from httk.atomistic.symmetry.wyckoff import WyckoffPosition, wyckoff_positions
 
@@ -235,13 +217,11 @@ ChemicalFormulaBackend.backend_classes = [
     FormulatemplateString,
 ]
 CrystalTemplateBackend.backend_classes = [AnonymizedStructure]
-PrototemplateBackend.backend_classes = [PrototemplateLabelString, DerivedPrototemplate]
 # The label-string probe is first: it is a cheap exact parse that either matches a
 # canonical label or declines, mirroring the record-first rationale, so recognition
 # sources never fall through it.
 ProtostructureBackend.backend_classes = [ProtostructureLabelString, RecognizedProtostructure]
-PrototypeBackend.backend_classes = [RecognizedPrototype]
-StructuretypeBackend.backend_classes = [RecognizedStructuretype]
+PrototypeBackend.backend_classes = [PrototypeLabelString, DerivedPrototype, RecognizedPrototype]
 register_coercer(view_class_coercer([ChemicalFormulaView, FormulatemplateView, CompositionView]), Any)
 StructureBackend.backend_classes = [
     RecordStructure,
@@ -270,15 +250,11 @@ ASUStructureView.__httk_storage_record__ = ASUStructureRecord
 Trajectory.__httk_storage_record__ = TrajectoryRecord
 TrajectoryView.__httk_storage_record__ = TrajectoryRecord
 Protostructure.__httk_storage_record__ = ProtostructureRecord
-Prototemplate.__httk_storage_record__ = PrototemplateRecord
-PrototemplateView.__httk_storage_record__ = PrototemplateRecord
 # ASUTemplate is deliberately not storable (matches the phase-2 decision for ASUStructure).
 FundamentalDomainTemplate.__httk_storage_record__ = FundamentalDomainTemplateRecord
 FundamentalDomainTemplateView.__httk_storage_record__ = FundamentalDomainTemplateRecord
 Prototype.__httk_storage_record__ = PrototypeRecord
 PrototypeView.__httk_storage_record__ = PrototypeRecord
-Structuretype.__httk_storage_record__ = StructuretypeRecord
-StructuretypeView.__httk_storage_record__ = StructuretypeRecord
 
 __all__ = [
     "DEFAULT_TOLERANCE",
@@ -341,14 +317,10 @@ __all__ = [
     "ProtostructureLike",
     "ProtostructureRecord",
     "ProtostructureView",
-    "Prototemplate",
-    "PrototemplateLabel",
-    "PrototemplateLike",
-    "PrototemplateOccupation",
-    "PrototemplateRecord",
-    "PrototemplateView",
     "Prototype",
+    "PrototypeLabel",
     "PrototypeLike",
+    "PrototypeOccupation",
     "PrototypeRecord",
     "PrototypeView",
     "PymatgenStructure",
@@ -368,10 +340,6 @@ __all__ = [
     "StructureLike",
     "StructurePath",
     "StructureSymmetry",
-    "Structuretype",
-    "StructuretypeLike",
-    "StructuretypeRecord",
-    "StructuretypeView",
     "SubgroupRepresentationResult",
     "SupercellResult",
     "SymopsStructure",
@@ -418,6 +386,7 @@ __all__ = [
     "rerepresent",
     "same_crystal",
     "save_vesta",
+    "structure_delta",
     "structure_tolerance",
     "subgroup_closure",
     "subgroup_representation",

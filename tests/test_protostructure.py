@@ -1,5 +1,6 @@
-"""Tests for standard-setting, geometry-free protostructures."""
+"""Tests for standard-setting assigned-species classification keys."""
 
+import datetime
 import pickle
 from fractions import Fraction
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ from httk.atomistic import (
     AnonymousStructure,
     Assembly,
     ASUStructure,
+    Cell,
     CartesianSiteMoments,
     ChemicalComposition,
     ChemicalFormulaView,
@@ -18,8 +20,11 @@ from httk.atomistic import (
     FormulatemplateView,
     FundamentalDomainStructure,
     Protostructure,
+    ProtostructureBackend,
+    ProtostructureLabel,
     ProtostructureView,
     PrototypeView,
+    RecognizedProtostructure,
     SettingTransform,
     Spacegroup,
     Species,
@@ -29,10 +34,13 @@ from httk.atomistic import (
     WyckoffSite,
 )
 from httk.atomistic.models.cell.numeric import NumericCell
-from httk.atomistic.models.protostructure.backend import ProtostructureBackend
-from httk.atomistic.models.protostructure.recognized import RecognizedProtostructure
 from httk.atomistic.models.sites.numeric import NumericSites
 from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.symmetry._standardization_common import (
+    _matrix_column_sum_factor,
+    _matrix_row_sum_factor,
+    _scaled_precision,
+)
 
 CELL = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
 EMPTY = FracVector(())
@@ -62,6 +70,104 @@ def _rocksalt_asu(*, domain: type[FundamentalDomainStructure] = ASUStructure) ->
         (WyckoffSite("a", EMPTY, "Na"), WyckoffSite("b", EMPTY, "Cl")),
         (sodium, chlorine),
     )
+
+
+class IdentityCarryingProtostructureBackend(ProtostructureBackend):
+    """Expose optional class identity through a non-value protostructure backend."""
+
+    def __init__(self, value: Protostructure) -> None:
+        self.value = value
+
+    @property
+    def spacegroup(self):
+        return self.value.spacegroup
+
+    @property
+    def occupations(self):
+        return self.value.occupations
+
+    @property
+    def representative(self):
+        return self.value.representative
+
+    @property
+    def discriminator(self):
+        return self.value.discriminator
+
+    def unwrap(self):
+        return self.value
+
+
+def test_base_only_and_representative_only_are_valid() -> None:
+    representative = _rocksalt_asu()
+    derived = Protostructure(representative=representative)
+    explicit = Protostructure(225, [("a", representative.species[0]), ("b", representative.species[1])])
+    assert derived.spacegroup == explicit.spacegroup
+    assert derived.occupations == explicit.occupations
+    assert derived.similar(explicit, 0.0)
+    assert derived.similar(derived, 0.0)
+    assert derived.representative == representative
+    assert derived.discriminator is None
+    assert Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="001").discriminator == "001"
+
+
+def test_representative_validation_and_mismatch() -> None:
+    with pytest.raises(ValueError, match="disagrees with its representative"):
+        Protostructure(225, [("a", "Na")], representative=_rocksalt_asu())
+    with pytest.raises(ValueError, match="non-empty string"):
+        Protostructure(225, [("a", "Na")], discriminator="")
+    asu = _rocksalt_asu()
+    molecular = FundamentalDomainStructure(
+        CELL,
+        225,
+        asu.wyckoff_sites,
+        asu.species,
+        molecular=True,
+    )
+    with pytest.raises(ValueError, match="cannot be molecular"):
+        Protostructure(representative=molecular)
+    with pytest.raises(ValueError, match="molecular"):
+        ProtostructureView(molecular).unview()
+
+
+def test_exact_equality_includes_optional_information_and_is_unhashable() -> None:
+    representative = _rocksalt_asu()
+    assert Protostructure(representative=representative) == Protostructure(representative=representative)
+    assert Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="001") != Protostructure(
+        225, [("a", "Na"), ("b", "Cl")], discriminator="002"
+    )
+    with pytest.raises(TypeError):
+        hash(Protostructure(representative=representative))
+
+
+def test_similar_optional_fields_and_delta_validation() -> None:
+    one = Protostructure(225, [("a", "Na"), ("b", "Cl")])
+    two = Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="001")
+    assert one.similar(two, 0.0)
+    assert not two.similar(Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="002"), 0.0)
+    with pytest.raises(ValueError):
+        one.similar(one, -1)
+    with pytest.raises(ValueError):
+        one.similar(one, float("inf"))
+    with pytest.raises(TypeError):
+        one.similar(one, object())
+
+
+def test_similar_passes_fundamental_domain_representatives_directly(monkeypatch: pytest.MonkeyPatch) -> None:
+    representative = _rocksalt_asu(domain=FundamentalDomainStructure)
+    one = Protostructure(representative=representative)
+    two = Protostructure(representative=representative)
+    received: list[FundamentalDomainStructure] = []
+
+    def fake_structure_delta(first: FundamentalDomainStructure, second: FundamentalDomainStructure) -> float:
+        received.extend((first, second))
+        return 0.0
+
+    paths = __import__("httk.atomistic.symmetry.paths", fromlist=["structure_delta"])
+    monkeypatch.setattr(paths, "structure_delta", fake_structure_delta)
+
+    assert one.similar(two, 0.0)
+    assert received == [representative, representative]
 
 
 class CountingStructureResolver(StructureBackend):
@@ -119,7 +225,9 @@ def test_construction_promotes_inputs_and_canonicalizes() -> None:
     assert first.occupations[0].species.name == "Cl"
     assert first.multiplicities() == (4, 4)
     assert first.nsites_conventional == 8
-    assert {first: "value"}[second] == "value"
+    with pytest.raises(TypeError):
+        hash(first)
+    assert first.similar(second, 0.0)
 
     with pytest.raises(ValueError, match="standard setting"):
         Protostructure(Spacegroup.from_setting("15:c1"), [("e", "Na")])
@@ -160,17 +268,11 @@ def test_exact_paths_preserve_species_and_match_structure_formula() -> None:
     assert value.occupations[0].species in asu.species
     assert value.formula == UnitcellStructureView(asu).formula
     assert value.anonymous_formula == UnitcellStructureView(asu).chemical_formula_anonymous
-    assert (
-        ProtostructureView(
-            FundamentalDomainStructure(
-                CELL,
-                225,
-                asu.wyckoff_sites,
-                asu.species,
-            )
-        )
-        == value
-    )
+    other = ProtostructureView(FundamentalDomainStructure(CELL, 225, asu.wyckoff_sites, asu.species))
+    assert other.spacegroup == value.spacegroup
+    assert other.occupations == value.occupations
+    assert other.representative is not None
+    assert other.similar(value, 0.0)
     with pytest.raises(ValueError):
         ProtostructureView(asu, tolerance=1e-5)
     assert ProtostructureView(value) is value
@@ -178,22 +280,63 @@ def test_exact_paths_preserve_species_and_match_structure_formula() -> None:
         ProtostructureView(value, tolerance=1e-5)
 
 
+def test_protostructure_views_and_labels_preserve_optional_identity() -> None:
+    representative = _rocksalt_asu()
+    value = Protostructure(representative=representative, discriminator="003")
+
+    recognized = RecognizedProtostructure(representative)
+    view = ProtostructureView(recognized)
+    assert view._resolved_protostructure is None
+    assert view.unview() == Protostructure(representative=representative)
+    assert ProtostructureLabel(recognized).unview() == view.unview()
+
+    generic_backend = IdentityCarryingProtostructureBackend(value)
+    assert ProtostructureView(generic_backend).unview() == value
+    label = ProtostructureLabel(generic_backend)
+    assert str(label) == "AB_cF8_225_a_b:Na-Cl"
+    assert label.unview() == value
+
+
 def test_transform_scaled_source_uses_standard_conventional_scale() -> None:
     transform = Spacegroup.from_setting("166:R").transform_from_standard
     bi = Species("Bi", ("Bi",), (1,))
     oxygen = Species("O", ("O",), (1,))
+    timestamp = datetime.datetime(2026, 8, 23, tzinfo=datetime.UTC)
     asu = ASUStructure(
-        CELL,
+        Cell(CELL, precision=Fraction(1, 1_000)),
         166,
         (WyckoffSite("a", EMPTY, "Bi"), WyckoffSite("b", EMPTY, "O")),
         (bi, oxygen),
         transform=transform,
+        coordinate_precision=Fraction(1, 10_000),
+        chemical_formula_descriptive="BiO",
+        chemical_formula_hill="BiO",
+        optimization_type="local",
+        immutable_id="source-1",
+        last_modified=timestamp,
+        charge=1,
     )
     source = UnitcellStructureView(asu)
     value = ProtostructureView(asu)
     direct = Protostructure(166, [("a", bi), ("b", oxygen)])
 
-    assert value == direct
+    assert value.spacegroup == direct.spacegroup
+    assert value.occupations == direct.occupations
+    assert value.representative is not None
+    representative = value.representative
+    basis_matrix = transform.matrix.T()
+    assert representative.cell.precision == _scaled_precision(
+        asu.cell.precision, _matrix_row_sum_factor(basis_matrix)
+    )
+    assert representative.coordinate_precision == _scaled_precision(
+        asu.coordinate_precision, _matrix_column_sum_factor(basis_matrix.inv())
+    )
+    assert representative.charge == asu.charge * abs(transform.determinant())
+    assert representative.chemical_formula_descriptive == "BiO"
+    assert representative.chemical_formula_hill == "BiO"
+    assert representative.optimization_type == "local"
+    assert representative.immutable_id == "source-1"
+    assert representative.last_modified == timestamp
     assert CompositionView(value).elements_ratios == source.elements_ratios
     assert CompositionView(value).amounts == (("Bi", Fraction(3)), ("O", Fraction(3)))
     assert CompositionView(source).amounts == (("Bi", Fraction(1)), ("O", Fraction(1)))
@@ -224,8 +367,7 @@ def test_recognition_path_and_rejections() -> None:
         ProtostructureView(anonymous)
     with pytest.raises(TypeError):
         UnitcellStructureView(Protostructure(225, [("a", "Na")]))
-    with pytest.raises(TypeError):
-        PrototypeView(Protostructure(225, [("a", "Na")]))
+    assert PrototypeView(Protostructure(225, [("a", "Na")])).unview().occupations[0].label == "A"
 
     structure = UnitcellStructure(
         CELL,
@@ -274,7 +416,8 @@ def test_protostructure_view_resolves_counting_source_once_across_value_operatio
     _ = view.occupations
     same = view
     _ = view == same
-    _ = hash(view)
+    with pytest.raises(TypeError):
+        hash(view)
     _ = repr(view)
     _ = view.unview()
     assert source.resolve_calls == 1

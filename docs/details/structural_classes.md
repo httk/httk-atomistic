@@ -1,51 +1,53 @@
-# Naming of *httk* structural classes
+# Naming of *httk₂* structural classes
 
-## Overview
+## The three-row matrix
 
-| Geometrical information | Anonymous occupation  | Assigned species  |
-| ----------------------- | --------------------- | ----------------- |
-| None                    | `Formulatemplate`     | `ChemicalFormula` |
-| Wyckoff only            | `Prototemplate`       | `Protostructure`  |
-| Geometrical class       | `Prototype`           | `Structuretype`   |
-| Exact geometry          | `CrystalTemplate`     | `Structure`       |
+| Geometrical information | Anonymous occupation | Assigned species |
+| --- | --- | --- |
+| None | `Formulatemplate` | `ChemicalFormula` |
+| Wyckoff positions, optionally with a representative/discriminator | `Prototype` | `Protostructure` |
+| Exact geometry | `CrystalTemplate` | `Structure` |
 
-## Details
+The middle row is intentionally represented by only two structural families.
+`Prototype` stores anonymous `PrototypeOccupation` values; `Protostructure`
+stores assigned `WyckoffOccupation` values. Both may be base-only, or may carry
+an exact fundamental-domain representative, an assigned discriminator, or both.
+The optional fields are part of equality and content identity. A discriminator
+is a class name supplied by a caller (for example an AFLOW-style suffix), while
+a representative is exact geometric evidence; neither is folded into the
+human-readable label.
 
-The naming of the structural classes in *httk* start from:
+The bottom row is the exact geometry. A representative held by a middle-row
+value is an exact class anchor, not a claim that the middle-row key fixes every
+continuous coordinate. The source records are correspondingly separate:
+`FundamentalDomainTemplateRecord` is the anonymous representative record and
+`FundamentalDomainStructureRecord` is the assigned representative record.
 
-* A **crystal structure**,`Structure`, has both precise geometry (atomic coordinates and cell parameters) and species information (chemical elements and may have, e.g., isotopes, oxidation states, etc.).
+## Similarity
 
-Structures can be given a “geometrical classification” representing less precise geometrical information. This notion is adopted from the related (but not identical) concept of isoconfigurational structures for which the geometrical constraint is: “the crystallographic point configurations (crystallographic orbits) and their geometrical interrelationships are similar” [https://doi.org/10.1107/S0108767307038081]. Specifically, we adopt this idea with the more specific meaning that two structures have the same “geometrical classification” if there exist a representation of them in the same spacegroup and setting (origin, orientation and cell choice; but usually disregarding enantiomorphs) where the same species occupy the same Wyckoff positions with similar values for all Wyckoff degrees of freedom (i.e., “similar point configurations”) in a unit cell where the cell parameters have similar values modulo an overall scaling factor. The exact degree of similarity has to be defined by numerical cutoff parameters. We use the suffix “-type” to designate this lower geometrical structural resolution. Hence:
+The `similar` methods compare the discrete space group and occupied Wyckoff
+positions first. Discriminators conflict when both are present and differ. If
+both values carry representatives, their continuous distance is the total
+Cartesian atom travel from the public `structure_delta` function. It maps the
+structures into a common subgroup and setting, pairs compatible Wyckoff
+orbits, and sums shortest periodic travel using each endpoint's own cell. It is
+not a label comparison or a content-id comparison. A missing representative
+leaves the continuous portion unspecified rather than fabricating a distance.
 
-* A **crystal structure type**, `Structuretype`, is a structural representation based on this geometrical classification (with enantiomorphs counted as different). Two structuretypes are “the same” if they match by the criteria above.
+## Labels
 
-An even higher-level geometrical classification avoids the numerical cutoff by classifying only by the spacegroup, the occupied Wyckoff positions, and the species that occupy them.
-We use the prefix “Proto” for this. Hence
+The prototype notation is shared by the middle-row families. Anonymous labels
+render class groups as `A`, `B`, and so on. Assigned labels append the real
+species names after `:`. The discriminator remains separate, so two values can
+render the same label while remaining unequal and having different content
+identities.
 
-* A **protostructure**, `Protostructure`, is a structural representation specifying only the spacegroup (also distinguishing enantiomorphs), the occupied Wyckoff positions, and the species that occupy them.
+## Storage migration
 
-These `structuretype` and `protostructure` classifications still *distinguish* the two members of an enantiomorphic pair, as stated above. Note, however, that the default canonicalization pipeline (`canonicalize`, `canonical_asu`) instead maps an enantiomorphic pair to a single canonical representative — the lower-numbered member — mirroring the crystal exactly when needed. Passing `preserve_chirality=True` keeps each member in its own group and so retains the distinction these classifications draw.
-
-We can take the weaker geometrical representation one step further, down to:
-
-* A **chemical formula**, `ChemicalFormula`, represents the structure only in terms of composition of the elements. The “Normalized Formula” gives the composition only in relative terms; any other unit cell representation can be condensed into a formula.
-
-Going in another direction, one can strip the absolute meaning of the chemical species and classify occupation only in terms of equivalent and non-equivalent species. The word that corresponds to Structure that we adopt for this is: “Template” (the sites carry placeholder/equivalence assignments — a template into which real species may later be filled in). Hence:
-
-* A **crystal template**, `CrystalTemplate`, has precise geometry but only an abstract representation that indicates which sites are occupied by equivalent species, i.e., an anonymous occupation template (and where the order of assignments is not regarded as relevant).
-
-Following the above naming scheme to a less precise geometrical classification hence takes us to:
-
-* A **crystal template type** would, following this naming scheme systematically, be a **templatetype**; but the more commonly used **prototype** is the already-established name for this, so that is the one we adopt, `Prototype`. It is a structural representation based only on geometrical classification and occupation template. (“Templatetype” is only a prose explanation of where `Prototype` sits in the scheme; there is no such code name or alias.)
-
-And the next step is then:
-
-* A **prototemplate** is a structural representation specifying spacegroup, occupied Wyckoff positions, and their occupation template.
-
-To cover a couple of other related names and explain how they differ:
-
-* **Isopointal structures**: account for the spacegroup (with or without distinguishing enantiomorphic groups) and the same complete Wyckoff sequence, including repeated independent occupations but excluding the chemical identity of the occupying atoms.
-* **Isoconfigurational structures**: isopointal structures further distinguished by geometrical classification (i.e., similarities in atomic coordinates and cell parameters, but sometimes with further requirements), however still described by colorless occupation.
-* **AFLOW labels**: very similar to httk prototemplates, except occupations are ordered by occupying element symbol, making the AFLOW labels different for, e.g., ZrO₂ (A2B_oP12_29_2a_a) and FeS₂ (AB2_oP12_29_a_2a).
-* **Extended AFLOW labels**: an extension of three digits is added to describe geometrical similarity (-001, -002, …), bringing them closer to our prototypes (templatetypes).
-* **Decorated AFLOW labels**: AFLOW labels are sometimes used with a “decoration” to indicate chemical species, although there does not seem to be one universal endorsed format. These decorations take AFLOW labels closer to httk protostructures.
+The only middle-row storage identities are `atomistic_prototype` and
+`atomistic_protostructure`; their registry records are
+`atomistic-prototype` and `atomistic-protostructure` in the `prototypes` and
+`protostructures` families. Optional representatives and discriminators are
+projected into the canonical identity. Stores built with the retired four-class
+layout or its table names must be rebuilt; old registry keys are intentionally
+not accepted.

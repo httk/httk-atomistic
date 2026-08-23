@@ -3,92 +3,108 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Self, cast
 
+from httk.atomistic.models.formula.formulatemplate_view import FormulatemplateView
+from httk.atomistic.models.prototype.notation import pearson_symbol, render_prototype_label
+
 if TYPE_CHECKING:
     from httk.atomistic.models.crystaltemplate.fundamental import FundamentalDomainTemplate
-    from httk.atomistic.models.formula.formulatemplate_view import FormulatemplateView
-    from httk.atomistic.models.prototemplate.backend import PrototemplateBackend
-    from httk.atomistic.models.prototemplate.label import PrototemplateLabel
-    from httk.atomistic.models.prototemplate.prototemplate import Prototemplate
+    from httk.atomistic.models.prototype.backend import PrototypeBackend
+    from httk.atomistic.models.prototype.label import PrototypeLabel
+    from httk.atomistic.models.prototype.occupation import PrototypeOccupation
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
 class PrototypeAPI(ABC):
-    """The common interface for a prototemplate refined by a geometrical class.
-
-    A prototype is a :class:`~httk.atomistic.models.prototemplate.prototemplate.Prototemplate`
-    plus a geometrical-class distinction. The class is pinned by a canonical *representative*
-    (a standard-setting :class:`~httk.atomistic.models.crystaltemplate.fundamental.FundamentalDomainTemplate`
-    used only as the class anchor, never as exact-structure data) and/or an externally assigned
-    *discriminator* string. At least one is present; equality compares exactly the information
-    present. The discriminator is species-independent and is not part of the label. All
-    label, Pearson, and formula derivations delegate to the prototemplate.
-    """
+    """Common interface for anonymous standard-setting Wyckoff prototypes."""
 
     @property
     @abstractmethod
-    def prototemplate(self) -> "Prototemplate":
-        """Return the anonymous prototemplate this prototype refines."""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def representative(self) -> "FundamentalDomainTemplate | None":
-        """Return the canonical class representative, if one is held."""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def discriminator(self) -> str | None:
-        """Return the externally assigned class discriminator, if one is held."""
-        raise NotImplementedError
-
-    @property
     def spacegroup(self) -> "Spacegroup":
-        """Return the standard-setting space group of the prototemplate.
-
-        :return: The standard-setting space group.
-        """
-        return self.prototemplate.spacegroup
+        raise NotImplementedError
 
     @property
-    def label(self) -> "PrototemplateLabel":
-        """Return the httk prototemplate label of this prototype's template.
-
-        The discriminator names the geometrical class and is not part of the label. Any
-        faithful render is the prototemplate label; the *canonical* prototemplate label comes
-        from a normalizer-canonical template.
-
-        :return: The prototemplate label view.
-        """
-        from httk.atomistic.models.prototemplate.label import PrototemplateLabel
-
-        return PrototemplateLabel(cast("PrototemplateBackend", self.prototemplate))
+    @abstractmethod
+    def occupations(self) -> tuple["PrototypeOccupation", ...]:
+        raise NotImplementedError
 
     @property
-    def pearson_symbol(self) -> str:
-        """Return the Pearson symbol at the standard conventional-cell scale.
+    def representative(self) -> "FundamentalDomainTemplate | None":
+        """Return an optional retained exact representative."""
+        return None
 
-        :return: The Pearson symbol, such as ``"cF8"``.
-        """
-        return self.prototemplate.pearson_symbol
+    @property
+    def discriminator(self) -> str | None:
+        """Return an optional geometrical-class discriminator."""
+        return None
+
+    def multiplicities(self) -> tuple[int, ...]:
+        return tuple(self.spacegroup.wyckoff_position(value.wyckoff).multiplicity for value in self.occupations)
 
     @property
     def nsites_conventional(self) -> int:
-        """Return the total number of sites in the standard conventional cell.
-
-        :return: The conventional-cell site count.
-        """
-        return self.prototemplate.nsites_conventional
+        return sum(self.multiplicities())
 
     @property
-    def anonymous_formula(self) -> "FormulatemplateView":
-        """Return the reduced anonymous formula at the standard conventional-cell scale.
+    def pearson_symbol(self) -> str:
+        return pearson_symbol(self.spacegroup, self.nsites_conventional)
 
-        :return: The conventional-cell anonymous formula view.
-        """
-        return self.prototemplate.anonymous_formula
+    @property
+    def anonymous_formula(self) -> FormulatemplateView:
+        return FormulatemplateView(cast("PrototypeBackend", self))
+
+    @property
+    def label(self) -> "PrototypeLabel":
+        from httk.atomistic.models.prototype.label import PrototypeLabel
+
+        return PrototypeLabel(cast("PrototypeBackend", self))
 
     @property
     def prototype(self) -> Self:
-        """Return this prototype value."""
         return self
+
+    def _prototype_label_text(self) -> str:
+        return render_prototype_label(self.spacegroup, [(value.wyckoff, value.label) for value in self.occupations])
+
+    def similar(self, other, delta: float) -> bool:
+        """Return whether two prototypes have compatible geometry within ``delta``."""
+        import math
+        from numbers import Real
+
+        if not isinstance(delta, Real) or isinstance(delta, bool):
+            raise TypeError("delta must be a finite non-negative real")
+        if not math.isfinite(delta) or delta < 0:
+            raise ValueError("delta must be a finite non-negative real")
+        from httk.atomistic.models.prototype.backend import PrototypeBackend
+        from httk.atomistic.models.prototype.prototype import Prototype
+        from httk.atomistic.models.prototype.view import PrototypeView
+        from httk.atomistic.models.prototype.view_base import PrototypeViewBase
+
+        if isinstance(other, PrototypeViewBase):
+            other = other.unview()
+        elif isinstance(other, str):
+            try:
+                other = PrototypeView(other).unview()
+            except (TypeError, ValueError):
+                return False
+        elif not isinstance(other, PrototypeBackend):
+            return False
+        left = self if isinstance(self, Prototype) else PrototypeView(self).unview()
+        if left.spacegroup != other.spacegroup or left.occupations != other.occupations:
+            return False
+        if (
+            left.discriminator is not None
+            and other.discriminator is not None
+            and left.discriminator != other.discriminator
+        ):
+            return False
+        if left.representative is None or other.representative is None:
+            return True
+        from httk.atomistic.models.prototype.derived import _prototype_to_structure
+        from httk.atomistic.symmetry.paths import structure_delta
+
+        first = _prototype_to_structure(left.representative)
+        second = _prototype_to_structure(other.representative)
+        try:
+            return structure_delta(first, second) <= delta
+        except (TypeError, ValueError):
+            return False

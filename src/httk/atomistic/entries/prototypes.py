@@ -1,4 +1,4 @@
-"""Logical entry families for the geometry-free and dummy-species prototype records.
+"""Logical entry families for the retained structural-classification records.
 
 These are non-instantiable family markers used as storage-layout keys and as the
 targets of :func:`~httk.core.register.register_entry_family`. OPTIMADE serving
@@ -10,7 +10,7 @@ directly.
 
 from typing import Any, Self
 
-__all__ = ["ProtostructureEntry", "PrototemplateEntry", "PrototypeEntry", "StructuretypeEntry"]
+__all__ = ["ProtostructureEntry", "PrototypeEntry"]
 
 
 class ProtostructureEntry:
@@ -29,21 +29,3 @@ class PrototypeEntry:
 
     def __new__(cls, *args: Any, **kwargs: Any) -> Self:
         raise TypeError("PrototypeEntry is a logical entry family; store a prototype representation directly")
-
-
-class PrototemplateEntry:
-    """Define the non-instantiable prototemplate entry family."""
-
-    type = "prototemplates"
-
-    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
-        raise TypeError("PrototemplateEntry is a logical entry family; store a prototemplate representation directly")
-
-
-class StructuretypeEntry:
-    """Define the non-instantiable structuretype entry family."""
-
-    type = "structuretypes"
-
-    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
-        raise TypeError("StructuretypeEntry is a logical entry family; store a structuretype representation directly")

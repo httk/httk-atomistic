@@ -1,25 +1,25 @@
-"""Golden and round-trip tests for httk prototemplate/protostructure label notation."""
+"""Golden and round-trip tests for httk prototype/protostructure label notation."""
 
 import pytest
 
-from httk.atomistic import Prototemplate, Spacegroup
-from httk.atomistic.models.prototemplate.notation import (
-    parse_prototemplate_label,
+from httk.atomistic import Prototype, Spacegroup
+from httk.atomistic.models.prototype.notation import (
     parse_protostructure_label,
+    parse_prototype_label,
     pearson_symbol,
     render_aflow_label,
-    render_prototemplate_label,
     render_protostructure_label,
+    render_prototype_label,
 )
 
 
-def test_rocksalt_prototemplate_label() -> None:
-    template = Prototemplate(225, [("a", "A"), ("b", "B")])
+def test_rocksalt_prototype_label() -> None:
+    template = Prototype(225, [("a", "A"), ("b", "B")])
     assert str(template.label) == "AB_cF8_225_a_b"
 
 
-def test_calcite_prototemplate_label() -> None:
-    template = Prototemplate(167, [("a", "A"), ("b", "B"), ("e", "C")])
+def test_calcite_prototype_label() -> None:
+    template = Prototype(167, [("a", "A"), ("b", "B"), ("e", "C")])
     assert str(template.label) == "ABC3_hR10_167_a_b_e"
 
 
@@ -33,22 +33,22 @@ def test_a_centred_group_uses_centring_letter_c() -> None:
 
 
 def test_special_27th_letter_round_trips_as_uppercase_a() -> None:
-    template = Prototemplate(47, [("α", "A")])
+    template = Prototype(47, [("α", "A")])
     assert str(template.label) == "A_oP8_47_A"
-    assert parse_prototemplate_label("A_oP8_47_A") == template
+    assert parse_prototype_label("A_oP8_47_A") == template
 
 
 def test_repeated_letter_group_pins() -> None:
-    template = Prototemplate(47, [("i", "A"), ("i", "A")])
+    template = Prototype(47, [("i", "A"), ("i", "A")])
     assert str(template.label) == "A_oP4_47_2i"
-    assert parse_prototemplate_label("A_oP4_47_2i") == template
+    assert parse_prototype_label("A_oP4_47_2i") == template
 
 
 def test_repeated_special_letter_group_pins() -> None:
     # The special 27th letter α occupied twice by one class renders "2A" (multiplicity 8 each).
-    template = Prototemplate(47, [("α", "A"), ("α", "A")])
+    template = Prototype(47, [("α", "A"), ("α", "A")])
     assert str(template.label) == "A_oP16_47_2A"
-    assert parse_prototemplate_label("A_oP16_47_2A") == template
+    assert parse_prototype_label("A_oP16_47_2A") == template
 
 
 @pytest.mark.parametrize(
@@ -60,9 +60,9 @@ def test_repeated_special_letter_group_pins() -> None:
     ],
 )
 def test_non_rhombohedral_pearson_is_not_divided(it_number: int, occupations: list, expected: str) -> None:
-    template = Prototemplate(it_number, occupations)
+    template = Prototype(it_number, occupations)
     assert str(template.label) == expected
-    assert parse_prototemplate_label(expected) == template
+    assert parse_prototype_label(expected) == template
 
 
 def test_protostructure_label_and_aflow_divergence() -> None:
@@ -86,7 +86,7 @@ def test_protostructure_label_and_aflow_divergence() -> None:
 )
 def test_strict_parser_rejects_non_canonical(text: str) -> None:
     with pytest.raises(ValueError):
-        parse_prototemplate_label(text)
+        parse_prototype_label(text)
 
 
 def test_protostructure_parser_rejects_unknown_element() -> None:
@@ -96,17 +96,15 @@ def test_protostructure_parser_rejects_unknown_element() -> None:
 
 def test_render_parse_render_loop_over_valid_templates() -> None:
     cases = [
-        Prototemplate(225, [("a", "A"), ("b", "B")]),
-        Prototemplate(167, [("a", "A"), ("b", "B"), ("e", "C")]),
-        Prototemplate(47, [("α", "A")]),
-        Prototemplate(47, [("i", "A"), ("i", "A")]),
-        Prototemplate(1, [("a", "A")]),
-        Prototemplate(225, [("a", "A"), ("b", "A"), ("c", "B")]),
+        Prototype(225, [("a", "A"), ("b", "B")]),
+        Prototype(167, [("a", "A"), ("b", "B"), ("e", "C")]),
+        Prototype(47, [("α", "A")]),
+        Prototype(47, [("i", "A"), ("i", "A")]),
+        Prototype(1, [("a", "A")]),
+        Prototype(225, [("a", "A"), ("b", "A"), ("c", "B")]),
     ]
     for template in cases:
-        text = render_prototemplate_label(
-            template.spacegroup, [(o.wyckoff, o.label) for o in template.occupations]
-        )
-        assert parse_prototemplate_label(text) == template
-        again = parse_prototemplate_label(text)
-        assert render_prototemplate_label(again.spacegroup, [(o.wyckoff, o.label) for o in again.occupations]) == text
+        text = render_prototype_label(template.spacegroup, [(o.wyckoff, o.label) for o in template.occupations])
+        assert parse_prototype_label(text) == template
+        again = parse_prototype_label(text)
+        assert render_prototype_label(again.spacegroup, [(o.wyckoff, o.label) for o in again.occupations]) == text

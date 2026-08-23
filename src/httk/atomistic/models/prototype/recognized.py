@@ -21,11 +21,11 @@ class RecognizedPrototype(PrototypeBackend):
     The source is used as the geometrical-class anchor: it is recognized (through
     :class:`~httk.atomistic.models.crystaltemplate.fundamental_view.FundamentalDomainTemplateView`,
     which handles an exact fundamental domain without spglib and a raw structure with it) to a
-    standard-setting dummy-species representative, and the anonymous prototemplate folds from
+    standard-setting dummy-species representative, and the anonymous prototype folds from
     that representative. The resulting prototype is representative-carrying and has no
     discriminator.
 
-    :param obj: The anonymous-template-like or structure-like source to recognize.
+    :param obj: The structure-like source to recognize.
     :param \*\*hints: Backend-selection and recognition hints.
     """
 
@@ -46,23 +46,13 @@ class RecognizedPrototype(PrototypeBackend):
             return None
         from httk.atomistic.models.protostructure.backend import ProtostructureBackend
         from httk.atomistic.models.protostructure.view_base import ProtostructureViewBase
-        from httk.atomistic.models.prototemplate.backend import PrototemplateBackend
-        from httk.atomistic.models.prototemplate.view_base import PrototemplateViewBase
 
-        # A bare prototemplate or protostructure carries no geometry, so it cannot anchor a
+        # A bare protostructure carries no geometry, so it cannot anchor a
         # geometrical class; the chemical-formula family is not a structure source at all.
-        if isinstance(obj, (PrototemplateBackend, PrototemplateViewBase)):
-            return None
         if isinstance(obj, (ProtostructureBackend, ProtostructureViewBase)):
             return None
         if isinstance(obj, (ChemicalFormulaBackend, ChemicalFormulaViewBase)):
             return None
-        # A structuretype erases lazily to its anonymous prototype (see _derived).
-        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
-        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
-
-        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)):
-            return cls(obj, **hints)
         if isinstance(obj, (CrystalTemplateBackend, CrystalTemplateViewBase, StructureView, StructureBackend)):
             return cls(obj, **hints)
         source_hints = {
@@ -84,37 +74,24 @@ class RecognizedPrototype(PrototypeBackend):
     @cached_property
     def _derived(self) -> Prototype:
         from httk.atomistic.models.crystaltemplate.fundamental_view import FundamentalDomainTemplateView
-        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
-        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
 
         source = self._source
-        if isinstance(source, (StructuretypeBackend, StructuretypeViewBase)):
-            # Erase a structuretype: prototemplate from its protostructure, representative
-            # anonymized, discriminator carried over (it names the species-independent class).
-            from httk.atomistic.models.prototemplate.view import PrototemplateView
-
-            structuretype = source._backend if isinstance(source, StructuretypeViewBase) else source
-            prototemplate = PrototemplateView(structuretype.protostructure).unview()
-            representative_structure = structuretype.representative
-            representative = (
-                None
-                if representative_structure is None
-                else FundamentalDomainTemplateView(representative_structure).unview()
-            )
-            return Prototype(prototemplate, representative=representative, discriminator=structuretype.discriminator)
         representative = FundamentalDomainTemplateView(
             source, tolerance=self._tolerance, limit_denominator=self._limit_denominator
         ).unview()
-        return Prototype(representative.prototemplate, representative=representative)
+        return Prototype(representative=representative)
 
     def resolve(self) -> Prototype:
         """Return the complete recognized prototype."""
         return self._derived
 
     @property
-    def prototemplate(self):
-        """Return the recognized anonymous prototemplate."""
-        return self._derived.prototemplate
+    def spacegroup(self):
+        return self._derived.spacegroup
+
+    @property
+    def occupations(self):
+        return self._derived.occupations
 
     @property
     def representative(self):

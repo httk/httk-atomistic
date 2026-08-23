@@ -1,16 +1,17 @@
-"""The geometry-free protostructure interface."""
+"""The assigned-species geometrical-classification interface."""
 
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Self, cast
 
 from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
 from httk.atomistic.models.formula.formulatemplate_view import FormulatemplateView
-from httk.atomistic.models.prototemplate.notation import render_aflow_label
+from httk.atomistic.models.prototype.notation import render_aflow_label
 
 if TYPE_CHECKING:
     from httk.atomistic.models.protostructure.backend import ProtostructureBackend
     from httk.atomistic.models.protostructure.label import ProtostructureLabel
     from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
+    from httk.atomistic.models.structure.asu import FundamentalDomainStructure
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
@@ -32,6 +33,19 @@ class ProtostructureAPI(ABC):
     @abstractmethod
     def occupations(self) -> tuple["WyckoffOccupation", ...]:
         """Return the occupied Wyckoff positions in canonical order."""
+        raise NotImplementedError
+
+    @property
+    def representative(self) -> "FundamentalDomainStructure | None":
+        """Return an optional retained exact representative."""
+        return None
+
+    @property
+    def discriminator(self) -> str | None:
+        """Return an optional geometrical-class discriminator."""
+        return None
+
+    def similar(self, other, delta: float) -> bool:
         raise NotImplementedError
 
     def multiplicities(self) -> tuple[int, ...]:
@@ -75,7 +89,7 @@ class ProtostructureAPI(ABC):
         """Return the httk protostructure label of this protostructure.
 
         The label's unsuffixed part orders classes by their Wyckoff letters, so it is the
-        prototemplate label of the erased template; the suffix lists the class species names.
+        prototype label of the erased anonymous prototype; the suffix lists the class species names.
         This is NOT an AFLOW label: AFLOW orders classes alphabetically by element (see
         :attr:`aflow_label`). Any faithful render is *the* protostructure label; the
         *canonical* protostructure label comes from a normalizer-canonical protostructure.

@@ -1,10 +1,10 @@
-"""The one home of httk's prototemplate and protostructure label notation.
+"""The one home of httk's prototype and protostructure label notation.
 
 An httk label encodes the information content of an unsuffixed AFLOW-style prototype
 label: a space group, its occupied Wyckoff letters, and the partition of those
 occupations into species classes. The grammar is::
 
-    ANON_PEARSON_ITNUMBER_GROUP(_GROUP)*                 # prototemplate label
+    ANON_PEARSON_ITNUMBER_GROUP(_GROUP)*                 # prototype label
     ANON_PEARSON_ITNUMBER_GROUP(_GROUP)*:NAME(-NAME)*    # protostructure label
 
 A ``GROUP`` is the concatenation of one species class's Wyckoff letters, sorted
@@ -16,12 +16,12 @@ per-group summed conventional multiplicities reduced by their overall gcd.
 httk labels are deliberately NOT AFLOW labels. AFLOW orders classes by element symbol
 (alphabetically) so its unsuffixed prefix still depends on the chemistry; httk orders
 classes by their Wyckoff letters, so the unsuffixed prefix is element-agnostic and a
-protostructure label is exactly the prototemplate label of the erased template followed
+protostructure label is exactly the prototype label of the erased template followed
 by ``:`` and the class species names. :func:`render_aflow_label` renders the AFLOW-style
 variant for interoperability; it has no parser here.
 
-"Canonicality" terminology: any faithful render of an object is *the* prototemplate or
-protostructure label; the *canonical* prototemplate or protostructure label is the one
+"Canonicality" terminology: any faithful render of an object is *the* prototype or
+protostructure label; the *canonical* prototype or protostructure label is the one
 obtained from a normalizer-canonical object (for example one derived via
 ``canonical_asu``). The renderer performs no affine-normalizer pass.
 
@@ -45,7 +45,7 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 if TYPE_CHECKING:
     from httk.atomistic.models.protostructure.protostructure import Protostructure
-    from httk.atomistic.models.prototemplate.prototemplate import Prototemplate
+    from httk.atomistic.models.prototype.prototype import Prototype
 
 # The 27th Wyckoff letter used by a handful of high-multiplicity settings (group 47's
 # eightfold orbit). It renders as 'A' and parses back from it; positionally a group token
@@ -172,13 +172,13 @@ def canonical_label_map(class_letters: Mapping[str, tuple[str, ...]]) -> dict[st
     return {key: anonymous_symbol(index) for index, key in enumerate(ordered)}
 
 
-def render_prototemplate_label(spacegroup: Spacegroup, occupations: Sequence[tuple[str, str]]) -> str:
-    """Render the prototemplate label of a space group and its class-partitioned Wyckoff letters.
+def render_prototype_label(spacegroup: Spacegroup, occupations: Sequence[tuple[str, str]]) -> str:
+    """Render the prototype label of a space group and its class-partitioned Wyckoff letters.
 
     :param spacegroup: The standard-setting space group.
     :param occupations: The occupied ``(wyckoff, class-key)`` pairs; the class key names
         the anonymous species class an occupation belongs to.
-    :return: The prototemplate label text.
+    :return: The prototype label text.
     :raises ValueError: If any Wyckoff letter is absent from the setting.
     """
     classes = _classes(spacegroup, occupations)
@@ -194,7 +194,7 @@ def render_protostructure_label(spacegroup: Spacegroup, occupations: Sequence[tu
     """Render the httk protostructure label of a space group and its named occupations.
 
     Classes are ordered by their sorted Wyckoff letters, ties broken by species name. The
-    unsuffixed prefix equals the prototemplate label of the erased template; the suffix lists
+    unsuffixed prefix equals the prototype label of the erased template; the suffix lists
     the class species names in group order.
 
     :param spacegroup: The standard-setting space group.
@@ -275,38 +275,38 @@ def _parse_group(token: str) -> list[str]:
     return letters
 
 
-def parse_prototemplate_label(text: str) -> "Prototemplate":
-    """Parse a strictly canonical prototemplate label into a prototemplate.
+def parse_prototype_label(text: str) -> "Prototype":
+    """Parse a strictly canonical prototype label into a prototype.
 
     Every Wyckoff letter must exist in the resolved standard setting, and the Pearson
     symbol, reduced anonymous counts, and group ordering must all match their recomputed
     canonical values; any deviation is rejected. This canonical-string-only stance mirrors
     :func:`~httk.atomistic.models.formula.notation.parse_anonymous_formula`.
 
-    :param text: The prototemplate label to parse.
-    :return: The parsed :class:`~httk.atomistic.models.prototemplate.prototemplate.Prototemplate`.
-    :raises ValueError: If ``text`` is not a canonical prototemplate label.
+    :param text: The prototype label to parse.
+    :return: The parsed :class:`~httk.atomistic.models.prototype.prototype.Prototype`.
+    :raises ValueError: If ``text`` is not a canonical prototype label.
     """
-    from httk.atomistic.models.prototemplate.prototemplate import Prototemplate
+    from httk.atomistic.models.prototype.prototype import Prototype
 
     main, fields, names = _split_label(text)
     if names is not None:
-        raise ValueError("a prototemplate label carries no ':' species suffix")
+        raise ValueError("a prototype label carries no ':' species suffix")
     it_number = _parse_it_number(fields[2])
     occupations: list[tuple[str, str]] = []
     for index, token in enumerate(fields[3:]):
         for letter in _parse_group(token):
             occupations.append((letter, anonymous_symbol(index)))
-    value = Prototemplate(it_number, occupations)
-    if render_prototemplate_label(value.spacegroup, [(o.wyckoff, o.label) for o in value.occupations]) != main:
-        raise ValueError(f"{text!r} is not a canonical prototemplate label")
+    value = Prototype(it_number, occupations)
+    if render_prototype_label(value.spacegroup, [(o.wyckoff, o.label) for o in value.occupations]) != main:
+        raise ValueError(f"{text!r} is not a canonical prototype label")
     return value
 
 
 def parse_protostructure_label(text: str) -> "Protostructure":
     """Parse a strictly canonical httk protostructure label into a protostructure.
 
-    The unsuffixed part is validated as for a prototemplate label; each ``:`` name must be a
+    The unsuffixed part is validated as for a prototype label; each ``:`` name must be a
     known element symbol and becomes ``Species(name, (name,), (1,))``. Non-canonical labels
     are rejected.
 
@@ -337,16 +337,16 @@ def parse_protostructure_label(text: str) -> "Protostructure":
     return value
 
 
-def try_parse_prototemplate(text: str) -> "Prototemplate | None":
-    """Return the parsed prototemplate, or ``None`` when *text* is not a canonical one.
+def try_parse_prototype(text: str) -> "Prototype | None":
+    """Return the parsed prototype, or ``None`` when *text* is not a canonical one.
 
     :param text: The label text to test.
-    :return: The parsed prototemplate, or ``None`` for a non-label string.
+    :return: The parsed prototype, or ``None`` for a non-label string.
     """
     if not isinstance(text, str) or ":" in text:
         return None
     try:
-        return parse_prototemplate_label(text)
+        return parse_prototype_label(text)
     except ValueError:
         return None
 

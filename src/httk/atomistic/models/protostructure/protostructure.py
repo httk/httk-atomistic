@@ -1,10 +1,11 @@
-"""The immutable geometry-free protostructure value."""
+"""The immutable assigned-species geometrical-classification value."""
 
 from collections.abc import Sequence
 from typing import Any, ClassVar
 
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
+from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
@@ -15,19 +16,13 @@ class Protostructure(ProtostructureBackend):
     derivations are defined at the standard-setting conventional-cell scale, even when
     the source used to recognize it was stored in a volume-scaled setting.
 
-    ``Protostructure`` is the assigned-species, Wyckoff-positions-only cell of the
-    material-information matrix:
-
-    ======================  ===============  ==============
-    Geometrical info        Anonymous        Assigned
-    ======================  ===============  ==============
-    Wyckoff positions only  Prototemplate    Protostructure
-    Geometrical class       Prototype        Structuretype
-    Exact geometry          CrystalTemplate  Structure
-    ======================  ===============  ==============
+    ``Protostructure`` is the assigned-species Wyckoff value. It may carry an optional
+    geometrical representative or discriminator in the same value.
 
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: The occupied Wyckoff positions and their species.
+    :param representative: An optional exact standard-setting class anchor.
+    :param discriminator: An optional external class discriminator.
     """
 
     _spacegroup: Spacegroup
@@ -36,9 +31,25 @@ class Protostructure(ProtostructureBackend):
 
     def __init__(
         self,
-        spacegroup: Spacegroup | int,
-        occupations: Sequence[WyckoffOccupation | tuple[str, Any]],
+        spacegroup: Spacegroup | int | None = None,
+        occupations: Sequence[WyckoffOccupation | tuple[str, Any]] | None = None,
+        *,
+        representative: FundamentalDomainStructure | None = None,
+        discriminator: str | None = None,
     ) -> None:
+        base_supplied = spacegroup is not None or occupations is not None
+        if representative is not None:
+            _validate_representative(representative)
+            if not base_supplied:
+                spacegroup = representative.spacegroup
+                representative_species = {species.name: species for species in representative.species}
+                occupations = tuple(
+                    (site.wyckoff, representative_species[site.species]) for site in representative.wyckoff_sites
+                )
+        if spacegroup is None or occupations is None:
+            raise ValueError("Protostructure needs spacegroup and occupations or a representative")
+        if discriminator is not None and (not isinstance(discriminator, str) or not discriminator):
+            raise ValueError("Protostructure discriminator must be a non-empty string when given")
         self._spacegroup = spacegroup if isinstance(spacegroup, Spacegroup) else Spacegroup.standard(spacegroup)
         if not self._spacegroup.is_standard_setting:
             raise ValueError(
@@ -65,6 +76,12 @@ class Protostructure(ProtostructureBackend):
                 )
             species_by_name[occupation.species.name] = occupation.species
         self._occupations = tuple(sorted(raw, key=lambda value: (value.species.name, value.wyckoff)))
+        if representative is not None and base_supplied:
+            expected = Protostructure(representative=representative)
+            if (self._spacegroup, self._occupations) != (expected.spacegroup, expected.occupations):
+                raise ValueError("Protostructure base disagrees with its representative")
+        self._representative = representative
+        self._discriminator = discriminator
 
     @property
     def spacegroup(self) -> Spacegroup:
@@ -76,14 +93,80 @@ class Protostructure(ProtostructureBackend):
         """Return the canonical occupied Wyckoff positions."""
         return self._occupations
 
+    @property
+    def representative(self) -> FundamentalDomainStructure | None:
+        return self._representative
+
+    @property
+    def discriminator(self) -> str | None:
+        return self._discriminator
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Protostructure):
             return NotImplemented
-        return (self._spacegroup, self._occupations) == (other._spacegroup, other._occupations)
+        return (self._spacegroup, self._occupations, self._representative, self._discriminator) == (
+            other._spacegroup,
+            other._occupations,
+            other._representative,
+            other._discriminator,
+        )
 
-    def __hash__(self) -> int:
-        return hash((self._spacegroup, self._occupations))
+    __hash__ = None  # type: ignore[assignment]
+
+    def similar(self, other, delta: float) -> bool:
+        import math
+        from numbers import Real
+
+        if not isinstance(delta, Real) or isinstance(delta, bool):
+            raise TypeError("delta must be a finite non-negative real")
+        if not math.isfinite(delta) or delta < 0:
+            raise ValueError("delta must be a finite non-negative real")
+        from httk.atomistic.models.protostructure.backend import ProtostructureBackend
+        from httk.atomistic.models.protostructure.view_base import ProtostructureViewBase
+
+        if isinstance(other, ProtostructureViewBase):
+            other = other.unview()
+        elif isinstance(other, str):
+            from httk.atomistic.models.protostructure.view import ProtostructureView
+
+            try:
+                other = ProtostructureView(other).unview()
+            except (TypeError, ValueError):
+                return False
+        elif not isinstance(other, ProtostructureBackend):
+            return False
+        if self.spacegroup != other.spacegroup or self.occupations != other.occupations:
+            return False
+        if (
+            self.discriminator is not None
+            and other.discriminator is not None
+            and self.discriminator != other.discriminator
+        ):
+            return False
+        if self.representative is None or other.representative is None:
+            return True
+        from httk.atomistic.symmetry.paths import structure_delta
+
+        try:
+            return structure_delta(self.representative, other.representative) <= delta
+        except (TypeError, ValueError):
+            return False
 
     def __repr__(self) -> str:
         pairs = ", ".join(f"{occupation.wyckoff}:{occupation.species.name}" for occupation in self._occupations)
         return f"Protostructure({self._spacegroup.setting!r}, {pairs})"
+
+
+def _validate_representative(representative: FundamentalDomainStructure) -> None:
+    if not isinstance(representative, FundamentalDomainStructure):
+        raise TypeError("Protostructure representative must be a FundamentalDomainStructure")
+    if not representative.spacegroup.is_standard_setting:
+        raise ValueError("Protostructure representative must record Wyckoff data in the IT standard setting")
+    if not representative.transform.is_identity():
+        raise ValueError("Protostructure representative must use an identity setting transform")
+    if representative.assemblies is not None:
+        raise ValueError("Protostructure representative cannot carry assemblies")
+    if representative.molecular:
+        raise ValueError("Protostructure representative cannot be molecular")
+    if any(site.moment is not None for site in representative.wyckoff_sites):
+        raise ValueError("Protostructure representative cannot carry site moments")

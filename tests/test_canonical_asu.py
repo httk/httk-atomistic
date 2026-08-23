@@ -10,7 +10,7 @@ from httk.atomistic import (
     ASUStructure,
     Cell,
     Protostructure,
-    Prototemplate,
+    Prototype,
     Species,
     UnitcellStructure,
     UnitcellStructureView,
@@ -379,12 +379,12 @@ def test_structure_api_canonical_proto_values_collapse_enantiomorphs(
     structure = UnitcellStructureView(_p4332())
 
     protostructure = structure.canonical_protostructure()
-    prototemplate = structure.canonical_prototemplate()
+    prototype = structure.canonical_prototype()
 
     assert type(protostructure) is Protostructure
-    assert type(prototemplate) is Prototemplate
+    assert type(prototype) is Prototype
     assert protostructure.spacegroup.it_number == 212
-    assert prototemplate.spacegroup.it_number == 212
+    assert prototype.spacegroup.it_number == 212
     assert calls == [False, False]
 
 

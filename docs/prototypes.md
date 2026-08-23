@@ -1,339 +1,84 @@
 # Material-information levels
 
-*httk-atomistic* describes a crystalline material at six levels of information,
-organised as a 2×3 matrix. The rows differ in how much *geometrical*
-information is kept; the columns differ in whether the site identities are
-anonymous placeholders or real chemical species. Each cell is a value family
-(a backend value plus its views) in `httk.atomistic`.
+*httk₂* describes a crystalline material with three geometrical resolutions. The
+anonymous column records equivalence classes; the assigned column records real
+species.
 
-| Level of geometrical information | Anonymous species | Assigned species |
+| Geometrical information | Anonymous occupation | Assigned species |
 | --- | --- | --- |
-| Wyckoff positions only | {py:class}`~httk.atomistic.Prototemplate` | {py:class}`~httk.atomistic.Protostructure` |
-| Geometrical class | {py:class}`~httk.atomistic.Prototype` | {py:class}`~httk.atomistic.Structuretype` |
-| Exact geometry | {py:class}`~httk.atomistic.CrystalTemplate` | {doc}`Structure <structures>` |
+| None | `Formulatemplate` | `ChemicalFormula` |
+| Wyckoff positions, optionally with a representative/discriminator | `Prototype` | `Protostructure` |
+| Exact geometry | `CrystalTemplate` | `Structure` |
 
-The top row keeps only a standard-setting space group and its occupied Wyckoff
-positions. The middle row adds a *geometrical-class* distinction on top of that.
-The bottom row fixes the exact continuous degrees of freedom (cell parameters
-and free coordinates). Reading down a column loses geometrical information;
-reading right across a row assigns real species to anonymous placeholders.
+`Prototype` and `Protostructure` are the two geometrical-classification keys. A
+base value contains only its standard-setting space group and occupied Wyckoff
+positions. Either may additionally carry an exact fundamental-domain
+representative, an externally assigned discriminator, or both. These optional
+fields participate in equality and content identity; a representative-only value
+and a discriminator-only value are therefore distinct. A base-only value is
+valid and is distinct from either refined form.
 
-## How the levels relate
+The representative is a class anchor, not the identity of the bottom-row exact structure:
+its continuous coordinates and cell are retained exactly so that the anchor can
+be reconstructed, while the structural key remains a coarse classification.
+`Prototype` uses a `FundamentalDomainTemplate` representative and anonymous
+`PrototypeOccupation` values. `Protostructure` uses a
+`FundamentalDomainStructure` representative and real-species
+`WyckoffOccupation` values. A discriminator is text naming a class; it is not
+part of the label, and is not interchangeable with a representative.
 
-The levels combine by adding one piece of information at a time. These are
-information-content relationships, not class inheritance:
+## Labels and recognition
 
-- Prototemplate + geometrical-class information → Prototype
-- Prototemplate + species assignment → Protostructure
-- Prototype + species assignment → Structuretype
-- Protostructure + geometrical-class information → Structuretype
-- Prototype + exact geometrical parameters → CrystalTemplate
-- Structuretype + exact parameters → Structure
-- CrystalTemplate + species assignment → Structure
-
-A {py:class}`~httk.atomistic.Prototype` and a
-{py:class}`~httk.atomistic.Structuretype` pin their geometrical class by a
-canonical *representative* (a standard-setting fundamental-domain value holding
-one exact realization) and/or an externally assigned *discriminator* string
-(AFLOW `-001`-style). At least one of the two is required; both may be given,
-and equality compares exactly the information present, so a representative-only
-value never equals a discriminator-only value.
-
-The representative's continuous degrees of freedom are a **class anchor, not
-exact-structure data**. A prototype or structuretype therefore corresponds to
-*many* exact structures within its class — every realization that shares the
-class — whereas a {py:class}`~httk.atomistic.CrystalTemplate` or a `Structure`
-fixes the continuous degrees of freedom and so names a single exact geometry.
-
-## Naming and capitalization
-
-The word we adopt for the anonymous-occupation counterpart of "Structure" is
-"Template": the sites carry placeholder/equivalence assignments — a template for
-which real species may be filled in. The canonical taxonomy terms are
-single-capital compound words: `Prototemplate`, `Protostructure`, `Prototype`,
-`Structuretype`, and `Formulatemplate`. `CrystalTemplate` carries the "Crystal"
-prefix because the bare word "Template" — like the bare word "Formula" — would be
-ambiguous across contexts; the extra word disambiguates it. Compounds formed
-*from* `CrystalTemplate` drop "Crystal": `FundamentalDomainTemplate` and
-`ASUTemplate` (and the view family `CrystalTemplateView` etc. keeps the prefix).
-"Prototype" is the already-established name for what formally, in this
-terminology, would correspond to "Templatetype"; there is no code alias for the
-latter.
-
-The older names survive as aliases for discoverability only; documentation and
-new code use the canonical names.
-
-| Alias | Canonical |
-| --- | --- |
-| `AnonymousStructure`, `AnonymousStructureView`, `AnonymousStructureLike` | `CrystalTemplate` family |
-| `AnonymousFormula`, `AnonymousFormulaView` | `Formulatemplate` family |
-
-## Dummy species
-
-The two anonymous columns of the exact and geometrical-class rows
-(`CrystalTemplate`, `FundamentalDomainTemplate`, and the representative held by a
-`Prototype`) use a deliberately narrow dummy-species shape. The label is
-carried through the `labels` decoration and the species name; it is never
-encoded as a chemical symbol:
-
-```python
-from httk.atomistic import Species
-from httk.atomistic.models.crystaltemplate import dummy_species, is_dummy_species
-
-species = dummy_species("A")
-assert species == Species("A", ("X",), (1,), labels=("A",))
-assert is_dummy_species(species)
-```
-
-`is_dummy_species` requires exactly one `"X"` chemical symbol, unit
-concentration, matching name/label, and no mass, attachments, charge, spin,
-original name, or concentration decoration. Consequently a species named `A`
-with `labels=("other",)` is not a dummy species. A `Prototemplate` and a
-`Prototype` carry the anonymous class labels (`A`, `B`, `C`, ...) directly and
-have no dummy `Species` objects at all.
-
-## What crosses the boundary
-
-The conversion boundary is intentionally explicit. The following table lists
-features rejected during conversion and features deliberately erased when a
-conversion is otherwise valid.
-
-| Conversion boundary | Rejected | Deliberately erased |
-| --- | --- | --- |
-| Structure → `CrystalTemplate`/`FundamentalDomainTemplate` | disorder or partial occupancy; duplicate-element species; assemblies; `chemical_composition`; site moments | species identities become dummy labels; charge, formula metadata, `optimization_type`, `immutable_id`, `last_modified`, molecular metadata, and representatives |
-| Structure → `Protostructure` | assemblies; `chemical_composition`; site moments; a species containing `"X"` (including attached `"X"`) | charge, formula metadata, `optimization_type`, `immutable_id`, `last_modified`, molecular metadata, and representatives |
-
-`Protostructure` is different here: its `Species` objects retain disorder and
-partial occupancy, including their real chemical symbols, concentrations, and
-decorations. Those are not rejected merely because they are non-singleton.
-
-The useful conversion matrix is below. Views either present an existing value
-(exact, pass-through), extract a coarser level from a finer one (exact), or
-recognize a level from a plain structure (tolerant, needs the
-symmetry-recognition path, spglib).
-
-| Construction | Result | Boundary |
-| --- | --- | --- |
-| `PrototemplateView(Protostructure)` | erased anonymous prototemplate | exact erasure of species |
-| `PrototemplateView(Prototype or Structuretype)` | the geometrical class's prototemplate | exact extraction/erasure |
-| `PrototemplateView(FundamentalDomainTemplate)` | folded prototemplate | exact discretization |
-| `PrototemplateView(unitcell or ordinary structure)` | recognized prototemplate | tolerant recognition (spglib) |
-| `CrystalTemplateView(CrystalTemplate)` | crystal-template view | exact/pass-through |
-| `CrystalTemplateView(FundamentalDomainTemplate)` | expanded unit cell | exact |
-| `CrystalTemplateView(structure)` | anonymized projection | validates the rejection rules above |
-| `PrototypeView(Prototype)` | prototype view | exact/pass-through |
-| `PrototypeView(Structuretype)` | anonymized prototype (discriminator carried over) | exact; the discriminator names the species-independent class |
-| `PrototypeView(ASUStructureView(s, setting=...))` | standard-setting prototype | exact ASU path after the requested setting is chosen |
-| `PrototypeView(unitcell or ordinary structure)` | recognized prototype | tolerant recognition (spglib) |
-| `StructuretypeView(Structuretype)` | structuretype view | exact/pass-through |
-| `StructuretypeView(unitcell or ordinary structure)` | recognized structuretype | tolerant recognition via the conventional-cell path (spglib) |
-| `ProtostructureView(Protostructure)` | protostructure view | exact/pass-through |
-| `ProtostructureView(Structuretype)` | protostructure (drops the geometrical class) | exact |
-| `ProtostructureView(ASUStructureView(s, setting=...))` | geometry-free real-species key | exact ASU path |
-| `ProtostructureView(unitcell or ordinary structure)` | recognized protostructure | tolerant recognition (spglib) |
-| `UnitcellStructureView(CrystalTemplate or FundamentalDomainTemplate)` | — | raises: dummy species are not real species |
-| `ProtostructureView(CrystalTemplate)` | — | raises: dummy species are not real species |
-| `PrototypeView(Protostructure)` | — | raises: the families have different species semantics |
-
-Recognition from a plain structure is the tolerant/spglib boundary. Existing
-ASU, crystal-template, prototype, and protostructure values use exact data, with no
-recognition tolerance. For a source that needs a particular setting, use the
-sanctioned idiom shown in the `PrototypeView` row:
-`PrototypeView(ASUStructureView(s, setting=...))`. `Prototype` itself is
-standard-setting-only; it does not accept `setting=`, `standard=`, or
-`transform=` as recognition arguments.
-
-## Formula conveniences
-
-The anonymous cells expose `anonymous_formula`; the assigned cells expose both
-`formula` (real species) and `anonymous_formula` (site amounts anonymized).
-Formula projections use Wyckoff multiplicities, and reduced rendering removes a
-common GCD:
-
-```python
-from httk.atomistic import CrystalTemplate, CrystalTemplateView
-
-template = CrystalTemplate(
-    [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
-    [[0, 0, 0], [1 / 2, 1 / 2, 1 / 2]],
-    species_at_sites=("A", "B"),
-)
-view = CrystalTemplateView(template)
-assert view.anonymous_formula == "AB"
-assert view.unwrap() is template
-```
-
-`Protostructure` is the isopointal key: it has no cell or coordinates, is
-hashable, and is safe as a dictionary key. Equality and hashing use its
-standard-setting space group and its occupied Wyckoff positions together with
-the associated `Species` values, so equivalent construction order does not
-change the key. `Prototemplate` is the anonymous counterpart of that key.
-
-## Labels
-
-An httk label is a compact string encoding the information content of an
-unsuffixed AFLOW-style prototype label: a space group, its occupied Wyckoff
-letters, and the partition of those occupations into species classes. The
-single home of the notation is
-`httk.atomistic.models.prototemplate.notation`. The grammar is:
+The label grammar is shared by the two retained keys:
 
 ```
-ANON_PEARSON_ITNUMBER_GROUP(_GROUP)*                 # prototemplate label
-ANON_PEARSON_ITNUMBER_GROUP(_GROUP)*:NAME(-NAME)*    # protostructure label
+ANON_PEARSON_ITNUMBER_GROUP(_GROUP)*                 # Prototype
+ANON_PEARSON_ITNUMBER_GROUP(_GROUP)*:NAME(-NAME)*    # Protostructure
 ```
 
-A `GROUP` is the concatenation of one class's Wyckoff letters, sorted
-alphabetically, a letter occupied `k >= 2` times prefixed by the integer `k`
-(`2e`); count `1` is omitted. `ANON` is the anonymous formula (`A`, `B`, `C`,
-...) built in group order with per-group summed conventional multiplicities
-reduced by their overall GCD.
+Prototype labels use anonymous class labels (`A`, `B`, …). Protostructure
+labels append real species names to the same class ordering. A discriminator
+is deliberately absent from both strings: labels identify the Wyckoff
+occupation shape, while the discriminator distinguishes optional class records.
+The notation implementation lives in
+`httk.atomistic.models.prototype.notation`.
 
-Because the default canonicalization pipeline normalizes an enantiomorphic pair
-to its lower-numbered member (see {doc}`asu`), the canonical labels of the two
-partners coincide under that default; run canonicalization with
-`preserve_chirality=True` to keep each member's own label.
+Views preserve the source backend and are lazy when recognition is required.
+Erasing a `Protostructure` to a `Prototype` preserves the space group and
+occupation partition while replacing species names with canonical anonymous
+labels. Recognition from an ordinary structure is tolerant and requires the
+symmetry-recognition dependencies; construction from an existing exact
+fundamental-domain value is exact.
 
-### httk labels are not AFLOW labels
+## Similarity and exact travel
 
-The **httk group-ordering convention** orders the occupation groups
-lexicographically by their sorted Wyckoff-letter sequences. This ordering is
-*element-agnostic*, so a `ProtostructureLabel` is exactly its erased
-`PrototemplateLabel` plus the `:` species suffix. AFLOW, by contrast, orders the
-classes by element symbol **alphabetically**, so its unsuffixed prefix depends
-on the chemistry. The two are therefore genuinely different strings, and an
-httk label is **not** an AFLOW label.
+`Prototype.similar` and `Protostructure.similar` first compare their discrete
+space-group and occupation keys, then apply discriminator compatibility. If
+both values have representatives, the continuous comparison is the total
+Cartesian atom travel returned by the public `structure_delta(first, second)`;
+missing representatives do not invent a distance. `structure_delta` maps the
+structures into a common subgroup and setting, pairs compatible Wyckoff
+orbits, and sums the shortest periodic Cartesian travel of their atoms. Each
+endpoint uses its own cell, so lattice changes contribute through the atom
+positions. It is not a content-id or label comparison.
 
-The assigned-species classes expose both, as distinct properties: `label` (the
-httk convention, a `ProtostructureLabel`) and `aflow_label` (the AFLOW-style
-rendering, a plain `str`). For calcite, `Protostructure(167, a:Ca, b:C, e:O)`:
+## Storage
 
-```python
-from httk.atomistic import Protostructure, Species
+The durable records are `PrototypeRecord` and `ProtostructureRecord`, stored as
+`atomistic_prototype` and `atomistic_protostructure`. Their canonical source is
+the corresponding value, and optional representatives/discriminators are
+projected into the same content identity. Existing stores using the retired
+taxonomy or old layouts must be rebuilt; no compatibility registry keys are
+provided.
 
-Ca, C, O = Species("Ca", ("Ca",), (1,)), Species("C", ("C",), (1,)), Species("O", ("O",), (1,))
-calcite = Protostructure(167, [("a", Ca), ("b", C), ("e", O)])
-assert calcite.label == "ABC3_hR10_167_a_b_e:Ca-C-O"
-assert calcite.aflow_label == "ABC3_hR10_167_b_a_e:C-Ca-O"
-```
+`FundamentalDomainTemplateRecord` remains the exact storage record for the
+anonymous representative. It is independent of the coarse `PrototypeRecord`
+and retains the source `FundamentalDomainTemplate` semantics.
 
-The httk label orders the groups `a`, `b`, `e` by Wyckoff letter; the AFLOW
-label orders them `b`, `a`, `e` to follow the alphabetical elements
-`C`, `Ca`, `O`.
+## Exact boundary
 
-### Pearson symbol
-
-The Pearson symbol is `system + centring + count`. The system letter follows
-the space group's crystal system (`a`, `m`, `o`, `t`, `h`, `h`, `c` for
-triclinic through cubic, trigonal and hexagonal both mapping to `h`). The
-centring letter follows the centring type, with the base-centred variants
-`A`, `B`, `C`, and `S` folded to `C` (the `A` case fires for groups 38–41). The
-count is the conventional-cell site count, except a rhombohedral `R` setting —
-tabulated on hexagonal axes — divides it by three (and asserts divisibility).
-Calcite's 30 conventional sites give `hR10`.
-
-The 27th Wyckoff letter used by a few high-multiplicity settings (group 47's
-eightfold orbit, internally `'α'`) renders as `A` and parses back from it;
-positionally a group token never collides with the leading anonymous formula.
-
-### Strict parser
-
-The parser is strict and canonical-only: it resolves the standard setting,
-validates every Wyckoff letter, recomputes the Pearson symbol, the reduced
-anonymous counts, and the group ordering, and rejects any string that deviates
-from the recomputed canonical form. Suffix names must be known element symbols
-and become `Species(name, (name,), (1,))`. Round trips are pinned in both
-directions: `parse(render(x)) == x` for element-pure values and
-`render(parse(s)) == s` for canonical strings. This mirrors
-`parse_anonymous_formula` for `Formulatemplate`.
-
-### Canonical vs plain labels
-
-Any faithful render of an object is *the* prototemplate or protostructure label.
-The *canonical* prototemplate or protostructure label is the one obtained from a
-normalizer-canonical object — one derived via `canonical_asu`. The renderer
-performs no affine-normalizer pass this round, so labels from hand-built,
-non-canonical objects are faithful but not necessarily canonical. Whenever text
-speaks of the label of an arbitrary value it uses the plain form ("the
-protostructure label"), reserving "the canonical … label" for a
-normalizer-canonical source.
-
-The AFLOW-style `-001` discriminators belong to a `Prototype` or
-`Structuretype` (their `discriminator` field), which name a species-independent
-geometrical class. They are **never** part of the label.
-
-## Storage records
-
-The families have durable, layout-independent storage records in
-`httk.atomistic.storage.records`. Alongside the existing
-`ProtostructureRecord` (`atomistic_protostructure`) and
-`FundamentalDomainTemplateRecord` (`atomistic_fundamental_domain_template`), the
-matrix adds four records:
-
-| Record | Storage name | Value |
-| --- | --- | --- |
-| `PrototemplateRecord` | `atomistic_prototemplate` | `Prototemplate` |
-| `PrototypeRecord` | `atomistic_prototype` | `Prototype` |
-| `StructuretypeRecord` | `atomistic_structuretype` | `Structuretype` |
-| `FundamentalDomainTemplateRecord` | `atomistic_fundamental_domain_template` | `FundamentalDomainTemplate` |
-
-Each record carries the value identity of its family, so two equal values
-produce records with the same content id (the deduplication key) and unequal
-values differ. `PrototypeRecord` and `StructuretypeRecord` enforce the
-"at least one of representative or discriminator" rule and store the optional
-representative as a nested record. `CrystalTemplate` itself stays non-storable,
-as before.
-
-`ProtostructureRecord.label` now renders the **httk protostructure label** (for
-example `AB_cF8_225_a_b:Na-Cl`) as its queryable `label` column, switched from
-the older compact format. The content ids are unchanged — the label is a
-convenience and query column, not the record's identity, and is not unique
-across protostructures whose species share a name but differ in another
-`Species` field. Count and deduplicate by row (content id), never by label.
-`StructuretypeRecord` exposes the same label column; its discriminator is not
-part of the label, so structuretypes that share a protostructure but differ in
-class collide on it.
-
-The registry record name `atomistic-prototype` now resolves to the new
-class-level `PrototypeRecord`; the renamed `FundamentalDomainTemplateRecord` is
-an embedded component record (nested inside `PrototypeRecord` and
-`StructuretypeRecord` as the optional representative) and deliberately has no
-registry entry of its own.
-
-Because the label column switched format and the prototype tables were
-redesigned, **pre-existing stores carry stale label columns and orphaned
-prototype tables**. Rebuilding the store from its source values is the
-documented remedy. Concretely: a pre-series store's `atomistic_prototype_v1`
-tables are orphaned by the rename to `atomistic_fundamental_domain_template` and
-`atomistic_prototype` — their rows are not migrated, and re-ingesting the source
-values produces new content ids under the new records. And a store written
-across the label switch holds mixed formats in the `ProtostructureRecord.label`
-column — old `"225/b:Cl,a:Na"`-style rows alongside httk-label rows; record
-identity (the content id) is unaffected, and a rebuild normalizes the column.
-Likewise, the `atomistic_protostructure_v1` and `atomistic_wyckoff_occupation_v1`
-tables are orphaned by the removal of the `_v1` storage-name suffixes (to
-`atomistic_protostructure` and `atomistic_wyckoff_occupation`): their rows are not
-migrated, and because the identity name participates in hashing the content ids
-change, so re-ingesting the source values under the new records is the remedy.
-And a store written before the "Pattern"→"Template" class rename holds
-`atomistic_protopattern` and `atomistic_fundamental_domain_pattern` tables, now
-orphaned by the rename to `atomistic_prototemplate` and
-`atomistic_fundamental_domain_template`: their rows are not migrated either, and
-because the identity name participates in hashing the affected content ids
-change, so re-ingesting the source values under the new records is again the
-remedy.
-
-## Deferred features
-
-The following are deliberately not part of this round and not part of the
-conversion contracts above:
-
-- `same_prototype()`.
-- OPTIMADE serving (definitions and providers) for these families.
-- The `Structuretype(prototype, species=...)` species-assignment convenience
-  constructor.
-- Normalizer-canonicalized label rendering (the affine-normalizer pass that
-  would make every faithful label canonical).
-
-The full guide, {doc}`details/structural_classes`, covers the naming rationale
-and how the classes relate to isopointal/isoconfigurational structures and
-AFLOW labels.
+The conversion boundary is explicit. `CrystalTemplate`/`FundamentalDomainTemplate`
+reject real-species assumptions when producing anonymous data; `Protostructure`
+retains real species, including their exact metadata. No conversion silently
+approximates a representative: use an explicit lossy presentation when a
+numeric approximation is desired.

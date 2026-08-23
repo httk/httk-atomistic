@@ -1,4 +1,4 @@
-"""The geometry-free protostructure family."""
+"""The assigned-species geometrical-classification family."""
 
 from typing import TYPE_CHECKING
 

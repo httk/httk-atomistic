@@ -42,6 +42,7 @@ __all__ = [
     "recognize_asu",
     "represent_like",
     "rerepresent",
+    "structure_delta",
     "structure_tolerance",
     "subgroup_closure",
     "subgroup_representation",
@@ -70,6 +71,7 @@ if TYPE_CHECKING:
         interpolate_structures,
         list_representations,
         represent_like,
+        structure_delta,
     )
     from .primitive import PrimitiveCellResult, primitive_cell
     from .recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
@@ -111,6 +113,7 @@ def __getattr__(name: str) -> object:
         "interpolate_structures",
         "list_representations",
         "represent_like",
+        "structure_delta",
     }:
         from .paths import (
             CommonSubgroupResult,
@@ -120,6 +123,7 @@ def __getattr__(name: str) -> object:
             interpolate_structures,
             list_representations,
             represent_like,
+            structure_delta,
         )
 
         globals().update(
@@ -130,6 +134,7 @@ def __getattr__(name: str) -> object:
             interpolate_structures=interpolate_structures,
             list_representations=list_representations,
             represent_like=represent_like,
+            structure_delta=structure_delta,
         )
         return globals()[name]
     if name in {"PrimitiveCellResult", "primitive_cell"}:

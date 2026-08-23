@@ -11,7 +11,6 @@ from httk.core.register import (
 )
 
 from httk.atomistic.entries.definitions import load_httk_definitions
-from httk.atomistic.storage.records import PrototemplateRecord, StructuretypeRecord
 
 STRUCTURES_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 HTTK_PROPERTY_IDS = {
@@ -41,11 +40,13 @@ def test_atomistic_property_schemas_are_registered_and_loadable() -> None:
 
 def test_taxonomy_entry_families_and_records_are_registered() -> None:
     families = set(known_entry_families())
-    assert {"prototemplates", "structuretypes"} <= families
+    assert {"prototypes", "protostructures"} <= families
     records = set(known_entry_records())
-    assert {"atomistic-prototemplate", "atomistic-structuretype"} <= records
-    assert resolve_entry_record("atomistic-prototemplate") is PrototemplateRecord
-    assert resolve_entry_record("atomistic-structuretype") is StructuretypeRecord
+    assert {"atomistic-prototype", "atomistic-protostructure"} <= records
+    assert resolve_entry_record("atomistic-prototype").__name__ == "PrototypeRecord"
+    assert resolve_entry_record("atomistic-protostructure").__name__ == "ProtostructureRecord"
+    assert not {"prototemplates", "structuretypes"} & families
+    assert not {"atomistic-prototemplate", "atomistic-structuretype"} & records
 
 
 def test_httk_definitions_keep_served_names_and_published_ids() -> None:

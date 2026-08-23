@@ -13,13 +13,13 @@ from httk.atomistic.models.prototype.view_base import PrototypeViewBase
 class PrototypeView(PrototypeViewBase, Prototype):
     r"""Present a lazy anonymous geometrical-class prototype view.
 
-    Sources may be an existing prototype, a :class:`~httk.atomistic.models.structuretype.structuretype.Structuretype`
-    (erased to its anonymous class), or a template-like/structure-like source recognized to a
+    Sources may be an existing prototype, a Protostructure (erased to its anonymous class),
+    or a structure-like source recognized to a
     representative-carrying prototype. Recognition of a raw structure accepts optional
     ``tolerance`` and ``limit_denominator`` values; resolution is deferred until the first
     field access.
 
-    :param obj: The prototype-like, structuretype-like, or structure-like source.
+    :param obj: The prototype-like, protostructure-like, or structure-like source.
     :param \*\*hints: Backend-selection and recognition hints.
     """
 
@@ -27,7 +27,7 @@ class PrototypeView(PrototypeViewBase, Prototype):
     _resolved_prototype: Prototype | None
     _tolerance: float | None
     _limit_denominator: int | None
-    _DEFERRED_FIELDS = frozenset({"_prototemplate", "_representative", "_discriminator"})
+    _DEFERRED_FIELDS = frozenset({"_spacegroup", "_occupations", "_representative", "_discriminator"})
 
     def __new__(
         cls,
@@ -43,16 +43,6 @@ class PrototypeView(PrototypeViewBase, Prototype):
             if any(value is not None for value in (tolerance, limit_denominator)) or hints:
                 raise ValueError("PrototypeView rewrapping does not accept recognition arguments")
             return obj
-
-        # A structuretype erases lazily through RecognizedPrototype (adopted below); recognition
-        # arguments are meaningless for it, so reject them up front like a prototype source.
-        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
-        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
-
-        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)) and (
-            any(value is not None for value in (tolerance, limit_denominator)) or hints
-        ):
-            raise ValueError("PrototypeView recognition arguments cannot be used with a structuretype")
 
         backend_hints = dict(hints)
         if tolerance is not None:
@@ -89,11 +79,14 @@ class PrototypeView(PrototypeViewBase, Prototype):
         backend = object.__getattribute__(self, "_backend")
         if type(backend) is Prototype:
             resolved = backend
-        elif isinstance(backend, RecognizedPrototype):
+        elif isinstance(backend, RecognizedPrototype) or hasattr(backend, "resolve"):
             resolved = backend.resolve()
         else:
+            # A generic backend can carry class identity even though its base
+            # Wyckoff data are all this view needs for presentation.
             resolved = Prototype(
-                backend.prototemplate,
+                backend.spacegroup,
+                backend.occupations,
                 representative=backend.representative,
                 discriminator=backend.discriminator,
             )

@@ -99,7 +99,7 @@ from fractions import Fraction
 from httk.core import FracVector, credits
 from httk.atomistic import ASUStructure, Cell, Species, WyckoffSite, represent_like
 
-heading = "The structure-matching and symmetry-path features (represent_like, common_subgroup_representation, interpolate_structures) build on Edvard Valentin's subgroup-matching work for httk v1"
+heading = "The structure-matching and symmetry-path features (represent_like, common_subgroup_representation, structure_delta, interpolate_structures) build on Edvard Valentin's subgroup-matching work for httk v1"
 assert heading not in credits.entries()
 structure = ASUStructure(
     Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7))),

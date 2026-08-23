@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, ClassVar, Self
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.like import CellLike
@@ -20,22 +20,15 @@ from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.prototemplate.prototemplate import Prototemplate
+    from httk.atomistic.models.prototype.prototype import Prototype
 
 
 class FundamentalDomainTemplate(CrystalTemplateBackend):
     """Store a standard-setting fundamental domain with dummy species labels.
 
     ``FundamentalDomainTemplate`` is the fundamental-domain member of the ``CrystalTemplate``
-    family, the anonymous-species, exact-geometry cell of the material-information matrix:
-
-    ======================  ===============  ==============
-    Geometrical info        Anonymous        Assigned
-    ======================  ===============  ==============
-    Wyckoff positions only  Prototemplate    Protostructure
-    Geometrical class       Prototype        Structuretype
-    Exact geometry          CrystalTemplate  Structure
-    ======================  ===============  ==============
+    family, the anonymous-species, exact-geometry cell used as a representative for
+    :class:`~httk.atomistic.models.prototype.prototype.Prototype`.
 
     :param cell: The standard-setting cell geometry.
     :param spacegroup: The standard-setting space group.
@@ -184,27 +177,22 @@ class FundamentalDomainTemplate(CrystalTemplateBackend):
         """Return the number of sites in the conventional cell."""
         return sum(self.multiplicities())
 
-    @property
-    def prototype(self) -> Self:
-        """Return this prototype value."""
-        return self
-
     @cached_property
-    def prototemplate(self) -> "Prototemplate":
-        """Return the anonymous prototemplate this fundamental domain folds to.
+    def prototype(self) -> "Prototype":
+        """Return the anonymous prototype this fundamental domain folds to.
 
         The template keeps this domain's occupied Wyckoff letters and their dummy-species
         class partition; the exact geometry is discarded. The template's constructor
         re-canonicalizes the class labels by the pinned group-ordering rule.
 
-        :return: The folded :class:`~httk.atomistic.models.prototemplate.prototemplate.Prototemplate`.
+        :return: The folded :class:`~httk.atomistic.models.prototype.prototype.Prototype`.
         """
-        from httk.atomistic.models.prototemplate.occupation import PrototemplateOccupation
-        from httk.atomistic.models.prototemplate.prototemplate import Prototemplate
+        from httk.atomistic.models.prototype.occupation import PrototypeOccupation
+        from httk.atomistic.models.prototype.prototype import Prototype
 
-        return Prototemplate(
+        return Prototype(
             self._spacegroup,
-            [PrototemplateOccupation(site.wyckoff, site.species) for site in self._wyckoff_sites],
+            [PrototypeOccupation(site.wyckoff, site.species) for site in self._wyckoff_sites],
         )
 
     def __eq__(self, other: object) -> bool:

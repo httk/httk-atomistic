@@ -1,4 +1,4 @@
-"""Tests for the anonymous geometrical-class prototype family."""
+"""Tests for the merged anonymous Prototype family."""
 
 import pickle
 
@@ -7,11 +7,16 @@ from httk.core import FracVector
 
 from httk.atomistic import (
     ASUStructure,
+    DerivedPrototype,
     FundamentalDomainTemplate,
-    Prototemplate,
+    Protostructure,
     Prototype,
+    PrototypeBackend,
+    PrototypeLabel,
     PrototypeView,
+    RecognizedPrototype,
     Species,
+    UnitcellStructure,
     WyckoffSite,
 )
 
@@ -23,7 +28,7 @@ def _dummy(label: str) -> Species:
     return Species(label, ("X",), (1,), labels=(label,))
 
 
-def _rocksalt_template() -> FundamentalDomainTemplate:
+def _template() -> FundamentalDomainTemplate:
     return FundamentalDomainTemplate(
         CELL,
         225,
@@ -32,7 +37,7 @@ def _rocksalt_template() -> FundamentalDomainTemplate:
     )
 
 
-def _rocksalt_asu() -> ASUStructure:
+def _asu() -> ASUStructure:
     return ASUStructure(
         CELL,
         225,
@@ -41,133 +46,157 @@ def _rocksalt_asu() -> ASUStructure:
     )
 
 
-def test_requires_at_least_one_of_representative_or_discriminator() -> None:
-    template = _rocksalt_template().prototemplate
-    with pytest.raises(ValueError, match="at least one of representative or discriminator"):
-        Prototype(template)
+def _base() -> Prototype:
+    return Prototype(225, [("a", "A"), ("b", "B")])
 
 
-def test_prototemplate_only_is_rejected() -> None:
-    template = Prototemplate(225, [("a", "A"), ("b", "B")])
-    with pytest.raises(ValueError, match="at least one of representative or discriminator"):
-        Prototype(template)
+class IdentityCarryingPrototypeBackend(PrototypeBackend):
+    """Expose optional class identity through a non-value prototype backend."""
+
+    def __init__(self, value: Prototype) -> None:
+        self.value = value
+
+    @property
+    def spacegroup(self):
+        return self.value.spacegroup
+
+    @property
+    def occupations(self):
+        return self.value.occupations
+
+    @property
+    def representative(self):
+        return self.value.representative
+
+    @property
+    def discriminator(self):
+        return self.value.discriminator
+
+    def unwrap(self):
+        return self.value
 
 
-def test_discriminator_only_requires_a_prototemplate() -> None:
-    with pytest.raises(ValueError, match="needs a prototemplate"):
+def test_base_only_and_representative_only_are_valid() -> None:
+    base = _base()
+    representative = _template()
+    with_rep = Prototype(representative=representative)
+    assert with_rep.spacegroup == base.spacegroup
+    assert with_rep.occupations == base.occupations
+    assert with_rep.representative == representative
+    assert with_rep.discriminator is None
+
+
+def test_discriminator_only_requires_base() -> None:
+    with pytest.raises(ValueError, match="spacegroup and occupations"):
         Prototype(discriminator="001")
-
-
-def test_discriminator_must_be_non_empty_string() -> None:
-    template = Prototemplate(225, [("a", "A"), ("b", "B")])
+    assert Prototype(225, [("a", "A")], discriminator="001").discriminator == "001"
     with pytest.raises(ValueError, match="non-empty string"):
-        Prototype(template, discriminator="")
+        Prototype(225, [("a", "A")], discriminator="")
 
 
-def test_representative_only_derives_the_prototemplate() -> None:
-    representative = _rocksalt_template()
-    prototype = Prototype(representative=representative)
-    assert prototype.representative == representative
-    assert prototype.discriminator is None
-    assert prototype.prototemplate == representative.prototemplate
-
-
-def test_both_given_agreement_is_enforced() -> None:
-    representative = _rocksalt_template()
-    # A single-class template cannot describe the two-class rocksalt representative.
-    mismatched = Prototemplate(221, [("a", "A")])
+def test_representative_base_mismatch_is_rejected() -> None:
     with pytest.raises(ValueError, match="disagrees with its representative"):
-        Prototype(mismatched, representative=representative)
-    # The agreeing prototemplate is accepted.
-    prototype = Prototype(representative.prototemplate, representative=representative)
-    assert prototype.representative == representative
+        Prototype(221, [("a", "A")], representative=_template())
+    with pytest.raises(ValueError, match="supplied together"):
+        Prototype(spacegroup=225, representative=_template())
+    with pytest.raises(ValueError, match="supplied together"):
+        Prototype(occupations=[("b", "A")], representative=_template())
 
 
-def test_representative_only_is_never_equal_to_discriminator_only() -> None:
-    representative = _rocksalt_template()
-    template = representative.prototemplate
-    representative_only = Prototype(representative=representative)
-    discriminator_only = Prototype(template, discriminator="001")
-    assert representative_only != discriminator_only
+def test_canonical_anonymous_occupations_and_label() -> None:
+    first = Prototype(225, [("a", "A"), ("b", "B")])
+    permuted = Prototype(225, [("b", "A"), ("a", "B")])
+    assert first == permuted
+    assert str(first.label) == "AB_cF8_225_a_b"
+    assert first.pearson_symbol == "cF8"
+    assert first.anonymous_formula == "AB"
 
 
-def test_equality_and_inequality_across_the_triple() -> None:
-    representative = _rocksalt_template()
-    template = representative.prototemplate
+def test_exact_equality_includes_optional_information_and_is_unhashable() -> None:
+    representative = _template()
     assert Prototype(representative=representative) == Prototype(representative=representative)
-    assert Prototype(template, discriminator="001") == Prototype(template, discriminator="001")
-    assert Prototype(template, discriminator="001") != Prototype(template, discriminator="002")
-    assert Prototype(representative=representative, discriminator="001") != Prototype(representative=representative)
-    assert Prototype(representative=representative) != object()
-
-
-def test_prototype_is_unhashable() -> None:
+    assert Prototype(225, [("a", "A"), ("b", "B")], discriminator="001") != Prototype(
+        225, [("a", "A"), ("b", "B")], discriminator="002"
+    )
+    assert Prototype(225, [("a", "A"), ("b", "B")]) != Prototype(225, [("a", "A"), ("b", "B")], discriminator="001")
     with pytest.raises(TypeError):
-        hash(Prototype(representative=_rocksalt_template()))
+        hash(Prototype(representative=representative))
 
 
-def test_view_recognizes_a_fundamental_domain_template_carrying_a_representative() -> None:
-    representative = _rocksalt_template()
-    prototype = PrototypeView(representative).unview()
-    assert isinstance(prototype, Prototype)
-    assert prototype.representative == representative
-    assert prototype.discriminator is None
-    assert prototype.prototemplate == representative.prototemplate
+def test_fundamental_template_and_structure_views_derive_prototypes() -> None:
+    representative = _template()
+    assert representative.prototype == _base()
+    recognized = PrototypeView(_asu()).unview()
+    assert isinstance(recognized, Prototype)
+    assert recognized.representative is not None
+    assert recognized.label == "AB_cF8_225_a_b"
 
 
-def test_view_recognizes_an_exact_asu_without_spglib() -> None:
-    # The build-cod pass-2 path: PrototypeView(canonical_asu).unview() must not need spglib.
-    prototype = PrototypeView(_rocksalt_asu()).unview()
-    assert prototype.representative is not None
-    assert prototype.discriminator is None
-    assert prototype.label == "AB_cF8_225_a_b"
+def test_raw_structure_recognition_options_reach_recognized_backend() -> None:
+    structure = UnitcellStructure(CELL, [(0, 0, 0)], (Species("Na", ("Na",), (1,)),), ("Na",))
+    view = PrototypeView(structure, tolerance=0.123, limit_denominator=97)
+    assert isinstance(view._backend, RecognizedPrototype)
+    assert view._backend._tolerance == 0.123
+    assert view._backend._limit_denominator == 97
 
 
-def test_label_pearson_and_anonymous_formula_delegate_to_the_prototemplate() -> None:
-    prototype = Prototype(representative=_rocksalt_template())
-    template = prototype.prototemplate
-    assert prototype.label == template.label
-    assert prototype.pearson_symbol == template.pearson_symbol == "cF8"
-    assert prototype.anonymous_formula == template.anonymous_formula == "AB"
-    assert prototype.nsites_conventional == template.nsites_conventional
-    assert prototype.spacegroup == template.spacegroup
+def test_protostructure_view_erases_to_anonymous_base_and_preserves_class_info() -> None:
+    assigned = Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="001")
+    view = PrototypeView(assigned)
+    assert view._resolved_prototype is None
+    assert view.unwrap() is assigned
+    value = view.unview()
+    assert value.discriminator == "001"
+    assert value.representative is None
+    assert value.label == "AB_cF8_225_a_b"
 
 
-def test_view_of_a_native_value_unviews_to_the_same_identity() -> None:
-    native = Prototype(Prototemplate(225, [("a", "A"), ("b", "B")]), discriminator="001")
-    view = PrototypeView(native)
-    assert view.unview() is native
-    assert view.unwrap() is native
+def test_prototype_views_and_labels_preserve_optional_identity() -> None:
+    assigned = Protostructure(representative=_asu(), discriminator="001")
+    derived = DerivedPrototype(assigned)
+    expected = derived.resolve()
+
+    view = PrototypeView(derived)
+    assert view._resolved_prototype is None
+    assert view.unview() == expected
+    assert PrototypeLabel(derived).unview() == expected
+
+    recognized = RecognizedPrototype(_asu())
+    recognized_view = PrototypeView(recognized)
+    assert recognized_view._resolved_prototype is None
+    assert recognized_view.unview().representative is not None
+    assert PrototypeLabel(recognized).unview() == recognized_view.unview()
+
+    value = Prototype(representative=_template(), discriminator="003")
+    generic_backend = IdentityCarryingPrototypeBackend(value)
+    assert PrototypeView(generic_backend).unview() == value
+    label = PrototypeLabel(generic_backend)
+    assert str(label) == "AB_cF8_225_a_b"
+    assert label.unview() == value
 
 
-def test_view_rewrap_rejects_recognition_arguments() -> None:
-    view = PrototypeView(_rocksalt_asu())
-    with pytest.raises(ValueError):
-        PrototypeView(view, tolerance=0.1)
-
-
-def test_bare_prototemplate_is_not_a_prototype_source() -> None:
-    with pytest.raises(TypeError):
-        PrototypeView(Prototemplate(225, [("a", "A"), ("b", "B")]))
-
-
-def test_prototype_value_pickle_round_trip() -> None:
-    representative_only = Prototype(representative=_rocksalt_template())
-    discriminator_only = Prototype(Prototemplate(225, [("a", "A"), ("b", "B")]), discriminator="001")
-    for value in (representative_only, discriminator_only):
-        restored = pickle.loads(pickle.dumps(value))
-        assert restored == value
-
-
-def test_prototype_view_pickle_preserves_resolved_value() -> None:
-    view = PrototypeView(_rocksalt_asu())
-    _ = view.prototemplate  # resolve
-    restored = pickle.loads(pickle.dumps(view))
-    assert restored.unview() == view.unview()
-
-
-def test_prototype_view_unresolved_pickle_stays_lazy() -> None:
-    view = PrototypeView(_rocksalt_asu())  # no field access -> unresolved
+def test_view_is_lazy_and_pickle_preserves_state() -> None:
+    view = PrototypeView(_asu())
+    assert view._resolved_prototype is None
     restored = pickle.loads(pickle.dumps(view))
     assert restored._resolved_prototype is None
     assert restored.unview() == view.unview()
+    resolved = PrototypeView(_asu())
+    _ = resolved.spacegroup
+    restored = pickle.loads(pickle.dumps(resolved))
+    assert restored.unview() == resolved.unview()
+
+
+def test_similar_optional_fields_and_delta_validation() -> None:
+    one = Prototype(225, [("a", "A"), ("b", "B")])
+    two = Prototype(225, [("a", "A"), ("b", "B")], discriminator="001")
+    assert one.similar(two, 0.0)
+    assert two.similar(one, 0.0)
+    assert not two.similar(Prototype(225, [("a", "A"), ("b", "B")], discriminator="002"), 0.0)
+    assert not one.similar(Protostructure(225, [("a", "Na"), ("b", "Cl")]), 0.0)
+    with pytest.raises(ValueError):
+        one.similar(one, -1)
+    with pytest.raises(ValueError):
+        one.similar(one, float("nan"))
+    with pytest.raises(TypeError):
+        one.similar(one, "0")

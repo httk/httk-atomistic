@@ -10,8 +10,8 @@ from httk.core import unwrap
 
 import httk.atomistic.models.protostructure.backend
 import httk.atomistic.models.protostructure.view_base
-import httk.atomistic.models.prototemplate.backend
-import httk.atomistic.models.prototemplate.view_base
+import httk.atomistic.models.prototype.backend
+import httk.atomistic.models.prototype.view_base
 from httk.atomistic.composition import project_composition
 from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
 from httk.atomistic.models.crystaltemplate.view_base import CrystalTemplateViewBase
@@ -23,7 +23,7 @@ from httk.atomistic.models.formula.notation import anonymous_symbol
 class WyckoffComposition(ChemicalFormulaBackend):
     r"""Represent the canonical composition of a Wyckoff-multiplicity-based backend.
 
-    Crystal-template and prototemplate inputs use anonymous labels; protostructure
+    Crystal-template and prototype inputs use anonymous labels; protostructure
     inputs retain their real elemental composition at the standard conventional-cell scale.
 
     :param obj: The crystal template or protostructure to present.
@@ -48,8 +48,8 @@ class WyckoffComposition(ChemicalFormulaBackend):
             (
                 CrystalTemplateBackend,
                 CrystalTemplateViewBase,
-                httk.atomistic.models.prototemplate.backend.PrototemplateBackend,
-                httk.atomistic.models.prototemplate.view_base.PrototemplateViewBase,
+                httk.atomistic.models.prototype.backend.PrototypeBackend,
+                httk.atomistic.models.prototype.view_base.PrototypeViewBase,
                 httk.atomistic.models.protostructure.backend.ProtostructureBackend,
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
             ),
@@ -62,7 +62,7 @@ class WyckoffComposition(ChemicalFormulaBackend):
             obj,
             (
                 CrystalTemplateViewBase,
-                httk.atomistic.models.prototemplate.view_base.PrototemplateViewBase,
+                httk.atomistic.models.prototype.view_base.PrototypeViewBase,
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
             ),
         ):
@@ -75,8 +75,8 @@ class WyckoffComposition(ChemicalFormulaBackend):
         return isinstance(self._prototype, httk.atomistic.models.protostructure.backend.ProtostructureBackend)
 
     @property
-    def _is_prototemplate(self) -> bool:
-        return isinstance(self._prototype, httk.atomistic.models.prototemplate.backend.PrototemplateBackend)
+    def _is_prototype(self) -> bool:
+        return isinstance(self._prototype, httk.atomistic.models.prototype.backend.PrototypeBackend)
 
     @cached_property
     def _projected(self) -> Composition:
@@ -102,7 +102,7 @@ class WyckoffComposition(ChemicalFormulaBackend):
     def _amounts(self) -> tuple[tuple[str, Fraction], ...]:
         if self._is_protostructure:
             return self._projected.amounts
-        if self._is_prototemplate:
+        if self._is_prototype:
             counts: Counter[str] = Counter()
             for occupation, multiplicity in zip(self._prototype.occupations, self._prototype.multiplicities()):
                 counts[occupation.label] += multiplicity

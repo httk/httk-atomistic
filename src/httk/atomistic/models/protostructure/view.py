@@ -38,7 +38,7 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
     _transform: Any
     _tolerance: float | None
     _limit_denominator: int | None
-    _DEFERRED_FIELDS = frozenset({"_spacegroup", "_occupations"})
+    _DEFERRED_FIELDS = frozenset({"_spacegroup", "_occupations", "_representative", "_discriminator"})
 
     def __new__(
         cls,
@@ -69,16 +69,6 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
             raise TypeError(
                 "a prototype or crystal template carries dummy species; a protostructure needs the real ones"
             )
-
-        # A structuretype erases lazily to its protostructure through RecognizedProtostructure
-        # (adopted below); recognition arguments are meaningless for it, so reject them up front.
-        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
-        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
-
-        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)) and (
-            any(value is not None for value in (setting, standard, transform, tolerance, limit_denominator)) or hints
-        ):
-            raise ValueError("ProtostructureView recognition arguments cannot be used with a structuretype")
 
         recognition_values = (setting, standard, transform, tolerance, limit_denominator)
         backend_hints = dict(hints)
@@ -137,7 +127,12 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
         elif isinstance(backend, RecognizedProtostructure):
             resolved = backend.resolve()
         else:
-            resolved = Protostructure(backend.spacegroup, backend.occupations)
+            resolved = Protostructure(
+                backend.spacegroup,
+                backend.occupations,
+                representative=backend.representative,
+                discriminator=backend.discriminator,
+            )
         state = dict(resolved.__dict__)
         state["_resolved_protostructure"] = resolved
         object.__getattribute__(self, "__dict__").update(state)

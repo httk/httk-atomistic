@@ -1,5 +1,6 @@
 """Tests for exact symmetry alignment and interpolation paths."""
 
+import math
 import pickle
 from fractions import Fraction
 from typing import Any
@@ -10,6 +11,7 @@ from httk.core import FracVector, SurdVector
 from httk.atomistic import (
     ASUStructure,
     Cell,
+    FundamentalDomainStructure,
     Species,
     StructurePath,
     WyckoffSite,
@@ -21,9 +23,10 @@ from httk.atomistic import (
 )
 from httk.atomistic.composition import Assembly
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
-from httk.atomistic.symmetry import common_subgroup_representation, subgroup_closure
+from httk.atomistic.symmetry import common_subgroup_representation, structure_delta, subgroup_closure
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.lift import _apply_normalizer
+from httk.atomistic.symmetry.paths import _pair_travel_score
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 F = Fraction
@@ -67,6 +70,22 @@ def _same_named_species_structure(symbol: str, value: F) -> ASUStructure:
         2,
         [WyckoffSite("i", FracVector([F(1, 5), F(1, 6), value]), "site")],
         [Species(name="site", chemical_symbols=(symbol,), concentration=(1,))],
+    )
+
+
+def _skew_p1(
+    value: F,
+    basis: object = ((1, 0, 0), (10, F(1, 100), 0), (0, 0, 1)),
+) -> ASUStructure:
+    species = _species("C", "O")
+    return ASUStructure(
+        Cell(basis),
+        1,
+        [
+            WyckoffSite("a", FracVector((0, 0, 0)), "C"),
+            WyckoffSite("a", FracVector((value, value, F(1, 10))), "O"),
+        ],
+        species,
     )
 
 
@@ -141,6 +160,112 @@ def test_common_subgroup_221_123_166_selects_15_and_preserves_descents() -> None
     assert same_crystal(result.second, represent_like(second_input, result.second))
     assert result.first.expand_sites().reduced_coords.to_fractions()
     assert result.second.expand_sites().reduced_coords.to_fractions()
+
+
+def test_structure_delta_measures_physical_orbit_travel_and_lattice_change() -> None:
+    start = _child_two(F(1, 4))
+    end = _child_two(F(1, 5))
+
+    assert structure_delta(start, start) == 0.0
+    # The P-1 general position has two sites.  Each moves 7 * (1/4 - 1/5) = 7/20 A.
+    assert structure_delta(start, end) == pytest.approx(7 / 10)
+
+    wrapped_start = _child_two(F(1, 10))
+    wrapped_end = _child_two(F(9, 10))
+    # The shortest periodic-image pairing of the two P-1 orbit members totals 2 A.
+    assert structure_delta(wrapped_start, wrapped_end) == pytest.approx(2)
+
+    stretched = ASUStructure(
+        Cell(((F(5, 2), -3, 0), (F(5, 2), 3, 0), (0, 0, 8))),
+        end.spacegroup,
+        end.wyckoff_sites,
+        end.species,
+    )
+    # The two z = +/- 1/5 sites each move 1/5 A as c changes from 7 to 8 A.
+    assert structure_delta(end, stretched) == pytest.approx(2 / 5)
+
+
+def test_structure_delta_is_normalizer_invariant_and_uses_common_group() -> None:
+    parent = _parent(5, [WyckoffSite("a", FracVector([F(2, 17)]), "Si")], ((5, 0, 0), (0, 6, 0), (0, 0, 7)))
+    original = subgroup_representation(parent, 3).asu
+    coset = data.affine_normalizer_coset_record(original.spacegroup.hall_entry)["affine_normalizer_cosets"][0]
+    cosetted = _apply_normalizer(original, coset)
+    assert cosetted is not None
+    assert structure_delta(original, cosetted) == 0.0
+
+    cubic_parent = _parent(221, [WyckoffSite("a", NO_PARAMETERS, "C")])
+    first = subgroup_representation(cubic_parent, 123).asu
+    second = subgroup_representation(cubic_parent, 166).asu
+    assert structure_delta(first, second) == 0.0
+
+
+def test_structure_delta_rejects_incompatible_signatures_and_is_deterministic() -> None:
+    carbon = _same_named_species_structure("C", F(1, 10))
+    oxygen = _same_named_species_structure("O", F(1, 8))
+    with pytest.raises(ValueError, match="common subgroup"):
+        structure_delta(carbon, oxygen)
+
+    start = _child_two(F(1, 4))
+    end = _child_two(F(1, 5))
+    assert structure_delta(start, end) == structure_delta(start, end)
+
+
+def test_structure_delta_accepts_an_exact_fundamental_domain() -> None:
+    source = _child_two(F(1, 5))
+    fundamental = FundamentalDomainStructure(
+        source.cell,
+        source.spacegroup,
+        source.wyckoff_sites,
+        source.species,
+        transform=source.transform,
+        coordinate_precision=source.coordinate_precision,
+        charge=source.charge,
+    )
+
+    assert structure_delta(fundamental, fundamental) == 0.0
+
+
+def test_structure_delta_uses_a_symmetric_skew_cell_minimum_image() -> None:
+    start = _skew_p1(F(1, 100))
+    end = _skew_p1(F(49, 100))
+
+    # The shortest image needs a translation of five first lattice vectors and one
+    # second lattice vector; the fixed [-1, 1]^3 image box would miss it.  The
+    # mean-metric convention is also invariant under reversing the path.
+    expected = math.hypot(7 / 25, 3 / 625)
+    assert structure_delta(start, end) == pytest.approx(expected)
+    assert structure_delta(end, start) == pytest.approx(expected)
+
+
+def test_structure_delta_is_rotation_invariant_for_unequal_endpoint_cells() -> None:
+    start = _skew_p1(F(1, 100))
+    end = _skew_p1(F(49, 100), ((F(6, 5), 0, 0), (8, F(1, 80), 0), (0, 0, F(11, 10))))
+    rotation = FracVector(((0, -1, 0), (1, 0, 0), (0, 0, 1)))
+    rotated_start = _skew_p1(F(1, 100), SurdVector(start.cell.basis) * rotation)
+    rotated_end = _skew_p1(F(49, 100), SurdVector(end.cell.basis) * rotation)
+
+    assert structure_delta(rotated_start, rotated_end) == pytest.approx(structure_delta(start, end))
+
+
+def test_pair_travel_score_assigns_large_repeated_classes_without_permutations() -> None:
+    species = _species("Si")
+    reference = ASUStructure(
+        Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7))),
+        1,
+        [WyckoffSite("a", FracVector((F(index, 10), F(1, 7), F(1, 9))), "Si") for index in range(9)],
+        species,
+    )
+    candidate = ASUStructure(
+        reference.cell,
+        reference.spacegroup,
+        list(reversed(reference.wyckoff_sites)),
+        reference.species,
+    )
+
+    score, pairs = _pair_travel_score(candidate, reference)
+
+    assert score == pytest.approx(0.0)
+    assert pairs == tuple((index, 8 - index) for index in range(9))
 
 
 def test_interpolation_is_exact_and_keeps_the_shared_setting() -> None:

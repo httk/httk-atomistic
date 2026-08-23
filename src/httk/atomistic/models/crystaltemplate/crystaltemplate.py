@@ -27,13 +27,10 @@ class CrystalTemplate(CrystalTemplateBackend):
     ``CrystalTemplate`` is the anonymous-species, exact-geometry cell of the
     material-information matrix:
 
-    ======================  ===============  ==============
-    Geometrical info        Anonymous        Assigned
-    ======================  ===============  ==============
-    Wyckoff positions only  Prototemplate    Protostructure
-    Geometrical class       Prototype        Structuretype
-    Exact geometry          CrystalTemplate  Structure
-    ======================  ===============  ==============
+    With no geometry the anonymous/assigned pair is
+    ``Formulatemplate``/``ChemicalFormula``; with Wyckoff information and optional
+    disambiguation it is ``Prototype``/``Protostructure``; and with exact geometry it is
+    ``CrystalTemplate``/``Structure``.
 
     :param cell: The unit-cell geometry.
     :param sites: The reduced coordinates of the sites.

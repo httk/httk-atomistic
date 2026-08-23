@@ -5,6 +5,7 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
+from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.crystaltemplate.backend import CrystalTemplateBackend
 from httk.atomistic.models.crystaltemplate.view_base import CrystalTemplateViewBase
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
@@ -15,7 +16,13 @@ from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.view import StructureView
+from httk.atomistic.symmetry._standardization_common import (
+    _matrix_column_sum_factor,
+    _matrix_row_sum_factor,
+    _scaled_precision,
+)
 from httk.atomistic.symmetry.recognition import recognize_asu
+from httk.atomistic.symmetry.setting_transform import SettingTransform
 
 
 class RecognizedProtostructure(ProtostructureBackend):
@@ -27,7 +34,6 @@ class RecognizedProtostructure(ProtostructureBackend):
 
     kind = "structure"
     _structure: StructureBackend | None
-    _structuretype: Any
     _setting: Any
     _standard: Any
     _transform: Any
@@ -62,12 +68,6 @@ class RecognizedProtostructure(ProtostructureBackend):
         """
         if hints and hints.get("kind", "structure") != "structure":
             return None
-        # A structuretype already holds a protostructure; erase it lazily (see _derived).
-        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
-        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
-
-        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)):
-            return cls(obj, **hints)
         setting = hints.get("setting")
         standard = hints.get("standard")
         transform = hints.get("transform")
@@ -100,16 +100,6 @@ class RecognizedProtostructure(ProtostructureBackend):
         return cls(obj, **hints)
 
     def __init__(self, obj: Any, **hints: Any) -> None:
-        from httk.atomistic.models.structuretype.backend import StructuretypeBackend
-        from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
-
-        self._structuretype = None
-        if isinstance(obj, (StructuretypeBackend, StructuretypeViewBase)):
-            self._structuretype = obj._backend if isinstance(obj, StructuretypeViewBase) else obj
-            self._structure = None
-            self._setting = self._standard = self._transform = None
-            self._tolerance = self._limit_denominator = None
-            return
         if isinstance(obj, StructureView):
             self._structure = obj._backend
         elif isinstance(obj, StructureBackend):
@@ -135,6 +125,8 @@ class RecognizedProtostructure(ProtostructureBackend):
                 )
         if getattr(structure, "assemblies", None) is not None:
             raise ValueError("Protostructure cannot represent assemblies")
+        if getattr(structure, "molecular", False):
+            raise ValueError("Protostructure cannot represent molecular structures")
         if getattr(structure, "chemical_composition", None) is not None:
             raise ValueError("Protostructure cannot represent chemical_composition")
         if isinstance(structure, FundamentalDomainStructure):
@@ -152,8 +144,6 @@ class RecognizedProtostructure(ProtostructureBackend):
 
     @cached_property
     def _derived(self) -> Protostructure:
-        if self._structuretype is not None:
-            return self._structuretype.protostructure
         structure = self._effective_structure()
         asu = structure if isinstance(structure, FundamentalDomainStructure) else getattr(structure, "asu", None)
         if asu is not None and self._has_recognition_options():
@@ -169,10 +159,36 @@ class RecognizedProtostructure(ProtostructureBackend):
                 limit_denominator=self._limit_denominator,
             )
             self._validate_structure(asu)
+        # Retain only a clean standard-setting, identity-transform representative.
+        # Mapping an exact ASU directly avoids expanding the conventional cell.
+        if not asu.spacegroup.is_standard_setting or not asu.transform.is_identity():
+            standard, standard_sites = asu._standard_wyckoff_sites()
+            basis_matrix = asu.transform.matrix.T()
+            asu = FundamentalDomainStructure(
+                Cell(
+                    asu.transform.basis_to_standard(asu.cell.basis),
+                    precision=_scaled_precision(asu.cell.precision, _matrix_row_sum_factor(basis_matrix)),
+                    periodicity=asu.cell.periodicity,
+                ),
+                standard,
+                standard_sites,
+                asu.species,
+                transform=SettingTransform.identity(),
+                coordinate_precision=_scaled_precision(
+                    asu.coordinate_precision,
+                    _matrix_column_sum_factor(basis_matrix.inv()),
+                ),
+                chemical_formula_descriptive=asu.chemical_formula_descriptive,
+                chemical_formula_hill=asu.chemical_formula_hill,
+                optimization_type=asu.optimization_type,
+                immutable_id=asu.immutable_id,
+                last_modified=asu.last_modified,
+                charge=None if asu.charge is None else asu.charge * abs(asu.transform.determinant()),
+            )
         standard, sites = asu._standard_wyckoff_sites()
         species_by_name = {species.name: species for species in asu.species}
         occupations = tuple((site.wyckoff, species_by_name[site.species]) for site in sites)
-        return Protostructure(standard, occupations)
+        return Protostructure(standard, occupations, representative=asu)
 
     def resolve(self) -> Protostructure:
         """Return the complete recognized protostructure."""
@@ -188,6 +204,14 @@ class RecognizedProtostructure(ProtostructureBackend):
         """Return the recognized occupied Wyckoff positions."""
         return self._derived.occupations
 
+    @property
+    def representative(self):
+        return self._derived.representative
+
+    @property
+    def discriminator(self):
+        return self._derived.discriminator
+
     def unwrap(self) -> Any:
-        """Return the original source (an ordinary structure or a structuretype)."""
-        return unwrap(self._structuretype if self._structuretype is not None else self._structure)
+        """Return the original source (an ordinary structure or a prototype)."""
+        return unwrap(self._structure)

@@ -4,12 +4,12 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class PrototemplateOccupation:
+class PrototypeOccupation:
     """Store one Wyckoff orbit assigned to one anonymous species class.
 
     Unlike :class:`~httk.atomistic.models.protostructure.occupation.WyckoffOccupation`,
     the class carries an anonymous class label (``"A"``, ``"B"``, ...) rather than a real
-    :class:`~httk.atomistic.Species`, so it can represent an element-agnostic template.
+    :class:`~httk.atomistic.Species`, so it can represent an element-agnostic prototype.
 
     :param wyckoff: The Wyckoff letter in the standard setting.
     :param label: The anonymous species-class label.
