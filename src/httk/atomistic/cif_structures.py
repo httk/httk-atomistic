@@ -1662,7 +1662,7 @@ def _read_cif_for_atomistic(
         if "atom_site_label" not in raw_block:
             continue
         try:
-            block = cifblock_to_asu(raw_block)
+            block = cifblock_to_asu(raw_block, repair=repair, block_name=name)
         except Exception as error:
             unparsed.append({"block": name, "reason": f"{type(error).__name__}: {error}"})
         else:

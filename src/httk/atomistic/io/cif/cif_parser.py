@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Affero General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 import math
 import os
 import re
@@ -676,7 +677,9 @@ def _first_tag(cifblock: Mapping[str, Any], *names: str) -> Any | None:
     return None
 
 
-def cifblock_to_asu(cifblock: Mapping[str, Any]) -> dict[str, Any]:
+def cifblock_to_asu(
+    cifblock: Mapping[str, Any], *, repair: bool = False, block_name: str | None = None
+) -> dict[str, Any]:
     """Convert one normalized CIF block to a neutral asymmetric-unit payload.
 
     The payload keeps ``cell_parameters_exact`` and ``positions_exact`` as the central
@@ -685,10 +688,14 @@ def cifblock_to_asu(cifblock: Mapping[str, Any]) -> dict[str, Any]:
     numeric tags on read, preserving central text after a lossy display write.
 
     :param cifblock: Normalized CIF data for one data block.
+    :param repair: Reconstruct missing operations from an unambiguous Hall symbol and warn.
+    :param block_name: Source block name for repair diagnostics.
     :return: A neutral mapping containing cell, atom, symmetry, and metadata channels.
     :raises ValueError: If the block lacks required cell, atom-site, or symmetry data.
     """
     asu = parse_asu_cell(cifblock)
+
+    space_group_name_hall = _first_tag(cifblock, 'space_group_name_hall', 'symmetry_space_group_name_hall')
 
     # standard space group symmetry
     symops_xyz = cifblock.get('space_group_symop.operation_xyz')
@@ -700,7 +707,22 @@ def cifblock_to_asu(cifblock: Mapping[str, Any]) -> dict[str, Any]:
         symops_xyz = cifblock.get('symmetry_equiv_pos_as_xyz')
 
     if symops_xyz is None:
-        raise ValueError("CIF block has no symmetry operations")
+        if not repair or not space_group_name_hall:
+            raise ValueError("CIF block has no symmetry operations")
+        from httk.atomistic import data
+
+        written_hall = str(space_group_name_hall).strip()
+        try:
+            setting = data.spacegroup_setting(hall_entry=written_hall.lower().replace(' ', '_'))
+        except KeyError:
+            raise ValueError("CIF block has no symmetry operations") from None
+        symops_xyz = tuple(operation['affine_transformation']['xyz'] for operation in setting['symops'])
+        logging.getLogger(__name__).warning(
+            f"CIF block {block_name or '<unnamed>'!r} has no symmetry operations; generated "
+            f"{len(symops_xyz)} from unambiguous Hall symbol {written_hall!r} "
+            f"(setting {setting['setting_it_nc']!r})",
+            extra={'context': 'cif'},
+        )
 
     # structural modulation
     structural_q, mod_dim, has_struct_mod, struct_atoms = parse_structural_modulation(cifblock)
@@ -720,7 +742,6 @@ def cifblock_to_asu(cifblock: Mapping[str, Any]) -> dict[str, Any]:
     # capitalization they silently matched nothing and every CIF came back with no space
     # group at all.
     space_group_name_hm = _first_tag(cifblock, 'space_group_name_h-m_alt', 'symmetry_space_group_name_h-m')
-    space_group_name_hall = _first_tag(cifblock, 'space_group_name_hall', 'symmetry_space_group_name_hall')
     space_group_nbr = _first_tag(
         cifblock,
         'space_group_it_number',
@@ -790,7 +811,7 @@ def read_cif_asus(source: str | os.PathLike[str] | Iterable[str], *, repair: boo
         if 'atom_site_label' not in cifblock:
             continue
         try:
-            blocks.append(cifblock_to_asu(cifblock))
+            blocks.append(cifblock_to_asu(cifblock, repair=repair, block_name=name))
         except Exception as error:
             unparsed.append({'block': name, 'reason': f'{type(error).__name__}: {error}'})
 

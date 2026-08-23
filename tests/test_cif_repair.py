@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 import pytest
+from httk.core import load
 from httk.core._plugins import resolve_callable
 
 from httk.atomistic.io.cif.cif_parser import read_cif_asus
@@ -38,6 +39,46 @@ def test_repair_drops_malformed_auxiliary_loop_and_stamps_payload(caplog):
     assert record.context == "cif"
     assert "_audit_tag" in record.message
     assert "dropped" in record.message
+
+
+def test_repair_reconstructs_missing_symmetry_from_hall(tmp_path, caplog):
+    source = tmp_path / "missing-symmetry.cif"
+    source.write_text(
+        """data_test
+_symmetry_space_group_name_Hall '-P 2yn'
+_symmetry_Int_Tables_number 14
+_cell_length_a 6
+_cell_length_b 7
+_cell_length_c 8
+_cell_angle_alpha 90
+_cell_angle_beta 100
+_cell_angle_gamma 90
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Si1 Si 0.12345 0.23456 0.34567
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="CIF block has no symmetry operations"):
+        load(str(source))
+
+    with caplog.at_level(logging.WARNING, logger="httk.atomistic.io.cif.cif_parser"):
+        structure = load(str(source), repair=True)
+
+    assert structure.spacegroup.setting == "14:b2"
+    assert len(caplog.records) == 1
+    assert caplog.records[0].context == "cif"
+    assert "generated 4" in caplog.records[0].getMessage()
+    assert "Hall symbol '-P 2yn'" in caplog.records[0].getMessage()
+
+    source.write_text(source.read_text(encoding="utf-8").replace("-P 2yn", "not-a-Hall-symbol"), encoding="utf-8")
+    with pytest.raises(ValueError, match="CIF block has no symmetry operations"):
+        load(str(source), repair=True)
 
 
 def test_repair_does_not_drop_malformed_atom_site_loop(tmp_path):

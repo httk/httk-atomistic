@@ -65,6 +65,7 @@ Repair is not a general “make this file work” switch. It is a fixed set of t
 | Invalid UTF-8 in a path input | `UnicodeDecodeError` | Retry the complete file as Latin-1 and warn |
 | Malformed auxiliary loop with unequal column lengths | Reject | Drop the loop and warn |
 | Malformed protected structural loop | Reject | Reject; structural data is never discarded |
+| Missing symmetry-operation loop with a valid Hall symbol | Reject | Generate the exact setting's operations and warn |
 | Unknown declared Hall/IT symmetry but usable operations | Reject the contradictory declaration | Ignore the declaration, identify the operations, and warn when the documented repair path applies |
 | Invalid modern Wyckoff metadata | Reject | Ignore the metadata, use coordinates, and warn |
 | One occupancy within 0.05 outside `[0, 1]` | Reject | Clamp to the nearest boundary and warn |
@@ -123,11 +124,13 @@ The normalized operation set is compared exactly with the tabulated space-group 
 A declared Hall symbol, International Tables number, or recognized Hermann–Mauguin symbol is
 a claim checked against those operations; it does not override them silently.
 
-httk deliberately does not invent operations when the loop is absent. An IT number can have
-several settings and origins, and choosing one can change the structure. Likewise, if an
-operation set matches no tabulated setting, httk does not search the infinitely many possible
-affine normalizer transforms. The caller must correct the source or supply the intended
-`SettingTransform` explicitly. See {doc}`asu` for the setting model.
+In strict mode, httk does not invent operations when the loop is absent. With `repair=True`,
+a valid Hall symbol is the one safe exception: it uniquely identifies the axes, origin, and
+setting, so httk generates that setting's tabulated operations and warns. An IT number or
+Hermann–Mauguin symbol alone is not used for this repair because it can leave several settings
+or origins possible. Likewise, if an operation set matches no tabulated setting, httk does not
+search the infinitely many possible affine normalizer transforms. The caller must correct the
+source or supply the intended `SettingTransform` explicitly. See {doc}`asu` for the setting model.
 
 Volume-changing setting transforms are handled through all of their lattice cosets. During
 recognition, the matched coset is retained, and orbit membership is required to be a
@@ -300,7 +303,7 @@ magnetic rows as if they were ordinary sites.
 
 The following conditions need source correction or an explicit caller decision:
 
-- missing symmetry operations;
+- missing symmetry operations without a valid Hall symbol and explicit repair;
 - operations that identify no tabulated setting without a supplied transform;
 - an atom site with neither a type symbol nor an inferable label;
 - projected positional uncertainty at least one ångström without explicit opt-in;
