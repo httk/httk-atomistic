@@ -750,11 +750,13 @@ Si_bad Si 0.9(9) 0.9 0.9
     path = tmp_path / "mixed.cif"
     path.write_text(invalid + valid, encoding="utf-8")
 
-    with collect_reports(level="warning") as collection:
+    with collect_reports(level="debug") as collection:
         structure = load(str(path))
 
     assert len(structure.sites) == 1
+    assert not any(record.levelno >= logging.WARNING for record in collection.records)
     assert len(collection.records) == 1
+    assert collection.records[0].levelno == logging.DEBUG
     assert "maximum is 0.1 Å" in collection.records[0].getMessage()
 
 
@@ -1231,6 +1233,36 @@ def test_exact_special_position_beats_an_earlier_nearby_position() -> None:
     cell = Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
     assert _snap(spacegroup, point, point, cell, spacegroup.transform_from_standard, 0.02) == ("h", parameters)
+    matched_letters: set[str] = set()
+    assert _snap(
+        spacegroup,
+        point,
+        point,
+        cell,
+        spacegroup.transform_from_standard,
+        0.02,
+        matched_letters=matched_letters,
+    ) == ("h", parameters)
+    assert matched_letters == {"d", "h", "k", "l"}
+
+
+def test_snap_collection_keeps_the_first_branch_for_a_letter() -> None:
+    spacegroup = Spacegroup.standard(10)
+    point = FracVector([F(7, 10), F(19, 20), F(1, 2)])
+    matched_letters: set[str] = set()
+
+    match = _snap(
+        spacegroup,
+        point,
+        point,
+        Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
+        spacegroup.transform_from_standard,
+        0.2,
+        matched_letters=matched_letters,
+    )
+
+    assert match == ("l", FracVector([F(19, 20)]))
+    assert matched_letters == {"l", "m", "o"}
 
 
 def test_unwrapped_large_coordinate_falls_through_the_float_screen(tmp_path: Path) -> None:

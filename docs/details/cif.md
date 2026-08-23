@@ -93,9 +93,11 @@ known only to ±0.05. Signed spellings such as `-0.5` follow the same rule. Extr
 digits remain significant: `0.50` claims a decimal step of `0.01`.
 
 Coordinate precision is converted to a Cartesian distance using the cell. A projected
-positional uncertainty of one ångström or more is a hard safety error because it can make
-many unrelated Wyckoff positions plausible. A caller who has inspected the source may opt
-in explicitly:
+positional uncertainty from 0.1 up to (but not including) one ångström is reported at DEBUG
+when the Wyckoff match is unambiguous or trusted from the CIF. It is reported at WARNING
+when the Wyckoff letter is missing or untrusted and multiple compatible Wyckoff positions
+remain. A projected uncertainty of one ångström or more is a hard safety error because it can
+make many unrelated positions plausible. A caller who has inspected the source may opt in explicitly:
 
 ```python
 structure = load("coarse.cif", allow_large_cif_uncertainty=True)

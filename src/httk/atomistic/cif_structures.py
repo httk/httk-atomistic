@@ -505,6 +505,8 @@ def asu_structure_from_cif(
     species_by_name: dict[str, Species] = {}
     wyckoff_sites: list[WyckoffSite] = []
     warning_uncertainties: list[Any] = []
+    ambiguous_warning_count = 0
+    debug_uncertainties: list[Any] = []
     warned_type_symbols: set[str] = set()
     for index, coordinate in enumerate(coordinates):
         if occupancies_exact is not None and occupancies_exact[index] is not None:
@@ -560,6 +562,11 @@ def asu_structure_from_cif(
         declared_position, declaration, declaration_error, declared_positions = _declared_wyckoff_position(
             declared_wyckoff, declared_multiplicities, declared_site_symmetry_orders, index, setting, standard
         )
+        coarse_uncertainty = uncertainty is not None and uncertainty[0] >= CIF_POSITIONAL_UNCERTAINTY_WARNING**2
+        classifiable_uncertainty = (
+            uncertainty is not None and uncertainty[0] < CIF_POSITIONAL_UNCERTAINTY_ERROR**2 and coarse_uncertainty
+        )
+        matched_letters: set[str] | None = set() if classifiable_uncertainty and declared_position is None else None
         orbit_screen: list[tuple[tuple[float, float, float], Any, FracVector]] | None = (
             [] if declaration is not None or repair else None
         )
@@ -625,6 +632,7 @@ def asu_structure_from_cif(
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 positions=declared_positions,
                 orbit_screen=orbit_screen,
+                matched_letters=matched_letters,
             )
             if match is None:
                 declaration_error = f"does not lie on any position allowed by declared {declaration}"
@@ -639,6 +647,7 @@ def asu_structure_from_cif(
             assert declaration is not None  # an error always describes a present declaration
             ignored_declaration = declaration, declaration_error
             declaration = None
+            matched_letters = set() if classifiable_uncertainty else None
             match = _snap(
                 standard,
                 standard_point,
@@ -651,6 +660,7 @@ def asu_structure_from_cif(
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 orbit_screen=orbit_screen,
                 general_screen=general_screen,
+                matched_letters=matched_letters,
             )
         elif declaration is None:
             match = _snap(
@@ -665,6 +675,7 @@ def asu_structure_from_cif(
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 orbit_screen=orbit_screen,
                 general_screen=general_screen,
+                matched_letters=matched_letters,
             )
         if repair and declaration is None and match is not None:
             assert orbit_screen is not None
@@ -679,6 +690,7 @@ def asu_structure_from_cif(
                     coordinate_bounds=coordinate_bounds,
                     allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                     most_specific=True,
+                    matched_letters=matched_letters,
                 )
                 if corrected_match != match:
                     assert corrected_match is not None
@@ -718,13 +730,26 @@ def asu_structure_from_cif(
             and matched_position.free_count != 3
             and matched_position.parameters_of(standard_point) is not None
         )
-        if not exact_special and uncertainty is not None and uncertainty[0] >= CIF_POSITIONAL_UNCERTAINTY_WARNING**2:
-            warning_uncertainties.append(uncertainty[0])
+        if not exact_special and uncertainty is not None:
+            if uncertainty[0] >= CIF_POSITIONAL_UNCERTAINTY_ERROR**2:
+                warning_uncertainties.append(uncertainty[0])
+            elif classifiable_uncertainty and matched_letters is not None and len(matched_letters) > 1:
+                warning_uncertainties.append(uncertainty[0])
+                ambiguous_warning_count += 1
+            elif classifiable_uncertainty:
+                debug_uncertainties.append(uncertainty[0])
 
     if warning_uncertainties:
         maximum = max(warning_uncertainties)
         _cif_warning(
-            f"CIF block has {len(warning_uncertainties)} site(s) with projected positional uncertainty; "
+            f"CIF block has {len(warning_uncertainties)} site(s) with projected positional uncertainty"
+            f"{f'; {ambiguous_warning_count} had ambiguous Wyckoff matches' if ambiguous_warning_count else ''}; "
+            f"maximum is {math.sqrt(maximum.to_float()):.6g} Å"
+        )
+    if debug_uncertainties:
+        maximum = max(debug_uncertainties)
+        _cif_debug(
+            f"CIF block has {len(debug_uncertainties)} site(s) with projected positional uncertainty; "
             f"maximum is {math.sqrt(maximum.to_float()):.6g} Å"
         )
 
@@ -1337,6 +1362,11 @@ def _cif_warning(message: str) -> None:
     logging.getLogger(__name__).warning(message, extra={"context": "cif"})
 
 
+def _cif_debug(message: str) -> None:
+    """Send one low-confidence but unambiguous CIF diagnostic through the report channel."""
+    logging.getLogger(__name__).debug(message, extra={"context": "cif"})
+
+
 def _block_name(data: Mapping[str, Any]) -> str:
     """The CIF data-block name retained by the repair reader bridge."""
     return str(data.get("_httk_atomistic_block_name", "<unnamed>"))
@@ -1780,12 +1810,14 @@ def _snap(
     positions: Sequence[Any] | None = None,
     orbit_screen: list[tuple[tuple[float, float, float], Any, FracVector]] | None = None,
     general_screen: _GeneralPositionScreen | None = None,
+    matched_letters: set[str] | None = None,
 ) -> tuple[str, FracVector] | None:
     """The most specific Wyckoff position within ``tolerance``, and its free parameters.
 
     Floating point screens branch candidates at twice the tolerance, but exact distance and
     per-component coordinate bounds still decide every result. ``positions`` limits the search
     to authoritative CIF declarations; otherwise every standard position is tried in its established order.
+    ``matched_letters`` collects every compatible Wyckoff letter and forces the complete candidate traversal.
     """
     from httk.atomistic.symmetry.recognition import _cartesian_distance_squared
 
@@ -1799,7 +1831,7 @@ def _snap(
             for own, snapped, bound in zip(own_point.to_fractions(), candidate.to_fractions(), coordinate_bounds)
         )
 
-    def accepted_parameters(branch: Any, parameters: FracVector, *, general: bool) -> FracVector | None:
+    def accepted_parameters(branch: Any, parameters: FracVector, *, general: bool, letter: str) -> FracVector | None:
         candidate = branch.coordinate(parameters)
         if not identity:
             candidate = transform.to_setting(candidate)
@@ -1815,6 +1847,8 @@ def _snap(
             return None
         if general or candidate.normalize() != own_point.normalize():
             reject_large_uncertainty()
+        if matched_letters is not None:
+            matched_letters.add(letter)
         return parameters
 
     def finish(letter: str, parameters: FracVector) -> tuple[str, FracVector]:
@@ -1872,6 +1906,8 @@ def _snap(
         general = standard.wyckoff[-1]
         parameters = general.representative.parameters_of(standard_point)
         assert general.free_count == 3 and parameters is not None
+        if matched_letters is not None:
+            matched_letters.add(general.letter)
         return finish(general.letter, parameters)
 
     limit = tolerance * tolerance
@@ -1901,14 +1937,22 @@ def _snap(
     )
     deferred: list[tuple[Any, Any]] = []
     matches: list[tuple[int, str, FracVector]] = []
+    collecting = matched_letters is not None
+    preferred_match: tuple[str, FracVector] | None = None
     for position in candidates:
         if exact_first and position.free_count == 3:
             reject_large_uncertainty()
             for deferred_position, deferred_branch in deferred:
                 parameters = deferred_branch.nearest_parameters(standard_point)
-                parameters = accepted_parameters(deferred_branch, parameters, general=False)
+                parameters = accepted_parameters(
+                    deferred_branch, parameters, general=False, letter=deferred_position.letter
+                )
                 if parameters is not None:
-                    return finish(deferred_position.letter, parameters)
+                    if not collecting:
+                        return finish(deferred_position.letter, parameters)
+                    if not most_specific and preferred_match is None:
+                        preferred_match = deferred_position.letter, parameters
+                    matches.append((deferred_position.multiplicity, deferred_position.letter, parameters))
             exact_first = False
         for branch in position.branches:
             projection = (
@@ -1925,7 +1969,14 @@ def _snap(
             if exact_first and position.free_count != 3 and exact_candidate:
                 parameters = branch.parameters_of(standard_point)
                 if parameters is not None:
-                    return finish(position.letter, parameters)
+                    if not collecting:
+                        return finish(position.letter, parameters)
+                    assert matched_letters is not None
+                    matched_letters.add(position.letter)
+                    matches.append((position.multiplicity, position.letter, parameters))
+                    if not most_specific and preferred_match is None:
+                        preferred_match = position.letter, parameters
+                    continue
             if screen is not None and projected is not None:
                 assert float_geometry is not None
                 basis, point, matrix, vector = float_geometry
@@ -1948,22 +1999,32 @@ def _snap(
                 deferred.append((position, branch))
                 continue
             parameters = branch.nearest_parameters(standard_point)
-            parameters = accepted_parameters(branch, parameters, general=position.free_count == 3)
+            parameters = accepted_parameters(
+                branch, parameters, general=position.free_count == 3, letter=position.letter
+            )
             if parameters is not None:
-                if not most_specific:
+                if not most_specific and not collecting:
                     return finish(position.letter, parameters)
+                if not most_specific and preferred_match is None:
+                    preferred_match = position.letter, parameters
                 matches.append((position.multiplicity, position.letter, parameters))
                 break
     if exact_first:
         reject_large_uncertainty()
         for position, branch in deferred:
             parameters = branch.nearest_parameters(standard_point)
-            parameters = accepted_parameters(branch, parameters, general=False)
+            parameters = accepted_parameters(branch, parameters, general=False, letter=position.letter)
             if parameters is not None:
-                return finish(position.letter, parameters)
+                if not collecting:
+                    return finish(position.letter, parameters)
+                if not most_specific and preferred_match is None:
+                    preferred_match = position.letter, parameters
+                matches.append((position.multiplicity, position.letter, parameters))
     if not matches:
         return None
-    _, letter, parameters = min(matches)
+    if preferred_match is not None:
+        return finish(*preferred_match)
+    _, letter, parameters = min(matches, key=lambda match: (match[0], match[1]))
     return finish(letter, parameters)
 
 

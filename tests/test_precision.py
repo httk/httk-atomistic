@@ -8,6 +8,7 @@ than one representative test standing in for the rest.
 
 import fractions
 import io
+import logging
 from pathlib import Path
 
 import pytest
@@ -81,6 +82,24 @@ def _cif_with_sites(tmp_path: Path, cell_length: str, sites: list[tuple[str, ...
 
 def _coarse_cif(tmp_path: Path, cell_length: str) -> Path:
     return _cif_with_sites(tmp_path, cell_length, [("Si1", "Si", "0.3", "0.11", "0.07")])
+
+
+def _coarse_sg2_special_cif(tmp_path: Path) -> Path:
+    spacegroup = Spacegroup.standard(2)
+    operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
+    path = tmp_path / "coarse-special.cif"
+    path.write_text(
+        "data_x\n"
+        "_cell_length_a 5.0\n_cell_length_b 5.0\n_cell_length_c 5.0\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 90\n"
+        "_space_group_IT_number 2\n"
+        f"loop_\n_space_group_symop_operation_xyz\n{operations}\n"
+        "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
+        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        "Si1 Si 0.0(9) 0.0 0.0\n",
+        encoding="utf-8",
+    )
+    return path
 
 
 # --- storing it ---
@@ -463,9 +482,50 @@ def test_cif_snap_prefers_lower_multiplicity_then_earlier_letter(tmp_path: Path)
         encoding="utf-8",
     )
 
-    structure = asu_structure_from_cif(load(str(path), raw=True)["blocks"][0])
+    with collect_reports(level="warning") as collection:
+        structure = asu_structure_from_cif(load(str(path), raw=True)["blocks"][0])
     assert structure.wyckoff_sites[0].wyckoff == "a"
     assert spacegroup.wyckoff_position("a").multiplicity < spacegroup.wyckoff_position("i").multiplicity
+    assert len(collection.records) == 1
+    assert collection.records[0].levelno == logging.WARNING
+    assert "ambiguous Wyckoff matches" in collection.records[0].getMessage()
+
+
+def test_cif_declared_wyckoff_makes_coarse_ambiguity_debug_only(tmp_path: Path) -> None:
+    spacegroup = Spacegroup.standard(2)
+    operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
+    path = tmp_path / "declared-ambiguous.cif"
+    path.write_text(
+        "data_x\n"
+        "_cell_length_a 1.0000\n_cell_length_b 1.0000\n_cell_length_c 1.0000\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 90\n"
+        "_space_group_IT_number 2\n"
+        f"loop_\n_space_group_symop_operation_xyz\n{operations}\n"
+        "loop_\n_atom_site_label\n_atom_site_type_symbol\n_atom_site_Wyckoff_label\n"
+        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        "Si1 Si i 0.25(25) 0.25(25) 0.25(25)\n",
+        encoding="utf-8",
+    )
+    block = dict(load(str(path), raw=True)["blocks"][0])
+
+    with collect_reports(level="warning") as warnings:
+        structure = asu_structure_from_cif(block)
+    with collect_reports(level="debug") as debug:
+        asu_structure_from_cif(block)
+
+    assert structure.wyckoff_sites[0].wyckoff == "i"
+    assert warnings.records == []
+    assert len(debug.records) == 1
+    assert debug.records[0].levelno == logging.DEBUG
+
+    invalid = dict(block)
+    invalid["_httk_atomistic_wyckoff_labels"] = ["z"]
+    with collect_reports(level="warning") as repaired:
+        asu_structure_from_cif(invalid, repair=True)
+    assert any(
+        record.levelno == logging.WARNING and "ambiguous Wyckoff matches" in record.getMessage()
+        for record in repaired.records
+    )
 
 
 def test_cif_snap_prefers_approximate_higher_symmetry_over_exact_lower_symmetry(tmp_path: Path) -> None:
@@ -507,13 +567,18 @@ def test_cif_snap_finds_a_coupled_wyckoff_point_inside_the_rounding_box(tmp_path
     assert structure.wyckoff_sites[0].wyckoff == "m"
 
 
-def test_cif_positional_uncertainty_warns_at_the_warning_threshold(tmp_path: Path) -> None:
+def test_cif_positional_uncertainty_is_debug_at_the_warning_threshold(tmp_path: Path) -> None:
     path = _coarse_cif(tmp_path, "0.5")
     with collect_reports(level="warning") as collection:
         structure = load(str(path))
+    assert collection.records == []
+
+    with collect_reports(level="debug") as collection:
+        load(str(path))
 
     assert len(structure.sites) == 1
     assert len(collection.records) == 1
+    assert collection.records[0].levelno == logging.DEBUG
     assert collection.records[0].context == "cif"
     assert "1 site(s)" in collection.records[0].getMessage()
     assert "maximum is" in collection.records[0].getMessage()
@@ -532,17 +597,32 @@ def test_cif_positional_uncertainty_raises_at_error_threshold(tmp_path: Path) ->
     with pytest.raises(ValueError, match=r"token '0\.3'.*1\.00995 Å.*allow_large_cif_uncertainty=True"):
         load(str(path))
 
-    overridden = load(str(path), allow_large_cif_uncertainty=True)
+    with collect_reports(level="debug") as collection:
+        overridden = load(str(path), allow_large_cif_uncertainty=True)
     assert len(overridden.sites) == 1
+    assert len(collection.records) == 1
+    assert collection.records[0].levelno == logging.WARNING
     assert CIF_POSITIONAL_UNCERTAINTY_ERROR == F(1)
+
+
+def test_cif_large_uncertainty_exact_special_stays_silent(tmp_path: Path) -> None:
+    path = _coarse_sg2_special_cif(tmp_path)
+    with collect_reports(level="debug") as collection:
+        load(str(path))
+    assert collection.records == []
+
+    with collect_reports(level="debug") as collection:
+        load(str(path), allow_large_cif_uncertainty=True)
+    assert collection.records == []
 
 
 def test_cif_esd_precision_is_preserved_and_projected(tmp_path: Path) -> None:
     path = _cif_with_sites(tmp_path, "0.5", [("Si1", "Si", "0.3000(2000)", "0.3000", "0.3000")])
-    with collect_reports(level="warning") as collection:
+    with collect_reports(level="debug") as collection:
         load(str(path))
 
     assert len(collection.records) == 1
+    assert collection.records[0].levelno == logging.DEBUG
     assert "0.2 Å" in collection.records[0].getMessage()
 
     path = _cif_with_sites(tmp_path, "5", [("Si1", "Si", "0.3000(2000)", "0.3000", "0.3000")])
@@ -552,30 +632,33 @@ def test_cif_esd_precision_is_preserved_and_projected(tmp_path: Path) -> None:
 
 def test_cif_uncertainty_uses_the_cubic_corner_norm(tmp_path: Path) -> None:
     path = _cif_with_sites(tmp_path, "0.5", [("Si1", "Si", "0.1", "0.1", "0.1")])
-    with collect_reports(level="warning") as collection:
+    with collect_reports(level="debug") as collection:
         load(str(path))
 
+    assert collection.records[0].levelno == logging.DEBUG
     assert "0.173205" in collection.records[0].getMessage()
 
 
-def test_cif_uncertainty_warning_is_aggregated_per_block(tmp_path: Path) -> None:
+def test_cif_uncertainty_debug_is_aggregated_per_block(tmp_path: Path) -> None:
     path = _cif_with_sites(
         tmp_path,
         "0.5",
         [(f"Si{index}", "Si", "0.3", f"0.{index + 1}", "0.07") for index in range(1, 4)],
     )
-    with collect_reports(level="warning") as collection:
+    with collect_reports(level="debug") as collection:
         load(str(path))
 
     assert len(collection.records) == 1
+    assert collection.records[0].levelno == logging.DEBUG
     assert "3 site(s)" in collection.records[0].getMessage()
 
 
 def test_cif_uncertainty_thresholds_are_inclusive(tmp_path: Path) -> None:
     warning_path = _cif_with_sites(tmp_path, "0.5", [("Si1", "Si", "0.1", "1/3", "1/3")])
-    with collect_reports(level="warning") as collection:
+    with collect_reports(level="debug") as collection:
         load(str(warning_path))
     assert len(collection.records) == 1
+    assert collection.records[0].levelno == logging.DEBUG
 
     error_path = _cif_with_sites(tmp_path, "5", [("Si1", "Si", "0.1", "1/3", "1/3")])
     with pytest.raises(ValueError, match=r"projected positional uncertainty of 1 Å"):
