@@ -1253,6 +1253,18 @@ def test_declared_containing_position_is_an_integrity_error_or_falls_back(
     assert "more-specific Wyckoff position 'd'" in warnings[0]
 
 
+def test_declared_position_is_kept_when_no_more_specific_position_matches(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "near-special.cif",
+        "28:a-cb",
+        (5.332, 11.13, 5.455, 90, 90, 90),
+        [("Ca2", "Ca", ("0.24", "0.183", "0.7"), "0.5")],
+        wyckoff_labels=["d"],
+    )
+
+    assert [site.wyckoff for site in load(str(path)).wyckoff_sites] == ["d"]
+
+
 @pytest.mark.parametrize("setting", ("48:1", "50:1", "50:1bca", "50:1cab", "73:ba-c", "126:1", "142:1", "222:1"))
 def test_zero_tolerance_float_screen_keeps_exact_matches(setting: str) -> None:
     spacegroup = Spacegroup.from_setting(setting)

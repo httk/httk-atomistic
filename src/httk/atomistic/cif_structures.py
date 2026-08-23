@@ -635,10 +635,11 @@ def asu_structure_from_cif(
                         most_specific=True,
                     )
                     assert actual is not None
-                    declaration_error = (
-                        f"declares Wyckoff position {declared_position.letter!r}, but its coordinate lies on the "
-                        f"more-specific Wyckoff position {actual[0]!r}"
-                    )
+                    if actual[0] != declared_position.letter:
+                        declaration_error = (
+                            f"declares Wyckoff position {declared_position.letter!r}, but its coordinate lies on the "
+                            f"more-specific Wyckoff position {actual[0]!r}"
+                        )
         elif declaration is not None:
             match = _snap(
                 standard,
