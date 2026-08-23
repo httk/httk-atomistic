@@ -820,8 +820,8 @@ Si_bad Si 0.9(9) 0.9 0.9
     valid = _write_cif(
         tmp_path / "valid.cif",
         Spacegroup.standard(1).setting,
-        (0.5, 0.5, 0.5, 90, 90, 90),
-        [("Si1", "Si", ("1.1", "1/3", "1/3"), "1")],
+        (5, 5, 5, 90, 90, 90),
+        [("Si1", "Si", ("1.10", "1/3", "1/3"), "1")],
         name="valid",
     ).read_text(encoding="utf-8")
     path = tmp_path / "mixed.cif"

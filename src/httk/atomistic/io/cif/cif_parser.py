@@ -38,7 +38,8 @@ class CifMeta(TypedDict):
     not the same as claiming exactness: a value written ``1/3`` states an exact number and
     reports ``None`` for both, while ``?`` states nothing at all and also reports ``None``.
 
-    ``precision`` is implied by the digits written (``0.3333`` is good to ``1/10000``);
+    ``precision`` is implied by the digits written (``0.3333`` is good to ``1/10000``),
+    except that CIF numbers with zero or one decimal place make no precision claim;
     ``esd`` is the standard uncertainty a file states explicitly, so ``0.3333(7)`` reports
     a precision of ``1/10000`` *and* an esd of ``7/10000``. They measure different things
     and the coarser of the two is the honest claim.
@@ -79,13 +80,6 @@ _CIF_NUM_RE = re.compile(
     r'^(?P<sign>[+-])?'  # optional leading sign
     r'(?P<mant>(?:\d+\.?|\d*\.\d+))(\((?P<esd>\d+)\))?'  # mantissa + optional (uncertainty)
     r'(?:[eE](?P<exp>[+-]?\d+))?$'  # optional exponent
-)
-
-# Conventional crystallographic special values: these spellings communicate an exact special
-# coordinate/occupancy, not an experimental resolution. Signed spellings follow the same rule
-# because the sign is parsed separately.
-_CIF_UNKNOWN_PRECISION_DECIMALS = frozenset(
-    {"0.0", "0.1", "0.2", "0.25", "0.3", "0.4", "0.5", "0.6", "0.7", "0.75", "0.8", "0.9", "1.0"}
 )
 
 
@@ -167,10 +161,10 @@ def parse_cif_float(
     exp = int(m.group('exp') or '0')
     val = float(sign * mant * (Decimal(10) ** exp))
 
-    # Precision implied by the digits written, scaled by any exponent.
-    precision = decimal_precision(mant_str)
-    if exp == 0 and mant_str in _CIF_UNKNOWN_PRECISION_DECIMALS:
-        precision = None
+    # CIF numbers written with zero or one decimal place conventionally state a value without
+    # enough digits to support a useful precision claim. More decimal places retain the normal rule.
+    decimal_places = len(mant_str.partition('.')[2])
+    precision = None if decimal_places <= 1 else decimal_precision(mant_str)
     if precision is not None and exp:
         precision = precision * Fraction(10) ** exp
 

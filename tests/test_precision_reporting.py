@@ -52,9 +52,9 @@ CUBIC_CELL = (
         ("5.6402(3)", F(1, 10000), F(3, 10000)),
         ("1.234(5)", F(1, 1000), F(1, 200)),
         ("10", None, None),
-        ("1.2e-3", F(1, 10000), None),
+        ("1.2e-3", None, None),
         ("3(1)e-1", None, F(1, 10)),
-        ("+4.2(3)e-1", F(1, 100), F(3, 100)),
+        ("+4.2(3)e-1", None, F(3, 100)),
         ("1/3", None, None),
         ("?", None, None),
     ],
@@ -76,25 +76,44 @@ def test_precision_and_esd_are_exact_not_floats() -> None:
 def test_signed_exponent_with_esd_has_consistent_value_and_metadata() -> None:
     value, meta = parse_cif_float("+4.2(3)e-1", meta=True)
     assert value == 0.42
-    assert meta == {"precision": F(1, 100), "esd": F(3, 100)}
+    assert meta == {"precision": None, "esd": F(3, 100)}
 
 
 @pytest.mark.parametrize(
     "literal",
-    ["0.0", "0.1", "0.2", "+0.25", "0.3", "0.4", "+0.5", "0.6", "0.7", "-0.75", "0.8", "0.9", "1.0"],
+    [
+        "42",
+        "5",
+        "0",
+        "1",
+        "-3",
+        "-42",
+        "42.",
+        "5.",
+        "0.",
+        "1.",
+        "-3.",
+        "-42.",
+        "42.2",
+        "5.3",
+        "0.1",
+        "1.3",
+        "-3.0",
+        "-42.6",
+    ],
 )
-def test_conventional_cif_special_values_make_no_precision_claim(literal: str) -> None:
+def test_cif_numbers_with_at_most_one_decimal_make_no_precision_claim(literal: str) -> None:
     _value, meta = parse_cif_float(literal, meta=True)
     assert meta == {"precision": None, "esd": None}
 
 
-def test_extra_digits_on_a_cif_special_value_restore_a_precision_claim() -> None:
+def test_two_or_more_cif_decimals_make_a_precision_claim() -> None:
     for literal, precision in (
         ("0.00", F(1, 100)),
         ("0.10", F(1, 100)),
-        ("0.250", F(1, 1000)),
+        ("0.25", F(1, 100)),
         ("0.50", F(1, 100)),
-        ("0.750", F(1, 1000)),
+        ("0.75", F(1, 100)),
         ("1.00", F(1, 100)),
     ):
         _value, meta = parse_cif_float(literal, meta=True)
