@@ -491,7 +491,8 @@ def test_cif_snap_prefers_lower_multiplicity_then_earlier_letter(tmp_path: Path)
     assert "ambiguous Wyckoff matches" in collection.records[0].getMessage()
 
 
-def test_cif_declared_wyckoff_makes_coarse_ambiguity_debug_only(tmp_path: Path) -> None:
+@pytest.mark.parametrize("wyckoff_tag", ("_atom_site_Wyckoff_label", "_atom_site_Wyckoff_symbol"))
+def test_cif_declared_wyckoff_makes_coarse_ambiguity_debug_only(tmp_path: Path, wyckoff_tag: str) -> None:
     spacegroup = Spacegroup.standard(2)
     operations = "\n".join(f"'{op.wrapped().to_xyz()}'" for op in spacegroup.symmetry_operations)
     path = tmp_path / "declared-ambiguous.cif"
@@ -501,12 +502,19 @@ def test_cif_declared_wyckoff_makes_coarse_ambiguity_debug_only(tmp_path: Path) 
         "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 90\n"
         "_space_group_IT_number 2\n"
         f"loop_\n_space_group_symop_operation_xyz\n{operations}\n"
-        "loop_\n_atom_site_label\n_atom_site_type_symbol\n_atom_site_Wyckoff_label\n"
+        f"loop_\n_atom_site_label\n_atom_site_type_symbol\n{wyckoff_tag}\n"
         "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
         "Si1 Si i 0.25(25) 0.25(25) 0.25(25)\n",
         encoding="utf-8",
     )
-    block = dict(load(str(path), raw=True)["blocks"][0])
+    with collect_reports(level="debug") as read_debug:
+        block = dict(load(str(path), raw=True)["blocks"][0])
+
+    alias_messages = [
+        record for record in read_debug.records if "interpreted _atom_site_Wyckoff_symbol" in record.getMessage()
+    ]
+    assert len(alias_messages) == (1 if wyckoff_tag.endswith("symbol") else 0)
+    assert all(record.levelno == logging.DEBUG for record in alias_messages)
 
     with collect_reports(level="warning") as warnings:
         structure = asu_structure_from_cif(block)

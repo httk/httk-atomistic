@@ -15,6 +15,7 @@ HINT = " (an auxiliary loop like this can be dropped by loading with repair=True
 def test_protected_set_includes_atom_declaration_tags():
     assert {
         "atom_site_wyckoff_label",
+        "atom_site_wyckoff_symbol",
         "atom_site_symmetry_multiplicity",
         "atom_site_site_symmetry_multiplicity",
         "atom_site_site_symmetry_order",

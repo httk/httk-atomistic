@@ -53,6 +53,7 @@ _PROTECTED_LOOP_TAGS = frozenset(
         'atom_type_atomic_mass',
         'atom_type.atomic_mass',
         'atom_site_wyckoff_label',
+        'atom_site_wyckoff_symbol',
         'atom_site_symmetry_multiplicity',
         'atom_site_site_symmetry_multiplicity',
         'atom_site_site_symmetry_order',

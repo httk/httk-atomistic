@@ -1667,13 +1667,21 @@ def _read_cif_for_atomistic(
             unparsed.append({"block": name, "reason": f"{type(error).__name__}: {error}"})
         else:
             position_precisions, position_snap_bounds = _position_precision_metadata(raw_block)
+            wyckoff_labels = raw_block.get("atom_site_wyckoff_label")
+            if wyckoff_labels is None:
+                wyckoff_labels = raw_block.get("atom_site_wyckoff_symbol")
+                if wyckoff_labels is not None:
+                    logging.getLogger(__name__).debug(
+                        f"CIF block {name!r}: interpreted _atom_site_Wyckoff_symbol as Wyckoff-letter declarations",
+                        extra={"context": "cif"},
+                    )
             blocks.append(
                 {
                     **block,
                     "position_precisions": position_precisions,
                     "position_snap_bounds": position_snap_bounds,
                     "position_tokens": _position_tokens(raw_block),
-                    "_httk_atomistic_wyckoff_labels": raw_block.get("atom_site_wyckoff_label"),
+                    "_httk_atomistic_wyckoff_labels": wyckoff_labels,
                     "_httk_atomistic_symmetry_multiplicities": raw_block.get("atom_site_site_symmetry_multiplicity"),
                     "_httk_atomistic_site_symmetry_orders": raw_block.get("atom_site_site_symmetry_order"),
                     "_httk_atomistic_block_name": name,
