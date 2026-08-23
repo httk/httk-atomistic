@@ -81,7 +81,7 @@ def _cif_with_sites(tmp_path: Path, cell_length: str, sites: list[tuple[str, ...
 
 
 def _coarse_cif(tmp_path: Path, cell_length: str) -> Path:
-    return _cif_with_sites(tmp_path, cell_length, [("Si1", "Si", "0.3", "0.11", "0.07")])
+    return _cif_with_sites(tmp_path, cell_length, [("Si1", "Si", "1.3", "0.11", "0.07")])
 
 
 def _coarse_sg2_special_cif(tmp_path: Path) -> Path:
@@ -602,7 +602,7 @@ def test_cif_positional_uncertainty_below_warning_threshold_is_silent(tmp_path: 
 
 def test_cif_positional_uncertainty_raises_at_error_threshold(tmp_path: Path) -> None:
     path = _coarse_cif(tmp_path, "5.0")
-    with pytest.raises(ValueError, match=r"token '0\.3'.*1\.00995 Å.*allow_large_cif_uncertainty=True"):
+    with pytest.raises(ValueError, match=r"token '1\.3'.*1\.00995 Å.*allow_large_cif_uncertainty=True"):
         load(str(path))
 
     with collect_reports(level="debug") as collection:
@@ -639,7 +639,7 @@ def test_cif_esd_precision_is_preserved_and_projected(tmp_path: Path) -> None:
 
 
 def test_cif_uncertainty_uses_the_cubic_corner_norm(tmp_path: Path) -> None:
-    path = _cif_with_sites(tmp_path, "0.5", [("Si1", "Si", "0.1", "0.1", "0.1")])
+    path = _cif_with_sites(tmp_path, "0.5", [("Si1", "Si", "1.1", "1.1", "1.1")])
     with collect_reports(level="debug") as collection:
         load(str(path))
 
@@ -651,7 +651,7 @@ def test_cif_uncertainty_debug_is_aggregated_per_block(tmp_path: Path) -> None:
     path = _cif_with_sites(
         tmp_path,
         "0.5",
-        [(f"Si{index}", "Si", "0.3", f"0.{index + 1}", "0.07") for index in range(1, 4)],
+        [(f"Si{index}", "Si", "1.3", f"1.{index + 1}", "0.07") for index in range(1, 4)],
     )
     with collect_reports(level="debug") as collection:
         load(str(path))
@@ -662,12 +662,12 @@ def test_cif_uncertainty_debug_is_aggregated_per_block(tmp_path: Path) -> None:
 
 
 def test_cif_uncertainty_thresholds_are_inclusive(tmp_path: Path) -> None:
-    warning_path = _cif_with_sites(tmp_path, "0.5", [("Si1", "Si", "0.1", "1/3", "1/3")])
+    warning_path = _cif_with_sites(tmp_path, "0.5", [("Si1", "Si", "1.1", "1/3", "1/3")])
     with collect_reports(level="debug") as collection:
         load(str(warning_path))
     assert len(collection.records) == 1
     assert collection.records[0].levelno == logging.DEBUG
 
-    error_path = _cif_with_sites(tmp_path, "5", [("Si1", "Si", "0.1", "1/3", "1/3")])
+    error_path = _cif_with_sites(tmp_path, "5", [("Si1", "Si", "1.1", "1/3", "1/3")])
     with pytest.raises(ValueError, match=r"projected positional uncertainty of 1 Å"):
         load(str(error_path))

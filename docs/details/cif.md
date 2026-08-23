@@ -88,10 +88,11 @@ Parenthesized standard uncertainties are retained as precision information. The 
 the final written digit and the stated uncertainty controls the tolerance; `5.6402(3)` is
 therefore treated as precise to `0.0003`, not `0.0001`.
 
-The conventional literals `0.0`, `0.5`, and `1.0` make no decimal-precision claim. In
-crystallographic tables they commonly spell exact special values rather than measurements
-known only to ±0.05. Signed spellings such as `-0.5` follow the same rule. Extra written
-digits remain significant: `0.50` claims a decimal step of `0.01`.
+The conventional one-decimal literals from `0.0` through `1.0`, plus `0.25` and `0.75`,
+make no decimal-precision claim. In crystallographic tables they commonly spell exact special
+values rather than measurements known only to the final written digit. Signed spellings such
+as `-0.5` follow the same rule. Extra written digits remain significant: `0.50` claims a
+decimal step of `0.01`.
 
 Coordinate precision is converted to a Cartesian distance using the cell. A projected
 positional uncertainty from 0.1 up to (but not including) one ångström is reported at DEBUG

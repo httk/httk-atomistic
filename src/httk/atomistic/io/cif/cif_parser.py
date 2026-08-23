@@ -81,10 +81,12 @@ _CIF_NUM_RE = re.compile(
     r'(?:[eE](?P<exp>[+-]?\d+))?$'  # optional exponent
 )
 
-# Conventional crystallographic special values: one decimal place here communicates the
-# exact special coordinate/occupancy, not an experimental resolution of one tenth. Signed
-# spellings follow the same rule because the sign is parsed separately.
-_CIF_UNKNOWN_PRECISION_DECIMALS = frozenset({"0.0", "0.5", "1.0"})
+# Conventional crystallographic special values: these spellings communicate an exact special
+# coordinate/occupancy, not an experimental resolution. Signed spellings follow the same rule
+# because the sign is parsed separately.
+_CIF_UNKNOWN_PRECISION_DECIMALS = frozenset(
+    {"0.0", "0.1", "0.2", "0.25", "0.3", "0.4", "0.5", "0.6", "0.7", "0.75", "0.8", "0.9", "1.0"}
+)
 
 
 @overload
