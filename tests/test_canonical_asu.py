@@ -9,6 +9,8 @@ import httk.atomistic.symmetry.canonical as canonical_module
 from httk.atomistic import (
     ASUStructure,
     Cell,
+    Protostructure,
+    Prototemplate,
     Species,
     UnitcellStructure,
     UnitcellStructureView,
@@ -275,6 +277,30 @@ def test_enantiomorph_preserves_chirality_by_default() -> None:
     noisy = _perturbed(UnitcellStructure(*_expanded(_p4332())), 400_000)
     assert canonical_asu(noisy).spacegroup.it_number == 213
     assert canonical_asu(noisy, preserve_chirality=False).spacegroup.it_number == 212
+
+
+def test_structure_api_canonical_proto_values_collapse_enantiomorphs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pytest.importorskip("spglib")
+    real_canonical_asu = canonical_module.canonical_asu
+    calls: list[bool] = []
+
+    def tracking_canonical_asu(*args, preserve_chirality=True, **kwargs):
+        calls.append(preserve_chirality)
+        return real_canonical_asu(*args, preserve_chirality=preserve_chirality, **kwargs)
+
+    monkeypatch.setattr(canonical_module, "canonical_asu", tracking_canonical_asu)
+    structure = UnitcellStructureView(_p4332())
+
+    protostructure = structure.canonical_protostructure()
+    prototemplate = structure.canonical_prototemplate()
+
+    assert type(protostructure) is Protostructure
+    assert type(prototemplate) is Prototemplate
+    assert protostructure.spacegroup.it_number == 212
+    assert prototemplate.spacegroup.it_number == 212
+    assert calls == [False, False]
 
 
 def test_missing_spglib_raises_the_recognition_import_error() -> None:

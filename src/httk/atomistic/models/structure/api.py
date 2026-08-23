@@ -14,6 +14,9 @@ from httk.atomistic.models.species.species import Species
 
 if TYPE_CHECKING:
     from httk.atomistic.models.formula.composition import Composition
+    from httk.atomistic.models.protostructure.protostructure import Protostructure
+    from httk.atomistic.models.prototemplate.prototemplate import Prototemplate
+    from httk.atomistic.models.structure.like import StructureLike
 
 
 class StructureAPI(ABC):
@@ -100,6 +103,34 @@ class StructureAPI(ABC):
             last_modified=getattr(self, "last_modified", None),
             charge=self.charge,
         )
+
+    def canonical_protostructure(self) -> "Protostructure":
+        """Return the canonical geometry-free description of this structure.
+
+        Enantiomorphic structures are deliberately collapsed to the lower-numbered
+        member of their space-group pair, so the result is independent of chirality.
+
+        :return: A standalone canonical protostructure value.
+        """
+        from httk.atomistic.models.protostructure.view import ProtostructureView
+        from httk.atomistic.symmetry.canonical import canonical_asu
+
+        canonical = canonical_asu(cast("StructureLike", self), preserve_chirality=False)
+        return ProtostructureView(canonical).unview()
+
+    def canonical_prototemplate(self) -> "Prototemplate":
+        """Return the canonical anonymous geometry-free template of this structure.
+
+        Enantiomorphic structures are deliberately collapsed to the lower-numbered
+        member of their space-group pair, so the result is independent of chirality.
+
+        :return: A standalone canonical prototemplate value.
+        """
+        from httk.atomistic.models.prototemplate.view import PrototemplateView
+        from httk.atomistic.symmetry.canonical import canonical_asu
+
+        canonical = canonical_asu(cast("StructureLike", self), preserve_chirality=False)
+        return PrototemplateView(canonical).unview()
 
     @cached_property
     def composition(self) -> "Composition":
