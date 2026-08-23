@@ -36,6 +36,7 @@ from httk.atomistic.symmetry.xyz import operation_from_xyz
 
 from . import data as symmetry_data
 from ._composition_values import as_fraction, normalization
+from .composition import Assembly
 
 __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
 
@@ -774,7 +775,7 @@ def asu_structure_from_cif(
             f"maximum is {math.sqrt(maximum.to_float()):.6g} Å"
         )
 
-    proof, canonical_species = _deduplicate_wyckoff_sites(
+    proof, canonical_species, assemblies = _deduplicate_wyckoff_sites(
         standard,
         transform,
         wyckoff_sites,
@@ -791,6 +792,7 @@ def asu_structure_from_cif(
         canonical_species,
         transform,
         data.get("coordinate_precision"),
+        assemblies,
     )
 
 
@@ -803,7 +805,7 @@ def _deduplicate_wyckoff_sites(
     *,
     block_name: str,
     coordinate_precision: Any,
-) -> tuple[_ValidatedASUProof, tuple[Species, ...]]:
+) -> tuple[_ValidatedASUProof, tuple[Species, ...], tuple[Assembly, ...] | None]:
     """Collapse repeated CIF orbits and combine co-located disorder losslessly."""
     cosets = transform.lattice_cosets()
     identity = transform.is_identity()
@@ -839,9 +841,59 @@ def _deduplicate_wyckoff_sites(
     coordinates: list[tuple[fractions.Fraction, ...]] = []
     species_at_sites: list[str] = []
     counts: list[int] = []
+    assemblies: list[Assembly] = []
     for keys, members in groups:
         source_sites = [sites[index] for index in members]
         source_species = [(species_by_name[site.species], labels[index]) for site, index in zip(source_sites, members)]
+        alternatives: list[tuple[WyckoffSite, Species, str]] = []
+        for source_site, (source, source_label) in zip(source_sites, source_species):
+            if not any(source == previous[1] for previous in alternatives):
+                alternatives.append((source_site, source, source_label))
+        attachment_values = {(species.attached, species.nattached) for _, species, _ in alternatives}
+        if len(attachment_values) > 1:
+            assembly_groups: list[tuple[int, ...]] = []
+            probabilities: list[fractions.Fraction] = []
+            precisions: list[fractions.Fraction | None] = []
+            ordered = sorted(keys)
+            for source_site, source, source_label in alternatives:
+                if len(source.chemical_symbols) != 1:
+                    raise ValueError("internal CIF assembly projection expected one constituent per source row")
+                species = Species(
+                    name=source.name,
+                    chemical_symbols=source.chemical_symbols,
+                    concentration=(1,),
+                    mass=source.mass,
+                    original_name=source.original_name,
+                    attached=source.attached,
+                    nattached=source.nattached,
+                    charges=source.charges,
+                    spins=source.spins,
+                    labels=source.labels,
+                )
+                previous = canonical_species.get(species.name)
+                if previous is not None and previous != species:
+                    raise ValueError(
+                        f"CIF block {block_name!r} uses site label {source_label!r} for species name "
+                        f"{species.name!r}, but that name already describes a different species"
+                    )
+                canonical_species.setdefault(species.name, species)
+                canonical.append(
+                    WyckoffSite(
+                        source_site.wyckoff,
+                        source_site.free_params,
+                        species.name,
+                        source_site.representative,
+                        source_site.moment,
+                    )
+                )
+                assembly_groups.append((len(canonical) - 1,))
+                probabilities.append(source.concentration[0])
+                precisions.append(None if source.concentration_precision is None else source.concentration_precision[0])
+                coordinates.extend(ordered)
+                species_at_sites.extend((species.name,) * len(ordered))
+                counts.append(len(ordered))
+            assemblies.append(Assembly(tuple(assembly_groups), tuple(probabilities), tuple(precisions)))
+            continue
         species = _combine_cif_species(source_species, block_name=block_name)
         previous = canonical_species.get(species.name)
         if previous is not None and previous != species:
@@ -875,6 +927,7 @@ def _deduplicate_wyckoff_sites(
             coordinate_precision,
         ),
         tuple(canonical_species.values()),
+        tuple(assemblies) or None,
     )
 
 

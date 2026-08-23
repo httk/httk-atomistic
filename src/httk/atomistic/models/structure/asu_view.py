@@ -260,8 +260,9 @@ class ASUStructureView(StructureView, ASUStructure):
         )
 
     def _publish_asu(self, asu: ASUStructure) -> None:
-        asu._validate_expansion_semantics()
-        _ = asu._expansion
+        if asu.assemblies is None:
+            asu._validate_expansion_semantics()
+            _ = asu._expansion
         state = dict(asu.__dict__)
         state["_resolved_asu"] = asu
         object.__getattribute__(self, "__dict__").update(state)

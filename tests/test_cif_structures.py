@@ -20,6 +20,7 @@ from httk.core.report import collect_reports
 
 from httk.atomistic import (
     ASUStructure,
+    ASUStructureView,
     SettingTransform,
     Spacegroup,
     Species,
@@ -482,6 +483,38 @@ def test_disordered_217_read_write_read_preserves_species_and_orbits(tmp_path: P
     assert restored.wyckoff_sites == source.wyckoff_sites
     assert restored.spacegroup == source.spacegroup
     assert restored.cell == source.cell
+
+
+def test_conditional_attached_hydrogens_become_an_assembly(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "fluoride-hydroxide.cif",
+        "1",
+        (5, 5, 5, 90, 90, 90),
+        [
+            ("F1", "F", ("0.1", "0.2", "0.3"), "0.75"),
+            ("O1", "O", ("0.1", "0.2", "0.3"), "0.25"),
+        ],
+        wyckoff_labels=["a", "a"],
+        attached_hydrogens=["0", "1"],
+    )
+
+    structure = load(path)
+    viewed = ASUStructureView(path).unview()
+    by_name = {species.name: species for species in structure.species}
+
+    assert viewed.assemblies == structure.assemblies
+    assert structure.domain_species_at_sites == ("F1", "O1")
+    assert by_name["F1"].concentration == by_name["O1"].concentration == (F(1),)
+    assert by_name["F1"].attached is None
+    assert (by_name["O1"].attached, by_name["O1"].nattached) == (("H",), (1,))
+    assert structure.assemblies is not None
+    assert structure.assemblies[0].sites_in_groups == ((0,), (1,))
+    assert structure.assemblies[0].group_probabilities == (F(3, 4), F(1, 4))
+    assert structure.composition.amounts == (("F", F(3, 4)), ("H", F(1, 4)), ("O", F(1, 4)))
+    assert structure.structure_features == ("assemblies", "site_attachments")
+
+    with pytest.raises(TypeError, match="cannot be represented as CIF because it has assemblies"):
+        save(structure, tmp_path / "unsupported.cif")
 
 
 # --- reading ---

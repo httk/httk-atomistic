@@ -316,6 +316,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         species: Sequence[SpeciesLike],
         transform: SettingTransform | None,
         coordinate_precision: Any,
+        assemblies: Sequence[Assembly] | None = None,
     ) -> Self:
         return cls(
             cell,
@@ -324,6 +325,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             species,
             transform,
             coordinate_precision,
+            assemblies=assemblies,
             _validated_proof=proof,
         )
 
