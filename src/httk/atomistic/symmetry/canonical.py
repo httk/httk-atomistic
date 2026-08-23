@@ -65,6 +65,26 @@ def _p1_fallback(view: UnitcellStructureView, failures: list[str]) -> ASUStructu
     return _exact_p1(view)
 
 
+def _reversed_p1_frame(structure: ASUStructure) -> ASUStructure:
+    """Return a fixed secondary spglib frame with the canonical P1 site order reversed.
+
+    Spglib can be sensitive to which atom is encountered first even when basis, origin, and geometry
+    are identical. The primary sorted P1 frame remains the common path; this deterministic reverse is
+    tried only when that frame finds no symmetry above P1. Unlike retrying the caller's original
+    frame, it is identical for every exact re-expression of the measured structure.
+    """
+    if structure.spacegroup.it_number != 1:
+        raise ValueError("secondary recognition frame requires a P1 structure")
+    return ASUStructure(
+        structure.cell,
+        structure.spacegroup,
+        tuple(reversed(structure.wyckoff_sites)),
+        structure.species,
+        coordinate_precision=structure.coordinate_precision,
+        charge=structure.charge,
+    )
+
+
 def _fits_within(view: UnitcellStructureView, recognized: ASUStructure, tolerance: float) -> bool:
     """Whether the recognized model reproduces every input site within ``tolerance`` (Cartesian).
 
@@ -263,17 +283,19 @@ def canonical_asu(
     # lower-symmetry loosest member where an all-members scan would have found a higher tighter one.
     winner, failures = _recognition_sweep(view, base, factors)
 
-    # Some spglib paths (notably a chiral cubic primitive frame) fail even though the original
-    # conventional frame recognizes cleanly. Deterministic preconditioning is preferred when it
-    # works, but direct recognition remains a rescue before the exact P1 fallback.
+    # Some spglib paths depend on which atom is encountered first (notably a chiral cubic primitive
+    # frame). If the primary canonical order finds only P1, retry the SAME canonical geometry with a
+    # fixed reversed order. Retrying the caller's original frame here would reintroduce exactly the
+    # shear/origin/order dependence that P1 preconditioning removes.
     if normalized_p1 is not None and (winner is None or winner.spacegroup.it_number == 1):
-        direct_winner, direct_failures = _recognition_sweep(source_view, base, factors)
-        failures.extend(f"original frame {failure}" for failure in direct_failures)
-        if direct_winner is not None and (
+        alternate_view = UnitcellStructureView(_reversed_p1_frame(normalized_p1))
+        alternate_winner, alternate_failures = _recognition_sweep(alternate_view, base, factors)
+        failures.extend(f"reversed canonical frame {failure}" for failure in alternate_failures)
+        if alternate_winner is not None and (
             winner is None
-            or len(direct_winner.spacegroup.symmetry_operations) > len(winner.spacegroup.symmetry_operations)
+            or len(alternate_winner.spacegroup.symmetry_operations) > len(winner.spacegroup.symmetry_operations)
         ):
-            winner = direct_winner
+            winner = alternate_winner
 
     if winner is None:
         if normalized_p1 is None:

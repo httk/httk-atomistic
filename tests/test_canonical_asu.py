@@ -272,6 +272,31 @@ def test_loosest_fitting_member_wins_and_stops_the_sweep(monkeypatch: pytest.Mon
     assert stages == 2
 
 
+def test_p1_rescue_reverses_the_canonical_frame_instead_of_retrying_the_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The site-order-sensitive spglib retry must remain representation-independent."""
+    frames: list[tuple[object, tuple[str, ...]]] = []
+
+    def staged_sweep(
+        view: UnitcellStructureView,
+        _base: float,
+        _factors: object,
+    ) -> tuple[ASUStructure, list[str]]:
+        frames.append((view.cell.basis, tuple(view.species_at_sites)))
+        if len(frames) == 1:
+            return canonical_module._exact_p1(view), []
+        return _nacl(), []
+
+    monkeypatch.setattr(canonical_module, "_recognition_sweep", staged_sweep)
+    result = canonical_asu(UnitcellStructureView(_nacl()))
+
+    assert result.spacegroup.it_number == 225
+    assert len(frames) == 2
+    assert frames[1][0] == frames[0][0]
+    assert frames[1][1] == tuple(reversed(frames[0][1]))
+
+
 def test_result_is_deterministic() -> None:
     pytest.importorskip("spglib")
     noisy = _perturbed(UnitcellStructure(*_expanded(_nacl())), 400_000)
