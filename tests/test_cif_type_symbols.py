@@ -90,6 +90,20 @@ def test_unrecognized_type_symbols_warn_and_are_preserved_as_labels(
     ]
 
 
+def test_repair_normalizes_lowercase_atom_type_symbols(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    path = tmp_path / "lowercase.cif"
+    path.write_text(_single_site("c", occupancy="1"), encoding="utf-8")
+
+    assert load(path).species[0].chemical_symbols == ("X",)
+    caplog.clear()
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        species = load(path, repair=True).species[0]
+
+    assert species.name == "C"
+    assert species.chemical_symbols == ("C",)
+    assert "normalized lowercase atom-type symbol 'c' to 'C'" in caplog.text
+
+
 @pytest.mark.parametrize(
     ("raw", "symbol", "charge"),
     [("Fe4+", "Fe", 4), ("Fe+3", "Fe", 3), ("O-2", "O", -2), ("Na+1", "Na", 1), ("Cl-", "Cl", -1)],

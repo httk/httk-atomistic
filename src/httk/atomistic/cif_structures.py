@@ -535,8 +535,15 @@ def asu_structure_from_cif(
             if not 0 <= as_fraction(occupancy, field="CIF occupancy")[0] <= 1:
                 raise ValueError(f"CIF occupancy for site {labels[index]!r} must lie in [0, 1]")
         raw_symbol = symbols[index]
+        type_symbol = _repair_lowercase_type_symbol(raw_symbol) if repair else raw_symbol
+        if type_symbol != raw_symbol and raw_symbol not in warned_type_symbols:
+            _cif_warning(
+                f"CIF block {_block_name(data)!r}: normalized lowercase atom-type symbol "
+                f"{raw_symbol!r} to {type_symbol!r}"
+            )
+            warned_type_symbols.add(raw_symbol)
         stated_mass = None if masses is None else masses[index]
-        decoded = _decode_type_symbol(raw_symbol, stated_mass)
+        decoded = _decode_type_symbol(type_symbol, stated_mass)
         if not decoded.recognized and raw_symbol not in warned_type_symbols:
             _cif_warning(
                 f"unrecognized CIF atom-type symbol {raw_symbol!r}; represented as chemical symbol 'X' "
@@ -544,7 +551,7 @@ def asu_structure_from_cif(
             )
             warned_type_symbols.add(raw_symbol)
         attached_count = None if attached_hydrogens is None else attached_hydrogens[index]
-        name = labels[index] if dummy or attached_count else _species_name(raw_symbol, labels[index], occupancy)
+        name = labels[index] if dummy or attached_count else _species_name(type_symbol, labels[index], occupancy)
         if name not in species_by_name:
             species_by_name[name] = Species(
                 name=name,
@@ -1693,6 +1700,16 @@ def _type_symbol_parts(symbol: str) -> tuple[str, fractions.Fraction | None]:
     if len(symbol) > 1 and symbol.endswith("0"):
         return symbol[:-1], fractions.Fraction(0)
     return symbol, None
+
+
+def _repair_lowercase_type_symbol(symbol: str) -> str:
+    """Canonicalize the case of a lowercase token only when that yields a known CIF type."""
+    raw = symbol.strip()
+    label, _charge = _type_symbol_parts(raw)
+    repaired = label.capitalize()
+    if not label.islower() or (repaired not in SYMBOLS and repaired not in {"D", "T", "X", "Vac", "Va"}):
+        return raw
+    return raw.replace(label, repaired, 1)
 
 
 def _decode_type_symbol(symbol: str, stated_mass: float | None) -> _DecodedCIFType:
