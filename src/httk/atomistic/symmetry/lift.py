@@ -3108,15 +3108,26 @@ def _canonical_without_bfs(
     lower-numbered partner, re-taking the partner group's normal form before the orientation step; a
     moment-carrying structure is left in its own group.  ``preserve_chirality=True`` keeps the group.
     """
-    entry = _terminal_entry(structure)
+    entry = _canonical_orientation(_terminal_entry(structure))
     # The normal-form pipeline strips moments before the flip would see them, so gate on the ORIGINAL
     # input's moments -- a magnetic structure is left in its own group (see :func:`_enantiomorph`).
-    magnetic = any(site.moment is not None for site in structure.wyckoff_sites)
-    if not preserve_chirality and not magnetic:
-        flipped = _enantiomorph(entry)
-        if flipped is not None:
-            entry = _terminal_normal_form(flipped)
-    return _canonical_orientation(entry)
+    if not preserve_chirality and not any(site.moment is not None for site in structure.wyckoff_sites):
+        return normalize_chirality(entry)
+    return entry
+
+
+def normalize_chirality(structure: ASUStructure) -> ASUStructure:
+    """Collapse a canonical ASU's higher enantiomorph onto its lower-numbered partner.
+
+    Structures outside the higher member of an enantiomorphic pair, including magnetic structures,
+    are returned by identity.  A flipped partner is put back into its canonical normal form.
+    """
+    if not isinstance(structure, ASUStructure):
+        raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")
+    flipped = _enantiomorph(structure)
+    if flipped is None:
+        return structure
+    return _canonical_orientation(_terminal_normal_form(flipped))
 
 
 def highest_symmetry(
@@ -3185,15 +3196,10 @@ def highest_symmetry(
         state, path, shift, residual = queue.pop(0)
         lifts = _highest_lifts(state, accepted_tolerance)
         if not lifts:
-            emitted = _terminal_normal_form(state)
+            emitted = _canonical_orientation(_terminal_normal_form(state))
             if not preserve_chirality:
-                # An enantiomorphic higher member is flipped to its lower partner here, at terminal
-                # emission only; the partner's origin/orbit minimum is group-specific, so re-run the
-                # normal form in the partner group before the shared orientation/terminal path.
-                flipped = _enantiomorph(emitted)
-                if flipped is not None:
-                    emitted = _terminal_normal_form(flipped)
-            terminals.append(_terminal_result(_canonical_orientation(emitted), path, shift, residual))
+                emitted = normalize_chirality(emitted)
+            terminals.append(_terminal_result(emitted, path, shift, residual))
             continue
         for result in lifts:
             next_state = _normal_form(result.asu)

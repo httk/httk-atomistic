@@ -194,6 +194,7 @@ from httk.atomistic.symmetry.lift import (
     canonicalize,
     highest_symmetry,
     lift_candidates,
+    normalize_chirality,
     rerepresent,
 )
 from httk.atomistic.symmetry.paths import (
@@ -409,6 +410,7 @@ __all__ = [
     "minimal_supergroups",
     "niggli_reduce",
     "niggli_reduced",
+    "normalize_chirality",
     "orthogonal_supercell",
     "primitive_cell",
     "recognize_asu",

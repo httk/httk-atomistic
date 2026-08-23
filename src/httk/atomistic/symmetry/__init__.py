@@ -34,6 +34,7 @@ __all__ = [
     "list_representations",
     "maximal_subgroups",
     "minimal_supergroups",
+    "normalize_chirality",
     "operation_from_xyz",
     "operation_from_xyzt",
     "parse_linear_expression",
@@ -52,7 +53,15 @@ __all__ = [
 
 if TYPE_CHECKING:
     from .canonical import canonical_asu
-    from .lift import LiftResult, backward_lift, canonicalize, highest_symmetry, lift_candidates, rerepresent
+    from .lift import (
+        LiftResult,
+        backward_lift,
+        canonicalize,
+        highest_symmetry,
+        lift_candidates,
+        normalize_chirality,
+        rerepresent,
+    )
     from .paths import (
         CommonSubgroupResult,
         StructurePath,
@@ -166,8 +175,24 @@ def __getattr__(name: str) -> object:
             supergroup_closure=supergroup_closure,
         )
         return globals()[name]
-    if name in {"LiftResult", "backward_lift", "canonicalize", "highest_symmetry", "lift_candidates", "rerepresent"}:
-        from .lift import LiftResult, backward_lift, canonicalize, highest_symmetry, lift_candidates, rerepresent
+    if name in {
+        "LiftResult",
+        "backward_lift",
+        "canonicalize",
+        "highest_symmetry",
+        "lift_candidates",
+        "normalize_chirality",
+        "rerepresent",
+    }:
+        from .lift import (
+            LiftResult,
+            backward_lift,
+            canonicalize,
+            highest_symmetry,
+            lift_candidates,
+            normalize_chirality,
+            rerepresent,
+        )
 
         globals().update(
             LiftResult=LiftResult,
@@ -175,6 +200,7 @@ def __getattr__(name: str) -> object:
             canonicalize=canonicalize,
             highest_symmetry=highest_symmetry,
             lift_candidates=lift_candidates,
+            normalize_chirality=normalize_chirality,
             rerepresent=rerepresent,
         )
         return globals()[name]

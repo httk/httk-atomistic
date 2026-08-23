@@ -19,6 +19,7 @@ from httk.atomistic import (
     UnitcellStructureView,
     WyckoffSite,
     canonicalize,
+    normalize_chirality,
     same_crystal,
 )
 from httk.atomistic.models.cell.params import CellParams
@@ -83,6 +84,15 @@ def test_default_normalization_is_idempotent() -> None:
     assert second.spacegroup.it_number == 144
     assert _site_key(first) == _site_key(second)
     assert first.cell.basis == second.cell.basis
+
+
+def test_chirality_normalization_reuses_a_chirality_preserving_canonical_asu() -> None:
+    higher = _canonical_without_bfs(_p32(), preserve_chirality=True)
+    lower = normalize_chirality(higher)
+
+    assert higher.spacegroup.it_number == 145
+    assert lower == _canonical_without_bfs(_p32())
+    assert normalize_chirality(lower) is lower
 
 
 def test_lower_member_input_is_unchanged_by_default() -> None:
