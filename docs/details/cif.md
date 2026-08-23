@@ -126,6 +126,11 @@ A positive `_atom_site_attached_hydrogens` value is represented on that row's `S
 `attached=("H",)` and the matching `nattached` count. Zero or an unknown value adds no
 attachment; any represented attachment sets the `"site_attachments"` structure feature.
 
+Writing applies the reverse mapping: unused single-constituent species are emitted as `dum`
+rows with coordinates `-1 -1 -1`, and a positive single hydrogen attachment is emitted through
+`_atom_site_attached_hydrogens`. Attachment forms without an exact CIF representation remain
+serialization errors.
+
 ## Symmetry operations and settings
 
 For an ordinary CIF, the operation list is the authoritative description of the file's

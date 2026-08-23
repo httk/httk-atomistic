@@ -381,6 +381,17 @@ def _neutral_cif_block(block: Mapping[str, object]) -> dict[str, object]:
         if has_exact:
             loop_atoms.append("httk_atom_site_occupancy_exact")
             raw["httk_atom_site_occupancy_exact"] = exact_values
+    for source, target in (
+        ("attached_hydrogens", "atom_site_attached_hydrogens"),
+        ("calc_flags", "atom_site_calc_flag"),
+    ):
+        column = block.get(source)
+        if column is not None:
+            column_values = list(cast(Iterable[object], column))
+            if len(column_values) != len(positions):
+                raise ValueError(f"CIF {source} and positions must have matching lengths")
+            loop_atoms.append(target)
+            raw[target] = column_values
     atom_type_symbols = list(cast(Iterable[str], block.get("atom_type_symbols", ())))
     atom_type_masses = list(cast(Iterable[object], block.get("atom_type_masses", ())))
     if atom_type_symbols or atom_type_masses:

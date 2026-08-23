@@ -70,8 +70,8 @@ crystallographic site and cannot be combined as a species composition.
 The CIF writer emits one atom-site row per non-vacancy constituent, preserving occupancies,
 source labels, integral charge spellings, isotope/pseudo-site labels, and declared masses.
 Read→write→read is covered over the disorder fixture corpus. State without an exact CIF
-channel—fractional charges, spins, attached species, assemblies, a net structure charge, or
-an independently declared composition—is rejected rather than projected away.
+channel—fractional charges, spins, non-hydrogen attachments, assemblies, a net structure
+charge, or an independently declared composition—is rejected rather than projected away.
 
 ### Atom-type symbols and isotopes
 

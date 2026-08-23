@@ -164,6 +164,20 @@ def _source_labels(species: Any, indices: list[int], fallback: str) -> list[str]
     return labels
 
 
+def _attached_hydrogen_count(species: Any) -> int:
+    """Return the exactly CIF-representable attached-hydrogen count."""
+    if species.attached is None:
+        return 0
+    if species.attached != ("H",) or species.nattached is None or len(species.nattached) != 1:
+        raise ValueError("CIF serializer can represent only one attached hydrogen kind per species")
+    count = species.nattached[0]
+    if count == 0:
+        raise ValueError(
+            "CIF serializer cannot distinguish an explicit zero attached-hydrogen count from no attachment"
+        )
+    return count
+
+
 def _require_cif_projection(backend: Any) -> None:
     """Reject structure state for which this CIF serializer has no exact channel."""
     source = unwrap(backend)
@@ -177,9 +191,9 @@ def _require_cif_projection(backend: Any) -> None:
     if charge is not None:
         raise ValueError("This structure cannot be represented as CIF because it has a charge")
     for species in getattr(source, "species", getattr(backend, "species", ())):
-        for field in ("spins", "attached", "nattached"):
-            if getattr(species, field, None) is not None:
-                raise ValueError(f"This structure cannot be represented as CIF because species has {field}")
+        if getattr(species, "spins", None) is not None:
+            raise ValueError("This structure cannot be represented as CIF because species has spins")
+        _attached_hydrogen_count(species)
 
 
 def _block(
@@ -195,8 +209,31 @@ def _block(
     occupancies: list[str] = []
     written_labels: list[str] = []
     written_positions: list[FracVector] = []
+    attached_hydrogens: list[int] = []
+    calc_flags: list[str] = []
     atom_type_masses: dict[str, float] = {}
     has_nondefault_occupancy = False
+
+    def append_row(species: Any, index: int, source_label: str, position: FracVector, calc_flag: str) -> None:
+        nonlocal has_nondefault_occupancy
+        symbol = _type_symbol(species, index)
+        occupancy = _occupancy(species, index)
+        symbols.append(symbol)
+        occupancies.append(occupancy)
+        written_labels.append(source_label)
+        written_positions.append(position)
+        attached_hydrogens.append(_attached_hydrogen_count(species))
+        calc_flags.append(calc_flag)
+        has_nondefault_occupancy |= (
+            species.concentration[index] != 1 or species.concentration_precision[index] is not None
+        )
+        if species.mass is not None:
+            mass = species.mass[index]
+            previous = atom_type_masses.get(symbol)
+            if previous is not None and previous != mass:
+                raise ValueError(f"CIF serializer cannot represent two masses for atom type {symbol!r}")
+            atom_type_masses[symbol] = mass
+
     for position, label in zip(positions, labels):
         species = by_name[label]
         nonvacancy = [index for index, symbol in enumerate(species.chemical_symbols) if symbol != "vacancy"]
@@ -211,21 +248,14 @@ def _block(
                 raise ValueError("CIF serializer cannot represent this single-constituent species label exactly")
         source_labels = _source_labels(species, indices, label)
         for index, source_label in zip(indices, source_labels):
-            symbol = _type_symbol(species, index)
-            occupancy = _occupancy(species, index)
-            symbols.append(symbol)
-            occupancies.append(occupancy)
-            written_labels.append(source_label)
-            written_positions.append(position)
-            has_nondefault_occupancy |= (
-                species.concentration[index] != 1 or species.concentration_precision[index] is not None
-            )
-            if species.mass is not None:
-                mass = species.mass[index]
-                previous = atom_type_masses.get(symbol)
-                if previous is not None and previous != mass:
-                    raise ValueError(f"CIF serializer cannot represent two masses for atom type {symbol!r}")
-                atom_type_masses[symbol] = mass
+            append_row(species, index, source_label, position, "d")
+
+    for label in structure.implicit_atoms:
+        species = by_name[label]
+        if len(species.chemical_symbols) != 1 or species.chemical_symbols[0] == "vacancy":
+            raise ValueError("CIF serializer requires implicit-atom species to have one non-vacancy constituent")
+        append_row(species, 0, species.original_name or label, FracVector((-1, -1, -1)), "dum")
+
     return {
         "format": "cif",
         "cell_parameters_exact": _cell_parameters(structure.cell),
@@ -237,6 +267,8 @@ def _block(
         "occupancies_exact": tuple(occupancies) if has_nondefault_occupancy else None,
         "symbols": tuple(symbols),
         "labels": tuple(written_labels),
+        "attached_hydrogens": tuple(attached_hydrogens) if any(attached_hydrogens) else None,
+        "calc_flags": tuple(calc_flags) if structure.implicit_atoms else None,
         "atom_type_symbols": tuple(atom_type_masses),
         "atom_type_masses": tuple(atom_type_masses.values()),
         "space_group_nbr": str(spacegroup.it_number),

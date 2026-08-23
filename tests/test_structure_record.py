@@ -93,6 +93,18 @@ def _domain(
     )
 
 
+def _implicit_attached_asu() -> ASUStructure:
+    return ASUStructure(
+        [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
+        1,
+        (WyckoffSite("a", FracVector((Fraction(1, 8), Fraction(1, 4), Fraction(3, 8))), "C1"),),
+        (
+            Species("C1", ("C",), (1,), attached=("H",), nattached=(3,)),
+            Species("O1", ("O",), (Fraction(1, 2),)),
+        ),
+    )
+
+
 def _cell_record(source: object) -> CellRecord:
     return CellRecord(**project_storage_record(CellRecord, source))  # type: ignore[arg-type]
 
@@ -283,6 +295,25 @@ def test_sql_store_round_trips_site_moments() -> None:
 
     assert _structure_from_record(fetched).site_moments == source.site_moments
     assert fetched.site_moments_precision == Fraction(1, 100)
+
+
+def test_sql_store_round_trips_implicit_atoms_and_site_attachments() -> None:
+    pytest.importorskip("sqlalchemy")
+    from httk.store import Backend, SqlStore
+
+    source = _implicit_attached_asu()
+    with Backend.sqlite() as database:
+        store = SqlStore(database, entry_records={StructureEntry: ASUStructureRecord})
+        fetched = store.fetch(ASUStructureRecord, store.save(source), eager=True)
+
+    stored_species = {species.name: species for species in fetched.species}
+    restored = _domain_structure_from_record(fetched)
+
+    assert stored_species["C1"].attached == ("H",)
+    assert stored_species["C1"].nattached == (3,)
+    assert restored.species == source.species
+    assert restored.implicit_atoms == ("O1",)
+    assert restored.structure_features == ("implicit_atoms", "site_attachments")
 
 
 def test_lazy_fetch_replace_save_recomposes_with_proxy_children() -> None:

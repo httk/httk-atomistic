@@ -166,6 +166,17 @@ def test_cif_dummy_sites_become_implicit_species_and_attached_hydrogens(tmp_path
     assert by_name["O1"].chemical_symbols == ("O",)
     assert by_name["O1"].concentration == (F(1, 2),)
 
+    destination = tmp_path / "implicit-roundtrip.cif"
+    save(structure, destination)
+    raw = load(destination, raw=True)["blocks"][0]
+    restored = load(destination)
+
+    assert raw["attached_hydrogens"] == [3, 0]
+    assert raw["calc_flags"] == ["d", "dum"]
+    assert restored.species == structure.species
+    assert restored.implicit_atoms == ("O1",)
+    assert restored.structure_features == ("implicit_atoms", "site_attachments")
+
 
 def test_strict_undeclared_cif_does_not_build_orbit_screen(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     screens: list[object] = []
