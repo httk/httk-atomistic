@@ -217,10 +217,15 @@ def test_normalizer_image_still_lifts_and_rerepresent_dispatches() -> None:
     parent = _parent(15, [WyckoffSite("e", FracVector([F(2, 17)]), "Si")], ((5, 0, 0), (0, 6, 0), (0, 0, 7)))
     child = subgroup_representation(parent, 2).asu
     record = data.affine_normalizer_coset_record(child.spacegroup.hall_entry)
-    image = _apply_normalizer(child, record["affine_normalizer_cosets"][6])
+    coset = next(
+        candidate
+        for candidate in record["affine_normalizer_cosets"]
+        if candidate["affine_transformation"]["xyz"] == "-x,-y,z"
+    )
+    image = _apply_normalizer(child, coset)
     assert image is not None
     results = backward_lift(image, 15, tolerance=1e-3)
-    transformed_parent = _apply_normalizer(parent, record["affine_normalizer_cosets"][6])
+    transformed_parent = _apply_normalizer(parent, coset)
     assert transformed_parent is not None
     assert any(
         result.residual == F(0)
@@ -250,7 +255,13 @@ def test_normalizer_retry_conjugates_through_a_nonidentity_hop() -> None:
     transform = next(item for item in subgroup_transforms(15, 2) if not item.operation.is_identity())
     assert transform.operation.matrix != FracVector.eye((3, 3))
     record = data.affine_normalizer_coset_record(child.spacegroup.hall_entry)
-    operation = AffineOperation.from_record(record["affine_normalizer_cosets"][9])
+    operation = AffineOperation.from_record(
+        next(
+            candidate
+            for candidate in record["affine_normalizer_cosets"]
+            if candidate["affine_transformation"]["xyz"] == "-x,y,-z"
+        )
+    )
     assert transform.operation.matrix * operation.matrix != operation.matrix * transform.operation.matrix
     cosetted = _manual_affine_image(child, operation)
     expected = _manual_affine_image(

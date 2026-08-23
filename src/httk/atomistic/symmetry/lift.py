@@ -1025,6 +1025,14 @@ def _canonical_representative_cached(
     position = spacegroup.wyckoff_position(wyckoff)
     points = [FracVector(point).normalize() for point in position.coordinates(FracVector(free_params))]
     least = min(points, key=lambda point: tuple(point.to_fractions()))
+    # A non-degenerate orbit has the declared position's full multiplicity.  Its least member is
+    # therefore still on that same position, so recovering parameters there avoids scanning the
+    # complete Wyckoff table.  A coordinate on a more-special position would collapse equivalent
+    # members; retain the full most-specific search for precisely that degenerate case.
+    if len({tuple(point.to_fractions()) for point in points}) == len(points):
+        parameters = position.parameters_of(least)
+        if parameters is not None:
+            return wyckoff, tuple(parameters.to_fractions())
     match = spacegroup.identify_wyckoff(least)
     if match is None:
         return wyckoff, free_params
@@ -1346,7 +1354,12 @@ def _apply_normalizer(structure: ASUStructure, record: dict[str, Any]) -> ASUStr
     return _apply_normalizer_operation(structure, AffineOperation.from_record(record))
 
 
-def _apply_normalizer_operation(structure: ASUStructure, operation: AffineOperation) -> ASUStructure | None:
+def _apply_normalizer_operation(
+    structure: ASUStructure,
+    operation: AffineOperation,
+    *,
+    trusted: bool = False,
+) -> ASUStructure | None:
     """Re-express a standard-setting ASU through a point map, or ``None`` if the image is invalid.
 
     Sites and basis transform JOINTLY (points by the operation, basis by its inverse-transpose), so
@@ -1357,17 +1370,41 @@ def _apply_normalizer_operation(structure: ASUStructure, operation: AffineOperat
     sites: list[WyckoffSite] = []
     for site in structure.wyckoff_sites:
         position = structure.spacegroup.wyckoff_position(site.wyckoff)
+        if trusted:
+            representative = FracVector(position.representative.coordinate(site.free_params)).normalize()
+            transformed_representative = operation.apply_wrapped(representative)
+            # A trusted affine normalizer maps a complete orbit bijectively, hence preserves its
+            # multiplicity.  Search only that multiplicity tier while retaining the table's
+            # most-specific ordering within the tier.
+            first_match = None
+            for candidate_position in structure.spacegroup.wyckoff:
+                if candidate_position.multiplicity != position.multiplicity:
+                    continue
+                candidate_parameters = candidate_position.parameters_of(transformed_representative)
+                if candidate_parameters is not None:
+                    first_match = candidate_position, candidate_parameters
+                    break
+            if first_match is None:
+                return None
+            first_position, first_parameters = first_match
+            # Callers use this only for tabulated or algebraically derived members of the affine
+            # normalizer.  Such an operation maps a complete orbit bijectively; identifying one
+            # representative and preserving its multiplicity is therefore sufficient.  The generic
+            # path below retains exact full-orbit set validation for arbitrary proposed operations.
+            sites.append(WyckoffSite(first_position.letter, first_parameters, site.species))
+            continue
         original = tuple(FracVector(point).normalize() for point in position.coordinates(site.free_params))
         transformed = tuple(operation.apply_wrapped(point) for point in original)
-        matches = [structure.spacegroup.identify_wyckoff(point) for point in transformed]
-        if not matches or any(match is None for match in matches):
+        if not transformed:
             return None
-        first_match = matches[0]
+        # One identified member proposes the target orbit; exact set equality below is already the
+        # authoritative proof that every transformed member lands in that complete orbit.  Calling
+        # ``identify_wyckoff`` separately for all remaining members repeated a full Wyckoff-table
+        # scan up to hundreds of times per site and dominated high-symmetry normal forms.
+        first_match = structure.spacegroup.identify_wyckoff(transformed[0])
         if first_match is None:
             return None
         first_position, first_parameters = first_match
-        if any(match[0].letter != first_position.letter for match in matches[1:] if match is not None):
-            return None
         expected = {
             tuple(FracVector(point).normalize().to_fractions())
             for point in first_position.coordinates(first_parameters)
@@ -1667,7 +1704,11 @@ def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
     for candidate in sorted(candidates):
         if not any(candidate):
             continue
-        image = _apply_normalizer_operation(structure, AffineOperation(identity, FracVector(candidate)))
+        image = _apply_normalizer_operation(
+            structure,
+            AffineOperation(identity, FracVector(candidate)),
+            trusted=True,
+        )
         if image is None:
             continue
         key = _site_key(image)
@@ -1922,31 +1963,60 @@ def _terminal_normal_form(structure: ASUStructure) -> ASUStructure:
                 AffineOperation.from_record(coset) for coset in record.get("affine_normalizer_cosets", ())
             )
     representatives = list(dict.fromkeys(representatives))
+    # This quotient factors each space-group member as a basis-only point operation below.  Members
+    # that share a matrix and differ only by a centring translation therefore produce identical
+    # candidates; keep one per matrix (preferring the true identity for the final tie-break).
+    point_operations: dict[tuple[tuple[Fraction, ...], ...], AffineOperation] = {}
+    for operation in structure.spacegroup.symmetry_operations:
+        matrix_key = tuple(tuple(row) for row in operation.matrix.to_fractions())
+        if matrix_key not in point_operations or operation.is_identity():
+            point_operations[matrix_key] = operation
     # Metric is the primary normal-form key and neither a discrete nor a continuous translation
     # changes it.  Select its least exact tier before doing expensive Wyckoff rematching.  Every
     # candidate is a tabulated normalizer (or a checked P1 Gram automorphism), so an operation in a
     # higher metric tier cannot beat a successful member of this one.
     by_metric: dict[tuple[Any, ...], list[tuple[AffineOperation, AffineOperation]]] = {}
     for representative in representatives:
-        for group_operation in structure.spacegroup.symmetry_operations:
+        for group_operation in point_operations.values():
             operation = representative * group_operation
             metric_key = _normalizer_metric_key(structure, operation)
             by_metric.setdefault(metric_key, []).append((representative, group_operation))
     translations = _discrete_normalizer_translations(structure.spacegroup)
     best: ASUStructure | None = None
     best_key: tuple[Any, ...] | None = None
+    translation_normal_forms: dict[tuple[Any, ...], ASUStructure] = {}
+
+    def translated_normal_form(candidate: ASUStructure) -> ASUStructure:
+        """Memoize the pure translation quotient within this terminal orbit."""
+        # Every candidate below derives from the same immutable input and therefore shares group,
+        # species definitions, precision, charge, and periodicity.  The exact basis and immutable
+        # Wyckoff-site tuple fully distinguish the inputs on which the translation quotient depends.
+        cache_key = (
+            candidate.cell.basis,
+            tuple(
+                (site.wyckoff, tuple(site.free_params.to_fractions()), site.species) for site in candidate.wyckoff_sites
+            ),
+        )
+        cached = translation_normal_forms.get(cache_key)
+        if cached is None:
+            cached = _translation_normal_form(candidate)
+            translation_normal_forms[cache_key] = cached
+        return cached
+
     for metric_key in sorted(by_metric):
         grouped: dict[AffineOperation, list[AffineOperation]] = {}
         for representative, group_operation in by_metric[metric_key]:
             grouped.setdefault(representative, []).append(group_operation)
         for representative, group_operations in grouped.items():
-            image = _apply_normalizer_operation(structure, representative)
+            image = _apply_normalizer_operation(structure, representative, trusted=True)
             if image is None:
                 continue
             for translation in translations:
                 if any(translation):
                     shifted = _apply_normalizer_operation(
-                        image, AffineOperation(identity_matrix, FracVector(translation))
+                        image,
+                        AffineOperation(identity_matrix, FracVector(translation)),
+                        trusted=True,
                     )
                 else:
                     shifted = image
@@ -1954,46 +2024,62 @@ def _terminal_normal_form(structure: ASUStructure) -> ASUStructure:
                     continue
                 # A coset or discrete shift can change which origin is canonical, so re-run the
                 # continuous-translation quotient on each candidate.
-                reduced = _translation_normal_form(shifted)
+                reduced = translated_normal_form(shifted)
                 # The table is quotient-ed by G.  Because C normalizes G, the left-coset elements
                 # g*C cover the same quotient class as C*g.  Applying g after C leaves every complete
                 # transformed Wyckoff orbit unchanged as a set, but selects the jointly transformed
                 # basis g.T^-1 C.T^-1 B.  Factor that basis-only step here so Wyckoff rematching and
                 # the continuous origin gauge run once per C/translation rather than once per g*C.
+                # The sites are likewise shared by every factored group operation.  Precompute their
+                # inversion once: doing the same full-orbit rematch separately for every det=-1 basis
+                # dominated high-symmetry groups with hundreds of expanded atoms.
+                inverted_reduced = _apply_normalizer_operation(
+                    reduced,
+                    AffineOperation(
+                        FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))),
+                        (0, 0, 0),
+                    ),
+                )
+                if inverted_reduced is not None:
+                    inverted_reduced = translated_normal_form(inverted_reduced)
+                site_keys = {id(reduced): _site_key(reduced)}
+                if inverted_reduced is not None:
+                    site_keys[id(inverted_reduced)] = _site_key(inverted_reduced)
                 for group_operation in group_operations:
                     basis = SurdVector(group_operation.matrix.T().inv()) * reduced.cell.basis
+                    site_source = reduced
+                    if basis.det().sign() < 0 and inverted_reduced is not None:
+                        basis = -basis
+                        site_source = inverted_reduced
+                    # The site key and handedness can be decided without rebuilding an ASUStructure;
+                    # group operations in this factored loop change only the basis.  Construct just a
+                    # candidate that can improve the current best, rather than hundreds of identical-
+                    # site temporary structures per metric tier.
+                    handedness_key = 0 if basis.det().sign() > 0 else 1
+                    identity_key = 0 if representative.is_identity() and group_operation.is_identity() else 1
+                    key = (metric_key, site_keys[id(site_source)], handedness_key, identity_key)
+                    if best_key is not None and key >= best_key:
+                        continue
                     try:
                         candidate = ASUStructure(
                             Cell(
                                 basis,
-                                precision=reduced.cell.precision,
-                                periodicity=reduced.cell.periodicity,
+                                precision=site_source.cell.precision,
+                                periodicity=site_source.cell.periodicity,
                             ),
-                            reduced.spacegroup,
-                            reduced.wyckoff_sites,
-                            reduced.species,
+                            site_source.spacegroup,
+                            site_source.wyckoff_sites,
+                            site_source.species,
                             transform=SettingTransform.identity(),
-                            coordinate_precision=reduced.coordinate_precision,
-                            charge=reduced.charge,
+                            coordinate_precision=site_source.coordinate_precision,
+                            charge=site_source.charge,
                         )
                     except ValueError:
                         continue
-                    if candidate.cell.basis.det().sign() < 0:
-                        # A det=-1 coset yields a left-handed basis that the final canonical orientation
-                        # would flip; normalize handedness before keying, so the selected minimum matches
-                        # the right-handed representative that is returned.
-                        flipped = _apply_normalizer_operation(
-                            candidate, AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
-                        )
-                        if flipped is not None:
-                            candidate = _translation_normal_form(flipped)
                     # Prefer a right-handed representative when the orbit supplies one.  Orientation
                     # is canonicalized after this quotient, so raw Cartesian basis components must
                     # not participate in the key: they would make the result depend on a global
                     # rotation of the input.
-                    handedness_key = 0 if candidate.cell.basis.det().sign() > 0 else 1
-                    identity_key = 0 if representative.is_identity() and group_operation.is_identity() else 1
-                    key = (metric_key, _site_key(candidate), handedness_key, identity_key)
                     if best_key is None or key < best_key:
                         best, best_key = candidate, key
         if best is not None:
@@ -2565,18 +2651,71 @@ def _exact_triangular_basis(metric: SurdVector, *, left_handed: bool) -> SurdVec
     if not metric.is_rational:
         return None
     gram = metric.coefficient(1).to_fractions()
-    first = SurdScalar.sqrt_of(gram[0][0])
-    second_x = SurdScalar(gram[1][0]) / first
-    second_square = SurdScalar(gram[1][1]) - second_x * second_x
-    if not second_square.is_rational:
+    # Keep the Cholesky arithmetic in Q until the three final square roots.  Expressing, for
+    # example, g10/sqrt(g00) through generic SurdScalar division is algebraically sound but can
+    # build a very large multiradical field before cancellation discovers that the square is
+    # rational again.  Strongly sheared (yet perfectly ordinary) cells made that route take
+    # minutes.  The rationalized forms below are identical:
+    #
+    #   g10/sqrt(g00) = (g10/g00) sqrt(g00)
+    #
+    # and likewise for the third row.  Consequently every Schur complement is computed as one
+    # Fraction and exact work stays bounded independently of the input basis shear.
+    first_square = gram[0][0]
+    if first_square <= 0:
         return None
-    second = SurdScalar.sqrt_of(second_square._rational_fraction())
-    third_x = SurdScalar(gram[2][0]) / first
-    third_y = (SurdScalar(gram[2][1]) - third_x * second_x) / second
-    third_square = SurdScalar(gram[2][2]) - third_x * third_x - third_y * third_y
-    if not third_square.is_rational:
+    second_x_factor = gram[1][0] / first_square
+    second_square = gram[1][1] - gram[1][0] * second_x_factor
+    if second_square <= 0:
         return None
-    third = SurdScalar.sqrt_of(third_square._rational_fraction())
+    third_x_factor = gram[2][0] / first_square
+    third_y_numerator = gram[2][1] - gram[2][0] * second_x_factor
+    third_y_factor = third_y_numerator / second_square
+    third_square = gram[2][2] - gram[2][0] * third_x_factor - third_y_numerator * third_y_factor
+    if third_square <= 0:
+        return None
+
+    # SurdScalar canonicalizes a radical by extracting the square part of numerator*denominator.
+    # That is cheap for the small crystallographic radicands the exact path is intended for, but an
+    # approximate CIF angle can make a rational Gram with hundred-digit, essentially arbitrary
+    # radicands whose exact factorization is not a bounded operation.  Perfect rational squares are
+    # always cheap; otherwise keep this optional orientation step to radicands small enough for the
+    # square-part implementation's trial division.  The caller retains the already exact basis when
+    # this returns None.
+    def bounded_sqrt(value: Fraction) -> SurdScalar | None:
+        numerator_root = math.isqrt(value.numerator)
+        denominator_root = math.isqrt(value.denominator)
+        if (
+            numerator_root * numerator_root == value.numerator
+            and denominator_root * denominator_root == value.denominator
+        ):
+            return SurdScalar(Fraction(numerator_root, denominator_root))
+        # Decimal-scaled conventional cells commonly have q = r*s^2 with a tiny crystallographic
+        # radicand (notably r=2 or 3) but a large raw numerator/denominator.  Recognize those forms
+        # without factoring the large square coefficient at all.
+        for radicand in range(2, 49):
+            scaled = value / radicand
+            scaled_numerator_root = math.isqrt(scaled.numerator)
+            scaled_denominator_root = math.isqrt(scaled.denominator)
+            if (
+                scaled_numerator_root * scaled_numerator_root == scaled.numerator
+                and scaled_denominator_root * scaled_denominator_root == scaled.denominator
+            ):
+                return SurdScalar.from_radicand_map(
+                    {radicand: Fraction(scaled_numerator_root, scaled_denominator_root)}
+                )._as_scalar()
+        if (value.numerator * value.denominator).bit_length() <= 48:
+            return SurdScalar.sqrt_of(value)
+        return None
+
+    first = bounded_sqrt(first_square)
+    second = bounded_sqrt(second_square)
+    third = bounded_sqrt(third_square)
+    if first is None or second is None or third is None:
+        return None
+    second_x = first * SurdScalar(second_x_factor)
+    third_x = first * SurdScalar(third_x_factor)
+    third_y = second * SurdScalar(third_y_factor)
     basis = SurdVector._from_scalar_grid(
         [[first, SurdScalar(0), SurdScalar(0)], [second_x, second, SurdScalar(0)], [third_x, third_y, third]],
         (3, 3),
@@ -2616,8 +2755,16 @@ def _canonical_orientation(structure: ASUStructure) -> ASUStructure:
         else:
             structure = inverted
     cell = structure.cell
-    oriented_basis = _exact_triangular_basis(cell.metric(), left_handed=left_handed)
+    metric = cell.metric()
+    oriented_basis = _exact_triangular_basis(metric, left_handed=left_handed)
     if oriented_basis is None:
+        # A rational metric reaches this branch only when exact squarefree-radical normalization was
+        # deliberately bounded above.  Asking for ``cell.lengths`` would immediately attempt the same
+        # unbounded factorization again, so retain the exact input orientation.  Standard recognition
+        # and the lattice normal forms have already removed basis shear; this fallback only leaves a
+        # global Cartesian rotation uncanonicalized for unwieldy approximate-angle Gram matrices.
+        if metric.is_rational:
+            return structure
         lengths = cell.lengths
         if any(not length.is_rational for length in lengths):
             return structure
@@ -2632,7 +2779,7 @@ def _canonical_orientation(structure: ASUStructure) -> ASUStructure:
         oriented = Cell(oriented_basis, precision=cell.precision, periodicity=cell.periodicity)
     except ValueError:
         return structure
-    if oriented.basis == cell.basis or oriented.metric() != cell.metric():
+    if oriented.basis == cell.basis or oriented.metric() != metric:
         return structure
     return ASUStructure(
         oriented,
@@ -2899,7 +3046,11 @@ def _terminal_entry(structure: ASUStructure) -> ASUStructure:
     return _terminal_normal_form(current)
 
 
-def _canonical_without_bfs(structure: ASUStructure, *, preserve_chirality: bool = False) -> ASUStructure:
+def _canonical_without_bfs(
+    structure: ASUStructure,
+    *,
+    preserve_chirality: bool = False,
+) -> ASUStructure:
     """Return the canonical representative of ``structure`` within its own group -- no upward search.
 
     This is exactly the terminal ``highest_symmetry`` would emit if the entry state had no lifts:

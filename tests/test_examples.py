@@ -91,7 +91,13 @@ def test_example_runs_cleanly(example: Path, tmp_path: Path) -> None:
     requirements = constants.get(REQUIRES_SENTINEL) or ()
     if isinstance(requirements, (list, tuple)):
         for requirement in requirements:
-            if importlib.util.find_spec(str(requirement)) is None:
+            try:
+                available = importlib.util.find_spec(str(requirement)) is not None
+            except ModuleNotFoundError:
+                # ``find_spec("parent.child")`` raises rather than returning ``None`` when the
+                # optional top-level parent package itself is absent.
+                available = False
+            if not available:
                 pytest.skip(f"{_example_id(example)} requires the optional dependency {requirement!r}")
 
     # Subprocess, not import: an example is a *script*, and a separate process is
@@ -102,6 +108,7 @@ def test_example_runs_cleanly(example: Path, tmp_path: Path) -> None:
             [sys.executable, str(example)],
             capture_output=True,
             text=True,
+            check=False,
             timeout=EXAMPLE_TIMEOUT_SECONDS,
             cwd=tmp_path,
         )

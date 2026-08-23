@@ -145,6 +145,7 @@ def recognize_asu(
     transform: SettingTransform | None = None,
     tolerance: float | None = None,
     limit_denominator: int | None = None,
+    _retain_found_transform: bool = False,
 ) -> ASUStructure:
     """Build an :class:`~httk.atomistic.ASUStructure` from a full structure.
 
@@ -175,6 +176,8 @@ def recognize_asu(
         derive it from the structure's stated precision.
     :param limit_denominator: The largest denominator allowed when idealising free
         parameters, or ``None`` to retain their exact stated values.
+    :param _retain_found_transform: Internal canonicalization hook retaining spglib's
+        recognized-to-standard transform instead of folding it into the returned basis.
     :return: The recognized asymmetric-unit structure.
     :raises ImportError: If symmetry must be searched and the optional spglib dependency is
         unavailable.
@@ -191,6 +194,8 @@ def recognize_asu(
     if tolerance is None:
         tolerance = structure_tolerance(view)
 
+    wyckoff_hints: tuple[str, ...] | None = None
+    equivalent_hints: tuple[int, ...] | None = None
     if setting is not None:
         if standard is not None or transform is not None:
             raise TypeError("recognize_asu() takes either 'setting' or 'standard'/'transform', not both")
@@ -202,21 +207,45 @@ def recognize_asu(
         if not standard.is_standard_setting:
             raise ValueError(f"'standard' must be an IT standard setting, got {standard.setting}")
     else:
-        standard, found = _find_symmetry(view, tolerance)
-        # At lattice index 1, spglib fixes the group but not the frame: its transformation is
-        # one of many that describe the structure correctly, differing by an element of the
-        # group's affine normalizer. All are faithful — the round trip holds either way — but
-        # they name different Wyckoff letters, so prefer the standard setting when the input
-        # already has that lattice. A non-unit index means the input is a super- or sub-cell of
-        # the standard lattice; trying identity there would hide that lattice relationship.
+        standard, found, wyckoff_hints, equivalent_hints = _find_symmetry(view, tolerance)
+        # Public recognition keeps its established preference for an already-standard input frame.
+        # ``canonical_asu`` privately reverses the attempts: retaining spglib's standardizing frame
+        # prevents arbitrary index-one shears from reaching expensive exact metric arithmetic.  Both
+        # candidates still pass the same exact-table reconstruction, and the other remains a fallback.
         if abs(found.determinant()) == 1:
-            try:
-                return _recognize(view, standard, SettingTransform.identity(), tolerance, limit_denominator)
-            except ValueError:
-                pass
+            attempts = (
+                (found, SettingTransform.identity())
+                if _retain_found_transform
+                else (SettingTransform.identity(), found)
+            )
+            first_error: ValueError | None = None
+            for attempt in attempts:
+                try:
+                    return _recognize(
+                        view,
+                        standard,
+                        attempt,
+                        tolerance,
+                        limit_denominator,
+                        wyckoff_hints=wyckoff_hints,
+                        equivalent_hints=equivalent_hints,
+                    )
+                except ValueError as error:
+                    if first_error is None:
+                        first_error = error
+            assert first_error is not None
+            raise first_error
         transform = found
 
-    return _recognize(view, standard, transform, tolerance, limit_denominator)
+    return _recognize(
+        view,
+        standard,
+        transform,
+        tolerance,
+        limit_denominator,
+        wyckoff_hints=wyckoff_hints,
+        equivalent_hints=equivalent_hints,
+    )
 
 
 def _recognize(
@@ -225,6 +254,39 @@ def _recognize(
     transform: SettingTransform,
     tolerance: float,
     limit_denominator: int | None,
+    *,
+    wyckoff_hints: tuple[str, ...] | None = None,
+    equivalent_hints: tuple[int, ...] | None = None,
+) -> ASUStructure:
+    """Recognize through exact tables, using validated spglib partitions when available."""
+    if wyckoff_hints is not None and equivalent_hints is not None:
+        try:
+            return _recognize_impl(
+                view,
+                standard,
+                transform,
+                tolerance,
+                limit_denominator,
+                wyckoff_hints=wyckoff_hints,
+                equivalent_hints=equivalent_hints,
+            )
+        except ValueError:
+            # Hints accelerate the common spglib path but never change recognition semantics.  If
+            # their setting/gauge disagrees with the exact tables, repeat the established exhaustive
+            # placement and grouping and let that result (or its error) decide.
+            pass
+    return _recognize_impl(view, standard, transform, tolerance, limit_denominator)
+
+
+def _recognize_impl(
+    view: Any,
+    standard: Spacegroup,
+    transform: SettingTransform,
+    tolerance: float,
+    limit_denominator: int | None,
+    *,
+    wyckoff_hints: tuple[str, ...] | None = None,
+    equivalent_hints: tuple[int, ...] | None = None,
 ) -> ASUStructure:
     """Place every site on a Wyckoff position, then group the sites into orbits."""
     cell = view.cell
@@ -233,10 +295,28 @@ def _recognize(
     count = len(species_at_sites)
 
     placed: list[tuple[WyckoffPosition, FracVector, FracVector]] = []
+    representatives: dict[int, tuple[WyckoffPosition, FracVector]] = {}
     for index in range(count):
         own_point = own_coords[index]
+        equivalent = None if equivalent_hints is None else equivalent_hints[index]
+        if equivalent is not None and equivalent in representatives:
+            position, parameters = representatives[equivalent]
+            # The representative fixed the exact orbit and its free parameters.  Keep this member's
+            # measured coordinate for the later tolerance/bijection validation instead of repeating
+            # the full Wyckoff-branch scan for every atom in the same spglib equivalence class.
+            placed.append((position, parameters, own_point))
+            continue
         standard_point = transform.to_standard(own_point).normalize()
-        match = _place_on_position(standard, standard_point, own_point, cell, transform, tolerance)
+        hint = None if wyckoff_hints is None else wyckoff_hints[index]
+        match = _place_on_position(
+            standard,
+            standard_point,
+            own_point,
+            cell,
+            transform,
+            tolerance,
+            wyckoff_hint=hint,
+        )
         if match is None:
             raise ValueError(
                 f"site {index} at {tuple(own_point.to_fractions())} does not lie on any Wyckoff position of "
@@ -248,8 +328,19 @@ def _recognize(
             parameters = FracVector([value.limit_denominator(limit_denominator) for value in parameters.to_fractions()])
         snapped_own = (transform.to_setting(branch.coordinate(parameters)) + coset).normalize()
         placed.append((position, parameters, snapped_own))
+        if equivalent is not None:
+            representatives[equivalent] = (position, parameters)
 
-    return _group_into_orbits(view, standard, transform, placed, species_at_sites, cell, tolerance)
+    return _group_into_orbits(
+        view,
+        standard,
+        transform,
+        placed,
+        species_at_sites,
+        cell,
+        tolerance,
+        equivalent_hints=equivalent_hints,
+    )
 
 
 def _place_on_position(
@@ -259,6 +350,8 @@ def _place_on_position(
     cell: Any,
     transform: SettingTransform,
     tolerance: float,
+    *,
+    wyckoff_hint: str | None = None,
 ) -> tuple[WyckoffPosition, WyckoffBranch, FracVector, FracVector] | None:
     """The most specific Wyckoff position within ``tolerance`` of a site.
 
@@ -275,13 +368,31 @@ def _place_on_position(
     """
     tolerance_squared = tolerance * tolerance
     cosets = transform.lattice_cosets()
-    for position in standard.wyckoff:
+    positions = standard.wyckoff
+    if wyckoff_hint is not None:
+        try:
+            positions = (standard.wyckoff_position(wyckoff_hint),)
+        except KeyError:
+            pass
+    for position in positions:
         for branch in position.branches:
             parameters = branch.nearest_parameters(standard_point)
             candidate = transform.to_setting(branch.coordinate(parameters))
             for coset in cosets:
                 if _cartesian_distance_squared(own_point - candidate - coset, cell) <= tolerance_squared:
                     return position, branch, parameters, coset
+    if wyckoff_hint is not None and positions is not standard.wyckoff:
+        # Spglib's letter is an acceleration hint, never an authority.  A setting bridge or a
+        # tolerance-boundary decision can make it unsuitable for httk's exact table; retry the full
+        # table so recognition retains its existing acceptance semantics.
+        return _place_on_position(
+            standard,
+            standard_point,
+            own_point,
+            cell,
+            transform,
+            tolerance,
+        )
     return None
 
 
@@ -303,9 +414,15 @@ def _orbit_has_bijective_members(
     tolerance: float,
 ) -> bool:
     """Whether the candidate input sites occupy every generated orbit point once."""
+    limit = tolerance * tolerance
+    basis = cell.basis.to_floats()
+    orbit_floats = [[float(value) for value in point.to_fractions()] for point in orbit]
+    member_floats = {member: [float(value) for value in placed[member][2].to_fractions()] for member in member_indices}
     candidates = {
         member: tuple(
-            index for index, point in enumerate(orbit) if _lies_in_orbit(placed[member][2], (point,), cell, tolerance)
+            index
+            for index, point in enumerate(orbit_floats)
+            if _fractional_distance_squared(member_floats[member], point, basis) <= limit
         )
         for member in member_indices
     }
@@ -327,6 +444,17 @@ def _orbit_has_bijective_members(
     return all(augment(member, set()) for member in member_indices)
 
 
+def _fractional_distance_squared(
+    first: Sequence[float],
+    second: Sequence[float],
+    basis: Sequence[Sequence[float]],
+) -> float:
+    """Minimum-image Cartesian squared distance for two fractional float coordinates."""
+    wrapped = [first[index] - second[index] - round(first[index] - second[index]) for index in range(3)]
+    cartesian = [sum(wrapped[index] * basis[index][axis] for index in range(3)) for axis in range(3)]
+    return sum(component * component for component in cartesian)
+
+
 def _group_into_orbits(
     view: Any,
     standard: Spacegroup,
@@ -335,6 +463,8 @@ def _group_into_orbits(
     species_at_sites: tuple[str, ...],
     cell: Any,
     tolerance: float,
+    *,
+    equivalent_hints: tuple[int, ...] | None = None,
 ) -> ASUStructure:
     """Collapse symmetry-equivalent sites, keeping one representative each.
 
@@ -380,11 +510,17 @@ def _group_into_orbits(
                     seen.add(key)
                     orbit.append(candidate)
 
-        members = [
-            other
-            for other in range(len(placed))
-            if not consumed[other] and _lies_in_orbit(placed[other][2], orbit, cell, tolerance)
-        ]
+        if equivalent_hints is None:
+            members = [
+                other
+                for other in range(len(placed))
+                if not consumed[other] and _lies_in_orbit(placed[other][2], orbit, cell, tolerance)
+            ]
+        else:
+            equivalent = equivalent_hints[index]
+            members = [
+                other for other in range(len(placed)) if not consumed[other] and equivalent_hints[other] == equivalent
+            ]
         occupants = {species_at_sites[other] for other in members}
         if len(occupants) != 1:
             raise ValueError(
@@ -462,7 +598,10 @@ def _lies_in_orbit(point: FracVector, orbit: Sequence[FracVector], cell: Any, to
     return any(_cartesian_distance_squared(point - other, cell) <= limit for other in orbit)
 
 
-def _find_symmetry(view: Any, tolerance: float) -> tuple[Spacegroup, SettingTransform]:
+def _find_symmetry(
+    view: Any,
+    tolerance: float,
+) -> tuple[Spacegroup, SettingTransform, tuple[str, ...], tuple[int, ...]]:
     """Find the space group of a structure that carries no symmetry information, via spglib.
 
     This is the only place spglib is used, and the only path that needs it. Anything that
@@ -527,7 +666,12 @@ def _find_symmetry(view: Any, tolerance: float) -> tuple[Spacegroup, SettingTran
     standard_to_spglib = SettingTransform.from_hall_entry(spglib_default["hall_entry"]).operation
 
     standard_to_own = own_to_spglib.inverse() * standard_to_spglib
-    return standard, SettingTransform(standard_to_own.matrix, standard_to_own.vector)
+    return (
+        standard,
+        SettingTransform(standard_to_own.matrix, standard_to_own.vector),
+        tuple(str(letter) for letter in dataset.wyckoffs),
+        tuple(int(equivalent) for equivalent in dataset.equivalent_atoms),
+    )
 
 
 def _exact_operation(matrix: Any, vector: Any) -> Any:

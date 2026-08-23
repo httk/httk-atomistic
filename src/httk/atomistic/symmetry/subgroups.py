@@ -360,7 +360,7 @@ def _standard_input(structure: ASUStructure) -> ASUStructure:
             structure.coordinate_precision,
             _matrix_column_sum_factor(basis_matrix.inv()),
         ),
-        charge=structure.charge,
+        charge=None if structure.charge is None else structure.charge * abs(transform.determinant()),
     )
 
 

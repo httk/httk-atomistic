@@ -21,7 +21,7 @@ the wheel and sdist as package data.
 | `spacegroup_setting_transforms.json.gz` | 13 KB | change-of-basis operation from each setting to its IT standard setting, for all 527 |
 | `baernighausen_std.json.gz` | 316 KB | per-IT-number Bärnighausen subgroup transformations, for all 230 |
 | `continuous_euclidean_normalizer_std.json.gz` | 3 KB | per-IT-number continuous-normalizer bases, for all 230 |
-| `affine_normalizer_cosets.json.gz` | 41 KB | affine-normalizer cosets for all 527 Hall entries |
+| `affine_normalizer_cosets.json.gz` | 51 KB | affine-normalizer cosets for all 527 Hall entries |
 | `isomorphic_subgroups_std.json.gz` | 403 KB | per-IT-number same-setting isomorphic subgroup transforms (indices up to 9), for all 230 |
 
 The split-affine records map parent standard-setting coordinates directly to child

@@ -2,6 +2,7 @@
 
 import pickle
 from fractions import Fraction
+from typing import Any
 
 import pytest
 from httk.core import FracVector, SurdVector
@@ -93,9 +94,16 @@ def test_non_involutory_normalizer_transforms_the_cell_once() -> None:
         [WyckoffSite("d", FracVector([F(1, 7), F(2, 11), F(3, 13)]), "site")],
         [species],
     )
-    coset = data.affine_normalizer_coset_record(source.spacegroup.hall_entry)["affine_normalizer_cosets"][0]
-    operation = AffineOperation.from_record(coset)
-    assert operation.matrix * operation.matrix != FracVector.eye((3, 3))
+
+    def non_involutory(candidate: dict[str, Any]) -> bool:
+        candidate_operation = AffineOperation.from_record(candidate)
+        return candidate_operation.matrix * candidate_operation.matrix != FracVector.eye((3, 3))
+
+    coset = next(
+        candidate
+        for candidate in data.affine_normalizer_coset_record(source.spacegroup.hall_entry)["affine_normalizer_cosets"]
+        if non_involutory(candidate)
+    )
     reference = _apply_normalizer(source, coset)
     assert reference is not None
 

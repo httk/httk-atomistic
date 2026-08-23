@@ -13,6 +13,7 @@ from httk.atomistic import (
     UnitcellStructure,
     UnitcellStructureView,
     WyckoffSite,
+    build_supercell,
     canonical_asu,
 )
 from httk.atomistic.symmetry.canonical import _fits_within
@@ -174,6 +175,23 @@ def test_default_and_lift_agree_on_a_clean_structure() -> None:
     assert default.cell.basis == lifted.cell.basis
 
 
+def test_recognized_supercell_scales_extensive_charge_to_the_standard_cell() -> None:
+    pytest.importorskip("spglib")
+    charged = ASUStructure(
+        _nacl().cell,
+        _nacl().spacegroup,
+        _nacl().wyckoff_sites,
+        _nacl().species,
+        charge=F(4),
+    )
+    supercell = build_supercell(charged, 2).structure
+
+    assert supercell.charge == 32
+    result = canonical_asu(supercell, lift=False)
+    assert result.cell.basis == charged.cell.basis
+    assert result.charge == charged.charge == 4
+
+
 def test_lift_finds_pseudosymmetry_the_default_leaves_at_the_recognized_group() -> None:
     pytest.importorskip("spglib")
     # A cubic NaCl motif in a slightly tetragonal cell (c = 5.0008): at the tight symprec spglib
@@ -246,16 +264,17 @@ def _p4332() -> ASUStructure:
     )
 
 
-def test_enantiomorph_normalizes_to_the_lower_member_by_default() -> None:
+def test_enantiomorph_preserves_chirality_by_default() -> None:
     pytest.importorskip("spglib")
     view = UnitcellStructureView(_p4332())
-    # A genuinely chiral cell recognized in the higher member (213) is normalized to the lower one.
-    assert canonical_asu(view).spacegroup.it_number == 212
-    assert canonical_asu(view, preserve_chirality=True).spacegroup.it_number == 213
-    # Robust to sub-tolerance noise: recognition still lands in the pair, normalization still fires.
+    # A genuinely chiral cell recognized in the higher member (213) keeps its handedness by default;
+    # callers can still explicitly collapse the enantiomorphic pair to the lower member.
+    assert canonical_asu(view).spacegroup.it_number == 213
+    assert canonical_asu(view, preserve_chirality=False).spacegroup.it_number == 212
+    # Robust to sub-tolerance noise: recognition still lands in the pair and honors the policy.
     noisy = _perturbed(UnitcellStructure(*_expanded(_p4332())), 400_000)
-    assert canonical_asu(noisy).spacegroup.it_number == 212
-    assert canonical_asu(noisy, preserve_chirality=True).spacegroup.it_number == 213
+    assert canonical_asu(noisy).spacegroup.it_number == 213
+    assert canonical_asu(noisy, preserve_chirality=False).spacegroup.it_number == 212
 
 
 def test_missing_spglib_raises_the_recognition_import_error() -> None:

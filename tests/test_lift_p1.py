@@ -719,7 +719,7 @@ def _expanded_p1(reference: ASUStructure) -> ASUStructure:
         WyckoffSite("a", FracVector(coordinate).normalize(), name)
         for coordinate, name in zip(view.sites.reduced_coords.to_fractions(), species)
     ]
-    return ASUStructure(Cell(view.cell.basis), 1, sites, _species(*sorted(set(species))))
+    return ASUStructure(Cell(view.cell.basis), 1, sites, reference.species)
 
 
 def _scrambled_p1(reference: ASUStructure, seed: int) -> ASUStructure:
@@ -740,7 +740,7 @@ def _scrambled_p1(reference: ASUStructure, seed: int) -> ASUStructure:
     order = list(range(len(species)))
     rng.shuffle(order)
     sites = [WyckoffSite("a", scrambled[index], species[index]) for index in order]
-    return ASUStructure(Cell(SurdVector(matrix) * view.cell.basis), 1, sites, _species(*sorted(set(species))))
+    return ASUStructure(Cell(SurdVector(matrix) * view.cell.basis), 1, sites, reference.species)
 
 
 def _scramble_reference(*sites: WyckoffSite, cell: Cell, spacegroup: int, species: list[str]) -> ASUStructure:
@@ -866,6 +866,24 @@ def test_canonical_asu_fixture_scramble_normalizes_full_affine_cosets(number: in
         rotated_result = canonical_asu(UnitcellStructureView(rotated), lift=False)
         assert rotated_result.cell.basis == reference.cell.basis
         assert rotated_result.wyckoff_sites == reference.wyckoff_sites
+
+
+@pytest.mark.parametrize(
+    ("number", "seed"),
+    ((1, 1001), (6, 6010), (10, 10005), (202, 202001)),
+)
+@pytest.mark.extended
+def test_canonical_asu_fixture_scramble_avoids_pathological_exact_arithmetic(number: int, seed: int) -> None:
+    """Sheared and large recognized cells retain the fixture's exact no-lift normal form."""
+    fixture = Path(__file__).with_name("fixtures") / "structreading" / f"{number}.cif"
+    source = load(str(fixture), repair=True)
+
+    reference = canonical_asu(UnitcellStructureView(source), lift=False, preserve_chirality=True)
+    scrambled = canonical_asu(_scrambled_p1(source, seed), lift=False, preserve_chirality=True)
+
+    assert scrambled.spacegroup == reference.spacegroup
+    assert scrambled.cell.basis == reference.cell.basis
+    assert scrambled.wyckoff_sites == reference.wyckoff_sites
 
 
 def _count_recell_searches(monkeypatch: pytest.MonkeyPatch) -> list[int]:
