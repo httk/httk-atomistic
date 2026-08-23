@@ -298,6 +298,17 @@ def _symbol_from_label(label: str) -> str | None:
     return None
 
 
+def _declared_type_from_label(label: str, declarations: Iterable[str]) -> str | None:
+    """Return the longest declared atom type that forms a complete label prefix."""
+    text = label.strip()
+    matches = [
+        declaration
+        for declaration in declarations
+        if text.startswith(declaration) and (len(text) == len(declaration) or not text[len(declaration)].isalpha())
+    ]
+    return max(matches, key=len, default=None)
+
+
 def _optional_atom_site_column(block: Mapping[str, Any], name: str, count: int) -> list[str] | None:
     """Return one optional atom-site column with its row count validated."""
     values = block.get(name)
@@ -320,7 +331,13 @@ def _parse_atoms(block: Mapping[str, Any]) -> tuple[Any, ...]:
     if not isinstance(syms, list) and isinstance(lbs, list):
         # The CIF core dictionary makes _atom_site_type_symbol optional; when it is absent the
         # element is usually derivable from the label, so infer it rather than refusing the file.
-        inferred = [_symbol_from_label(lab) for lab in lbs]
+        declared = _first_tag(block, 'atom_type_symbol', 'atom_type.symbol')
+        declarations = (
+            [str(value).strip() for value in declared]
+            if isinstance(declared, list)
+            else ([] if declared is None else [str(declared).strip()])
+        )
+        inferred = [_declared_type_from_label(lab, declarations) or _symbol_from_label(lab) for lab in lbs]
         unresolved = [lab for lab, sym in zip(lbs, inferred) if sym is None]
         if unresolved:
             logging.getLogger(__name__).warning(

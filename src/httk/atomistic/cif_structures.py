@@ -850,7 +850,8 @@ def _deduplicate_wyckoff_sites(
             if not any(source == previous[1] for previous in alternatives):
                 alternatives.append((source_site, source, source_label))
         attachment_values = {(species.attached, species.nattached) for _, species, _ in alternatives}
-        if len(attachment_values) > 1:
+        stated_masses = [species.mass is not None for _, species, _ in alternatives]
+        if len(attachment_values) > 1 or (any(stated_masses) and not all(stated_masses)):
             assembly_groups: list[tuple[int, ...]] = []
             probabilities: list[fractions.Fraction] = []
             precisions: list[fractions.Fraction | None] = []

@@ -162,6 +162,28 @@ def test_deuterium_disorder_and_stated_mass_survive_cif_roundtrip(tmp_path: Path
     assert "_atom_type_mass" in destination.read_text(encoding="utf-8")
 
 
+def test_deuterium_is_inferred_from_declared_atom_types(tmp_path: Path) -> None:
+    path = tmp_path / "inferred-deuterium.cif"
+    path.write_text(
+        _CELL
+        + "loop_\n_atom_type_symbol\nD\nH\n"
+        + "loop_\n_atom_site_label\n_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        + "_atom_site_occupancy\nD1 0 0 0 0.7\nH1 0 0 0 0.3\n",
+        encoding="utf-8",
+    )
+
+    structure = load(path)
+    by_name = {species.name: species for species in structure.species}
+
+    assert by_name["D1"].chemical_symbols == ("H",)
+    assert by_name["D1"].labels == ("D",)
+    assert by_name["D1"].mass == (2.008,)
+    assert by_name["H1"].chemical_symbols == ("H",)
+    assert by_name["H1"].mass is None
+    assert structure.assemblies is not None
+    assert structure.assemblies[0].group_probabilities == (Fraction(7, 10), Fraction(3, 10))
+
+
 @pytest.mark.skipif(not _COD_DEUTERIDE.exists(), reason="workspace-only real-data fixture not present")
 def test_cod_1008801_preserves_deuterium_and_disorder(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
