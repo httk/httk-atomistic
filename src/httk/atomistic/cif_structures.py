@@ -399,8 +399,8 @@ def asu_structures_from_cif(payload: Mapping[str, Any], *, repair: bool = False,
     if not blocks:
         unparsed = payload.get("unparsed") or []
         if unparsed:
-            detail = "; ".join(f"block {item['block']!r}: {item['reason']}" for item in unparsed)
-            raise ValueError(f"this CIF holds no structure that could be interpreted ({detail})")
+            detail = "; ".join(f"CIF block {item['block']!r}, {item['reason']}" for item in unparsed)
+            raise ValueError(detail)
         raise ValueError("this CIF holds no structural data blocks (none of them have atom sites)")
 
     return [asu_structure_from_cif(block, **options) for block in blocks]
@@ -1695,7 +1695,7 @@ def _read_cif_for_atomistic(
         try:
             block = cifblock_to_asu(raw_block, repair=repair, block_name=name)
         except Exception as error:
-            unparsed.append({"block": name, "reason": f"{type(error).__name__}: {error}"})
+            unparsed.append({"block": name, "reason": str(error)})
         else:
             position_precisions, position_snap_bounds = _position_precision_metadata(raw_block)
             wyckoff_labels = raw_block.get("atom_site_wyckoff_label")

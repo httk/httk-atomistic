@@ -745,9 +745,7 @@ def test_asu_structures_from_cif_reports_why_a_file_yielded_nothing(tmp_path: Pa
     )
     payload = load(str(path), raw=True)
     assert payload["blocks"] == []
-    with pytest.raises(ValueError, match="no structure that could be interpreted"):
-        asu_structures_from_cif(payload)
-    with pytest.raises(ValueError, match="no unit cell"):
+    with pytest.raises(ValueError, match="CIF block 'x', CIF block has no unit cell"):
         asu_structures_from_cif(payload)
 
 

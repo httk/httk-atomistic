@@ -65,8 +65,9 @@ Si1 Si 0.12345 0.23456 0.34567
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="CIF block has no symmetry operations"):
+    with pytest.raises(ValueError) as error:
         load(str(source))
+    assert str(error.value) == "CIF block 'test', CIF block has no symmetry operations"
 
     with caplog.at_level(logging.WARNING, logger="httk.atomistic.io.cif.cif_parser"):
         structure = load(str(source), repair=True)

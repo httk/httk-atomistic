@@ -152,6 +152,4 @@ def test_missing_atom_site_columns_are_named(tmp_path):
 
     payload = httk.core.load(path, raw=True)
 
-    assert payload["unparsed"][0]["reason"] == (
-        "ValueError: CIF block is missing required atom-site column: _atom_site_fract_z"
-    )
+    assert payload["unparsed"][0]["reason"] == "CIF block is missing required atom-site column: _atom_site_fract_z"

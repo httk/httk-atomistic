@@ -848,7 +848,7 @@ def read_cif_asus(source: str | os.PathLike[str] | Iterable[str], *, repair: boo
         try:
             blocks.append(cifblock_to_asu(cifblock, repair=repair, block_name=name))
         except Exception as error:
-            unparsed.append({'block': name, 'reason': f'{type(error).__name__}: {error}'})
+            unparsed.append({'block': name, 'reason': str(error)})
 
     payload: dict[str, Any] = {'format': 'cif', 'blocks': blocks, 'unparsed': unparsed, 'header': header}
     if repair:
