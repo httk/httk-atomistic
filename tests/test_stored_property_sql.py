@@ -14,7 +14,6 @@ from httk.store.backend.sql import stored_property_sql_plan
 from httk.store.query.optimade_filters import FilterTranslationError
 
 from httk.atomistic import (
-    WyckoffSite,
     ASUStructure,
     ASUStructureRecord,
     Cell,
@@ -23,10 +22,11 @@ from httk.atomistic import (
     Sites,
     Spacegroup,
     Species,
-    UnitcellStructure,
     StructureEntry,
     StructureEntryProvider,
+    UnitcellStructure,
     UnitcellStructureRecord,
+    WyckoffSite,
 )
 from httk.atomistic.models.structure.semantics import StructureSymmetry
 
@@ -266,6 +266,7 @@ def test_invalid_formula_and_nonintegral_count_literals_are_filter_value_errors(
 def test_unused_disordered_species_does_not_create_a_structure_feature(structure_plan):
     plan, _sources = structure_plan
     assert _counts(plan, 'structure_features HAS "disorder"') == [0, 0, 0]
+    assert _counts(plan, 'structure_features HAS "implicit_atoms"') == [1, 0, 0]
 
 
 def test_structure_feature_presence_filters_execute_sql(structure_plan):

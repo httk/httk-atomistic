@@ -124,6 +124,9 @@ def _structure_features_value(record: Any, backing: str) -> list[str]:
         features.add("disorder")
     if any(value.attached for value in used):
         features.add("site_attachments")
+    used_names = {value.name for value in used}
+    if any(value.name not in used_names for value in record.species):
+        features.add("implicit_atoms")
     if record.chemical_composition is not None and record.chemical_composition.mode == "implicit":
         features.add("implicit_atoms")
     if (
@@ -739,7 +742,9 @@ def _feature_predicate(
         return context.equal(context.field("assemblies_present"), context.constant(True))
     if name == "implicit_atoms":
         composition = context.scope("chemical_composition")
-        return context.exists(composition, context.equal(composition.field("mode"), context.constant("implicit")))
+        declared = context.exists(composition, context.equal(composition.field("mode"), context.constant("implicit")))
+        unused = context.compare(context.count(context.scope("species")), ">", context.count(species))
+        return context.or_(declared, unused)
     if name == "site_attachments":
         return context.exists(species, context.equal(species.field("attached_present"), context.constant(True)))
     if name == "disorder":

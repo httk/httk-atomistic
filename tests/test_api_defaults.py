@@ -165,6 +165,7 @@ def test_structure_api_defaults_match_unitcell_for_minimal_backend() -> None:
         "dimension_types",
         "nperiodic_dimensions",
         "nsites",
+        "implicit_atoms",
         "structure_features",
     ):
         assert getattr(minimal, name) == getattr(unitcell, name)

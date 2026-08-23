@@ -16,8 +16,8 @@ from httk.atomistic import (
     UnitcellStructureRecord,
     WyckoffSite,
 )
-from httk.atomistic.models.species.species import Species
 from httk.atomistic.entries.structures import StructureEntry
+from httk.atomistic.models.species.species import Species
 
 
 def _nacl_like() -> UnitcellStructure:
@@ -128,15 +128,15 @@ def test_structure_features_empty_for_ordered() -> None:
     assert record["structure_features"] == []
 
 
-def test_unused_species_do_not_mark_structure_features() -> None:
-    """Only species referenced by represented sites contribute OPTIMADE features."""
+def test_unused_species_mark_implicit_atoms_only() -> None:
     cell = [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 3.0]]
     na = Species(name="Na", chemical_symbols=("Na",), concentration=(1,))
     unused_disordered = Species(name="X", chemical_symbols=("Fe", "Ni"), concentration=(0.5, 0.5))
     unused_attached = Species(name="CH3", chemical_symbols=("C",), concentration=(1,), attached=("H",), nattached=(3,))
     structure = UnitcellStructure(cell, [[0, 0, 0]], [na, unused_disordered, unused_attached], ["Na"])
     (record,) = list(StructureEntryProvider({"only-na": structure}).records("structures"))
-    assert record["structure_features"] == []
+    assert structure.implicit_atoms == ("X", "CH3")
+    assert record["structure_features"] == ["implicit_atoms"]
 
 
 def _smfeo3() -> UnitcellStructure:

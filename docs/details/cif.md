@@ -114,6 +114,18 @@ Cell lengths and angles are retained as their exact CIF parameters. For angles o
 exact surd trigonometric set, the Cartesian basis remains the cell backend's documented
 deterministic rational approximation; the original parameter backend remains recoverable.
 
+## Dummy sites and attached hydrogens
+
+An atom-site row whose `_atom_site_calc_flag` is `dum` declares an atom with no meaningful
+coordinates. The row is omitted from the structure's represented sites but retained as a
+`Species` definition with its stated occupancy. Its species name appears in
+`structure.implicit_atoms`, and `structure_features` consequently contains
+`"implicit_atoms"`.
+
+A positive `_atom_site_attached_hydrogens` value is represented on that row's `Species` as
+`attached=("H",)` and the matching `nattached` count. Zero or an unknown value adds no
+attachment; any represented attachment sets the `"site_attachments"` structure feature.
+
 ## Symmetry operations and settings
 
 For an ordinary CIF, the operation list is the authoritative description of the file's

@@ -222,6 +222,7 @@ def derive_structure_features(structure: Any) -> tuple[str, ...]:
     """
     names, _, species = _site_data(structure)
     by_name = {value.name: value for value in species}
+    used_names = set(names)
     used = tuple(by_name[name] for name in names if name in by_name)
     features: set[str] = set()
     if getattr(structure, "assemblies", None) is not None:
@@ -230,6 +231,8 @@ def derive_structure_features(structure: Any) -> tuple[str, ...]:
         features.add("disorder")
     if any(value.attached for value in used):
         features.add("site_attachments")
+    if any(value.name not in used_names for value in species):
+        features.add("implicit_atoms")
     chemical = getattr(structure, "chemical_composition", None)
     if isinstance(chemical, ChemicalComposition) and chemical.mode == "implicit":
         features.add("implicit_atoms")

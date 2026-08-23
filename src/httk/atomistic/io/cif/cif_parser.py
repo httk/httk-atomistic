@@ -298,6 +298,17 @@ def _symbol_from_label(label: str) -> str | None:
     return None
 
 
+def _optional_atom_site_column(block: Mapping[str, Any], name: str, count: int) -> list[str] | None:
+    """Return one optional atom-site column with its row count validated."""
+    values = block.get(name)
+    if values is None:
+        return None
+    if not isinstance(values, list) or len(values) != count:
+        actual = "not a loop column" if not isinstance(values, list) else str(len(values))
+        raise ValueError(f"CIF atom-site column _{name} has {actual} value(s); expected {count}")
+    return [str(value).strip() for value in values]
+
+
 def _parse_atoms(block: Mapping[str, Any]) -> tuple[Any, ...]:
     """Parse atom data without coordinate-precision reporting."""
     syms = block.get('atom_site_type_symbol')
@@ -373,6 +384,7 @@ def _parse_atoms(block: Mapping[str, Any]) -> tuple[Any, ...]:
 
     symbols = [s.strip() for s in syms]
     labels = [lab.strip() for lab in lbs]
+    calc_flags = _optional_atom_site_column(block, 'atom_site_calc_flag', len(labels))
 
     exact_positions = [
         (
@@ -382,7 +394,12 @@ def _parse_atoms(block: Mapping[str, Any]) -> tuple[Any, ...]:
         )
         for index, (xi, yi, zi) in enumerate(zip(xs, ys, zs))
     ]
-    positions = [(parse_cif_float(xi), parse_cif_float(yi), parse_cif_float(zi)) for xi, yi, zi in zip(xs, ys, zs)]
+    positions = [
+        (None, None, None)
+        if calc_flags is not None and calc_flags[index].lower() == 'dum'
+        else (parse_cif_float(xi), parse_cif_float(yi), parse_cif_float(zi))
+        for index, (xi, yi, zi) in enumerate(zip(xs, ys, zs))
+    ]
     return symbols, labels, positions, exact_positions, occs, occs_exact, occupancy_precisions
 
 
@@ -409,8 +426,11 @@ def _parse_atoms_with_precision(block: Mapping[str, Any]) -> tuple[Any, ...]:
     zs = block['atom_site_fract_z']
     companions = tuple(block.get(f'httk_atom_site_fract_{axis}_exact') for axis in 'xyz')
     has_companion = any(value is not None for value in companions)
+    calc_flags = _optional_atom_site_column(block, 'atom_site_calc_flag', len(xs))
     claims: list[object] = []
     for index, values in enumerate(zip(xs, ys, zs)):
+        if calc_flags is not None and calc_flags[index].lower() == 'dum':
+            continue
         for axis, value in enumerate(values):
             companion = companions[axis]
             companion_value = companion[index] if isinstance(companion, list) and index < len(companion) else None
@@ -697,6 +717,16 @@ def cifblock_to_asu(
     :raises ValueError: If the block lacks required cell, atom-site, or symmetry data.
     """
     asu = parse_asu_cell(cifblock)
+    calc_flags = _optional_atom_site_column(cifblock, 'atom_site_calc_flag', len(asu.labels))
+    attached_tokens = _optional_atom_site_column(cifblock, 'atom_site_attached_hydrogens', len(asu.labels))
+    attached_hydrogens = None
+    if attached_tokens is not None:
+        attached_hydrogens = []
+        for token in attached_tokens:
+            count = None if token in {'', '.', '?'} else parse_cif_int(token)
+            if count is not None and count < 0:
+                raise ValueError(f"CIF _atom_site_attached_hydrogens cannot be negative: {token!r}")
+            attached_hydrogens.append(count)
 
     space_group_name_hall = _first_tag(cifblock, 'space_group_name_hall', 'symmetry_space_group_name_hall')
 
@@ -774,6 +804,8 @@ def cifblock_to_asu(
         'basis_precision': asu.basis_precision,
         'equivalent_atoms': asu.equivalent_atoms,
         'labels': asu.labels,
+        'calc_flags': calc_flags,
+        'attached_hydrogens': attached_hydrogens,
     }
 
 

@@ -491,24 +491,29 @@ def asu_structure_from_cif(
         metric = cell.metric()
         uncertainty_metric = metric.coefficient(1) if metric.is_rational else metric
 
-    coordinates = _exact_positions(data)
+    exact_positions = data.get("positions_exact")
+    if exact_positions is None:
+        raise ValueError("CIF payload has no exact fractional-coordinate channel")
     symbols = list(data["symbols"])
     labels = list(data.get("labels") or symbols)
     occupancies = data.get("occupancies")
     occupancies_exact = data.get("occupancies_exact")
     occupancy_precisions = data.get("occupancy_precisions")
     masses = data.get("masses")
+    calc_flags = data.get("calc_flags")
+    attached_hydrogens = data.get("attached_hydrogens")
     declared_wyckoff = data.get("_httk_atomistic_wyckoff_labels")
     declared_multiplicities = data.get("_httk_atomistic_symmetry_multiplicities")
     declared_site_symmetry_orders = data.get("_httk_atomistic_site_symmetry_orders")
 
     species_by_name: dict[str, Species] = {}
+    implicit_species_names: list[str] = []
     wyckoff_sites: list[WyckoffSite] = []
     warning_uncertainties: list[Any] = []
     ambiguous_warning_count = 0
     debug_uncertainties: list[Any] = []
     warned_type_symbols: set[str] = set()
-    for index, coordinate in enumerate(coordinates):
+    for index, exact_position in enumerate(exact_positions):
         if occupancies_exact is not None and occupancies_exact[index] is not None:
             occupancy = occupancies_exact[index]
         elif occupancies is None:
@@ -533,7 +538,9 @@ def asu_structure_from_cif(
                 f"with species label {decoded.species_label!r}"
             )
             warned_type_symbols.add(raw_symbol)
-        name = _species_name(raw_symbol, labels[index], occupancy)
+        dummy = calc_flags is not None and str(calc_flags[index]).lower() == "dum"
+        attached_count = None if attached_hydrogens is None else attached_hydrogens[index]
+        name = labels[index] if dummy or attached_count else _species_name(raw_symbol, labels[index], occupancy)
         if name not in species_by_name:
             species_by_name[name] = Species(
                 name=name,
@@ -544,7 +551,17 @@ def asu_structure_from_cif(
                 concentration_precision=(occupancy_precision,) if occupancy_precisions is not None else None,
                 charges=(decoded.charge,) if decoded.charge is not None else None,
                 labels=(decoded.species_label,) if decoded.species_label is not None else None,
+                attached=("H",) if attached_count else None,
+                nattached=(attached_count,) if attached_count else None,
             )
+        if dummy:
+            if name not in implicit_species_names:
+                implicit_species_names.append(name)
+            continue
+
+        if any(value is None for value in exact_position):
+            raise ValueError(f"CIF coordinates are missing for site {labels[index]!r}")
+        coordinate = FracVector([fractions.Fraction(value) for value in exact_position])
 
         standard_point = coordinate.normalize()
         uncertainty = _site_uncertainty(data, index, uncertainty_metric) if derived_tolerance else None
@@ -762,6 +779,7 @@ def asu_structure_from_cif(
         block_name=_block_name(data),
         coordinate_precision=data.get("coordinate_precision"),
     )
+    canonical_species += tuple(species_by_name[name] for name in implicit_species_names)
     return ASUStructure._from_validated_proof(
         cell,
         standard,
@@ -876,6 +894,8 @@ def _combine_cif_species(
     charges: list[fractions.Fraction | None] | None
     labels: list[str | None] | None
     masses: list[float] | None
+    attached: tuple[str, ...] | None
+    nattached: tuple[int, ...] | None
     if len(distinct) == 1:
         species, _ = distinct[0]
         symbols = list(species.chemical_symbols)
@@ -884,9 +904,15 @@ def _combine_cif_species(
         charges = None if species.charges is None else list(species.charges)
         labels = None if species.labels is None else list(species.labels)
         masses = None if species.mass is None else list(species.mass)
+        attached = species.attached
+        nattached = species.nattached
         name = species.name
         original_name = species.original_name
     else:
+        attachment_values = {(species.attached, species.nattached) for species, _ in distinct}
+        if len(attachment_values) != 1:
+            raise ValueError("co-located CIF disorder rows have incompatible attached-hydrogen declarations")
+        attached, nattached = next(iter(attachment_values))
         constituents: list[
             tuple[
                 str,
@@ -995,6 +1021,8 @@ def _combine_cif_species(
         concentration_precision=precisions,
         charges=charges,
         labels=labels,
+        attached=attached,
+        nattached=nattached,
     )
 
 
@@ -1709,9 +1737,14 @@ def _position_precision_metadata(
     columns = [block[f"atom_site_fract_{axis}"] for axis in "xyz"]
     companions = [block.get(f"httk_atom_site_fract_{axis}_exact") for axis in "xyz"]
     has_companion = any(value is not None for value in companions)
-    precisions = []
-    snap_bounds = []
+    calc_flags = block.get("atom_site_calc_flag")
+    precisions: list[tuple[fractions.Fraction | None, ...]] = []
+    snap_bounds: list[tuple[fractions.Fraction | None, ...]] = []
     for index, values in enumerate(zip(*columns)):
+        if isinstance(calc_flags, list) and str(calc_flags[index]).strip().lower() == "dum":
+            precisions.append((None, None, None))
+            snap_bounds.append((None, None, None))
+            continue
         row: list[fractions.Fraction | None] = []
         bounds_row: list[fractions.Fraction | None] = []
         for axis, value in enumerate(values):

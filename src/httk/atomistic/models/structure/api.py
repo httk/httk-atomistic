@@ -203,6 +203,17 @@ class StructureAPI(ABC):
         return (1,) * len(self.species_at_sites)
 
     @property
+    def implicit_atoms(self) -> tuple[str, ...]:
+        """Expose species definitions whose atoms have no represented coordinates.
+
+        :return: Unused species names in species-definition order.
+        """
+        wyckoff_sites = getattr(self, "wyckoff_sites", None)
+        names = tuple(site.species for site in wyckoff_sites) if wyckoff_sites is not None else self.species_at_sites
+        used = set(names)
+        return tuple(species.name for species in self.species if species.name not in used)
+
+    @property
     def structure_features(self) -> tuple[str, ...] | None:
         """Expose composition-related features derived from canonical components."""
         from httk.atomistic.composition import derive_structure_features

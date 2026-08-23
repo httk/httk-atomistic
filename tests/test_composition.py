@@ -129,6 +129,7 @@ def test_projection_ignores_unused_species_and_handles_empty_elemental_results()
     unused = Species("unused", ("Si",), (1,))
     result = project_composition(_Structure((used, unused), ("used",)))
     assert result.amounts == (("Ge", F(1)),)
+    assert derive_structure_features(_Structure((used, unused), ("used",))) == ("implicit_atoms",)
 
     vacancy = project_composition(_Structure((Species("vac", ("vacancy",), (1,)),), ("vac",)))
     assert vacancy.elements == vacancy.elements_ratios == ()

@@ -60,6 +60,8 @@ def _write_cif(
     symmetry_multiplicities: list[str] | None = None,
     site_symmetry_orders: list[str] | None = None,
     deprecated_symmetry_multiplicities: list[str] | None = None,
+    attached_hydrogens: list[str] | None = None,
+    calc_flags: list[str] | None = None,
 ) -> Path:
     """A CIF for one setting, with its complete symmetry-operation list."""
     spacegroup = Spacegroup.from_setting(setting)
@@ -90,6 +92,8 @@ def _write_cif(
         "_atom_site_fract_y",
         "_atom_site_fract_z",
         "_atom_site_occupancy",
+        *(["_atom_site_attached_hydrogens"] if attached_hydrogens is not None else []),
+        *(["_atom_site_calc_flag"] if calc_flags is not None else []),
     ]
     for index, (label, symbol, (x, y, z), occupancy) in enumerate(sites):
         declarations = [
@@ -98,7 +102,11 @@ def _write_cif(
             *([site_symmetry_orders[index]] if site_symmetry_orders is not None else []),
             *([deprecated_symmetry_multiplicities[index]] if deprecated_symmetry_multiplicities is not None else []),
         ]
-        lines.append(f"{label} {symbol} {' '.join(declarations)} {x} {y} {z} {occupancy}")
+        trailing = [
+            *([attached_hydrogens[index]] if attached_hydrogens is not None else []),
+            *([calc_flags[index]] if calc_flags is not None else []),
+        ]
+        lines.append(f"{label} {symbol} {' '.join(declarations)} {x} {y} {z} {occupancy} {' '.join(trailing)}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
@@ -135,6 +143,28 @@ def test_cif_retains_validated_expansion_lazily(tmp_path: Path, monkeypatch: pyt
     assert structure.multiplicities() == (4, 4)
     assert "_precomputed_expansion" not in structure.__dict__
     assert "_expansion" in structure.__dict__
+
+
+def test_cif_dummy_sites_become_implicit_species_and_attached_hydrogens(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "implicit.cif",
+        "1",
+        (5, 5, 5, 90, 90, 90),
+        [("C1", "C", ("0.123", "0.234", "0.345"), "1"), ("O1", "O", (".", ".", "."), "0.5")],
+        attached_hydrogens=["3", "0"],
+        calc_flags=["d", "dum"],
+    )
+
+    structure = load(path)
+    by_name = {species.name: species for species in structure.species}
+
+    assert structure.domain_species_at_sites == ("C1",)
+    assert structure.implicit_atoms == ("O1",)
+    assert structure.structure_features == ("implicit_atoms", "site_attachments")
+    assert by_name["C1"].attached == ("H",)
+    assert by_name["C1"].nattached == (3,)
+    assert by_name["O1"].chemical_symbols == ("O",)
+    assert by_name["O1"].concentration == (F(1, 2),)
 
 
 def test_strict_undeclared_cif_does_not_build_orbit_screen(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
