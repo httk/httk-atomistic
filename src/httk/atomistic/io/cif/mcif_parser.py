@@ -519,8 +519,12 @@ def cifblock_to_mag_asu(cifblock: dict[str, Any], *, error_on_nonmag: bool = Fal
         }
 
     base_symops_xyz = cifblock.get('space_group_symop_magn_operation.xyz')
+    if isinstance(base_symops_xyz, str):
+        base_symops_xyz = (base_symops_xyz,)
     if base_symops_xyz is None:
         base_symops_alg = cifblock.get('space_group_symop_magn_ssg_operation.algebraic')
+        if isinstance(base_symops_alg, str):
+            base_symops_alg = (base_symops_alg,)
         if base_symops_alg is None:
             raise ValueError("mcif block has no symmetry operations")
         raw_symops = cast(list[str], base_symops_alg)
@@ -530,8 +534,12 @@ def cifblock_to_mag_asu(cifblock: dict[str, Any], *, error_on_nonmag: bool = Fal
         base_symops = _xyzt_symops_to_matrix(base_symops_xyz, use_fractions=True, time_reversal_convention="spglib")
 
     centering_symops_xyz = cifblock.get('space_group_symop_magn_centering.xyz')
+    if isinstance(centering_symops_xyz, str):
+        centering_symops_xyz = (centering_symops_xyz,)
     if centering_symops_xyz is None:
         centering_symops_alg = cifblock.get('space_group_symop_magn_ssg_centering.algebraic')
+        if isinstance(centering_symops_alg, str):
+            centering_symops_alg = (centering_symops_alg,)
         if centering_symops_alg is None:
             centering_symops_xyz = ["x,y,z,+1"]
             cent_symops = _xyzt_symops_to_matrix(

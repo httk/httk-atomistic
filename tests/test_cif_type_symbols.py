@@ -6,9 +6,10 @@ from pathlib import Path
 import pytest
 from httk.core import load, save
 
-from httk.atomistic.cif_structures import _CIF_CORE_TYPE_SYMBOLS, _decode_type_symbol
+from httk.atomistic.cif_structures import _CIF_CORE_TYPE_SYMBOLS, _decode_type_symbol, _normalize_type_symbol
 
 _COD_DEUTERIDE = Path(__file__).resolve().parents[2] / "DATA/COD/cif/1/00/88/1008801.cif"
+_COD_LACAFEO = Path(__file__).resolve().parents[2] / "DATA/COD/cif/2/10/86/2108697.cif"
 
 _CELL = """\
 data_symbols
@@ -42,6 +43,7 @@ def _single_site(symbol: str, *, atom_type_loop: str = "", occupancy: str = "0.5
 
 @pytest.mark.parametrize("raw", sorted(_CIF_CORE_TYPE_SYMBOLS))
 def test_every_cif_core_type_symbol_is_recognized(raw: str) -> None:
+    assert _normalize_type_symbol(raw) == raw
     decoded = _decode_type_symbol(raw, None)
 
     assert decoded.recognized
@@ -90,18 +92,127 @@ def test_unrecognized_type_symbols_warn_and_are_preserved_as_labels(
     ]
 
 
-def test_repair_normalizes_lowercase_atom_type_symbols(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_normalizes_lowercase_atom_type_symbols_without_repair(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     path = tmp_path / "lowercase.cif"
     path.write_text(_single_site("c", occupancy="1"), encoding="utf-8")
 
-    assert load(path).species[0].chemical_symbols == ("X",)
-    caplog.clear()
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        species = load(path, repair=True).species[0]
+        species = load(path).species[0]
 
     assert species.name == "C"
     assert species.chemical_symbols == ("C",)
-    assert "normalized lowercase atom-type symbol 'c' to 'C'" in caplog.text
+    assert "normalized atom-type symbol 'c' to 'C'" in caplog.text
+
+
+@pytest.mark.parametrize(("raw", "label"), [("ES", "ES"), ("OG01", "OG01"), ("OG10", "OG1")])
+def test_symbols_outside_strict_decoder_core_remain_unrecognized(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, raw: str, label: str
+) -> None:
+    path = tmp_path / "strictly-unknown.cif"
+    path.write_text(_single_site(raw, occupancy="1"), encoding="utf-8")
+
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        species = load(path).species[0]
+
+    assert species.chemical_symbols == ("X",)
+    assert species.labels == (label,)
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages == [
+        (f"unrecognized CIF atom-type symbol {raw!r}; represented as chemical symbol 'X' with species label {label!r}")
+    ]
+    assert not any("normalized atom-type symbol" in message for message in messages)
+
+
+@pytest.mark.parametrize(
+    ("raw", "normalized"),
+    [
+        ("La01", "La"),
+        ("Ca02", "Ca"),
+        ("O07", "O"),
+        ("S1", "S"),
+        ("O10", "O"),
+        ("RH", "Rh"),
+        ("CL", "Cl"),
+        ("LI", "Li"),
+        ("ZR", "Zr"),
+        ("ni", "Ni"),
+        ("br", "Br"),
+        ("cl", "Cl"),
+    ],
+)
+def test_normalizes_case_errors_and_site_numbering_suffixes(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, raw: str, normalized: str
+) -> None:
+    path = tmp_path / "normalized.cif"
+    path.write_text(_single_site(raw, occupancy="1"), encoding="utf-8")
+
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        species = load(path).species[0]
+
+    assert species.name == normalized
+    assert species.chemical_symbols == (normalized,)
+    assert species.charges is None
+    assert species.labels is None
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages == [f"CIF block 'symbols': normalized atom-type symbol {raw!r} to {normalized!r}"]
+    assert not any("unrecognized CIF atom-type symbol" in message for message in messages)
+
+
+@pytest.mark.parametrize(
+    ("raw", "normalized"),
+    [
+        ("Fe3+", "Fe3+"),
+        ("Ti0", "Ti0"),
+        ("D0", "D0"),
+        ("Vac", "Vac"),
+        ("TL1+", "TL1+"),
+        ("FE3+", "Fe3+"),
+    ],
+)
+def test_normalization_composes_with_charge_and_special_symbols(raw: str, normalized: str) -> None:
+    assert _normalize_type_symbol(raw) == normalized
+
+
+def test_normalization_leaves_unknown_symbols_unchanged() -> None:
+    for raw in ["M", "R", "LP", "Lp", "dummy", "FeNi"]:
+        assert _normalize_type_symbol(raw) == raw
+
+
+@pytest.mark.parametrize(("raw", "charge"), [("FE3+", 3), ("fe+3", 3)])
+def test_case_normalization_preserves_explicit_charge(tmp_path: Path, raw: str, charge: int) -> None:
+    path = tmp_path / "charged-case.cif"
+    path.write_text(_single_site(raw, occupancy="1"), encoding="utf-8")
+
+    species = load(path).species[0]
+
+    assert species.chemical_symbols == ("Fe",)
+    assert species.charges == (charge,)
+    assert species.labels is None
+
+
+def test_normalization_warning_is_deduplicated_per_raw_symbol(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    path = tmp_path / "repeated-normalized.cif"
+    path.write_text(
+        _CELL
+        + "loop_\n"
+        + "_atom_site_label\n"
+        + "_atom_site_type_symbol\n"
+        + "_atom_site_fract_x\n"
+        + "_atom_site_fract_y\n"
+        + "_atom_site_fract_z\n"
+        + "_atom_site_occupancy\n"
+        + "site1 ZR 0 0 0 1\n"
+        + "site2 ZR 0.1 0 0 1\n",
+        encoding="utf-8",
+    )
+
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        load(path)
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert sum("normalized atom-type symbol 'ZR' to 'Zr'" in message for message in messages) == 1
 
 
 def test_historical_tl_spelling_normalizes_to_thallium() -> None:
@@ -235,3 +346,12 @@ def test_cod_1008801_preserves_deuterium_and_disorder(caplog: pytest.LogCaptureF
     assert all(species.labels == ("D", None) for species in deuterium)
     assert len(structure.sites) == 54
     assert not [record for record in caplog.records if "unrecognized CIF atom-type symbol" in record.getMessage()]
+
+
+@pytest.mark.skipif(not _COD_LACAFEO.exists(), reason="workspace-only real-data fixture not present")
+def test_cod_2108697_normalizes_numbered_atom_types(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        structure = load(_COD_LACAFEO)
+
+    assert not [record for record in caplog.records if "unrecognized CIF atom-type symbol" in record.getMessage()]
+    assert {symbol for species in structure.species for symbol in species.chemical_symbols} == {"La", "Ca", "Fe", "O"}

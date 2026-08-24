@@ -7,6 +7,7 @@ import pytest
 from httk.core import load
 
 from httk.atomistic import ModulatedStructure, SymopsStructure, UnitcellStructureView
+from httk.atomistic.io.cif.mcif_parser import cifblock_to_mag_asu
 from httk.atomistic.mcif_structures import (
     _perfect_orbit_matching,
     _spatial_structure_from_mcif,
@@ -70,6 +71,27 @@ def test_mcif_without_symops_is_rejected() -> None:
         symops_structures_from_mcif(block)
 
 
+def test_mcif_base_algebraic_scalar_symmetry_operation_is_wrapped() -> None:
+    block = {
+        "cell_length_a": "1",
+        "cell_length_b": "1",
+        "cell_length_c": "1",
+        "cell_angle_alpha": "90",
+        "cell_angle_beta": "90",
+        "cell_angle_gamma": "90",
+        "atom_site_label": ["Fe1"],
+        "atom_site_type_symbol": ["Fe"],
+        "atom_site_fract_x": ["0"],
+        "atom_site_fract_y": ["0"],
+        "atom_site_fract_z": ["0"],
+        "space_group_symop_magn_ssg_operation.algebraic": "x1,x2,x3,x4,+1",
+    }
+
+    payload = cifblock_to_mag_asu(block)
+
+    assert payload["symops_xyz"] == ("x1,x2,x3,x4,+1",)
+
+
 def test_mcif_type_symbols_preserve_oxidation_states() -> None:
     payload = load(str(FIXTURES / "magnetic_centered.mcif"), raw=True)
     block = dict(payload["blocks"][0])
@@ -78,6 +100,28 @@ def test_mcif_type_symbols_preserve_oxidation_states() -> None:
 
     assert structure.species[0].chemical_symbols == ("Fe",)
     assert structure.species[0].charges == (2,)
+
+
+def test_mcif_normalizes_atom_type_symbols_without_repair(caplog: pytest.LogCaptureFixture) -> None:
+    block = {
+        "format": "mcif",
+        "cell_parameters_exact": ("1", "1", "1", "90", "90", "90"),
+        "positions_exact": [("0", "0", "0")],
+        "symbols": ["ni"],
+        "labels": ["Ni1"],
+        "symops_xyz": ("x,y,z,+1",),
+    }
+
+    with caplog.at_level("WARNING", logger="httk.atomistic.mcif_structures"):
+        structure = symops_structures_from_mcif(block)[0]
+
+    species = structure.species[0]
+    assert species.name == "Ni"
+    assert species.chemical_symbols == ("Ni",)
+    assert species.charges is None
+    assert species.labels is None
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages == ["normalized atom-type symbol 'ni' to 'Ni'"]
 
 
 def test_mcif_atom_type_mass_reaches_the_species(tmp_path: Path) -> None:
@@ -286,7 +330,7 @@ def test_repaired_spatial_disorder_normalizes_occupancy_and_drops_partial_masses
 
     with pytest.raises(ValueError, match="masses for only some constituents"):
         _spatial_structure_from_mcif(structure)
-    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+    with caplog.at_level("DEBUG", logger="httk.atomistic.cif_structures"):
         projected = _spatial_structure_from_mcif(structure, repair=True)
 
     species = projected.species[0]
@@ -294,7 +338,7 @@ def test_repaired_spatial_disorder_normalizes_occupancy_and_drops_partial_masses
     assert species.mass is None
     messages = [record.getMessage() for record in caplog.records]
     assert any("omitted partially declared constituent masses" in message for message in messages)
-    assert any("normalized co-located-site occupancies" in message for message in messages)
+    assert any("rounding-level excess" in message for message in messages)
 
 
 def test_repaired_spatial_disorder_rejects_gross_overoccupancy() -> None:

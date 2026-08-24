@@ -40,7 +40,9 @@ from .composition import Assembly
 __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
 
 _ALLOW_LARGE_CIF_UNCERTAINTY = "_httk_atomistic_allow_large_cif_uncertainty"
-_MAX_REPAIR_OCCUPANCY_EXCESS = fractions.Fraction(1, 20)
+_OCCUPANCY_ROUNDING_EXCESS = fractions.Fraction(1, 1000)
+_MAX_REPAIR_OCCUPANCY_EXCESS = fractions.Fraction(1, 10)
+_TYPE_SYMBOL_SPECIALS = frozenset({"D", "T", "X", "Vac", "Va"})
 
 _CIF_CORE_TYPE_SYMBOLS = frozenset(
     [
@@ -385,7 +387,8 @@ def asu_structures_from_cif(payload: Mapping[str, Any], *, repair: bool = False,
     could not be interpreted does not read as a file that contained nothing.
 
     :param payload: The loaded whole-CIF payload or one loaded CIF block.
-    :param repair: Apply documented CIF input repairs, also enabled by a stamped payload.
+    :param repair: Apply documented CIF input repairs other than unconditional atom-type normalization,
+        also enabled by a stamped payload.
     :param \*\*options: Options forwarded to :func:`asu_structure_from_cif`.
     :return: One asymmetric-unit structure for each structural data block.
     :raises ValueError: If the payload has no interpretable structural data or a block is invalid.
@@ -446,7 +449,7 @@ def asu_structure_from_cif(
     :param limit_denominator: The maximum denominator for snapped free parameters, if supplied.
     :param trust_declared_symmetry: Whether to validate the declared symmetry before matching operations.
     :param allow_large_cif_uncertainty: Whether to allow positional uncertainty at or above one angstrom.
-    :param repair: Apply documented CIF input repairs with warnings.
+    :param repair: Apply documented CIF input repairs with warnings; atom-type normalization is unconditional.
     :return: The exact asymmetric-unit structure.
     :raises ValueError: If the block format, symmetry, coordinates, occupancies, or Wyckoff matches are invalid.
     """
@@ -532,13 +535,16 @@ def asu_structure_from_cif(
                 repair=repair,
             )
             if not 0 <= as_fraction(occupancy, field="CIF occupancy")[0] <= 1:
-                raise ValueError(f"CIF occupancy for site {labels[index]!r} must lie in [0, 1]")
+                exact_occupancy = as_fraction(occupancy, field="CIF occupancy")[0]
+                message = f"CIF occupancy for site {labels[index]!r} must lie in [0, 1]"
+                if -_MAX_REPAIR_OCCUPANCY_EXCESS <= exact_occupancy <= 1 + _MAX_REPAIR_OCCUPANCY_EXCESS:
+                    message += ". Remedy: load(..., repair=True) clamps it to the nearest bound."
+                raise ValueError(message)
         raw_symbol = symbols[index]
-        type_symbol = _repair_lowercase_type_symbol(raw_symbol) if repair else raw_symbol
+        type_symbol = _normalize_type_symbol(raw_symbol)
         if type_symbol != raw_symbol and raw_symbol not in warned_type_symbols:
             _cif_warning(
-                f"CIF block {_block_name(data)!r}: normalized lowercase atom-type symbol "
-                f"{raw_symbol!r} to {type_symbol!r}"
+                f"CIF block {_block_name(data)!r}: normalized atom-type symbol {raw_symbol!r} to {type_symbol!r}"
             )
             warned_type_symbols.add(raw_symbol)
         stated_mass = None if masses is None else masses[index]
@@ -789,6 +795,7 @@ def asu_structure_from_cif(
         labels,
         block_name=_block_name(data),
         coordinate_precision=data.get("coordinate_precision"),
+        repair=repair,
     )
     canonical_species += tuple(species_by_name[name] for name in implicit_species_names)
     return ASUStructure._from_validated_proof(
@@ -811,6 +818,7 @@ def _deduplicate_wyckoff_sites(
     *,
     block_name: str,
     coordinate_precision: Any,
+    repair: bool = False,
 ) -> tuple[_ValidatedASUProof, tuple[Species, ...], tuple[Assembly, ...] | None]:
     """Collapse repeated CIF orbits and combine co-located disorder losslessly."""
     cosets = transform.lattice_cosets()
@@ -901,7 +909,7 @@ def _deduplicate_wyckoff_sites(
                 counts.append(len(ordered))
             assemblies.append(Assembly(tuple(assembly_groups), tuple(probabilities), tuple(precisions)))
             continue
-        species = _combine_cif_species(source_species, block_name=block_name)
+        species = _combine_cif_species(source_species, block_name=block_name, repair_overoccupancy=repair)
         previous = canonical_species.get(species.name)
         if previous is not None and previous != species:
             source_labels = ", ".join(repr(labels[index]) for index in members)
@@ -1051,16 +1059,27 @@ def _combine_cif_species(
 
     normalized, _, total, width = normalization(tuple(concentrations), tuple(precisions))
     if total > 1 and not normalized:
-        if not repair_overoccupancy or total - 1 > _MAX_REPAIR_OCCUPANCY_EXCESS:
+        excess = total - 1
+        has_rounding_precision = width is not None and all(value is not None for value in precisions)
+        if has_rounding_precision and excess <= _OCCUPANCY_ROUNDING_EXCESS:
+            _cif_debug(
+                f"CIF block {block_name!r}: normalized co-located-site occupancies totaling {total} to one "
+                "(rounding-level excess)"
+            )
+        elif repair_overoccupancy and excess <= _MAX_REPAIR_OCCUPANCY_EXCESS:
+            _cif_warning(
+                f"CIF block {block_name!r}: normalized co-located-site occupancies totaling {total} to one "
+                "in the repaired spatial disorder projection"
+            )
+        else:
             source_label_text = ", ".join(repr(label) for _, label in distinct)
-            raise ValueError(
+            message = (
                 f"CIF block {block_name!r}, co-located sites {source_label_text}: occupancies sum to {total}, "
                 "outside their stated precision around one"
             )
-        _cif_warning(
-            f"CIF block {block_name!r}: normalized co-located-site occupancies totaling {total} to one "
-            "in the repaired spatial disorder projection"
-        )
+            if excess <= _MAX_REPAIR_OCCUPANCY_EXCESS:
+                message += " Remedy: load(..., repair=True) rescales them to one with a warning."
+            raise ValueError(message)
         concentrations = [value / total for value in concentrations]
         precisions = [None if value is None else value / total for value in precisions]
         width = None if width is None else width / total
@@ -1699,14 +1718,26 @@ def _type_symbol_parts(symbol: str) -> tuple[str, fractions.Fraction | None]:
     return symbol, None
 
 
-def _repair_lowercase_type_symbol(symbol: str) -> str:
-    """Canonicalize the case of a lowercase token only when that yields a known CIF type."""
+def _normalize_type_symbol(symbol: str) -> str:
+    """Return the known type symbol a case error or site-numbering suffix hides, else the input."""
     raw = symbol.strip()
-    label, _charge = _type_symbol_parts(raw)
-    repaired = label.capitalize()
-    if not label.islower() or (repaired not in SYMBOLS and repaired not in {"D", "T", "X", "Vac", "Va"}):
+    if raw in _CIF_CORE_TYPE_SYMBOLS:
         return raw
-    return raw.replace(label, repaired, 1)
+    label, _charge = _type_symbol_parts(raw)
+    if label in SYMBOLS or label in _TYPE_SYMBOL_SPECIALS or label == "vacancy":
+        return raw
+    fixed = label.capitalize()
+    if fixed in SYMBOLS or fixed in _TYPE_SYMBOL_SPECIALS:
+        candidate = raw.replace(label, fixed, 1)
+        if _decode_type_symbol(candidate, None).recognized:
+            return candidate
+    letters_digits = re.fullmatch(r"(?P<letters>[A-Za-z]+)\d+", raw)
+    if letters_digits is not None:
+        letters = letters_digits.group("letters")
+        fixed = letters if letters in SYMBOLS else letters.capitalize()
+        if fixed in SYMBOLS and _decode_type_symbol(fixed, None).recognized:
+            return fixed
+    return raw
 
 
 def _decode_type_symbol(symbol: str, stated_mass: float | None) -> _DecodedCIFType:

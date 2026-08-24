@@ -23,6 +23,7 @@ from .cif_structures import (
     _combine_cif_species,
     _decode_type_symbol,
     _exact_positions,
+    _normalize_type_symbol,
     _repair_cif_occupancy,
     _species_name,
 )
@@ -160,8 +161,15 @@ def _species(data: Mapping[str, Any], symbols: list[str], labels: list[str]) -> 
             repair=bool(data.get("repair", False)),
         )
         raw_symbol = symbol
+        type_symbol = _normalize_type_symbol(raw_symbol)
+        if type_symbol != raw_symbol and raw_symbol not in warned_type_symbols:
+            logging.getLogger(__name__).warning(
+                f"normalized atom-type symbol {raw_symbol!r} to {type_symbol!r}",
+                extra={"context": "cif"},
+            )
+            warned_type_symbols.add(raw_symbol)
         stated_mass = None if masses is None else masses[index]
-        decoded = _decode_type_symbol(raw_symbol, stated_mass)
+        decoded = _decode_type_symbol(type_symbol, stated_mass)
         if not decoded.recognized and raw_symbol not in warned_type_symbols:
             logging.getLogger(__name__).warning(
                 f"unrecognized CIF atom-type symbol {raw_symbol!r}; represented as chemical symbol 'X' "
@@ -169,7 +177,7 @@ def _species(data: Mapping[str, Any], symbols: list[str], labels: list[str]) -> 
                 extra={"context": "cif"},
             )
             warned_type_symbols.add(raw_symbol)
-        name = _species_name(raw_symbol, label, occupancy)
+        name = _species_name(type_symbol, label, occupancy)
         if name not in by_name:
             precision = None if occupancy_precisions is None else occupancy_precisions[index]
             by_name[name] = Species(

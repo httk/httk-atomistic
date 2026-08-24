@@ -48,6 +48,16 @@ from httk.atomistic.symmetry.wyckoff import WyckoffBranch
 
 F = fractions.Fraction
 
+_COD_OCCUPANCY_FIXTURES = {
+    name: Path(__file__).resolve().parents[2] / f"DATA/COD/cif/{path}.cif"
+    for name, path in {
+        "4002923": "4/00/29/4002923",
+        "4002853": "4/00/28/4002853",
+        "4002910": "4/00/29/4002910",
+    }.items()
+}
+_COD_BARE_SYMOP = Path(__file__).resolve().parents[2] / "DATA/COD/cif/1/00/18/1001844.cif"
+
 
 def _write_cif(
     path: Path,
@@ -426,17 +436,183 @@ def test_repair_clamps_an_individual_refined_occupancy(tmp_path: Path, caplog: p
         tmp_path / "refined.cif",
         Spacegroup.standard(1).setting,
         (1, 1, 1, 90, 90, 90),
-        [("O1", "O", ("0", "0", "0"), "1.013")],
+        [("O1", "O", ("0", "0", "0"), "1.08")],
         name="Refined",
     )
 
-    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+    with pytest.raises(ValueError, match=r"\[0, 1\].*repair=True"):
         load(path)
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
         repaired = load(path, repair=True)
 
     assert repaired.species[0].concentration == (1,)
     assert any("clamped site 'O1' occupancy" in record.getMessage() for record in caplog.records)
+
+
+def test_rounding_level_coincident_occupancies_are_rescaled_without_repair(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_cif(
+        tmp_path / "rounding-level.cif",
+        Spacegroup.standard(1).setting,
+        (1, 1, 1, 90, 90, 90),
+        [
+            ("Fe1", "Fe", ("0", "0", "0"), "0.83335"),
+            ("Mn1", "Mn", ("0", "0", "0"), "0.16669"),
+        ],
+        name="RoundingLevel",
+    )
+
+    with caplog.at_level("DEBUG", logger="httk.atomistic.cif_structures"):
+        species = load(path).species[0]
+
+    assert sum(species.concentration) == 1
+    assert "vacancy" not in species.chemical_symbols
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("rounding-level excess" in message for message in messages)
+    assert not any(record.levelname == "WARNING" for record in caplog.records)
+
+
+def test_exact_coincident_occupancies_require_repair_hint(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "exact-overoccupancy.cif",
+        Spacegroup.standard(1).setting,
+        (1, 1, 1, 90, 90, 90),
+        [
+            ("Fe1", "Fe", ("0", "0", "0"), "1"),
+            ("Mn1", "Mn", ("0", "0", "0"), "1/1000"),
+        ],
+        name="ExactOveroccupancy",
+    )
+
+    payload = load(path, raw=True)["blocks"][0]
+    assert payload["occupancy_precisions"] == [None, None]
+    with pytest.raises(ValueError, match=r"occupancies sum to 1001/1000.*repair=True"):
+        load(path)
+
+
+def test_occupancy_tier_boundaries_are_inclusive(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    rounding_path = _write_cif(
+        tmp_path / "rounding-boundary.cif",
+        Spacegroup.standard(1).setting,
+        (1, 1, 1, 90, 90, 90),
+        [
+            ("Fe1", "Fe", ("0", "0", "0"), "0.5000"),
+            ("Mn1", "Mn", ("0", "0", "0"), "0.5010"),
+        ],
+        name="RoundingBoundary",
+    )
+    assert sum(load(rounding_path).species[0].concentration) == 1
+
+    repair_path = _write_cif(
+        tmp_path / "repair-boundary.cif",
+        Spacegroup.standard(1).setting,
+        (1, 1, 1, 90, 90, 90),
+        [
+            ("Fe1", "Fe", ("0", "0", "0"), "0.6"),
+            ("Mn1", "Mn", ("0", "0", "0"), "0.5"),
+        ],
+        name="RepairBoundary",
+    )
+    with pytest.raises(ValueError, match=r"occupancies sum to 11/10.*repair=True"):
+        load(repair_path)
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        repaired = load(repair_path, repair=True)
+    assert sum(repaired.species[0].concentration) == 1
+    assert any("normalized co-located-site occupancies" in record.getMessage() for record in caplog.records)
+
+    gross_path = _write_cif(
+        tmp_path / "gross-boundary.cif",
+        Spacegroup.standard(1).setting,
+        (1, 1, 1, 90, 90, 90),
+        [
+            ("Fe1", "Fe", ("0", "0", "0"), "0.6"),
+            ("Mn1", "Mn", ("0", "0", "0"), "0.501"),
+        ],
+        name="GrossBoundary",
+    )
+    with pytest.raises(ValueError, match=r"occupancies sum to 1101/1000") as error:
+        load(gross_path, repair=True)
+    assert "repair=True" not in str(error.value)
+
+
+@pytest.mark.parametrize(
+    ("name", "occupancies", "total", "concentrations"),
+    [
+        ("TwentySix", ("0.96", "0.08"), "26/25", (F(24, 26), F(2, 26))),
+        ("FiftyThree", ("0.80", "0.26"), "53/50", (F(40, 53), F(13, 53))),
+    ],
+)
+def test_moderate_coincident_occupancies_require_repair(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    name: str,
+    occupancies: tuple[str, str],
+    total: str,
+    concentrations: tuple[fractions.Fraction, fractions.Fraction],
+) -> None:
+    path = _write_cif(
+        tmp_path / f"{name}.cif",
+        Spacegroup.standard(1).setting,
+        (1, 1, 1, 90, 90, 90),
+        [
+            ("Fe1", "Fe", ("0", "0", "0"), occupancies[0]),
+            ("Mn1", "Mn", ("0", "0", "0"), occupancies[1]),
+        ],
+        name=name,
+    )
+
+    with pytest.raises(ValueError, match=rf"occupancies sum to {total}.*repair=True"):
+        load(path)
+
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        species = load(path, repair=True).species[0]
+
+    assert sorted(species.concentration) == sorted(concentrations)
+    assert sum(species.concentration) == 1
+    assert any("normalized co-located-site occupancies" in record.getMessage() for record in caplog.records)
+
+
+def test_gross_coincident_occupancies_are_rejected_even_with_repair(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "gross.cif",
+        Spacegroup.standard(1).setting,
+        (1, 1, 1, 90, 90, 90),
+        [
+            ("Fe1", "Fe", ("0", "0", "0"), "0.80"),
+            ("Mn1", "Mn", ("0", "0", "0"), "0.35"),
+        ],
+        name="Gross",
+    )
+
+    with pytest.raises(ValueError, match=r"occupancies sum to 23/20") as error:
+        load(path, repair=True)
+    assert "repair=True" not in str(error.value)
+
+
+@pytest.mark.skipif(
+    not _COD_OCCUPANCY_FIXTURES["4002923"].exists(), reason="workspace-only real-data fixture not present"
+)
+def test_cod_4002923_occupancy_loads_without_repair() -> None:
+    load(_COD_OCCUPANCY_FIXTURES["4002923"])
+
+
+@pytest.mark.skipif(
+    not _COD_OCCUPANCY_FIXTURES["4002853"].exists(), reason="workspace-only real-data fixture not present"
+)
+def test_cod_4002853_occupancy_requires_repair() -> None:
+    with pytest.raises(ValueError, match="repair=True"):
+        load(_COD_OCCUPANCY_FIXTURES["4002853"])
+    load(_COD_OCCUPANCY_FIXTURES["4002853"], repair=True)
+
+
+@pytest.mark.skipif(
+    not _COD_OCCUPANCY_FIXTURES["4002910"].exists(), reason="workspace-only real-data fixture not present"
+)
+def test_cod_4002910_occupancy_requires_repair() -> None:
+    with pytest.raises(ValueError, match="repair=True"):
+        load(_COD_OCCUPANCY_FIXTURES["4002910"])
+    load(_COD_OCCUPANCY_FIXTURES["4002910"], repair=True)
 
 
 def test_coincident_partial_sites_form_one_mixed_species(tmp_path: Path) -> None:
@@ -602,6 +778,32 @@ def test_core_load_adapts_single_cif_and_raw_keeps_payload(tmp_path: Path) -> No
     assert isinstance(structure, ASUStructure)
     payload = load(str(path), raw=True)
     assert payload["format"] == "cif"
+
+
+def test_bare_scalar_symmetry_operation_loads_as_a_single_p1_operation(tmp_path: Path) -> None:
+    path = tmp_path / "bare-symop.cif"
+    path.write_text(
+        "data_p1\n"
+        "_cell_length_a 5\n_cell_length_b 5\n_cell_length_c 5\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 90\n"
+        "_symmetry_equiv_pos_as_xyz x,y,z\n"
+        "loop_\n_atom_site_label\n_atom_site_type_symbol\n"
+        "_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        "Si1 Si 0 0 0\n",
+        encoding="utf-8",
+    )
+
+    structure = load(path)
+
+    assert len(structure.sites) == 1
+    assert structure.spacegroup.it_number == 1
+
+
+@pytest.mark.skipif(not _COD_BARE_SYMOP.exists(), reason="workspace-only real-data fixture not present")
+def test_cod_1001844_with_bare_scalar_symmetry_operation_loads() -> None:
+    structure = load(_COD_BARE_SYMOP)
+
+    assert len(structure.sites) > 0
 
 
 def test_clean_cif_is_unchanged_when_repair_is_disabled(tmp_path: Path) -> None:

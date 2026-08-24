@@ -68,7 +68,7 @@ Repair is not a general “make this file work” switch. It is a fixed set of t
 | Missing symmetry-operation loop with a valid Hall symbol | Reject | Generate the exact setting's operations and warn |
 | Unknown declared Hall/IT symmetry but usable operations | Reject the contradictory declaration | Ignore the declaration, identify the operations, and warn when the documented repair path applies |
 | Invalid modern Wyckoff metadata | Reject | Ignore the metadata, use coordinates, and warn |
-| One occupancy within 0.05 outside `[0, 1]` | Reject | Clamp to the nearest boundary and warn |
+| One occupancy within `[-0.1, 1.1]` outside `[0, 1]` | Reject | Clamp to the nearest boundary and warn |
 | Larger occupancy violation | Reject | Reject |
 
 The Latin-1 retry applies only when the reader owns a filesystem path and can reopen it.
@@ -229,12 +229,16 @@ a Boolean site-presence flag.
   symbols, concentrations, uncertainties, charges, source labels, and masses remain aligned.
 - Identical duplicate rows are deduplicated.
 - Orbits that overlap only partly are rejected because they cannot describe one shared site.
-- A co-located concentration total above one outside its stated precision is rejected for an
-  ordinary CIF, including in repair mode. Choosing which constituent to change is a chemistry
-  decision.
+- A co-located concentration total above one that lies outside its stated-precision interval
+  is normalized without repair when the excess is no larger than `1/1000` and every constituent
+  has a stated precision, with a DEBUG diagnostic (a total within its stated precision is kept
+  unchanged, as before). An
+  excess no larger than `1/10` is rescaled with a warning under `repair=True`, or rejected with
+  a `repair=True` remedy hint otherwise. Larger excesses are rejected for an ordinary CIF,
+  including in repair mode. Choosing which constituent to change is a chemistry decision.
 
-The individual-value repair is deliberately narrow: values in `[-0.05, 0)` clamp to zero and
-values in `(1, 1.05]` clamp to one, with a warning. Values outside that band remain errors.
+The individual-value repair is deliberately narrow: values in `[-0.1, 0)` clamp to zero and
+values in `(1, 1.1]` clamp to one, with a warning. Values outside that band remain errors.
 
 ## Magnetic CIF
 
@@ -278,10 +282,13 @@ moments as chemical symmetry breaking:
    source-row order.
 6. Combine their disorder species, then recognize the ordinary spatial ASU.
 
-Under repair, this *report-only projection* may normalize a co-located occupancy total no
-larger than 1.05 and may omit a mass channel declared for only some constituents. Both actions
-warn. A larger occupancy contradiction is rejected. These projections do not mutate the
-native magnetic structure.
+This *report-only projection* applies the same occupancy tiers as ordinary CIF loading: a
+total outside its stated-precision interval with a rounding-level excess no larger than
+`1/1000` is normalized without repair when all constituents have stated precisions, with a
+DEBUG diagnostic; an excess no larger than `1/10`
+is normalized under `repair=True` with a warning and otherwise rejected with a `repair=True`
+remedy hint; larger excesses are rejected. It may also omit a mass channel declared for only
+some constituents under repair. These projections do not mutate the native magnetic structure.
 
 ## Writing and round-trip guarantees
 

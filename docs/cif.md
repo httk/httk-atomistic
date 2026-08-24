@@ -50,7 +50,7 @@ Two conveniences smooth over real-world files:
   malformed *auxiliary* loops whose column counts do not line up and retries legacy
   non-UTF-8 path inputs as Latin-1. During `load`, the structure adapter additionally
   ignores invalid declared Wyckoff metadata in favor of the coordinates and clamps
-  an individual refined occupancy no more than `0.05` outside `[0, 1]` to the nearest
+  an individual refined occupancy no more than `0.1` outside `[0, 1]` to the nearest
   boundary. Larger violations remain errors. Strict loading rejects each of those cases.
 
 ### Partial occupancy and disorder
@@ -59,12 +59,15 @@ Site occupancy is represented without discarding chemistry. When several atom-si
 generate exactly the same symmetry orbit, the reader combines their elements, occupancies,
 charges, and source labels into one mixed `Species`. When a site's total occupancy is below
 one, the remaining fraction is represented by an explicit `"vacancy"` constituent. A
-co-located total above one outside its stated precision remains invalid for an ordinary CIF
-even in repair mode; no constituent is silently dropped. For the moment-free spatial report
-of an mCIF, repair mode may instead normalize a co-located mixture whose total is at most
-`1.05` and omit
-a mass channel declared for only some constituents. Both lossy projections emit warnings and
-leave the native magnetic structure unchanged.
+co-located total above one that lies outside its stated-precision interval is normalized
+without repair when the excess is no larger than `1/1000` and every constituent has a stated
+precision, with a DEBUG diagnostic (a total within its stated precision is kept unchanged, as
+before). An excess no larger
+than `1/10` is rescaled with a warning under `repair=True`, or rejected with a `repair=True`
+remedy hint otherwise; larger excesses are rejected. For the moment-free spatial report of an
+mCIF, the same `1/10` cap applies under repair, and a partial mass channel may also be omitted.
+These projections emit warnings where repair changes or omits source data and leave the native
+magnetic structure unchanged.
 
 Orbits that only partly overlap remain invalid, because they do not describe one shared
 crystallographic site and cannot be combined as a species composition.

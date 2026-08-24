@@ -769,6 +769,8 @@ def cifblock_to_asu(
     if symops_xyz is None:
         # some CIFs use older spelling
         symops_xyz = cifblock.get('symmetry_equiv_pos_as_xyz')
+    if isinstance(symops_xyz, str):
+        symops_xyz = (symops_xyz,)
 
     if symops_xyz is None:
         if not repair or not space_group_name_hall:
