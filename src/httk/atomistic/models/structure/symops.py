@@ -652,6 +652,14 @@ class SymopsStructure(StructureSemanticsMixin, StructureBackend):
                 for operation, time_reversal in stabilizer
             ):
                 raise RuntimeError("magnetic stabilizer projection did not produce an invariant moment")
+            logger.debug(
+                "site %d source moment %r was not stabilizer-invariant; reconciled to the "
+                "weighted stabilizer-invariant projection %r",
+                site_index,
+                frame_row,
+                corrected_frame,
+                extra={"context": "mcif"},
+            )
             reconciled.append(corrected_row)
         return tuple(reconciled)
 

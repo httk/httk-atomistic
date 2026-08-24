@@ -56,7 +56,7 @@ def test_symbol_from_label(label, expected):
     assert _symbol_from_label(label) == expected
 
 
-def test_symbols_inferred_from_labels_at_debug(tmp_path, caplog):
+def test_symbols_inferred_from_labels_warns(tmp_path, caplog):
     src = tmp_path / "no_type_symbol.cif"
     src.write_text(_loop(["MgM1", "CaM2", "SiT", "O1", "OW1"]), encoding="utf-8")
 
@@ -65,24 +65,39 @@ def test_symbols_inferred_from_labels_at_debug(tmp_path, caplog):
 
     assert payload["blocks"], payload["unparsed"]
     assert payload["blocks"][0]["symbols"] == ["Mg", "Ca", "Si", "O", "O"]
+    # Inferring chemistry from a label is a guess, so it warns rather than logging at debug.
     assert len(caplog.records) == 1
-    assert caplog.records[0].levelno == logging.DEBUG
+    assert caplog.records[0].levelno == logging.WARNING
     assert caplog.records[0].context == "cif"
     assert "inferred from _atom_site_label" in caplog.records[0].getMessage()
 
 
-def test_uninferable_label_maps_to_x_with_warning(tmp_path, caplog):
+def test_uninferable_label_is_rejected_in_strict_mode(tmp_path, caplog):
     src = tmp_path / "bad_label.cif"
     src.write_text(_loop(["MgM1", "Zz1"]), encoding="utf-8")
 
     with caplog.at_level(logging.WARNING, logger="httk.atomistic.io.cif.cif_parser"):
         payload = read_cif_asus(str(src))
 
+    # Strict mode does not guess: the block cannot be interpreted and is collected unparsed.
+    assert payload["blocks"] == []
+    assert payload["unparsed"]
+    assert "Zz1" in payload["unparsed"][0]["reason"]
+
+
+def test_uninferable_label_maps_to_x_under_repair(tmp_path, caplog):
+    src = tmp_path / "bad_label.cif"
+    src.write_text(_loop(["MgM1", "Zz1"]), encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING, logger="httk.atomistic.io.cif.cif_parser"):
+        payload = read_cif_asus(str(src), repair=True)
+
     assert payload["blocks"][0]["symbols"] == ["Mg", "X"]
     assert len(caplog.records) == 1
     assert caplog.records[0].levelno == logging.WARNING
     assert caplog.records[0].context == "cif"
-    assert "mapped to X for: Zz1" in caplog.records[0].getMessage()
+    assert "mapped to X" in caplog.records[0].getMessage()
+    assert "Zz1" in caplog.records[0].getMessage()
 
 
 def test_present_type_symbol_column_is_unchanged(tmp_path, caplog):
@@ -113,4 +128,7 @@ def test_cod_diopside_reads_without_type_symbol_column(caplog):
 
     assert payload["blocks"], payload["unparsed"]
     assert payload["blocks"][0]["symbols"] == ["Mg", "Ca", "Si", "O", "O", "O"]
-    assert any(record.levelno == logging.DEBUG for record in caplog.records)
+    assert any(
+        record.levelno == logging.WARNING and "inferred from _atom_site_label" in record.getMessage()
+        for record in caplog.records
+    )

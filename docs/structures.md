@@ -21,8 +21,9 @@ recovers the exact original.
 
 `Structure` is the exact-geometry, assigned-species cell of the three-row
 material-information taxonomy; {doc}`prototypes` lays out that matrix and the
-coarser levels (`Structuretype`, `Protostructure`, and `Prototype`) that a
-structure projects to. A middle-row value may retain an exact representative
+coarser levels (`Structuretype`, `Protostructure`, `Prototype`, and
+`Formulatype`) that a structure projects to. A middle-row value may retain an
+exact representative
 and/or a discriminator; those optional fields affect equality and content
 identity while remaining separate from its label.
 

@@ -396,6 +396,29 @@ def test_discrete_and_continuous_normalizer_translations() -> None:
         assert _rank(computed) == _rank(vendored) == _rank(computed + vendored)
 
 
+@pytest.mark.extended
+def test_po_p1_invariance_battery() -> None:
+    variants = _invariance_variants(
+        ((5, 0, 0), (0, 5, 0), (0, 0, 5)), [WyckoffSite("a", FracVector((0, 0, 0)), "Po")], ["Po"]
+    )
+    reference = _result_key(canonicalize(variants["base"], tolerance=1e-3))
+    assert reference[0] == 221 and reference[1] == (("Po", "a", ()),)
+    for name, structure in variants.items():
+        assert _result_key(canonicalize(structure, tolerance=1e-3)) == reference, name
+    # Expansion sanity: the canonical result is the same crystal as the (unrotated) input.
+    canonical = canonicalize(variants["base"], tolerance=1e-3)
+    assert same_crystal(UnitcellStructureView(canonical.asu), UnitcellStructureView(variants["base"]))
+
+
+@pytest.mark.extended
+def test_cscl_p1_invariance_battery() -> None:
+    variants = _invariance_variants(((4, 0, 0), (0, 4, 0), (0, 0, 4)), _cscl_sites(), ["Cs", "Cl"])
+    reference = _result_key(canonicalize(variants["base"], tolerance=1e-3))
+    assert reference[0] == 221 and reference[1] == (("Cl", "a", ()), ("Cs", "b", ()))
+    for name, structure in variants.items():
+        assert _result_key(canonicalize(structure, tolerance=1e-3)) == reference, name
+
+
 # --- phase 3 review fixes: chirality, orbit representative, centred lattices, exact orientation ---
 
 
@@ -655,6 +678,23 @@ def _supercell_result_key(structure: ASUStructure) -> tuple[Any, ...]:
     return (result.spacegroup.it_number, _site_key(result.asu), result.asu.cell.basis)
 
 
+@pytest.mark.extended
+def test_supercell_battery_canonicalizes_to_the_primitive_result() -> None:
+    # A sheared Po supercell (det 2) canonicalizes to exactly the primitive base result, at base-case
+    # speed because the exact P1 supercell collapse fires before the search.
+    po_base = _p1(Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))), [WyckoffSite("a", FracVector((0, 0, 0)), "Po")])
+    po_reference = _supercell_result_key(po_base)
+    shear = FracVector(((1, 0, 0), (0, 1, 0), (1, 0, 2)))
+    inverse = shear.inv()
+    po_shear = ASUStructure(
+        Cell(SurdVector(shear) * Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))).basis),
+        1,
+        [WyckoffSite("a", (FracVector(point) * inverse).normalize(), "Po") for point in ((0, 0, 0), (0, 0, 1))],
+        _species("Po"),
+    )
+    assert _supercell_result_key(po_shear) == po_reference
+
+
 def test_primitive_reduction_preserves_cartesian_precision() -> None:
     # coordinate_precision is fractional; the subdivided cell must rescale it so the *Cartesian*
     # precision (and the derived tolerance) is invariant, not silently tightened.
@@ -821,6 +861,19 @@ def test_scrambled_single_atom_po_canonicalizes_to_cubic() -> None:
     assert _result_key(canonicalize(_scrambled_p1(_SCRAMBLE_BATTERY["Po-221"], 1), tolerance=1e-3)) == reference
 
 
+@pytest.mark.extended
+def test_scramble_invariance_battery() -> None:
+    # Scrambling (unimodular shear + origin shift + reorder) a P1 description must canonicalize to
+    # exactly the unscrambled P1 expansion's result -- including FCC NaCl (F-centred cubic hop
+    # recovered by the integer re-choice arm) and rhombohedral Bi-166 (recovered by the centred recell
+    # arm's primitive-lattice search and discrete-translation crossing). One seed keeps CI depth down;
+    # the full multi-seed sweep lives in benchmarks/bench_lift_p1.py.
+    seed = 1
+    for name, reference in _SCRAMBLE_BATTERY.items():
+        expected = _result_key(canonicalize(_expanded_p1(reference), tolerance=1e-3))
+        assert _result_key(canonicalize(_scrambled_p1(reference, seed), tolerance=1e-3)) == expected, (name, seed)
+
+
 def test_p1_cubic_metric_stabilizer_normalizes_a_signed_permutation() -> None:
     """A P1 result remains invariant across the finite boundary stabilizer of a cubic Niggli Gram."""
     cell_rows = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
@@ -959,6 +1012,15 @@ def test_conventional_recell_tier_is_dormant_on_a_p_lattice(monkeypatch: pytest.
 
 
 @pytest.mark.extended
+def test_conventional_recell_tier_lands_fcc_nacl(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Sanity anchor: FCC NaCl strands without the tier; the tier must fire and land IT 225.
+    calls = _count_recell_searches(monkeypatch)
+    result = canonicalize(_expanded_p1(_SCRAMBLE_BATTERY["NaCl-225-fcc"]), tolerance=1e-3)
+    assert result.spacegroup.it_number == 225
+    assert calls[0] > 0
+
+
+@pytest.mark.extended
 def test_conventional_recell_tier_lands_r_centred_bi(monkeypatch: pytest.MonkeyPatch) -> None:
     # Sanity anchor for the centred recell arm: the R-centred hexagonal conventional cell is an
     # intrinsic threefold supercell of the carried child's CONVENTIONAL lattice, so the integer
@@ -998,6 +1060,20 @@ def test_conventional_recell_tier_lands_r_centred_bi(monkeypatch: pytest.MonkeyP
     # Direct entry at 166 and the P1 climb agree exactly -- the arm restores full entry coherence.
     direct = canonicalize(bismuth, tolerance=1e-3)
     assert _result_key(result) == _result_key(direct)
+
+
+@pytest.mark.extended
+def test_conventional_recell_re_expressions_are_unimodular_and_right_handed(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The tier's own invariant, guarded rather than left to downstream accident: every re-expression
+    # it applies is unimodular (|det| = 1, no volume change) and orientation-preserving (det = +1, no
+    # left-handed flip).  The FCC NaCl climb both lands via the tier and exercises its other firings
+    # (including the IT 44 -> 119 hop the review flagged as left-handed), so its applied set covers
+    # the guard.
+    applied = _capture_recell_applications(monkeypatch)
+    result = canonicalize(_expanded_p1(_SCRAMBLE_BATTERY["NaCl-225-fcc"]), tolerance=1e-3)
+    assert result.spacegroup.it_number == 225
+    assert applied  # the tier fired and applied at least one re-expression
+    assert all(operation.determinant() == 1 for operation in applied)
 
 
 def test_non_integer_centred_automorphisms_are_rejected_at_the_op_set_gate() -> None:

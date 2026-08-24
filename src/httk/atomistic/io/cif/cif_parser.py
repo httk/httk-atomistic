@@ -164,9 +164,15 @@ def parse_cif_float(
     # CIF numbers written with zero or one decimal place conventionally state a value without
     # enough digits to support a useful precision claim. More decimal places retain the normal rule.
     decimal_places = len(mant_str.partition('.')[2])
-    precision = None if decimal_places <= 1 else decimal_precision(mant_str)
-    if precision is not None and exp:
-        precision = precision * Fraction(10) ** exp
+    if exp:
+        # An explicit exponent is a deliberate precision statement, so apply the core
+        # decimal-precision rule and scale by the exponent even for one-decimal mantissas
+        # such as 1.2e-3; the one-decimal exemption is only for plain decimal literals.
+        precision = decimal_precision(mant_str)
+        if precision is not None:
+            precision = precision * Fraction(10) ** exp
+    else:
+        precision = None if decimal_places <= 1 else decimal_precision(mant_str)
 
     esd_str = m.group('esd')
     if not meta:
@@ -314,7 +320,7 @@ def _optional_atom_site_column(block: Mapping[str, Any], name: str, count: int) 
     return [str(value).strip() for value in values]
 
 
-def _parse_atoms(block: Mapping[str, Any]) -> tuple[Any, ...]:
+def _parse_atoms(block: Mapping[str, Any], *, repair: bool = False, block_name: str | None = None) -> tuple[Any, ...]:
     """Parse atom data without coordinate-precision reporting."""
     syms = block.get('atom_site_type_symbol')
     lbs = block.get('atom_site_label')
@@ -325,6 +331,9 @@ def _parse_atoms(block: Mapping[str, Any]) -> tuple[Any, ...]:
     if not isinstance(syms, list) and isinstance(lbs, list):
         # The CIF core dictionary makes _atom_site_type_symbol optional; when it is absent the
         # element is usually derivable from the label, so infer it rather than refusing the file.
+        # Inference guesses chemistry from a label, so it always warns; a label from which no
+        # element can be read is an error in strict mode and only mapped to X under repair.
+        where = f"CIF block {block_name!r}" if block_name is not None else "CIF block"
         declared = _first_tag(block, 'atom_type_symbol', 'atom_type.symbol')
         declarations = (
             [str(value).strip() for value in declared]
@@ -333,15 +342,21 @@ def _parse_atoms(block: Mapping[str, Any]) -> tuple[Any, ...]:
         )
         inferred = [_declared_type_from_label(lab, declarations) or _symbol_from_label(lab) for lab in lbs]
         unresolved = [lab for lab, sym in zip(lbs, inferred) if sym is None]
+        if unresolved and not repair:
+            # The loader prepends the block name to the reason, so do not repeat it here.
+            raise ValueError(
+                "no _atom_site_type_symbol column and the element could not be "
+                f"inferred from _atom_site_label for: {', '.join(unresolved)}"
+            )
         if unresolved:
             logging.getLogger(__name__).warning(
-                "CIF block has no _atom_site_type_symbol column; element symbols could not be cleanly "
-                f"inferred from _atom_site_label and were mapped to X for: {', '.join(unresolved)}",
+                f"{where} has no _atom_site_type_symbol column; element symbols could not be inferred "
+                f"from _atom_site_label for {', '.join(unresolved)} and were mapped to X under repair",
                 extra={'context': 'cif'},
             )
         else:
-            logging.getLogger(__name__).debug(
-                "CIF block has no _atom_site_type_symbol column; element symbols inferred from _atom_site_label",
+            logging.getLogger(__name__).warning(
+                f"{where} has no _atom_site_type_symbol column; element symbols were inferred from _atom_site_label",
                 extra={'context': 'cif'},
             )
         syms = [symbol if symbol is not None else 'X' for symbol in inferred]
@@ -429,9 +444,11 @@ def _prefer_exact_token(
     return cif_exact_token(standard)
 
 
-def _parse_atoms_with_precision(block: Mapping[str, Any]) -> tuple[Any, ...]:
+def _parse_atoms_with_precision(
+    block: Mapping[str, Any], *, repair: bool = False, block_name: str | None = None
+) -> tuple[Any, ...]:
     """Parse atom data and report the coarsest coordinate precision."""
-    parsed = _parse_atoms(block)
+    parsed = _parse_atoms(block, repair=repair, block_name=block_name)
     xs = block['atom_site_fract_x']
     ys = block['atom_site_fract_y']
     zs = block['atom_site_fract_z']
@@ -584,10 +601,13 @@ class AsuCell(NamedTuple):
     equivalent_atoms: list[int]
 
 
-def parse_asu_cell(cifblock: Mapping[str, Any]) -> AsuCell:
+def parse_asu_cell(cifblock: Mapping[str, Any], *, repair: bool = False, block_name: str | None = None) -> AsuCell:
     """Parse a CIF block into its asymmetric-unit cell data.
 
     :param cifblock: Normalized CIF data for one data block.
+    :param repair: Map otherwise-unresolvable labels to ``X`` instead of raising when no
+        ``_atom_site_type_symbol`` column is present.
+    :param block_name: Source block name for element-inference diagnostics.
     :return: The parsed unit cell and atom-site data.
     :raises ValueError: If required cell or atom-site data is missing or invalid.
     """
@@ -606,7 +626,7 @@ def parse_asu_cell(cifblock: Mapping[str, Any]) -> AsuCell:
         occs_exact,
         occupancy_precisions,
         coordinate_precision,
-    ) = _parse_atoms_with_precision(cifblock)
+    ) = _parse_atoms_with_precision(cifblock, repair=repair, block_name=block_name)
 
     # figure out equivalent atoms based on labels
     labels_map = {}
@@ -727,7 +747,7 @@ def cifblock_to_asu(
     :return: A neutral mapping containing cell, atom, symmetry, and metadata channels.
     :raises ValueError: If the block lacks required cell, atom-site, or symmetry data.
     """
-    asu = parse_asu_cell(cifblock)
+    asu = parse_asu_cell(cifblock, repair=repair, block_name=block_name)
     calc_flags = _optional_atom_site_column(cifblock, 'atom_site_calc_flag', len(asu.labels))
     attached_tokens = _optional_atom_site_column(cifblock, 'atom_site_attached_hydrogens', len(asu.labels))
     attached_hydrogens = None

@@ -17,9 +17,8 @@ from httk.atomistic import (
     WyckoffSite,
     build_supercell,
     canonical_asu,
-    same_crystal,
 )
-from httk.atomistic.symmetry.canonical import _fits_within, _p1_fallback
+from httk.atomistic.symmetry.canonical import _fits_within
 from httk.atomistic.symmetry.lift import _site_key
 
 
@@ -208,22 +207,18 @@ def test_symprec_sweep_rejects_a_structurally_invalid_loose_candidate(
     assert failures == ["0.5: recognized model is structurally invalid: loose symprec merged two split sites"]
 
 
-def test_all_members_failing_fall_back_to_exact_p1(caplog: pytest.LogCaptureFixture) -> None:
+def test_all_members_failing_lists_every_attempted_tolerance() -> None:
     pytest.importorskip("spglib")
-    # Two Na sites 5e-5 A apart merge at every swept symprec, so no recognized member reproduces the
-    # input. The fallback keeps every exact input site in P1 instead.
+    # Two Na sites 5e-5 A apart merge at every swept symprec, so no member reproduces the input; the
+    # error lists each attempted symprec (loosest first).
     two_close_na = UnitcellStructure(
         Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))),
         [[0, 0, 0], [0, 0, F(1, 100000)], [F(1, 2), F(1, 2), F(1, 2)]],
         _species("Na", "Cl"),
         ["Na", "Na", "Cl"],
     )
-    result = canonical_asu(two_close_na, tolerance=1e-3, factors=(F(1, 5), 1, 5))
-
-    assert result.spacegroup.it_number == 1
-    assert same_crystal(_p1_fallback(UnitcellStructureView(two_close_na), []), two_close_na)
-    assert len(UnitcellStructureView(result).sites) == len(two_close_na.sites)
-    assert "using its exact P1 geometry" in caplog.text
+    with pytest.raises(ValueError, match=r"tried \[0\.005.*0\.001.*0\.0002"):
+        canonical_asu(two_close_na, tolerance=1e-3, factors=(F(1, 5), 1, 5))
 
 
 def test_default_and_lift_agree_on_a_clean_structure() -> None:
@@ -292,11 +287,11 @@ def test_loosest_fitting_member_wins_and_stops_the_sweep(monkeypatch: pytest.Mon
     monkeypatch.setattr(canonical_module, "recognize_asu", counting_recognize)
     monkeypatch.setattr(canonical_module, "_canonical_without_bfs", counting_stage)
     # Clean NaCl: the loosest symprec (base*5) already recognizes and fits, so the sweep stops after
-    # one recognition; exact canonicalization runs once for P1 preconditioning and once for the
-    # recognized result -- no matter how many factors are passed.
+    # one recognition; the exact canonicalization stage runs once for the recognized result (P1
+    # preconditioning is now the lighter Niggli path) -- no matter how many factors are passed.
     canonical_asu(UnitcellStructureView(_nacl()), factors=(F(1, 5), 1, 5))
     assert recognitions == 1
-    assert stages == 2
+    assert stages == 1
 
 
 def test_p1_rescue_reverses_the_canonical_frame_instead_of_retrying_the_source(
@@ -351,17 +346,16 @@ def _p4332() -> ASUStructure:
     )
 
 
-def test_enantiomorph_preserves_chirality_by_default() -> None:
+def test_enantiomorph_normalizes_to_the_lower_member_by_default() -> None:
     pytest.importorskip("spglib")
     view = UnitcellStructureView(_p4332())
-    # A genuinely chiral cell recognized in the higher member (213) keeps its handedness by default;
-    # callers can still explicitly collapse the enantiomorphic pair to the lower member.
-    assert canonical_asu(view).spacegroup.it_number == 213
-    assert canonical_asu(view, preserve_chirality=False).spacegroup.it_number == 212
-    # Robust to sub-tolerance noise: recognition still lands in the pair and honors the policy.
+    # A genuinely chiral cell recognized in the higher member (213) is normalized to the lower one.
+    assert canonical_asu(view).spacegroup.it_number == 212
+    assert canonical_asu(view, preserve_chirality=True).spacegroup.it_number == 213
+    # Robust to sub-tolerance noise: recognition still lands in the pair, normalization still fires.
     noisy = _perturbed(UnitcellStructure(*_expanded(_p4332())), 400_000)
-    assert canonical_asu(noisy).spacegroup.it_number == 213
-    assert canonical_asu(noisy, preserve_chirality=False).spacegroup.it_number == 212
+    assert canonical_asu(noisy).spacegroup.it_number == 212
+    assert canonical_asu(noisy, preserve_chirality=True).spacegroup.it_number == 213
 
 
 def test_structure_api_canonical_proto_values_collapse_enantiomorphs(

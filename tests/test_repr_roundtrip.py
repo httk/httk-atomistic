@@ -59,6 +59,48 @@ def test_formula_reprs_name_their_class() -> None:
     _roundtrips(a)
 
 
+def test_prototype_and_protostructure_repr_render_optional_markers() -> None:
+    # These reprs are human summaries (the `letter:label` body is not a constructor call),
+    # so they are asserted by format: the base plus representative=.../discriminator= markers.
+    from httk.core import FracVector
+
+    from httk.atomistic import (
+        ASUStructure,
+        FundamentalDomainTemplate,
+        Protostructure,
+        Prototype,
+        WyckoffSite,
+    )
+
+    cell = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
+    empty = FracVector(())
+
+    base = Prototype(225, [("a", "A"), ("b", "B")])
+    assert repr(base) == "Prototype('225', a:A, b:B)"
+    assert repr(Prototype(225, [("a", "A")], discriminator="001")) == "Prototype('225', a:A, discriminator='001')"
+    template = FundamentalDomainTemplate(
+        cell,
+        225,
+        (WyckoffSite("a", empty, "A"), WyckoffSite("b", empty, "B")),
+        (Species("A", ("X",), (1,), labels=("A",)), Species("B", ("X",), (1,), labels=("B",))),
+    )
+    with_all = repr(Prototype(representative=template, discriminator="001"))
+    assert with_all == "Prototype('225', a:A, b:B, representative=..., discriminator='001')"
+
+    proto = Protostructure(225, [("a", "Na"), ("b", "Cl")])
+    assert repr(proto) == "Protostructure('225', b:Cl, a:Na)"
+    asu = ASUStructure(
+        cell,
+        225,
+        (WyckoffSite("a", empty, "Na"), WyckoffSite("b", empty, "Cl")),
+        (Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))),
+    )
+    assert repr(Protostructure(representative=asu)) == "Protostructure('225', b:Cl, a:Na, representative=...)"
+    assert (
+        repr(Protostructure(225, [("a", "Na")], discriminator="X")) == "Protostructure('225', a:Na, discriminator='X')"
+    )
+
+
 def test_spacegroup_repr_is_builder_form_and_roundtrips() -> None:
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 

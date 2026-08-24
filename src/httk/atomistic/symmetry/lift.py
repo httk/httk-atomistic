@@ -3098,10 +3098,13 @@ def _canonical_without_bfs(
 ) -> ASUStructure:
     """Return the canonical representative of ``structure`` within its own group -- no upward search.
 
-    This is exactly the terminal ``highest_symmetry`` would emit if the entry state had no lifts:
-    the canonical-entry normal form, placed in the standard orientation of its metric.  It is the
-    deterministic, fully invariant representation of the *recognized* symmetry, without hunting for
-    pseudosymmetry above it.
+    It applies the same terminal normal form ``highest_symmetry`` uses at a no-lift terminal
+    (:func:`_terminal_normal_form` placed in the standard orientation of its metric), but reaches it
+    directly from the terminal-only entry (:func:`_terminal_entry`).  Unlike the search, which reduces
+    each state through :func:`_normal_form` first, this does not pass through the search-state
+    quotient -- whose setting choice can hide an alternative terminal metric minimum -- so it compares
+    the full terminal orbit from the pre-state-normal-form entry.  It is the deterministic, fully
+    invariant representation of the *recognized* symmetry, without hunting for pseudosymmetry above it.
 
     When the entry lands in the higher member of an enantiomorphic pair and ``preserve_chirality`` is
     ``False`` (the default), an exact chirality flip (:func:`_enantiomorph`) normalizes it to the

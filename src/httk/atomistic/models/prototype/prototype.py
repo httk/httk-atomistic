@@ -121,8 +121,14 @@ class Prototype(PrototypeBackend):
             other._discriminator,
         )
 
-    __hash__ = None  # type: ignore[assignment]
+    def __hash__(self) -> int:
+        return hash((self._spacegroup, self._occupations, self._discriminator))
 
     def __repr__(self) -> str:
         pairs = ", ".join(f"{value.wyckoff}:{value.label}" for value in self._occupations)
-        return f"Prototype({self._spacegroup.setting!r}, {pairs})"
+        parts = [f"{self._spacegroup.setting!r}, {pairs}"]
+        if self._representative is not None:
+            parts.append("representative=...")
+        if self._discriminator is not None:
+            parts.append(f"discriminator={self._discriminator!r}")
+        return f"Prototype({', '.join(parts)})"

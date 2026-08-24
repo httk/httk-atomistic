@@ -12,12 +12,15 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 class Protostructure(ProtostructureBackend):
     """Store a standard-setting space group and its occupied Wyckoff positions.
 
-    This is a provenance-independent value: multiplicities, composition, and formula
-    derivations are defined at the standard-setting conventional-cell scale, even when
-    the source used to recognize it was stored in a volume-scaled setting.
+    Multiplicities, composition, and formula derivations are defined at the
+    standard-setting conventional-cell scale, even when the source used to recognize it
+    was stored in a volume-scaled setting.
 
     ``Protostructure`` is the assigned-species Wyckoff value. It may carry an optional
-    geometrical representative or discriminator in the same value.
+    geometrical representative and/or discriminator in the same value. Equality (and
+    therefore content identity) covers the space group, the occupations, the
+    discriminator, and the representative when present; two values sharing space group,
+    occupations, and discriminator but differing in representative are not equal.
 
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: The occupied Wyckoff positions and their species.
@@ -111,50 +114,17 @@ class Protostructure(ProtostructureBackend):
             other._discriminator,
         )
 
-    __hash__ = None  # type: ignore[assignment]
-
-    def similar(self, other, delta: float) -> bool:
-        import math
-        from numbers import Real
-
-        if not isinstance(delta, Real) or isinstance(delta, bool):
-            raise TypeError("delta must be a finite non-negative real")
-        if not math.isfinite(delta) or delta < 0:
-            raise ValueError("delta must be a finite non-negative real")
-        from httk.atomistic.models.protostructure.backend import ProtostructureBackend
-        from httk.atomistic.models.protostructure.view_base import ProtostructureViewBase
-
-        if isinstance(other, ProtostructureViewBase):
-            other = other.unview()
-        elif isinstance(other, str):
-            from httk.atomistic.models.protostructure.view import ProtostructureView
-
-            try:
-                other = ProtostructureView(other).unview()
-            except (TypeError, ValueError):
-                return False
-        elif not isinstance(other, ProtostructureBackend):
-            return False
-        if self.spacegroup != other.spacegroup or self.occupations != other.occupations:
-            return False
-        if (
-            self.discriminator is not None
-            and other.discriminator is not None
-            and self.discriminator != other.discriminator
-        ):
-            return False
-        if self.representative is None or other.representative is None:
-            return True
-        from httk.atomistic.symmetry.paths import structure_delta
-
-        try:
-            return structure_delta(self.representative, other.representative) <= delta
-        except (TypeError, ValueError):
-            return False
+    def __hash__(self) -> int:
+        return hash((self._spacegroup, self._occupations, self._discriminator))
 
     def __repr__(self) -> str:
         pairs = ", ".join(f"{occupation.wyckoff}:{occupation.species.name}" for occupation in self._occupations)
-        return f"Protostructure({self._spacegroup.setting!r}, {pairs})"
+        parts = [f"{self._spacegroup.setting!r}, {pairs}"]
+        if self._representative is not None:
+            parts.append("representative=...")
+        if self._discriminator is not None:
+            parts.append(f"discriminator={self._discriminator!r}")
+        return f"Protostructure({', '.join(parts)})"
 
 
 def _validate_representative(representative: FundamentalDomainStructure) -> None:

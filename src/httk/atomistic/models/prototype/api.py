@@ -9,6 +9,7 @@ from httk.atomistic.models.prototype.notation import pearson_symbol, render_prot
 if TYPE_CHECKING:
     from httk.atomistic.models.prototype.backend import PrototypeBackend
     from httk.atomistic.models.prototype.label import PrototypeLabel
+    from httk.atomistic.models.prototype.like import PrototypeLike
     from httk.atomistic.models.prototype.occupation import PrototypeOccupation
     from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
     from httk.atomistic.symmetry.spacegroup import Spacegroup
@@ -65,8 +66,21 @@ class PrototypeAPI(ABC):
     def _prototype_label_text(self) -> str:
         return render_prototype_label(self.spacegroup, [(value.wyckoff, value.label) for value in self.occupations])
 
-    def similar(self, other, delta: float) -> bool:
-        """Return whether two prototypes have compatible geometry within ``delta``."""
+    def similar(self, other: "PrototypeLike", delta: float) -> bool:
+        """Return whether two prototypes have compatible geometry within ``delta``.
+
+        The base identity (space group, anonymous occupations, and any discriminators
+        present on both) must agree; when both sides retain a geometrical representative,
+        their total Cartesian atom travel must not exceed ``delta``. A prototype-like or
+        protostructure-like ``other`` is erased through :class:`~httk.atomistic.PrototypeView` first, so a
+        bare protostructure compares against its anonymous prototype.
+
+        :param other: The prototype-like or protostructure-like value to compare against.
+        :param delta: The non-negative finite Cartesian travel budget.
+        :return: Whether the two values are compatible within ``delta``.
+        :raises TypeError: If ``delta`` is not a real number.
+        :raises ValueError: If ``delta`` is negative or non-finite.
+        """
         import math
         from numbers import Real
 
@@ -79,32 +93,33 @@ class PrototypeAPI(ABC):
         from httk.atomistic.models.prototype.view import PrototypeView
         from httk.atomistic.models.prototype.view_base import PrototypeViewBase
 
+        resolved: PrototypeBackend
         if isinstance(other, PrototypeViewBase):
-            other = other.unview()
-        elif isinstance(other, str):
+            resolved = other.unview()
+        elif isinstance(other, PrototypeBackend):
+            resolved = other
+        else:
             try:
-                other = PrototypeView(other).unview()
+                resolved = PrototypeView(other).unview()
             except (TypeError, ValueError):
                 return False
-        elif not isinstance(other, PrototypeBackend):
-            return False
-        left = self if isinstance(self, Prototype) else PrototypeView(self).unview()
-        if left.spacegroup != other.spacegroup or left.occupations != other.occupations:
+        left: PrototypeBackend = self if isinstance(self, Prototype) else PrototypeView(self).unview()
+        if left.spacegroup != resolved.spacegroup or left.occupations != resolved.occupations:
             return False
         if (
             left.discriminator is not None
-            and other.discriminator is not None
-            and left.discriminator != other.discriminator
+            and resolved.discriminator is not None
+            and left.discriminator != resolved.discriminator
         ):
             return False
-        if left.representative is None or other.representative is None:
+        if left.representative is None or resolved.representative is None:
             return True
         from httk.atomistic.models.prototype.derived import _prototype_to_structure
-        from httk.atomistic.symmetry.paths import structure_delta
+        from httk.atomistic.symmetry.paths import NoCommonRepresentation, structure_delta
 
         first = _prototype_to_structure(left.representative)
-        second = _prototype_to_structure(other.representative)
+        second = _prototype_to_structure(resolved.representative)
         try:
             return structure_delta(first, second) <= delta
-        except (TypeError, ValueError):
+        except NoCommonRepresentation:
             return False

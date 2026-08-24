@@ -185,6 +185,33 @@ def test_structure_delta_measures_physical_orbit_travel_and_lattice_change() -> 
     assert structure_delta(end, stretched) == pytest.approx(2 / 5)
 
 
+def test_structure_delta_terminates_for_near_identical_rocksalt() -> None:
+    # Regression: two rocksalts differing only by a small isotropic lattice change did not
+    # finish within 90 s, because the search re-represented and doubly aligned every one of
+    # ~200 common subgroups. The bounded first-finite-subgroup rule returns promptly.
+    import time
+
+    def _rocksalt(edge: Fraction | int) -> ASUStructure:
+        cell = ((edge, 0, 0), (0, edge, 0), (0, 0, edge))
+        return ASUStructure(
+            Cell(cell),
+            225,
+            (WyckoffSite("a", NO_PARAMETERS, "Na"), WyckoffSite("b", NO_PARAMETERS, "Cl")),
+            _species("Na", "Cl"),
+        )
+
+    first = _rocksalt(5)
+    second = _rocksalt(F(51, 10))
+    started = time.monotonic()
+    delta = structure_delta(first, second)
+    elapsed = time.monotonic() - started
+    # A ~2% isotropic lattice change is a fraction of an angstrom of total physical travel,
+    # aligned in the inputs' own space group 225 rather than a same-order sibling.
+    assert math.isfinite(delta) and 0.0 < delta < 1.0
+    assert structure_delta(second, first) == delta
+    assert elapsed <= 10.0, f"structure_delta took {elapsed:.1f} s"
+
+
 def test_structure_delta_is_normalizer_invariant_and_uses_common_group() -> None:
     parent = _parent(5, [WyckoffSite("a", FracVector([F(2, 17)]), "Si")], ((5, 0, 0), (0, 6, 0), (0, 0, 7)))
     original = subgroup_representation(parent, 3).asu

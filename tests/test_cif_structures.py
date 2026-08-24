@@ -460,6 +460,30 @@ def test_coincident_partial_sites_form_one_mixed_species(tmp_path: Path) -> None
     assert species.normalized
 
 
+def test_sub_precision_occupancy_shortfall_adds_no_vacancy(tmp_path: Path) -> None:
+    """A co-located total within precision of one is complete: no vacancy is invented.
+
+    Three co-located rows at ``0.333`` sum to ``0.999``, inside their stated precision around
+    one, so the site is fully occupied to the file's precision. This is the mirror of the
+    over-occupied case, which is also left alone when it is within precision of one.
+    """
+    path = _write_cif(
+        tmp_path / "third.cif",
+        "1",
+        (5, 5, 5, 90, 90, 90),
+        [
+            ("Fe1", "Fe", ("0.0", "0.0", "0.0"), "0.333"),
+            ("Co1", "Co", ("0.0", "0.0", "0.0"), "0.333"),
+            ("Ni1", "Ni", ("0.0", "0.0", "0.0"), "0.333"),
+        ],
+    )
+    species = load(str(path)).species
+
+    assert len(species) == 1
+    assert species[0].chemical_symbols == ("Co", "Fe", "Ni")
+    assert "vacancy" not in species[0].chemical_symbols
+
+
 def test_disordered_217_is_read_without_losing_chemistry() -> None:
     asu = load(str(Path(__file__).with_name("fixtures") / "disorder" / "217.cif"))
 
@@ -742,6 +766,26 @@ def test_uncertainties_are_stripped_from_coordinates(tmp_path: Path) -> None:
         [("Si1", "Si", ("0.0", "0.3333(7)", "0.25"), "1.0")],
     )
     assert load(str(path)).wyckoff_sites[0].free_params.to_fractions() == [F(3333, 10000)]
+
+
+def test_unconstrained_free_parameter_survives_coordinate_bound_snapping(tmp_path: Path) -> None:
+    """A rounding-interval snap on one component must not move an unconstrained free parameter.
+
+    On P3m1 3d ``(x, -x, z)`` the site ``(0.3333, 0.6666, 0.1234)`` needs a tiny snap on its
+    ``x``/``-x`` components (``0.6666`` against the exact ``-0.3333 = 0.6667``), but ``z`` is a
+    free, independent parameter. It must keep the exact ``1234/10000`` the file wrote rather
+    than being pushed to a feasible vertex at ``0.12345``.
+    """
+    path = _write_cif(
+        tmp_path / "p3m1.cif",
+        Spacegroup.standard(156).setting,
+        (4, 4, 5, 90, 90, 120),
+        [("A1", "Na", ("0.3333", "0.6666", "0.1234"), "1.0")],
+        name="p3m1",
+    )
+    site = load(str(path)).wyckoff_sites[0]
+    assert site.wyckoff == "d"
+    assert site.free_params.to_fractions()[1] == F(1234, 10000)
 
 
 def test_a_site_on_no_special_position_falls_back_to_the_general_one(tmp_path: Path) -> None:

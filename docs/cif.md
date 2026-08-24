@@ -38,11 +38,13 @@ Two conveniences smooth over real-world files:
 
 - **Inferred element symbols.** `_atom_site_type_symbol` is optional in the CIF
   core dictionary. When it is absent, each site's element is inferred from the
-  leading element run of its `_atom_site_label` (`"MgM1"` → `Mg`), with a
-  `RuntimeWarning`. A label whose prefix names no element is not guessed at: its
-  block cannot be interpreted, so `load` omits it from `blocks` and records the
-  reason in `unparsed` (the underlying parser raises a `ValueError` that the
-  loader catches per block).
+  leading element run of its `_atom_site_label` (`"MgM1"` → `Mg`), with a warning
+  on the report channel, because inferring chemistry from a label is a guess. A
+  label whose prefix names no element is not guessed at in strict mode: its block
+  cannot be interpreted, so `load` omits it from `blocks` and records the reason in
+  `unparsed` (the underlying parser raises a `ValueError` that the loader catches
+  per block). With `repair=True` such a label is instead mapped to the non-chemical
+  `"X"` with a warning.
 - **Repair.** Passing `repair=True` enables a bounded set of warning-emitting
   repairs and stamps `repair=True` on neutral payloads. The low-level reader drops
   malformed *auxiliary* loops whose column counts do not line up and retries legacy
@@ -79,10 +81,11 @@ The CIF core dictionary's standard `_atom_type_symbol` values are interpreted as
 elements and optional oxidation states. Both magnitude-before-sign (`Fe3+`) and the common
 sign-before-magnitude spelling (`Fe+3`) are accepted when the remaining token is an element.
 The widespread isotope symbols `D` and `T` become
-hydrogen constituents with species labels `D` and `T` and default masses 2.008 and 3.0160
-u. An `_atom_type_mass` or `_atom_type.atomic_mass` table overrides those defaults. `X`
-maps to OPTIMADE's non-chemical `"X"`; `Vac`, `Va`, and `vacancy` map to `"vacancy"` with
-zero mass.
+hydrogen constituents with species labels `D` and `T`. No default mass is invented for them:
+the label already records the isotope, so a mass is set only when an `_atom_type_mass` or
+`_atom_type.atomic_mass` table states one, and a write does not emit that loop when the source
+had none. `X` maps to OPTIMADE's non-chemical `"X"`; `Vac`, `Va`, and `vacancy` map to
+`"vacancy"` with zero mass.
 
 Any other CIF-valid type symbol remains readable in strict mode. The reader emits one
 warning per distinct unrecognized symbol, represents its chemistry as `"X"`, and preserves
@@ -96,7 +99,7 @@ The modern CIF atom-site declarations `_atom_site_site_symmetry_multiplicity`
 (International Tables multiplicity) and `_atom_site_site_symmetry_order` (the
 site-symmetry order) are honored when identifying Wyckoff positions. The deprecated
 `_atom_site_symmetry_multiplicity` tag is never parsed: if it is the only
-multiplicity-like tag in a block, httk ignores it and emits one info-level note for
+multiplicity-like tag in a block, httk ignores it and emits one debug-level note for
 that block because legacy values are ambiguous between the two conventions. If a
 modern declaration is present as well, the deprecated tag is ignored silently.
 

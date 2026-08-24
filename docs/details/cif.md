@@ -88,11 +88,13 @@ Parenthesized standard uncertainties are retained as precision information. The 
 the final written digit and the stated uncertainty controls the tolerance; `5.6402(3)` is
 therefore treated as precise to `0.0003`, not `0.0001`.
 
-The conventional one-decimal literals from `0.0` through `1.0`, plus `0.25` and `0.75`,
-make no decimal-precision claim. In crystallographic tables they commonly spell exact special
-values rather than measurements known only to the final written digit. Signed spellings such
-as `-0.5` follow the same rule. Extra written digits remain significant: `0.50` claims a
-decimal step of `0.01`.
+A plain decimal literal written with zero or one decimal place makes no decimal-precision
+claim. In crystallographic tables such literals commonly spell exact special values (for
+example `0`, `0.5`, `1.0`, or the signed `-0.5`) rather than measurements known only to the
+final written digit. Two or more decimal places are significant: `0.25` claims a decimal step
+of `0.01`, and `0.50` likewise claims `0.01`. Exponent notation is always an explicit
+precision statement, so the core decimal-precision rule applies regardless of how many
+mantissa digits are written: `1.2e-3` claims a step of `0.0001`.
 
 Coordinate precision is converted to a Cartesian distance using the cell. A projected
 positional uncertainty from 0.1 up to (but not including) one ångström is reported at DEBUG
@@ -164,8 +166,8 @@ the position is derived from the coordinates.
 
 The deprecated `_atom_site_symmetry_multiplicity` name is ambiguous in historical files: it
 has been used both for International Tables multiplicity and for site-symmetry order. httk
-does not interpret it. When it is the only multiplicity-like tag, the reader emits an
-information-level note; when modern metadata is also present, the deprecated field is
+does not interpret it. When it is the only multiplicity-like tag, the reader emits a
+debug-level note; when modern metadata is also present, the deprecated field is
 ignored silently.
 
 Snapping changes only fixed Wyckoff components. Free parameters retain the exact rational
@@ -192,16 +194,18 @@ Special nonstandard and isotope symbols are represented as follows:
 
 | CIF symbol | `chemical_symbols` entry | Species label | Default mass |
 | --- | --- | --- | ---: |
-| `D` | `H` | `D` | 2.008 |
-| `T` | `H` | `T` | 3.0160 |
+| `D` | `H` | `D` | unstated |
+| `T` | `H` | `T` | unstated |
 | `X` | `X` | none | unstated |
 | `Vac`, `Va`, `vacancy` | `vacancy` | none | 0 |
 | `M`, `R`, `LP`, `Lp`, or another unknown token | `X` | source token without its charge spelling | unstated |
 
-An `_atom_type_mass`, `_atom_type.mass`, `_atom_type_atomic_mass`, or
-`_atom_type.atomic_mass` table overrides an isotope default and is aligned back to every
-site using the atom-type symbol. This channel is preserved for ordinary CIF and mCIF.
-Conflicting or misaligned type/mass loops are rejected.
+The isotopes `D` and `T` carry no invented default mass; the species label already records
+the isotope, so a mass is set only when the file states one. An `_atom_type_mass`,
+`_atom_type.mass`, `_atom_type_atomic_mass`, or `_atom_type.atomic_mass` table supplies that
+mass and is aligned back to every site using the atom-type symbol. This channel is preserved
+for ordinary CIF and mCIF, and a write does not emit an `_atom_type_mass` loop the source did
+not have. Conflicting or misaligned type/mass loops are rejected.
 
 An unrecognized symbol is readable even in strict mode. It produces one warning per distinct
 token and becomes the OPTIMADE non-chemical species `X` with the source token in the aligned
@@ -209,9 +213,10 @@ species label. This preserves information without claiming, for example, that `M
 `FeNi` names an element.
 
 When `_atom_site_type_symbol` is absent, which the core dictionary allows, httk infers an
-element from the leading element run of `_atom_site_label` and emits a `RuntimeWarning`.
-`MgM1` can therefore become magnesium. A label such as `?` has no inferable identity and is
-rejected rather than guessed.
+element from the leading element run of `_atom_site_label` and warns, because inferring
+chemistry from a label is a guess. `MgM1` can therefore become magnesium. A label such as
+`?` has no inferable identity: in strict mode it is rejected rather than guessed, and only
+under `repair=True` is it mapped to the non-chemical `X` with a warning.
 
 ## Partial occupancy and ordinary-CIF disorder
 

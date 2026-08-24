@@ -12,8 +12,8 @@ from httk.atomistic import (
     AnonymousStructure,
     Assembly,
     ASUStructure,
-    Cell,
     CartesianSiteMoments,
+    Cell,
     ChemicalComposition,
     ChemicalFormulaView,
     CompositionView,
@@ -22,6 +22,7 @@ from httk.atomistic import (
     Protostructure,
     ProtostructureBackend,
     ProtostructureLabel,
+    ProtostructureRecord,
     ProtostructureView,
     PrototypeView,
     RecognizedProtostructure,
@@ -130,14 +131,19 @@ def test_representative_validation_and_mismatch() -> None:
         ProtostructureView(molecular).unview()
 
 
-def test_exact_equality_includes_optional_information_and_is_unhashable() -> None:
+def test_exact_equality_includes_optional_information_and_is_hashable() -> None:
     representative = _rocksalt_asu()
     assert Protostructure(representative=representative) == Protostructure(representative=representative)
     assert Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="001") != Protostructure(
         225, [("a", "Na"), ("b", "Cl")], discriminator="002"
     )
-    with pytest.raises(TypeError):
-        hash(Protostructure(representative=representative))
+    # Hashable over the base identity (space group, occupations, discriminator): equal values
+    # hash equal and work as dict keys; a retained representative is excluded from the hash.
+    first = Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="001")
+    same = Protostructure(225, [("b", "Cl"), ("a", "Na")], discriminator="001")
+    assert hash(first) == hash(same)
+    assert {first: "value"}[same] == "value"
+    assert isinstance(hash(Protostructure(representative=representative)), int)
 
 
 def test_similar_optional_fields_and_delta_validation() -> None:
@@ -225,8 +231,8 @@ def test_construction_promotes_inputs_and_canonicalizes() -> None:
     assert first.occupations[0].species.name == "Cl"
     assert first.multiplicities() == (4, 4)
     assert first.nsites_conventional == 8
-    with pytest.raises(TypeError):
-        hash(first)
+    assert hash(first) == hash(second)
+    assert {first: "value"}[second] == "value"
     assert first.similar(second, 0.0)
 
     with pytest.raises(ValueError, match="standard setting"):
@@ -325,9 +331,7 @@ def test_transform_scaled_source_uses_standard_conventional_scale() -> None:
     assert value.representative is not None
     representative = value.representative
     basis_matrix = transform.matrix.T()
-    assert representative.cell.precision == _scaled_precision(
-        asu.cell.precision, _matrix_row_sum_factor(basis_matrix)
-    )
+    assert representative.cell.precision == _scaled_precision(asu.cell.precision, _matrix_row_sum_factor(basis_matrix))
     assert representative.coordinate_precision == _scaled_precision(
         asu.coordinate_precision, _matrix_column_sum_factor(basis_matrix.inv())
     )
@@ -416,8 +420,7 @@ def test_protostructure_view_resolves_counting_source_once_across_value_operatio
     _ = view.occupations
     same = view
     _ = view == same
-    with pytest.raises(TypeError):
-        hash(view)
+    assert hash(view) == hash(view.unview())
     _ = repr(view)
     _ = view.unview()
     assert source.resolve_calls == 1
@@ -548,3 +551,97 @@ def test_protostructure_datastream_path_is_not_parsed_at_construction(tmp_path, 
     assert calls == 0
     assert view.unwrap() == str(path)
     assert calls == 0
+
+
+def test_representative_rejections_ported_from_structuretype() -> None:
+    # Ported from the retired structuretype suite: _validate_representative rejections that
+    # now guard Protostructure's optional geometrical representative.
+    from httk.atomistic.models.moments.collinear import CollinearSiteMoments
+
+    non_standard = ASUStructure(
+        CELL,
+        Spacegroup.from_setting("15:c1"),
+        (WyckoffSite("a", EMPTY, "Na"),),
+        (Species("Na", ("Na",), (1,)),),
+    )
+    with pytest.raises(ValueError, match="IT standard setting"):
+        Protostructure(representative=non_standard)
+
+    transform = SettingTransform(FracVector.eye((3, 3)), (Fraction(1, 2), 0, 0))
+    with_transform = ASUStructure(
+        CELL,
+        225,
+        (WyckoffSite("a", EMPTY, "Na"), WyckoffSite("b", EMPTY, "Cl")),
+        _species(),
+        transform=transform,
+    )
+    with pytest.raises(ValueError, match="identity setting transform"):
+        Protostructure(representative=with_transform)
+
+    moments = ASUStructure(
+        CELL,
+        225,
+        (
+            WyckoffSite("a", EMPTY, "Na", moment=CollinearSiteMoments((1,))),
+            WyckoffSite("b", EMPTY, "Cl", moment=CollinearSiteMoments((0,))),
+        ),
+        _species(),
+    )
+    with pytest.raises(ValueError, match="site moments"):
+        Protostructure(representative=moments)
+
+    assemblies = ASUStructure(
+        CELL,
+        221,
+        (WyckoffSite("a", EMPTY, "Na"),),
+        (Species("Na", ("Na",), (1,)),),
+        assemblies=(Assembly(((0,),), (1,)),),
+    )
+    with pytest.raises(ValueError, match="assemblies"):
+        Protostructure(representative=assemblies)
+
+
+def test_lazy_erasure_arrows_recover_source_and_stay_lazy_through_pickle() -> None:
+    # Ported from the retired structuretype suite: erasure arrows off a discriminator-carrying
+    # source resolve lazily, recover the source via unwrap, and stay lazy across pickling.
+    source = Protostructure(representative=_rocksalt_asu(), discriminator="001")
+
+    prototype_view = PrototypeView(source)
+    assert prototype_view._resolved_prototype is None
+    assert prototype_view.unwrap() is source
+    restored = pickle.loads(pickle.dumps(prototype_view))
+    assert restored._resolved_prototype is None
+    assert restored.unview().discriminator == "001"
+
+    protostructure_view = ProtostructureView(source)
+    assert protostructure_view._resolved_protostructure is None
+    assert protostructure_view.unwrap() is source
+    restored_proto = pickle.loads(pickle.dumps(protostructure_view))
+    assert restored_proto._resolved_protostructure is None
+    assert restored_proto.unview() == source
+
+
+def test_protostructure_view_resolves_storage_record() -> None:
+    from httk.core.storage import resolve_storage_record
+
+    view = ProtostructureView(Protostructure(225, [("a", "Na")]))
+    assert resolve_storage_record(view) is ProtostructureRecord
+
+
+def test_similar_is_available_on_every_protostructure_backend() -> None:
+    # Regression (P4): the similar body lived on the value class, so RecognizedProtostructure,
+    # ProtostructureLabelString, and user backends raised NotImplementedError. It now lives on
+    # ProtostructureAPI and is callable from every source.
+    asu = _rocksalt_asu()
+    view = ProtostructureView(asu)
+    assert view.similar(ProtostructureView(asu), 0.0)
+
+    recognized = RecognizedProtostructure(asu)
+    assert recognized.similar(recognized, 0.0)
+
+    label_view = ProtostructureView("AB_cF8_225_a_b:Na-Cl")
+    assert label_view.similar(ProtostructureView("AB_cF8_225_a_b:Na-Cl"), 0.0)
+    assert label_view._backend.similar(label_view._backend, 0.0)
+
+    generic = IdentityCarryingProtostructureBackend(Protostructure(225, [("a", "Na"), ("b", "Cl")]))
+    assert generic.similar(Protostructure(225, [("a", "Na"), ("b", "Cl")]), 0.0)

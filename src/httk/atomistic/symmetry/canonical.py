@@ -14,7 +14,6 @@ This module is deliberately outside ``lift.py``: ``lift`` imports ``recognition`
 helpers) and stays spglib-free, while this composer imports both.
 """
 
-import logging
 from collections import Counter
 from fractions import Fraction
 
@@ -23,7 +22,7 @@ from httk.core import FracVector
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
-from httk.atomistic.symmetry.lift import _canonical_without_bfs, canonicalize
+from httk.atomistic.symmetry.lift import _canonical_without_bfs, _niggli_reduced_entry, canonicalize
 from httk.atomistic.symmetry.recognition import recognize_asu, structure_tolerance
 
 __all__ = ["canonical_asu"]
@@ -45,24 +44,32 @@ def _exact_p1(view: UnitcellStructureView) -> ASUStructure:
     )
 
 
-def _p1_fallback(view: UnitcellStructureView, failures: list[str]) -> ASUStructure:
-    """Report failed recognition and return the exact unit-cell geometry as P1.
+def _preconditioned_p1(view: UnitcellStructureView) -> ASUStructure:
+    """Return a deterministic P1 frame for recognition: exact Niggli-reduced cell, sorted wrapped sites.
 
-    Exhausting spglib's tolerance sweep proves only that no higher symmetry could be
-    recognized reliably. P1 needs no recognition or coordinate snapping: every input row
-    is already one general-position orbit representative. Invalid coincident rows remain
-    invalid and are rejected by ``ASUStructure`` when the fallback is expanded downstream.
+    spglib's tolerance-boundary result can shift under an equivalent lattice shear or site reordering.
+    Recognition needs only *one* deterministic frame per measured structure, not the full exact
+    terminal normal form: an exact Niggli-reduced cell removes the basis-choice freedom and a
+    deterministic sort (by species, then wrapped fractional coordinate) removes the site-ordering
+    freedom, at a fraction of the cost of the metric stabilizer, translation quotient, and surd
+    orientation that :func:`_canonical_without_bfs` runs.  This does not fully canonicalize -- an
+    origin shift still moves the wrapped coordinates, and a degenerate Niggli cell can settle on
+    equivalent-but-distinct bases -- so it is a cheap stabilizer, not a normal form; the P1 invariance
+    batteries (``tests/test_lift_p1.py``) are the evidence that it suffices for recognition.
     """
-    if view.site_moments is not None:
-        raise ValueError(
-            "no symmetry fit the structure and exact P1 fallback does not yet support site moments; "
-            f"tried [{', '.join(failures)}]"
-        )
-    logging.getLogger(__name__).warning(
-        "no symmetry fit the structure within the requested tolerance sweep; using its exact P1 geometry",
-        extra={"context": "symmetry", "attempts": tuple(failures)},
+    reduced = _niggli_reduced_entry(_exact_p1(view))
+    sites = sorted(
+        (WyckoffSite("a", site.free_params.normalize(), site.species) for site in reduced.wyckoff_sites),
+        key=lambda site: (site.species, site.free_params.to_fractions()),
     )
-    return _exact_p1(view)
+    return ASUStructure(
+        reduced.cell,
+        1,
+        sites,
+        reduced.species,
+        coordinate_precision=reduced.coordinate_precision,
+        charge=reduced.charge,
+    )
 
 
 def _reversed_p1_frame(structure: ASUStructure) -> ASUStructure:
@@ -198,7 +205,7 @@ def canonical_asu(
     tolerance: float | None = None,
     factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
     lift: bool = False,
-    preserve_chirality: bool = True,
+    preserve_chirality: bool = False,
 ) -> ASUStructure:
     """Return the canonical :class:`~httk.atomistic.ASUStructure` of a measured structure's symmetry.
 
@@ -253,34 +260,33 @@ def canonical_asu(
         ``base * factor``.
     :param lift: Whether to search upward for pseudosymmetry above the recognized group (default
         ``False``: return the canonical representative of the recognized symmetry).
-    :param preserve_chirality: How enantiomorphic space groups are canonicalized.  The default
-        (``True``) is to keep the recognized group. When ``False`` a result landing in the higher
-        member of one of the 11 enantiomorphic pairs (76/78, 91/95, 92/96, 144/145, 151/153, 152/154,
-        169/170, 171/172, 178/179, 180/181, 212/213) is mapped to the LOWER-numbered member by an
-        exact chirality-flipping transformation (fractional coordinates ``f -> (-f) mod 1`` with
-        the cell basis unchanged -- the Cartesian inversion ``r -> -r`` -- and the group swapped to
-        its partner), so an enantiomorphic pair shares one canonical representative and the canonical
-        labels of the two partners coincide.  A structure carrying site moments is never flipped
-        (axial vectors are out of scope under improper maps) and is left in its own group regardless
-        of this flag.
+    :param preserve_chirality: How enantiomorphic space groups are canonicalized.  By default
+        (``False``) a result landing in the higher member of one of the 11 enantiomorphic pairs
+        (76/78, 91/95, 92/96, 144/145, 151/153, 152/154, 169/170, 171/172, 178/179, 180/181, 212/213)
+        is mapped to the LOWER-numbered member by an exact chirality-flipping transformation
+        (fractional coordinates ``f -> (-f) mod 1`` with the cell basis unchanged -- the Cartesian
+        inversion ``r -> -r`` -- and the group swapped to its partner), so an enantiomorphic pair shares
+        one canonical representative and the canonical labels of the two partners coincide.  Set
+        ``True`` to keep the recognized group and retain the distinction.  A structure carrying site
+        moments is never flipped (axial vectors are out of scope under improper maps) and is left in
+        its own group regardless of this flag.
     :return: The canonical asymmetric unit.
     :raises ImportError: If spglib is unavailable when symmetry must be searched (the error names the
         ``httk-atomistic[default]`` extra).
-
-    If recognition fails or is rejected at every swept tolerance, the exact unit-cell
-    geometry is canonicalized as P1 instead. This fallback performs no tolerance-level
-    snapping and therefore cannot invent symmetry that spglib did not establish.
+    :raises ValueError: If recognition fails or is rejected at every swept tolerance.
     """
     source_view = UnitcellStructureView(structure)
     base = structure_tolerance(source_view) if tolerance is None else float(tolerance)
 
-    # spglib is not representation-invariant near a tolerance boundary: equivalent lattice shears
-    # can make it return different snapped models. Canonicalize the exact, unsnapped geometry as P1
-    # first so every such description reaches spglib in the same frame. Magnetic normal forms are not
-    # yet supported by the exact P1 path, so retain the established direct-recognition behavior there.
+    # spglib is not representation-invariant near a tolerance boundary: equivalent lattice shears,
+    # origin shifts, or site orderings can make it return different snapped models. Precondition the
+    # exact, unsnapped geometry into one deterministic P1 frame (Niggli-reduced cell + sorted sites)
+    # so every such description reaches spglib identically. This deliberately avoids the full exact
+    # terminal normal form, which recognition does not need. Magnetic preconditioning is not yet
+    # supported, so retain the established direct-recognition behavior there.
     normalized_p1: ASUStructure | None = None
     if source_view.site_moments is None:
-        normalized_p1 = _canonical_without_bfs(_exact_p1(source_view), preserve_chirality=True)
+        normalized_p1 = _preconditioned_p1(source_view)
         view = UnitcellStructureView(normalized_p1)
     else:
         view = source_view
@@ -308,14 +314,7 @@ def canonical_asu(
             winner = alternate_winner
 
     if winner is None:
-        if normalized_p1 is None:
-            winner = _p1_fallback(view, failures)
-        else:
-            logging.getLogger(__name__).warning(
-                "no symmetry fit the structure within the requested tolerance sweep; using its exact P1 geometry",
-                extra={"context": "symmetry", "attempts": tuple(failures)},
-            )
-            winner = normalized_p1
+        raise ValueError(f"no symmetry fit the structure within tolerance {base:g}; tried [{', '.join(failures)}]")
 
     if lift:
         return canonicalize(winner, tolerance=base, preserve_chirality=preserve_chirality).asu

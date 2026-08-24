@@ -250,6 +250,7 @@ ASUStructureView.__httk_storage_record__ = ASUStructureRecord
 Trajectory.__httk_storage_record__ = TrajectoryRecord
 TrajectoryView.__httk_storage_record__ = TrajectoryRecord
 Protostructure.__httk_storage_record__ = ProtostructureRecord
+ProtostructureView.__httk_storage_record__ = ProtostructureRecord
 # ASUTemplate is deliberately not storable (matches the phase-2 decision for ASUStructure).
 FundamentalDomainTemplate.__httk_storage_record__ = FundamentalDomainTemplateRecord
 FundamentalDomainTemplateView.__httk_storage_record__ = FundamentalDomainTemplateRecord

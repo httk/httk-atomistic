@@ -52,9 +52,9 @@ CUBIC_CELL = (
         ("5.6402(3)", F(1, 10000), F(3, 10000)),
         ("1.234(5)", F(1, 1000), F(1, 200)),
         ("10", None, None),
-        ("1.2e-3", None, None),
+        ("1.2e-3", F(1, 10000), None),
         ("3(1)e-1", None, F(1, 10)),
-        ("+4.2(3)e-1", None, F(3, 100)),
+        ("+4.2(3)e-1", F(1, 100), F(3, 100)),
         ("1/3", None, None),
         ("?", None, None),
     ],
@@ -76,7 +76,7 @@ def test_precision_and_esd_are_exact_not_floats() -> None:
 def test_signed_exponent_with_esd_has_consistent_value_and_metadata() -> None:
     value, meta = parse_cif_float("+4.2(3)e-1", meta=True)
     assert value == 0.42
-    assert meta == {"precision": None, "esd": F(3, 100)}
+    assert meta == {"precision": F(1, 100), "esd": F(3, 100)}
 
 
 @pytest.mark.parametrize(

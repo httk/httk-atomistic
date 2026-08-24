@@ -13,7 +13,6 @@ rather than silently reinterpreted.
 """
 
 import fractions
-import itertools
 import logging
 import math
 import re
@@ -1066,7 +1065,7 @@ def _combine_cif_species(
         precisions = [None if value is None else value / total for value in precisions]
         width = None if width is None else width / total
         total = fractions.Fraction(1)
-    if total < 1:
+    if total < 1 and not normalized:
         symbols.append("vacancy")
         concentrations.append(1 - total)
         precisions.append(width)
@@ -1450,8 +1449,6 @@ def _site_uncertainty(data: Mapping[str, Any], index: int, metric: Any) -> tuple
 
 def _cif_warning(message: str) -> None:
     """Send one CIF warning through httk-core's report channel."""
-    import logging
-
     logging.getLogger(__name__).warning(message, extra={"context": "cif"})
 
 
@@ -1718,11 +1715,12 @@ def _decode_type_symbol(symbol: str, stated_mass: float | None) -> _DecodedCIFTy
     label, charge = _type_symbol_parts(raw)
     if label == "TL":
         label = "Tl"
+        raw = raw.replace("TL", "Tl", 1)
 
     if label == "D":
-        return _DecodedCIFType("H", charge, "D", 2.008 if stated_mass is None else stated_mass, True)
+        return _DecodedCIFType("H", charge, "D", stated_mass, True)
     if label == "T":
-        return _DecodedCIFType("H", charge, "T", 3.0160 if stated_mass is None else stated_mass, True)
+        return _DecodedCIFType("H", charge, "T", stated_mass, True)
     if label == "X":
         return _DecodedCIFType("X", charge, None, stated_mass, True)
     if label in {"Vac", "Va", "vacancy"}:
@@ -1851,8 +1849,16 @@ def _parameters_inside_coordinate_bounds(
     own_point: FracVector,
     transform: SettingTransform,
     bounds: Sequence[fractions.Fraction | None],
+    nearest: FracVector,
 ) -> FracVector | None:
-    """Return branch parameters whose coordinate lies inside the periodic component box."""
+    """Return the feasible branch parameters closest to the nearest projection.
+
+    The branch coordinate is affine in its free parameters, so each per-component rounding
+    interval bounds one mapped coordinate to a slab in parameter space. This returns the
+    minimum-norm adjustment of ``nearest`` that lands inside every slab. Because the
+    adjustment is minimum norm, any free parameter whose bound constraints are already
+    satisfied keeps its exact nearest value instead of being pushed to a feasible vertex.
+    """
     rank = len(branch.free)
     if rank not in (1, 2):
         return None
@@ -1867,48 +1873,86 @@ def _parameters_inside_coordinate_bounds(
         columns.append(tuple(value - origin for value, origin in zip(point, base)))
     coefficients = tuple(tuple(column[row] for column in columns) for row in range(3))
     own = own_point.to_fractions()
+    start = nearest.to_fractions()
 
-    constrained = []
+    half = fractions.Fraction(1, 2)
+    # Each bounded row becomes a slab lo <= normal . delta <= hi on the parameter adjustment
+    # delta, measured from the nearest projection and against that row's nearest periodic image.
+    slabs: list[tuple[tuple[fractions.Fraction, ...], fractions.Fraction, fractions.Fraction]] = []
     for row, bound in enumerate(bounds):
         if bound is None:
             continue
-        coefficient = coefficients[row]
-        offset = base[row] - own[row]
-        minimum = offset + sum((min(value, 0) for value in coefficient), start=fractions.Fraction())
-        maximum = offset + sum((max(value, 0) for value in coefficient), start=fractions.Fraction())
-        integers = range(math.ceil(minimum - bound), math.floor(maximum + bound) + 1)
-        constrained.append((coefficient, offset, bound, integers))
+        normal = coefficients[row]
+        residual = (
+            base[row]
+            + sum((value * parameter for value, parameter in zip(normal, start)), start=fractions.Fraction())
+            - own[row]
+        )
+        residual = residual - fractions.Fraction(math.floor(residual + half))
+        if all(value == 0 for value in normal):
+            if abs(residual) > bound:
+                return None
+            continue
+        slabs.append((normal, -bound - residual, bound - residual))
 
-    for lattice_shifts in itertools.product(*(item[3] for item in constrained)):
-        inequalities: list[tuple[tuple[fractions.Fraction, ...], fractions.Fraction]] = []
-        for (coefficient, offset, bound, _), shift in zip(constrained, lattice_shifts):
-            inequalities.append((coefficient, fractions.Fraction(shift) - offset + bound))
-            inequalities.append((tuple(-value for value in coefficient), offset - shift + bound))
-        for parameter in range(rank):
-            axis = tuple(fractions.Fraction(index == parameter) for index in range(rank))
-            inequalities.append((axis, fractions.Fraction(1)))
-            inequalities.append((tuple(-value for value in axis), fractions.Fraction()))
+    delta = _min_norm_in_slabs(rank, slabs)
+    if delta is None:
+        return None
+    return FracVector(tuple(value + shift for value, shift in zip(start, delta))).normalize()
 
-        for active in itertools.combinations(inequalities, rank):
-            solution: tuple[fractions.Fraction, ...]
-            if rank == 1:
-                pivot = active[0][0][0]
-                if pivot == 0:
-                    continue
-                solution = (active[0][1] / pivot,)
-            else:
-                (a, b), (c, d) = (item[0] for item in active)
-                first, second = (item[1] for item in active)
+
+def _min_norm_in_slabs(
+    rank: int,
+    slabs: Sequence[tuple[tuple[fractions.Fraction, ...], fractions.Fraction, fractions.Fraction]],
+) -> tuple[fractions.Fraction, ...] | None:
+    """Minimum-norm vector satisfying ``lo <= normal . delta <= hi`` for every slab, or ``None``.
+
+    The minimizer of a Euclidean norm over an intersection of slabs is a KKT point: the
+    origin when feasible, a projection onto one slab face, or (in two dimensions) the meet of
+    two faces. Enumerating those exact rational candidates and keeping the feasible one of
+    least norm avoids the floating-point and vertex-bias of a general LP.
+    """
+    zero = tuple(fractions.Fraction() for _ in range(rank))
+
+    def dot(normal: tuple[fractions.Fraction, ...], vector: tuple[fractions.Fraction, ...]) -> fractions.Fraction:
+        return sum((a * b for a, b in zip(normal, vector)), start=fractions.Fraction())
+
+    def feasible(delta: tuple[fractions.Fraction, ...]) -> bool:
+        return all(low <= dot(normal, delta) <= high for normal, low, high in slabs)
+
+    if feasible(zero):
+        return zero
+
+    best: tuple[fractions.Fraction, ...] | None = None
+    best_norm: fractions.Fraction | None = None
+
+    def consider(delta: tuple[fractions.Fraction, ...]) -> None:
+        nonlocal best, best_norm
+        if not feasible(delta):
+            return
+        norm = dot(delta, delta)
+        if best_norm is None or norm < best_norm:
+            best, best_norm = delta, norm
+
+    faces = [(normal, bound) for normal, low, high in slabs for bound in (low, high)]
+    if rank == 1:
+        for normal, bound in faces:
+            if normal[0] != 0:
+                consider((bound / normal[0],))
+    else:
+        for normal, bound in faces:
+            squared = dot(normal, normal)
+            if squared != 0:
+                consider(tuple(component * bound / squared for component in normal))
+        for i in range(len(faces)):
+            (a, b), first = faces[i]
+            for j in range(i + 1, len(faces)):
+                (c, d), second = faces[j]
                 determinant = a * d - b * c
                 if determinant == 0:
                     continue
-                solution = ((first * d - b * second) / determinant, (a * second - first * c) / determinant)
-            if all(
-                sum((value * parameter for value, parameter in zip(row, solution)), start=fractions.Fraction()) <= limit
-                for row, limit in inequalities
-            ):
-                return FracVector(solution).normalize()
-    return None
+                consider(((first * d - b * second) / determinant, (a * second - first * c) / determinant))
+    return best
 
 
 def _snap(
@@ -1952,7 +1996,9 @@ def _snap(
         if not identity:
             candidate = transform.to_setting(candidate)
         if not inside_coordinate_bounds(candidate) and coordinate_bounds is not None:
-            bounded_parameters = _parameters_inside_coordinate_bounds(branch, own_point, transform, coordinate_bounds)
+            bounded_parameters = _parameters_inside_coordinate_bounds(
+                branch, own_point, transform, coordinate_bounds, parameters
+            )
             if bounded_parameters is None:
                 return None
             parameters = bounded_parameters

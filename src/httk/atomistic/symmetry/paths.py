@@ -51,6 +51,11 @@ __all__ = [
 
 _MAX_PAIRING_PERMUTATIONS = 40_320
 
+# When neither input's own space group is a common subgroup, structure_delta scans at most
+# this many further common subgroups (descending symmetry) for a coincidence before returning
+# the least travel it saw. Bounds the search so a large subgroup lattice cannot make it hang.
+_STRUCTURE_DELTA_SUBGROUP_LIMIT = 32
+
 
 @cache
 def _register_subgroup_matching_citation() -> None:
@@ -71,6 +76,16 @@ def _register_subgroup_matching_citation() -> None:
             "bib_type": "mastersthesis",
         },
     )
+
+
+class NoCommonRepresentation(ValueError):
+    """No common subgroup could represent both structures.
+
+    This is the one documented "incompatible classes / no common subgroup representation
+    succeeded" outcome of :func:`structure_delta` and
+    :func:`common_subgroup_representation`; callers that treat that case as "not similar"
+    catch this specific subclass and let any other ``ValueError`` propagate.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -851,7 +866,7 @@ def common_subgroup_representation(
         except ValueError:
             continue
         return CommonSubgroupResult(first_child, second_aligned, target)
-    raise ValueError("no common subgroup representation succeeded")
+    raise NoCommonRepresentation("no common subgroup representation succeeded")
 
 
 def structure_delta(
@@ -884,7 +899,16 @@ def structure_delta(
     enumerate every possible Bärnighausen embedding. The subgroup and normalizer searches
     are deliberately bounded: only the deterministic subgroup embedding exposed by
     :func:`~httk.atomistic.symmetry.lift.rerepresent` and its tabulated normalizer images are
-    considered. Atom and orbit
+    considered. The recognized space group of either input, when it is a common subgroup, is
+    the most faithful shared representation and is evaluated first; the travel of the first
+    such group that yields a finite delta is returned (so two same-group structures are
+    aligned in their own group, not a same-order sibling). Only when neither input's own group
+    is common does the search descend the remaining common subgroups in descending-symmetry
+    order, evaluating at most ``_STRUCTURE_DELTA_SUBGROUP_LIMIT`` of them and returning at an
+    exact coincidence or the least travel seen within that bound. Each subgroup considers both
+    directed bounded normalizer alignments and every tabulated normalizer image, scoring each
+    by its exact per-orbit Cartesian travel and keeping the minimum, which makes the metric
+    symmetric. Atom and orbit
     assignment uses a deterministic Hungarian minimum-cost matching, so repeated
     Wyckoff classes do not require a factorial permutation search. Charges do not enter this
     geometrical metric.
@@ -909,18 +933,17 @@ def structure_delta(
     common = set(subgroup_closure(first_canonical.spacegroup, include_self=True)) & set(
         subgroup_closure(second_canonical.spacegroup, include_self=True)
     )
-    ordered = sorted(
-        common,
-        key=lambda number: (-len(Spacegroup.standard(number).symmetry_operations), -number),
-    )
-    best: float | None = None
-    for number in ordered:
+
+    def _descending(numbers: set[int]) -> list[int]:
+        return sorted(numbers, key=lambda number: (-len(Spacegroup.standard(number).symmetry_operations), -number))
+
+    def _subgroup_travel(number: int) -> float | None:
         target = Spacegroup.standard(number)
         try:
             first_child = _standard_input(rerepresent(first_canonical, target, tolerance=tolerance))
             second_child = _standard_input(rerepresent(second_canonical, target, tolerance=tolerance))
         except ValueError:
-            continue
+            return None
         directed: list[float] = []
         for reference, candidate in ((first_child, second_child), (second_child, first_child)):
             try:
@@ -939,15 +962,29 @@ def structure_delta(
             if not math.isfinite(delta):
                 raise ValueError("structure_delta produced a non-finite travel")
             directed.append(delta)
-        if not directed:
+        return min(directed) if directed else None
+
+    # The recognized space group of either input is the most faithful shared representation:
+    # try those first and return the first finite travel, so two same-group structures are
+    # aligned in their own group instead of descending to a same-order sibling.
+    recognized = {first_canonical.spacegroup.it_number, second_canonical.spacegroup.it_number} & common
+    for number in _descending(recognized):
+        delta = _subgroup_travel(number)
+        if delta is not None:
+            return delta
+    # Otherwise scan a bounded number of the remaining subgroups in descending symmetry,
+    # returning at an exact coincidence or the least travel seen within the bound.
+    best: float | None = None
+    for number in _descending(common - recognized)[:_STRUCTURE_DELTA_SUBGROUP_LIMIT]:
+        delta = _subgroup_travel(number)
+        if delta is None:
             continue
-        delta = min(directed)
         if delta == 0.0:
             return 0.0
         if best is None or delta < best:
             best = delta
     if best is None:
-        raise ValueError("no common subgroup representation succeeded")
+        raise NoCommonRepresentation("no common subgroup representation succeeded")
     return best
 
 

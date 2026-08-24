@@ -13,6 +13,7 @@ from httk.atomistic import (
     Prototype,
     PrototypeBackend,
     PrototypeLabel,
+    PrototypeOccupation,
     PrototypeView,
     RecognizedPrototype,
     Species,
@@ -112,15 +113,20 @@ def test_canonical_anonymous_occupations_and_label() -> None:
     assert first.anonymous_formula == "AB"
 
 
-def test_exact_equality_includes_optional_information_and_is_unhashable() -> None:
+def test_exact_equality_includes_optional_information_and_is_hashable() -> None:
     representative = _template()
     assert Prototype(representative=representative) == Prototype(representative=representative)
     assert Prototype(225, [("a", "A"), ("b", "B")], discriminator="001") != Prototype(
         225, [("a", "A"), ("b", "B")], discriminator="002"
     )
     assert Prototype(225, [("a", "A"), ("b", "B")]) != Prototype(225, [("a", "A"), ("b", "B")], discriminator="001")
-    with pytest.raises(TypeError):
-        hash(Prototype(representative=representative))
+    # Hashable over the base identity (space group, occupations, discriminator): equal values
+    # hash equal and work as dict keys; a retained representative is excluded from the hash.
+    first = Prototype(225, [("a", "A"), ("b", "B")], discriminator="001")
+    same = Prototype(225, [("b", "A"), ("a", "B")], discriminator="001")
+    assert hash(first) == hash(same)
+    assert {first: "value"}[same] == "value"
+    assert isinstance(hash(Prototype(representative=representative)), int)
 
 
 def test_fundamental_template_and_structure_views_derive_prototypes() -> None:
@@ -193,10 +199,44 @@ def test_similar_optional_fields_and_delta_validation() -> None:
     assert one.similar(two, 0.0)
     assert two.similar(one, 0.0)
     assert not two.similar(Prototype(225, [("a", "A"), ("b", "B")], discriminator="002"), 0.0)
-    assert not one.similar(Protostructure(225, [("a", "Na"), ("b", "Cl")]), 0.0)
+    # A bare protostructure is erased through PrototypeView to its anonymous prototype and
+    # matches the base (both sides lack a representative, so geometry is not compared).
+    assert one.similar(Protostructure(225, [("a", "Na"), ("b", "Cl")]), 0.0)
     with pytest.raises(ValueError):
         one.similar(one, -1)
     with pytest.raises(ValueError):
         one.similar(one, float("nan"))
     with pytest.raises(TypeError):
         one.similar(one, "0")
+
+
+def test_label_string_and_native_view_dispatch() -> None:
+    # Ported from the retired prototemplate suite: label-string adoption, native-view
+    # identity, and lazy unwrap of an erasure source.
+    base = _base()
+    assert PrototypeView("AB_cF8_225_a_b").unview() == base
+    assert str(PrototypeLabel("AB_cF8_225_a_b")) == "AB_cF8_225_a_b"
+
+    assert PrototypeView(base).unview() is base  # a value is adopted by identity
+    view = PrototypeView(_template())
+    assert PrototypeView(view) is view  # rewrapping a native view returns it unchanged
+
+    proto = Protostructure(225, [("a", "Na"), ("b", "Cl")])
+    lazy = PrototypeView(proto)
+    assert lazy._resolved_prototype is None
+    assert lazy.unwrap() is proto  # unwrap recovers the source without resolving
+    assert lazy._resolved_prototype is None
+    _ = lazy.spacegroup
+    assert lazy._resolved_prototype is not None
+
+
+def test_prototype_occupation_str_coerces_fields() -> None:
+    # Ported from the retired prototemplate suite.
+    occupation = PrototypeOccupation(0, 0)
+    assert occupation.wyckoff == "0" and occupation.label == "0"
+
+
+def test_erasure_from_fundamental_domain_template_needs_no_spglib() -> None:
+    # Ported from the retired prototemplate suite: a clean fundamental-domain template is
+    # erased directly, with no symmetry recognition (and thus no spglib) required.
+    assert str(PrototypeView(_template()).label) == "AB_cF8_225_a_b"

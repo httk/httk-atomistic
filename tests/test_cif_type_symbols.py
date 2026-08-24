@@ -51,9 +51,9 @@ def test_every_cif_core_type_symbol_is_recognized(raw: str) -> None:
 @pytest.mark.parametrize(
     ("raw", "chemical_symbol", "label", "mass"),
     [
-        ("D", "H", "D", 2.008),
-        ("D0", "H", "D", 2.008),
-        ("T", "H", "T", 3.0160),
+        ("D", "H", "D", None),
+        ("D0", "H", "D", None),
+        ("T", "H", "T", None),
         ("X", "X", None, None),
         ("Vac", "vacancy", None, 0.0),
         ("Va", "vacancy", None, 0.0),
@@ -102,6 +102,13 @@ def test_repair_normalizes_lowercase_atom_type_symbols(tmp_path: Path, caplog: p
     assert species.name == "C"
     assert species.chemical_symbols == ("C",)
     assert "normalized lowercase atom-type symbol 'c' to 'C'" in caplog.text
+
+
+def test_historical_tl_spelling_normalizes_to_thallium() -> None:
+    decoded = _decode_type_symbol("TL", None)
+
+    assert decoded.recognized
+    assert decoded.chemical_symbol == "Tl"
 
 
 @pytest.mark.parametrize(
@@ -176,6 +183,21 @@ def test_deuterium_disorder_and_stated_mass_survive_cif_roundtrip(tmp_path: Path
     assert "_atom_type_mass" in destination.read_text(encoding="utf-8")
 
 
+def test_deuterium_without_stated_mass_writes_no_mass_loop(tmp_path: Path) -> None:
+    source_path = tmp_path / "source.cif"
+    source_path.write_text(_single_site("D", occupancy="1.0"), encoding="utf-8")
+    source = load(source_path)
+    assert source.species[0].mass is None
+
+    destination = tmp_path / "roundtrip.cif"
+    save(source, destination)
+    restored = load(destination)
+
+    assert restored.species == source.species
+    # The source stated no mass, so the writer must not invent an _atom_type_mass loop.
+    assert "_atom_type_mass" not in destination.read_text(encoding="utf-8")
+
+
 def test_deuterium_is_inferred_from_declared_atom_types(tmp_path: Path) -> None:
     path = tmp_path / "inferred-deuterium.cif"
     path.write_text(
@@ -187,15 +209,17 @@ def test_deuterium_is_inferred_from_declared_atom_types(tmp_path: Path) -> None:
     )
 
     structure = load(path)
-    by_name = {species.name: species for species in structure.species}
 
-    assert by_name["D1"].chemical_symbols == ("H",)
-    assert by_name["D1"].labels == ("D",)
-    assert by_name["D1"].mass == (2.008,)
-    assert by_name["H1"].chemical_symbols == ("H",)
-    assert by_name["H1"].mass is None
-    assert structure.assemblies is not None
-    assert structure.assemblies[0].group_probabilities == (Fraction(7, 10), Fraction(3, 10))
+    # D1 is inferred as hydrogen from the declared atom types, keeping the D isotope in its
+    # label. Because no mass is invented, the co-located D1 and H1 hydrogen sites are no longer
+    # distinguished by mass and merge into one mixed hydrogen species; both isotope labels and
+    # the exact occupancies survive.
+    assert len(structure.species) == 1
+    species = structure.species[0]
+    assert species.chemical_symbols == ("H", "H")
+    assert species.labels == ("D", "H1")
+    assert species.concentration == (Fraction(7, 10), Fraction(3, 10))
+    assert species.mass is None
 
 
 @pytest.mark.skipif(not _COD_DEUTERIDE.exists(), reason="workspace-only real-data fixture not present")
@@ -206,7 +230,8 @@ def test_cod_1008801_preserves_deuterium_and_disorder(caplog: pytest.LogCaptureF
     deuterium = [species for species in structure.species if species.name.startswith("D")]
     assert len(deuterium) == 3
     assert all(species.chemical_symbols == ("H", "vacancy") for species in deuterium)
-    assert all(species.mass == (2.008, 0.0) for species in deuterium)
+    # The file states no D mass, so none is invented; the isotope survives in the label.
+    assert all(species.mass is None for species in deuterium)
     assert all(species.labels == ("D", None) for species in deuterium)
     assert len(structure.sites) == 54
     assert not [record for record in caplog.records if "unrecognized CIF atom-type symbol" in record.getMessage()]
