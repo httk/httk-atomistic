@@ -37,11 +37,6 @@ from httk.atomistic import (
 from httk.atomistic.models.cell.numeric import NumericCell
 from httk.atomistic.models.sites.numeric import NumericSites
 from httk.atomistic.models.structure.backend import StructureBackend
-from httk.atomistic.symmetry._standardization_common import (
-    _matrix_column_sum_factor,
-    _matrix_row_sum_factor,
-    _scaled_precision,
-)
 
 CELL = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
 EMPTY = FracVector(())
@@ -151,6 +146,20 @@ def test_similar_optional_fields_and_delta_validation() -> None:
     two = Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="001")
     assert one.similar(two, 0.0)
     assert not two.similar(Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="002"), 0.0)
+    # Both base (the recognition default): comparison is discrete over space group, occupations,
+    # and discriminator only. No geometry is consulted, so two recognitions of geometrically
+    # different structures compare similar even at a zero budget.
+    tight = ProtostructureView(_rocksalt_asu()).unview()
+    stretched = ProtostructureView(
+        ASUStructure(
+            [[Fraction(51, 10), 0, 0], [0, Fraction(51, 10), 0], [0, 0, Fraction(51, 10)]],
+            225,
+            (WyckoffSite("a", EMPTY, "Na"), WyckoffSite("b", EMPTY, "Cl")),
+            _species(),
+        )
+    ).unview()
+    assert tight.representative is None and stretched.representative is None
+    assert tight.similar(stretched, 0.0)
     with pytest.raises(ValueError):
         one.similar(one, -1)
     with pytest.raises(ValueError):
@@ -277,7 +286,7 @@ def test_exact_paths_preserve_species_and_match_structure_formula() -> None:
     other = ProtostructureView(FundamentalDomainStructure(CELL, 225, asu.wyckoff_sites, asu.species))
     assert other.spacegroup == value.spacegroup
     assert other.occupations == value.occupations
-    assert other.representative is not None
+    assert other.representative is None  # recognition returns a base value
     assert other.similar(value, 0.0)
     with pytest.raises(ValueError):
         ProtostructureView(asu, tolerance=1e-5)
@@ -293,8 +302,9 @@ def test_protostructure_views_and_labels_preserve_optional_identity() -> None:
     recognized = RecognizedProtostructure(representative)
     view = ProtostructureView(recognized)
     assert view._resolved_protostructure is None
-    assert view.unview() == Protostructure(representative=representative)
-    assert ProtostructureLabel(recognized).unview() == view.unview()
+    base = view.unview()
+    assert base.representative is None and base.discriminator is None  # recognition returns a base value
+    assert ProtostructureLabel(recognized).unview() == base
 
     generic_backend = IdentityCarryingProtostructureBackend(value)
     assert ProtostructureView(generic_backend).unview() == value
@@ -328,19 +338,10 @@ def test_transform_scaled_source_uses_standard_conventional_scale() -> None:
 
     assert value.spacegroup == direct.spacegroup
     assert value.occupations == direct.occupations
-    assert value.representative is not None
-    representative = value.representative
-    basis_matrix = transform.matrix.T()
-    assert representative.cell.precision == _scaled_precision(asu.cell.precision, _matrix_row_sum_factor(basis_matrix))
-    assert representative.coordinate_precision == _scaled_precision(
-        asu.coordinate_precision, _matrix_column_sum_factor(basis_matrix.inv())
-    )
-    assert representative.charge == asu.charge * abs(transform.determinant())
-    assert representative.chemical_formula_descriptive == "BiO"
-    assert representative.chemical_formula_hill == "BiO"
-    assert representative.optimization_type == "local"
-    assert representative.immutable_id == "source-1"
-    assert representative.last_modified == timestamp
+    # Recognition returns a base value: composition/formula use the standard conventional-cell
+    # scale independently of the volume-scaled source, and no representative is attached.
+    assert value.representative is None
+    assert value == direct
     assert CompositionView(value).elements_ratios == source.elements_ratios
     assert CompositionView(value).amounts == (("Bi", Fraction(3)), ("O", Fraction(3)))
     assert CompositionView(source).amounts == (("Bi", Fraction(1)), ("O", Fraction(1)))

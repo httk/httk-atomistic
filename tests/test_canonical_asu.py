@@ -17,6 +17,7 @@ from httk.atomistic import (
     WyckoffSite,
     build_supercell,
     canonical_asu,
+    normalize_chirality,
 )
 from httk.atomistic.symmetry.canonical import _fits_within
 from httk.atomistic.symmetry.lift import _site_key
@@ -346,16 +347,21 @@ def _p4332() -> ASUStructure:
     )
 
 
-def test_enantiomorph_normalizes_to_the_lower_member_by_default() -> None:
+def test_enantiomorph_preserves_chirality_by_default() -> None:
     pytest.importorskip("spglib")
     view = UnitcellStructureView(_p4332())
-    # A genuinely chiral cell recognized in the higher member (213) is normalized to the lower one.
-    assert canonical_asu(view).spacegroup.it_number == 212
-    assert canonical_asu(view, preserve_chirality=True).spacegroup.it_number == 213
-    # Robust to sub-tolerance noise: recognition still lands in the pair, normalization still fires.
+    # A genuinely chiral cell recognized in the higher member (213) keeps its handedness by default.
+    preserved = canonical_asu(view)
+    assert preserved.spacegroup.it_number == 213
+    # preserve_chirality=False collapses the pair to the lower member; normalize_chirality maps the
+    # preserved result to exactly that same lower-member structure without re-canonicalizing.
+    normalized = canonical_asu(view, preserve_chirality=False)
+    assert normalized.spacegroup.it_number == 212
+    assert normalize_chirality(preserved) == normalized
+    # Robust to sub-tolerance noise: recognition still lands in the pair and honors the policy.
     noisy = _perturbed(UnitcellStructure(*_expanded(_p4332())), 400_000)
-    assert canonical_asu(noisy).spacegroup.it_number == 212
-    assert canonical_asu(noisy, preserve_chirality=True).spacegroup.it_number == 213
+    assert canonical_asu(noisy).spacegroup.it_number == 213
+    assert canonical_asu(noisy, preserve_chirality=False).spacegroup.it_number == 212
 
 
 def test_structure_api_canonical_proto_values_collapse_enantiomorphs(

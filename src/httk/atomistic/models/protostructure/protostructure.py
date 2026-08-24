@@ -12,15 +12,18 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 class Protostructure(ProtostructureBackend):
     """Store a standard-setting space group and its occupied Wyckoff positions.
 
-    Multiplicities, composition, and formula derivations are defined at the
-    standard-setting conventional-cell scale, even when the source used to recognize it
-    was stored in a volume-scaled setting.
+    The base value is provenance-independent: recognition and derivation return a base
+    ``Protostructure``, so a value recognized from a structure compares equal to one built
+    by hand or parsed from a label. Multiplicities, composition, and formula derivations are
+    defined at the standard-setting conventional-cell scale, even when the source used to
+    recognize it was stored in a volume-scaled setting.
 
-    ``Protostructure`` is the assigned-species Wyckoff value. It may carry an optional
-    geometrical representative and/or discriminator in the same value. Equality (and
-    therefore content identity) covers the space group, the occupations, the
-    discriminator, and the representative when present; two values sharing space group,
-    occupations, and discriminator but differing in representative are not equal.
+    A geometrical representative and/or a discriminator are optional refinements, present
+    only when the user constructs the value with them; recognition never attaches them. They
+    participate in equality and content identity: equality covers the space group, the
+    occupations, the discriminator, and the representative when present, so two values
+    sharing space group, occupations, and discriminator but differing in representative are
+    not equal.
 
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: The occupied Wyckoff positions and their species.

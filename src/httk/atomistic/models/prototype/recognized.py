@@ -76,10 +76,13 @@ class RecognizedPrototype(PrototypeBackend):
         from httk.atomistic.models.structuretype.fundamental_view import FundamentalDomainTemplateView
 
         source = self._source
-        representative = FundamentalDomainTemplateView(
+        # Recognition yields a base prototype. A representative/discriminator is attached only
+        # when the user constructs a Prototype with one explicitly, so recognized values compare
+        # equal to hand-built and label-parsed ones of the same class.
+        template = FundamentalDomainTemplateView(
             source, tolerance=self._tolerance, limit_denominator=self._limit_denominator
         ).unview()
-        return Prototype(representative=representative)
+        return Prototype(template.spacegroup, [(site.wyckoff, site.species) for site in template.wyckoff_sites])
 
     def resolve(self) -> Prototype:
         """Return the complete recognized prototype."""

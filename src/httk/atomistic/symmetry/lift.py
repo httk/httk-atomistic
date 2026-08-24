@@ -3094,7 +3094,7 @@ def _terminal_entry(structure: ASUStructure) -> ASUStructure:
 def _canonical_without_bfs(
     structure: ASUStructure,
     *,
-    preserve_chirality: bool = False,
+    preserve_chirality: bool = True,
 ) -> ASUStructure:
     """Return the canonical representative of ``structure`` within its own group -- no upward search.
 
@@ -3106,10 +3106,10 @@ def _canonical_without_bfs(
     the full terminal orbit from the pre-state-normal-form entry.  It is the deterministic, fully
     invariant representation of the *recognized* symmetry, without hunting for pseudosymmetry above it.
 
-    When the entry lands in the higher member of an enantiomorphic pair and ``preserve_chirality`` is
-    ``False`` (the default), an exact chirality flip (:func:`_enantiomorph`) normalizes it to the
-    lower-numbered partner, re-taking the partner group's normal form before the orientation step; a
-    moment-carrying structure is left in its own group.  ``preserve_chirality=True`` keeps the group.
+    ``preserve_chirality`` defaults to ``True``: the recognized group is kept.  When it is ``False``
+    and the entry lands in the higher member of an enantiomorphic pair, an exact chirality flip
+    (:func:`_enantiomorph`) normalizes it to the lower-numbered partner, re-taking the partner group's
+    normal form before the orientation step; a moment-carrying structure is left in its own group.
     """
     entry = _canonical_orientation(_terminal_entry(structure))
     # The normal-form pipeline strips moments before the flip would see them, so gate on the ORIGINAL
@@ -3138,7 +3138,7 @@ def highest_symmetry(
     *,
     tolerance: float | None = None,
     all_paths: bool = False,
-    preserve_chirality: bool = False,
+    preserve_chirality: bool = True,
 ) -> tuple[LiftResult, ...]:
     """Return all terminal upward lifts reached by breadth-first search.
 
@@ -3149,10 +3149,10 @@ def highest_symmetry(
         also keys on the accumulated path, so every distinct ``(terminal, path)`` pair is returned;
         the ``.asu`` representatives of the extra results are identical, only ``path`` differs.  The
         state cap therefore binds sooner under the flag.
-    :param preserve_chirality: When ``False`` (the default), a terminal landing in the higher member
-        of an enantiomorphic pair is flipped by an exact chirality transformation to its
-        lower-numbered partner and re-normal-formed in that partner group; when ``True`` the group is
-        kept.  The flip is applied only at terminal emission, never to mid-search states (the
+    :param preserve_chirality: When ``True`` (the default), the recognized group is kept.  When
+        ``False``, a terminal landing in the higher member of an enantiomorphic pair is flipped by an
+        exact chirality transformation to its lower-numbered partner and re-normal-formed in that
+        partner group.  The flip is applied only at terminal emission, never to mid-search states (the
         Bärnighausen tables are per-group).
     :return: Deterministically ordered highest-symmetry representations.
     :raises ValueError: If the input is unsupported, or if the breadth-first search exceeds its
@@ -3235,7 +3235,7 @@ def highest_symmetry(
 
 
 def canonicalize(
-    structure: ASUStructure, *, tolerance: float | None = None, preserve_chirality: bool = False
+    structure: ASUStructure, *, tolerance: float | None = None, preserve_chirality: bool = True
 ) -> LiftResult:
     """Return the first deterministic highest-symmetry representation.
 
@@ -3247,10 +3247,11 @@ def canonicalize(
 
     :param structure: The structure to canonicalize.
     :param tolerance: Cartesian acceptance tolerance, or the recognition-derived default.
-    :param preserve_chirality: When ``False`` (the default), a result in the higher member of an
-        enantiomorphic pair is normalized to its lower-numbered partner by an exact chirality flip
-        (magnetic structures excepted); ``True`` keeps the recognized group.  See
-        :func:`highest_symmetry`.
+    :param preserve_chirality: When ``True`` (the default), the recognized group is kept, so a
+        genuinely chiral crystal retains its handedness.  When ``False``, a result in the higher
+        member of an enantiomorphic pair is normalized to its lower-numbered partner by an exact
+        chirality flip (magnetic structures excepted; :func:`~httk.atomistic.normalize_chirality` is the standalone
+        bridge).  See :func:`highest_symmetry`.
     :return: The canonical terminal lift.
     """
     return highest_symmetry(structure, tolerance=tolerance, preserve_chirality=preserve_chirality)[0]

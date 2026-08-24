@@ -205,7 +205,7 @@ def canonical_asu(
     tolerance: float | None = None,
     factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
     lift: bool = False,
-    preserve_chirality: bool = False,
+    preserve_chirality: bool = True,
 ) -> ASUStructure:
     """Return the canonical :class:`~httk.atomistic.ASUStructure` of a measured structure's symmetry.
 
@@ -261,13 +261,15 @@ def canonical_asu(
     :param lift: Whether to search upward for pseudosymmetry above the recognized group (default
         ``False``: return the canonical representative of the recognized symmetry).
     :param preserve_chirality: How enantiomorphic space groups are canonicalized.  By default
-        (``False``) a result landing in the higher member of one of the 11 enantiomorphic pairs
+        (``True``) the recognized group is kept, so a genuinely chiral crystal retains its handedness.
+        When ``False`` a result landing in the higher member of one of the 11 enantiomorphic pairs
         (76/78, 91/95, 92/96, 144/145, 151/153, 152/154, 169/170, 171/172, 178/179, 180/181, 212/213)
         is mapped to the LOWER-numbered member by an exact chirality-flipping transformation
         (fractional coordinates ``f -> (-f) mod 1`` with the cell basis unchanged -- the Cartesian
         inversion ``r -> -r`` -- and the group swapped to its partner), so an enantiomorphic pair shares
-        one canonical representative and the canonical labels of the two partners coincide.  Set
-        ``True`` to keep the recognized group and retain the distinction.  A structure carrying site
+        one canonical representative and the canonical labels of the two partners coincide.  The exact
+        bridge :func:`~httk.atomistic.normalize_chirality` maps a preserved (``True``) result to the
+        normalized (``False``) one directly, without re-canonicalizing.  A structure carrying site
         moments is never flipped (axial vectors are out of scope under improper maps) and is left in
         its own group regardless of this flag.
     :return: The canonical asymmetric unit.

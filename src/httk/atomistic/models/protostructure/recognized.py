@@ -5,7 +5,6 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
-from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.view_base import ChemicalFormulaViewBase
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
@@ -16,13 +15,7 @@ from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.view import StructureView
 from httk.atomistic.models.structuretype.backend import StructuretypeBackend
 from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
-from httk.atomistic.symmetry._standardization_common import (
-    _matrix_column_sum_factor,
-    _matrix_row_sum_factor,
-    _scaled_precision,
-)
 from httk.atomistic.symmetry.recognition import recognize_asu
-from httk.atomistic.symmetry.setting_transform import SettingTransform
 
 
 class RecognizedProtostructure(ProtostructureBackend):
@@ -159,36 +152,13 @@ class RecognizedProtostructure(ProtostructureBackend):
                 limit_denominator=self._limit_denominator,
             )
             self._validate_structure(asu)
-        # Retain only a clean standard-setting, identity-transform representative.
-        # Mapping an exact ASU directly avoids expanding the conventional cell.
-        if not asu.spacegroup.is_standard_setting or not asu.transform.is_identity():
-            standard, standard_sites = asu._standard_wyckoff_sites()
-            basis_matrix = asu.transform.matrix.T()
-            asu = FundamentalDomainStructure(
-                Cell(
-                    asu.transform.basis_to_standard(asu.cell.basis),
-                    precision=_scaled_precision(asu.cell.precision, _matrix_row_sum_factor(basis_matrix)),
-                    periodicity=asu.cell.periodicity,
-                ),
-                standard,
-                standard_sites,
-                asu.species,
-                transform=SettingTransform.identity(),
-                coordinate_precision=_scaled_precision(
-                    asu.coordinate_precision,
-                    _matrix_column_sum_factor(basis_matrix.inv()),
-                ),
-                chemical_formula_descriptive=asu.chemical_formula_descriptive,
-                chemical_formula_hill=asu.chemical_formula_hill,
-                optimization_type=asu.optimization_type,
-                immutable_id=asu.immutable_id,
-                last_modified=asu.last_modified,
-                charge=None if asu.charge is None else asu.charge * abs(asu.transform.determinant()),
-            )
+        # Recognition yields a base protostructure. A representative/discriminator is attached
+        # only when the user constructs a Protostructure with one explicitly, so recognized
+        # values compare equal to hand-built and label-parsed ones of the same class.
         standard, sites = asu._standard_wyckoff_sites()
         species_by_name = {species.name: species for species in asu.species}
         occupations = tuple((site.wyckoff, species_by_name[site.species]) for site in sites)
-        return Protostructure(standard, occupations, representative=asu)
+        return Protostructure(standard, occupations)
 
     def resolve(self) -> Protostructure:
         """Return the complete recognized protostructure."""

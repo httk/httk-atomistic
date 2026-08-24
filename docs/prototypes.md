@@ -26,7 +26,10 @@ exact fundamental-domain *representative* (a standard-setting value holding one
 exact realization), an externally assigned *discriminator* string (AFLOW
 `-001`-style), or both. These optional fields participate in equality and
 content identity, so a representative-only value never equals a discriminator-only
-value, and a base-only value is distinct from either refined form.
+value, and a base-only value is distinct from either refined form. Recognizing a
+key from a structure, and deriving one key from another, always return a base
+value; the representative and discriminator are supplied only by explicit
+construction.
 
 The representative's continuous degrees of freedom are a **class anchor, not
 exact-structure data**: its coordinates and cell are retained exactly so the
@@ -131,8 +134,8 @@ symmetry-recognition path, spglib).
 | Construction | Result | Boundary |
 | --- | --- | --- |
 | `PrototypeView(Prototype)` | prototype view | exact/pass-through |
-| `PrototypeView(Protostructure)` | anonymous prototype (species erased; representative/discriminator carried over) | exact erasure of species |
-| `PrototypeView(FundamentalDomainTemplate)` | folded prototype (carries the representative) | exact extraction/discretization |
+| `PrototypeView(Protostructure)` | anonymous prototype (species erased; any explicit representative/discriminator carried over) | exact erasure of species |
+| `PrototypeView(FundamentalDomainTemplate)` | folded base prototype | exact extraction/discretization |
 | `PrototypeView(Structuretype)` | prototype recognized from the exact anonymous geometry | tolerant recognition (spglib) |
 | `PrototypeView(ASUStructureView(s, setting=...))` | standard-setting prototype | exact ASU path after the requested setting is chosen |
 | `PrototypeView(unitcell or ordinary structure)` | recognized prototype | tolerant recognition (spglib) |
@@ -206,10 +209,11 @@ alphabetically, a letter occupied `k >= 2` times prefixed by the integer `k`
 ...) built in group order with per-group summed conventional multiplicities
 reduced by their overall GCD.
 
-Because the default canonicalization pipeline normalizes an enantiomorphic pair
-to its lower-numbered member (see {doc}`asu`), the canonical labels of the two
-partners coincide under that default; run canonicalization with
-`preserve_chirality=True` to keep each member's own label.
+A structure's canonicalization preserves chirality by default. The canonical
+`Protostructure`/`Prototype` label is instead built from the chirality-normalized
+result (`canonical_asu(preserve_chirality=False)`, or `normalize_chirality`
+applied to a chirality-preserved result; see {doc}`asu`), so the two members of an
+enantiomorphic pair share one canonical label.
 
 ### httk labels are not AFLOW labels
 

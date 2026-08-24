@@ -1,9 +1,11 @@
-"""Default enantiomorph normalization: the higher member of a pair is flipped to the lower one.
+"""Enantiomorph handling: canonicalization preserves chirality by default; normalization is opt-in.
 
-Canonicalization maps a structure in the higher-numbered member of one of the 11 enantiomorphic
-pairs to its lower-numbered partner by an exact chirality-flipping transformation (fractional
-coordinates ``f -> (-f) mod 1`` with the cell basis unchanged), unless ``preserve_chirality=True`` or
-the structure carries site moments.
+By default canonicalization keeps the recognized group, so a genuinely chiral crystal in the
+higher-numbered member of one of the 11 enantiomorphic pairs retains its handedness.  With
+``preserve_chirality=False`` it is instead mapped to its lower-numbered partner by an exact
+chirality-flipping transformation (fractional coordinates ``f -> (-f) mod 1`` with the cell basis
+unchanged); :func:`normalize_chirality` is the standalone bridge that performs the same map on an
+already-preserved result.  A structure carrying site moments is never flipped.
 """
 
 from fractions import Fraction as F
@@ -60,10 +62,10 @@ def _mirror(structure: ASUStructure) -> UnitcellStructure:
     return UnitcellStructure(view.cell, coords, list(view.species), list(view.species_at_sites))
 
 
-def test_higher_member_normalizes_to_lower_by_default() -> None:
+def test_higher_member_preserves_chirality_by_default() -> None:
     asu = _p32()
-    assert _canonical_without_bfs(asu).spacegroup.it_number == 144
-    assert _canonical_without_bfs(asu, preserve_chirality=True).spacegroup.it_number == 145
+    assert _canonical_without_bfs(asu).spacegroup.it_number == 145
+    assert _canonical_without_bfs(asu, preserve_chirality=False).spacegroup.it_number == 144
 
 
 def test_flip_is_the_exact_mirror_of_the_entry() -> None:
@@ -78,10 +80,10 @@ def test_flip_is_the_exact_mirror_of_the_entry() -> None:
     assert not same_crystal(_unitcell(flipped), _unitcell(entry))
 
 
-def test_default_normalization_is_idempotent() -> None:
+def test_default_preservation_is_idempotent() -> None:
     first = _canonical_without_bfs(_p32())
     second = _canonical_without_bfs(first)
-    assert second.spacegroup.it_number == 144
+    assert second.spacegroup.it_number == 145
     assert _site_key(first) == _site_key(second)
     assert first.cell.basis == second.cell.basis
 
@@ -91,7 +93,7 @@ def test_chirality_normalization_reuses_a_chirality_preserving_canonical_asu() -
     lower = normalize_chirality(higher)
 
     assert higher.spacegroup.it_number == 145
-    assert lower == _canonical_without_bfs(_p32())
+    assert lower == _canonical_without_bfs(_p32(), preserve_chirality=False)
     assert normalize_chirality(lower) is lower
 
 
@@ -118,10 +120,10 @@ def test_magnetic_enantiomorph_is_not_flipped() -> None:
     assert _canonical_without_bfs(magnetic).spacegroup.it_number == 145
 
 
-def test_full_canonicalize_normalizes_the_cubic_pair() -> None:
+def test_full_canonicalize_preserves_the_cubic_pair_by_default() -> None:
     asu = _p4332()
-    assert canonicalize(asu).asu.spacegroup.it_number == 212
-    assert canonicalize(asu, preserve_chirality=True).asu.spacegroup.it_number == 213
+    assert canonicalize(asu).asu.spacegroup.it_number == 213
+    assert canonicalize(asu, preserve_chirality=False).asu.spacegroup.it_number == 212
 
 
 def test_terminal_flip_fires_on_a_nonempty_lift_path(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -156,7 +158,8 @@ def test_terminal_flip_fires_on_a_nonempty_lift_path(monkeypatch: pytest.MonkeyP
         [WyckoffSite("a", FracVector((F(1, 7), F(1, 11), F(1, 13))), "Si")],
         _species("Si"),
     )
-    result = canonicalize(entry)
+    # preserve_chirality=False so the terminal-emission flip fires (the default now keeps the group).
+    result = canonicalize(entry, preserve_chirality=False)
     # _enantiomorph was invoked on the hopped 213 terminal and produced 212 (its result was used):
     assert seen.get(213) == 212
     assert result.asu.spacegroup.it_number == 212
@@ -164,8 +167,8 @@ def test_terminal_flip_fires_on_a_nonempty_lift_path(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.extended
-def test_full_canonicalize_normalizes_the_trigonal_pair() -> None:
+def test_full_canonicalize_preserves_the_trigonal_pair_by_default() -> None:
     # Full breadth-first canonicalize on a general-position P3_2 input (its failed-lift BFS is slow).
     asu = _p32()
-    assert canonicalize(asu).asu.spacegroup.it_number == 144
-    assert canonicalize(asu, preserve_chirality=True).asu.spacegroup.it_number == 145
+    assert canonicalize(asu).asu.spacegroup.it_number == 145
+    assert canonicalize(asu, preserve_chirality=False).asu.spacegroup.it_number == 144

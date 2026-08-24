@@ -176,13 +176,14 @@ def _handle_info(arguments: argparse.Namespace, context: CLIContext, prog: str) 
 
 def _handle_canonicalize(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
     loaded = _load(arguments.file)
+    preserve_chirality = not arguments.normalize_chirality
     if arguments.exact:
         asu = _require_asu(loaded, "canonicalize --exact")
-        result = canonicalize(asu, tolerance=arguments.tolerance, preserve_chirality=arguments.preserve_chirality).asu
+        result = canonicalize(asu, tolerance=arguments.tolerance, preserve_chirality=preserve_chirality).asu
         print("exact canonical form:")
     else:
         result = canonical_asu(
-            loaded, tolerance=arguments.tolerance, lift=arguments.lift, preserve_chirality=arguments.preserve_chirality
+            loaded, tolerance=arguments.tolerance, lift=arguments.lift, preserve_chirality=preserve_chirality
         )
         print(f"canonical form (lift={arguments.lift}):")
     _print_structure(result)
@@ -279,9 +280,9 @@ def build_parser(program: str) -> argparse.ArgumentParser:
         help="run the exact spglib-free canonicalization (requires declared symmetry)",
     )
     canon.add_argument(
-        "--preserve-chirality",
+        "--normalize-chirality",
         action="store_true",
-        help="keep enantiomorphic groups (default: normalize a pair to its lower-numbered member)",
+        help="normalize an enantiomorphic pair to its lower-numbered member (default: keep the recognized group)",
     )
     canon.set_defaults(handler=_handle_canonicalize, help_parser=canon)
 

@@ -26,7 +26,7 @@ Removing that cutoff-based refinement leaves the higher-level classification tha
 
 * A **protostructure**, `Protostructure`, is a structural representation specifying only the spacegroup (also distinguishing enantiomorphs), the occupied Wyckoff positions, and the species that occupy them.
 
-These classifications still *distinguish* the two members of an enantiomorphic pair, as stated above. Note, however, that the default canonicalization pipeline (`canonicalize`, `canonical_asu`) instead maps an enantiomorphic pair to a single canonical representative — the lower-numbered member — mirroring the crystal exactly when needed. Passing `preserve_chirality=True` keeps each member in its own group and so retains the distinction these classifications draw.
+These classifications still *distinguish* the two members of an enantiomorphic pair through their space groups, as stated above. A structure's canonicalization (`canonicalize`, `canonical_asu`) preserves chirality by default; the canonical `Protostructure`/`Prototype` key is instead built from the chirality-normalized result (`canonical_asu(preserve_chirality=False)`, or `normalize_chirality` applied to a chirality-preserved result), so the two members of an enantiomorphic pair share one canonical label even though the classes can still tell them apart.
 
 We can take the weaker geometrical representation one step further, down to:
 

@@ -40,20 +40,25 @@ snapped instead by `canonical_asu` below, within its tolerance.
 The 11 enantiomorphic space-group pairs (76/78, 91/95, 92/96, 144/145, 151/153,
 152/154, 169/170, 171/172, 178/179, 180/181, 212/213) describe the same crystal
 in two mirror-image handednesses. By default `canonicalize` and `canonical_asu`
-normalize a result in the higher-numbered member to its lower-numbered partner
-through an exact improper transformation (fractional coordinates `f → (−f) mod 1`
-with the cell basis unchanged — the Cartesian inversion), so a pair maps to one
-canonical representative and the two partners share canonical labels. (One edge
-case: a *hand-built exact* ASU already described in a left-handed cell of an
-enantiomorphic group hits the pre-existing chirality-preserving orientation
-ceiling — its left-handed cell is kept — so it still yields a distinct mirror
-representative; recognition-path inputs, whose spglib cells are right-handed, are
-unaffected.) Pass `preserve_chirality=True` to keep the recognized group and retain
-the distinction. Magnetic structures (any site carrying a moment) are never flipped
-— an axial moment does not transform trivially under an improper map — and are left
-in their own group regardless. The explicit-target functions `canonicalize_full`,
-`list_representations`, and `rerepresent` honor their target group exactly and are
-unaffected.
+**preserve chirality**: they keep the recognized group, so a genuinely chiral
+crystal retains its handedness and the two partners stay distinct. Pass
+`preserve_chirality=False` to instead normalize a result in the higher-numbered
+member to its lower-numbered partner through an exact improper transformation
+(fractional coordinates `f → (−f) mod 1` with the cell basis unchanged — the
+Cartesian inversion), so the pair maps to one canonical representative and the two
+partners' canonical labels coincide. (One edge case of that normalize path: a
+*hand-built exact* ASU already described in a left-handed cell of an enantiomorphic
+group hits the pre-existing chirality-preserving orientation ceiling — its
+left-handed cell is kept — so it still yields a distinct mirror representative;
+recognition-path inputs, whose spglib cells are right-handed, are unaffected.) The
+standalone `normalize_chirality` applies that same exact map to an already-preserved
+result, so a caller need not re-canonicalize to get both forms — and this is exactly
+how canonical prototypes and protostructures, which deliberately ignore chirality,
+are derived from `canonical_asu(preserve_chirality=False)`. Magnetic structures (any
+site carrying a moment) are never flipped — an axial moment does not transform
+trivially under an improper map — and are left in their own group regardless. The
+explicit-target functions `canonicalize_full`, `list_representations`, and
+`rerepresent` honor their target group exactly and are unaffected.
 
 For *measured* input — coordinates carrying noise — use `canonical_asu`, the
 one-liner that recognizes the symmetry within a tolerance (with spglib) and then
@@ -103,9 +108,9 @@ $ httk symmetry representations --target 166 nacl.cif      # list distinct forms
 
 `canonicalize` defaults to the tolerant `canonical_asu` path (`--lift` searches
 upward for higher pseudosymmetry); `--exact` runs the exact `canonicalize` on
-input that already carries declared symmetry. Both normalize an enantiomorphic
-pair to its lower-numbered member by default; `--preserve-chirality` keeps the
-recognized group. `rerepresent --target N` re-expresses
+input that already carries declared symmetry. Both keep the recognized group by
+default (preserving chirality); `--normalize-chirality` maps an enantiomorphic pair
+to its lower-numbered member. `rerepresent --target N` re-expresses
 one crystal in a reachable group. Every subcommand accepts `--tolerance X` (a
 Cartesian distance) and reports operator errors — a missing spglib, an unrelated
 target — to stderr with a nonzero exit.

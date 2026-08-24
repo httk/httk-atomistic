@@ -47,7 +47,13 @@ def _anonymous_template_from_structure(structure: FundamentalDomainStructure) ->
 
 
 class DerivedPrototype(PrototypeBackend):
-    """Erase assigned Protostructure occupations to anonymous labels lazily."""
+    """Erase assigned Protostructure occupations to anonymous labels lazily.
+
+    A base Protostructure erases to a base Prototype. An explicit refinement carried by the
+    source is preserved: the discriminator verbatim, and the representative by the exact
+    conversion of its :class:`~httk.atomistic.FundamentalDomainStructure` to the anonymous
+    :class:`~httk.atomistic.FundamentalDomainTemplate` that a Prototype representative uses.
+    """
 
     kind = "prototype"
 

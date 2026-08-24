@@ -13,9 +13,11 @@ from httk.atomistic import (
     FundamentalDomainTemplateRecord,
     Protostructure,
     ProtostructureRecord,
+    ProtostructureView,
     Prototype,
     PrototypeOccupation,
     PrototypeRecord,
+    PrototypeView,
     Species,
     WyckoffOccupationRecord,
     WyckoffSite,
@@ -69,6 +71,25 @@ def _hexagonal_fundamental_domain_template() -> FundamentalDomainTemplate:
         (WyckoffSite("a", EMPTY, "A"),),
         (dummy,),
     )
+
+
+def test_recognized_values_are_provenance_independent() -> None:
+    # Recognition returns a base value, so a recognized protostructure/prototype equals,
+    # hashes like, and has the same record content id as a hand-built or label-parsed one.
+    asu = _rocksalt_asu()
+
+    recognized = ProtostructureView(asu).unview()
+    hand_built = Protostructure(225, [("a", Species("Na", ("Na",), (1,))), ("b", Species("Cl", ("Cl",), (1,)))])
+    assert recognized.representative is None
+    assert recognized == hand_built
+    assert hash(recognized) == hash(hand_built)
+    assert content_id(recognized) == content_id(hand_built)
+
+    recognized_type = PrototypeView(asu).unview()
+    assert recognized_type.representative is None
+    assert recognized_type == _rocksalt_prototype()
+    assert hash(recognized_type) == hash(_rocksalt_prototype())
+    assert content_id(recognized_type) == content_id(_rocksalt_prototype())
 
 
 def test_record_identity_names_are_suffix_free() -> None:

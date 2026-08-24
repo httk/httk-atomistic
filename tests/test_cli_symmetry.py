@@ -252,30 +252,32 @@ def test_canonicalize_default(cif: Path, capsys) -> None:
     assert "IT 225" in out
 
 
-def test_preserve_chirality_flag_threads_to_both_branches(cif: Path, monkeypatch, capsys) -> None:
+def test_normalize_chirality_flag_threads_to_both_branches(cif: Path, monkeypatch, capsys) -> None:
     pytest.importorskip("spglib")  # the default (non-exact) branch recognizes with spglib
     from httk.atomistic import cli
 
     calls: dict[str, bool] = {}
     real_canonicalize, real_canonical_asu = cli.canonicalize, cli.canonical_asu
 
-    def spy_canonicalize(*args, preserve_chirality=False, **kwargs):
+    def spy_canonicalize(*args, preserve_chirality=True, **kwargs):
         calls["exact"] = preserve_chirality
         return real_canonicalize(*args, preserve_chirality=preserve_chirality, **kwargs)
 
-    def spy_canonical_asu(*args, preserve_chirality=False, **kwargs):
+    def spy_canonical_asu(*args, preserve_chirality=True, **kwargs):
         calls["default"] = preserve_chirality
         return real_canonical_asu(*args, preserve_chirality=preserve_chirality, **kwargs)
 
     monkeypatch.setattr(cli, "canonicalize", spy_canonicalize)
     monkeypatch.setattr(cli, "canonical_asu", spy_canonical_asu)
 
-    assert _run(["canonicalize", "--exact", "--preserve-chirality", str(cif)]) == 0  # exact -> canonicalize
-    assert calls["exact"] is True
-    assert _run(["canonicalize", "--preserve-chirality", str(cif)]) == 0  # default -> canonical_asu
-    assert calls["default"] is True
-    assert _run(["canonicalize", "--exact", str(cif)]) == 0  # flag absent -> default False
+    # --normalize-chirality asks for the lower member -> preserve_chirality=False in both branches.
+    assert _run(["canonicalize", "--exact", "--normalize-chirality", str(cif)]) == 0  # exact -> canonicalize
     assert calls["exact"] is False
+    assert _run(["canonicalize", "--normalize-chirality", str(cif)]) == 0  # default -> canonical_asu
+    assert calls["default"] is False
+    # Flag absent -> default preserves the recognized group.
+    assert _run(["canonicalize", "--exact", str(cif)]) == 0
+    assert calls["exact"] is True
 
 
 def test_canonicalize_exact_roundtrip(cif: Path, tmp_path: Path, capsys) -> None:

@@ -14,6 +14,12 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 class Prototype(PrototypeBackend):
     """Store anonymous occupied Wyckoff positions and optional class information.
 
+    The base value is provenance-independent: recognition and derivation return a base
+    ``Prototype``, so a value recognized from a structure compares equal to one built by hand
+    or parsed from a label. A geometrical representative and/or a discriminator are optional
+    refinements, present only when the user constructs the value with them; recognition never
+    attaches them. They participate in equality and content identity.
+
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: The occupied Wyckoff positions and canonical anonymous labels.
     :param representative: An optional exact anonymous class anchor.

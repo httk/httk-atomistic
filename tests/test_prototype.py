@@ -134,7 +134,7 @@ def test_fundamental_template_and_structure_views_derive_prototypes() -> None:
     assert representative.prototype == _base()
     recognized = PrototypeView(_asu()).unview()
     assert isinstance(recognized, Prototype)
-    assert recognized.representative is not None
+    assert recognized.representative is None  # recognition returns a base value
     assert recognized.label == "AB_cF8_225_a_b"
 
 
@@ -170,7 +170,7 @@ def test_prototype_views_and_labels_preserve_optional_identity() -> None:
     recognized = RecognizedPrototype(_asu())
     recognized_view = PrototypeView(recognized)
     assert recognized_view._resolved_prototype is None
-    assert recognized_view.unview().representative is not None
+    assert recognized_view.unview().representative is None  # recognition returns a base value
     assert PrototypeLabel(recognized).unview() == recognized_view.unview()
 
     value = Prototype(representative=_template(), discriminator="003")
