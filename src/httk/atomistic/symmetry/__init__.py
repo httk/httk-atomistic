@@ -1,10 +1,70 @@
 from typing import TYPE_CHECKING
 
+from httk.core import register_citation
+
 from .affine_operation import AffineOperation
 from .setting_transform import SettingTransform
 from .spacegroup import Spacegroup, wyckoff_letter_map
 from .wyckoff import WyckoffBranch, WyckoffPosition, wyckoff_positions
 from .xyz import operation_from_xyz, operation_from_xyzt, parse_linear_expression
+
+register_citation(
+    applies_to=(
+        "Representation of crystal symmetry and related features are based on original implementations in Aviary and httk-symgen described in associated scientific publications."
+    ),
+    references=[
+        {
+            "authors": (
+                {"name": "Abhijith S. Parackal"},
+                {"name": "Florian Trybel"},
+                {"name": "Felix A. Faber"},
+                {"name": "Rickard Armiento"},
+            ),
+            "title": "Screening 39 billion protostructures for materials discovery",
+            "howpublished": "arXiv:2601.21393 [cond-mat.mtrl-sci]",
+            "year": "2026",
+            "month": "January",
+            "doi": "10.48550/arXiv.2601.21393",
+            "url": "https://arxiv.org/abs/2601.21393",
+            "bib_type": "misc",
+        },
+        {
+            "authors": (
+                {"name": "Rhys E. A. Goodall"},
+                {"name": "Abhijith S. Parackal"},
+                {"name": "Felix A. Faber"},
+                {"name": "Rickard Armiento"},
+                {"name": "Alpha A. Lee"},
+            ),
+            "title": "Rapid discovery of stable materials by coordinate-free coarse graining",
+            "journal": "Science Advances",
+            "volume": "8",
+            "number": "30",
+            "pages": "eabn4117",
+            "year": "2022",
+            "doi": "10.1126/sciadv.abn4117",
+            "url": "https://doi.org/10.1126/sciadv.abn4117",
+            "bib_type": "article",
+        },
+        {
+            "authors": (
+                {"name": "Abhijith S. Parackal"},
+                {"name": "Rhys E. Goodall"},
+                {"name": "Felix A. Faber"},
+                {"name": "Rickard Armiento"},
+            ),
+            "title": "Identifying crystal structures beyond known prototypes from x-ray powder diffraction spectra",
+            "journal": "Physical Review Materials",
+            "volume": "8",
+            "number": "10",
+            "pages": "103801",
+            "year": "2024",
+            "doi": "10.1103/PhysRevMaterials.8.103801",
+            "url": "https://doi.org/10.1103/PhysRevMaterials.8.103801",
+            "bib_type": "article",
+        },
+    ],
+)
 
 __all__ = [
     "DEFAULT_TOLERANCE",

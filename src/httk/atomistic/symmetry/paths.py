@@ -71,9 +71,14 @@ def _register_subgroup_matching_citation() -> None:
             "title": "Connecting Crystal Structures by Symmetry via Subgroup Matching",
             "school": "Linköping University",
             "year": "2024",
-            "note": "Master's thesis, urn:nbn:se:liu:diva-207867",
             "url": "https://urn.kb.se/resolve?urn=urn:nbn:se:liu:diva-207867",
             "bib_type": "mastersthesis",
+            "note": (
+                "Master's thesis examiner: Rickard Armiento; "
+                "supervisor: Florian Trybel; "
+                "co-supervisor: Abhijith S Parackal; "
+                "urn:nbn:se:liu:diva-207867"
+            ),
         },
     )
 

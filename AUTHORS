@@ -1,0 +1,7 @@
+# This file lists significant contributions to the implementation and design of httk-atomistic.
+# The source control revision history keeps the full list of direct code contributions.
+# httk can print the references relevant for the routines used in a specific program by: print(httk.core.credits)
+
+Rickard Armiento <rickard-gpg@armiento.net>
+Abhijith S Parackal <abhijith.s.parackal@gmail.com>: crystal symmetry and related features based on original implementations in httk-symgen [https://doi.org/10.48550/arXiv.2601.21393, https://doi.org/10.1126/sciadv.abn4117, https://doi.org/10.1103/PhysRevMaterials.8.103801]
+Florian Trybel <ftrybel.git@gmail.com>: crystal symmetry and related features based on original implementations in httk-symgen [https://doi.org/10.48550/arXiv.2601.21393]
