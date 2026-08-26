@@ -9,7 +9,7 @@ import pytest
 pytest.importorskip("httk.store.backend.sql")
 
 from httk.core import FracVector
-from httk.store import Backend, SqlStore
+from httk.store import Backend, EntryIdScheme, SqlStore
 from httk.store.backend.sql import stored_property_sql_plan
 from httk.store.query.optimade_filters import FilterTranslationError
 
@@ -116,6 +116,7 @@ def structure_plan(request):
     with database:
         store = SqlStore(
             database,
+            entry_ids=EntryIdScheme("httk.test", "1"),
             entry_records={
                 StructureEntry: (
                     UnitcellStructureRecord,
@@ -136,7 +137,9 @@ def response_plan(request):
     database = _database_for(request)
     source = _unitcell(last_modified=datetime.datetime(2026, 8, 2, 10, 30, tzinfo=datetime.UTC))
     with database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: UnitcellStructureRecord}
+        )
         store.save(source)
         yield stored_property_sql_plan(store, StructureEntry), source
 
@@ -155,6 +158,7 @@ def span_plan(request):
     with database:
         store = SqlStore(
             database,
+            entry_ids=EntryIdScheme("httk.test", "1"),
             entry_records={
                 StructureEntry: (
                     UnitcellStructureRecord,
@@ -180,7 +184,9 @@ def scoped_scalar_plan(request):
         ),
     )
     with database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: UnitcellStructureRecord}
+        )
         for source in sources:
             store.save(source)
         yield stored_property_sql_plan(store, StructureEntry)
@@ -192,7 +198,9 @@ def long_precision_plan(request):
     literal = "0.1234567890123456789"
     source = _unitcell(coordinate_precision=Fraction(literal))
     with database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: UnitcellStructureRecord}
+        )
         store.save(source)
         yield stored_property_sql_plan(store, StructureEntry), literal
 
@@ -202,7 +210,9 @@ def zero_site_plan(request):
     database = _database_for(request)
     source = _zero_site_unitcell()
     with database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: UnitcellStructureRecord}
+        )
         store.save(source)
         yield stored_property_sql_plan(store, StructureEntry)
 
@@ -214,11 +224,12 @@ def _counts(plan, filter_string: str) -> list[int]:
 def test_plan_projects_the_same_rows_as_the_natural_structure_provider(response_plan):
     plan, source = response_plan
     actual = {row["id"]: row for row in plan.records()}
-    assert set(actual) == {source.id}
-    expected = dict(next(iter(StructureEntryProvider({source.id: source}).records("structures"))))
+    ((served_id, actual_row),) = actual.items()
+    expected = dict(next(iter(StructureEntryProvider({served_id: source}).records("structures"))))
     expected["id"] = expected.pop("__id")
     expected["_httk_charge"] = None
-    assert actual[source.id] == expected
+    expected["immutable_id"] = actual_row["immutable_id"]
+    assert actual_row == expected
 
 
 def test_complete_and_incomplete_composition_filters_preserve_sql_unknown(structure_plan):
@@ -343,7 +354,9 @@ def test_natural_collapsed_asu_orbit_preserves_expanded_composition(dialect):
         database = Backend.sqlite()
     source = _collapsed_orbit_asu()
     with database:
-        store = SqlStore(database, entry_records={StructureEntry: ASUStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: ASUStructureRecord}
+        )
         store.save(source)
         searcher = store.searcher()
         variable = searcher.variable(ASUStructureRecord)
@@ -352,7 +365,7 @@ def test_natural_collapsed_asu_orbit_preserves_expanded_composition(dialect):
         assert tuple((value.element, value.amount) for value in fetched.normalized_composition.amounts) == (
             ("Bi", Fraction(1)),
         )
-        served = next(iter(StructureEntryProvider({fetched.id: fetched}).records("structures")))
+        served = next(iter(StructureEntryProvider({"fetched": fetched}).records("structures")))
         assert served["elements"] == ["Bi"]
         assert served["elements_ratios"] == [1.0]
         assert served["chemical_formula_reduced"] == "Bi"

@@ -41,7 +41,6 @@ _RFC3339_TIMESTAMP = re.compile(
 )
 
 _STANDARD_PROPERTIES: tuple[str, ...] = (
-    "immutable_id",
     "last_modified",
     "elements",
     "nelements",
@@ -272,8 +271,6 @@ def _domain_symmetry_value(record: Any, name: str) -> object:
 
 def _response_value(record: Any, name: str, backing: str) -> object:
     """Serve exactly one property; never materialize unrelated response fields."""
-    if name == "immutable_id":
-        return record.immutable_id
     if name == "last_modified":
         return None if record.last_modified is None else record.last_modified.isoformat()
     if name in {
@@ -897,7 +894,7 @@ def _common_queries(
     used_species: Callable[[QueryContext], QueryScope],
     moment_kind_path: tuple[str, ...],
 ) -> None:
-    for name in ("immutable_id", "chemical_formula_descriptive", "chemical_formula_hill", "optimization_type"):
+    for name in ("chemical_formula_descriptive", "chemical_formula_hill", "optimization_type"):
         projections[name] = StoredPropertyProjection(
             response=_response(name, backing), query=_string_query((name,)), sort=_string_sort((name,))
         )

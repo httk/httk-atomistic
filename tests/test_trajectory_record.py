@@ -52,7 +52,8 @@ def test_projection_keeps_only_bounded_reference_and_observable_data() -> None:
     )
     assert "frames" not in {value.name for value in fields(record)}
     assert record.type == "trajectories"
-    assert record.id == content_id(record)
+    assert record.id is None
+    assert record.immutable_id is None
 
 
 def test_projection_defaults_to_first_and_last_reference_frames() -> None:
@@ -91,10 +92,12 @@ def test_record_frame_out_of_range_explains_source_recovery() -> None:
 
 def test_locator_and_metadata_are_identity_skipped() -> None:
     source = _trajectory([1])
-    first = _record(source, source_locator="first.extxyz", immutable_id="remote-a")
-    second = _record(source, source_locator="second.extxyz", immutable_id="remote-b")
+    first = _record(source, source_locator="first.extxyz", id="logical-a", immutable_id="remote-a")
+    second = _record(source, source_locator="second.extxyz", id="logical-b", immutable_id="remote-b")
     assert first == second
     assert content_id(first) == content_id(second)
+    assert first.id == "logical-a"
+    assert second.id == "logical-b"
 
 
 def test_observable_summary_order_does_not_change_content_id() -> None:
@@ -108,4 +111,4 @@ def test_observable_summary_order_does_not_change_content_id() -> None:
 
 def test_trajectory_record_content_id_pin() -> None:
     # A changed value means a deliberate storage-identity break: update this pin only with migration intent.
-    assert _record(_trajectory([1])).id == "5974ac56bcb370de5ca3e131b0dca28af753a0661151b45060f92f9e8986902c"
+    assert content_id(_record(_trajectory([1]))) == "5974ac56bcb370de5ca3e131b0dca28af753a0661151b45060f92f9e8986902c"

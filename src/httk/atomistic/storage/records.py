@@ -16,7 +16,7 @@ from httk.core import (
     SurdScalar,
     SurdVector,
 )
-from httk.core.storage import IdentitySkip, StorageInfo, content_id, stored_property
+from httk.core.storage import IdentitySkip, Indexed, StorageInfo, Unique, stored_property
 
 from httk.atomistic._composition_values import as_fraction
 from httk.atomistic.composition import Assembly, ChemicalComposition, validate_assemblies
@@ -964,7 +964,8 @@ def _project_common(structure: Any) -> dict[str, object]:
         "chemical_formula_descriptive": structure.chemical_formula_descriptive,
         "chemical_formula_hill": structure.chemical_formula_hill,
         "optimization_type": structure.optimization_type,
-        "immutable_id": structure.immutable_id,
+        "id": None,
+        "immutable_id": None,
         "last_modified": structure.last_modified,
     }
 
@@ -1093,14 +1094,15 @@ class UnitcellStructureRecord:
     :param chemical_formula_descriptive: The descriptive formula, if stated.
     :param chemical_formula_hill: The Hill formula, if stated.
     :param optimization_type: The optimization provenance, if stated.
-    :param immutable_id: The immutable source identifier, if stated.
+    :param id: The human-readable entry id shared by all revisions; minted by the store when None.
+    :param immutable_id: The per-revision immutable id; minted by the store when None.
     :param last_modified: The source modification timestamp, if stated.
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_unitcell_structure",
         identity_name="atomistic_unitcell_structure",
-        indexes=(("immutable_id",), ("last_modified",), ("optimization_type",)),
+        indexes=(("last_modified",), ("optimization_type",)),
     )
     __httk_canonical_source__: ClassVar[type[UnitcellStructure]] = UnitcellStructure
 
@@ -1120,7 +1122,8 @@ class UnitcellStructureRecord:
     chemical_formula_descriptive: str | None = None
     chemical_formula_hill: str | None = None
     optimization_type: str | None = None
-    immutable_id: Annotated[str | None, IdentitySkip()] = field(default=None, compare=False)
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
     last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
 
     @classmethod
@@ -1139,14 +1142,6 @@ class UnitcellStructureRecord:
         :return: ``structures``.
         """
         return "structures"
-
-    @property
-    def id(self) -> str:
-        """Expose the layout-independent content identifier.
-
-        :return: The content identifier for this record.
-        """
-        return content_id(self)
 
     def __post_init__(self) -> None:
         if not isinstance(self.sites, SitesRecord):
@@ -1209,7 +1204,8 @@ class FundamentalDomainStructureRecord:
     :param chemical_formula_descriptive: The descriptive formula, if stated.
     :param chemical_formula_hill: The Hill formula, if stated.
     :param optimization_type: The optimization provenance, if stated.
-    :param immutable_id: The immutable source identifier, if stated.
+    :param id: The human-readable entry id shared by all revisions; minted by the store when None.
+    :param immutable_id: The per-revision immutable id; minted by the store when None.
     :param last_modified: The source modification timestamp, if stated.
     """
 
@@ -1219,7 +1215,6 @@ class FundamentalDomainStructureRecord:
         indexes=(
             ("spacegroup_it_number",),
             ("spacegroup_hall_entry",),
-            ("immutable_id",),
             ("last_modified",),
             ("optimization_type",),
         ),
@@ -1241,7 +1236,8 @@ class FundamentalDomainStructureRecord:
     chemical_formula_descriptive: str | None = None
     chemical_formula_hill: str | None = None
     optimization_type: str | None = None
-    immutable_id: Annotated[str | None, IdentitySkip()] = field(default=None, compare=False)
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
     last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
 
     @classmethod
@@ -1260,14 +1256,6 @@ class FundamentalDomainStructureRecord:
         :return: ``structures``.
         """
         return "structures"
-
-    @property
-    def id(self) -> str:
-        """Expose the layout-independent content identifier.
-
-        :return: The content identifier for this record.
-        """
-        return content_id(self)
 
     def __post_init__(self) -> None:
         domain_sites = tuple(self.domain_sites)
@@ -1323,7 +1311,6 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
         indexes=(
             ("spacegroup_it_number",),
             ("spacegroup_hall_entry",),
-            ("immutable_id",),
             ("last_modified",),
             ("optimization_type",),
         ),
@@ -1346,14 +1333,6 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
         :return: ``structures``.
         """
         return "structures"
-
-    @property
-    def id(self) -> str:
-        """Expose the layout-independent content identifier.
-
-        :return: The content identifier for this record.
-        """
-        return content_id(self)
 
 
 def _concentration_precision_from_record(
@@ -1621,14 +1600,15 @@ class TrajectoryRecord:
     :param reference_frame_structures: The retained reference-frame records.
     :param observable_summaries: The summaries of trajectory observables.
     :param source_locator: The source locator, if stated.
-    :param immutable_id: The immutable source identifier, if stated.
+    :param id: The human-readable entry id shared by all revisions; minted by the store when None.
+    :param immutable_id: The per-revision immutable id; minted by the store when None.
     :param last_modified: The source modification timestamp, if stated.
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
         storage_name="atomistic_trajectory",
         identity_name="atomistic_trajectory",
-        indexes=(("immutable_id",), ("last_modified",), ("nframes",)),
+        indexes=(("last_modified",), ("nframes",)),
     )
     __httk_canonical_source__: ClassVar[type[TrajectoryAPI]] = cast(type[TrajectoryAPI], TrajectoryAPI)
 
@@ -1639,7 +1619,8 @@ class TrajectoryRecord:
     reference_frame_structures: tuple[UnitcellStructureRecord, ...]
     observable_summaries: tuple[ObservableSummaryRecord, ...]
     source_locator: Annotated[str | None, IdentitySkip()] = field(default=None, compare=False)
-    immutable_id: Annotated[str | None, IdentitySkip()] = field(default=None, compare=False)
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
     last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
 
     @classmethod
@@ -1704,14 +1685,6 @@ class TrajectoryRecord:
         """
         return "trajectories"
 
-    @property
-    def id(self) -> str:
-        """Expose the layout-independent content identifier.
-
-        :return: The content identifier for this record.
-        """
-        return content_id(self)
-
     @classmethod
     def __httk_project__(cls, trajectory: TrajectoryAPI) -> Mapping[str, object]:
         """Project a trajectory into its bounded durable summary.
@@ -1739,7 +1712,8 @@ class TrajectoryRecord:
                 _observable_summary(name, trajectory.observable(name)) for name in sorted(trajectory.observable_names)
             ),
             "source_locator": getattr(trajectory, "source_locator", None),
-            "immutable_id": getattr(trajectory, "immutable_id", None),
+            "id": None,
+            "immutable_id": None,
             "last_modified": getattr(trajectory, "last_modified", None),
         }
 
@@ -1796,6 +1770,8 @@ class ProtostructureRecord:
     :param occupations: The occupied Wyckoff positions and their real species.
     :param representative: The optional durable exact class anchor.
     :param discriminator: The optional external class discriminator.
+    :param id: The human-readable entry id shared by all revisions; minted by the store when None.
+    :param immutable_id: The per-revision immutable id; minted by the store when None.
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
@@ -1810,14 +1786,8 @@ class ProtostructureRecord:
     occupations: tuple[WyckoffOccupationRecord, ...]
     representative: FundamentalDomainStructureRecord | None = None
     discriminator: str | None = None
-
-    @property
-    def id(self) -> str:
-        """Expose the layout-independent content identifier.
-
-        :return: The content identifier for this record.
-        """
-        return content_id(self)
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
 
     @stored_property
     def label(self) -> str:
@@ -1877,6 +1847,8 @@ class ProtostructureRecord:
             "occupations": protostructure.occupations,
             "representative": protostructure.representative,
             "discriminator": protostructure.discriminator,
+            "id": None,
+            "immutable_id": None,
         }
 
 
@@ -1896,6 +1868,8 @@ class FundamentalDomainTemplateRecord:
     :param spacegroup_it_number: The International Tables space-group number.
     :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
     :param coordinate_precision: The reduced-coordinate precision, if stated.
+    :param id: The human-readable entry id shared by all revisions; minted by the store when None.
+    :param immutable_id: The per-revision immutable id; minted by the store when None.
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
@@ -1911,14 +1885,8 @@ class FundamentalDomainTemplateRecord:
     spacegroup_it_number: int
     spacegroup_hall_entry: str
     coordinate_precision: fractions.Fraction | None = None
-
-    @property
-    def id(self) -> str:
-        """Expose the layout-independent content identifier.
-
-        :return: The content identifier for this record.
-        """
-        return content_id(self)
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.cell, CellRecord):
@@ -1970,6 +1938,8 @@ class FundamentalDomainTemplateRecord:
             "spacegroup_it_number": template.spacegroup.it_number,
             "spacegroup_hall_entry": template.spacegroup.hall_entry,
             "coordinate_precision": template.coordinate_precision,
+            "id": None,
+            "immutable_id": None,
         }
 
 
@@ -1986,6 +1956,8 @@ class PrototypeRecord:
     :param occupations: The occupied Wyckoff positions and anonymous class labels.
     :param representative: The durable class representative, if one is held.
     :param discriminator: The externally assigned class discriminator, if one is held.
+    :param id: The human-readable entry id shared by all revisions; minted by the store when None.
+    :param immutable_id: The per-revision immutable id; minted by the store when None.
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
@@ -2000,14 +1972,8 @@ class PrototypeRecord:
     occupations: tuple[PrototypeOccupation, ...]
     representative: FundamentalDomainTemplateRecord | None = None
     discriminator: str | None = None
-
-    @property
-    def id(self) -> str:
-        """Expose the layout-independent content identifier.
-
-        :return: The content identifier for this record.
-        """
-        return content_id(self)
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
 
     @stored_property
     def label(self) -> str:
@@ -2053,6 +2019,8 @@ class PrototypeRecord:
             "occupations": tuple(template.occupations),
             "representative": prototype.representative,
             "discriminator": prototype.discriminator,
+            "id": None,
+            "immutable_id": None,
         }
 
 

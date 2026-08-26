@@ -136,7 +136,7 @@ def _common(source: object) -> dict[str, object]:
         "chemical_formula_descriptive": value.chemical_formula_descriptive,  # type: ignore[attr-defined]
         "chemical_formula_hill": value.chemical_formula_hill,  # type: ignore[attr-defined]
         "optimization_type": value.optimization_type,  # type: ignore[attr-defined]
-        "immutable_id": value.immutable_id,  # type: ignore[attr-defined]
+        "immutable_id": None,
         "last_modified": value.last_modified,  # type: ignore[attr-defined]
     }
 
@@ -187,7 +187,13 @@ def test_projected_and_materialized_unitcell_have_the_same_content_id() -> None:
     source = _unitcell()
     record = _unitcell_record(source)
     assert (record.site_moments_kind, record.site_moments, record.site_moments_precision) == (None, None, None)
-    assert content_id(source) == content_id(record) == source.id == record.id
+    assert content_id(source) == content_id(record)
+    assert record.id is None
+    identified = replace(record, id="logical", immutable_id="immutable")
+    assert content_id(identified) == content_id(record)
+    projected = UnitcellStructureRecord(**project_storage_record(UnitcellStructureRecord, identified))
+    assert projected.id == "logical"
+    assert projected.immutable_id == "immutable"
 
 
 @pytest.mark.parametrize(
@@ -273,11 +279,13 @@ def test_content_id_is_layout_independent_without_sqlalchemy() -> None:
 
 def test_sql_store_unitcell_rename_preserves_content_id() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
 
     source = _unitcell()
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: UnitcellStructureRecord}
+        )
         store.save(source)
 
     assert content_id(source) == "036604c0ddde27f40d377ec3de902e10209e5e11cfc3f7b5db133fc1ae568a37"
@@ -285,11 +293,13 @@ def test_sql_store_unitcell_rename_preserves_content_id() -> None:
 
 def test_sql_store_round_trips_site_moments() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
 
     source = _unitcell(site_moments=CartesianSiteMoments([[1, 2, 3], [-1, 0, 1]], precision=Fraction(1, 100)))
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: UnitcellStructureRecord}
+        )
         # Asserted after the in-memory database is disposed, so materialize now.
         fetched = store.fetch(UnitcellStructureRecord, store.save(source), eager=True)
 
@@ -299,11 +309,13 @@ def test_sql_store_round_trips_site_moments() -> None:
 
 def test_sql_store_round_trips_implicit_atoms_and_site_attachments() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
 
     source = _implicit_attached_asu()
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: ASUStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: ASUStructureRecord}
+        )
         fetched = store.fetch(ASUStructureRecord, store.save(source), eager=True)
 
     stored_species = {species.name: species for species in fetched.species}
@@ -318,11 +330,13 @@ def test_sql_store_round_trips_implicit_atoms_and_site_attachments() -> None:
 
 def test_lazy_fetch_replace_save_recomposes_with_proxy_children() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
     from httk.store.backend.sql.rows import is_lazy_row
 
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: UnitcellStructureRecord}
+        )
         sid = store.save(_unitcell_record(_unitcell(optimization_type="local")))
         fetched = store.fetch(UnitcellStructureRecord, sid)
         assert is_lazy_row(fetched)
@@ -333,7 +347,7 @@ def test_lazy_fetch_replace_save_recomposes_with_proxy_children() -> None:
         # subclass (type(source) is record_type gates it), so this flow alone
         # does NOT touch a relaxed exact-type check. optimization_type is part of
         # content identity, so the recomposed record stores as a new row.
-        recomposed = replace(fetched, optimization_type="global")
+        recomposed = replace(fetched, optimization_type="global", id=None, immutable_id=None)
         new_sid = store.save(recomposed)
         assert new_sid != sid
         assert store.fetch(UnitcellStructureRecord, new_sid, eager=True).optimization_type == "global"
@@ -364,7 +378,9 @@ def test_setting_transform_provenance_does_not_change_structure_identity(
     assert first.transform == second.transform
     assert first == second
     assert first_record == second_record
-    assert first.id == second.id == first_record.id == second_record.id
+    assert first.id == second.id
+    assert first_record.id is None
+    assert second_record.id is None
 
 
 def test_setting_local_asu_round_trips_without_a_change_of_basis() -> None:
@@ -387,7 +403,7 @@ def test_setting_local_asu_round_trips_without_a_change_of_basis() -> None:
 @pytest.mark.parametrize("bulk", (False, True))
 def test_strict_store_scopes_same_affine_transform_hall_metadata(bulk: bool) -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
 
     sources = (
         ASUStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], 1, (), (), SettingTransform.from_hall_entry("p_1")),
@@ -396,7 +412,7 @@ def test_strict_store_scopes_same_affine_transform_hall_metadata(bulk: bool) -> 
     assert sources[0].transform == sources[1].transform
     layout = {StructureEntry: (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord)}
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records=layout)
+        store = SqlStore(database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records=layout)
         if bulk:
             with store.bulk_ingest(finalize="deferred") as ingest:
                 provisional = tuple(ingest.save(source) for source in sources)
@@ -419,9 +435,13 @@ def test_metadata_round_trips_without_changing_identity_or_equality() -> None:
     plain_record = _unitcell_record(plain)
     record = _unitcell_record(annotated)
     assert plain_record == record
-    assert plain_record.id == record.id
+    assert plain_record.id is None
+    assert record.id is None
+    assert record.immutable_id is None
+    assert content_id(plain_record) == content_id(record)
+    record = replace(record, immutable_id="stored-7")
     rebuilt = UnitcellStructureView(record)
-    assert rebuilt.immutable_id == "source-7"
+    assert rebuilt.immutable_id == "stored-7"
     assert rebuilt.last_modified == stamp
 
 
@@ -475,7 +495,8 @@ def test_unitcell_record_is_a_structure_like_view_source() -> None:
     view = UnitcellStructureView(record)
     assert view == source
     assert view.unwrap() is record
-    assert view.id == record.id
+    assert view.id == content_id(record)
+    assert record.id is None
 
 
 def test_mixed_species_precision_survives_record_and_sql_views() -> None:
@@ -486,10 +507,12 @@ def test_mixed_species_precision_survives_record_and_sql_views() -> None:
     assert UnitcellStructureView(record).species[0].concentration_precision == expected
 
     pytest.importorskip("sqlalchemy")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
 
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: UnitcellStructureRecord}
+        )
         sid = store.save(source)
         fetched = store.fetch(UnitcellStructureRecord, sid)
         assert UnitcellStructureView(fetched).species[0].concentration_precision == expected
@@ -525,11 +548,13 @@ def test_decorated_repeated_species_and_structure_charge_round_trip(dialect: str
     pytest.importorskip("sqlalchemy")
     if dialect == "duckdb":
         pytest.importorskip("duckdb_engine")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
 
     database = Backend.duckdb() if dialect == "duckdb" else Backend.sqlite()
     with database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: UnitcellStructureRecord}
+        )
         fetched = store.fetch(UnitcellStructureRecord, store.save(source))
         viewed = UnitcellStructureView(fetched)
         assert viewed.charge == source.charge
@@ -584,9 +609,10 @@ def test_domain_and_asu_records_keep_representation_identity_distinct() -> None:
     assert not isinstance(domain_record, ASUStructureRecord)
     assert isinstance(asu_record, ASUStructureRecord)
     assert domain.id != asu.id
-    assert domain_record.id != asu_record.id
-    assert content_id(domain) == domain_record.id
-    assert content_id(asu) == asu_record.id
+    assert domain_record.id is None
+    assert asu_record.id is None
+    assert content_id(domain) == content_id(domain_record)
+    assert content_id(asu) == content_id(asu_record)
 
 
 def test_asu_record_view_adopts_native_asu_without_recognition(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -664,10 +690,10 @@ def test_record_construction_defers_normalized_composition_validation() -> None:
         validate_structure_record(record)
 
     pytest.importorskip("sqlalchemy")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
 
     with Backend.sqlite() as database, pytest.raises(ValueError, match="normalized_composition contradicts"):
-        SqlStore(database, entry_records={}).save(record)
+        SqlStore(database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={}).save(record)
 
 
 def test_record_structure_serves_stored_normalized_composition() -> None:
@@ -689,13 +715,13 @@ def test_record_structure_serves_stored_normalized_composition() -> None:
 
 def test_sql_fetch_of_a_root_record_does_not_reconstruct_structure(monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
 
     import httk.atomistic.storage.records as structure_record_module
 
     source = _unitcell()
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={})
+        store = SqlStore(database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={})
         sid = store.save(source)
 
         def forbidden_reconstruction(*args: object, **kwargs: object) -> object:
@@ -703,7 +729,8 @@ def test_sql_fetch_of_a_root_record_does_not_reconstruct_structure(monkeypatch: 
 
         monkeypatch.setattr(structure_record_module, "_structure_from_record", forbidden_reconstruction)
         fetched = store.fetch(UnitcellStructureRecord, sid)
-        assert fetched.id == source.id
+        assert fetched.id is None
+        assert content_id(fetched) == content_id(source)
 
 
 def test_asu_record_composition_follows_collapsed_orbit_expansion() -> None:
@@ -771,11 +798,12 @@ def test_sql_fetched_root_records_keep_identity_and_metadata(
     view_type: type[UnitcellStructureView] | type[ASUStructureView],
 ) -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
 
     with Backend.sqlite() as database:
         store = SqlStore(
             database,
+            entry_ids=EntryIdScheme("httk.test", "1"),
             entry_records={
                 StructureEntry: (
                     UnitcellStructureRecord,
@@ -787,20 +815,24 @@ def test_sql_fetched_root_records_keep_identity_and_metadata(
         sid = store.save(source)
         fetched = store.fetch(record_type, sid)
 
-        assert fetched.id == source.id
-        assert fetched.immutable_id == source.immutable_id
+        assert fetched.id is not None
+        assert fetched.id.startswith("httk.test-1-")
+        assert content_id(fetched) == content_id(source)
+        assert fetched.immutable_id == f"{fetched.id}~1"
         view = view_type(fetched)
         assert view.unwrap() is fetched
-        assert view.immutable_id == source.immutable_id
+        assert view.immutable_id == f"{fetched.id}~1"
 
 
 def test_unitcell_record_view_keeps_unread_cursor_fields_lazy() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
     from httk.store.backend.sql import ExpiredCursorRowError
 
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: UnitcellStructureRecord}
+        )
         store.save(_unitcell(optimization_type="local"))
         store.save(_unitcell(optimization_type="global"))
         searcher = store.searcher()

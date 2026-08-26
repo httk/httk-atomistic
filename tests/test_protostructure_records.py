@@ -120,9 +120,11 @@ def test_protostructure_record_optional_forms_have_distinct_pinned_identities() 
     )
 
     records = tuple(_protostructure_record_from_value(value) for value in values)
-    assert tuple(record.id for record in records) == expected_ids
+    assert tuple(record.id for record in records) == (None,) * len(records)
     assert tuple(content_id(value) for value in values) == expected_ids
     assert len(set(expected_ids)) == len(expected_ids)
+    identified = dataclasses.replace(records[0], id="logical", immutable_id="immutable")
+    assert content_id(identified) == content_id(records[0])
     assert records[0].label == "AB_cF8_225_a_b:Na-Cl"
     for value, record in zip(values, records, strict=True):
         assert _protostructure_from_record(record) == value
@@ -151,7 +153,7 @@ def test_prototype_record_optional_forms_have_distinct_pinned_identities() -> No
     )
 
     records = tuple(_prototype_record_from_value(value) for value in values)
-    assert tuple(record.id for record in records) == expected_ids
+    assert tuple(record.id for record in records) == (None,) * len(records)
     assert tuple(content_id(value) for value in values) == expected_ids
     assert len(set(expected_ids)) == len(expected_ids)
     for value, record in zip(values, records, strict=True):
@@ -160,7 +162,7 @@ def test_prototype_record_optional_forms_have_distinct_pinned_identities() -> No
 
 def test_sql_store_round_trips_all_optional_identity_forms() -> None:
     pytest.importorskip("sqlalchemy")
-    from httk.store import Backend, SqlStore
+    from httk.store import Backend, EntryIdScheme, SqlStore
 
     protostructures = (
         _rocksalt(),
@@ -179,6 +181,7 @@ def test_sql_store_round_trips_all_optional_identity_forms() -> None:
     with Backend.sqlite() as database:
         store = SqlStore(
             database,
+            entry_ids=EntryIdScheme("httk.test", "1"),
             entry_records={
                 ProtostructureEntry: ProtostructureRecord,
                 PrototypeEntry: PrototypeRecord,
@@ -188,13 +191,15 @@ def test_sql_store_round_trips_all_optional_identity_forms() -> None:
             record = _protostructure_record_from_value(value)
             sid = store.save(record)
             fetched = store.fetch(ProtostructureRecord, sid, eager=True)
-            assert fetched.id == record.id
+            assert fetched.id is None
+            assert content_id(fetched) == content_id(record)
             assert _protostructure_from_record(fetched) == value
         for value in prototypes:
             record = _prototype_record_from_value(value)
             sid = store.save(record)
             fetched = store.fetch(PrototypeRecord, sid, eager=True)
-            assert fetched.id == record.id
+            assert fetched.id is None
+            assert content_id(fetched) == content_id(record)
             assert _prototype_from_record(fetched) == value
 
 
@@ -217,7 +222,8 @@ def test_fundamental_domain_template_record_round_trip() -> None:
     value = _hexagonal_fundamental_domain_template()
     record = _fundamental_domain_template_record_from_value(value)
     assert _fundamental_domain_template_from_record(record) == value
-    assert record.id == content_id(value)
+    assert record.id is None
+    assert content_id(record) == content_id(value)
 
 
 def test_wyckoff_occupation_record_rejects_raw_species() -> None:

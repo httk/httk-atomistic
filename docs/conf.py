@@ -137,6 +137,9 @@ nitpick_ignore = [
     # IdentitySkip is likewise new in the sibling core workspace and is rendered
     # unqualified when AutoAPI displays Annotated record fields.
     ("py:class", "IdentitySkip"),
+    # Indexed/Unique markers on the id/immutable_id record fields render the same way.
+    ("py:class", "Indexed"),
+    ("py:class", "Unique"),
     # StoredPropertyProjection is new in the sibling core workspace; the
     # committed release inventory cannot name it until core is released.
     ("py:class", "httk.core.storage.StoredPropertyProjection"),

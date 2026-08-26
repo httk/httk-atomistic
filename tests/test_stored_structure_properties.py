@@ -31,7 +31,6 @@ from httk.atomistic.entries.symmetry import SETTING_PROPERTY_KEYS
 from httk.atomistic.models.moments import CartesianSiteMoments, CollinearSiteMoments, CrystalAxisSiteMoments
 
 _STANDARD = {
-    "immutable_id",
     "last_modified",
     "elements",
     "nelements",
