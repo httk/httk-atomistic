@@ -1922,6 +1922,8 @@ def _normal_form(structure: ASUStructure) -> ASUStructure:
     """
     structure = _demote_sites(structure)
     identity_matrix = FracVector.eye((3, 3))
+    inversion_matrix = FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1)))
+    trusted_inversion = _resetting_preserves_group(structure.spacegroup, inversion_matrix)
     operations = [AffineOperation.identity()]
     if structure.spacegroup.it_number == 1:
         operations.extend(_p1_metric_automorphism_operations(structure))
@@ -1955,7 +1957,9 @@ def _normal_form(structure: ASUStructure) -> ASUStructure:
             reduced = _translation_normal_form(shifted)
             if reduced.cell.basis.det().sign() < 0:
                 flipped = _apply_normalizer_operation(
-                    reduced, AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
+                    reduced,
+                    AffineOperation(inversion_matrix, (0, 0, 0)),
+                    trusted=trusted_inversion,
                 )
                 if flipped is not None:
                     reduced = _translation_normal_form(flipped)
@@ -1989,6 +1993,8 @@ def _terminal_normal_form(structure: ASUStructure) -> ASUStructure:
     """
     structure = _demote_sites(structure)
     identity_matrix = FracVector.eye((3, 3))
+    inversion_matrix = FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1)))
+    trusted_inversion = _resetting_preserves_group(structure.spacegroup, inversion_matrix)
     representatives = [AffineOperation.identity()]
     if structure.spacegroup.it_number == 1:
         # A P1 Niggli entry has no point-group operations to supply the finite stabilizer of a
@@ -2072,27 +2078,29 @@ def _terminal_normal_form(structure: ASUStructure) -> ASUStructure:
                 # transformed Wyckoff orbit unchanged as a set, but selects the jointly transformed
                 # basis g.T^-1 C.T^-1 B.  Factor that basis-only step here so Wyckoff rematching and
                 # the continuous origin gauge run once per C/translation rather than once per g*C.
-                # The sites are likewise shared by every factored group operation.  Precompute their
-                # inversion once: doing the same full-orbit rematch separately for every det=-1 basis
-                # dominated high-symmetry groups with hundreds of expanded atoms.
-                inverted_reduced = _apply_normalizer_operation(
-                    reduced,
-                    AffineOperation(
-                        FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))),
-                        (0, 0, 0),
-                    ),
-                )
-                if inverted_reduced is not None:
-                    inverted_reduced = translated_normal_form(inverted_reduced)
+                # The sites are likewise shared by every factored group operation.  Compute their
+                # inversion lazily, at most once, only if a det=-1 basis actually needs it: the full-
+                # orbit rematch is expensive for groups whose operations are all orientation-preserving.
                 site_keys = {id(reduced): _site_key(reduced)}
-                if inverted_reduced is not None:
-                    site_keys[id(inverted_reduced)] = _site_key(inverted_reduced)
+                inverted_reduced: ASUStructure | None = None
+                inversion_attempted = False
                 for group_operation in group_operations:
                     basis = SurdVector(group_operation.matrix.T().inv()) * reduced.cell.basis
                     site_source = reduced
-                    if basis.det().sign() < 0 and inverted_reduced is not None:
-                        basis = -basis
-                        site_source = inverted_reduced
+                    if basis.det().sign() < 0:
+                        if not inversion_attempted:
+                            inverted_reduced = _apply_normalizer_operation(
+                                reduced,
+                                AffineOperation(inversion_matrix, (0, 0, 0)),
+                                trusted=trusted_inversion,
+                            )
+                            inversion_attempted = True
+                            if inverted_reduced is not None:
+                                inverted_reduced = translated_normal_form(inverted_reduced)
+                                site_keys[id(inverted_reduced)] = _site_key(inverted_reduced)
+                        if inverted_reduced is not None:
+                            basis = -basis
+                            site_source = inverted_reduced
                     # The site key and handedness can be decided without rebuilding an ASUStructure;
                     # group operations in this factored loop change only the basis.  Construct just a
                     # candidate that can improve the current best, rather than hundreds of identical-
@@ -2342,6 +2350,7 @@ def _primitive_conventional_bases(
     return tuple(found)
 
 
+@lru_cache(maxsize=10_000)
 def _resetting_preserves_group(spacegroup: Spacegroup, point_matrix: FracVector) -> bool:
     """Whether the pure-linear point map ``x -> A x`` conjugates the group's op set onto itself exactly.
 
@@ -2790,8 +2799,11 @@ def _canonical_orientation(structure: ASUStructure) -> ASUStructure:
     left_handed = False
     if structure.cell.basis.det().sign() < 0:
         # Inversion as a basis change: basis -> -B (right-handed), coords -> -x, Cartesian identical.
+        inversion_matrix = FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1)))
         inverted = _apply_normalizer_operation(
-            structure, AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
+            structure,
+            AffineOperation(inversion_matrix, (0, 0, 0)),
+            trusted=_resetting_preserves_group(structure.spacegroup, inversion_matrix),
         )
         if inverted is None:
             # Enantiomorphic group: inversion would change the crystal.  Keep the handedness and use
