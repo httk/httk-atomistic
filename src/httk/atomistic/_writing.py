@@ -18,6 +18,24 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 _POSCAR_DECIMAL_DIGITS = 16
 
+#: Significant digits used when the approximate (lossy) CIF mode renders a cell parameter that has
+#: no exact CIF syntax. Twelve is the CIF-community-typical width and well beyond crystallographic
+#: relevance; it applies only to the opt-in ``approximate=True`` path, never to the exact default.
+_APPROX_CIF_SIG_DIGITS = 12
+
+
+def _approx_decimal(value: Any) -> str:
+    """Render a cell parameter as a rounded decimal for the lossy approximate CIF mode.
+
+    :param value: An exact rational or surd cell parameter.
+    :return: A standard decimal string with :data:`_APPROX_CIF_SIG_DIGITS` significant digits.
+    """
+    if isinstance(value, fractions.Fraction):
+        with localcontext() as context:
+            context.prec = _APPROX_CIF_SIG_DIGITS
+            return format(Decimal(value.numerator) / Decimal(value.denominator), f".{_APPROX_CIF_SIG_DIGITS}g")
+    return format(value.to_decimal(digits=_APPROX_CIF_SIG_DIGITS), f".{_APPROX_CIF_SIG_DIGITS}g")
+
 
 def _finite_decimal(value: fractions.Fraction) -> str:
     denominator = value.denominator
@@ -86,14 +104,28 @@ def _poscar_padded_token(value: Any) -> str:
     return _pad_poscar_decimal(_poscar_token(value))
 
 
-def _cell_parameters(cell: Any) -> tuple[str, ...]:
-    params = tuple(_exact_value(value, field="cell parameter") for value in (*cell.lengths, *cell.angles))
-    rendered = tuple(_finite_decimal(value) for value in params)
+def _cell_parameters(cell: Any) -> tuple[tuple[str, ...], bool]:
+    """Render the six CIF cell parameters, reporting whether the rendering is lossy.
+
+    The exact default keeps rational parameters as standard decimals; a parameter with no exact
+    CIF syntax (an irrational length or angle) or a rational set whose six values would rebuild a
+    different oriented basis cannot round-trip, so it is rounded and flagged. The writer refuses a
+    flagged block unless the caller opted in to the approximate mode.
+
+    :param cell: The cell whose lengths and angles are serialized.
+    :return: The rendered parameters and whether the rendering is lossy (approximate).
+    """
+    raw = (*cell.lengths, *cell.angles)
+    try:
+        params = tuple(_exact_value(value, field="cell parameter") for value in raw)
+    except ValueError:
+        # An irrational length or angle has no exact CIF number; only the approximate mode can write it.
+        return tuple(_approx_decimal(value) for value in raw), True
     from httk.atomistic.models.cell.params import CellParams
 
-    if CellParams(params).basis != cell.basis:
-        raise ValueError("CIF cell parameters would change the exact cell basis")
-    return rendered
+    rendered = tuple(_finite_decimal(value) for value in params)
+    # Exact numbers can still reconstruct a different oriented basis, which is lossy in its own right.
+    return rendered, CellParams(params).basis != cell.basis
 
 
 def _occupancy(species: Any, index: int) -> str:
@@ -256,9 +288,11 @@ def _block(
             raise ValueError("CIF serializer requires implicit-atom species to have one non-vacancy constituent")
         append_row(species, 0, species.original_name or label, FracVector((-1, -1, -1)), "dum")
 
+    cell_parameters, cell_is_approximate = _cell_parameters(structure.cell)
     return {
         "format": "cif",
-        "cell_parameters_exact": _cell_parameters(structure.cell),
+        "approximate": cell_is_approximate,
+        "cell_parameters_exact": cell_parameters,
         "positions_exact": [
             tuple(_render(value, field="fractional coordinate") for value in row.to_fractions())
             for row in written_positions
@@ -284,8 +318,10 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
     valid standard decimals and adds ``_httk_*_exact`` companions when those decimals
     are lossy. Lossy standard values use 16 significant digits; finite coordinate
     values are padded to 16 decimal places to keep recognition precision stable.
-    Irrational cell parameters are rejected: CIF has no exact syntax for them, so this
-    serializer never silently turns an exact structure into a float.
+    A cell with no exact CIF form (an irrational length or angle, or a rational set whose six
+    values would rebuild a different oriented basis) is rounded and the block is flagged
+    ``approximate``; the CIF writer refuses a flagged block unless the caller opts in with
+    ``approximate=True``, so this serializer never silently turns an exact structure into a float.
     """
     if isinstance(obj, FundamentalDomainStructure):
         _require_cif_projection(obj)

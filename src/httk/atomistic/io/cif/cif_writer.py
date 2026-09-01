@@ -403,15 +403,35 @@ def _neutral_cif_block(block: Mapping[str, object]) -> dict[str, object]:
     return raw
 
 
-def _write_cif_payload(destination, data: Mapping[str, object], **kwargs: object) -> None:
-    """Write the neutral CIF payload returned by ``read_cif_asus``."""
+def _write_cif_payload(
+    destination: str | os.PathLike[str] | io.TextIOBase,
+    data: Mapping[str, object],
+    *,
+    approximate: bool = False,
+    **kwargs: object,
+) -> None:
+    r"""Write the neutral CIF payload returned by ``read_cif_asus`` or the structure serializer.
+
+    CIF is exact by default: a block the serializer flagged as ``approximate`` (an irrational or
+    orientation-losing cell that has no exact CIF representation) is refused unless the caller opts
+    in with ``approximate=True``, which is lossy and writes rounded decimals. ``httk.core.save``
+    forwards this and any remaining keyword options (``header``, ``max_line_length``) here.
+
+    :param destination: Filename or open text stream receiving the CIF text.
+    :param data: The neutral CIF payload, either a single block or a ``blocks`` sequence.
+    :param approximate: Whether to permit lossy writing of a cell with no exact CIF form.
+    :param \**kwargs: Remaining low-level :func:`write_cif` options.
+    :raises ValueError: If a block requires approximation and ``approximate`` is not set.
+    """
     blocks = data.get("blocks")
     if blocks is None:
         blocks = [data]
+    block_list = list(cast(Iterable[Mapping[str, object]], blocks))
+    if not approximate and any(block.get("approximate") for block in block_list):
+        raise ValueError(
+            "CIF cannot exactly represent this structure's cell parameters (an irrational or "
+            "orientation-losing basis); pass approximate=True to write rounded decimals (lossy)"
+        )
     options: dict[str, Any] = {"header": cast(str | None, data.get("header"))}
     options.update(kwargs)
-    write_cif(
-        destination,
-        [("structure", _neutral_cif_block(block)) for block in cast(Iterable[Mapping[str, object]], blocks)],
-        **options,
-    )
+    write_cif(destination, [("structure", _neutral_cif_block(block)) for block in block_list], **options)

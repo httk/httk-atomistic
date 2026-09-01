@@ -306,8 +306,18 @@ species. It preserves:
 Read → write → read is tested across the committed disorder CIF corpus. The writer rejects
 state for which ordinary CIF has no exact implemented channel: fractional species charges,
 species spins or attachments, assemblies, a net structure charge, or an independently
-declared composition. Irrational cell parameters are also rejected if writing the six CIF
-parameters would change the exact cell basis.
+declared composition. A cell with no exact CIF form — an irrational length or angle, or a
+rational six-parameter set that would rebuild a different oriented basis — is also refused by
+default.
+
+That last refusal is the one lossy operation CIF writing offers as an explicit opt-in, in
+keeping with the "exact by default, lossy only on request" principle. Passing
+`approximate=True` through `httk.core.save` (for example
+`save(structure, path, format="cif", approximate=True)`) writes the cell parameters as rounded
+decimals (twelve significant digits) instead of refusing. This is lossy — the arbitrary
+orientation of the basis is not recovered on read-back — and only the cell parameters are
+rounded; the fractional coordinates are already exact rationals and are written unchanged. An
+already-exactly-representable structure is written identically with or without the flag.
 
 The current writer is an ordinary structural CIF writer, not a magnetic-CIF serializer. It
 does not provide a magnetic-moment round-trip guarantee; do not use an ordinary `.cif` save
