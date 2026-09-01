@@ -74,6 +74,13 @@ All matrix and coordinate arithmetic remains exact after recognition: rational f
 coordinates stay rational, and Cartesian basis operations retain httk's exact surd arithmetic.
 Cell and coordinate precision metadata is widened by the corresponding exact matrix norms.
 
+Site moments carry through as per-site data. The centring collapse maps several conventional
+sites onto one primitive site, so those translation images must agree: a ferromagnetic
+supercell folds down with its moments intact, but any collapse of sites with disagreeing
+moments needs the larger cell and raises `ValueError`. Cartesian and collinear moments pass
+through the basis recombination unchanged; `CrystalAxisSiteMoments` are refused because they
+are stated against the old lattice frame — see {doc}`moments`.
+
 ## Example
 
 ```pycon

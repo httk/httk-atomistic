@@ -42,3 +42,19 @@ a `SymopsStructure` applies its operations to the axial moments in the lattice
 frame. Loading is one-way: **writing magCIF is not yet supported** — no `.mcif`
 writer is registered, and saving a loaded `SymopsStructure` to `.cif` degrades to
 a nonmagnetic P1 CIF that drops the moments.
+
+## Standardization carries moments through
+
+{py:func}`~httk.atomistic.conventional_cell` and
+{py:func}`~httk.atomistic.primitive_cell` are nuclear standardizations: they change the
+setting from the atomic positions alone and never treat moments as symmetry input. Because
+neither operation rotates Cartesian axes, `CartesianSiteMoments` and `CollinearSiteMoments`
+ride through unchanged as per-site data, re-attached to the standardized sites.
+
+That carry-through is only possible when the target cell can still represent the magnetic
+order. When translation images collapse onto one site with disagreeing moments, or a
+magnetic supercell folds to a smaller cell, both functions raise `ValueError` —
+*magnetic order incompatible with the primitive cell; keep the original setting* — rather
+than silently dropping the surplus moments. `CrystalAxisSiteMoments` are stated against the
+old lattice frame and cannot survive a cell change, so both functions refuse them outright;
+convert to `CartesianSiteMoments` first.

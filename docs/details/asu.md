@@ -115,7 +115,9 @@ expansion remain exact. For a plain `UnitcellStructure`, the operation first run
 chosen by recognition rather than an unstated transform from the input. Consequently a noisy
 plain structure need not be `same_crystal()`-equal to the result. The returned `multiplier`
 records the conventional/original site-count ratio, including the factor of three for a
-rhombohedral setting.
+rhombohedral setting. Cartesian and collinear site moments carry through as per-site data;
+crystal-axis moments and magnetic orders that a cell change cannot represent are refused —
+see {doc}`../moments`.
 
 ## Recognition is where tolerance lives
 
