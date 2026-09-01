@@ -186,15 +186,19 @@ def test_recognition_rejects_antiferromagnetic_orbit_moments() -> None:
         recognize_asu(broken, setting=asu.setting())
 
 
-def test_conventional_cell_refuses_moment_bearing_asu() -> None:
+def test_conventional_cell_carries_uniform_asu_moments() -> None:
     asu = FundamentalDomainStructure(
         Cell([[2, 0, 0], [0, 2, 0], [0, 0, 2]]),
         225,
         (WyckoffSite("a", (), "Na", moment=CartesianSiteMoments([[1, 2, 3]])),),
         (_species()[0],),
     )
-    with pytest.raises(ValueError, match="conventional_cell does not yet support structures with site moments"):
-        conventional_cell(asu)
+    result = conventional_cell(asu)
+    moments = result.structure.site_moments
+    assert isinstance(moments, CartesianSiteMoments)
+    # SG 225 is F-centred, so the single ASU site expands to four sites all sharing the moment.
+    assert len(moments) == len(result.structure.sites) == 4
+    assert moments == CartesianSiteMoments([[1, 2, 3]] * 4)
 
 
 def test_supercell_replicates_moments_in_site_order_and_converts_crystal_axes() -> None:

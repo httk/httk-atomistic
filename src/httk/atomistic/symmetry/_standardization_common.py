@@ -1,15 +1,85 @@
 """Private helpers shared by the standardization-family operations."""
 
 import fractions
+import math
+from collections.abc import Sequence
 from typing import Any
 
-from httk.core import FracVector, unwrap
+from httk.core import FracVector, SurdVector, unwrap
 
 from httk.atomistic.composition import Assembly, ChemicalComposition
+from httk.atomistic.models.moments.backend import SiteMomentsBackend
+from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
+from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.structure.asu import ASUStructure
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.symmetry.setting_transform import SettingTransform
+
+#: Refusal shared wherever crystal-axis moments meet a cell change. A crystal-axis moment is
+#: stated as fractions of the old cell's axes, so it does not survive the recombination into a
+#: new cell unchanged the way a lab-frame Cartesian vector or a frame-free collinear scalar does.
+CRYSTAL_AXIS_MOMENT_REFUSAL = (
+    "crystal-axis site moments cannot be re-expressed through a cell change; convert them to Cartesian first"
+)
+
+#: Refusal shared wherever moments that must fold onto one site disagree: the magnetic cell is
+#: genuinely larger than the nuclear cell, so no smaller cell can represent the order.
+MAGNETIC_SUPERCELL_REFUSAL = "magnetic order incompatible with the primitive cell; keep the original setting"
+
+#: Absolute and relative closeness for the float moments that a cell change folds onto one site.
+#: Site moments arriving from a DFT run are floats; images sharing a site must agree within this.
+_MOMENT_CLOSENESS = 1e-3
+
+
+def _moments_close(moments: SiteMomentsBackend, first: int, second: int) -> bool:
+    """Whether two sites carry the same moment within the float closeness tolerance.
+
+    :param moments: The per-site moments to compare within.
+    :param first: The first site index.
+    :param second: The second site index.
+    :return: Whether the two sites' moments agree within :data:`_MOMENT_CLOSENESS`.
+    :raises ValueError: If the moments are crystal-axis moments, which a cell change alters.
+    """
+    if isinstance(moments, CartesianSiteMoments):
+        grid = moments.cartesian_moments
+        return all(
+            math.isclose(
+                float(grid._element((first, column)).to_float()),
+                float(grid._element((second, column)).to_float()),
+                rel_tol=_MOMENT_CLOSENESS,
+                abs_tol=_MOMENT_CLOSENESS,
+            )
+            for column in range(3)
+        )
+    if isinstance(moments, CollinearSiteMoments):
+        values = moments.collinear_moments.to_fractions()
+        return math.isclose(
+            float(values[first]), float(values[second]), rel_tol=_MOMENT_CLOSENESS, abs_tol=_MOMENT_CLOSENESS
+        )
+    raise ValueError(CRYSTAL_AXIS_MOMENT_REFUSAL)
+
+
+def _reorder_site_moments(moments: SiteMomentsBackend, order: Sequence[int]) -> SiteMomentsBackend:
+    """Pick site-moment rows in a new order, carrying them as per-site data.
+
+    Cartesian and collinear moments are moved verbatim: a setting or centring change is a
+    pure basis recombination plus an origin shift, which leaves a lab-frame Cartesian vector
+    and a frame-free collinear scalar unchanged. Crystal-axis moments are refused.
+
+    :param moments: The source per-site moments.
+    :param order: The source site index taken for each output site, in output order.
+    :return: The reordered moments in the same backend kind.
+    :raises ValueError: If the moments are crystal-axis moments, which a cell change alters.
+    """
+    if isinstance(moments, CartesianSiteMoments):
+        grid = moments.cartesian_moments
+        rows = [[grid._element((source, column)) for column in range(3)] for source in order]
+        return CartesianSiteMoments(SurdVector._from_scalar_grid(rows, (len(rows), 3)), precision=moments.precision)
+    if isinstance(moments, CollinearSiteMoments):
+        values = moments.collinear_moments.to_fractions()
+        return CollinearSiteMoments([values[source] for source in order], precision=moments.precision)
+    raise ValueError(CRYSTAL_AXIS_MOMENT_REFUSAL)
 
 
 def _scaled_precision(

@@ -21,16 +21,18 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 from httk.atomistic.symmetry.standardization import ConventionalCellResult, conventional_cell
 
 from ._standardization_common import (
+    MAGNETIC_SUPERCELL_REFUSAL,
     _as_existing_asu,
     _matrix_column_sum_factor,
     _matrix_row_sum_factor,
+    _moments_close,
+    _reorder_site_moments,
     _scaled_composition,
     _scaled_precision,
     _semantic_value,
 )
 
 __all__ = ["PrimitiveCellResult", "primitive_cell"]
-
 
 # These are the exact column-vector matrices from the spglib definition. For the source and
 # citation, see https://spglib.readthedocs.io/en/latest/definition.html#transformation-to-the-primitive-cell.
@@ -106,9 +108,11 @@ def primitive_cell(
     as stored. Recognition arguments are rejected for an existing ASU. The recognized structure
     is converted to its IT standard-setting conventional cell by
     :func:`~httk.atomistic.conventional_cell`, then the fixed matrix for its centring type is
-    applied exactly. Site moments and assemblies are refused because this operation cannot yet
-    transform their frame or preserve correlated site groups through the centring collapse.
-    This operation does not perform Niggli reduction.
+    applied exactly. Site moments are carried through as per-site data: Cartesian and collinear
+    moments are unchanged by the basis recombination, and translation images that collapse onto one
+    primitive site must agree, or the magnetic order needs the larger cell. Assemblies are refused
+    because the centring collapse cannot preserve correlated site groups. This operation does not
+    perform Niggli reduction.
 
     :param structure: The structure to express in a primitive cell.
     :param tolerance: The Cartesian recognition tolerance, or ``None`` to derive it.
@@ -117,9 +121,9 @@ def primitive_cell(
     :return: The primitive-cell structure and transform metadata.
     :raises ImportError: If recognition is needed and the optional spglib dependency is
         unavailable.
-    :raises ValueError: If recognition arguments are invalid for the input, the structure
-        has unsupported moments or assemblies, is not fully periodic, or has an unsupported
-        centring type.
+    :raises ValueError: If recognition arguments are invalid for the input, the structure has
+        assemblies or crystal-axis moments, its magnetic order is incompatible with the primitive
+        cell, it is not fully periodic, or it has an unsupported centring type.
     """
     original = UnitcellStructureView(structure)
     asu = _as_existing_asu(structure)
@@ -132,10 +136,6 @@ def primitive_cell(
     )
     if source_assemblies is not None:
         raise ValueError("primitive_cell does not support collapsing correlated site groups into a primitive cell")
-    if asu is not None and any(site.moment is not None for site in asu.wyckoff_sites):
-        raise ValueError("primitive_cell does not yet support structures with site moments; keep the original setting")
-    if original.site_moments is not None:
-        raise ValueError("primitive_cell does not yet support structures with site moments; keep the original setting")
 
     conventional = conventional_cell(
         structure,
@@ -166,20 +166,31 @@ def primitive_cell(
         periodicity=conventional.structure.cell.periodicity,
     )
 
+    conventional_moments = conventional.structure.site_moments
     primitive_coordinates: list[FracVector] = []
     primitive_species: list[str] = []
-    seen: set[tuple[tuple[fractions.Fraction, ...], str]] = set()
-    for coordinate, species in zip(
-        conventional.structure.sites.reduced_coords,
-        conventional.structure.species_at_sites,
-        strict=True,
+    primitive_moment_order: list[int] = []
+    seen: dict[tuple[tuple[fractions.Fraction, ...], str], int] = {}
+    for conventional_index, (coordinate, species) in enumerate(
+        zip(
+            conventional.structure.sites.reduced_coords,
+            conventional.structure.species_at_sites,
+            strict=True,
+        )
     ):
         mapped = (coordinate * coordinate_matrix).normalize()
         key = (tuple(mapped.to_fractions()), species)
         if key not in seen:
-            seen.add(key)
+            seen[key] = len(primitive_coordinates)
             primitive_coordinates.append(mapped)
             primitive_species.append(species)
+            primitive_moment_order.append(conventional_index)
+        elif conventional_moments is not None and not _moments_close(
+            conventional_moments, primitive_moment_order[seen[key]], conventional_index
+        ):
+            # Translation images that land on one primitive site must share a moment; when they
+            # differ the magnetic order needs the larger cell — this is a genuine magnetic supercell.
+            raise ValueError(MAGNETIC_SUPERCELL_REFUSAL)
 
     translations = spacegroup.centering_translations
     assert len(conventional.structure.sites) == len(primitive_coordinates) * len(translations)
@@ -189,11 +200,15 @@ def primitive_cell(
     multiplier = fractions.Fraction(len(primitive_coordinates), original_count)
     scaled_composition = _scaled_composition(source_composition, multiplier) if source_composition is not None else None
     charge = None if original.charge is None else original.charge * multiplier
+    primitive_moments = (
+        None if conventional_moments is None else _reorder_site_moments(conventional_moments, primitive_moment_order)
+    )
     result = UnitcellStructure(
         primitive_cell_value,
         Sites(primitive_coordinates, precision=coordinate_precision),
         conventional.structure.species,
         primitive_species,
+        site_moments=primitive_moments,
         molecular=molecular,
         chemical_composition=scaled_composition,
         chemical_formula_descriptive=source_descriptive,

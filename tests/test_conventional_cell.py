@@ -11,6 +11,7 @@ from httk.atomistic import (
     Assembly,
     ASUStructure,
     ASUStructureView,
+    CartesianSiteMoments,
     Cell,
     SettingTransform,
     Spacegroup,
@@ -24,6 +25,7 @@ from httk.atomistic import (
     same_crystal,
 )
 from httk.atomistic.composition import ChemicalComposition
+from httk.atomistic.models.sites.sites import Sites
 
 F = fractions.Fraction
 NO_PARAMETERS = FracVector(())
@@ -338,3 +340,112 @@ def test_non_three_dimensional_plain_input_is_refused_by_recognition() -> None:
 
     with pytest.raises(ValueError, match="recognize_asu requires a fully 3D-periodic structure"):
         conventional_cell(structure)
+
+
+def _rutile_altermagnet(perturbation: F | None = None) -> UnitcellStructure:
+    # Rutile-type P4_2/mnm (SG 136): two metals on the single 2a orbit carry opposite z moments;
+    # the four O sit on 4f. ``perturbation`` displaces every coordinate to model noisy CONTCAR floats.
+    u = F(61, 200)
+    coordinates = [
+        [F(0), F(0), F(0)],
+        [F(1, 2), F(1, 2), F(1, 2)],
+        [u, u, F(0)],
+        [-u, -u, F(0)],
+        [u + F(1, 2), F(1, 2) - u, F(1, 2)],
+        [F(1, 2) - u, u + F(1, 2), F(1, 2)],
+    ]
+    if perturbation is not None:
+        coordinates = [[value + perturbation for value in row] for row in coordinates]
+    moments = CartesianSiteMoments([[0, 0, 3], [0, 0, -3], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]])
+    return UnitcellStructure(
+        Cell([[F(23, 5), 0, 0], [0, F(23, 5), 0], [0, 0, F(74, 25)]], precision=F(1, 10000)),
+        Sites(coordinates, precision=F(1, 10000)),
+        None,
+        ["Ru", "Ru", "O", "O", "O", "O"],
+        site_moments=moments,
+    )
+
+
+def _metal_z_moments(structure: UnitcellStructure) -> list[float]:
+    moments = structure.site_moments
+    assert isinstance(moments, CartesianSiteMoments)
+    grid = moments.cartesian_moments
+    return sorted(
+        float(grid._element((index, 2)).to_float())
+        for index, name in enumerate(structure.species_at_sites)
+        if name == "Ru"
+    )
+
+
+def test_altermagnet_moments_are_carried_to_the_conventional_cell() -> None:
+    result = conventional_cell(_rutile_altermagnet())
+    assert result.spacegroup.it_number == 136
+    # The nuclear ASU stays moment-free; the opposite moments ride on the expanded structure only.
+    assert all(site.moment is None for site in result.asu.wyckoff_sites)
+    assert _metal_z_moments(result.structure) == [-3.0, 3.0]
+
+
+def test_noisy_float_positions_still_match_every_site() -> None:
+    result = conventional_cell(_rutile_altermagnet(perturbation=F(1, 10000)))
+    assert result.spacegroup.it_number == 136
+    assert _metal_z_moments(result.structure) == [-3.0, 3.0]
+
+
+def test_cartesian_moments_are_unchanged_by_a_non_standard_setting_change() -> None:
+    # Frame-invariance pin (retired ponytail refusal): a setting change recombines the basis and
+    # shifts the origin without rotating the Cartesian frame, so a Cartesian moment is unchanged.
+    # This input is in setting 15:c1 and recognition maps it back through a non-identity transform.
+    transform = Spacegroup.from_setting("15:c1").transform_from_standard
+    asu = ASUStructure(
+        ORTHO,
+        15,
+        [WyckoffSite("e", FracVector(["1/3"]), "Si", moment=CartesianSiteMoments([[0, 0, "5/2"]]))],
+        _species("Si"),
+        transform=transform,
+    )
+    view = UnitcellStructureView(asu)
+    plain = UnitcellStructure(
+        view.cell,
+        view.sites,
+        view.species,
+        view.species_at_sites,
+        site_moments=CartesianSiteMoments([[0, 0, "5/2"]] * len(view.sites)),
+    )
+    result = conventional_cell(plain)
+
+    assert not result.transform.is_identity()
+    moments = result.structure.site_moments
+    assert isinstance(moments, CartesianSiteMoments)
+    rows = {
+        tuple(float(moments.cartesian_moments._element((index, column)).to_float()) for column in range(3))
+        for index in range(len(result.structure.sites))
+    }
+    assert rows == {(0.0, 0.0, 2.5)}
+
+
+def _cubic_c_doubling(first_z: int, second_z: int) -> UnitcellStructure:
+    # A 1x1x2 doubling of a one-atom simple-cubic cell: two P-cubic sites along c carrying the
+    # given z moments. Nuclear recognition finds the one-atom cell (multiplier 1/2).
+    return UnitcellStructure(
+        Cell([[F(3), 0, 0], [0, F(3), 0], [0, 0, F(6)]], precision=F(1, 10000)),
+        Sites([[F(0), F(0), F(0)], [F(0), F(0), F(1, 2)]], precision=F(1, 10000)),
+        None,
+        ["Fe", "Fe"],
+        site_moments=CartesianSiteMoments([[0, 0, first_z], [0, 0, second_z]]),
+    )
+
+
+def test_antiferromagnetic_supercell_is_refused_not_silently_collapsed() -> None:
+    # The magnetic cell is larger than the nuclear cell: collapsing would drop the opposite moment
+    # and return a ferromagnet. Coverage of every input site must catch this and refuse.
+    with pytest.raises(ValueError, match="magnetic order incompatible with the primitive cell"):
+        conventional_cell(_cubic_c_doubling(2, -2))
+
+
+def test_ferromagnetic_supercell_folds_and_keeps_the_moment() -> None:
+    result = conventional_cell(_cubic_c_doubling(2, 2))
+    assert result.multiplier == F(1, 2)
+    assert len(result.structure.sites) == 1
+    moments = result.structure.site_moments
+    assert isinstance(moments, CartesianSiteMoments)
+    assert float(moments.cartesian_moments._element((0, 2)).to_float()) == 2.0

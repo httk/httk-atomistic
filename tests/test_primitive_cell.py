@@ -22,6 +22,7 @@ from httk.atomistic import (
     recognize_asu,
     same_crystal,
 )
+from httk.atomistic.models.sites.sites import Sites
 
 F = fractions.Fraction
 NO_PARAMETERS = FracVector(())
@@ -143,7 +144,7 @@ def test_existing_asu_rejects_recognition_arguments() -> None:
         primitive_cell(asu, limit_denominator=12)
 
 
-def test_assemblies_and_site_moments_are_refused() -> None:
+def test_assemblies_are_refused() -> None:
     asu = ASUStructure(
         [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
         221,
@@ -154,15 +155,6 @@ def test_assemblies_and_site_moments_are_refused() -> None:
     with pytest.raises(ValueError, match="correlated site groups.*primitive cell"):
         primitive_cell(asu)
 
-    moment_asu = ASUStructure(
-        [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
-        221,
-        [WyckoffSite("a", NO_PARAMETERS, "C", moment=CartesianSiteMoments([[1, 0, 0]]))],
-        _species("C"),
-    )
-    with pytest.raises(ValueError, match="site moments; keep the original setting"):
-        primitive_cell(moment_asu)
-
     full = UnitcellStructure(
         [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
         [[0, 0, 0]],
@@ -172,6 +164,93 @@ def test_assemblies_and_site_moments_are_refused() -> None:
     )
     with pytest.raises(ValueError, match="correlated site groups.*primitive cell"):
         primitive_cell(UnitcellStructureView(full))
+
+
+def test_uniform_asu_moment_is_carried_through_the_primitive_cell() -> None:
+    # A per-orbit ASU moment is uniform by construction, so the existing orbit machinery carries
+    # it: this is the path that used to be refused. SG 221 is primitive, so the moment is unchanged.
+    moment_asu = ASUStructure(
+        [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
+        221,
+        [WyckoffSite("a", NO_PARAMETERS, "C", moment=CartesianSiteMoments([[1, 0, 0]]))],
+        _species("C"),
+    )
+    result = primitive_cell(moment_asu)
+    moments = result.structure.site_moments
+    assert isinstance(moments, CartesianSiteMoments)
+    assert len(moments) == len(result.structure.sites)
+    assert moments.cartesian_moments == CartesianSiteMoments([[1, 0, 0]]).cartesian_moments
+
+
+def _rutile_altermagnet() -> UnitcellStructure:
+    # Rutile-type P4_2/mnm (SG 136): two metals on the single 2a orbit carry opposite z moments
+    # (a collinear altermagnet), the four O sit on 4f. The metals are crystallographically
+    # equivalent, so only nuclear, moment-blind recognition can place them on one orbit.
+    u = F(61, 200)
+    coordinates = [
+        [F(0), F(0), F(0)],
+        [F(1, 2), F(1, 2), F(1, 2)],
+        [u, u, F(0)],
+        [-u, -u, F(0)],
+        [u + F(1, 2), F(1, 2) - u, F(1, 2)],
+        [F(1, 2) - u, u + F(1, 2), F(1, 2)],
+    ]
+    moments = CartesianSiteMoments([[0, 0, 3], [0, 0, -3], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]])
+    return UnitcellStructure(
+        [[F(23, 5), 0, 0], [0, F(23, 5), 0], [0, 0, F(74, 25)]],
+        coordinates,
+        None,
+        ["Ru", "Ru", "O", "O", "O", "O"],
+        site_moments=moments,
+    )
+
+
+def _z_moments(structure: UnitcellStructure, species: str) -> list[float]:
+    moments = structure.site_moments
+    assert isinstance(moments, CartesianSiteMoments)
+    grid = moments.cartesian_moments
+    return sorted(
+        float(grid._element((index, 2)).to_float())
+        for index, name in enumerate(structure.species_at_sites)
+        if name == species
+    )
+
+
+def test_altermagnet_folds_to_the_primitive_cell_keeping_opposite_moments() -> None:
+    result = primitive_cell(_rutile_altermagnet())
+    assert result.spacegroup.it_number == 136
+    # SG 136 is primitive, so nothing collapses and the opposite metal moments survive.
+    assert _z_moments(result.structure, "Ru") == [-3.0, 3.0]
+
+
+def test_ferromagnetic_supercell_folds_with_moments_intact() -> None:
+    # Body-centred (SG 229) with a uniform moment: the two conventional sites are translation
+    # images that agree, so the primitive collapse keeps one site with the shared moment.
+    ferromagnet = UnitcellStructure(
+        [[3, 0, 0], [0, 3, 0], [0, 0, 3]],
+        [[F(0), F(0), F(0)], [F(1, 2), F(1, 2), F(1, 2)]],
+        None,
+        ["Fe", "Fe"],
+        site_moments=CartesianSiteMoments([[0, 0, 2], [0, 0, 2]]),
+    )
+    result = primitive_cell(ferromagnet)
+    assert result.spacegroup.it_number == 229
+    assert len(result.structure.sites) == 1
+    assert _z_moments(result.structure, "Fe") == [2.0]
+
+
+def test_antiferromagnetic_supercell_is_incompatible_with_the_primitive_cell() -> None:
+    # Same body-centred nuclear cell, but opposite moments on the two translation images: the
+    # magnetic cell is genuinely larger than the nuclear primitive cell, so the collapse refuses.
+    antiferromagnet = UnitcellStructure(
+        [[3, 0, 0], [0, 3, 0], [0, 0, 3]],
+        [[F(0), F(0), F(0)], [F(1, 2), F(1, 2), F(1, 2)]],
+        None,
+        ["Fe", "Fe"],
+        site_moments=CartesianSiteMoments([[0, 0, 2], [0, 0, -2]]),
+    )
+    with pytest.raises(ValueError, match="magnetic order incompatible with the primitive cell"):
+        primitive_cell(antiferromagnet)
 
 
 def test_charge_composition_and_precision_scale() -> None:
@@ -268,3 +347,26 @@ def test_spglib_agrees_on_fixture_volume_and_site_count() -> None:
         primitive_volume = abs(_determinant(primitive[0]))
         expected_volume = float(result.structure.cell.volume)
         assert abs(primitive_volume - expected_volume) < 1e-9 * expected_volume
+
+
+def _cubic_c_doubling(first_z: int, second_z: int) -> UnitcellStructure:
+    # A 1x1x2 doubling of a one-atom simple-cubic cell; nuclear recognition finds the smaller cell.
+    return UnitcellStructure(
+        Cell([[F(3), 0, 0], [0, F(3), 0], [0, 0, F(6)]], precision=F(1, 10000)),
+        Sites([[F(0), F(0), F(0)], [F(0), F(0), F(1, 2)]], precision=F(1, 10000)),
+        None,
+        ["Fe", "Fe"],
+        site_moments=CartesianSiteMoments([[0, 0, first_z], [0, 0, second_z]]),
+    )
+
+
+def test_antiferromagnetic_supercell_along_c_is_refused() -> None:
+    with pytest.raises(ValueError, match="magnetic order incompatible with the primitive cell"):
+        primitive_cell(_cubic_c_doubling(2, -2))
+
+
+def test_ferromagnetic_supercell_along_c_folds_with_moment_intact() -> None:
+    result = primitive_cell(_cubic_c_doubling(2, 2))
+    assert result.multiplier == F(1, 2)
+    assert len(result.structure.sites) == 1
+    assert _z_moments(result.structure, "Fe") == [2.0]
