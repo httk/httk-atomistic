@@ -24,6 +24,8 @@ file. It performs no numeric conversion and imports nothing from
 ``httk.core.load``.
 """
 
+import logging
+import math
 import re
 from collections.abc import Iterator
 from typing import Any
@@ -31,6 +33,8 @@ from typing import Any
 from httk.core import combined_precision
 
 from ._text import source_lines
+
+logger = logging.getLogger(__name__)
 
 _POTCAR_SUFFIX = re.compile(r"^([A-Z][a-z]?)[_/.]")
 
@@ -76,7 +80,7 @@ def _coordinate_precision(coords: list[list[str]], *, cartesian: bool) -> Any:
     return combined_precision(None if _DIRECT_UNKNOWN_PRECISION.fullmatch(token) else token for token in tokens)
 
 
-def read_poscar(source: Any) -> dict[str, Any]:
+def read_poscar(source: Any, *, precision: float | None = None) -> dict[str, Any]:
     """Parse a VASP POSCAR/CONTCAR into a neutral, string-preserving mapping.
 
     ``source`` may be a filename, opened through
@@ -110,12 +114,44 @@ def read_poscar(source: Any) -> dict[str, Any]:
     belongs to whoever builds the structure —
     :func:`httk.core.load` — not to the reader.
 
+    A further key, ``precision_override``, carries the caller's ``precision`` value (or
+    ``None``). When given, it is the Cartesian coordinate precision as a length in Å — the
+    same units as :meth:`~httk.atomistic.UnitcellStructure.cartesian_precision` and the
+    ``symprec`` used by symmetry recognition — and whoever builds the structure uses it in
+    place of the digit-derived precision. Relaxed VASP CONTCAR coordinates are written to
+    full double precision, so the digit-derived precision is unrealistically tight
+    (~machine epsilon) and yields a symmetry tolerance that makes spglib reject nearly
+    every candidate; pass a realistic value (e.g. ``5e-4``) for such files. When
+    ``precision`` is ``None`` a recommendation warning is emitted.
+
     :param source: POSCAR/CONTCAR filename, text stream, or iterable of source lines.
-    :return: The neutral mapping, including the original text in ``raw`` when available.
-    :raises ValueError: If the input is malformed.
+    :param precision: Cartesian coordinate precision as a length in Å, or ``None`` to keep
+        the digit-derived behavior (and emit a recommendation warning). Must be a finite
+        number greater than zero when given.
+    :return: The neutral mapping, including the original text in ``raw`` when available,
+        and ``precision_override`` (the passed value or ``None``).
+    :raises ValueError: If the input is malformed, or ``precision`` is not a finite number
+        greater than zero.
     """
+    if precision is not None:
+        if (
+            isinstance(precision, bool)
+            or not isinstance(precision, (int, float))
+            or not math.isfinite(precision)
+            or precision <= 0
+        ):
+            raise ValueError(f"read_poscar precision must be a finite number greater than zero, got {precision!r}.")
+    else:
+        logger.warning(
+            "when reading VASP POSCAR/CONTCAR files it is recommended to pass a value for precision "
+            "(e.g. load(path, precision=5e-4)); without it the coordinate precision is inferred from the "
+            "number of digits written, which for full-precision CONTCAR output yields an unrealistically "
+            "tight symmetry tolerance.",
+            extra={"context": "poscar"},
+        )
     with source_lines(source, preserve_path=True, capture_stream=True) as (lines, raw):
         data = _read_poscar(iter(lines))
+    data["precision_override"] = precision
     data["raw"] = raw
     return data
 

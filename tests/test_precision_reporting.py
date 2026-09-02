@@ -317,3 +317,84 @@ def test_a_volume_scaled_poscar_reports_no_scale_precision() -> None:
     data = read_poscar(io.StringIO(POSCAR.replace("1.0\n", "-179.4\n", 1)))
     assert data["volume"] is not None
     assert data["scale_precision"] is None
+
+
+# --- POSCAR precision override + recommendation warning ---
+
+
+def _rocksalt_full_precision_poscar(*, jitter: float) -> str:
+    """A rocksalt POSCAR with full-double-precision tokens, ideal positions jittered by ``jitter``.
+
+    Full-precision zeros in the cell too, mirroring a real relaxed CONTCAR: that is what makes
+    the digit-derived precision come out at ~machine epsilon.
+    """
+    import random
+
+    rng = random.Random(1)
+    a = 5.64
+    na = [(0, 0, 0), (0, 0.5, 0.5), (0.5, 0, 0.5), (0.5, 0.5, 0)]
+    cl = [(0.5, 0.5, 0.5), (0.5, 0, 0), (0, 0.5, 0), (0, 0, 0.5)]
+
+    def jittered(point: tuple[float, float, float]) -> str:
+        return " ".join(f"{min(max(x + rng.uniform(-jitter, jitter), 0.0), 0.999999):.16f}" for x in point)
+
+    rows = [
+        "rocksalt",
+        "1.0",
+        f"{a:.16f} 0.0000000000000000 0.0000000000000000",
+        f"0.0000000000000000 {a:.16f} 0.0000000000000000",
+        f"0.0000000000000000 0.0000000000000000 {a:.16f}",
+        "Na Cl",
+        "4 4",
+        "Direct",
+        *[jittered(p) for p in na],
+        *[jittered(p) for p in cl],
+    ]
+    return "\n".join(rows) + "\n"
+
+
+def test_poscar_without_precision_warns_and_records_no_override(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level("WARNING"):
+        data = read_poscar(io.StringIO(POSCAR))
+    assert data["precision_override"] is None
+    records = [r for r in caplog.records if getattr(r, "context", None) == "poscar"]
+    assert records, "expected a WARNING with the 'poscar' context"
+    assert "recommended to pass a value for precision" in records[0].getMessage()
+
+
+def test_poscar_with_precision_records_override_and_does_not_warn(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level("WARNING"):
+        data = read_poscar(io.StringIO(POSCAR), precision=5e-4)
+    assert data["precision_override"] == 5e-4
+    assert not [r for r in caplog.records if getattr(r, "context", None) == "poscar"]
+
+
+@pytest.mark.parametrize("bad", [0, -1.0, float("nan"), float("inf"), True])
+def test_poscar_rejects_non_positive_or_non_finite_precision(bad: object) -> None:
+    with pytest.raises(ValueError, match="finite number greater than zero"):
+        read_poscar(io.StringIO(POSCAR), precision=bad)  # type: ignore[arg-type]
+
+
+def test_load_precision_sets_cartesian_precision_exactly(tmp_path: Path) -> None:
+    from httk.core import load
+
+    path = tmp_path / "CONTCAR"
+    path.write_text(_rocksalt_full_precision_poscar(jitter=0.0))
+    structure = load(str(path), precision=5e-4)
+    assert structure.cartesian_precision() == F(str(5e-4))
+
+
+def test_precision_override_rescues_symmetry_of_relaxed_style_structure(tmp_path: Path) -> None:
+    """Full-precision CONTCAR digits collapse the tolerance to ~machine epsilon and spglib
+    returns P1; a realistic precision recovers the real spacegroup."""
+    from httk.core import load
+
+    from httk.atomistic.symmetry import recognize_asu
+
+    path = tmp_path / "CONTCAR"
+    path.write_text(_rocksalt_full_precision_poscar(jitter=2e-5))
+
+    default = recognize_asu(load(str(path)))
+    rescued = recognize_asu(load(str(path), precision=5e-4))
+    assert default.space_group_it_number == 1
+    assert rescued.space_group_it_number > 1

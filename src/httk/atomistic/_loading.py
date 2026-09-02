@@ -54,14 +54,27 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
     else:
         scale = 1
 
-    cell = Cell(cell_rows, scale, _basis_precision(data, raw_basis, scale))
+    override = data.get("precision_override")
+    if override is not None:
+        # A realistic Cartesian precision (Å) supplied by the caller replaces the
+        # digit-derived one; relaxed CONTCAR digits otherwise imply ~machine-epsilon.
+        # Cell precision is an absolute length; Sites precision is fractional, so scale
+        # the length down by the longest cell edge exactly as cartesian_precision() folds
+        # it back up, making structure.cartesian_precision() return prec.
+        prec = fractions.Fraction(str(override))
+        cell = Cell(cell_rows, scale, prec)
+        longest = max(length.to_float() for length in cell.lengths)
+        coordinate_precision: fractions.Fraction | None = prec / fractions.Fraction(str(longest))
+    else:
+        cell = Cell(cell_rows, scale, _basis_precision(data, raw_basis, scale))
+        coordinate_precision = _coordinate_precision(data, raw_basis)
 
     if data["cartesian"]:
         # reduced = cart * basis^-1 (row-vector convention); the universal scale cancels.
         reduced: Any = SurdVector(data["coords"]) * raw_basis.inv()
     else:
         reduced = data["coords"]
-    sites = Sites(reduced, _coordinate_precision(data, raw_basis))
+    sites = Sites(reduced, coordinate_precision)
 
     symbols = data.get("symbols")
     if symbols is None:
