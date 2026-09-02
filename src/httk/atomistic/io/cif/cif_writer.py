@@ -407,21 +407,24 @@ def _write_cif_payload(
     destination: str | os.PathLike[str] | io.TextIOBase,
     data: Mapping[str, object],
     *,
-    approximate: bool = False,
+    approximate: bool = True,
     **kwargs: object,
 ) -> None:
     r"""Write the neutral CIF payload returned by ``read_cif_asus`` or the structure serializer.
 
-    CIF is exact by default: a block the serializer flagged as ``approximate`` (an irrational or
-    orientation-losing cell that has no exact CIF representation) is refused unless the caller opts
-    in with ``approximate=True``, which is lossy and writes rounded decimals. ``httk.core.save``
-    forwards this and any remaining keyword options (``header``, ``max_line_length``) here.
+    Saving into CIF renders whatever the format can hold: a block the serializer flagged as
+    ``approximate`` (an irrational or orientation-losing cell that has no exact CIF representation)
+    is written as rounded decimals by default, with ``_httk_*_exact`` companions carrying the exact
+    rational tokens where they exist. Passing ``approximate=False`` opts into the strict guarantee
+    and refuses such a block instead. ``httk.core.save`` forwards this and any remaining keyword
+    options (``header``, ``max_line_length``) here.
 
     :param destination: Filename or open text stream receiving the CIF text.
     :param data: The neutral CIF payload, either a single block or a ``blocks`` sequence.
-    :param approximate: Whether to permit lossy writing of a cell with no exact CIF form.
+    :param approximate: Whether lossy rounding of a cell with no exact CIF form is allowed
+        (default) rather than refused.
     :param \**kwargs: Remaining low-level :func:`write_cif` options.
-    :raises ValueError: If a block requires approximation and ``approximate`` is not set.
+    :raises ValueError: If a block requires approximation and ``approximate`` is ``False``.
     """
     blocks = data.get("blocks")
     if blocks is None:
@@ -430,7 +433,8 @@ def _write_cif_payload(
     if not approximate and any(block.get("approximate") for block in block_list):
         raise ValueError(
             "CIF cannot exactly represent this structure's cell parameters (an irrational or "
-            "orientation-losing basis); pass approximate=True to write rounded decimals (lossy)"
+            "orientation-losing basis); drop approximate=False to write rounded decimals, or keep "
+            "the original structure to preserve the exact basis"
         )
     options: dict[str, Any] = {"header": cast(str | None, data.get("header"))}
     options.update(kwargs)

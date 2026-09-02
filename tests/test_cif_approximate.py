@@ -1,8 +1,9 @@
-"""Tests for the explicit, lossy approximate CIF-writing opt-in.
+"""Tests for the default lossy CIF-writing behaviour and its strict opt-out.
 
-CIF is exact by default: a cell with no exact CIF representation (an irrational or
-orientation-losing basis) is refused unless the caller passes ``approximate=True`` to
-``httk.core.save``. These tests pin the default refusal and the opt-in round-trip.
+Saving into CIF renders whatever the format can hold: a cell with no exact CIF representation
+(an irrational or orientation-losing basis) is written as rounded decimals by default. Callers
+who need the exact-or-nothing guarantee pass ``approximate=False`` to ``httk.core.save``. These
+tests pin the default round-trip and the strict refusal.
 """
 
 import fractions
@@ -33,15 +34,15 @@ def _structure(basis: list[list[int]], *, moments: bool = False) -> UnitcellStru
     )
 
 
-def test_surd_basis_refuses_without_the_flag(tmp_path):
-    with pytest.raises(ValueError, match="approximate=True"):
-        save(_structure(_SHEARED), tmp_path / "a.cif", format="cif")
+def test_surd_basis_refuses_under_strict_opt_out(tmp_path):
+    with pytest.raises(ValueError, match="approximate=False"):
+        save(_structure(_SHEARED), tmp_path / "a.cif", format="cif", approximate=False)
 
 
-def test_surd_basis_serializes_with_the_flag_and_round_trips(tmp_path):
+def test_surd_basis_serializes_by_default_and_round_trips(tmp_path):
     source = _structure(_SHEARED)
     path = tmp_path / "b.cif"
-    save(source, path, format="cif", approximate=True)
+    save(source, path, format="cif")
 
     reloaded = UnitcellStructureView(load(str(path)))
     assert len(reloaded.sites) == len(UnitcellStructureView(source).sites)
@@ -55,16 +56,16 @@ def test_surd_basis_serializes_with_the_flag_and_round_trips(tmp_path):
     assert max(abs(a - b) for a, b in zip(original_angles, reloaded_angles, strict=True)) < 1e-6
 
 
-def test_exact_structure_is_unchanged_by_the_flag(tmp_path):
-    exact_default = tmp_path / "e.cif"
-    exact_approx = tmp_path / "e2.cif"
-    save(_structure(_ORTHO), exact_default, format="cif")
-    save(_structure(_ORTHO), exact_approx, format="cif", approximate=True)
-    assert exact_default.read_text() == exact_approx.read_text()
+def test_exact_structure_is_identical_under_both_modes(tmp_path):
+    default_path = tmp_path / "e.cif"
+    strict_path = tmp_path / "e2.cif"
+    save(_structure(_ORTHO), default_path, format="cif")
+    save(_structure(_ORTHO), strict_path, format="cif", approximate=False)
+    assert default_path.read_text() == strict_path.read_text()
 
 
-def test_moments_do_not_break_the_approximate_path(tmp_path):
-    # The ordinary CIF writer carries no site moments; the approximate path must still succeed.
+def test_moments_do_not_break_the_default_path(tmp_path):
+    # The ordinary CIF writer carries no site moments; the default lossy path must still succeed.
     path = tmp_path / "m.cif"
-    save(_structure(_SHEARED, moments=True), path, format="cif", approximate=True)
+    save(_structure(_SHEARED, moments=True), path, format="cif")
     assert path.read_text().count("Fe") >= 1

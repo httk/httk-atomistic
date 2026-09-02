@@ -306,18 +306,21 @@ species. It preserves:
 Read → write → read is tested across the committed disorder CIF corpus. The writer rejects
 state for which ordinary CIF has no exact implemented channel: fractional species charges,
 species spins or attachments, assemblies, a net structure charge, or an independently
-declared composition. A cell with no exact CIF form — an irrational length or angle, or a
-rational six-parameter set that would rebuild a different oriented basis — is also refused by
-default.
+declared composition.
 
-That last refusal is the one lossy operation CIF writing offers as an explicit opt-in, in
-keeping with the "exact by default, lossy only on request" principle. Passing
-`approximate=True` through `httk.core.save` (for example
-`save(structure, path, format="cif", approximate=True)`) writes the cell parameters as rounded
-decimals (twelve significant digits) instead of refusing. This is lossy — the arbitrary
-orientation of the basis is not recovered on read-back — and only the cell parameters are
-rounded; the fractional coordinates are already exact rationals and are written unchanged. An
-already-exactly-representable structure is written identically with or without the flag.
+A cell with no exact CIF form — an irrational length or angle, or a rational six-parameter set
+that would rebuild a different oriented basis — is written by default: asking to save into CIF
+renders whatever the format can hold. `httk.core.save(structure, path, format="cif")` writes the
+cell parameters as rounded decimals (twelve significant digits), with `_httk_*_exact` companion
+tags carrying the exact rational tokens wherever they exist. This is lossy for the
+non-representable part — the arbitrary orientation of the basis is not recovered on read-back —
+and only the cell parameters are rounded; the fractional coordinates are already exact rationals
+and are written unchanged. An already-exactly-representable structure is written identically
+whether or not the default applies.
+
+Callers who need the strict "exact or nothing" guarantee pass `approximate=False`
+(`save(structure, path, format="cif", approximate=False)`), which refuses such a cell instead of
+rounding it.
 
 The current writer is an ordinary structural CIF writer, not a magnetic-CIF serializer. It
 does not provide a magnetic-moment round-trip guarantee; do not use an ordinary `.cif` save

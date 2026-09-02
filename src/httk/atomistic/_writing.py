@@ -320,8 +320,8 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
     values are padded to 16 decimal places to keep recognition precision stable.
     A cell with no exact CIF form (an irrational length or angle, or a rational set whose six
     values would rebuild a different oriented basis) is rounded and the block is flagged
-    ``approximate``; the CIF writer refuses a flagged block unless the caller opts in with
-    ``approximate=True``, so this serializer never silently turns an exact structure into a float.
+    ``approximate``; the CIF writer renders such a block by default and refuses it only when the
+    caller asks for the strict guarantee with ``approximate=False``.
     """
     if isinstance(obj, FundamentalDomainStructure):
         _require_cif_projection(obj)
