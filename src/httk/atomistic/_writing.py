@@ -69,6 +69,23 @@ def _render(value: Any, *, field: str) -> str:
     return _finite_decimal(_exact_value(value, field=field))
 
 
+def _snap_to_precision(value: fractions.Fraction, precision: Any) -> fractions.Fraction:
+    """Snap a coordinate/cell rational to the coarsest rational its precision resolves.
+
+    Relaxed (finite-precision) structures store coordinates and cell lengths as
+    full-precision rationalizations of floating-point input (e.g. ``0.355`` arrives as
+    ``563492063538/1587301587431``). Bounding the denominator by ``round(1/precision)``
+    collapses that float noise back onto the intended short rational (``71/200``), which
+    then renders as a clean decimal with no ``_httk_*_exact`` companion. A genuinely exact
+    small-denominator rational (``1/3`` under machine-tight precision) already resolves
+    within the bound, so it is returned unchanged and keeps its exact companion. Exact
+    structures (``precision is None``) are never snapped.
+    """
+    if precision is None or precision <= 0:
+        return value
+    return value.limit_denominator(round(1 / precision))
+
+
 def _poscar_token(value: Any) -> str:
     if isinstance(value, fractions.Fraction):
         rational = value
@@ -104,7 +121,7 @@ def _poscar_padded_token(value: Any) -> str:
     return _pad_poscar_decimal(_poscar_token(value))
 
 
-def _cell_parameters(cell: Any) -> tuple[tuple[str, ...], bool]:
+def _cell_parameters(cell: Any, *, snap: bool = False) -> tuple[tuple[str, ...], bool]:
     """Render the six CIF cell parameters, reporting whether the rendering is lossy.
 
     The exact default keeps rational parameters as standard decimals; a parameter with no exact
@@ -113,6 +130,9 @@ def _cell_parameters(cell: Any) -> tuple[tuple[str, ...], bool]:
     flagged block unless the caller opted in to the approximate mode.
 
     :param cell: The cell whose lengths and angles are serialized.
+    :param snap: When true, snap each parameter to the coarsest rational its ``cell.precision``
+        resolves before rendering, so a relaxed cell's float-noise lengths render as clean
+        decimals; the exact ASU path leaves this false. See :func:`_snap_to_precision`.
     :return: The rendered parameters and whether the rendering is lossy (approximate).
     """
     raw = (*cell.lengths, *cell.angles)
@@ -123,6 +143,10 @@ def _cell_parameters(cell: Any) -> tuple[tuple[str, ...], bool]:
         return tuple(_approx_decimal(value) for value in raw), True
     from httk.atomistic.models.cell.params import CellParams
 
+    # Relaxed cells carry float-noise lengths (e.g. 5.568 stored as .../7999999956); snap
+    # each parameter to what the cell's precision resolves so it renders as a clean decimal.
+    precision = getattr(cell, "precision", None) if snap else None
+    params = tuple(_snap_to_precision(value, precision) for value in params)
     rendered = tuple(_finite_decimal(value) for value in params)
     # Exact numbers can still reconstruct a different oriented basis, which is lossy in its own right.
     return rendered, CellParams(params).basis != cell.basis
@@ -235,6 +259,7 @@ def _block(
     *,
     spacegroup: Spacegroup,
     labels: list[str],
+    snap: bool = False,
 ) -> dict[str, object]:
     by_name = {species.name: species for species in structure.species}
     symbols: list[str] = []
@@ -288,13 +313,20 @@ def _block(
             raise ValueError("CIF serializer requires implicit-atom species to have one non-vacancy constituent")
         append_row(species, 0, species.original_name or label, FracVector((-1, -1, -1)), "dum")
 
-    cell_parameters, cell_is_approximate = _cell_parameters(structure.cell)
+    cell_parameters, cell_is_approximate = _cell_parameters(structure.cell, snap=snap)
+    # Snap float-noise coordinates onto the short rational their precision resolves (0.355
+    # rather than 563492063538/1587301587431). Only for the relaxed unit-cell path (snap=True
+    # with a finite precision); the ASU path passes exact Wyckoff reps that must not be rounded.
+    coordinate_precision = structure.coordinate_precision if snap else None
     return {
         "format": "cif",
         "approximate": cell_is_approximate,
         "cell_parameters_exact": cell_parameters,
         "positions_exact": [
-            tuple(_render(value, field="fractional coordinate") for value in row.to_fractions())
+            tuple(
+                _render(_snap_to_precision(value, coordinate_precision), field="fractional coordinate")
+                for value in row.to_fractions()
+            )
             for row in written_positions
         ],
         "symops_xyz": tuple(operation.wrapped().to_xyz() for operation in symops),
@@ -318,6 +350,16 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
     valid standard decimals and adds ``_httk_*_exact`` companions when those decimals
     are lossy. Lossy standard values use 16 significant digits; finite coordinate
     values are padded to 16 decimal places to keep recognition precision stable.
+
+    A relaxed unit-cell structure carries a finite coordinate/cell precision but stores
+    coordinates and cell lengths as full-precision rationalizations of floating-point input
+    (``0.355`` arrives as ``563492063538/1587301587431``). Serializing those verbatim would
+    emit meaningless huge-denominator ``_httk_*_exact`` companions, so each value is first
+    snapped to the coarsest rational its precision resolves (:func:`_snap_to_precision`),
+    collapsing the noise back onto the intended short decimal (no companion). Genuinely exact
+    small-denominator rationals (``1/3``) resolve within the bound and keep their companion;
+    the ASU/Wyckoff path passes exact representatives and is never snapped (``snap=False``).
+
     A cell with no exact CIF form (an irrational length or angle, or a rational set whose six
     values would rebuild a different oriented basis) is rounded and the block is flagged
     ``approximate``; the CIF writer renders such a block by default and refuses it only when the
@@ -361,6 +403,7 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
                 (identity,),
                 spacegroup=Spacegroup.standard(1),
                 labels=labels,
+                snap=True,
             )
         ],
     }

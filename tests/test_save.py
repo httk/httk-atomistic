@@ -128,3 +128,48 @@ def test_cif_save_uses_standard_decimals_and_exact_companions(tmp_path):
     decimal_destination = tmp_path / "decimal.cif"
     save(fixed, decimal_destination)
     assert "_httk_atom_site_fract_" not in decimal_destination.read_text(encoding="utf-8")
+
+
+# A relaxed CONTCAR carries full-precision float noise (0.355 arrives as 0.3549999999999969);
+# with a stated precision the CIF must render clean decimals and NOT fabricate _httk_*_exact
+# rational companions from that noise (e.g. 563492063538/1587301587431 for what is just 0.355).
+RELAXED_POSCAR = """CrVO4-like
+1.0
+5.5679999999999996 0.0000000000000000 0.0000000000000003
+0.0000000000000013 8.2080000000000002 0.0000000000000005
+0.0000000000000000 0.0000000000000000 5.9770000000000003
+V O
+1 1
+Direct
+0.0000000000000000 0.3549999999999969 0.2500000000000000
+0.0000000000000000 0.7590000000000003 0.5260000000000034
+"""
+
+
+def test_relaxed_cif_snaps_float_noise_to_clean_decimals(tmp_path):
+    source = tmp_path / "CONTCAR"
+    source.write_text(RELAXED_POSCAR, encoding="utf-8")
+    structure = load(str(source), precision=5e-4)
+    destination = tmp_path / "relaxed.cif"
+    save(structure, destination)
+    text = destination.read_text(encoding="utf-8")
+
+    # No exact companions and no huge-denominator rationals leaked from the float noise.
+    assert "_exact" not in text
+    assert "/" not in "".join(text.splitlines()[12:])  # no fraction tokens in the atom/loop body
+    # Clean, snapped values rather than the raw float noise.
+    assert "_cell_length_a 5.568" in text
+    assert "0.3550000000000000" in text
+    assert "0.7590000000000000" in text
+    assert "0.3549999999999969" not in text
+
+
+def test_relaxed_cif_strict_mode_refuses_snapped_cell(tmp_path):
+    # A relaxed structure has no exact CIF form: snapping to precision makes the cell
+    # honestly approximate, so the exact-or-nothing opt-out must refuse rather than
+    # writing float noise as if it were exact.
+    source = tmp_path / "CONTCAR"
+    source.write_text(RELAXED_POSCAR, encoding="utf-8")
+    structure = load(str(source), precision=5e-4)
+    with pytest.raises(ValueError, match="approximate=False"):
+        save(structure, tmp_path / "strict.cif", format="cif", approximate=False)
