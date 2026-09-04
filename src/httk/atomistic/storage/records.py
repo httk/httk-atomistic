@@ -215,7 +215,7 @@ class SpeciesRecord:
         storage_name="atomistic_species_record",
         identity_name="atomistic_species_record",
     )
-    __httk_canonical_source__: ClassVar[type[Species]] = Species
+    __httk_canonical_source__: ClassVar = Species
 
     name: str
     constituents: tuple[SpeciesConstituentRecord, ...]
@@ -359,7 +359,7 @@ class AssemblyGroupRecord:
         storage_name="atomistic_assembly_group_record",
         identity_name="atomistic_assembly_group_record",
     )
-    __httk_canonical_source__: ClassVar[type[tuple]] = tuple
+    __httk_canonical_source__: ClassVar = tuple
 
     sites: tuple[int, ...]
 
@@ -394,7 +394,7 @@ class AssemblyRecord:
         storage_name="atomistic_assembly_record",
         identity_name="atomistic_assembly_record",
     )
-    __httk_canonical_source__: ClassVar[type[Assembly]] = Assembly
+    __httk_canonical_source__: ClassVar = Assembly
 
     groups: tuple[AssemblyGroupRecord, ...]
     group_probabilities: tuple[fractions.Fraction, ...]
@@ -473,7 +473,7 @@ class WyckoffSiteRecord:
         storage_name="atomistic_domain_site_record",
         identity_name="atomistic_domain_site_record",
     )
-    __httk_canonical_source__: ClassVar[type[WyckoffSite]] = WyckoffSite
+    __httk_canonical_source__: ClassVar = WyckoffSite
 
     wyckoff: str
     free_parameters: tuple[fractions.Fraction, ...]
@@ -535,7 +535,7 @@ class SettingTransformRecord:
         identity_name="atomistic_setting_transform_record",
         dedup="by_value",
     )
-    __httk_canonical_source__: ClassVar[type[SettingTransform]] = SettingTransform
+    __httk_canonical_source__: ClassVar = SettingTransform
 
     matrix: Annotated[FracVector, httk.core.storage.markers.Shape(3, 3)]
     vector: tuple[fractions.Fraction, ...]
@@ -595,7 +595,7 @@ class SymmetryRecord:
         storage_name="atomistic_symmetry",
         identity_name="atomistic_symmetry",
     )
-    __httk_canonical_source__: ClassVar[type[StructureSymmetry]] = StructureSymmetry
+    __httk_canonical_source__: ClassVar = StructureSymmetry
 
     space_group_it_number: int | None = None
     space_group_symbol_hall: str | None = None
@@ -675,7 +675,7 @@ class CompositionAmountRecord:
         storage_name="atomistic_composition_amount_record",
         identity_name="atomistic_composition_amount_record",
     )
-    __httk_canonical_source__: ClassVar[type[tuple]] = tuple
+    __httk_canonical_source__: ClassVar = tuple
 
     element: str
     amount: fractions.Fraction
@@ -721,7 +721,7 @@ class ChemicalCompositionRecord:
         storage_name="atomistic_chemical_composition_record",
         identity_name="atomistic_chemical_composition_record",
     )
-    __httk_canonical_source__: ClassVar[type[ChemicalComposition]] = ChemicalComposition
+    __httk_canonical_source__: ClassVar = ChemicalComposition
 
     amounts: tuple[CompositionAmountRecord, ...]
     mode: str
@@ -768,7 +768,7 @@ class NormalizedCompositionRecord:
         storage_name="atomistic_normalized_composition_record",
         identity_name="atomistic_normalized_composition_record",
     )
-    __httk_canonical_source__: ClassVar[type[Composition]] = Composition
+    __httk_canonical_source__: ClassVar = Composition
 
     amounts: tuple["NormalizedCompositionAmountRecord", ...]
     complete: bool
@@ -821,7 +821,7 @@ class NormalizedCompositionAmountRecord:
         storage_name="atomistic_normalized_composition_amount_record",
         identity_name="atomistic_normalized_composition_amount_record",
     )
-    __httk_canonical_source__: ClassVar[type[tuple]] = tuple
+    __httk_canonical_source__: ClassVar = tuple
 
     element: str
     ratio: fractions.Fraction
@@ -880,7 +880,7 @@ class CellRecord:
         storage_name="atomistic_cell",
         identity_name="atomistic_cell",
     )
-    __httk_canonical_source__: ClassVar[type[Cell]] = Cell
+    __httk_canonical_source__: ClassVar = Cell
 
     basis: tuple[SurdScalar, ...]
     precision: fractions.Fraction | None
@@ -932,7 +932,7 @@ class SitesRecord:
         storage_name="atomistic_sites",
         identity_name="atomistic_sites",
     )
-    __httk_canonical_source__: ClassVar[type[Sites]] = Sites
+    __httk_canonical_source__: ClassVar = Sites
 
     reduced_coords: Annotated[FracVector, httk.core.storage.markers.Shape(0, 3)]
     precision: fractions.Fraction | None
@@ -1104,7 +1104,7 @@ class UnitcellStructureRecord:
         identity_name="atomistic_unitcell_structure",
         indexes=(("last_modified",), ("optimization_type",)),
     )
-    __httk_canonical_source__: ClassVar[type[UnitcellStructure]] = UnitcellStructure
+    __httk_canonical_source__: ClassVar = UnitcellStructure
 
     cell: CellRecord
     sites: SitesRecord
@@ -1219,7 +1219,7 @@ class FundamentalDomainStructureRecord:
             ("optimization_type",),
         ),
     )
-    __httk_canonical_source__: ClassVar[type[FundamentalDomainStructure]] = FundamentalDomainStructure
+    __httk_canonical_source__: ClassVar = FundamentalDomainStructure
 
     cell: CellRecord
     domain_sites: tuple[WyckoffSiteRecord, ...]
@@ -1315,7 +1315,7 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
             ("optimization_type",),
         ),
     )
-    __httk_canonical_source__: ClassVar[type[ASUStructure]] = ASUStructure
+    __httk_canonical_source__: ClassVar = ASUStructure
 
     @classmethod
     def __httk_validate__(cls, record: "FundamentalDomainStructureRecord") -> None:
@@ -1610,7 +1610,7 @@ class TrajectoryRecord:
         identity_name="atomistic_trajectory",
         indexes=(("last_modified",), ("nframes",)),
     )
-    __httk_canonical_source__: ClassVar[type[TrajectoryAPI]] = cast(type[TrajectoryAPI], TrajectoryAPI)
+    __httk_canonical_source__: ClassVar = cast(type[TrajectoryAPI], TrajectoryAPI)
 
     nframes: int
     species: tuple[SpeciesRecord, ...]
@@ -1733,7 +1733,7 @@ class WyckoffOccupationRecord:
         storage_name="atomistic_wyckoff_occupation",
         identity_name="atomistic_wyckoff_occupation",
     )
-    __httk_canonical_source__: ClassVar[type[WyckoffOccupation]] = WyckoffOccupation
+    __httk_canonical_source__: ClassVar = WyckoffOccupation
 
     wyckoff: str
     species: SpeciesRecord
@@ -1779,7 +1779,7 @@ class ProtostructureRecord:
         identity_name="atomistic_protostructure",
         indexes=(("spacegroup_it_number",), ("label",)),
     )
-    __httk_canonical_source__: ClassVar[type[Protostructure]] = Protostructure
+    __httk_canonical_source__: ClassVar = Protostructure
 
     spacegroup_it_number: int
     spacegroup_hall_entry: str
@@ -1877,7 +1877,7 @@ class FundamentalDomainTemplateRecord:
         identity_name="atomistic_fundamental_domain_template",
         indexes=(("spacegroup_it_number",), ("spacegroup_hall_entry",)),
     )
-    __httk_canonical_source__: ClassVar[type[FundamentalDomainTemplate]] = FundamentalDomainTemplate
+    __httk_canonical_source__: ClassVar = FundamentalDomainTemplate
 
     cell: CellRecord
     wyckoff_sites: tuple[WyckoffSiteRecord, ...]
@@ -1965,7 +1965,7 @@ class PrototypeRecord:
         identity_name="atomistic_prototype",
         indexes=(("spacegroup_it_number",), ("label",)),
     )
-    __httk_canonical_source__: ClassVar[type[Prototype]] = Prototype
+    __httk_canonical_source__: ClassVar = Prototype
 
     spacegroup_it_number: int
     spacegroup_hall_entry: str
