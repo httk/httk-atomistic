@@ -35,14 +35,21 @@ class VASPOutputs:
     :meth:`close`; payload mappings do not retain open handles.
 
     :param directory: Filesystem directory containing VASP output files.
+    :param precision: Cartesian coordinate precision in Å propagated to the POSCAR/CONTCAR
+        reads (see :func:`~httk.atomistic.integrations.vasp.io.read_poscar`). ``None`` (the
+        default) keeps the digit-derived precision and, on first ``poscar``/``contcar``
+        access, emits the same recommendation warning ``read_poscar`` does — relaxed
+        CONTCAR coordinates are written to full double precision, so without a value the
+        symmetry tolerance comes out unrealistically tight. Validated lazily by the reader.
     """
 
-    def __init__(self, directory: str | os.PathLike[str]) -> None:
+    def __init__(self, directory: str | os.PathLike[str], *, precision: float | None = None) -> None:
         if not isinstance(directory, (str, os.PathLike)):
             raise TypeError("VASPOutputs requires a filesystem directory")
         self._directory = Path(directory)
         if not self._directory.is_dir():
             raise NotADirectoryError(self._directory)
+        self._precision = precision
         self._closed = False
         self._cache: dict[str, Any] = {}
 
@@ -92,15 +99,24 @@ class VASPOutputs:
         value = self._cache[name]
         return None if value is _MISSING else value
 
+    def _read_poscar(self, path: Path) -> dict[str, Any]:
+        return read_poscar(path, precision=self._precision)
+
     @property
     def poscar(self) -> dict[str, Any] | None:
-        """Return the lazily loaded POSCAR payload, or ``None`` when absent."""
-        return self._get("poscar", read_poscar, "POSCAR")
+        """Return the lazily loaded POSCAR payload, or ``None`` when absent.
+
+        The read uses this object's ``precision`` (warning when it was not supplied).
+        """
+        return self._get("poscar", self._read_poscar, "POSCAR")
 
     @property
     def contcar(self) -> dict[str, Any] | None:
-        """Return the lazily loaded CONTCAR payload, or ``None`` when absent."""
-        return self._get("contcar", read_poscar, "CONTCAR")
+        """Return the lazily loaded CONTCAR payload, or ``None`` when absent.
+
+        The read uses this object's ``precision`` (warning when it was not supplied).
+        """
+        return self._get("contcar", self._read_poscar, "CONTCAR")
 
     @property
     def outcar(self) -> OutcarFile | None:

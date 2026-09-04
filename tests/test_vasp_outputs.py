@@ -49,3 +49,23 @@ def test_outputs_owns_file_objects_and_close_is_idempotent(tmp_path: Path) -> No
     outputs.close()
     with pytest.raises(ValueError, match="closed VASP outputs"):
         _ = outputs.outcar
+
+
+def test_outputs_without_precision_warns_and_omits_override(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    (tmp_path / "CONTCAR").write_text(POSCAR, encoding="utf-8")
+    outputs = VASPOutputs(tmp_path)
+    with caplog.at_level("WARNING"):
+        payload = outputs.contcar
+    assert payload is not None and payload["precision_override"] is None
+    records = [r for r in caplog.records if getattr(r, "context", None) == "poscar"]
+    assert records, "reading a CONTCAR without a precision should warn"
+
+
+def test_outputs_precision_propagates_to_reads(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    (tmp_path / "POSCAR").write_text(POSCAR, encoding="utf-8")
+    (tmp_path / "CONTCAR").write_text(POSCAR, encoding="utf-8")
+    outputs = VASPOutputs(tmp_path, precision=5e-4)
+    with caplog.at_level("WARNING"):
+        assert outputs.poscar is not None and outputs.poscar["precision_override"] == 5e-4
+        assert outputs.contcar is not None and outputs.contcar["precision_override"] == 5e-4
+    assert not [r for r in caplog.records if getattr(r, "context", None) == "poscar"]
