@@ -1,6 +1,7 @@
 """Private exact neutral-payload serializers used by :func:`httk.core.save`."""
 
 import fractions
+import math
 from collections.abc import Mapping
 from decimal import Decimal, localcontext
 from typing import Any
@@ -84,6 +85,23 @@ def _snap_to_precision(value: fractions.Fraction, precision: Any) -> fractions.F
     if precision is None or precision <= 0:
         return value
     return value.limit_denominator(round(1 / precision))
+
+
+def _coordinate_decimals(precision: Any) -> int | None:
+    """Decimal places whose CIF digit-count precision claim (``10**-places``) matches ``precision``.
+
+    A relaxed coordinate is only good to its stated precision. Padding it to the full 16 places
+    would tell the reader (via :func:`httk.core.decimal_precision`, which reads precision off the
+    digit count) that ``0.855`` is exact to ``1e-16``. Emitting ``round(-log10(precision))`` places
+    instead makes the written token claim the precision the structure actually has, so a CIF
+    round-trip recovers it. Returns ``None`` for exact structures (``precision is None``), which
+    keep the full-width padding.
+    """
+    if precision is None or precision <= 0:
+        return None
+    # floor, not round: a written token must never claim finer precision than the data has
+    # (httk reads precision as the coarsest of its numbers), so round the digit count down.
+    return max(1, min(16, math.floor(-math.log10(float(precision)))))
 
 
 def _poscar_token(value: Any) -> str:
@@ -317,14 +335,20 @@ def _block(
     # Snap float-noise coordinates onto the short rational their precision resolves (0.355
     # rather than 563492063538/1587301587431). Only for the relaxed unit-cell path (snap=True
     # with a finite precision); the ASU path passes exact Wyckoff reps that must not be rounded.
-    coordinate_precision = structure.coordinate_precision if snap else None
+    # The digit-width claim follows the structure's precision unconditionally (so a relaxed cell
+    # survives repeated CIF round-trips), while value-snapping is only for the relaxed unit-cell
+    # path -- the ASU path passes exact Wyckoff reps that must not be rounded.
+    snap_precision = structure.coordinate_precision if snap else None
     return {
         "format": "cif",
         "approximate": cell_is_approximate,
+        # A finite precision (relaxed data) writes only as many coordinate decimals as it resolves,
+        # so the reader recovers that precision instead of reading full padding as machine-exact.
+        "coordinate_decimals": _coordinate_decimals(structure.coordinate_precision),
         "cell_parameters_exact": cell_parameters,
         "positions_exact": [
             tuple(
-                _render(_snap_to_precision(value, coordinate_precision), field="fractional coordinate")
+                _render(_snap_to_precision(value, snap_precision), field="fractional coordinate")
                 for value in row.to_fractions()
             )
             for row in written_positions
@@ -348,8 +372,10 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
 
     Exact channels retain rational tokens (including ``1/3``); the CIF writer emits
     valid standard decimals and adds ``_httk_*_exact`` companions when those decimals
-    are lossy. Lossy standard values use 16 significant digits; finite coordinate
-    values are padded to 16 decimal places to keep recognition precision stable.
+    are lossy. Lossy standard values use 16 significant digits. An exact structure pads
+    its coordinate decimals to 16 places (reading back as machine-exact); a relaxed one
+    writes only the places its precision resolves (:func:`_coordinate_decimals`), so the
+    digit count round-trips as the precision the data actually has rather than 1e-16.
 
     A relaxed unit-cell structure carries a finite coordinate/cell precision but stores
     coordinates and cell lengths as full-precision rationalizations of floating-point input

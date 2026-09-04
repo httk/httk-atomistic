@@ -301,26 +301,30 @@ def _dual_cif_value(value: object) -> tuple[object, str | None]:
 
 
 def _dual_cif_column(
-    values: Iterable[object], *, pad_coordinates: bool = False
+    values: Iterable[object], *, pad_coordinates: bool = False, decimals: int = _HTTK_CIF_DECIMAL_DIGITS
 ) -> tuple[list[object], list[str | None], bool]:
     standard: list[object] = []
     exact: list[str | None] = []
     for value in values:
         visible, companion = _dual_cif_value(value)
         if pad_coordinates and visible is not None and companion is None:
-            visible = _pad_coordinate_decimal(visible)
+            visible = _pad_coordinate_decimal(visible, decimals)
         standard.append(visible)
         exact.append(companion)
     return standard, exact, any(value is not None for value in exact)
 
 
-def _pad_coordinate_decimal(value: object) -> object:
-    """Give standard coordinate decimals a fixed 16-place precision claim."""
+def _pad_coordinate_decimal(value: object, decimals: int = _HTTK_CIF_DECIMAL_DIGITS) -> object:
+    """Give a standard coordinate decimal a fixed ``decimals``-place precision claim.
+
+    ``decimals`` defaults to 16 (an exact structure's coordinate reads as machine-exact); a relaxed
+    structure passes its precision-derived width so the digit count states the precision it has.
+    """
     text = str(value)
     whole, dot, fraction = text.partition(".")
     if not dot:
-        return text + "." + "0" * _HTTK_CIF_DECIMAL_DIGITS
-    return whole + "." + fraction.ljust(_HTTK_CIF_DECIMAL_DIGITS, "0")
+        return text + "." + "0" * decimals
+    return whole + "." + fraction.ljust(decimals, "0")
 
 
 def _neutral_cif_block(block: Mapping[str, object]) -> dict[str, object]:
@@ -365,8 +369,13 @@ def _neutral_cif_block(block: Mapping[str, object]) -> dict[str, object]:
     raw["loop_atoms"] = loop_atoms
     raw["atom_site_label"] = labels
     raw["atom_site_type_symbol"] = symbols
+    # A relaxed block states how many coordinate decimals its precision resolves; exact blocks
+    # (and reader-round-tripped blocks that omit the key) keep the full 16-place claim.
+    coordinate_decimals = cast("int | None", block.get("coordinate_decimals")) or _HTTK_CIF_DECIMAL_DIGITS
     for index, tag in enumerate(("atom_site_fract_x", "atom_site_fract_y", "atom_site_fract_z")):
-        values, exact_values, has_exact = _dual_cif_column((row[index] for row in positions), pad_coordinates=True)
+        values, exact_values, has_exact = _dual_cif_column(
+            (row[index] for row in positions), pad_coordinates=True, decimals=coordinate_decimals
+        )
         raw[tag] = values
         if has_exact:
             raw[f"httk_{tag}_exact"] = exact_values

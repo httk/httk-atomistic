@@ -159,9 +159,18 @@ def test_relaxed_cif_snaps_float_noise_to_clean_decimals(tmp_path):
     assert "/" not in "".join(text.splitlines()[12:])  # no fraction tokens in the atom/loop body
     # Clean, snapped values rather than the raw float noise.
     assert "_cell_length_a 5.568" in text
-    assert "0.3550000000000000" in text
-    assert "0.7590000000000000" in text
     assert "0.3549999999999969" not in text
+    # Coordinates are written only to the precision they resolve (~1e-4 -> 4 decimals), not padded
+    # to 16 places, so the digit count does not claim machine precision the data lacks.
+    assert "V V 0.0000 0.3550 0.2500" in text
+    assert "0.3550000000000000" not in text
+    # A CIF round-trip therefore recovers a realistic precision, not 1e-16 -- and stays there on a
+    # second round-trip (the width follows the structure's precision, not just the first-write path).
+    reloaded = load(destination)
+    assert reloaded.coordinate_precision == Fraction(1, 10000)
+    resaved = tmp_path / "relaxed2.cif"
+    save(reloaded, resaved)
+    assert load(resaved).coordinate_precision == Fraction(1, 10000)
 
 
 def test_relaxed_cif_strict_mode_refuses_snapped_cell(tmp_path):
