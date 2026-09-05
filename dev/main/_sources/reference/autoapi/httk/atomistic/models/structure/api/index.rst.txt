@@ -1,0 +1,232 @@
+httk.atomistic.models.structure.api
+===================================
+
+.. py:module:: httk.atomistic.models.structure.api
+
+.. autoapi-nested-parse::
+
+   The minimal canonical structure interface for httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.api.StructureAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: StructureAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Define the canonical structure interface.
+
+   It declares the Unitcell quartet that every structure backend produces from its
+   own native representation and every structure view builds its presentation
+   from: ``cell``, ``sites``, ``species``, and ``species_at_sites``. This is the
+   single interchange format; there is no pairwise conversion between backends.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+      :abstractmethod:
+
+
+      Expose the structure's cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+      :abstractmethod:
+
+
+      Expose the structure's site coordinates.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+      :abstractmethod:
+
+
+      Expose the structure's distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+      :abstractmethod:
+
+
+      Expose the species occupying each site.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned net charge of the cell content.
+
+      ``None`` means unstated and is never derived from the species; it is distinct
+      from an explicit zero.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose optional per-site magnetic moments in ``sites`` order.
+
+      ``None`` means "nothing stated", not "zero moments".
+
+      :return: The site moments, or ``None`` when they are unstated.
+
+
+   .. py:method:: without_charges()
+
+      Return an EXPLICIT lossy projection that drops declared oxidation states.
+
+      The canonical structure components and semantic metadata are preserved. A structure
+      without species charges is returned by identity; charged structures are rebuilt in the
+      canonical unit-cell family.
+
+      :return: A charge-free structure, or this structure when already charge-free.
+
+
+
+   .. py:method:: canonical_protostructure()
+
+      Return the canonical assigned-species classification of this structure.
+
+      Enantiomorphic structures are deliberately collapsed to the lower-numbered
+      member of their space-group pair, so the result is independent of chirality.
+
+      :return: A standalone canonical protostructure value.
+
+
+
+   .. py:method:: canonical_prototype()
+
+      Return the canonical anonymous geometrical classification of this structure.
+
+      Enantiomorphic structures are deliberately collapsed to the lower-numbered
+      member of their space-group pair, so the result is independent of chirality.
+
+      :return: A standalone canonical prototype value.
+
+
+
+   .. py:property:: composition
+      :type: httk.atomistic.models.formula.composition.Composition
+
+
+      Project the canonical components into an elemental composition.
+
+
+   .. py:property:: elements
+      :type: tuple[str, ...] | None
+
+
+      Expose the complete composition's element symbols, if available.
+
+
+   .. py:property:: nelements
+      :type: int | None
+
+
+      Expose the complete composition's element count, if available.
+
+
+   .. py:property:: elements_ratios
+      :type: tuple[fractions.Fraction, ...] | None
+
+
+      Expose complete composition ratios, if available.
+
+
+   .. py:property:: chemical_formula_reduced
+      :type: str | None
+
+
+      Expose the reduced formula derived from a complete composition.
+
+
+   .. py:property:: chemical_formula_anonymous
+      :type: str | None
+
+
+      Expose the anonymous formula derived from a complete composition.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      Expose an explicitly supplied descriptive formula, when available.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      Expose an explicitly supplied Hill formula, when available.
+
+
+   .. py:property:: dimension_types
+      :type: tuple[int, ...] | None
+
+
+      Expose cell periodicity as OPTIMADE dimension flags.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int | None
+
+
+      Expose the number of periodic cell directions.
+
+
+   .. py:property:: nsites
+      :type: int | None
+
+
+      Expose the number of canonical site-coordinate rows.
+
+
+   .. py:method:: multiplicities()
+
+      Return how many unit-cell sites each represented site contributes.
+
+      The canonical structure interface presents a unit cell, so each row contributes
+      once. Symmetry-reduced representations override this with their orbit counts.
+
+      :return: One multiplicity per represented site.
+
+
+
+   .. py:property:: implicit_atoms
+      :type: tuple[str, ...]
+
+
+      Expose species definitions whose atoms have no represented coordinates.
+
+      :return: Unused species names in species-definition order.
+
+
+   .. py:property:: structure_features
+      :type: tuple[str, ...] | None
+
+
+      Expose composition-related features derived from canonical components.
+
+

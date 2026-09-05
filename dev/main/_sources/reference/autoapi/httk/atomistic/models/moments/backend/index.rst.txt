@@ -1,0 +1,37 @@
+httk.atomistic.models.moments.backend
+=====================================
+
+.. py:module:: httk.atomistic.models.moments.backend
+
+.. autoapi-nested-parse::
+
+   The abstract base class for all site-moments backends in httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.backend.SiteMomentsBackend
+
+
+Module Contents
+---------------
+
+.. py:class:: SiteMomentsBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`SiteMomentsBackend`\ ], :py:obj:`httk.atomistic.models.moments.api.SiteMomentsAPI`
+
+
+   Abstract base class for all backends of site-moments data.
+
+   Concrete backends carry a native representation and produce the canonical Nx3
+   ``cartesian_moments`` declared by ``SiteMomentsAPI`` from it.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+

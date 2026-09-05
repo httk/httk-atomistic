@@ -1,0 +1,74 @@
+httk.atomistic.models.cell.view
+===============================
+
+.. py:module:: httk.atomistic.models.cell.view
+
+.. autoapi-nested-parse::
+
+   A view presenting any cell backend as a Cell (the class representation).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.view.CellView
+
+
+Module Contents
+---------------
+
+.. py:class:: CellView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.cell.view_base.CellViewBase`, :py:obj:`httk.atomistic.models.cell.cell.Cell`
+
+
+   A view presenting an underlying cell backend as a ``Cell``.
+
+   This view is a genuine ``Cell``, so it can be passed anywhere a Cell is accepted.
+   Its state is built lazily on first access from the backend.
+
+   :param obj: The cell-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: lengths
+      :type: tuple[httk.core.SurdScalar, ...]
+
+
+      Present the backend's native cell-vector lengths without re-deriving them.
+
+      :return: The three exact or backend-native cell-vector lengths.
+
+
+   .. py:property:: angles
+      :type: tuple[fractions.Fraction, ...]
+
+
+      Present the backend's native crystallographic angles without re-deriving them.
+
+      :return: The three cell angles in degrees.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return this presentation as a standalone cell.
+
+      The original backend remains available through :meth:`unwrap`. For a parameter
+      backend with a non-special angle, the standalone basis uses that backend's
+      documented deterministic rational approximation.
+
+      :return: The standalone basis representation.
+
+
+

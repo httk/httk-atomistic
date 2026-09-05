@@ -1,0 +1,75 @@
+httk.atomistic.models.structure.plain
+=====================================
+
+.. py:module:: httk.atomistic.models.structure.plain
+
+.. autoapi-nested-parse::
+
+   Backend wrapping an spglib-like (lattice, positions, numbers) triple.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.plain.PlainStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: PlainStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent a crystal structure backed by an spglib-like triple.
+
+   The native representation is a length-3 ``(lattice, positions, numbers)`` list
+   or tuple, where ``lattice`` is 3x3, ``positions`` is Nx3 reduced coordinates,
+   and ``numbers`` is the length-N sequence of atomic numbers. The quartet is
+   derived lazily and cached: ``cell`` is a ``Cell``, ``sites`` a ``Sites``,
+   ``species`` one single-element ``Species`` per distinct atomic number, and
+   ``unwrap`` returns the original triple.
+   :param obj: The primitive structure triple to wrap.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the cell derived from the lattice.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the reduced coordinates derived from the positions.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Expose one species definition for each distinct atomic number.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Expose the species name occupying each site.
+
+
+   .. py:method:: unwrap()
+
+      Return the original primitive structure triple.
+
+      :return: The wrapped lattice, positions, and atomic numbers.
+
+
+

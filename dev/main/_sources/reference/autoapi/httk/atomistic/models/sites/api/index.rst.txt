@@ -1,0 +1,69 @@
+httk.atomistic.models.sites.api
+===============================
+
+.. py:module:: httk.atomistic.models.sites.api
+
+.. autoapi-nested-parse::
+
+   The minimal canonical sites interface for httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.api.SitesAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: SitesAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Abstract base class for the canonical sites interface.
+
+   It declares the single ``reduced_coords`` accessor (the exact Nx3 rational
+   :class:`~httk.core.FracVector` of reduced coordinates) that every sites backend produces from
+   its own native representation and every sites view builds its presentation from. This is the
+   single interchange format; there is no pairwise conversion between backends.
+
+
+   .. py:property:: reduced_coords
+      :type: httk.core.FracVector
+
+      :abstractmethod:
+
+
+      Return the reduced site coordinates.
+
+
+   .. py:property:: num_sites
+      :type: int
+
+
+      Return the number of coordinate rows.
+
+      :return: The number of sites.
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      How precisely the coordinates were stated, in fractional units, or ``None``.
+
+      Fractional, not a length: reduced coordinates are dimensionless and a ``Sites`` has
+      no cell to convert with. :meth:`~httk.atomistic.UnitcellStructure.cartesian_precision`
+      does the conversion, where the cell is known.
+
+      Concrete rather than abstract, so a backend with no source of precision inherits
+      ``None`` instead of breaking.
+
+      :return: The fractional precision, or ``None`` when unknown.
+
+

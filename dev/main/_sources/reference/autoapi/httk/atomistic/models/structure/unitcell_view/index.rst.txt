@@ -1,0 +1,192 @@
+httk.atomistic.models.structure.unitcell_view
+=============================================
+
+.. py:module:: httk.atomistic.models.structure.unitcell_view
+
+.. autoapi-nested-parse::
+
+   A view presenting any structure backend as a UnitcellStructure (the Unitcell representation).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.unitcell_view.UnitcellStructureView
+
+
+Module Contents
+---------------
+
+.. py:class:: UnitcellStructureView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.view.StructureView`, :py:obj:`httk.atomistic.models.structure.unitcell.UnitcellStructure`
+
+
+   A view presenting an underlying structure backend as a ``UnitcellStructure``.
+
+   This view is a genuine ``UnitcellStructure``, so it can be passed anywhere a UnitcellStructure
+   is accepted. Each component is normalized lazily on first access. For an
+   ASU-backed view, accessing ``cell`` or ``species`` never triggers expansion.
+
+   An ASU backend is expanded when unit-cell sites, species-at-sites, moments, or
+   assemblies are requested. Assembly correlations that cannot be mapped from the
+   fundamental domain to the full cell raise an error.
+
+   :param obj: The structure backend or source to present.
+   :param \**hints: Backend-selection and metadata options passed to construction.
+   :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the source
+       declares a coordinate span that cannot be projected as a native unit cell.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose the site's magnetic moments.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned charge.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw value wrapped by the backend.
+
+      :return: The original source value.
+
+
+
+   .. py:method:: unview()
+
+      Materialize this presentation as a standalone unit-cell structure.
+
+      :return: The exact unit-cell structure represented by this view.
+
+
+
+   .. py:property:: immutable_id
+      :type: str | None
+
+
+      Expose the immutable source identifier.
+
+
+   .. py:property:: last_modified
+      :type: Any
+
+
+      Expose the source modification timestamp.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Expose whether the presented structure is molecular.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the unit-cell coordinate span.
+
+
+   .. py:property:: symmetry
+      :type: Any
+
+
+      Expose the optional symmetry metadata.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, ...] | None
+
+
+      Expose site correlations in the presented unit cell.
+
+
+   .. py:property:: chemical_composition
+      :type: Any
+
+
+      Expose the optional chemical composition metadata.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      Expose the optional descriptive chemical formula.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      Expose the optional Hill chemical formula.
+
+
+   .. py:property:: optimization_type
+      :type: str | None
+
+
+      Expose the optional optimization provenance.
+
+
+   .. py:property:: site_coordinate_span_description
+      :type: str | None
+
+
+      Expose the optional coordinate-span description.
+
+
+   .. py:property:: space_group_it_number
+      :type: int | None
+
+
+      Expose the optional space-group number.
+
+
+   .. py:property:: space_group_symbol_hall
+      :type: str | None
+
+
+      Expose the optional Hall symbol.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin
+      :type: str | None
+
+
+      Expose the optional Hermann–Mauguin symbol.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin_extended
+      :type: str | None
+
+
+      Expose the optional extended Hermann–Mauguin symbol.
+
+
+   .. py:property:: space_group_symmetry_operations_xyz
+      :type: tuple[str, ...] | None
+
+
+      Expose the optional symmetry operations in ``xyz`` notation.
+
+
+   .. py:property:: wyckoff_positions
+      :type: tuple[str, ...] | None
+
+
+      Expose the optional Wyckoff positions.
+
+

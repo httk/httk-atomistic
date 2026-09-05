@@ -1,0 +1,348 @@
+httk.atomistic.models.sites
+===========================
+
+.. py:module:: httk.atomistic.models.sites
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/sites/api/index
+   /reference/autoapi/httk/atomistic/models/sites/backend/index
+   /reference/autoapi/httk/atomistic/models/sites/like/index
+   /reference/autoapi/httk/atomistic/models/sites/numeric/index
+   /reference/autoapi/httk/atomistic/models/sites/numeric_view/index
+   /reference/autoapi/httk/atomistic/models/sites/plain/index
+   /reference/autoapi/httk/atomistic/models/sites/plain_view/index
+   /reference/autoapi/httk/atomistic/models/sites/record/index
+   /reference/autoapi/httk/atomistic/models/sites/sites/index
+   /reference/autoapi/httk/atomistic/models/sites/view/index
+   /reference/autoapi/httk/atomistic/models/sites/view_base/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.SitesLike
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.SitesAPI
+   httk.atomistic.models.sites.SitesBackend
+   httk.atomistic.models.sites.NumericSites
+   httk.atomistic.models.sites.SitesNumericView
+   httk.atomistic.models.sites.PlainSites
+   httk.atomistic.models.sites.PlainSitesView
+   httk.atomistic.models.sites.Sites
+   httk.atomistic.models.sites.SitesView
+   httk.atomistic.models.sites.SitesViewBase
+
+
+Package Contents
+----------------
+
+.. py:class:: SitesAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Abstract base class for the canonical sites interface.
+
+   It declares the single ``reduced_coords`` accessor (the exact Nx3 rational
+   :class:`~httk.core.FracVector` of reduced coordinates) that every sites backend produces from
+   its own native representation and every sites view builds its presentation from. This is the
+   single interchange format; there is no pairwise conversion between backends.
+
+
+   .. py:property:: reduced_coords
+      :type: httk.core.FracVector
+
+      :abstractmethod:
+
+
+      Return the reduced site coordinates.
+
+
+   .. py:property:: num_sites
+      :type: int
+
+
+      Return the number of coordinate rows.
+
+      :return: The number of sites.
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      How precisely the coordinates were stated, in fractional units, or ``None``.
+
+      Fractional, not a length: reduced coordinates are dimensionless and a ``Sites`` has
+      no cell to convert with. :meth:`~httk.atomistic.UnitcellStructure.cartesian_precision`
+      does the conversion, where the cell is known.
+
+      Concrete rather than abstract, so a backend with no source of precision inherits
+      ``None`` instead of breaking.
+
+      :return: The fractional precision, or ``None`` when unknown.
+
+
+.. py:class:: SitesBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`SitesBackend`\ ], :py:obj:`httk.atomistic.models.sites.api.SitesAPI`
+
+
+   Abstract base class for all backends of sites data.
+
+   Concrete backends carry a native representation and produce the canonical Nx3
+   ``reduced_coords`` declared by ``SitesAPI`` from it.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+
+.. py:type:: SitesLike
+   :canonical: httk.atomistic.models.sites.backend.SitesBackend | httk.atomistic.models.sites.view_base.SitesViewBase | httk.atomistic.models.sites.sites.Sites | httk.core.VectorLike
+
+
+.. py:class:: NumericSites(sites)
+
+   A plain-numpy presentation of a :class:`~httk.atomistic.Sites` object.
+
+   Where a ``Sites`` holds its reduced coordinates exactly (an Nx3 rational
+   :class:`~httk.core.FracVector`), a ``NumericSites`` mirrors that interface but returns plain
+   ``float64`` numpy arrays, for callers who do not need exact arithmetic and just want numpy arrays.
+   It is len/iter/indexable over its rows, each yielded as a ``(3,)`` numpy array.
+
+   The presentation is numpy-backed, so constructing a ``NumericSites`` **requires numpy** (the
+   ``httk-atomistic[numpy]`` extra) and raises :class:`ImportError` eagerly when it is unavailable.
+   The exact object is always one hop away via :attr:`exact`.
+
+   :param sites: The sites or sites-like object to present.
+
+
+   .. py:property:: precision
+      :type: float | None
+
+
+      The fractional coordinate precision, or ``None`` if unknown.
+
+      :return: The precision as a floating-point value.
+
+
+   .. py:property:: reduced_coords
+      :type: httk.core.NumericVector
+
+
+      The Nx3 reduced site coordinates.
+
+      :return: The coordinates as floating-point values.
+
+
+   .. py:property:: exact
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      The exact sites this presentation wraps.
+
+      :return: The exact sites.
+
+
+.. py:class:: SitesNumericView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.view_base.SitesViewBase`, :py:obj:`httk.atomistic.models.sites.numeric.NumericSites`
+
+
+   A view presenting an underlying sites backend as a ``NumericSites`` object.
+
+   This view is a genuine ``NumericSites``, so it can be passed anywhere one is accepted. Its exact
+   ``Sites`` is built lazily from the backend on first access. Like a ``NumericSites`` it requires
+   numpy (raising :class:`ImportError` otherwise).
+
+   :param obj: The sites-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return this presentation as standalone numeric sites.
+
+      :return: The plain-numpy presentation.
+
+
+
+.. py:class:: PlainSites(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.backend.SitesBackend`
+
+
+   Backend for sites backed by a raw Nx3 list or tuple of numbers (or any Nx3 vector-like).
+
+   The native representation is preserved verbatim (one site per row); the exact rational
+   :class:`~httk.core.FracVector` ``reduced_coords`` are built lazily and cached, and ``unwrap``
+   returns the original raw object.
+
+   :param obj: The raw reduced-coordinate representation.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: reduced_coords
+      :type: httk.core.FracVector
+
+
+      Return the reduced coordinates in the canonical representation.
+
+      :return: The exact reduced coordinates.
+
+
+   .. py:method:: unwrap()
+
+      Return the original coordinate object.
+
+      :return: The raw coordinate representation.
+
+
+
+.. py:class:: PlainSitesView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.view_base.SitesViewBase`, :py:obj:`tuple`
+
+
+   A view presenting an underlying sites backend as a raw Nx3 matrix of floats.
+
+   This view is a genuine tuple of reduced-coordinate rows (rendered to floats from the exact
+   ``reduced_coords``), built eagerly and immutable.
+
+   :param obj: The sites-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the presented coordinates as a plain tuple.
+
+      :return: The reduced-coordinate rows.
+
+
+
+.. py:class:: Sites(reduced_coords, precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.backend.SitesBackend`
+
+
+   The sites of a crystal structure: the Nx3 matrix of reduced coordinates, held **exactly**.
+
+   Reduced (fractional) coordinates are the symmetry-native frame: point-group operations are
+   integer matrices and translations are rationals, so no radicals ever appear. They are therefore
+   stored as an exact rational :class:`~httk.core.FracVector` of shape ``(N, 3)``. A Sites object
+   is iterable and indexable over its length-3 coordinate rows (each a ``FracVector``), with
+   ``len`` giving the number of sites.
+
+   Inputs embed exactly: rationals (and rational-valued floats), rational strings, and numpy arrays
+   all land on their exact rational value. An irrational :class:`~httk.core.SurdVector` input is
+   rejected; the exact Cartesian frame — where radicals belong — is obtained instead via
+   :meth:`~httk.atomistic.UnitcellStructure.cartesian_sites`.
+
+   :param reduced_coords: The reduced coordinates, one site per row.
+   :param precision: The fractional precision carried from the source, if known.
+
+
+   .. py:property:: reduced_coords
+      :type: httk.core.FracVector
+
+
+      The Nx3 reduced site coordinates as an exact ``FracVector`` (one site per row).
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      How precisely these coordinates were stated, in fractional units, or ``None``.
+
+      Fractional and therefore dimensionless: reduced coordinates are fractions of a cell
+      edge, and a ``Sites`` carries no cell to convert with. Use
+      :meth:`~httk.atomistic.UnitcellStructure.cartesian_precision` for the corresponding length,
+      which is the number an interatomic tolerance or an spglib ``symprec`` actually
+      wants.
+
+      It is the *coarsest* precision among the coordinates, since a structure is only as
+      precisely stated as its least precisely stated number. ``None`` means unknown.
+
+      :return: The fractional precision, or ``None`` when unknown.
+
+
+   .. py:method:: numeric()
+
+      Return a plain-numpy presentation of these sites.
+
+      :return: The numpy-backed presentation.
+      :raises ImportError: If numpy is unavailable.
+
+
+
+.. py:class:: SitesView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.view_base.SitesViewBase`, :py:obj:`httk.atomistic.models.sites.sites.Sites`
+
+
+   A view presenting an underlying sites backend as a ``Sites`` object.
+
+   This view is a genuine ``Sites``, so it can be passed anywhere a Sites is accepted.
+   Its state is built lazily on first access from the backend.
+
+   :param obj: The sites-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return this presentation as standalone exact sites.
+
+      :return: The exact sites representation.
+
+
+
+.. py:class:: SitesViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.sites.backend.SitesBackend`\ ]
+
+
+   Abstract base class for all views of sites data.
+
+

@@ -1,0 +1,420 @@
+httk.atomistic.models.structure.semantics
+=========================================
+
+.. py:module:: httk.atomistic.models.structure.semantics
+
+.. autoapi-nested-parse::
+
+   Shared OPTIMADE structure semantics for native atomistic representations.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.semantics.OptimizationType
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.semantics.StructureSymmetry
+   httk.atomistic.models.structure.semantics.StructureSemanticsMixin
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.semantics.validate_optimization_type
+   httk.atomistic.models.structure.semantics.validate_hill_formula
+   httk.atomistic.models.structure.semantics.validate_descriptive_formula
+   httk.atomistic.models.structure.semantics.initialize_semantics
+
+
+Module Contents
+---------------
+
+.. py:data:: OptimizationType
+
+.. py:class:: StructureSymmetry
+
+   Store optional, explicitly supplied symmetry metadata for a unit-cell structure.
+
+   :param space_group_it_number: Optional International Tables space-group number.
+   :param space_group_symbol_hall: Optional Hall symbol.
+   :param space_group_symbol_hermann_mauguin: Optional short Hermann–Mauguin symbol.
+   :param space_group_symbol_hermann_mauguin_extended: Optional extended Hermann–Mauguin symbol.
+   :param space_group_symmetry_operations_xyz: Optional declared raw ``xyz`` operations.
+   :param wyckoff_positions: Optional Wyckoff letters aligned with represented sites.
+   :raises TypeError: If a symbol is not a string.
+   :raises ValueError: If the metadata is invalid or mutually inconsistent.
+
+
+   .. py:attribute:: space_group_it_number
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symbol_hall
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symbol_hermann_mauguin
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symbol_hermann_mauguin_extended
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: space_group_symmetry_operations_xyz
+      :type:  tuple[str, ...] | None
+      :value: None
+
+
+
+   .. py:attribute:: wyckoff_positions
+      :type:  tuple[str, ...] | None
+      :value: None
+
+
+
+   .. py:attribute:: matched_settings
+      :type:  ClassVar[tuple[collections.abc.Mapping[str, Any], ...]]
+
+
+.. py:function:: validate_optimization_type(value)
+
+   Validate an OPTIMADE optimization type.
+
+   :param value: The optimization type to validate, or ``None``.
+   :return: The validated value.
+   :raises ValueError: If the value is not one of the supported optimization types.
+
+
+.. py:function:: validate_hill_formula(formula, composition)
+
+   Validate an explicitly assigned Hill formula without inventing its molecular scale.
+
+   :param formula: The formula to validate, or ``None``.
+   :param composition: Optional complete composition to cross-check.
+   :return: The unchanged formula, or ``None``.
+   :raises ValueError: If the formula syntax, order, elements, or ratios are invalid.
+
+
+.. py:function:: validate_descriptive_formula(formula)
+
+   Validate the permissive OPTIMADE descriptive-formula token and bracket grammar.
+
+   :param formula: The formula to validate, or ``None``.
+   :return: The unchanged formula, or ``None``.
+   :raises ValueError: If the formula is empty, malformed, or contains unknown tokens.
+
+
+.. py:class:: StructureSemanticsMixin
+
+   Provide semantics shared by unit-cell, fundamental-domain, and ASU structures.
+
+
+   .. py:property:: type
+      :type: str
+
+
+      Expose the logical OPTIMADE entry family.
+
+      :return: ``"structures"``.
+
+
+   .. py:property:: id
+      :type: str
+
+
+      Expose the stable content identity of this exact representation.
+
+      :return: The content identifier.
+
+
+   .. py:property:: immutable_id
+      :type: str | None
+
+
+      Expose the immutable source identifier.
+
+      :return: The identifier, or ``None`` when it is unstated.
+
+
+   .. py:property:: last_modified
+      :type: datetime.datetime | None
+
+
+      Expose the source modification timestamp.
+
+      :return: The timestamp, or ``None`` when it is unstated.
+
+
+   .. py:property:: assemblies
+      :type: tuple[httk.atomistic.composition.Assembly, ...] | None
+
+
+      Expose site assemblies.
+
+      :return: The assemblies, or ``None`` when they are unstated.
+
+
+   .. py:property:: chemical_composition
+      :type: httk.atomistic.composition.ChemicalComposition | None
+
+
+      Expose the supplied chemical composition.
+
+      :return: The composition, or ``None`` when it is unstated.
+
+
+   .. py:property:: composition
+      :type: httk.atomistic.models.formula.composition_view.CompositionView
+
+
+      Present a lazy view over this structure's projected composition.
+
+      ``isinstance(self.composition, Composition)`` holds, and projection runs
+      on first data access.
+
+      :return: The lazy composition view of this structure.
+
+
+   .. py:property:: elements
+      :type: tuple[str, ...]
+
+
+      Expose the composition's element symbols.
+
+      :return: Element symbols in composition order.
+
+
+   .. py:property:: nelements
+      :type: int
+
+
+      Expose the number of composition elements.
+
+      :return: The number of distinct elements.
+
+
+   .. py:property:: elements_ratios
+      :type: tuple[fractions.Fraction, ...]
+
+
+      Expose normalized composition element ratios.
+
+      :return: Element ratios in :attr:`elements` order.
+
+
+   .. py:property:: chemical_formula_reduced
+      :type: str | None
+
+
+      Expose the reduced composition formula.
+
+      :return: The reduced formula, or ``None`` when unavailable.
+
+
+   .. py:property:: formula
+      :type: httk.atomistic.models.formula.formula_view.ChemicalFormulaView
+
+
+      Present the reduced formula as a genuine ``str`` subclass view.
+
+      ``unwrap()`` recovers this structure.
+
+      :return: The reduced formula as a
+          :class:`~httk.atomistic.models.formula.formula_view.ChemicalFormulaView`.
+      :raises ValueError: If the composition is incomplete (including any ``"X"``
+          species) or empty.
+
+
+   .. py:property:: chemical_formula_anonymous
+      :type: str | None
+
+
+      Expose the anonymous composition formula.
+
+      :return: The anonymous formula, or ``None`` when unavailable.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      Expose the descriptive chemical formula.
+
+      :return: The formula, or ``None`` when it is unstated.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      Expose the Hill chemical formula.
+
+      :return: The formula, or ``None`` when it is unstated.
+
+
+   .. py:property:: optimization_type
+      :type: str | None
+
+
+      Expose the optimization provenance.
+
+      :return: The optimization type, or ``None`` when it is unstated.
+
+
+   .. py:property:: dimension_types
+      :type: tuple[int, int, int]
+
+
+      Expose periodicity as OPTIMADE dimension flags.
+
+      :return: Three ``0``/``1`` flags for the cell directions.
+
+
+   .. py:property:: lattice_vectors
+      :type: list[list[float]]
+
+
+      Expose the cell basis at the float presentation boundary.
+
+      :return: The three lattice vectors as float rows.
+
+
+   .. py:property:: fractional_site_positions
+      :type: list[list[float]]
+
+
+      Expose reduced site positions at the float presentation boundary.
+
+      :return: Fractional positions as float rows.
+
+
+   .. py:property:: cartesian_site_positions
+      :type: list[list[float]]
+
+
+      Expose Cartesian site positions at the float presentation boundary.
+
+      :return: Cartesian positions as float rows.
+
+
+   .. py:property:: nsites
+      :type: int
+
+
+      Expose the number of represented sites.
+
+      :return: The site count.
+
+
+   .. py:property:: structure_features
+      :type: tuple[str, ...]
+
+
+      Expose derived OPTIMADE structure-feature flags.
+
+      :return: Feature flags in canonical order.
+
+
+   .. py:property:: site_coordinate_span_description
+      :type: str | None
+
+
+      Expose the optional description for a non-standard coordinate span.
+
+      :return: The span description, or ``None`` when unavailable.
+
+
+   .. py:property:: space_group_it_number
+      :type: int | None
+
+
+      Expose the International Tables space-group number.
+
+      :return: The number, or ``None`` when symmetry is unstated.
+
+
+   .. py:property:: space_group_symbol_hall
+      :type: str | None
+
+
+      Expose the Hall space-group symbol.
+
+      :return: The Hall symbol, or ``None`` when symmetry is unstated.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin
+      :type: str | None
+
+
+      Expose the short Hermann–Mauguin symbol.
+
+      :return: The symbol, or ``None`` when symmetry is unstated.
+
+
+   .. py:property:: space_group_symbol_hermann_mauguin_extended
+      :type: str | None
+
+
+      Expose the extended Hermann–Mauguin symbol.
+
+      :return: The symbol, or ``None`` when symmetry is unstated.
+
+
+   .. py:property:: space_group_symmetry_operations_xyz
+      :type: tuple[str, ...] | None
+
+
+      Expose the declared raw ``xyz`` symmetry operations.
+
+      :return: The operation strings, or the identity for a periodic structure without
+          explicit operations.
+
+
+   .. py:property:: wyckoff_positions
+      :type: tuple[str, ...] | None
+
+
+      Expose the site-aligned Wyckoff positions.
+
+      :return: Wyckoff letters, or ``None`` when they are unstated.
+
+
+.. py:function:: initialize_semantics(owner, *, nsites, molecular, assemblies, symmetry, chemical_composition, chemical_formula_descriptive, chemical_formula_hill, optimization_type, immutable_id = None, last_modified = None)
+
+   Validate and store shared structure semantics on an owner.
+
+   :param owner: The structure receiving the semantic fields.
+   :param nsites: The number of represented sites.
+   :param molecular: Whether the structure describes a molecular unit cell.
+   :param assemblies: Optional site assemblies.
+   :param symmetry: Optional structure symmetry metadata.
+   :param chemical_composition: Optional supplied chemical composition.
+   :param chemical_formula_descriptive: Optional descriptive formula.
+   :param chemical_formula_hill: Optional Hill formula.
+   :param optimization_type: Optional optimization provenance.
+   :param immutable_id: Optional immutable source identifier.
+   :param last_modified: Optional timezone-aware source timestamp.
+   :raises TypeError: If a supplied semantic value has the wrong kind.
+   :raises ValueError: If supplied semantics are invalid or inconsistent.
+
+

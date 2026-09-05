@@ -1,0 +1,1334 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="Reading and writing CIF files" href="cif.html"><link rel="prev" title="Composition and formula families" href="composition.html">
+
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+        <title>Material-information levels - httk-atomistic dev:main documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="_static/selector.css?v=626bada3" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     Development documentation (dev:main) — content may differ from any release. 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">httk-atomistic dev:main documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <span class="sidebar-brand-text">httk-atomistic dev:main documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1 has-children"><a class="reference internal" href="reference/index.html">Reference</a><input aria-label="Toggle navigation of Reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/index.html">httk.atomistic</a><input aria-label="Toggle navigation of httk.atomistic" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/cif_structures/index.html">httk.atomistic.cif_structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/cli/index.html">httk.atomistic.cli</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/composition/index.html">httk.atomistic.composition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/data/index.html">httk.atomistic.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/elements/index.html">httk.atomistic.elements</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/index.html">httk.atomistic.entries</a><input aria-label="Toggle navigation of httk.atomistic.entries" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/charge/index.html">httk.atomistic.entries.charge</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/definitions/index.html">httk.atomistic.entries.definitions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/moments/index.html">httk.atomistic.entries.moments</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/precision/index.html">httk.atomistic.entries.precision</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/prototypes/index.html">httk.atomistic.entries.prototypes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/structures/index.html">httk.atomistic.entries.structures</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/symmetry/index.html">httk.atomistic.entries.symmetry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/trajectories/index.html">httk.atomistic.entries.trajectories</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/index.html">httk.atomistic.integrations</a><input aria-label="Toggle navigation of httk.atomistic.integrations" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/ase/index.html">httk.atomistic.integrations.ase</a><input aria-label="Toggle navigation of httk.atomistic.integrations.ase" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/ase/models/index.html">httk.atomistic.integrations.ase.models</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/ase/view/index.html">httk.atomistic.integrations.ase.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/pymatgen/index.html">httk.atomistic.integrations.pymatgen</a><input aria-label="Toggle navigation of httk.atomistic.integrations.pymatgen" class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/pymatgen/models/index.html">httk.atomistic.integrations.pymatgen.models</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/pymatgen/view/index.html">httk.atomistic.integrations.pymatgen.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/index.html">httk.atomistic.integrations.vasp</a><input aria-label="Toggle navigation of httk.atomistic.integrations.vasp" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/index.html">httk.atomistic.integrations.vasp.io</a><input aria-label="Toggle navigation of httk.atomistic.integrations.vasp.io" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/oszicar/index.html">httk.atomistic.integrations.vasp.io.oszicar</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/outcar/index.html">httk.atomistic.integrations.vasp.io.outcar</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/outputs/index.html">httk.atomistic.integrations.vasp.io.outputs</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/poscar_reader/index.html">httk.atomistic.integrations.vasp.io.poscar_reader</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/poscar_writer/index.html">httk.atomistic.integrations.vasp.io.poscar_writer</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/potcar/index.html">httk.atomistic.integrations.vasp.io.potcar</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/volumetric/index.html">httk.atomistic.integrations.vasp.io.volumetric</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/wavecar/index.html">httk.atomistic.integrations.vasp.io.wavecar</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/xdatcar/index.html">httk.atomistic.integrations.vasp.io.xdatcar</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/structure/index.html">httk.atomistic.integrations.vasp.structure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/trajectory/index.html">httk.atomistic.integrations.vasp.trajectory</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/index.html">httk.atomistic.io</a><input aria-label="Toggle navigation of httk.atomistic.io" class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" role="switch" type="checkbox"/><label for="toctree-checkbox-9"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/index.html">httk.atomistic.io.cif</a><input aria-label="Toggle navigation of httk.atomistic.io.cif" class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" role="switch" type="checkbox"/><label for="toctree-checkbox-10"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/cif_parser/index.html">httk.atomistic.io.cif.cif_parser</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/cif_reader/index.html">httk.atomistic.io.cif.cif_reader</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/cif_tags/index.html">httk.atomistic.io.cif.cif_tags</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/cif_writer/index.html">httk.atomistic.io.cif.cif_writer</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/mcif_parser/index.html">httk.atomistic.io.cif.mcif_parser</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/mcif_writer/index.html">httk.atomistic.io.cif.mcif_writer</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/optimade_jsonl/index.html">httk.atomistic.io.optimade_jsonl</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/mcif_structures/index.html">httk.atomistic.mcif_structures</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/index.html">httk.atomistic.models</a><input aria-label="Toggle navigation of httk.atomistic.models" class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" role="switch" type="checkbox"/><label for="toctree-checkbox-11"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/index.html">httk.atomistic.models.cell</a><input aria-label="Toggle navigation of httk.atomistic.models.cell" class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" role="switch" type="checkbox"/><label for="toctree-checkbox-12"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/api/index.html">httk.atomistic.models.cell.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/backend/index.html">httk.atomistic.models.cell.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/cell/index.html">httk.atomistic.models.cell.cell</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/like/index.html">httk.atomistic.models.cell.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/numeric/index.html">httk.atomistic.models.cell.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/numeric_view/index.html">httk.atomistic.models.cell.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/params/index.html">httk.atomistic.models.cell.params</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/params_view/index.html">httk.atomistic.models.cell.params_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/plain/index.html">httk.atomistic.models.cell.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/plain_view/index.html">httk.atomistic.models.cell.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/record/index.html">httk.atomistic.models.cell.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/view/index.html">httk.atomistic.models.cell.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/view_base/index.html">httk.atomistic.models.cell.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/index.html">httk.atomistic.models.formula</a><input aria-label="Toggle navigation of httk.atomistic.models.formula" class="toctree-checkbox" id="toctree-checkbox-13" name="toctree-checkbox-13" role="switch" type="checkbox"/><label for="toctree-checkbox-13"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/api/index.html">httk.atomistic.models.formula.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/backend/index.html">httk.atomistic.models.formula.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/composition/index.html">httk.atomistic.models.formula.composition</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/composition_view/index.html">httk.atomistic.models.formula.composition_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/diagnostics/index.html">httk.atomistic.models.formula.diagnostics</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formula/index.html">httk.atomistic.models.formula.formula</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formula_string/index.html">httk.atomistic.models.formula.formula_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formula_view/index.html">httk.atomistic.models.formula.formula_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formulatype/index.html">httk.atomistic.models.formula.formulatype</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formulatype_string/index.html">httk.atomistic.models.formula.formulatype_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formulatype_view/index.html">httk.atomistic.models.formula.formulatype_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/like/index.html">httk.atomistic.models.formula.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/notation/index.html">httk.atomistic.models.formula.notation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/plain/index.html">httk.atomistic.models.formula.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/record/index.html">httk.atomistic.models.formula.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/structure/index.html">httk.atomistic.models.formula.structure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/view_base/index.html">httk.atomistic.models.formula.view_base</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/wyckoff/index.html">httk.atomistic.models.formula.wyckoff</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/index.html">httk.atomistic.models.moments</a><input aria-label="Toggle navigation of httk.atomistic.models.moments" class="toctree-checkbox" id="toctree-checkbox-14" name="toctree-checkbox-14" role="switch" type="checkbox"/><label for="toctree-checkbox-14"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/api/index.html">httk.atomistic.models.moments.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/backend/index.html">httk.atomistic.models.moments.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/cartesian/index.html">httk.atomistic.models.moments.cartesian</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/cartesian_view/index.html">httk.atomistic.models.moments.cartesian_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/collinear/index.html">httk.atomistic.models.moments.collinear</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/crystalaxis/index.html">httk.atomistic.models.moments.crystalaxis</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/crystalaxis_view/index.html">httk.atomistic.models.moments.crystalaxis_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/like/index.html">httk.atomistic.models.moments.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/view_base/index.html">httk.atomistic.models.moments.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/index.html">httk.atomistic.models.protostructure</a><input aria-label="Toggle navigation of httk.atomistic.models.protostructure" class="toctree-checkbox" id="toctree-checkbox-15" name="toctree-checkbox-15" role="switch" type="checkbox"/><label for="toctree-checkbox-15"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/api/index.html">httk.atomistic.models.protostructure.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/backend/index.html">httk.atomistic.models.protostructure.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/label/index.html">httk.atomistic.models.protostructure.label</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/label_string/index.html">httk.atomistic.models.protostructure.label_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/like/index.html">httk.atomistic.models.protostructure.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/occupation/index.html">httk.atomistic.models.protostructure.occupation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/protostructure/index.html">httk.atomistic.models.protostructure.protostructure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/recognized/index.html">httk.atomistic.models.protostructure.recognized</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/view/index.html">httk.atomistic.models.protostructure.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/view_base/index.html">httk.atomistic.models.protostructure.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/index.html">httk.atomistic.models.prototype</a><input aria-label="Toggle navigation of httk.atomistic.models.prototype" class="toctree-checkbox" id="toctree-checkbox-16" name="toctree-checkbox-16" role="switch" type="checkbox"/><label for="toctree-checkbox-16"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/api/index.html">httk.atomistic.models.prototype.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/backend/index.html">httk.atomistic.models.prototype.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/derived/index.html">httk.atomistic.models.prototype.derived</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/label/index.html">httk.atomistic.models.prototype.label</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/label_string/index.html">httk.atomistic.models.prototype.label_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/like/index.html">httk.atomistic.models.prototype.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/notation/index.html">httk.atomistic.models.prototype.notation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/occupation/index.html">httk.atomistic.models.prototype.occupation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/prototype/index.html">httk.atomistic.models.prototype.prototype</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/recognized/index.html">httk.atomistic.models.prototype.recognized</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/view/index.html">httk.atomistic.models.prototype.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/view_base/index.html">httk.atomistic.models.prototype.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/index.html">httk.atomistic.models.sites</a><input aria-label="Toggle navigation of httk.atomistic.models.sites" class="toctree-checkbox" id="toctree-checkbox-17" name="toctree-checkbox-17" role="switch" type="checkbox"/><label for="toctree-checkbox-17"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/api/index.html">httk.atomistic.models.sites.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/backend/index.html">httk.atomistic.models.sites.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/like/index.html">httk.atomistic.models.sites.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/numeric/index.html">httk.atomistic.models.sites.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/numeric_view/index.html">httk.atomistic.models.sites.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/plain/index.html">httk.atomistic.models.sites.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/plain_view/index.html">httk.atomistic.models.sites.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/record/index.html">httk.atomistic.models.sites.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/sites/index.html">httk.atomistic.models.sites.sites</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/view/index.html">httk.atomistic.models.sites.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/view_base/index.html">httk.atomistic.models.sites.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/index.html">httk.atomistic.models.species</a><input aria-label="Toggle navigation of httk.atomistic.models.species" class="toctree-checkbox" id="toctree-checkbox-18" name="toctree-checkbox-18" role="switch" type="checkbox"/><label for="toctree-checkbox-18"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/api/index.html">httk.atomistic.models.species.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/backend/index.html">httk.atomistic.models.species.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/like/index.html">httk.atomistic.models.species.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/plain/index.html">httk.atomistic.models.species.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/plain_view/index.html">httk.atomistic.models.species.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/record/index.html">httk.atomistic.models.species.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/species/index.html">httk.atomistic.models.species.species</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/view/index.html">httk.atomistic.models.species.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/view_base/index.html">httk.atomistic.models.species.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/index.html">httk.atomistic.models.structure</a><input aria-label="Toggle navigation of httk.atomistic.models.structure" class="toctree-checkbox" id="toctree-checkbox-19" name="toctree-checkbox-19" role="switch" type="checkbox"/><label for="toctree-checkbox-19"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/api/index.html">httk.atomistic.models.structure.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/asu/index.html">httk.atomistic.models.structure.asu</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/asu_view/index.html">httk.atomistic.models.structure.asu_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/backend/index.html">httk.atomistic.models.structure.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/comparison/index.html">httk.atomistic.models.structure.comparison</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/datastream/index.html">httk.atomistic.models.structure.datastream</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/like/index.html">httk.atomistic.models.structure.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/modulated/index.html">httk.atomistic.models.structure.modulated</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/numeric/index.html">httk.atomistic.models.structure.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/numeric_view/index.html">httk.atomistic.models.structure.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/optimade/index.html">httk.atomistic.models.structure.optimade</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/plain/index.html">httk.atomistic.models.structure.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/plain_view/index.html">httk.atomistic.models.structure.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/record/index.html">httk.atomistic.models.structure.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/semantics/index.html">httk.atomistic.models.structure.semantics</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/symops/index.html">httk.atomistic.models.structure.symops</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/unitcell/index.html">httk.atomistic.models.structure.unitcell</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/unitcell_view/index.html">httk.atomistic.models.structure.unitcell_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/view/index.html">httk.atomistic.models.structure.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/index.html">httk.atomistic.models.structuretype</a><input aria-label="Toggle navigation of httk.atomistic.models.structuretype" class="toctree-checkbox" id="toctree-checkbox-20" name="toctree-checkbox-20" role="switch" type="checkbox"/><label for="toctree-checkbox-20"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/anonymize/index.html">httk.atomistic.models.structuretype.anonymize</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/anonymized/index.html">httk.atomistic.models.structuretype.anonymized</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/api/index.html">httk.atomistic.models.structuretype.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/backend/index.html">httk.atomistic.models.structuretype.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/fundamental/index.html">httk.atomistic.models.structuretype.fundamental</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/fundamental_view/index.html">httk.atomistic.models.structuretype.fundamental_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/like/index.html">httk.atomistic.models.structuretype.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/structuretype/index.html">httk.atomistic.models.structuretype.structuretype</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/view/index.html">httk.atomistic.models.structuretype.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/view_base/index.html">httk.atomistic.models.structuretype.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/index.html">httk.atomistic.models.trajectory</a><input aria-label="Toggle navigation of httk.atomistic.models.trajectory" class="toctree-checkbox" id="toctree-checkbox-21" name="toctree-checkbox-21" role="switch" type="checkbox"/><label for="toctree-checkbox-21"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/api/index.html">httk.atomistic.models.trajectory.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/backend/index.html">httk.atomistic.models.trajectory.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/jsonl/index.html">httk.atomistic.models.trajectory.jsonl</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/like/index.html">httk.atomistic.models.trajectory.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/plain/index.html">httk.atomistic.models.trajectory.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/record/index.html">httk.atomistic.models.trajectory.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/trajectory/index.html">httk.atomistic.models.trajectory.trajectory</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/view/index.html">httk.atomistic.models.trajectory.view</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/reduction/index.html">httk.atomistic.reduction</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/storage/index.html">httk.atomistic.storage</a><input aria-label="Toggle navigation of httk.atomistic.storage" class="toctree-checkbox" id="toctree-checkbox-22" name="toctree-checkbox-22" role="switch" type="checkbox"/><label for="toctree-checkbox-22"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/storage/records/index.html">httk.atomistic.storage.records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/storage/stored_properties/index.html">httk.atomistic.storage.stored_properties</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/supercell/index.html">httk.atomistic.supercell</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/index.html">httk.atomistic.symmetry</a><input aria-label="Toggle navigation of httk.atomistic.symmetry" class="toctree-checkbox" id="toctree-checkbox-23" name="toctree-checkbox-23" role="switch" type="checkbox"/><label for="toctree-checkbox-23"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/affine_operation/index.html">httk.atomistic.symmetry.affine_operation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/canonical/index.html">httk.atomistic.symmetry.canonical</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/lift/index.html">httk.atomistic.symmetry.lift</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/magnetic/index.html">httk.atomistic.symmetry.magnetic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/paths/index.html">httk.atomistic.symmetry.paths</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/primitive/index.html">httk.atomistic.symmetry.primitive</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/recognition/index.html">httk.atomistic.symmetry.recognition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/setting_transform/index.html">httk.atomistic.symmetry.setting_transform</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/spacegroup/index.html">httk.atomistic.symmetry.spacegroup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/standardization/index.html">httk.atomistic.symmetry.standardization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/subgroups/index.html">httk.atomistic.symmetry.subgroups</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/symop_key/index.html">httk.atomistic.symmetry.symop_key</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/wyckoff/index.html">httk.atomistic.symmetry.wyckoff</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/xyz/index.html">httk.atomistic.symmetry.xyz</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/wavefunction/index.html">httk.atomistic.wavefunction</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="structures.html">Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="composition.html">Composition and formula families</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Material-information levels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cif.html">Reading and writing CIF files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="poscar.html">Reading VASP POSCAR / CONTCAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="vasp_outputs.html">Reading VASP output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wavecar.html">Reading and writing VASP WAVECAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wavefunctions.html">Plane-wave wavefunctions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trajectory_jsonl.html">Trajectory JSON Lines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="asu.html">Asymmetric units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="subgroups.html">Subgroups and pathfinding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="moments.html">Site moments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrations.html">Integrations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="precision.html">Data precision</a></li>
+<li class="toctree-l1"><a class="reference internal" href="periodicity.html">Periodicity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lattice-reduction.html">Lattice reduction (Niggli)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="primitive-cells.html">Primitive cells</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="examples/index.html">Examples</a><input aria-label="Toggle navigation of Examples" class="toctree-checkbox" id="toctree-checkbox-24" name="toctree-checkbox-24" role="switch" type="checkbox"/><label for="toctree-checkbox-24"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples/asu_from_cif.html">Asymmetric units: reading a CIF, expanding it, and going back again</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/build_a_structure.html">Building a UnitcellStructure three ways, and reading its geometry back out exactly</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/build_a_supercell.html">Build exact general, orthogonal, and cubic supercells</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/disorder_and_vacancies.html">Disorder, vacancies, and attached species: what a site can actually hold</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/load_from_poscar.html">Reading VASP POSCAR and CONTCAR files into a UnitcellStructure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/parse_cif.html">Reading, inspecting and writing CIF files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/parse_poscar.html">Reading VASP POSCAR and CONTCAR files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/parse_vasp_outputs.html">Read a small synthetic VASP output directory.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/precision.html">Data precision: letting the file choose the tolerance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/serve_structures_as_optimade.html">Serving structures as OPTIMADE, with derived fields and custom properties</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/disorder.html">Disorder, vacancies, and attached species</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Details</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="details/structures.html">Structures in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="details/structural_classes.html">Naming of <em>httk₂</em> structural classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="details/asu.html">Asymmetric units in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="details/cif.html">CIF and mCIF reading in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="details/precision.html">Data precision in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="details/periodicity.html">Periodicity in detail</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="reference/autoapi/index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-25" name="toctree-checkbox-25" role="switch" type="checkbox"/><label for="toctree-checkbox-25"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/index.html">httk.atomistic</a><input aria-label="Toggle navigation of httk.atomistic" class="toctree-checkbox" id="toctree-checkbox-26" name="toctree-checkbox-26" role="switch" type="checkbox"/><label for="toctree-checkbox-26"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/cif_structures/index.html">httk.atomistic.cif_structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/cli/index.html">httk.atomistic.cli</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/composition/index.html">httk.atomistic.composition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/data/index.html">httk.atomistic.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/elements/index.html">httk.atomistic.elements</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/index.html">httk.atomistic.entries</a><input aria-label="Toggle navigation of httk.atomistic.entries" class="toctree-checkbox" id="toctree-checkbox-27" name="toctree-checkbox-27" role="switch" type="checkbox"/><label for="toctree-checkbox-27"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/charge/index.html">httk.atomistic.entries.charge</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/definitions/index.html">httk.atomistic.entries.definitions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/moments/index.html">httk.atomistic.entries.moments</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/precision/index.html">httk.atomistic.entries.precision</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/prototypes/index.html">httk.atomistic.entries.prototypes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/structures/index.html">httk.atomistic.entries.structures</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/symmetry/index.html">httk.atomistic.entries.symmetry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/entries/trajectories/index.html">httk.atomistic.entries.trajectories</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/index.html">httk.atomistic.integrations</a><input aria-label="Toggle navigation of httk.atomistic.integrations" class="toctree-checkbox" id="toctree-checkbox-28" name="toctree-checkbox-28" role="switch" type="checkbox"/><label for="toctree-checkbox-28"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/ase/index.html">httk.atomistic.integrations.ase</a><input aria-label="Toggle navigation of httk.atomistic.integrations.ase" class="toctree-checkbox" id="toctree-checkbox-29" name="toctree-checkbox-29" role="switch" type="checkbox"/><label for="toctree-checkbox-29"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/ase/models/index.html">httk.atomistic.integrations.ase.models</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/ase/view/index.html">httk.atomistic.integrations.ase.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/pymatgen/index.html">httk.atomistic.integrations.pymatgen</a><input aria-label="Toggle navigation of httk.atomistic.integrations.pymatgen" class="toctree-checkbox" id="toctree-checkbox-30" name="toctree-checkbox-30" role="switch" type="checkbox"/><label for="toctree-checkbox-30"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/pymatgen/models/index.html">httk.atomistic.integrations.pymatgen.models</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/pymatgen/view/index.html">httk.atomistic.integrations.pymatgen.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/index.html">httk.atomistic.integrations.vasp</a><input aria-label="Toggle navigation of httk.atomistic.integrations.vasp" class="toctree-checkbox" id="toctree-checkbox-31" name="toctree-checkbox-31" role="switch" type="checkbox"/><label for="toctree-checkbox-31"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/index.html">httk.atomistic.integrations.vasp.io</a><input aria-label="Toggle navigation of httk.atomistic.integrations.vasp.io" class="toctree-checkbox" id="toctree-checkbox-32" name="toctree-checkbox-32" role="switch" type="checkbox"/><label for="toctree-checkbox-32"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/oszicar/index.html">httk.atomistic.integrations.vasp.io.oszicar</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/outcar/index.html">httk.atomistic.integrations.vasp.io.outcar</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/outputs/index.html">httk.atomistic.integrations.vasp.io.outputs</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/poscar_reader/index.html">httk.atomistic.integrations.vasp.io.poscar_reader</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/poscar_writer/index.html">httk.atomistic.integrations.vasp.io.poscar_writer</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/potcar/index.html">httk.atomistic.integrations.vasp.io.potcar</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/volumetric/index.html">httk.atomistic.integrations.vasp.io.volumetric</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/wavecar/index.html">httk.atomistic.integrations.vasp.io.wavecar</a></li>
+<li class="toctree-l6"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/io/xdatcar/index.html">httk.atomistic.integrations.vasp.io.xdatcar</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/structure/index.html">httk.atomistic.integrations.vasp.structure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/integrations/vasp/trajectory/index.html">httk.atomistic.integrations.vasp.trajectory</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/index.html">httk.atomistic.io</a><input aria-label="Toggle navigation of httk.atomistic.io" class="toctree-checkbox" id="toctree-checkbox-33" name="toctree-checkbox-33" role="switch" type="checkbox"/><label for="toctree-checkbox-33"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/index.html">httk.atomistic.io.cif</a><input aria-label="Toggle navigation of httk.atomistic.io.cif" class="toctree-checkbox" id="toctree-checkbox-34" name="toctree-checkbox-34" role="switch" type="checkbox"/><label for="toctree-checkbox-34"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/cif_parser/index.html">httk.atomistic.io.cif.cif_parser</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/cif_reader/index.html">httk.atomistic.io.cif.cif_reader</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/cif_tags/index.html">httk.atomistic.io.cif.cif_tags</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/cif_writer/index.html">httk.atomistic.io.cif.cif_writer</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/mcif_parser/index.html">httk.atomistic.io.cif.mcif_parser</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/cif/mcif_writer/index.html">httk.atomistic.io.cif.mcif_writer</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/io/optimade_jsonl/index.html">httk.atomistic.io.optimade_jsonl</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/mcif_structures/index.html">httk.atomistic.mcif_structures</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/index.html">httk.atomistic.models</a><input aria-label="Toggle navigation of httk.atomistic.models" class="toctree-checkbox" id="toctree-checkbox-35" name="toctree-checkbox-35" role="switch" type="checkbox"/><label for="toctree-checkbox-35"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/index.html">httk.atomistic.models.cell</a><input aria-label="Toggle navigation of httk.atomistic.models.cell" class="toctree-checkbox" id="toctree-checkbox-36" name="toctree-checkbox-36" role="switch" type="checkbox"/><label for="toctree-checkbox-36"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/api/index.html">httk.atomistic.models.cell.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/backend/index.html">httk.atomistic.models.cell.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/cell/index.html">httk.atomistic.models.cell.cell</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/like/index.html">httk.atomistic.models.cell.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/numeric/index.html">httk.atomistic.models.cell.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/numeric_view/index.html">httk.atomistic.models.cell.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/params/index.html">httk.atomistic.models.cell.params</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/params_view/index.html">httk.atomistic.models.cell.params_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/plain/index.html">httk.atomistic.models.cell.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/plain_view/index.html">httk.atomistic.models.cell.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/record/index.html">httk.atomistic.models.cell.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/view/index.html">httk.atomistic.models.cell.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/cell/view_base/index.html">httk.atomistic.models.cell.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/index.html">httk.atomistic.models.formula</a><input aria-label="Toggle navigation of httk.atomistic.models.formula" class="toctree-checkbox" id="toctree-checkbox-37" name="toctree-checkbox-37" role="switch" type="checkbox"/><label for="toctree-checkbox-37"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/api/index.html">httk.atomistic.models.formula.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/backend/index.html">httk.atomistic.models.formula.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/composition/index.html">httk.atomistic.models.formula.composition</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/composition_view/index.html">httk.atomistic.models.formula.composition_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/diagnostics/index.html">httk.atomistic.models.formula.diagnostics</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formula/index.html">httk.atomistic.models.formula.formula</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formula_string/index.html">httk.atomistic.models.formula.formula_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formula_view/index.html">httk.atomistic.models.formula.formula_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formulatype/index.html">httk.atomistic.models.formula.formulatype</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formulatype_string/index.html">httk.atomistic.models.formula.formulatype_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/formulatype_view/index.html">httk.atomistic.models.formula.formulatype_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/like/index.html">httk.atomistic.models.formula.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/notation/index.html">httk.atomistic.models.formula.notation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/plain/index.html">httk.atomistic.models.formula.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/record/index.html">httk.atomistic.models.formula.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/structure/index.html">httk.atomistic.models.formula.structure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/view_base/index.html">httk.atomistic.models.formula.view_base</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/formula/wyckoff/index.html">httk.atomistic.models.formula.wyckoff</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/index.html">httk.atomistic.models.moments</a><input aria-label="Toggle navigation of httk.atomistic.models.moments" class="toctree-checkbox" id="toctree-checkbox-38" name="toctree-checkbox-38" role="switch" type="checkbox"/><label for="toctree-checkbox-38"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/api/index.html">httk.atomistic.models.moments.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/backend/index.html">httk.atomistic.models.moments.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/cartesian/index.html">httk.atomistic.models.moments.cartesian</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/cartesian_view/index.html">httk.atomistic.models.moments.cartesian_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/collinear/index.html">httk.atomistic.models.moments.collinear</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/crystalaxis/index.html">httk.atomistic.models.moments.crystalaxis</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/crystalaxis_view/index.html">httk.atomistic.models.moments.crystalaxis_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/like/index.html">httk.atomistic.models.moments.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/moments/view_base/index.html">httk.atomistic.models.moments.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/index.html">httk.atomistic.models.protostructure</a><input aria-label="Toggle navigation of httk.atomistic.models.protostructure" class="toctree-checkbox" id="toctree-checkbox-39" name="toctree-checkbox-39" role="switch" type="checkbox"/><label for="toctree-checkbox-39"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/api/index.html">httk.atomistic.models.protostructure.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/backend/index.html">httk.atomistic.models.protostructure.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/label/index.html">httk.atomistic.models.protostructure.label</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/label_string/index.html">httk.atomistic.models.protostructure.label_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/like/index.html">httk.atomistic.models.protostructure.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/occupation/index.html">httk.atomistic.models.protostructure.occupation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/protostructure/index.html">httk.atomistic.models.protostructure.protostructure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/recognized/index.html">httk.atomistic.models.protostructure.recognized</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/view/index.html">httk.atomistic.models.protostructure.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/protostructure/view_base/index.html">httk.atomistic.models.protostructure.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/index.html">httk.atomistic.models.prototype</a><input aria-label="Toggle navigation of httk.atomistic.models.prototype" class="toctree-checkbox" id="toctree-checkbox-40" name="toctree-checkbox-40" role="switch" type="checkbox"/><label for="toctree-checkbox-40"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/api/index.html">httk.atomistic.models.prototype.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/backend/index.html">httk.atomistic.models.prototype.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/derived/index.html">httk.atomistic.models.prototype.derived</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/label/index.html">httk.atomistic.models.prototype.label</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/label_string/index.html">httk.atomistic.models.prototype.label_string</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/like/index.html">httk.atomistic.models.prototype.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/notation/index.html">httk.atomistic.models.prototype.notation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/occupation/index.html">httk.atomistic.models.prototype.occupation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/prototype/index.html">httk.atomistic.models.prototype.prototype</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/recognized/index.html">httk.atomistic.models.prototype.recognized</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/view/index.html">httk.atomistic.models.prototype.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/prototype/view_base/index.html">httk.atomistic.models.prototype.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/index.html">httk.atomistic.models.sites</a><input aria-label="Toggle navigation of httk.atomistic.models.sites" class="toctree-checkbox" id="toctree-checkbox-41" name="toctree-checkbox-41" role="switch" type="checkbox"/><label for="toctree-checkbox-41"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/api/index.html">httk.atomistic.models.sites.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/backend/index.html">httk.atomistic.models.sites.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/like/index.html">httk.atomistic.models.sites.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/numeric/index.html">httk.atomistic.models.sites.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/numeric_view/index.html">httk.atomistic.models.sites.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/plain/index.html">httk.atomistic.models.sites.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/plain_view/index.html">httk.atomistic.models.sites.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/record/index.html">httk.atomistic.models.sites.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/sites/index.html">httk.atomistic.models.sites.sites</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/view/index.html">httk.atomistic.models.sites.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/sites/view_base/index.html">httk.atomistic.models.sites.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/index.html">httk.atomistic.models.species</a><input aria-label="Toggle navigation of httk.atomistic.models.species" class="toctree-checkbox" id="toctree-checkbox-42" name="toctree-checkbox-42" role="switch" type="checkbox"/><label for="toctree-checkbox-42"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/api/index.html">httk.atomistic.models.species.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/backend/index.html">httk.atomistic.models.species.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/like/index.html">httk.atomistic.models.species.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/plain/index.html">httk.atomistic.models.species.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/plain_view/index.html">httk.atomistic.models.species.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/record/index.html">httk.atomistic.models.species.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/species/index.html">httk.atomistic.models.species.species</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/view/index.html">httk.atomistic.models.species.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/species/view_base/index.html">httk.atomistic.models.species.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/index.html">httk.atomistic.models.structure</a><input aria-label="Toggle navigation of httk.atomistic.models.structure" class="toctree-checkbox" id="toctree-checkbox-43" name="toctree-checkbox-43" role="switch" type="checkbox"/><label for="toctree-checkbox-43"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/api/index.html">httk.atomistic.models.structure.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/asu/index.html">httk.atomistic.models.structure.asu</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/asu_view/index.html">httk.atomistic.models.structure.asu_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/backend/index.html">httk.atomistic.models.structure.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/comparison/index.html">httk.atomistic.models.structure.comparison</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/datastream/index.html">httk.atomistic.models.structure.datastream</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/like/index.html">httk.atomistic.models.structure.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/modulated/index.html">httk.atomistic.models.structure.modulated</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/numeric/index.html">httk.atomistic.models.structure.numeric</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/numeric_view/index.html">httk.atomistic.models.structure.numeric_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/optimade/index.html">httk.atomistic.models.structure.optimade</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/plain/index.html">httk.atomistic.models.structure.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/plain_view/index.html">httk.atomistic.models.structure.plain_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/record/index.html">httk.atomistic.models.structure.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/semantics/index.html">httk.atomistic.models.structure.semantics</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/symops/index.html">httk.atomistic.models.structure.symops</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/unitcell/index.html">httk.atomistic.models.structure.unitcell</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/unitcell_view/index.html">httk.atomistic.models.structure.unitcell_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structure/view/index.html">httk.atomistic.models.structure.view</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/index.html">httk.atomistic.models.structuretype</a><input aria-label="Toggle navigation of httk.atomistic.models.structuretype" class="toctree-checkbox" id="toctree-checkbox-44" name="toctree-checkbox-44" role="switch" type="checkbox"/><label for="toctree-checkbox-44"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/anonymize/index.html">httk.atomistic.models.structuretype.anonymize</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/anonymized/index.html">httk.atomistic.models.structuretype.anonymized</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/api/index.html">httk.atomistic.models.structuretype.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/backend/index.html">httk.atomistic.models.structuretype.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/fundamental/index.html">httk.atomistic.models.structuretype.fundamental</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/fundamental_view/index.html">httk.atomistic.models.structuretype.fundamental_view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/like/index.html">httk.atomistic.models.structuretype.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/structuretype/index.html">httk.atomistic.models.structuretype.structuretype</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/view/index.html">httk.atomistic.models.structuretype.view</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/structuretype/view_base/index.html">httk.atomistic.models.structuretype.view_base</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/index.html">httk.atomistic.models.trajectory</a><input aria-label="Toggle navigation of httk.atomistic.models.trajectory" class="toctree-checkbox" id="toctree-checkbox-45" name="toctree-checkbox-45" role="switch" type="checkbox"/><label for="toctree-checkbox-45"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/api/index.html">httk.atomistic.models.trajectory.api</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/backend/index.html">httk.atomistic.models.trajectory.backend</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/jsonl/index.html">httk.atomistic.models.trajectory.jsonl</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/like/index.html">httk.atomistic.models.trajectory.like</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/plain/index.html">httk.atomistic.models.trajectory.plain</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/record/index.html">httk.atomistic.models.trajectory.record</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/trajectory/index.html">httk.atomistic.models.trajectory.trajectory</a></li>
+<li class="toctree-l5"><a class="reference internal" href="reference/autoapi/httk/atomistic/models/trajectory/view/index.html">httk.atomistic.models.trajectory.view</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/reduction/index.html">httk.atomistic.reduction</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/storage/index.html">httk.atomistic.storage</a><input aria-label="Toggle navigation of httk.atomistic.storage" class="toctree-checkbox" id="toctree-checkbox-46" name="toctree-checkbox-46" role="switch" type="checkbox"/><label for="toctree-checkbox-46"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/storage/records/index.html">httk.atomistic.storage.records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/storage/stored_properties/index.html">httk.atomistic.storage.stored_properties</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/supercell/index.html">httk.atomistic.supercell</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/index.html">httk.atomistic.symmetry</a><input aria-label="Toggle navigation of httk.atomistic.symmetry" class="toctree-checkbox" id="toctree-checkbox-47" name="toctree-checkbox-47" role="switch" type="checkbox"/><label for="toctree-checkbox-47"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/affine_operation/index.html">httk.atomistic.symmetry.affine_operation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/canonical/index.html">httk.atomistic.symmetry.canonical</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/lift/index.html">httk.atomistic.symmetry.lift</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/magnetic/index.html">httk.atomistic.symmetry.magnetic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/paths/index.html">httk.atomistic.symmetry.paths</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/primitive/index.html">httk.atomistic.symmetry.primitive</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/recognition/index.html">httk.atomistic.symmetry.recognition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/setting_transform/index.html">httk.atomistic.symmetry.setting_transform</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/spacegroup/index.html">httk.atomistic.symmetry.spacegroup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/standardization/index.html">httk.atomistic.symmetry.standardization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/subgroups/index.html">httk.atomistic.symmetry.subgroups</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/symop_key/index.html">httk.atomistic.symmetry.symop_key</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/wyckoff/index.html">httk.atomistic.symmetry.wyckoff</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference/autoapi/httk/atomistic/symmetry/xyz/index.html">httk.atomistic.symmetry.xyz</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="reference/autoapi/httk/atomistic/wavefunction/index.html">httk.atomistic.wavefunction</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="reference/autoapi/httk/registry/io/atomistic/index.html">httk.registry.io.atomistic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/autoapi/httk/registry/cli/atomistic/index.html">httk.registry.cli.atomistic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/autoapi/httk/registry/entries/atomistic/index.html">httk.registry.entries.atomistic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/autoapi/httk/registry/schemas/atomistic/index.html">httk.registry.schemas.atomistic</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/prototypes.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section class="tex2jax_ignore mathjax_ignore" id="material-information-levels">
+<h1>Material-information levels<a class="headerlink" href="#material-information-levels" title="Link to this heading">¶</a></h1>
+<p><em>httk-atomistic</em> describes a crystalline material at several levels of
+information, organised as a matrix. The rows differ in how much <em>geometrical</em>
+information is kept; the columns differ in whether the site identities are
+anonymous placeholders or real chemical species. Each cell is a value family
+(a backend value plus its views) in <code class="docutils literal notranslate"><span class="pre">httk.atomistic</span></code>.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Level of geometrical information</p></th>
+<th class="head"><p>Anonymous occupation</p></th>
+<th class="head"><p>Assigned species</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>None (composition only)</p></td>
+<td><p><a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.Formulatype" title="httk.atomistic.Formulatype"><code class="xref py py-class docutils literal notranslate"><span class="pre">Formulatype</span></code></a></p></td>
+<td><p><a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.ChemicalFormula" title="httk.atomistic.ChemicalFormula"><code class="xref py py-class docutils literal notranslate"><span class="pre">ChemicalFormula</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>Wyckoff positions, optionally with a representative/discriminator</p></td>
+<td><p><a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.Prototype" title="httk.atomistic.Prototype"><code class="xref py py-class docutils literal notranslate"><span class="pre">Prototype</span></code></a></p></td>
+<td><p><a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.Protostructure" title="httk.atomistic.Protostructure"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protostructure</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p>Exact geometry</p></td>
+<td><p><a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.Structuretype" title="httk.atomistic.Structuretype"><code class="xref py py-class docutils literal notranslate"><span class="pre">Structuretype</span></code></a></p></td>
+<td><p><a class="reference internal" href="structures.html"><span class="doc">Structure</span></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The top row keeps only the composition. The middle row keeps a standard-setting
+space group and its occupied Wyckoff positions. The bottom row fixes the exact
+continuous degrees of freedom (cell parameters and free coordinates). Reading
+down a column loses geometrical information; reading right across a row assigns
+real species to anonymous placeholders.</p>
+<p><a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.Prototype" title="httk.atomistic.Prototype"><code class="xref py py-class docutils literal notranslate"><span class="pre">Prototype</span></code></a> and
+<a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.Protostructure" title="httk.atomistic.Protostructure"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protostructure</span></code></a> are the two middle-row
+geometrical-classification keys. A base value contains only its standard-setting
+space group and occupied Wyckoff positions. Either may additionally carry an
+exact fundamental-domain <em>representative</em> (a standard-setting value holding one
+exact realization), an externally assigned <em>discriminator</em> string (AFLOW
+<code class="docutils literal notranslate"><span class="pre">-001</span></code>-style), or both. These optional fields participate in equality and
+content identity, so a representative-only value never equals a discriminator-only
+value, and a base-only value is distinct from either refined form. Recognizing a
+key from a structure, and deriving one key from another, always return a base
+value; the representative and discriminator are supplied only by explicit
+construction.</p>
+<p>The representative’s continuous degrees of freedom are a <strong>class anchor, not
+exact-structure data</strong>: its coordinates and cell are retained exactly so the
+anchor can be reconstructed, while the structural key stays a coarse
+classification. A prototype or protostructure therefore corresponds to <em>many</em>
+exact structures — every realization that shares the class — whereas a
+<a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.Structuretype" title="httk.atomistic.Structuretype"><code class="xref py py-class docutils literal notranslate"><span class="pre">Structuretype</span></code></a> or a <code class="docutils literal notranslate"><span class="pre">Structure</span></code> fixes the continuous
+degrees of freedom and so names a single exact geometry.
+<a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.Prototype" title="httk.atomistic.Prototype"><code class="xref py py-class docutils literal notranslate"><span class="pre">Prototype</span></code></a> uses a
+<a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.FundamentalDomainTemplate" title="httk.atomistic.FundamentalDomainTemplate"><code class="xref py py-class docutils literal notranslate"><span class="pre">FundamentalDomainTemplate</span></code></a> representative and
+anonymous <a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.PrototypeOccupation" title="httk.atomistic.PrototypeOccupation"><code class="xref py py-class docutils literal notranslate"><span class="pre">PrototypeOccupation</span></code></a> values;
+<a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.Protostructure" title="httk.atomistic.Protostructure"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protostructure</span></code></a> uses a
+<a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.FundamentalDomainStructure" title="httk.atomistic.FundamentalDomainStructure"><code class="xref py py-class docutils literal notranslate"><span class="pre">FundamentalDomainStructure</span></code></a> representative and
+real-species <a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.WyckoffOccupation" title="httk.atomistic.WyckoffOccupation"><code class="xref py py-class docutils literal notranslate"><span class="pre">WyckoffOccupation</span></code></a> values.</p>
+<section id="how-the-levels-relate">
+<h2>How the levels relate<a class="headerlink" href="#how-the-levels-relate" title="Link to this heading">¶</a></h2>
+<p>The levels combine by adding one piece of information at a time. These are
+information-content relationships, not class inheritance:</p>
+<ul class="simple">
+<li><p>Prototype + species assignment → Protostructure</p></li>
+<li><p>Prototype + exact geometrical parameters → Structuretype</p></li>
+<li><p>Protostructure + exact geometrical parameters → Structure</p></li>
+<li><p>Structuretype + species assignment → Structure</p></li>
+<li><p>Prototype or Protostructure projected onto composition only → Formulatype or ChemicalFormula</p></li>
+</ul>
+<p>A representative and/or a discriminator <em>refine</em> a base Prototype or
+Protostructure — pinning a specific geometrical class — without changing which
+row it occupies; both refined and base forms are middle-row keys.</p>
+</section>
+<section id="naming-and-capitalization">
+<h2>Naming and capitalization<a class="headerlink" href="#naming-and-capitalization" title="Link to this heading">¶</a></h2>
+<p>The canonical taxonomy terms are single-capital compound words: <code class="docutils literal notranslate"><span class="pre">Formulatype</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Prototype</span></code>, <code class="docutils literal notranslate"><span class="pre">Protostructure</span></code>, and <code class="docutils literal notranslate"><span class="pre">Structuretype</span></code>. The suffix <code class="docutils literal notranslate"><span class="pre">-type</span></code> marks the
+anonymous-occupation column (<code class="docutils literal notranslate"><span class="pre">Formulatype</span></code>, <code class="docutils literal notranslate"><span class="pre">Structuretype</span></code>, and <code class="docutils literal notranslate"><span class="pre">Prototype</span></code> are
+the anonymous counterparts of <code class="docutils literal notranslate"><span class="pre">ChemicalFormula</span></code>, <code class="docutils literal notranslate"><span class="pre">Structure</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">Protostructure</span></code>); the prefix <code class="docutils literal notranslate"><span class="pre">Proto</span></code> marks the cutoff-free Wyckoff
+classification.</p>
+<p>The word “Template” no longer names the exact anonymous family — that family is
+<code class="docutils literal notranslate"><span class="pre">Structuretype</span></code>. “Template” survives only for the exact <em>fundamental-domain</em>
+anonymous values used as class anchors and ASU keys:
+<a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.FundamentalDomainTemplate" title="httk.atomistic.FundamentalDomainTemplate"><code class="xref py py-class docutils literal notranslate"><span class="pre">FundamentalDomainTemplate</span></code></a> and
+<a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.ASUTemplate" title="httk.atomistic.ASUTemplate"><code class="xref py py-class docutils literal notranslate"><span class="pre">ASUTemplate</span></code></a> (and their view family, e.g.
+<a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.FundamentalDomainTemplateView" title="httk.atomistic.FundamentalDomainTemplateView"><code class="xref py py-class docutils literal notranslate"><span class="pre">FundamentalDomainTemplateView</span></code></a>). The name <code class="docutils literal notranslate"><span class="pre">Prototype</span></code>
+is the already-established term for what a fully systematic naming scheme would
+call a “templatetype”; there is no code alias for the latter (see
+<a class="reference internal" href="details/structural_classes.html"><span class="doc">Naming of httk₂ structural classes</span></a>).</p>
+<p>The older names survive as aliases for discoverability only; documentation and
+new code use the canonical names.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Alias</p></th>
+<th class="head"><p>Canonical</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">AnonymousStructure</span></code>, <code class="docutils literal notranslate"><span class="pre">AnonymousStructureView</span></code>, <code class="docutils literal notranslate"><span class="pre">AnonymousStructureLike</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Structuretype</span></code> family</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">AnonymousFormula</span></code>, <code class="docutils literal notranslate"><span class="pre">AnonymousFormulaView</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Formulatype</span></code> family</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="dummy-species">
+<h2>Dummy species<a class="headerlink" href="#dummy-species" title="Link to this heading">¶</a></h2>
+<p>The anonymous exact values (<a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.Structuretype" title="httk.atomistic.Structuretype"><code class="xref py py-class docutils literal notranslate"><span class="pre">Structuretype</span></code></a>,
+<a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.FundamentalDomainTemplate" title="httk.atomistic.FundamentalDomainTemplate"><code class="xref py py-class docutils literal notranslate"><span class="pre">FundamentalDomainTemplate</span></code></a>, and the representative
+held by a <a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.Prototype" title="httk.atomistic.Prototype"><code class="xref py py-class docutils literal notranslate"><span class="pre">Prototype</span></code></a>) use a deliberately narrow
+dummy-species shape. The label is carried through the <code class="docutils literal notranslate"><span class="pre">labels</span></code> decoration and
+the species name; it is never encoded as a chemical symbol:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Species</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structuretype.anonymize</span><span class="w"> </span><span class="kn">import</span> <span class="n">dummy_species</span><span class="p">,</span> <span class="n">is_dummy_species</span>
+
+<span class="n">species</span> <span class="o">=</span> <span class="n">dummy_species</span><span class="p">(</span><span class="s2">"A"</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">species</span> <span class="o">==</span> <span class="n">Species</span><span class="p">(</span><span class="s2">"A"</span><span class="p">,</span> <span class="p">(</span><span class="s2">"X"</span><span class="p">,),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">labels</span><span class="o">=</span><span class="p">(</span><span class="s2">"A"</span><span class="p">,))</span>
+<span class="k">assert</span> <span class="n">is_dummy_species</span><span class="p">(</span><span class="n">species</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">is_dummy_species</span></code> requires exactly one <code class="docutils literal notranslate"><span class="pre">&quot;X&quot;</span></code> chemical symbol, unit
+concentration, matching name/label, and no mass, attachments, charge, spin,
+original name, or concentration decoration. Consequently a species named <code class="docutils literal notranslate"><span class="pre">A</span></code>
+with <code class="docutils literal notranslate"><span class="pre">labels=(&quot;other&quot;,)</span></code> is not a dummy species. A <code class="docutils literal notranslate"><span class="pre">Prototype</span></code> carries the
+anonymous class labels (<code class="docutils literal notranslate"><span class="pre">A</span></code>, <code class="docutils literal notranslate"><span class="pre">B</span></code>, <code class="docutils literal notranslate"><span class="pre">C</span></code>, …) directly and has no dummy <code class="docutils literal notranslate"><span class="pre">Species</span></code>
+objects at all.</p>
+</section>
+<section id="what-crosses-the-boundary">
+<h2>What crosses the boundary<a class="headerlink" href="#what-crosses-the-boundary" title="Link to this heading">¶</a></h2>
+<p>The conversion boundary is intentionally explicit. The following table lists
+features rejected during conversion and features deliberately erased when a
+conversion is otherwise valid.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Conversion boundary</p></th>
+<th class="head"><p>Rejected</p></th>
+<th class="head"><p>Deliberately erased</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Structure → <code class="docutils literal notranslate"><span class="pre">Structuretype</span></code>/<code class="docutils literal notranslate"><span class="pre">FundamentalDomainTemplate</span></code></p></td>
+<td><p>disorder or partial occupancy; duplicate- or multi-element species; a species whose symbol is <code class="docutils literal notranslate"><span class="pre">&quot;X&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;vacancy&quot;</span></code>; assemblies; <code class="docutils literal notranslate"><span class="pre">chemical_composition</span></code>; site moments</p></td>
+<td><p>species identities become dummy labels; charge, spin, mass, formula metadata, <code class="docutils literal notranslate"><span class="pre">optimization_type</span></code>, <code class="docutils literal notranslate"><span class="pre">immutable_id</span></code>, <code class="docutils literal notranslate"><span class="pre">last_modified</span></code>, and molecular metadata</p></td>
+</tr>
+<tr class="row-odd"><td><p>Structure → <code class="docutils literal notranslate"><span class="pre">Protostructure</span></code></p></td>
+<td><p>assemblies; molecular structures; <code class="docutils literal notranslate"><span class="pre">chemical_composition</span></code>; site moments; a species containing <code class="docutils literal notranslate"><span class="pre">&quot;X&quot;</span></code> (including attached <code class="docutils literal notranslate"><span class="pre">&quot;X&quot;</span></code>)</p></td>
+<td><p>charge/formula metadata, <code class="docutils literal notranslate"><span class="pre">optimization_type</span></code>, <code class="docutils literal notranslate"><span class="pre">immutable_id</span></code>, <code class="docutils literal notranslate"><span class="pre">last_modified</span></code>, and molecular metadata</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Protostructure</span></code> is different here: its <code class="docutils literal notranslate"><span class="pre">Species</span></code> objects retain disorder and
+partial occupancy, including their real chemical symbols, concentrations, and
+decorations. Those are not rejected merely because they are non-singleton.</p>
+<p>The useful conversion matrix is below. Views either present an existing value
+(exact, pass-through), extract a coarser level from a finer one (exact), or
+recognize a level from a plain structure (tolerant, needs the
+symmetry-recognition path, spglib).</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Construction</p></th>
+<th class="head"><p>Result</p></th>
+<th class="head"><p>Boundary</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PrototypeView(Prototype)</span></code></p></td>
+<td><p>prototype view</p></td>
+<td><p>exact/pass-through</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PrototypeView(Protostructure)</span></code></p></td>
+<td><p>anonymous prototype (species erased; any explicit representative/discriminator carried over)</p></td>
+<td><p>exact erasure of species</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PrototypeView(FundamentalDomainTemplate)</span></code></p></td>
+<td><p>folded base prototype</p></td>
+<td><p>exact extraction/discretization</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PrototypeView(Structuretype)</span></code></p></td>
+<td><p>prototype recognized from the exact anonymous geometry</p></td>
+<td><p>tolerant recognition (spglib)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PrototypeView(ASUStructureView(s,</span> <span class="pre">setting=...))</span></code></p></td>
+<td><p>standard-setting prototype</p></td>
+<td><p>exact ASU path after the requested setting is chosen</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PrototypeView(unitcell</span> <span class="pre">or</span> <span class="pre">ordinary</span> <span class="pre">structure)</span></code></p></td>
+<td><p>recognized prototype</p></td>
+<td><p>tolerant recognition (spglib)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">StructuretypeView(Structuretype)</span></code></p></td>
+<td><p>structuretype view</p></td>
+<td><p>exact/pass-through</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">StructuretypeView(FundamentalDomainTemplate)</span></code></p></td>
+<td><p>expanded unit cell</p></td>
+<td><p>exact</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">StructuretypeView(structure)</span></code></p></td>
+<td><p>anonymized projection</p></td>
+<td><p>exact; validates the rejection rules above</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ProtostructureView(Protostructure)</span></code></p></td>
+<td><p>protostructure view</p></td>
+<td><p>exact/pass-through</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ProtostructureView(ASUStructureView(s,</span> <span class="pre">setting=...))</span></code></p></td>
+<td><p>geometry-free real-species key</p></td>
+<td><p>exact ASU path</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ProtostructureView(unitcell</span> <span class="pre">or</span> <span class="pre">ordinary</span> <span class="pre">structure)</span></code></p></td>
+<td><p>recognized protostructure</p></td>
+<td><p>tolerant recognition (spglib)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ProtostructureView(Structuretype</span> <span class="pre">or</span> <span class="pre">FundamentalDomainTemplate)</span></code></p></td>
+<td><p>—</p></td>
+<td><p>raises: dummy species are not real species</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">UnitcellStructureView(Structuretype</span> <span class="pre">or</span> <span class="pre">FundamentalDomainTemplate)</span></code></p></td>
+<td><p>—</p></td>
+<td><p>raises: dummy species are not real species</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Recognition from a plain structure is the tolerant/spglib boundary. Existing
+ASU, structuretype, prototype, and protostructure values use exact data, with no
+recognition tolerance. For a source that needs a particular setting, use the
+sanctioned idiom shown above:
+<code class="docutils literal notranslate"><span class="pre">PrototypeView(ASUStructureView(s,</span> <span class="pre">setting=...))</span></code>. Recognition of a raw
+structure resolves the standard setting.</p>
+</section>
+<section id="formula-conveniences">
+<h2>Formula conveniences<a class="headerlink" href="#formula-conveniences" title="Link to this heading">¶</a></h2>
+<p>The geometry-bearing anonymous cells (<code class="docutils literal notranslate"><span class="pre">Structuretype</span></code> and <code class="docutils literal notranslate"><span class="pre">Prototype</span></code>, through
+their views) expose <code class="docutils literal notranslate"><span class="pre">anonymous_formula</span></code>; the assigned cells expose both
+<code class="docutils literal notranslate"><span class="pre">formula</span></code> (real species) and <code class="docutils literal notranslate"><span class="pre">anonymous_formula</span></code> (site amounts anonymized). A
+<code class="docutils literal notranslate"><span class="pre">Formulatype</span></code> has no <code class="docutils literal notranslate"><span class="pre">anonymous_formula</span></code> attribute — it <em>is</em> the anonymous
+formula, rendered as its string value (<code class="docutils literal notranslate"><span class="pre">str(FormulatypeView(...))</span></code>, e.g.
+<code class="docutils literal notranslate"><span class="pre">&quot;A3B2&quot;</span></code>). Formula projections use Wyckoff multiplicities, and reduced rendering
+removes a
+common GCD:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Structuretype</span><span class="p">,</span> <span class="n">StructuretypeView</span>
+
+<span class="n">template</span> <span class="o">=</span> <span class="n">Structuretype</span><span class="p">(</span>
+    <span class="p">[[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">]],</span>
+    <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">]],</span>
+    <span class="n">species_at_sites</span><span class="o">=</span><span class="p">(</span><span class="s2">"A"</span><span class="p">,</span> <span class="s2">"B"</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="n">view</span> <span class="o">=</span> <span class="n">StructuretypeView</span><span class="p">(</span><span class="n">template</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">view</span><span class="o">.</span><span class="n">anonymous_formula</span> <span class="o">==</span> <span class="s2">"AB"</span>
+<span class="k">assert</span> <span class="n">view</span><span class="o">.</span><span class="n">unwrap</span><span class="p">()</span> <span class="ow">is</span> <span class="n">template</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Protostructure</span></code> is the isopointal-with-species key: it has no cell or
+coordinates. Equality uses its standard-setting space group and its occupied
+Wyckoff positions together with the associated <code class="docutils literal notranslate"><span class="pre">Species</span></code> values (plus any
+representative or discriminator), so equivalent construction order does not
+change it. <code class="docutils literal notranslate"><span class="pre">Prototype</span></code> is the anonymous counterpart of that key. Both families
+are <strong>hashable</strong> and safe as dictionary or set keys: hashing uses the base key
+(space group, occupied Wyckoff positions, species or anonymous occupation, and
+the discriminator), while equality additionally compares a representative when
+one is present. Equal objects therefore hash equal; two values that differ only
+in their representative may collide on the hash but remain unequal.</p>
+</section>
+<section id="labels">
+<h2>Labels<a class="headerlink" href="#labels" title="Link to this heading">¶</a></h2>
+<p>An httk label is a compact string encoding the information content of an
+unsuffixed AFLOW-style prototype label: a space group, its occupied Wyckoff
+letters, and the partition of those occupations into species classes. The
+single home of the notation is
+<code class="docutils literal notranslate"><span class="pre">httk.atomistic.models.prototype.notation</span></code>. The grammar is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ANON_PEARSON_ITNUMBER_GROUP</span><span class="p">(</span><span class="n">_GROUP</span><span class="p">)</span><span class="o">*</span>                 <span class="c1"># prototype label</span>
+<span class="n">ANON_PEARSON_ITNUMBER_GROUP</span><span class="p">(</span><span class="n">_GROUP</span><span class="p">)</span><span class="o">*</span><span class="p">:</span><span class="n">NAME</span><span class="p">(</span><span class="o">-</span><span class="n">NAME</span><span class="p">)</span><span class="o">*</span>    <span class="c1"># protostructure label</span>
+</pre></div>
+</div>
+<p>A <code class="docutils literal notranslate"><span class="pre">GROUP</span></code> is the concatenation of one class’s Wyckoff letters, sorted
+alphabetically, a letter occupied <code class="docutils literal notranslate"><span class="pre">k</span> <span class="pre">&gt;=</span> <span class="pre">2</span></code> times prefixed by the integer <code class="docutils literal notranslate"><span class="pre">k</span></code>
+(<code class="docutils literal notranslate"><span class="pre">2e</span></code>); count <code class="docutils literal notranslate"><span class="pre">1</span></code> is omitted. <code class="docutils literal notranslate"><span class="pre">ANON</span></code> is the anonymous formula (<code class="docutils literal notranslate"><span class="pre">A</span></code>, <code class="docutils literal notranslate"><span class="pre">B</span></code>, <code class="docutils literal notranslate"><span class="pre">C</span></code>,
+…) built in group order with per-group summed conventional multiplicities
+reduced by their overall GCD.</p>
+<p>A structure’s canonicalization preserves chirality by default. The canonical
+<code class="docutils literal notranslate"><span class="pre">Protostructure</span></code>/<code class="docutils literal notranslate"><span class="pre">Prototype</span></code> label is instead built from the chirality-normalized
+result (<code class="docutils literal notranslate"><span class="pre">canonical_asu(preserve_chirality=False)</span></code>, or <code class="docutils literal notranslate"><span class="pre">normalize_chirality</span></code>
+applied to a chirality-preserved result; see <a class="reference internal" href="asu.html"><span class="doc">Asymmetric units</span></a>), so the two members of an
+enantiomorphic pair share one canonical label.</p>
+<section id="httk-labels-are-not-aflow-labels">
+<h3>httk labels are not AFLOW labels<a class="headerlink" href="#httk-labels-are-not-aflow-labels" title="Link to this heading">¶</a></h3>
+<p>The <strong>httk group-ordering convention</strong> orders the occupation groups
+lexicographically by their sorted Wyckoff-letter sequences. This ordering is
+<em>element-agnostic</em>, so a protostructure label is exactly its erased prototype
+label plus the <code class="docutils literal notranslate"><span class="pre">:</span></code> species suffix. AFLOW, by contrast, orders the classes by
+element symbol <strong>alphabetically</strong>, so its unsuffixed prefix depends on the
+chemistry. The two are therefore genuinely different strings, and an httk label
+is <strong>not</strong> an AFLOW label.</p>
+<p>The assigned-species classes expose both, as distinct properties: <code class="docutils literal notranslate"><span class="pre">label</span></code> (the
+httk convention, a <a class="reference internal" href="reference/autoapi/httk/atomistic/index.html#httk.atomistic.ProtostructureLabel" title="httk.atomistic.ProtostructureLabel"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProtostructureLabel</span></code></a>) and
+<code class="docutils literal notranslate"><span class="pre">aflow_label</span></code> (the AFLOW-style rendering, a plain <code class="docutils literal notranslate"><span class="pre">str</span></code>). For calcite,
+<code class="docutils literal notranslate"><span class="pre">Protostructure(167,</span> <span class="pre">a:Ca,</span> <span class="pre">b:C,</span> <span class="pre">e:O)</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protostructure</span><span class="p">,</span> <span class="n">Species</span>
+
+<span class="n">Ca</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">O</span> <span class="o">=</span> <span class="n">Species</span><span class="p">(</span><span class="s2">"Ca"</span><span class="p">,</span> <span class="p">(</span><span class="s2">"Ca"</span><span class="p">,),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)),</span> <span class="n">Species</span><span class="p">(</span><span class="s2">"C"</span><span class="p">,</span> <span class="p">(</span><span class="s2">"C"</span><span class="p">,),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)),</span> <span class="n">Species</span><span class="p">(</span><span class="s2">"O"</span><span class="p">,</span> <span class="p">(</span><span class="s2">"O"</span><span class="p">,),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,))</span>
+<span class="n">calcite</span> <span class="o">=</span> <span class="n">Protostructure</span><span class="p">(</span><span class="mi">167</span><span class="p">,</span> <span class="p">[(</span><span class="s2">"a"</span><span class="p">,</span> <span class="n">Ca</span><span class="p">),</span> <span class="p">(</span><span class="s2">"b"</span><span class="p">,</span> <span class="n">C</span><span class="p">),</span> <span class="p">(</span><span class="s2">"e"</span><span class="p">,</span> <span class="n">O</span><span class="p">)])</span>
+<span class="k">assert</span> <span class="n">calcite</span><span class="o">.</span><span class="n">label</span> <span class="o">==</span> <span class="s2">"ABC3_hR10_167_a_b_e:Ca-C-O"</span>
+<span class="k">assert</span> <span class="n">calcite</span><span class="o">.</span><span class="n">aflow_label</span> <span class="o">==</span> <span class="s2">"ABC3_hR10_167_b_a_e:C-Ca-O"</span>
+</pre></div>
+</div>
+<p>The httk label orders the groups <code class="docutils literal notranslate"><span class="pre">a</span></code>, <code class="docutils literal notranslate"><span class="pre">b</span></code>, <code class="docutils literal notranslate"><span class="pre">e</span></code> by Wyckoff letter; the AFLOW
+label orders them <code class="docutils literal notranslate"><span class="pre">b</span></code>, <code class="docutils literal notranslate"><span class="pre">a</span></code>, <code class="docutils literal notranslate"><span class="pre">e</span></code> to follow the alphabetical elements
+<code class="docutils literal notranslate"><span class="pre">C</span></code>, <code class="docutils literal notranslate"><span class="pre">Ca</span></code>, <code class="docutils literal notranslate"><span class="pre">O</span></code>.</p>
+</section>
+<section id="pearson-symbol">
+<h3>Pearson symbol<a class="headerlink" href="#pearson-symbol" title="Link to this heading">¶</a></h3>
+<p>The Pearson symbol is <code class="docutils literal notranslate"><span class="pre">system</span> <span class="pre">+</span> <span class="pre">centring</span> <span class="pre">+</span> <span class="pre">count</span></code>. The system letter follows
+the space group’s crystal system (<code class="docutils literal notranslate"><span class="pre">a</span></code>, <code class="docutils literal notranslate"><span class="pre">m</span></code>, <code class="docutils literal notranslate"><span class="pre">o</span></code>, <code class="docutils literal notranslate"><span class="pre">t</span></code>, <code class="docutils literal notranslate"><span class="pre">h</span></code>, <code class="docutils literal notranslate"><span class="pre">h</span></code>, <code class="docutils literal notranslate"><span class="pre">c</span></code> for
+triclinic through cubic, trigonal and hexagonal both mapping to <code class="docutils literal notranslate"><span class="pre">h</span></code>). The
+centring letter follows the centring type, with the base-centred variants
+<code class="docutils literal notranslate"><span class="pre">A</span></code>, <code class="docutils literal notranslate"><span class="pre">B</span></code>, <code class="docutils literal notranslate"><span class="pre">C</span></code>, and <code class="docutils literal notranslate"><span class="pre">S</span></code> folded to <code class="docutils literal notranslate"><span class="pre">C</span></code> (the <code class="docutils literal notranslate"><span class="pre">A</span></code> case fires for groups 38–41). The
+count is the conventional-cell site count, except a rhombohedral <code class="docutils literal notranslate"><span class="pre">R</span></code> setting —
+tabulated on hexagonal axes — divides it by three (and asserts divisibility).
+Calcite’s 30 conventional sites give <code class="docutils literal notranslate"><span class="pre">hR10</span></code>.</p>
+<p>The 27th Wyckoff letter used by a few high-multiplicity settings (group 47’s
+eightfold orbit, internally <code class="docutils literal notranslate"><span class="pre">'α'</span></code>) renders as <code class="docutils literal notranslate"><span class="pre">A</span></code> and parses back from it;
+positionally a group token never collides with the leading anonymous formula.</p>
+</section>
+<section id="strict-parser">
+<h3>Strict parser<a class="headerlink" href="#strict-parser" title="Link to this heading">¶</a></h3>
+<p>The parser is strict and canonical-only: it resolves the standard setting,
+validates every Wyckoff letter, recomputes the Pearson symbol, the reduced
+anonymous counts, and the group ordering, and rejects any string that deviates
+from the recomputed canonical form. Suffix names must be known element symbols
+and become <code class="docutils literal notranslate"><span class="pre">Species(name,</span> <span class="pre">(name,),</span> <span class="pre">(1,))</span></code>. Round trips are pinned in both
+directions: <code class="docutils literal notranslate"><span class="pre">parse(render(x))</span> <span class="pre">==</span> <span class="pre">x</span></code> for element-pure values and
+<code class="docutils literal notranslate"><span class="pre">render(parse(s))</span> <span class="pre">==</span> <span class="pre">s</span></code> for canonical strings. This mirrors
+<code class="docutils literal notranslate"><span class="pre">parse_anonymous_formula</span></code> for <code class="docutils literal notranslate"><span class="pre">Formulatype</span></code>.</p>
+</section>
+<section id="canonical-vs-plain-labels">
+<h3>Canonical vs plain labels<a class="headerlink" href="#canonical-vs-plain-labels" title="Link to this heading">¶</a></h3>
+<p>Any faithful render of an object is <em>the</em> prototype or protostructure label.
+The <em>canonical</em> prototype or protostructure label is the one obtained from a
+normalizer-canonical object — one derived via <code class="docutils literal notranslate"><span class="pre">canonical_asu</span></code>. The renderer
+performs no affine-normalizer pass this round, so labels from hand-built,
+non-canonical objects are faithful but not necessarily canonical. Whenever text
+speaks of the label of an arbitrary value it uses the plain form (“the
+protostructure label”), reserving “the canonical … label” for a
+normalizer-canonical source.</p>
+<p>The AFLOW-style <code class="docutils literal notranslate"><span class="pre">-001</span></code> discriminators belong to a <code class="docutils literal notranslate"><span class="pre">Prototype</span></code> or a
+<code class="docutils literal notranslate"><span class="pre">Protostructure</span></code> (their <code class="docutils literal notranslate"><span class="pre">discriminator</span></code> field), which name a species-independent
+geometrical class. They are <strong>never</strong> part of the label.</p>
+</section>
+</section>
+<section id="similarity-and-exact-travel">
+<h2>Similarity and exact travel<a class="headerlink" href="#similarity-and-exact-travel" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">Prototype.similar</span></code> and <code class="docutils literal notranslate"><span class="pre">Protostructure.similar</span></code> first compare their discrete
+space-group and occupation keys, then apply discriminator compatibility. If
+both values have representatives, the continuous comparison is the total
+Cartesian atom travel returned by the public <code class="docutils literal notranslate"><span class="pre">structure_delta(first,</span> <span class="pre">second)</span></code>;
+missing representatives do not invent a distance. <code class="docutils literal notranslate"><span class="pre">structure_delta</span></code> maps the
+structures into a common subgroup and setting, pairs compatible Wyckoff
+orbits, and sums the shortest periodic Cartesian travel of their atoms. Each
+endpoint uses its own cell, so lattice changes contribute through the atom
+positions. It is not a content-id or label comparison. <code class="docutils literal notranslate"><span class="pre">similar</span></code> returns
+<code class="docutils literal notranslate"><span class="pre">False</span></code> only when no common representation exists (<code class="docutils literal notranslate"><span class="pre">NoCommonRepresentation</span></code>, a
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code> subclass in <code class="docutils literal notranslate"><span class="pre">httk.atomistic.symmetry.paths</span></code>); other errors from a
+broken representative — a singular cell basis, a non-three-dimensional cell, or
+non-finite travel — propagate.</p>
+</section>
+<section id="storage-records">
+<h2>Storage records<a class="headerlink" href="#storage-records" title="Link to this heading">¶</a></h2>
+<p>The families have durable, layout-independent storage records in
+<code class="docutils literal notranslate"><span class="pre">httk.atomistic.storage.records</span></code>:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Record</p></th>
+<th class="head"><p>Storage name</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PrototypeRecord</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">atomistic_prototype</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Prototype</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ProtostructureRecord</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">atomistic_protostructure</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Protostructure</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FundamentalDomainTemplateRecord</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">atomistic_fundamental_domain_template</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FundamentalDomainTemplate</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FundamentalDomainStructureRecord</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">atomistic_fundamental_domain_structure</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FundamentalDomainStructure</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Each record carries the value identity of its family, so two equal values
+produce records with the same content id (the deduplication key) and unequal
+values differ. <code class="docutils literal notranslate"><span class="pre">PrototypeRecord</span></code> and <code class="docutils literal notranslate"><span class="pre">ProtostructureRecord</span></code> accept base-only
+values and store the optional representative as a nested record
+(<code class="docutils literal notranslate"><span class="pre">FundamentalDomainTemplateRecord</span></code> for a prototype,
+<code class="docutils literal notranslate"><span class="pre">FundamentalDomainStructureRecord</span></code> for a protostructure) and the optional
+discriminator as a plain column. <code class="docutils literal notranslate"><span class="pre">Structuretype</span></code> itself stays non-storable.</p>
+<p>Both <code class="docutils literal notranslate"><span class="pre">PrototypeRecord.label</span></code> and <code class="docutils literal notranslate"><span class="pre">ProtostructureRecord.label</span></code> render the <strong>httk
+label</strong> (for example <code class="docutils literal notranslate"><span class="pre">AB_cF8_225_a_b</span></code> and <code class="docutils literal notranslate"><span class="pre">AB_cF8_225_a_b:Na-Cl</span></code>) as a queryable
+<code class="docutils literal notranslate"><span class="pre">label</span></code> column. The content ids are unchanged by this — the label is a
+convenience and query column, not the record’s identity, and it is not unique:
+the discriminator is not part of the label, so records that share occupations
+but differ in class collide on it, and two protostructures whose species share a
+name but differ in another <code class="docutils literal notranslate"><span class="pre">Species</span></code> field also collide. Count and deduplicate
+by row (content id), never by label.</p>
+<p>The registry record names are <code class="docutils literal notranslate"><span class="pre">atomistic-prototype</span></code> (family <code class="docutils literal notranslate"><span class="pre">prototypes</span></code>) and
+<code class="docutils literal notranslate"><span class="pre">atomistic-protostructure</span></code> (family <code class="docutils literal notranslate"><span class="pre">protostructures</span></code>), with
+<code class="docutils literal notranslate"><span class="pre">atomistic-fundamental-domain-structure</span></code> in the <code class="docutils literal notranslate"><span class="pre">structures</span></code> family.
+<code class="docutils literal notranslate"><span class="pre">FundamentalDomainTemplateRecord</span></code> is an embedded component record (nested inside
+<code class="docutils literal notranslate"><span class="pre">PrototypeRecord</span></code> as the optional representative) and deliberately has no
+registry entry of its own.</p>
+<p>Because the taxonomy and the storage layout were redesigned, <strong>pre-existing
+stores carry orphaned tables and, where the label format changed, stale label
+columns</strong>. Rebuilding the store from its source values is the documented remedy;
+no compatibility registry keys are provided. Concretely, the following tables
+are orphaned — their rows are not migrated, and (because the identity name
+participates in hashing) re-ingesting the source values produces new content ids
+under the current records:</p>
+<ul class="simple">
+<li><p>the retired four-class layout’s <code class="docutils literal notranslate"><span class="pre">atomistic_prototemplate</span></code> and
+<code class="docutils literal notranslate"><span class="pre">atomistic_structuretype</span></code> tables (and any earlier <code class="docutils literal notranslate"><span class="pre">atomistic_prototype_v1</span></code>
+tables);</p></li>
+<li><p>the <code class="docutils literal notranslate"><span class="pre">atomistic_protostructure_v1</span></code> and <code class="docutils literal notranslate"><span class="pre">atomistic_wyckoff_occupation_v1</span></code> tables,
+orphaned by removing the <code class="docutils literal notranslate"><span class="pre">_v1</span></code> storage-name suffixes (now
+<code class="docutils literal notranslate"><span class="pre">atomistic_protostructure</span></code> and <code class="docutils literal notranslate"><span class="pre">atomistic_wyckoff_occupation</span></code>);</p></li>
+<li><p>the pre-“Pattern”→”Template” rename tables <code class="docutils literal notranslate"><span class="pre">atomistic_protopattern</span></code> and
+<code class="docutils literal notranslate"><span class="pre">atomistic_fundamental_domain_pattern</span></code>.</p></li>
+</ul>
+<p>Separately, a store written across the label-format switch holds mixed formats
+in the <code class="docutils literal notranslate"><span class="pre">ProtostructureRecord.label</span></code> column — old <code class="docutils literal notranslate"><span class="pre">&quot;225/b:Cl,a:Na&quot;</span></code>-style rows
+alongside httk-label rows. Record identity (the content id) is unaffected there;
+a rebuild simply normalizes the column.</p>
+</section>
+<section id="deferred-features">
+<h2>Deferred features<a class="headerlink" href="#deferred-features" title="Link to this heading">¶</a></h2>
+<p>The following are deliberately not part of this round and not part of the
+conversion contracts above:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">same_prototype()</span></code>.</p></li>
+<li><p>OPTIMADE serving (definitions, providers, and bindings) for the prototype and
+protostructure families.</p></li>
+<li><p>The species-assignment convenience constructors
+(<code class="docutils literal notranslate"><span class="pre">Protostructure(prototype,</span> <span class="pre">species=...)</span></code>, <code class="docutils literal notranslate"><span class="pre">Structure(structuretype,</span> <span class="pre">species=...)</span></code>).</p></li>
+<li><p>Normalizer-canonicalized label rendering (the affine-normalizer pass that
+would make every faithful label canonical).</p></li>
+</ul>
+<p>The full guide, <a class="reference internal" href="details/structural_classes.html"><span class="doc">Naming of httk₂ structural classes</span></a>, covers the naming rationale
+and how the classes relate to isopointal/isoconfigurational structures and
+AFLOW labels.</p>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="cif.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Reading and writing CIF files</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="composition.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Composition and formula families</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, The httk-atomistic AUTHORS
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Material-information levels</a><ul>
+<li><a class="reference internal" href="#how-the-levels-relate">How the levels relate</a></li>
+<li><a class="reference internal" href="#naming-and-capitalization">Naming and capitalization</a></li>
+<li><a class="reference internal" href="#dummy-species">Dummy species</a></li>
+<li><a class="reference internal" href="#what-crosses-the-boundary">What crosses the boundary</a></li>
+<li><a class="reference internal" href="#formula-conveniences">Formula conveniences</a></li>
+<li><a class="reference internal" href="#labels">Labels</a><ul>
+<li><a class="reference internal" href="#httk-labels-are-not-aflow-labels">httk labels are not AFLOW labels</a></li>
+<li><a class="reference internal" href="#pearson-symbol">Pearson symbol</a></li>
+<li><a class="reference internal" href="#strict-parser">Strict parser</a></li>
+<li><a class="reference internal" href="#canonical-vs-plain-labels">Canonical vs plain labels</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#similarity-and-exact-travel">Similarity and exact travel</a></li>
+<li><a class="reference internal" href="#storage-records">Storage records</a></li>
+<li><a class="reference internal" href="#deferred-features">Deferred features</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=fe42cd0d"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=fd10adb8"></script>
+    <script src="_static/selector.js?v=e591e119"></script>
+    <script>window.HTTK_DOCS_VERSIONING = {"channel":"dev","version":"dev:main","versionPathDepth":2};</script>
+    </body>
+</html>

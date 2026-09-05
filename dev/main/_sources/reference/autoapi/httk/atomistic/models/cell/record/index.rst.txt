@@ -1,0 +1,86 @@
+httk.atomistic.models.cell.record
+=================================
+
+.. py:module:: httk.atomistic.models.cell.record
+
+.. autoapi-nested-parse::
+
+   Backend for an exact stored cell record.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.record.RecordCell
+
+
+Module Contents
+---------------
+
+.. py:class:: RecordCell(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.cell.backend.CellBackend`
+
+
+   Backend for a cell stored in an exact record.
+
+   :param obj: The stored cell record.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: basis
+      :type: httk.core.SurdVector
+
+
+      Return the stored cell vectors.
+
+      :return: The scaled lattice vectors.
+
+
+   .. py:property:: scale
+      :type: httk.core.SurdScalar
+
+
+      Return the unit scale factor.
+
+      :return: The factor applied to ``unscaled_basis``.
+
+
+   .. py:property:: unscaled_basis
+      :type: httk.core.SurdVector
+
+
+      Return the stored basis before scaling.
+
+      :return: The cell vectors.
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      Return the stored basis precision.
+
+      :return: The absolute precision, or ``None`` when unknown.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Return the stored periodicity flags.
+
+      :return: Flags identifying the periodic basis rows.
+
+
+   .. py:method:: unwrap()
+
+      Return the stored cell record.
+
+      :return: The source record.
+
+
+
