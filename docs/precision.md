@@ -20,7 +20,12 @@ separation, including when the fallback is used. The nearest-image search
 respects skew cells and only folds periodic directions. Coincident sites raise
 `ValueError`: no positive automatic tolerance can distinguish them. Resolve
 duplicate sites or supply an explicit tolerance to the operation when merging
-them is intentional.
+them is intentional. A reciprocal-cell grid normally limits this check to nearby
+pairs; dense sites, large tolerances, and near-singular cells can still require
+quadratic all-pairs work. The widened bucket screen is a floating-point rejection
+step: exact coordinate arithmetic forms candidate Cartesian differences before the
+nearest-image calculation crosses into floats, so a pair exactly at the numerical
+boundary remains platform-dependent.
 
 The full guide, {doc}`details/precision`, covers exactly what is recorded,
 where precision comes from (digits, stated esds, format defaults), what it is

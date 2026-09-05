@@ -171,13 +171,15 @@ def test_the_tolerance_cap_does_not_fold_a_non_periodic_direction() -> None:
     pair = ((0, 0, "1/20"), (0, 0, "19/20"))
     tall = [[3, 0, 0], [0, 3, 0], [0, 0, 10]]
 
-    def half_separation(periodicity):
+    def half_separation(periodicity, cutoff=None):
         cell = Cell(tall, periodicity=periodicity)
         structure = UnitcellStructure(cell, list(pair), [NA], ["Na", "Na"])
-        return _half_minimum_separation(UnitcellStructureView(structure))
+        return _half_minimum_separation(UnitcellStructureView(structure), cutoff=cutoff)
 
     assert half_separation((1, 1, 1)) == pytest.approx(0.5)  # folded: 1 A apart
     assert half_separation((1, 1, 0)) == pytest.approx(4.5)  # as written: 9 A apart
+    assert half_separation((1, 1, 0), cutoff=0.1) is None
+    assert half_separation((1, 1, 0), cutoff=5) == pytest.approx(4.5)
 
 
 def test_wrapping_a_non_periodic_direction_stays_exact() -> None:

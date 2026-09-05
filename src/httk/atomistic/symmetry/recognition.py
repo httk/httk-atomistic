@@ -25,7 +25,8 @@ caller can make.
 
 import fractions
 import math
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from itertools import product
 from typing import Any
 
 from httk.core import FracVector, SurdVector, register_citation
@@ -37,6 +38,7 @@ from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.symmetry._nearest_image import _NearestImageMetric
+from httk.atomistic.symmetry._periodic_wrap import wrap_periodic
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
@@ -54,6 +56,17 @@ DEFAULT_TOLERANCE = 1e-3
 #: should be equal are each rounded independently, so they can differ by twice the
 #: precision; a tolerance below that would reject data that is in fact consistent.
 _SAFETY_FACTOR = 2
+
+_FLOAT_SCREEN_MAGNITUDE_LIMIT = 2**40
+_FLOAT_SCREEN_ULPS = 4096
+
+
+def _float_screen_slack(values: Sequence[float]) -> float | None:
+    """Return a deliberately widened float-screen margin, or ``None`` when unsafe."""
+    if any(not math.isfinite(value) or abs(value) > _FLOAT_SCREEN_MAGNITUDE_LIMIT for value in values):
+        return None
+    magnitude = max(1.0, *(abs(value) for value in values))
+    return _FLOAT_SCREEN_ULPS * magnitude * math.ulp(magnitude)
 
 
 def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_TOLERANCE) -> float:
@@ -88,7 +101,7 @@ def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_T
     tolerance = fallback if precision is None else float(precision) * _SAFETY_FACTOR
     if not math.isfinite(tolerance) or tolerance <= 0:
         raise ValueError("automatic structure tolerance must be finite and positive")
-    cap = _half_minimum_separation(view)
+    cap = _half_minimum_separation(view, cutoff=tolerance)
     if cap == 0.0:
         raise ValueError("cannot derive a positive tolerance: distinct sites coincide under periodic images")
     # Leave a small relative margin as well as stepping below the float boundary. A
@@ -98,11 +111,16 @@ def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_T
     return tolerance if strict_cap is None or tolerance < strict_cap else strict_cap
 
 
-def _half_minimum_separation(view: Any) -> float | None:
-    """Half the shortest distance between two distinct sites, or ``None`` if there is one site.
+def _half_minimum_separation(view: Any, *, cutoff: float | None = None) -> float | None:
+    """Half the shortest relevant site distance, or ``None`` when no pair can tighten a cutoff.
 
-    Computed in floating point over an exact nearest-image search of each pair. This bounds a
-    tolerance, so the calculation deliberately stays at the final metric boundary.
+    Candidate Cartesian differences are formed exactly, then nearest lattice images are
+    searched exhaustively in floating-point arithmetic. When ``cutoff`` is given, a
+    reciprocal-basis float grid with a deliberately oversized margin screens out distant
+    pairs; unsafe conversions fall back to checking every pair. The grid is normally linear
+    in the site count but still degenerates to all pairs for dense sites, large cutoffs, or
+    near-singular cells. Final caps use the confirmed distance rather than the screen, though
+    a pair exactly at its numerical boundary remains subject to floating-point behaviour.
 
     Only the periodic directions are reduced. Along a non-periodic one there is no other
     image to be nearer, and folding it would report two well-separated atoms as close
@@ -114,14 +132,75 @@ def _half_minimum_separation(view: Any) -> float | None:
     if count < 2:
         return None
 
-    metric = _NearestImageMetric(view.cell.basis.to_floats(), view.cell.periodicity)
+    basis = view.cell.basis.to_floats()
+    periodicity = view.cell.periodicity
+    metric = _NearestImageMetric(basis, periodicity)
+    pairs: Iterator[tuple[int, int]] = ((first, second) for first in range(count) for second in range(first + 1, count))
+    if cutoff is not None:
+        try:
+            inverse = view.cell.basis.inv().to_floats()
+            coordinates = wrap_periodic(coords, periodicity).to_floats()
+            radius = cutoff * 2
+            slack = _float_screen_slack(
+                [
+                    radius,
+                    *(value for row in basis for value in row),
+                    *(value for row in inverse for value in row),
+                    *(value for row in coordinates for value in row),
+                ]
+            )
+            if slack is None:
+                raise ValueError
+            widths = tuple(
+                (radius + 4 * slack) * (math.sqrt(math.fsum(inverse[row][column] ** 2 for row in range(3))) + slack)
+                + 4 * slack
+                for column in range(3)
+            )
+            if any(not math.isfinite(width) or width <= 0 for width in widths):
+                raise ValueError
+            bins = tuple(
+                max(1, int(1 / width) - 1) if periodic else None
+                for width, periodic in zip(widths, periodicity, strict=True)
+            )
+
+            def bucket_axis(value: float, width: float, bin_count: int | None) -> int:
+                if bin_count is not None:
+                    return min(bin_count - 1, int(value * bin_count))
+                return math.floor(value / width)
+
+            def bucket(coordinate: Sequence[float]) -> tuple[int, ...]:
+                return tuple(
+                    bucket_axis(value, width, bin_count)
+                    for value, width, bin_count in zip(coordinate, widths, bins, strict=True)
+                )
+
+            def neighbouring_axis(value: int, bin_count: int | None) -> tuple[int, ...]:
+                if bin_count is not None:
+                    return tuple(sorted({(value + offset) % bin_count for offset in (-1, 0, 1)}))
+                return value - 1, value, value + 1
+
+            def nearby_pairs() -> Iterator[tuple[int, int]]:
+                buckets: dict[tuple[int, ...], list[int]] = {}
+                for index, coordinate in enumerate(coordinates):
+                    key = bucket(coordinate)
+                    neighbours = tuple(
+                        neighbouring_axis(value, bin_count) for value, bin_count in zip(key, bins, strict=True)
+                    )
+                    for neighbour in product(*neighbours):
+                        for other in buckets.get(neighbour, ()):
+                            yield other, index
+                    buckets.setdefault(key, []).append(index)
+
+            pairs = nearby_pairs()
+        except (ArithmeticError, OverflowError, TypeError, ValueError):
+            pass
+
     shortest: float | None = None
-    for first in range(count):
-        for second in range(first + 1, count):
-            difference = SurdVector(coords[first] - coords[second]) * view.cell.basis
-            distance = metric.distance(difference.to_floats())
-            if shortest is None or distance < shortest:
-                shortest = distance
+    for first, second in pairs:
+        difference = SurdVector(coords[first] - coords[second]) * view.cell.basis
+        distance = metric.distance(difference.to_floats())
+        if (cutoff is None or distance <= cutoff * 2) and (shortest is None or distance < shortest):
+            shortest = distance
     return None if shortest is None else shortest / 2
 
 

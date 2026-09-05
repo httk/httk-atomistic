@@ -453,6 +453,68 @@ def test_the_cap_does_not_engage_for_well_separated_atoms() -> None:
     assert structure_tolerance(_two_site(CUBIC, F(1, 10))) == pytest.approx(1.0)
 
 
+def _cubic_grid(side: int, *, near_pair: bool = False) -> UnitcellStructure:
+    coordinates = [[F(i, side), F(j, side), F(k, side)] for i, j, k in itertools.product(range(side), repeat=3)]
+    if near_pair:
+        coordinates[-1] = [F(1, 10_000_000), 0, 0]
+    return UnitcellStructure(Cell(CUBIC), Sites(coordinates, COORD_PRECISION), _species(), ["Na"] * len(coordinates))
+
+
+def _record_nearest_image_calls(monkeypatch: pytest.MonkeyPatch) -> list[object]:
+    from httk.atomistic.symmetry import recognition as recognition_module
+
+    calls = []
+    original = recognition_module._NearestImageMetric.distance
+
+    def counted_distance(metric, displacement):
+        calls.append(displacement)
+        return original(metric, displacement)
+
+    monkeypatch.setattr(recognition_module._NearestImageMetric, "distance", counted_distance)
+    return calls
+
+
+def test_the_tolerance_cap_screens_a_large_well_separated_grid(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _record_nearest_image_calls(monkeypatch)
+    assert structure_tolerance(_cubic_grid(8)) == pytest.approx(1e-3)
+    assert len(calls) == 0
+
+
+def test_the_tolerance_cap_confirms_only_a_near_grid_pair(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _record_nearest_image_calls(monkeypatch)
+    tolerance = structure_tolerance(_cubic_grid(8, near_pair=True))
+    assert tolerance == pytest.approx(2.5e-7)
+    assert tolerance < 2.5e-7
+    assert len(calls) == 1
+
+
+def test_the_tolerance_screen_falls_back_for_unrepresentable_coordinates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _record_nearest_image_calls(monkeypatch)
+    huge = 10**400
+    structure = UnitcellStructure(
+        Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]], periodicity=(False, False, False)),
+        Sites([[huge, 0, 0], [huge + 1, 0, 0]], F(1)),
+        _species(),
+        ["Na", "Na"],
+    )
+    assert structure_tolerance(structure) == pytest.approx(0.5)
+    assert len(calls) == 1
+
+
+def test_the_tolerance_screen_falls_back_for_a_near_degenerate_cell(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _record_nearest_image_calls(monkeypatch)
+    structure = UnitcellStructure(
+        Cell([[F(1, 2**50), 0, 0], [0, 1, 0], [0, 0, 1]]),
+        Sites([[0, 0, 0], [0, F(1, 2), 0]], COORD_PRECISION),
+        _species(),
+        ["Na", "Na"],
+    )
+    assert structure_tolerance(structure) == pytest.approx(2 * float(structure.cartesian_precision()))
+    assert len(calls) == 1
+
+
 def test_a_single_site_structure_has_no_separation_to_cap_against() -> None:
     lone = UnitcellStructure(Cell(CUBIC), Sites([[0, 0, 0]], F(1, 10)), _species(), ["Na"])
     assert structure_tolerance(lone) == pytest.approx(1.0)
@@ -769,4 +831,3 @@ def test_full_periodic_metric_has_no_perpendicular_roundoff():
     )
     displacement = tuple(basis[0][i] + 2 * basis[1][i] - 3 * basis[2][i] for i in range(3))
     assert _NearestImageMetric(basis, (True, True, True)).distance(displacement) < 1e-13
-
