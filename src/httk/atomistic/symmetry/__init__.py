@@ -87,6 +87,7 @@ __all__ = [
     "canonicalize_full",
     "common_subgroup_representation",
     "conventional_cell",
+    "find_magnetic_symmetry",
     "highest_symmetry",
     "interpolate_structures",
     "isomorphic_subgroup_transforms",
@@ -123,6 +124,7 @@ if TYPE_CHECKING:
         normalize_chirality,
         rerepresent,
     )
+    from .magnetic import find_magnetic_symmetry
     from .paths import (
         CommonSubgroupResult,
         StructurePath,
@@ -151,6 +153,11 @@ if TYPE_CHECKING:
 
 
 def __getattr__(name: str) -> object:
+    if name == "find_magnetic_symmetry":
+        from .magnetic import find_magnetic_symmetry
+
+        globals().update(find_magnetic_symmetry=find_magnetic_symmetry)
+        return globals()[name]
     if name in {"DEFAULT_TOLERANCE", "recognize_asu", "structure_tolerance"}:
         from .recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
 

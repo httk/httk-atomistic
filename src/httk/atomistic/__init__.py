@@ -155,6 +155,7 @@ from httk.atomistic.models.prototype.recognized import RecognizedPrototype
 from httk.atomistic.models.prototype.view import PrototypeView
 
 from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.magnetic import find_magnetic_symmetry
 from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
@@ -370,6 +371,7 @@ __all__ = [
     "cif_setting",
     "conventional_cell",
     "cubic_supercell",
+    "find_magnetic_symmetry",
     "highest_symmetry",
     "interpolate_structures",
     "is_niggli_reduced",
