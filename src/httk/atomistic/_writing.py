@@ -441,25 +441,19 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
 def _moment_component(value: Any) -> str:
     """Render one crystal-axis magnetic-moment component as a CIF-writable decimal token.
 
-    An exactly representable rational (a terminating decimal, including a zero component) is
-    written verbatim; a repeating rational or an irrational crystal-axis component (which arises
-    when a Cartesian source moment is projected onto an oblique cell) has no exact CIF decimal, so
-    it is rounded to :data:`_APPROX_CIF_SIG_DIGITS` significant digits.
+    Magnetic moments are physical (floating-point) quantities, not exact rationals like a ``1/3``
+    Wyckoff coordinate: a µB value of ``0.6`` enters as the binary float ``0.59999999999999998``,
+    whose *exact* decimal is a terminating 50-digit string. Writing that verbatim would spell a
+    machine-precision moment no measurement supports (and cluttered the file). So every component
+    -- terminating, repeating, or an irrational crystal-axis projection alike -- is rendered at
+    :data:`_APPROX_CIF_SIG_DIGITS` significant digits (``0.6``, ``2.907``, ``0``), which drops the
+    binary noise while keeping every physically meaningful digit.
 
-    :param value: One exact crystal-axis moment component (a rational or surd scalar).
+    :param value: One crystal-axis moment component (a rational or surd scalar).
     :return: A standard-decimal CIF token for the component.
     """
-    if isinstance(value, fractions.Fraction):
-        rational: fractions.Fraction | None = value
-    elif getattr(value, "is_rational", False):
-        rational = value._rational_fraction()
-    else:
-        rational = None
-    if rational is not None:
-        finite = _finite_decimal(rational)
-        if "/" not in finite:
-            return finite
-    return _approx_decimal(value)
+    number = float(value) if isinstance(value, fractions.Fraction) else float(value.to_float())
+    return format(number, f".{_APPROX_CIF_SIG_DIGITS}g")
 
 
 def _unique_site_labels(labels: list[str]) -> list[str]:
