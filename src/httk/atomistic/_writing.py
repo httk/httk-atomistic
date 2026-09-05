@@ -2,14 +2,17 @@
 
 import fractions
 import math
+from collections import Counter
 from collections.abc import Mapping
 from decimal import Decimal, localcontext
-from typing import Any
+from typing import Any, cast
 
 from httk.core import FracVector, unwrap
 
 from httk.atomistic._atomic_projection import require_bare_atomic_projection
+from httk.atomistic.models.moments.crystalaxis_view import CrystalAxisSiteMomentsView
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
+from httk.atomistic.models.structure.symops import SymopsStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.models.structure.view import StructureView
 from httk.atomistic.models.trajectory.backend import TrajectoryBackend
@@ -433,6 +436,143 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
             )
         ],
     }
+
+
+def _moment_component(value: Any) -> str:
+    """Render one crystal-axis magnetic-moment component as a CIF-writable decimal token.
+
+    An exactly representable rational (a terminating decimal, including a zero component) is
+    written verbatim; a repeating rational or an irrational crystal-axis component (which arises
+    when a Cartesian source moment is projected onto an oblique cell) has no exact CIF decimal, so
+    it is rounded to :data:`_APPROX_CIF_SIG_DIGITS` significant digits.
+
+    :param value: One exact crystal-axis moment component (a rational or surd scalar).
+    :return: A standard-decimal CIF token for the component.
+    """
+    if isinstance(value, fractions.Fraction):
+        rational: fractions.Fraction | None = value
+    elif getattr(value, "is_rational", False):
+        rational = value._rational_fraction()
+    else:
+        rational = None
+    if rational is not None:
+        finite = _finite_decimal(rational)
+        if "/" not in finite:
+            return finite
+    return _approx_decimal(value)
+
+
+def _unique_site_labels(labels: list[str]) -> list[str]:
+    """Disambiguate atom-site labels so no two listed sites share one.
+
+    A fully occupied site is named by its element, so two distinct same-element sites both carry
+    that element as their label. mCIF keys the moment loop on the site label and rejects a
+    repeated ``_atom_site_moment.label``, so a colliding label breaks the round-trip. Only the
+    colliding labels are renamed (to ``<base><n>``, skipping any token another label already
+    holds); an already-unique label is returned unchanged, so the single-site fixtures keep the
+    exact labels they had.
+
+    :param labels: The atom-site labels in listed-site order.
+    :return: Labels of the same length in the same order, with every value unique.
+    """
+    counts = Counter(labels)
+    taken = set(labels)
+    running: dict[str, int] = {}
+    result: list[str] = []
+    for label in labels:
+        if counts[label] == 1:
+            result.append(label)
+            continue
+        index = running.get(label, 0)
+        while True:
+            index += 1
+            candidate = f"{label}{index}"
+            if candidate not in taken:
+                break
+        running[label] = index
+        taken.add(candidate)
+        result.append(candidate)
+    return result
+
+
+def _mcif_payload_from_structure(obj: Any) -> Mapping[str, object]:
+    """Serialize a magnetic :class:`SymopsStructure` to mCIF's exact neutral channels.
+
+    The block carries the same exact structural channels as the plain-CIF serializer (cell
+    parameters, listed fractional positions, species symbols/labels/occupancies), plus the
+    magnetic channels an mCIF adds: crystal-axis moment rows keyed by the listed site label,
+    the magnetic symmetry-operation strings (each carrying a trailing ``,+1``/``,-1`` time
+    reversal), and the optional BNS number and label. Moments are emitted in the crystal-axis
+    frame regardless of the source frame, matching the MAGNDATA convention that
+    :func:`read_mcif_asus` reads back.
+
+    The moment refinement-metadata channels (``moment_component_resolutions``,
+    ``moment_component_esds``, and ``moment_symmforms``) are not written, so a round-trip through
+    :func:`read_mcif_asus` preserves the moments themselves but drops that refinement metadata.
+
+    :param obj: The magnetic structure to serialize.
+    :return: A neutral mCIF payload with one block.
+    :raises TypeError: If ``obj`` is not a :class:`SymopsStructure` (a plain unit-cell or a
+        modulated/incommensurate structure has no Phase 1 mCIF serialization).
+    :raises ValueError: If a listed moment cannot be projected onto the crystal-axis frame, or a
+        listed site expands to several atom rows so moments cannot be aligned by label.
+    """
+    structure = unwrap(obj) if isinstance(obj, StructureView) else obj
+    if not isinstance(structure, SymopsStructure):
+        raise TypeError(
+            f"mCIF can serialize only a SymopsStructure (a magnetic CIF cell), not "
+            f"{type(structure).__name__}; magnetic-symmetry detection for a plain or modulated "
+            "structure is out of scope"
+        )
+
+    identity = AffineOperation.identity()
+    block = _block(
+        structure,
+        list(structure.listed_sites.reduced_coords),
+        (identity,),
+        spacegroup=Spacegroup.standard(1),
+        labels=list(structure.listed_species_at_sites),
+        snap=True,
+    )
+    # The nuclear space-group tags describe the placeholder identity operation only; an mCIF
+    # carries its symmetry in the magn-operation loop instead, so drop the nuclear space-group
+    # scalars here (the placeholder ``symops_xyz`` stays for the structural conversion to consume,
+    # and the writer drops the nuclear operation loop it produces).
+    for key in ("space_group_nbr", "space_group_name_hm", "space_group_name_hall"):
+        block.pop(key, None)
+    # Two distinct same-element sites share one element label; mCIF rejects a repeated moment
+    # label, so give every listed site a unique atom-site label (used for both _atom_site_label
+    # and _atom_site_moment.label, keeping them equal).
+    block["labels"] = tuple(_unique_site_labels(list(cast(tuple[str, ...], block["labels"]))))
+    block["format"] = "mcif"
+    block["magn_symops_xyz"] = tuple(
+        f"{operation.to_xyz()},{'+1' if time_reversal == 1 else '-1'}" for operation, time_reversal in structure.symops
+    )
+
+    moments = structure.listed_site_moments
+    if moments is None:
+        block["moment_labels"] = None
+        block["moment_crystalaxis"] = None
+    else:
+        site_labels = cast(tuple[str, ...], block["labels"])
+        if len(site_labels) != len(structure.listed_sites):
+            raise ValueError(
+                "mCIF cannot align magnetic moments with a listed site that expands to several "
+                "atom rows (partial occupancy or a multi-constituent species)"
+            )
+        try:
+            crystalaxis = CrystalAxisSiteMomentsView(moments, cell=structure.cell).crystalaxis_moments
+        except ValueError as error:
+            raise ValueError(f"mCIF cannot express these moments in the crystal-axis frame: {error}") from error
+        block["moment_labels"] = site_labels
+        block["moment_crystalaxis"] = [
+            tuple(_moment_component(crystalaxis._element((row, column))) for column in range(3))
+            for row in range(len(moments))
+        ]
+
+    block["bns_number"] = structure.bns_number
+    block["bns_label"] = structure.bns_label
+    return {"format": "mcif", "blocks": [block]}
 
 
 def _poscar_payload_from_structure(obj: Any) -> Mapping[str, object]:

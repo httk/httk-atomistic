@@ -37,7 +37,7 @@ def test_cif_save_load_preserves_exact_p1_structure(tmp_path):
     source.write_text(P1, encoding="utf-8")
     original = load(source)
     destination = tmp_path / "y.cif"
-    save(original, destination)
+    save(original, destination, exact_companions=True)
     recovered = load(destination)
     assert same_crystal(UnitcellStructureView(original), UnitcellStructureView(recovered))
     assert recovered.spacegroup.it_number == original.spacegroup.it_number
@@ -63,7 +63,7 @@ def test_cif_save_load_preserves_compression_suffixes(tmp_path):
     original = load(source)
     for suffix in (".gz", ".bz2"):
         destination = tmp_path / f"compressed.cif{suffix}"
-        save(original, destination)
+        save(original, destination, exact_companions=True)
         recovered = load(destination)
         assert same_crystal(UnitcellStructureView(original), UnitcellStructureView(recovered))
 
@@ -111,7 +111,7 @@ def test_cif_save_uses_standard_decimals_and_exact_companions(tmp_path):
         [Species("Si", ("Si",), (1,))],
     )
     destination = tmp_path / "sg221.cif"
-    save(original, destination)
+    save(original, destination, exact_companions=True)
     text = destination.read_text(encoding="utf-8")
     assert "_httk_atom_site_fract_x_exact" in text
     assert "'1/3'" in text
@@ -182,3 +182,22 @@ def test_relaxed_cif_strict_mode_refuses_snapped_cell(tmp_path):
     structure = load(str(source), precision=5e-4)
     with pytest.raises(ValueError, match="approximate=False"):
         save(structure, tmp_path / "strict.cif", format="cif", approximate=False)
+
+
+def test_cif_exact_companions_are_opt_in(tmp_path):
+    # The _httk_*_exact companion columns are a non-standard extension: off by default so a
+    # downloaded CIF carries only standard columns, on when the caller asks for an exact round-trip.
+    cell = Cell([[5, 0, 0], [0, 5, 0], [0, 0, 5]])
+    original = ASUStructure(cell, 221, [WyckoffSite("e", FracVector(["1/3"]), "Si")], [Species("Si", ("Si",), (1,))])
+    default_path = tmp_path / "default.cif"
+    save(original, default_path)
+    default_text = default_path.read_text(encoding="utf-8")
+    assert "_exact" not in default_text
+    assert "1/3" not in default_text
+    assert "0.3333333333333333" in default_text  # standard decimal still present
+
+    opt_in_path = tmp_path / "optin.cif"
+    save(original, opt_in_path, format="cif", exact_companions=True)
+    opt_in_text = opt_in_path.read_text(encoding="utf-8")
+    assert "_httk_atom_site_fract_x_exact" in opt_in_text
+    assert "'1/3'" in opt_in_text

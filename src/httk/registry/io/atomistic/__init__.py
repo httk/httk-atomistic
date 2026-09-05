@@ -19,6 +19,10 @@ register_format_serializer(
     serializer="httk.atomistic._writing:_cif_payload_from_structure",
 )
 register_format_serializer(
+    format="mcif",
+    serializer="httk.atomistic._writing:_mcif_payload_from_structure",
+)
+register_format_serializer(
     format="vasp-poscar",
     serializer="httk.atomistic._writing:_poscar_payload_from_structure",
 )
@@ -70,6 +74,13 @@ register_writer(
 register_reader(
     name="mcif",
     reader="httk.atomistic.io.cif:read_mcif_asus",
+    extensions=(".mcif",),
+)
+
+register_writer(
+    name="mcif",
+    writer="httk.atomistic.io.cif.mcif_writer:_write_mcif_payload",
+    format="mcif",
     extensions=(".mcif",),
 )
 

@@ -21,7 +21,7 @@ def test_registered_cif_writer_round_trips_neutral_payload(tmp_path):
         ],
     }
     path = tmp_path / "roundtrip.cif"
-    save(source, path)
+    save(source, path, exact_companions=True)
     result = load(path, raw=True)["blocks"][0]
     assert result["positions_exact"] == [("1/3", "0.0000000000000000", "0.0000000000000000")]
     assert result["cell_parameters_exact"] == ("5.64",) * 3 + ("90",) * 3

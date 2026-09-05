@@ -301,7 +301,7 @@ species. It preserves:
 - `D`, `T`, `X`, vacancy, and arbitrary pseudo-site labels;
 - atom-type masses;
 - exact rational cell parameters, coordinates, and occupancies through standard display
-  values plus `_httk_*_exact` companion tags where needed.
+  values, optionally with non-standard `_httk_*_exact` companion tags (opt-in; see below).
 
 Read → write → read is tested across the committed disorder CIF corpus. The writer rejects
 state for which ordinary CIF has no exact implemented channel: fractional species charges,
@@ -311,16 +311,20 @@ declared composition.
 A cell with no exact CIF form — an irrational length or angle, or a rational six-parameter set
 that would rebuild a different oriented basis — is written by default: asking to save into CIF
 renders whatever the format can hold. `httk.core.save(structure, path, format="cif")` writes the
-cell parameters as rounded decimals (twelve significant digits), with `_httk_*_exact` companion
-tags carrying the exact rational tokens wherever they exist. This is lossy for the
+cell parameters as rounded decimals (twelve significant digits). This is lossy for the
 non-representable part — the arbitrary orientation of the basis is not recovered on read-back —
 and only the cell parameters are rounded; the fractional coordinates are already exact rationals
 and are written unchanged. An already-exactly-representable structure is written identically
 whether or not the default applies.
 
+The `_httk_*_exact` companion tags — a non-standard httk extension carrying exact rational tokens
+such as `1/3` — are **off by default**, so a saved CIF holds only standard columns and interoperates
+cleanly. Callers who want a lossless httk round-trip pass `exact_companions=True`
+(`save(structure, path, format="cif", exact_companions=True)`) to emit them.
+
 Callers who need the strict "exact or nothing" guarantee pass `approximate=False`
-(`save(structure, path, format="cif", approximate=False)`), which refuses such a cell instead of
-rounding it.
+(`save(structure, path, format="cif", approximate=False)`), which refuses a non-representable cell
+instead of rounding it.
 
 The current writer is an ordinary structural CIF writer, not a magnetic-CIF serializer. It
 does not provide a magnetic-moment round-trip guarantee; do not use an ordinary `.cif` save

@@ -327,8 +327,13 @@ def _pad_coordinate_decimal(value: object, decimals: int = _HTTK_CIF_DECIMAL_DIG
     return whole + "." + fraction.ljust(decimals, "0")
 
 
-def _neutral_cif_block(block: Mapping[str, object]) -> dict[str, object]:
-    """Turn one ``read_cif_asus`` block into the low-level writer's block shape."""
+def _neutral_cif_block(block: Mapping[str, object], *, exact_companions: bool = False) -> dict[str, object]:
+    """Turn one ``read_cif_asus`` block into the low-level writer's block shape.
+
+    ``_httk_*_exact`` companion columns (carrying exact rational tokens such as ``1/3``) are a
+    non-standard httk extension, emitted only when ``exact_companions`` is true; by default the
+    block carries the standard rounded decimals alone.
+    """
     raw: dict[str, object] = {}
     cell_tags = (
         "cell_length_a",
@@ -342,7 +347,7 @@ def _neutral_cif_block(block: Mapping[str, object]) -> dict[str, object]:
     if exact_cell is not None:
         for tag, value in zip(cell_tags, exact_cell):
             raw[tag], exact = _dual_cif_value(value)
-            if exact is not None:
+            if exact is not None and exact_companions:
                 raw[f"httk_{tag}_exact"] = exact
     for source, target in (
         ("space_group_nbr", "space_group_IT_number"),
@@ -377,7 +382,7 @@ def _neutral_cif_block(block: Mapping[str, object]) -> dict[str, object]:
             (row[index] for row in positions), pad_coordinates=True, decimals=coordinate_decimals
         )
         raw[tag] = values
-        if has_exact:
+        if has_exact and exact_companions:
             raw[f"httk_{tag}_exact"] = exact_values
             loop_atoms.append(f"httk_{tag}_exact")
     occupancies_exact = cast(Iterable[object] | None, block.get("occupancies_exact"))
@@ -387,7 +392,7 @@ def _neutral_cif_block(block: Mapping[str, object]) -> dict[str, object]:
         values, exact_values, has_exact = _dual_cif_column(occupancy_values)
         loop_atoms.append("atom_site_occupancy")
         raw["atom_site_occupancy"] = values
-        if has_exact:
+        if has_exact and exact_companions:
             loop_atoms.append("httk_atom_site_occupancy_exact")
             raw["httk_atom_site_occupancy_exact"] = exact_values
     for source, target in (
@@ -417,6 +422,7 @@ def _write_cif_payload(
     data: Mapping[str, object],
     *,
     approximate: bool = True,
+    exact_companions: bool = False,
     **kwargs: object,
 ) -> None:
     r"""Write the neutral CIF payload returned by ``read_cif_asus`` or the structure serializer.
@@ -432,6 +438,9 @@ def _write_cif_payload(
     :param data: The neutral CIF payload, either a single block or a ``blocks`` sequence.
     :param approximate: Whether lossy rounding of a cell with no exact CIF form is allowed
         (default) rather than refused.
+    :param exact_companions: Whether to emit the non-standard ``_httk_*_exact`` companion columns
+        (exact rational tokens such as ``1/3``). Off by default so the file carries only standard
+        CIF columns; pass ``exact_companions=True`` for an exact httk round-trip.
     :param \**kwargs: Remaining low-level :func:`write_cif` options.
     :raises ValueError: If a block requires approximation and ``approximate`` is ``False``.
     """
@@ -447,4 +456,8 @@ def _write_cif_payload(
         )
     options: dict[str, Any] = {"header": cast(str | None, data.get("header"))}
     options.update(kwargs)
-    write_cif(destination, [("structure", _neutral_cif_block(block)) for block in block_list], **options)
+    write_cif(
+        destination,
+        [("structure", _neutral_cif_block(block, exact_companions=exact_companions)) for block in block_list],
+        **options,
+    )
