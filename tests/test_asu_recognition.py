@@ -133,7 +133,7 @@ def test_recognition_rejects_duplicate_supercell_cosets() -> None:
     )
 
     with pytest.raises(ValueError, match="does not occupy each generated position exactly once"):
-        recognize_asu(duplicated, standard=Spacegroup.standard(1), transform=transform)
+        recognize_asu(duplicated, standard=Spacegroup.standard(1), transform=transform, tolerance=1e-3)
 
 
 def test_tolerance_cap_keeps_split_sites_off_the_same_special_position() -> None:

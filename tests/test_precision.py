@@ -8,7 +8,9 @@ than one representative test standing in for the rest.
 
 import fractions
 import io
+import itertools
 import logging
+import math
 from pathlib import Path
 
 import pytest
@@ -355,6 +357,54 @@ def test_an_unknown_precision_falls_back_to_the_constant() -> None:
     assert structure_tolerance(_two_site(CUBIC, None), fallback=0.05) == 0.05
 
 
+def _brute_nearest_image(
+    displacement: tuple[float, float, float],
+    basis: tuple[tuple[float, float, float], ...],
+    periodicity: tuple[bool, bool, bool],
+) -> float:
+    """Small independent finite-image oracle for the nearest-image metric tests."""
+    ranges = [range(-4, 5) if periodic else (0,) for periodic in periodicity]
+    return min(
+        math.sqrt(
+            sum(
+                (displacement[axis] - sum(translation[row] * basis[row][axis] for row in range(3))) ** 2
+                for axis in range(3)
+            )
+        )
+        for translation in itertools.product(*ranges)
+    )
+
+
+def test_nearest_image_metric_matches_a_bruteforce_skew_lattice_oracle() -> None:
+    """Skew bases need a lattice search, not independent fractional wrapping."""
+    from httk.atomistic.symmetry._nearest_image import _NearestImageMetric
+
+    basis = ((1.0, 0.0, 0.0), (1.0, 0.01, 0.0), (0.0, 0.0, 1.0))
+    displacement = (0.98, 0.0049, 0.0)
+    expected = _brute_nearest_image(displacement, basis, (True, True, True))
+    assert _NearestImageMetric(basis, (True, True, True)).distance(displacement) == pytest.approx(expected)
+    # A unimodular shear changes the basis rows but not the lattice or its nearest image.
+    sheared = ((2.0, 0.01, 0.0), (1.0, 0.01, 0.0), (0.0, 0.0, 1.0))
+    assert _NearestImageMetric(sheared, (True, True, True)).distance(displacement) == pytest.approx(expected)
+
+
+def test_nearest_image_metric_retains_nonperiodic_residuals_and_rejects_invalid_metrics() -> None:
+    from httk.atomistic.symmetry._nearest_image import _NearestImageMetric
+
+    basis = ((1.0, 0.0, 0.0), (1.0, 0.01, 0.0), (0.0, 0.0, 10.0))
+    displacement = (0.98, 0.0049, 9.0)
+    assert _NearestImageMetric(basis, (True, True, False)).distance(displacement) == pytest.approx(
+        _brute_nearest_image(displacement, basis, (True, True, False))
+    )
+    assert _NearestImageMetric(basis, (False, False, False)).distance(displacement) == pytest.approx(
+        math.sqrt(sum(value**2 for value in displacement))
+    )
+    with pytest.raises(ValueError, match="finite"):
+        _NearestImageMetric(((math.nan, 0, 0), (0, 1, 0), (0, 0, 1)), (True, True, True))
+    with pytest.raises(ValueError, match="non-singular"):
+        _NearestImageMetric(((1, 0, 0), (2, 0, 0), (0, 0, 1)), (True, True, True))
+
+
 def test_the_tolerance_is_capped_below_half_the_closest_approach() -> None:
     """Otherwise coarse data could give a tolerance that merges genuinely distinct atoms."""
     chlorine = Species(name="Cl", chemical_symbols=("Cl",), concentration=(1.0,))
@@ -370,6 +420,35 @@ def test_the_tolerance_is_capped_below_half_the_closest_approach() -> None:
     assert tolerance < 0.25
 
 
+def test_the_tolerance_cap_applies_to_fallbacks_and_skew_nearest_images() -> None:
+    chlorine = Species(name="Cl", chemical_symbols=("Cl",), concentration=(1.0,))
+    tiny = UnitcellStructure(
+        Cell([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
+        Sites([[0, 0, 0], [F(1, 10000), 0, 0]], F(1, 10000)),
+        _species() + [chlorine],
+        ["Na", "Cl"],
+    )
+    assert structure_tolerance(tiny) < 1 / 20_000
+    close = UnitcellStructure(
+        Cell([[1, 0, 0], [1, F(1, 100), 0], [0, 0, 1]]),
+        Sites([[0, 0, 0], [F(49, 100), F(49, 100), 0]], F(1, 10)),
+        _species() + [chlorine],
+        ["Na", "Cl"],
+    )
+    # The true nearest image is (-0.02, 0.0049, 0), not the independently wrapped 0.98 A vector.
+    assert structure_tolerance(close) < math.sqrt(0.02**2 + 0.0049**2) / 2
+    fallback = UnitcellStructure(
+        close.cell, Sites(close.sites.reduced_coords, None), close.species, close.species_at_sites
+    )
+    assert structure_tolerance(fallback, fallback=0.2) < math.sqrt(0.02**2 + 0.0049**2) / 2
+
+
+def test_coincident_distinct_sites_cannot_derive_a_positive_tolerance() -> None:
+    duplicated = UnitcellStructure(Cell(CUBIC), Sites([[0, 0, 0], [0, 0, 0]], None), _species(), ["Na", "Na"])
+    with pytest.raises(ValueError, match="distinct sites coincide"):
+        structure_tolerance(duplicated)
+
+
 def test_the_cap_does_not_engage_for_well_separated_atoms() -> None:
     assert structure_tolerance(_two_site(CUBIC, F(1, 10))) == pytest.approx(1.0)
 
@@ -377,6 +456,8 @@ def test_the_cap_does_not_engage_for_well_separated_atoms() -> None:
 def test_a_single_site_structure_has_no_separation_to_cap_against() -> None:
     lone = UnitcellStructure(Cell(CUBIC), Sites([[0, 0, 0]], F(1, 10)), _species(), ["Na"])
     assert structure_tolerance(lone) == pytest.approx(1.0)
+    unknown = UnitcellStructure(Cell(CUBIC), Sites([[0, 0, 0]], None), _species(), ["Na"])
+    assert structure_tolerance(unknown, fallback=0.05) == pytest.approx(0.05)
 
 
 def test_recognition_uses_the_derived_tolerance_by_default() -> None:
@@ -671,3 +752,21 @@ def test_cif_uncertainty_thresholds_are_inclusive(tmp_path: Path) -> None:
     error_path = _cif_with_sites(tmp_path, "50", [("Si1", "Si", "1.10", "1/3", "1/3")])
     with pytest.raises(ValueError, match=r"projected positional uncertainty of 1 Å"):
         load(str(error_path))
+def test_nearest_image_retains_small_nonperiodic_component():
+    from httk.atomistic.symmetry._nearest_image import _NearestImageMetric
+
+    metric = _NearestImageMetric(((1, 0, 0), (0, 1, 0), (0, 0, 1)), (True, False, False))
+    assert metric.distance((1, 1e-9, 0)) == pytest.approx(1e-9, abs=1e-24)
+
+
+def test_full_periodic_metric_has_no_perpendicular_roundoff():
+    from httk.atomistic.symmetry._nearest_image import _NearestImageMetric
+
+    basis = (
+        (0.6999002561017109, -2.7546254070911305, -0.7258823736273858),
+        (1.220882353762482, -0.2878744772998454, 1.3503922114932543),
+        (-2.057057030420245, -1.5719267852008034, -2.334314832131912),
+    )
+    displacement = tuple(basis[0][i] + 2 * basis[1][i] - 3 * basis[2][i] for i in range(3))
+    assert _NearestImageMetric(basis, (True, True, True)).distance(displacement) < 1e-13
+

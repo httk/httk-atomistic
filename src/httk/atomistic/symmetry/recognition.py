@@ -36,7 +36,7 @@ from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.models.structure.like import StructureLike
-from httk.atomistic.symmetry._periodic_wrap import wrap_periodic_half
+from httk.atomistic.symmetry._nearest_image import _NearestImageMetric
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
@@ -55,12 +55,6 @@ DEFAULT_TOLERANCE = 1e-3
 #: precision; a tolerance below that would reject data that is in fact consistent.
 _SAFETY_FACTOR = 2
 
-#: A derived tolerance is only checked against the interatomic distances when it is large
-#: enough relative to the cell for merging to be a real risk. That check is quadratic in the
-#: number of sites, and for ordinary well-written data the tolerance is thousands of times
-#: smaller than any bond, so paying for it every time would be waste.
-_CAP_TRIGGER = 0.05
-
 
 def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_TOLERANCE) -> float:
     """Derive a matching tolerance from how precisely the structure was stated.
@@ -71,7 +65,7 @@ def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_T
     coordinates in a 30 A cell justify a tolerance six times larger, and coordinates written
     to two decimals justify one a hundred times larger.
 
-    Returns ``fallback`` when the structure does not state a precision — a structure built
+    Starts from ``fallback`` when the structure does not state a precision — a structure built
     by hand, or read from a format that does not write its numbers to a definite number of
     digits. A caller that needs to know whether that happened can compare the result against
     the structure's own ``cartesian_precision()``.
@@ -84,20 +78,19 @@ def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_T
     :param structure: The structure whose stated precision determines the tolerance.
     :param fallback: The tolerance to use when the structure has no stated precision.
     :return: The Cartesian matching tolerance in the structure's cell units.
+    :raises ValueError: If no positive finite automatic tolerance can be derived,
+        including when distinct sites coincide under periodic images.
     """
     from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
     view = UnitcellStructureView(structure)
     precision = view.cartesian_precision()
-    if precision is None:
-        return fallback
-
-    tolerance = float(precision) * _SAFETY_FACTOR
-    shortest_edge = min(length.to_float() for length in view.cell.lengths)
-    if tolerance <= _CAP_TRIGGER * shortest_edge:
-        return tolerance
-
+    tolerance = fallback if precision is None else float(precision) * _SAFETY_FACTOR
+    if not math.isfinite(tolerance) or tolerance <= 0:
+        raise ValueError("automatic structure tolerance must be finite and positive")
     cap = _half_minimum_separation(view)
+    if cap == 0.0:
+        raise ValueError("cannot derive a positive tolerance: distinct sites coincide under periodic images")
     # Leave a small relative margin as well as stepping below the float boundary. A
     # one-ULP step alone can be lost when the later Cartesian squared-distance path
     # recomputes the same separation through matrix arithmetic.
@@ -108,11 +101,8 @@ def structure_tolerance(structure: StructureLike, *, fallback: float = DEFAULT_T
 def _half_minimum_separation(view: Any) -> float | None:
     """Half the shortest distance between two distinct sites, or ``None`` if there is one site.
 
-    Computed in floating point over the nearest-image difference of each pair: this bounds a
-    tolerance, so a fast approximate answer is the right kind of answer. The nearest-image
-    reduction is per component, which is exact for a cell with orthogonal axes and can
-    overestimate for a strongly oblique one — erring towards a looser cap rather than a
-    tighter one.
+    Computed in floating point over an exact nearest-image search of each pair. This bounds a
+    tolerance, so the calculation deliberately stays at the final metric boundary.
 
     Only the periodic directions are reduced. Along a non-periodic one there is no other
     image to be nearer, and folding it would report two well-separated atoms as close
@@ -124,15 +114,13 @@ def _half_minimum_separation(view: Any) -> float | None:
     if count < 2:
         return None
 
-    periodicity = view.cell.periodicity
-    basis = view.cell.basis.to_floats()
+    metric = _NearestImageMetric(view.cell.basis.to_floats(), view.cell.periodicity)
     shortest: float | None = None
     for first in range(count):
         for second in range(first + 1, count):
-            difference = wrap_periodic_half(coords[first] - coords[second], periodicity).to_floats()
-            cartesian = [sum(difference[axis] * basis[axis][component] for axis in range(3)) for component in range(3)]
-            distance = math.sqrt(sum(value * value for value in cartesian))
-            if distance > 0 and (shortest is None or distance < shortest):
+            difference = SurdVector(coords[first] - coords[second]) * view.cell.basis
+            distance = metric.distance(difference.to_floats())
+            if shortest is None or distance < shortest:
                 shortest = distance
     return None if shortest is None else shortest / 2
 

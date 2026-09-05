@@ -13,6 +13,7 @@ from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
+from httk.atomistic.symmetry._nearest_image import _NearestImageMetric
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
 from httk.atomistic.symmetry._standardization_common import (
     _matrix_column_sum_factor,
@@ -210,17 +211,6 @@ def _dot(left: tuple[float, float, float], right: tuple[float, float, float]) ->
     return math.fsum(left_value * right_value for left_value, right_value in zip(left, right, strict=True))
 
 
-def _scaled_subtract(
-    left: tuple[float, float, float], scale: float, right: tuple[float, float, float]
-) -> tuple[float, float, float]:
-    """Return ``left - scale * right`` for three-dimensional float vectors."""
-    return (
-        left[0] - scale * right[0],
-        left[1] - scale * right[1],
-        left[2] - scale * right[2],
-    )
-
-
 def _basis_rows(basis: SurdVector) -> tuple[tuple[float, float, float], ...]:
     """Convert an exact three-dimensional basis at the metric boundary."""
     values = tuple(tuple(float(value) for value in row) for row in basis.to_floats())
@@ -293,88 +283,6 @@ def _solve_cholesky(
     )
 
 
-def _nearest_lattice_distance(
-    displacement: tuple[float, float, float], basis: tuple[tuple[float, float, float], ...]
-) -> float:
-    """Return the exact-lattice minimum image of ``displacement`` in a 3D basis.
-
-    The basis is converted to floats only here, at the final metric boundary.  A backwards
-    Gram--Schmidt branch-and-bound search solves the closest-vector problem over every
-    integer lattice translation.  Unlike a fixed ``[-1, 1]^3`` image box, its finite bounds
-    follow from the current best Cartesian distance and remain correct for arbitrarily skew
-    non-singular cells.
-    """
-    lattice = basis
-    if not all(math.isfinite(value) for row in lattice for value in row):
-        raise ValueError("structure_delta requires a finite cell basis")
-
-    orthogonal: list[tuple[float, float, float]] = []
-    squared_norms: list[float] = []
-    coefficients = [[0.0] * 3 for _ in range(3)]
-    for index, vector in enumerate(lattice):
-        remainder = vector
-        for previous, previous_vector in enumerate(orthogonal):
-            coefficient = _dot(vector, previous_vector) / squared_norms[previous]
-            coefficients[index][previous] = coefficient
-            remainder = _scaled_subtract(remainder, coefficient, previous_vector)
-        squared_norm = _dot(remainder, remainder)
-        if not math.isfinite(squared_norm) or squared_norm <= 0.0:
-            raise ValueError("structure_delta requires a non-singular cell basis")
-        orthogonal.append(remainder)
-        squared_norms.append(squared_norm)
-
-    target = tuple(_dot(displacement, vector) / squared_norm for vector, squared_norm in zip(orthogonal, squared_norms))
-    if not all(math.isfinite(value) for value in target):
-        raise ValueError("structure_delta produced a non-finite lattice target")
-
-    # Babai's nearest-plane result gives a finite initial radius for the exhaustive search.
-    babai = [0, 0, 0]
-    for index in range(2, -1, -1):
-        center = target[index] - math.fsum(babai[later] * coefficients[later][index] for later in range(index + 1, 3))
-        babai[index] = round(center)
-
-    def residual_squared(integers: tuple[int, int, int]) -> float:
-        return math.fsum(
-            squared_norms[index]
-            * (
-                target[index]
-                - integers[index]
-                - math.fsum(integers[later] * coefficients[later][index] for later in range(index + 1, 3))
-            )
-            ** 2
-            for index in range(3)
-        )
-
-    best = residual_squared((babai[0], babai[1], babai[2]))
-    if not math.isfinite(best):
-        raise ValueError("structure_delta produced a non-finite lattice distance")
-
-    def search(index: int, chosen: list[int], accumulated: float) -> None:
-        nonlocal best
-        if index < 0:
-            best = min(best, accumulated)
-            return
-        remaining = best - accumulated
-        if remaining < 0.0:
-            return
-        center = target[index] - math.fsum(chosen[later] * coefficients[later][index] for later in range(index + 1, 3))
-        radius = math.sqrt(remaining / squared_norms[index])
-        # Widen the mathematical interval by one representable float so a boundary optimum
-        # survives roundoff in the QR arithmetic.
-        radius = math.nextafter(radius, math.inf)
-        lower = math.ceil(center - radius)
-        upper = math.floor(center + radius)
-        values = range(lower, upper + 1)
-        for value in sorted(values, key=lambda candidate: (abs(candidate - center), candidate)):
-            contribution = squared_norms[index] * (center - value) ** 2
-            if contribution <= remaining:
-                chosen[index] = value
-                search(index - 1, chosen, accumulated + contribution)
-
-    search(2, [0, 0, 0], 0.0)
-    return math.sqrt(best)
-
-
 def _point_travel(first: FracVector, first_cell: Cell, second: FracVector, second_cell: Cell) -> float:
     """Return symmetric physical travel between two periodic endpoint positions.
 
@@ -408,7 +316,7 @@ def _point_travel(first: FracVector, first_cell: Cell, second: FracVector, secon
         for index in range(3)
     )
     center = _solve_cholesky(lower, (-linear[0], -linear[1], -linear[2]))
-    nearest_squared = _nearest_lattice_distance(_row_matrix_product(center, lower), lower) ** 2
+    nearest_squared = _NearestImageMetric(lower, (True, True, True)).distance(_row_matrix_product(center, lower)) ** 2
     baseline = _dot(displacement, displacement) - _dot(center, _row_matrix_product(center, gram))
     squared = baseline + nearest_squared
     if squared < 0.0:
