@@ -62,7 +62,7 @@ from types import TracebackType
 from typing import Any, Self, TextIO
 
 from httk.core import TextstreamFileView
-from httk.core._atomic_write import atomic_destination
+from httk.core.atomic_write import atomic_destination
 from httk.core.datastream.compression import split_compression_suffix
 
 FORMAT = "httk-trajectory-jsonl"
