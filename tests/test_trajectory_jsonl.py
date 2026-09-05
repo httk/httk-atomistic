@@ -1,6 +1,7 @@
 """Streaming trajectory JSONL reader/writer checks."""
 
 import json
+import io
 from pathlib import Path
 
 import pytest
@@ -86,3 +87,29 @@ def test_jsonl_rejects_reads_after_close(tmp_path: Path) -> None:
     source.close()
     with pytest.raises(ValueError, match="closed"):
         _ = source.header
+
+
+@pytest.mark.parametrize("suffix", ["", ".gz", ".bz2", ".xz", ".lzma"])
+@pytest.mark.parametrize("failure", ["count", "generator"])
+def test_filename_failure_preserves_old_file(tmp_path, suffix, failure):
+    target = tmp_path / ("run.traj.jsonl" + suffix)
+    write_trajectory_jsonl(target, _header(), _frames())
+    original = target.read_bytes()
+
+    def frames():
+        yield _frames()[0]
+        if failure == "generator":
+            raise ValueError("broken frame source")
+
+    with pytest.raises(ValueError, match="broken frame source|nframes"):
+        write_trajectory_jsonl(target, _header(), frames())
+    assert target.read_bytes() == original
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def test_failed_stream_is_left_open():
+    stream = io.StringIO()
+    with pytest.raises(ValueError, match="nframes"):
+        write_trajectory_jsonl(stream, _header(3), _frames())
+    assert not stream.closed
+    assert stream.getvalue()

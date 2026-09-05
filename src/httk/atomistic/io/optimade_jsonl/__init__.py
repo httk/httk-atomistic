@@ -56,11 +56,13 @@ import lzma
 import math
 import os
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from contextlib import ExitStack
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Self, TextIO
 
 from httk.core import TextstreamFileView
+from httk.core._atomic_write import atomic_destination
 from httk.core.datastream.compression import split_compression_suffix
 
 FORMAT = "httk-trajectory-jsonl"
@@ -383,35 +385,37 @@ def write_trajectory_jsonl(
     each frame is written, and compressed output is selected from the filename
     suffix when applicable.
 
+    Filename output is replaced only after successful validation and close;
+    an existing file remains unchanged on failure. Caller-owned streams are
+    written directly and remain open, including on failure.
+
     :param destination: Filesystem path or open text stream for the output.
     :param header: Trajectory header describing sites, observables, and cell policy.
     :param frames: Iterable of frame mappings to validate and write in order.
     :raises ValueError: If the header, a frame, or the declared frame count is invalid.
     """
     full_header, info = _header_info(header)
-    close = False
-    stream: TextIO
-    if isinstance(destination, (str, os.PathLike)):
-        name = os.fspath(destination)
-        _inner, codec = split_compression_suffix(os.path.basename(name))
-        if codec is None:
-            stream = open(name, "w", encoding="utf-8", newline="\n")  # noqa: SIM115
-        elif codec.name == "gzip":
-            stream = gzip.open(name, "wt", encoding="utf-8", newline="\n")  # noqa: SIM115
-        elif codec.name == "bzip2":
-            stream = bz2.open(name, "wt", encoding="utf-8", newline="\n")  # noqa: SIM115
-        elif codec.name == "xz":
-            stream = lzma.open(name, "wt", encoding="utf-8", newline="\n")  # noqa: SIM115
-        elif codec.name == "lzma":
-            stream = lzma.open(  # noqa: SIM115
-                name, "wt", encoding="utf-8", format=lzma.FORMAT_ALONE, newline="\n"
-            )
+    with ExitStack() as stack:
+        stream: TextIO
+        if isinstance(destination, (str, os.PathLike)):
+            name = stack.enter_context(atomic_destination(destination))
+            _inner, codec = split_compression_suffix(os.path.basename(os.fspath(destination)))
+            if codec is None:
+                stream = stack.enter_context(open(name, "w", encoding="utf-8", newline="\n"))
+            elif codec.name == "gzip":
+                stream = stack.enter_context(gzip.open(name, "wt", encoding="utf-8", newline="\n"))
+            elif codec.name == "bzip2":
+                stream = stack.enter_context(bz2.open(name, "wt", encoding="utf-8", newline="\n"))
+            elif codec.name == "xz":
+                stream = stack.enter_context(lzma.open(name, "wt", encoding="utf-8", newline="\n"))
+            elif codec.name == "lzma":
+                stream = stack.enter_context(
+                    lzma.open(name, "wt", encoding="utf-8", format=lzma.FORMAT_ALONE, newline="\n")
+                )
+            else:
+                raise ValueError(f"trajectory JSONL cannot write compression codec {codec.name!r}")
         else:
-            raise ValueError(f"trajectory JSONL cannot write compression codec {codec.name!r}")
-        close = True
-    else:
-        stream = destination
-    try:
+            stream = destination
         stream.write(json.dumps(full_header, separators=(",", ":"), allow_nan=False) + "\n")
         count = 0
         for count, frame in enumerate(frames, 1):
@@ -419,9 +423,6 @@ def write_trajectory_jsonl(
         declared = info.get("nframes")
         if declared is not None and declared != count:
             raise ValueError(f"trajectory JSONL header nframes={declared} does not match {count} frames")
-    finally:
-        if close:
-            stream.close()
 
 
 def read_trajectory_jsonl(source: str | os.PathLike[str]) -> dict[str, Any]:

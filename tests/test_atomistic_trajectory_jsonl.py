@@ -32,3 +32,19 @@ def test_native_trajectory_jsonl_round_trip(tmp_path: Path) -> None:
         ):
             assert actual_row == pytest.approx(expected_row)
     assert loaded.unwrap()["format"] == "httk-trajectory-jsonl"
+
+
+@pytest.mark.parametrize("suffix", ["", ".gz", ".bz2", ".xz", ".lzma"])
+def test_lazy_trajectory_can_overwrite_its_source(tmp_path, suffix):
+    path = tmp_path / ("same.traj.jsonl" + suffix)
+    source = Trajectory([_structure(0), _structure(0.25)], {"energy": [1, 2]}, [0, 1])
+    httk.core.save(source, path)
+    lazy = httk.core.load(path)
+    httk.core.save(lazy, path)
+    recovered = httk.core.load(path)
+    assert recovered.nframes == 2
+    assert recovered.observable("energy") == (1, 2)
+    assert [frame.sites.reduced_coords for frame in recovered.frames()] == [
+        frame.sites.reduced_coords for frame in source.frames()
+    ]
+    assert list(tmp_path.iterdir()) == [path]
