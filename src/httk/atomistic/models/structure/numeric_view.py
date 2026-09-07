@@ -101,7 +101,9 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
 
     def cartesian_sites(self) -> NumericVector:
         """The Cartesian site positions as an ``(N, 3)`` ``float64`` numpy array."""
-        return to_numeric(self._exact.cartesian_sites())
+        import numpy
+
+        return numpy.asarray(self._exact.cartesian_site_positions, dtype=float).reshape(-1, 3)
 
     @property
     def periodicity(self) -> tuple[bool, bool, bool]:
@@ -121,17 +123,17 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
     @property
     def lattice_vectors(self) -> list[list[float]]:
         """Expose the cell vectors as numeric coordinates."""
-        return cast(list[list[float]], cast(Any, self.cell.basis).tolist())
+        return self._exact.lattice_vectors
 
     @property
     def fractional_site_positions(self) -> list[list[float]]:
         """Expose reduced site positions as numeric coordinates."""
-        return cast(list[list[float]], cast(Any, self.sites.reduced_coords).tolist())
+        return self._exact.fractional_site_positions
 
     @property
     def cartesian_site_positions(self) -> list[list[float]]:
         """Expose Cartesian site positions as numeric coordinates."""
-        return cast(list[list[float]], cast(Any, self.cartesian_sites()).tolist())
+        return self._exact.cartesian_site_positions
 
     @property
     def exact(self) -> UnitcellStructure:

@@ -83,7 +83,9 @@ class NumericCell:
 
         :return: The scaled lattice vectors as floating-point values.
         """
-        return to_numeric(self._cell.basis)
+        import numpy
+
+        return numpy.asarray(self._cell.basis_floats(), dtype=float)
 
     @property
     def lengths(self) -> NumericVector:

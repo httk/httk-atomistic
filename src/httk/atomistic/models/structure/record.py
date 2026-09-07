@@ -23,6 +23,7 @@ from httk.atomistic.storage.records import (
     _chemical_composition_from_record,
     _domain_structure_from_record,
     _moment_from_record,
+    _stored_floats,
     _symmetry_from_record,
 )
 
@@ -142,6 +143,29 @@ class RecordStructure(StructureBackend):
                 self.cell,
             )
         return self._expanded.site_moments
+
+    def cartesian_site_moments_floats(self) -> list[list[float]] | None:
+        """Return per-site Cartesian moments as float rows, or ``None``.
+
+        Only a stored Cartesian-kind unit-cell record's moments are already Cartesian; a
+        crystal-axis record still needs the exact unit-axes conversion, so it and every other
+        case fall back to the default route.
+
+        :return: The store's fetched float columns, reshaped to Nx3, when available, else the exact route.
+        """
+        if not self._is_unitcell:
+            return super().cartesian_site_moments_floats()
+        record = cast(UnitcellStructureRecord, self._record)
+        kind = record.site_moments_kind
+        if kind is None or kind == "collinear":
+            return None
+        if kind != "cartesian":
+            return super().cartesian_site_moments_floats()
+        floats = _stored_floats(self._record, "site_moments")
+        if floats is None:
+            return super().cartesian_site_moments_floats()
+        nsites = len(floats) // 3
+        return [[row[0] for row in floats[index * 3 : (index + 1) * 3]] for index in range(nsites)]
 
     @property
     def charge(self) -> Any:

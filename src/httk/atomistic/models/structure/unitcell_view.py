@@ -14,6 +14,7 @@ from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
+from httk.atomistic.models.structure.api import StructureAPI
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.like import StructureLike
@@ -206,6 +207,18 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
     def site_moments(self) -> SiteMomentsBackend | None:
         """Expose the site's magnetic moments."""
         return self._site_moments
+
+    def cartesian_site_moments_floats(self) -> list[list[float]] | None:
+        """Present the backend's native float moments when it has one, else the validated exact ones.
+
+        :return: The Cartesian moments as float rows, or ``None``.
+        """
+        # Only a backend that overrides the float accessor may bypass the exact fill: that fill
+        # is where the moments-vs-sites length validation lives.
+        backend = self._effective_backend()
+        if type(backend).cartesian_site_moments_floats is not StructureAPI.cartesian_site_moments_floats:
+            return backend.cartesian_site_moments_floats()
+        return super().cartesian_site_moments_floats()
 
     @property
     def charge(self) -> fractions.Fraction | None:

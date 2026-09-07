@@ -14,7 +14,10 @@ class SiteMomentsBackend(Backend["SiteMomentsBackend"], SiteMomentsAPI):
     Abstract base class for all backends of site-moments data.
 
     Concrete backends carry a native representation and produce the canonical Nx3
-    ``cartesian_moments`` declared by ``SiteMomentsAPI`` from it.
+    ``cartesian_moments`` declared by ``SiteMomentsAPI`` from it. Concrete subclasses
+    assign ``kind`` to name their native representation (``"cartesian"``,
+    ``"crystalaxis"``, or ``"collinear"``).
     """
 
     backend_classes: ClassVar[list[type[Backend[Any]]]]
+    kind: ClassVar[str]

@@ -157,3 +157,21 @@ def is_params6(obj: Any) -> bool:
         return False
     value = try_surdvector(obj)
     return value is not None and value.dim == (6,)
+
+
+def matmul_floats(rows: list[list[float]], matrix: list[list[float]]) -> list[list[float]]:
+    """Return the row-vector product ``rows @ matrix`` of an Nx3 by 3x3 float matrix.
+
+    Uses numpy when available and a pure-Python product otherwise. Returns ``[]`` for zero rows.
+
+    :param rows: The N row vectors.
+    :param matrix: The 3x3 matrix.
+    :return: The N product rows.
+    """
+    if not rows:
+        return []
+    if numpy_available():
+        import numpy
+
+        return (numpy.asarray(rows, dtype=float) @ numpy.asarray(matrix, dtype=float)).tolist()
+    return [[sum(row[k] * matrix[k][c] for k in range(3)) for c in range(3)] for row in rows]

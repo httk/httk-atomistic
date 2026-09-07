@@ -128,6 +128,13 @@ class CellAPI(ABC):
             _angle_from_gram(gram, 0, 1),
         )
 
+    def basis_floats(self) -> list[list[float]]:
+        """Return the scaled lattice vectors as float rows.
+
+        :return: The three lattice vectors as float rows.
+        """
+        return self.basis.to_floats()
+
     @property
     def volume(self) -> SurdScalar:
         """Return the exact absolute determinant of the basis.

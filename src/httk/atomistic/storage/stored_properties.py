@@ -14,9 +14,8 @@ from collections import Counter
 from collections.abc import Callable, Mapping
 from fractions import Fraction
 from itertools import combinations
-from typing import Any, cast
+from typing import Any
 
-from httk.core import SurdVector
 from httk.core.storage import (
     QueryContext,
     QueryExpression,
@@ -135,23 +134,6 @@ def _structure_features_value(record: Any, backing: str) -> list[str]:
     ):
         features.add("_httk_magnetism")
     return sorted(features)
-
-
-def _site_moments_value(record: Any, backing: str) -> object:
-    from httk.atomistic.storage.records import _cell_from_record, _domain_structure_from_record, _moment_from_record
-
-    if backing == "unitcell":
-        moments = _moment_from_record(
-            record.site_moments_kind,
-            record.site_moments,
-            record.site_moments_precision,
-            _cell_from_record(record.cell),
-        )
-    else:
-        moments = _domain_structure_from_record(record).site_moments
-    if moments is None or cast(Any, moments).kind == "collinear":
-        return None
-    return moments.cartesian_moments.to_floats()
 
 
 def _coordinate_span(record: Any, backing: str) -> str:
@@ -290,19 +272,20 @@ def _response_value(record: Any, name: str, backing: str) -> object:
     if name == "lattice_vectors":
         from httk.atomistic.models.cell.view import CellView
 
-        return CellView(record.cell).basis.to_floats()
+        return CellView(record.cell).basis_floats()
     if name == "fractional_site_positions":
         if backing == "unitcell":
-            return record.sites.reduced_coords.to_floats()
+            from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+
+            return UnitcellStructureView(record, kind="record").fractional_site_positions
         from httk.atomistic.storage.records import _domain_structure_from_record
 
         return _domain_structure_from_record(record).fractional_site_positions
     if name == "cartesian_site_positions":
         if backing == "unitcell":
-            from httk.atomistic.models.cell.view import CellView
-            from httk.atomistic.models.sites.view import SitesView
+            from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
-            return (SurdVector(SitesView(record.sites).reduced_coords) * CellView(record.cell).basis).to_floats()
+            return UnitcellStructureView(record, kind="record").cartesian_site_positions
         from httk.atomistic.storage.records import _domain_structure_from_record
 
         return _domain_structure_from_record(record).cartesian_site_positions
@@ -323,7 +306,13 @@ def _response_value(record: Any, name: str, backing: str) -> object:
     if name == "structure_features":
         return _structure_features_value(record, backing)
     if name == "_httk_site_moments":
-        return _site_moments_value(record, backing)
+        if backing == "unitcell":
+            from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+
+            return UnitcellStructureView(record, kind="record").cartesian_site_moments_floats()
+        from httk.atomistic.storage.records import _domain_structure_from_record
+
+        return _domain_structure_from_record(record).cartesian_site_moments_floats()
     if name in {
         "space_group_it_number",
         "space_group_symbol_hall",

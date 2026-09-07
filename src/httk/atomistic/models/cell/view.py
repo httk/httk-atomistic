@@ -9,6 +9,7 @@ from typing import Any, Self
 from httk.core import SurdScalar, SurdVector, unwrap
 
 from httk.atomistic.models._vector_guards import to_periodicity, to_precision, to_surdscalar, to_surdvector
+from httk.atomistic.models.cell.api import CellAPI
 from httk.atomistic.models.cell.backend import CellBackend
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.like import CellLike
@@ -113,6 +114,18 @@ class CellView(CellViewBase, Cell):
     def _periodicity(self) -> tuple[bool, bool, bool]:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
         self._fill_periodicity()
         return self.__dict__["_periodicity"]
+
+    def basis_floats(self) -> list[list[float]]:
+        """Present the backend's native float basis when it has one, else the validated exact basis as floats.
+
+        :return: The three lattice vectors as float rows.
+        """
+        # Only a backend that overrides the float accessor (e.g. a store record, validated at
+        # write) may bypass the exact fill: that fill is where the 3x3/non-degenerate check lives.
+        backend = self._backend
+        if type(backend).basis_floats is not CellAPI.basis_floats:
+            return backend.basis_floats()
+        return super().basis_floats()
 
     def unwrap(self) -> Any:
         """Return the raw object behind the backend.

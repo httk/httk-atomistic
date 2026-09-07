@@ -4,7 +4,7 @@ from typing import Any, Self
 from httk.core import FracVector
 
 from httk.atomistic.models.sites.backend import SitesBackend
-from httk.atomistic.storage.records import SitesRecord
+from httk.atomistic.storage.records import SitesRecord, _stored_floats
 
 
 class RecordSites(SitesBackend):
@@ -48,6 +48,23 @@ class RecordSites(SitesBackend):
         :return: The fractional precision, or ``None`` when unknown.
         """
         return self._record.precision
+
+    def reduced_coords_floats(self) -> list[list[float]]:
+        """Return the reduced site coordinates as float rows.
+
+        :return: The store's fetched float columns when available, else the exact coordinates as floats.
+        """
+        floats = _stored_floats(self._record, "reduced_coords")
+        return super().reduced_coords_floats() if floats is None else floats
+
+    @property
+    def num_sites(self) -> int:
+        """Return the number of coordinate rows.
+
+        :return: The store's fetched row count when available, else the exact row count.
+        """
+        floats = _stored_floats(self._record, "reduced_coords")
+        return super().num_sites if floats is None else len(floats)
 
     def unwrap(self) -> SitesRecord:
         """Return the stored sites record.

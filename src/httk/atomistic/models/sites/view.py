@@ -9,6 +9,7 @@ from typing import Any, Self
 from httk.core import FracVector, unwrap
 
 from httk.atomistic.models._vector_guards import to_fracvector, to_precision
+from httk.atomistic.models.sites.api import SitesAPI
 from httk.atomistic.models.sites.backend import SitesBackend
 from httk.atomistic.models.sites.like import SitesLike
 from httk.atomistic.models.sites.sites import Sites
@@ -59,6 +60,35 @@ class SitesView(SitesViewBase, Sites):
     def _precision(self) -> fractions.Fraction | None:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
         self._fill_precision()
         return self.__dict__["_precision"]
+
+    def reduced_coords_floats(self) -> list[list[float]]:
+        """Present the backend's native float coordinates, else the validated exact ones.
+
+        :return: The reduced coordinates as float rows.
+        """
+        # Only a backend that overrides the float accessor may bypass the exact fill: that fill
+        # is where the Nx3 validation lives.
+        backend = self._backend
+        if type(backend).reduced_coords_floats is not SitesAPI.reduced_coords_floats:
+            return backend.reduced_coords_floats()
+        return super().reduced_coords_floats()
+
+    @property
+    def num_sites(self) -> int:
+        """Return the number of coordinate rows without forcing the exact fill when unfilled.
+
+        :return: The number of sites.
+        """
+        if "_reduced_coords" in self.__dict__:
+            return super().num_sites
+        return self._backend.num_sites
+
+    def __len__(self) -> int:
+        """Return the number of sites.
+
+        :return: The number of coordinate rows.
+        """
+        return self.num_sites
 
     def unwrap(self) -> Any:
         """Return the raw object behind the backend.

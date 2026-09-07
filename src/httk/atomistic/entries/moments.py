@@ -6,7 +6,6 @@ from typing import Any
 from httk.core import PropertyDefinition
 
 from httk.atomistic.entries.definitions import load_httk_definitions
-from httk.atomistic.models.moments.cartesian_view import CartesianSiteMomentsView
 
 __all__ = ["MOMENT_PROPERTY_KEYS", "moment_definitions", "moment_properties"]
 
@@ -31,7 +30,5 @@ def moment_properties(structure: Any) -> dict[str, Any]:
     values: dict[str, Any] = {name: None for name in MOMENT_PROPERTY_KEYS}
     if structure is None:
         return values
-    moments = structure.site_moments
-    if moments is not None and getattr(moments, "kind", None) != "collinear":
-        values["_httk_site_moments"] = CartesianSiteMomentsView(moments).cartesian_moments.to_floats()
+    values["_httk_site_moments"] = structure.cartesian_site_moments_floats()
     return values

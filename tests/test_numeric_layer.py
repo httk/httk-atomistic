@@ -59,12 +59,19 @@ def test_numeric_unitcell_structure_values_are_plain_numpy() -> None:
         (numeric.cell.basis, exact_cell.basis.to_floats()),
         (numeric.cell.unscaled_basis, exact_cell.unscaled_basis.to_floats()),
         (numeric.cell.metric(), exact_cell.metric().to_floats()),
-        (numeric.cartesian_sites(), structure.cartesian_sites().to_floats()),
         (numeric.sites.reduced_coords, structure.sites.reduced_coords.to_floats()),
     ]:
         assert type(got) is numpy.ndarray
         assert got.dtype == numpy.float64
         assert got.tolist() == want
+
+    # cartesian_sites() now composes through the float pipeline (a float matmul), so it only
+    # agrees with the exact route to floating-point precision, not bit-for-bit.
+    cartesian_got = numeric.cartesian_sites()
+    cartesian_want = structure.cartesian_sites().to_floats()
+    assert type(cartesian_got) is numpy.ndarray
+    assert cartesian_got.dtype == numpy.float64
+    assert cartesian_got.tolist() == pytest.approx(numpy.array(cartesian_want), rel=1e-12, abs=1e-12)
 
     # lengths are a (3,) float64 ndarray; angles a (3,) float64 ndarray in degrees.
     assert type(numeric.cell.lengths) is numpy.ndarray

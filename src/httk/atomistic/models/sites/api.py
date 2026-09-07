@@ -24,6 +24,13 @@ class SitesAPI(ABC):
         """Return the reduced site coordinates."""
         raise NotImplementedError
 
+    def reduced_coords_floats(self) -> list[list[float]]:
+        """Return the reduced site coordinates as float rows.
+
+        :return: The reduced coordinates as float rows.
+        """
+        return self.reduced_coords.to_floats()
+
     @property
     def num_sites(self) -> int:
         """Return the number of coordinate rows.

@@ -80,6 +80,17 @@ def _effective_record_type(value: Any) -> type:
     return cast(type, getattr(type(value), "__httk_row_base__", type(value)))
 
 
+def _stored_floats(record: Any, field: str) -> list[list[float]] | None:
+    """Return a lazy storage row's already-fetched float companion rows for ``field``, or ``None``.
+
+    :param record: The storage record, possibly a lazy row proxy.
+    :param field: The child field name.
+    :return: The stored float rows, or ``None`` for a materialized record or a field without them.
+    """
+    stored = getattr(record, "_httk_stored_floats", None)
+    return None if stored is None else stored(field)
+
+
 def _extract_surd_scalar(vector: SurdVector, index: tuple[int, int]) -> SurdScalar:
     """Extract one exact scalar through SurdVector's public coefficient API."""
     components = {radicand: vector.coefficient(radicand)[index].to_fraction() for radicand in vector.radicands}

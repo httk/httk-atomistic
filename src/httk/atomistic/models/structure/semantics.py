@@ -22,6 +22,7 @@ from httk.atomistic.composition import (
     validate_assemblies,
 )
 from httk.atomistic.elements import SYMBOLS
+from httk.atomistic.models._vector_guards import matmul_floats
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.formula.composition_view import CompositionView
 from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
@@ -610,7 +611,7 @@ class StructureSemanticsMixin:
 
         :return: The three lattice vectors as float rows.
         """
-        return cast(Any, self).cell.basis.to_floats()
+        return cast(Any, self).cell.basis_floats()
 
     @property
     def fractional_site_positions(self) -> list[list[float]]:
@@ -618,7 +619,7 @@ class StructureSemanticsMixin:
 
         :return: Fractional positions as float rows.
         """
-        return cast(Any, self).sites.reduced_coords.to_floats()
+        return cast(Any, self).sites.reduced_coords_floats()
 
     @property
     def cartesian_site_positions(self) -> list[list[float]]:
@@ -626,7 +627,7 @@ class StructureSemanticsMixin:
 
         :return: Cartesian positions as float rows.
         """
-        return cast(Any, self).cartesian_sites().to_floats()
+        return matmul_floats(self.fractional_site_positions, self.lattice_vectors)
 
     @property
     def nsites(self) -> int:

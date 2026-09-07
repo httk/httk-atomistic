@@ -48,7 +48,9 @@ class NumericSites:
 
         :return: The coordinates as floating-point values.
         """
-        return to_numeric(self._sites.reduced_coords)
+        import numpy
+
+        return numpy.asarray(self._sites.reduced_coords_floats(), dtype=float).reshape(-1, 3)
 
     def __len__(self) -> int:
         """Return the number of sites.

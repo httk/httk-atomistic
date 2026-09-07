@@ -6,7 +6,7 @@ from typing import Any, Self
 from httk.core import SurdScalar, SurdVector
 
 from httk.atomistic.models.cell.backend import CellBackend
-from httk.atomistic.storage.records import CellRecord, _basis_vector
+from httk.atomistic.storage.records import CellRecord, _basis_vector, _stored_floats
 
 
 class RecordCell(CellBackend):
@@ -66,6 +66,16 @@ class RecordCell(CellBackend):
         :return: The absolute precision, or ``None`` when unknown.
         """
         return self._record.precision
+
+    def basis_floats(self) -> list[list[float]]:
+        """Return the scaled lattice vectors as float rows.
+
+        :return: The store's fetched float columns, reshaped to 3x3, when available, else the exact basis as floats.
+        """
+        floats = _stored_floats(self._record, "basis")
+        if floats is None:
+            return super().basis_floats()
+        return [[row[0] for row in floats[index * 3 : (index + 1) * 3]] for index in range(3)]
 
     @property
     def periodicity(self) -> tuple[bool, bool, bool]:

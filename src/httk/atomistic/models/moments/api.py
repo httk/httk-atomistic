@@ -22,6 +22,13 @@ class SiteMomentsAPI(ABC):
     def cartesian_moments(self) -> SurdVector:
         raise NotImplementedError
 
+    def cartesian_moments_floats(self) -> list[list[float]]:
+        """Return the Cartesian site moments as float rows, in Bohr magnetons.
+
+        :return: The Cartesian moments as float rows.
+        """
+        return self.cartesian_moments.to_floats()
+
     @property
     def precision(self) -> fractions.Fraction | None:
         """How precisely the moments were stated, in Bohr magnetons, or ``None``.

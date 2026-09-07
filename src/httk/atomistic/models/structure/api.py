@@ -73,6 +73,19 @@ class StructureAPI(ABC):
         """
         return None
 
+    def cartesian_site_moments_floats(self) -> list[list[float]] | None:
+        """Return per-site Cartesian moments as float rows, or ``None``.
+
+        ``None`` covers both unstated moments and a collinear representation, which has
+        no Cartesian frame to present.
+
+        :return: The Cartesian moments as float rows, or ``None``.
+        """
+        moments = self.site_moments
+        if moments is None or moments.kind == "collinear":
+            return None
+        return moments.cartesian_moments_floats()
+
     def without_charges(self) -> "StructureAPI":
         """Return an EXPLICIT lossy projection that drops declared oxidation states.
 
