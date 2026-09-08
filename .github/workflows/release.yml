@@ -75,11 +75,25 @@ jobs:
       - name: Test the built wheel in isolation
         run: |
           python -m venv /tmp/httk-atomistic-wheel-test
-          /tmp/httk-atomistic-wheel-test/bin/python -m pip install --no-deps dist/*.whl
-          # httk.atomistic imports httk.core at import time, so a --no-deps
-          # environment cannot import the package. Verify the wheel installs and
-          # exposes correct metadata instead of importing it.
-          /tmp/httk-atomistic-wheel-test/bin/python -c "import importlib.metadata as m; print(m.version('httk-atomistic'))"
+          /tmp/httk-atomistic-wheel-test/bin/python -m pip install dist/*.whl
+          /tmp/httk-atomistic-wheel-test/bin/python -m pip check
+          /tmp/httk-atomistic-wheel-test/bin/python -I - <<'PY'
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+
+          import httk
+          from httk.core import load
+          from httk.atomistic import Spacegroup, UnitcellStructure
+
+          assert httk.__file__ is None
+          assert Spacegroup.standard(225).it_number == 225
+          with TemporaryDirectory() as directory:
+              path = Path(directory) / "POSCAR"
+              path.write_text("Si\n1\n1 0 0\n0 1 0\n0 0 1\nSi\n1\nDirect\n0 0 0\n")
+              structure = load(path)
+              assert isinstance(structure, UnitcellStructure)
+              assert structure.species_at_sites == ("Si",)
+          PY
 
       - uses: actions/upload-artifact@v4
         with:
