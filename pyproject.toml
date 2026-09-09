@@ -35,6 +35,10 @@ classifiers = [
 [project.optional-dependencies]
 numpy = ["httk-core[numpy]>=2.1.0,<3"]
 dev = [
+  # Full-source type checks and tests cover these optional integrations.
+  "httk-atomistic[default]",
+  "ase",
+  "pymatgen",
   "pytest>=8.0",
   "pytest-xdist>=3.6",
   "ruff>=0.16,<0.17",

@@ -162,6 +162,7 @@ def test_prototype_record_optional_forms_have_distinct_pinned_identities() -> No
 
 def test_sql_store_round_trips_all_optional_identity_forms() -> None:
     pytest.importorskip("sqlalchemy")
+    pytest.importorskip("httk.store")
     from httk.store import Backend, EntryIdScheme, SqlStore
 
     protostructures = (
