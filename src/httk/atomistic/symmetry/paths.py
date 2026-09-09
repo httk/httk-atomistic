@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import cache
+from typing import Self
 
 from httk.core import FracVector, SurdVector, register_citation
 
@@ -283,68 +284,77 @@ def _solve_cholesky(
     )
 
 
-def _point_travel(first: FracVector, first_cell: Cell, second: FracVector, second_cell: Cell) -> float:
-    """Return symmetric physical travel between two periodic endpoint positions.
+@dataclass(frozen=True, slots=True)
+class _TravelMetric:
+    """Cell-pair geometry shared by every atom distance in one alignment score."""
 
-    Endpoint coordinates are first converted with their *own* exact cells, retaining the
-    physical displacement caused by a lattice deformation.  For one shared integer image
-    ``n``, its squared travel is the arithmetic mean
-    ``(||d + n B1||^2 + ||d + n B2||^2) / 2``, where ``d`` is the Cartesian endpoint
-    displacement and ``B1``/``B2`` are the endpoint bases.  This symmetric endpoint-cell
-    convention is invariant under reversal and simultaneous rigid rotation, and reduces to
-    the ordinary minimum image for equal cells.  The finite closest-vector search completes
-    this quadratic square in the mean endpoint metric, while the raw Cartesian displacement
-    retains the contribution from lattice deformation.
-    """
-    first_rows = _basis_rows(SurdVector(first_cell.basis))
-    second_rows = _basis_rows(SurdVector(second_cell.basis))
-    first_cartesian = SurdVector(first) * first_cell.basis
-    second_cartesian = SurdVector(second) * second_cell.basis
-    displacement_values = tuple(float(value) for value in (first_cartesian - second_cartesian).to_floats())
-    displacement = displacement_values[0], displacement_values[1], displacement_values[2]
-    gram = _mean_endpoint_gram(first_rows, second_rows)
-    lower = _cholesky_basis(gram)
-    linear = tuple(
-        _dot(
-            displacement,
+    gram: tuple[tuple[float, float, float], ...]
+    lower: tuple[tuple[float, float, float], ...]
+    mean_rows: tuple[tuple[float, float, float], ...]
+    nearest_image: _NearestImageMetric
+
+    @classmethod
+    def from_cells(cls, first: Cell, second: Cell) -> Self:
+        """Factor the symmetric endpoint metric once, without changing either exact cell."""
+        first_rows = _basis_rows(SurdVector(first.basis))
+        second_rows = _basis_rows(SurdVector(second.basis))
+        gram = _mean_endpoint_gram(first_rows, second_rows)
+        lower = _cholesky_basis(gram)
+        mean_rows = tuple(
             (
                 (first_rows[index][0] + second_rows[index][0]) / 2.0,
                 (first_rows[index][1] + second_rows[index][1]) / 2.0,
                 (first_rows[index][2] + second_rows[index][2]) / 2.0,
-            ),
+            )
+            for index in range(3)
         )
-        for index in range(3)
-    )
-    center = _solve_cholesky(lower, (-linear[0], -linear[1], -linear[2]))
-    nearest_squared = _NearestImageMetric(lower, (True, True, True)).distance(_row_matrix_product(center, lower)) ** 2
-    baseline = _dot(displacement, displacement) - _dot(center, _row_matrix_product(center, gram))
-    squared = baseline + nearest_squared
-    if squared < 0.0:
-        roundoff = 1e-12 * max(1.0, abs(baseline), nearest_squared)
-        if squared >= -roundoff:
-            squared = 0.0
-        else:
-            raise ValueError("structure_delta produced a negative travel squared")
-    return math.sqrt(squared)
+        return cls(gram, lower, mean_rows, _NearestImageMetric(lower, (True, True, True)))
+
+    def distance(self, first: SurdVector, second: SurdVector) -> float:
+        """Measure exact endpoint displacement with the shared periodic-image metric.
+
+        For a shared integer image n, travel squared is the minimum of
+        (||d + n B1||² + ||d + n B2||²) / 2, using each endpoint's own cell.
+        Completing the square gives a closest-vector search in the mean metric.
+        Subtraction precedes float conversion, preserving cancellation of large exact
+        coordinates. Each endpoint retains its own cell, so lattice deformation contributes
+        to travel. The numerical operations and their order match the unprepared metric.
+        """
+        displacement_values = tuple(float(value) for value in (first - second).to_floats())
+        displacement = displacement_values[0], displacement_values[1], displacement_values[2]
+        linear = tuple(_dot(displacement, row) for row in self.mean_rows)
+        center = _solve_cholesky(self.lower, (-linear[0], -linear[1], -linear[2]))
+        nearest_squared = self.nearest_image.distance(_row_matrix_product(center, self.lower)) ** 2
+        baseline = _dot(displacement, displacement) - _dot(center, _row_matrix_product(center, self.gram))
+        squared = baseline + nearest_squared
+        if squared < 0.0:
+            roundoff = 1e-12 * max(1.0, abs(baseline), nearest_squared)
+            if squared >= -roundoff:
+                squared = 0.0
+            else:
+                raise ValueError("structure_delta produced a negative travel squared")
+        return math.sqrt(squared)
 
 
-def _orbit_travel(
-    first: ASUStructure,
-    first_site: WyckoffSite,
-    second: ASUStructure,
-    second_site: WyckoffSite,
-) -> float:
-    """Return the branch-wise Cartesian travel for one compatible pair of Wyckoff orbits."""
-    first_coordinates = first.spacegroup.wyckoff_position(first_site.wyckoff).coordinates(first_site.free_params)
-    second_coordinates = second.spacegroup.wyckoff_position(second_site.wyckoff).coordinates(second_site.free_params)
-    if len(first_coordinates) != len(second_coordinates):
-        raise ValueError("structures have incompatible Wyckoff orbit multiplicities")
-    costs = tuple(
+def _cartesian_orbits(structure: ASUStructure) -> tuple[tuple[SurdVector, ...], ...]:
+    """Expand and transform each orbit once; storage is linear in the expanded atom count."""
+    basis = structure.cell.basis
+    return tuple(
         tuple(
-            _point_travel(FracVector(left), first.cell, FracVector(right), second.cell) for right in second_coordinates
+            SurdVector(point) * basis
+            for point in structure.spacegroup.wyckoff_position(site.wyckoff).coordinates(site.free_params)
         )
-        for left in first_coordinates
+        for site in structure.wyckoff_sites
     )
+
+
+def _prepared_orbit_travel(
+    first: tuple[SurdVector, ...], second: tuple[SurdVector, ...], metric: _TravelMetric
+) -> float:
+    """Match one orbit pair, retaining only its cost matrix during this call."""
+    if len(first) != len(second):
+        raise ValueError("structures have incompatible Wyckoff orbit multiplicities")
+    costs = tuple(tuple(metric.distance(left, right) for right in second) for left in first)
     return _minimum_assignment_cost(costs)
 
 
@@ -456,24 +466,25 @@ def _pair_travel_score(candidate: ASUStructure, reference: ASUStructure) -> tupl
     """Pair compatible Wyckoff orbits by their total physical Cartesian travel."""
     candidate_classes = _classes(candidate)
     reference_classes = _classes(reference)
-    if candidate_classes.keys() != reference_classes.keys():
+    if candidate_classes.keys() != reference_classes.keys() or any(
+        len(candidate_classes[key]) != len(indices) for key, indices in reference_classes.items()
+    ):
         raise ValueError("structures have incompatible site classes")
 
+    if not reference_classes:
+        return 0.0, ()
+    # Prepared data is local to this candidate/reference pair, never a process-wide cache.
+    metric = _TravelMetric.from_cells(reference.cell, candidate.cell)
+    reference_orbits = _cartesian_orbits(reference)
+    candidate_orbits = _cartesian_orbits(candidate)
     score = 0.0
     pairs: list[tuple[int, int]] = []
     for key in sorted(reference_classes, key=lambda item: (item[0].name, item[1], repr(item[0]))):
         reference_indices = reference_classes[key]
         candidate_indices = candidate_classes[key]
-        if len(reference_indices) != len(candidate_indices):
-            raise ValueError("structures have incompatible site classes")
         costs = tuple(
             tuple(
-                _orbit_travel(
-                    reference,
-                    reference.wyckoff_sites[reference_index],
-                    candidate,
-                    candidate.wyckoff_sites[candidate_index],
-                )
+                _prepared_orbit_travel(reference_orbits[reference_index], candidate_orbits[candidate_index], metric)
                 for candidate_index in candidate_indices
             )
             for reference_index in reference_indices
@@ -863,15 +874,18 @@ def structure_delta(
                 alignment = _aligned(candidate, reference, tolerance=tolerance, pair_score=_pair_travel_score)
             except ValueError:
                 continue
-            delta = math.fsum(
-                _orbit_travel(
-                    reference,
-                    reference.wyckoff_sites[reference_index],
-                    alignment.structure,
-                    alignment.structure.wyckoff_sites[candidate_index],
+            # Recompute in the returned setting, as before, sharing preparation across
+            # the selected orbit pairs. No geometry survives this directed comparison.
+            if alignment.pairs:
+                metric = _TravelMetric.from_cells(reference.cell, alignment.structure.cell)
+                reference_orbits = _cartesian_orbits(reference)
+                aligned_orbits = _cartesian_orbits(alignment.structure)
+                delta = math.fsum(
+                    _prepared_orbit_travel(reference_orbits[reference_index], aligned_orbits[candidate_index], metric)
+                    for reference_index, candidate_index in alignment.pairs
                 )
-                for reference_index, candidate_index in alignment.pairs
-            )
+            else:
+                delta = 0.0
             if not math.isfinite(delta):
                 raise ValueError("structure_delta produced a non-finite travel")
             directed.append(delta)
