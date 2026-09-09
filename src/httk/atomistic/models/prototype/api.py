@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from httk.atomistic.models.prototype.like import PrototypeLike
     from httk.atomistic.models.prototype.occupation import PrototypeOccupation
     from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
+    from httk.atomistic.symmetry.comparison_cache import StructureComparisonCache
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
@@ -66,7 +67,14 @@ class PrototypeAPI(ABC):
     def _prototype_label_text(self) -> str:
         return render_prototype_label(self.spacegroup, [(value.wyckoff, value.label) for value in self.occupations])
 
-    def similar(self, other: "PrototypeLike", delta: float, *, use_numpy: bool = False) -> bool:
+    def similar(
+        self,
+        other: "PrototypeLike",
+        delta: float,
+        *,
+        use_numpy: bool = False,
+        cache: "StructureComparisonCache | None" = None,
+    ) -> bool:
         """Return whether two prototypes have compatible geometry within ``delta``.
 
         The base identity (space group, anonymous occupations, and any discriminators
@@ -80,6 +88,7 @@ class PrototypeAPI(ABC):
         :param use_numpy: Use temporary NumPy float64 geometry for approximate comparison;
             requires the ``numpy`` extra and may change ties or near-threshold decisions.
             Retained representatives and their identities remain exact.
+        :param cache: Optional caller-scoped cache for reusable comparison preparation.
         :return: Whether the two values are compatible within ``delta``.
         :raises TypeError: If ``delta`` is not a real number.
         :raises ValueError: If ``delta`` is negative or non-finite.
@@ -118,13 +127,29 @@ class PrototypeAPI(ABC):
         if left.representative is None or resolved.representative is None:
             return True
         from httk.atomistic.models.prototype.derived import _prototype_to_structure
-        from httk.atomistic.symmetry.paths import NoCommonRepresentation, structure_delta
+        from httk.atomistic.symmetry.paths import NoCommonRepresentation, _structure_within_delta, structure_delta
 
-        first = _prototype_to_structure(left.representative)
-        second = _prototype_to_structure(resolved.representative)
+        if cache is None:
+            first = _prototype_to_structure(left.representative)
+            second = _prototype_to_structure(resolved.representative)
+        else:
+            first = cache._structure(
+                left.representative,
+                lambda: _prototype_to_structure(left.representative),
+                kind="anonymous",
+            )
+            second = cache._structure(
+                resolved.representative,
+                lambda: _prototype_to_structure(resolved.representative),
+                kind="anonymous",
+            )
         try:
+            if use_numpy and cache is not None:
+                return _structure_within_delta(first, second, delta, use_numpy=True, cache=cache)
             if use_numpy:
-                return structure_delta(first, second, use_numpy=True) <= delta
+                return _structure_within_delta(first, second, delta, use_numpy=True)
+            if cache is not None:
+                return structure_delta(first, second, cache=cache) <= delta
             return structure_delta(first, second) <= delta
         except NoCommonRepresentation:
             return False

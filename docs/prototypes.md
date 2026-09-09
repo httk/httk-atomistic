@@ -314,6 +314,21 @@ including variation across floating-point platforms. It also gives up exact
 cancellation before coordinate subtraction. The default comparison remains available.
 Neither mode modifies representatives, stored records, or content identity.
 
+With `use_numpy=True`, `similar` uses conservative lower bounds to stop scoring an
+alignment that cannot meet `delta`. Rejection still considers the other allowed
+alignments; acceptance verifies travel in the returned setting. Roundoff allowances
+make rejection conservative without increasing the requested budget.
+`structure_delta` continues to compute the complete distance.
+
+For repeated comparisons, pass the same
+`httk.atomistic.symmetry.comparison_cache.StructureComparisonCache` as `cache=` to
+`similar` or `structure_delta`. Preparation is lazy: the cache retains exact
+canonical structures and, with `use_numpy=True`, temporary float64 orbit arrays.
+Use one cache per clustering group and release it afterward, or call `clear()`.
+The `max_structures` and `max_geometries` capacities bound retained entries; eviction
+only repeats preparation and does not change comparison results. Different
+rerepresentation tolerances have separate canonicalization entries.
+
 ## Storage records
 
 The families have durable, layout-independent storage records in

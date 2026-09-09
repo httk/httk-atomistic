@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from httk.atomistic.models.protostructure.like import ProtostructureLike
     from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
     from httk.atomistic.models.structure.asu import FundamentalDomainStructure
+    from httk.atomistic.symmetry.comparison_cache import StructureComparisonCache
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
@@ -46,7 +47,14 @@ class ProtostructureAPI(ABC):
         """Return an optional geometrical-class discriminator."""
         return None
 
-    def similar(self, other: "ProtostructureLike", delta: float, *, use_numpy: bool = False) -> bool:
+    def similar(
+        self,
+        other: "ProtostructureLike",
+        delta: float,
+        *,
+        use_numpy: bool = False,
+        cache: "StructureComparisonCache | None" = None,
+    ) -> bool:
         """Return whether two protostructures have compatible geometry within ``delta``.
 
         The base identity (space group, occupations, and any discriminators present on
@@ -59,6 +67,7 @@ class ProtostructureAPI(ABC):
         :param use_numpy: Use temporary NumPy float64 geometry for approximate comparison;
             requires the ``numpy`` extra and may change ties or near-threshold decisions.
             Retained representatives and their identities remain exact.
+        :param cache: Optional caller-scoped cache for reusable comparison preparation.
         :return: Whether the two values are compatible within ``delta``.
         :raises TypeError: If ``delta`` is not a real number.
         :raises ValueError: If ``delta`` is negative or non-finite.
@@ -96,11 +105,17 @@ class ProtostructureAPI(ABC):
             return False
         if left.representative is None or resolved.representative is None:
             return True
-        from httk.atomistic.symmetry.paths import NoCommonRepresentation, structure_delta
+        from httk.atomistic.symmetry.paths import NoCommonRepresentation, _structure_within_delta, structure_delta
 
         try:
+            if use_numpy and cache is not None:
+                return _structure_within_delta(
+                    left.representative, resolved.representative, delta, use_numpy=True, cache=cache
+                )
             if use_numpy:
-                return structure_delta(left.representative, resolved.representative, use_numpy=True) <= delta
+                return _structure_within_delta(left.representative, resolved.representative, delta, use_numpy=True)
+            if cache is not None:
+                return structure_delta(left.representative, resolved.representative, cache=cache) <= delta
             return structure_delta(left.representative, resolved.representative) <= delta
         except NoCommonRepresentation:
             return False

@@ -22,6 +22,7 @@ from httk.atomistic.symmetry._standardization_common import (
     _scaled_precision,
 )
 from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.comparison_cache import StructureComparisonCache
 from httk.atomistic.symmetry.lift import (
     _apply_normalizer_operation,
     _demote_sites,
@@ -93,6 +94,10 @@ class NoCommonRepresentation(ValueError):
     :func:`common_subgroup_representation`; callers that treat that case as "not similar"
     catch this specific subclass and let any other ``ValueError`` propagate.
     """
+
+
+class _TravelCutoffExceeded(ValueError):
+    """A candidate alignment was proven to exceed a similarity cutoff."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -463,13 +468,17 @@ def _pair_score(candidate: ASUStructure, reference: ASUStructure) -> tuple[Fract
 
 
 def _prepare_travel(
-    first: ASUStructure, second: ASUStructure, *, use_numpy: bool = False
+    first: ASUStructure,
+    second: ASUStructure,
+    *,
+    use_numpy: bool = False,
+    cache: StructureComparisonCache | None = None,
 ) -> Callable[[int, int], float]:
     """Prepare local endpoint geometry and return an orbit-pair distance function."""
     if use_numpy:
         from httk.atomistic.symmetry._numpy_travel import prepare_travel
 
-        return prepare_travel(first, second)
+        return prepare_travel(first, second, cache=cache)
     metric = _TravelMetric.from_cells(first.cell, second.cell)
     first_orbits = _cartesian_orbits(first)
     second_orbits = _cartesian_orbits(second)
@@ -481,7 +490,12 @@ def _prepare_travel(
 
 
 def _pair_travel_score(
-    candidate: ASUStructure, reference: ASUStructure, *, use_numpy: bool = False
+    candidate: ASUStructure,
+    reference: ASUStructure,
+    *,
+    use_numpy: bool = False,
+    cache: StructureComparisonCache | None = None,
+    cutoff: float | None = None,
 ) -> tuple[float, tuple[tuple[int, int], ...]]:
     """Pair compatible Wyckoff orbits by their total physical Cartesian travel."""
     candidate_classes = _classes(candidate)
@@ -493,24 +507,38 @@ def _pair_travel_score(
 
     if not reference_classes:
         return 0.0, ()
-    # Prepared data is local to this candidate/reference pair, never a process-wide cache.
-    travel = _prepare_travel(reference, candidate, use_numpy=use_numpy)
+    # Pair metrics stay local; endpoint preparation may use the caller-scoped cache.
+    travel = _prepare_travel(reference, candidate, use_numpy=use_numpy, cache=cache)
     score = 0.0
     pairs: list[tuple[int, int]] = []
     for key in sorted(reference_classes, key=lambda item: (item[0].name, item[1], repr(item[0]))):
         reference_indices = reference_classes[key]
         candidate_indices = candidate_classes[key]
-        costs = tuple(
-            tuple(travel(reference_index, candidate_index) for candidate_index in candidate_indices)
-            for reference_index in reference_indices
-        )
+        rows: list[tuple[float, ...]] = []
+        row_minima: list[float] = []
+        for reference_index in reference_indices:
+            row = tuple(travel(reference_index, candidate_index) for candidate_index in candidate_indices)
+            rows.append(row)
+            if cutoff is not None:
+                row_minima.append(min(row))
+                lower_bound = score + math.fsum(row_minima)
+                if lower_bound > cutoff + _cutoff_margin(cutoff, lower_bound):
+                    raise _TravelCutoffExceeded
+        costs = tuple(rows)
         distance, assignment = _minimum_assignment(costs)
         score += distance
+        if cutoff is not None and score > cutoff + _cutoff_margin(cutoff, score):
+            raise _TravelCutoffExceeded
         pairs.extend(
             (reference_index, candidate_indices[candidate_offset])
             for reference_index, candidate_offset in zip(reference_indices, assignment, strict=True)
         )
     return score, tuple(pairs)
+
+
+def _cutoff_margin(cutoff: float, value: float) -> float:
+    """Return a conservative float roundoff margin for a travel cutoff."""
+    return 1e-12 * max(1.0, cutoff, value)
 
 
 def _reference_setting(candidate: ASUStructure, reference: ASUStructure) -> ASUStructure:
@@ -593,14 +621,20 @@ def _aligned(
         tuple[object, tuple[tuple[str, str, tuple[Fraction, ...]], ...], ASUStructure, tuple[tuple[int, int], ...]]
         | None
     ) = None
+    saw_exceeded = False
     for candidate in candidates.values():
         try:
             score, pairs = pair_score(candidate, reference_standard)
+        except _TravelCutoffExceeded:
+            saw_exceeded = True
+            continue
         except ValueError:
             continue
         choice = (score, _canonical_sites(candidate.wyckoff_sites), candidate, pairs)
         if best is None or choice[:2] < best[:2]:
             best = choice
+    if best is None and saw_exceeded:
+        raise _TravelCutoffExceeded
     assert best is not None
     aligned = _reference_setting(best[2], reference)
     return _Alignment(aligned, best[3])
@@ -814,6 +848,7 @@ def structure_delta(
     *,
     tolerance: float | None = None,
     use_numpy: bool = False,
+    cache: StructureComparisonCache | None = None,
 ) -> float:
     """Return the total Cartesian atom travel between two compatible structures.
 
@@ -864,27 +899,73 @@ def structure_delta(
     :param second: The second fully periodic, non-molecular asymmetric-unit or fundamental-domain structure.
     :param tolerance: Cartesian tolerance passed only to any required upward rerepresentation.
     :param use_numpy: Opt into float64 geometry; requires the ``numpy`` extra.
+    :param cache: Optional caller-scoped cache for reusable exact preparations and NumPy orbit arrays.
     :return: Total atom travel in the endpoint cells' length units.
     :raises ValueError: If the structures are unsupported, cannot be represented in a
         common subgroup, have incompatible species/Wyckoff classes, or yield a non-finite
         travel.
     """
+    return _structure_delta(first, second, tolerance=tolerance, use_numpy=use_numpy, cache=cache)
+
+
+def _structure_delta(
+    first: ASUStructure | FundamentalDomainStructure,
+    second: ASUStructure | FundamentalDomainStructure,
+    *,
+    tolerance: float | None = None,
+    use_numpy: bool = False,
+    cache: StructureComparisonCache | None = None,
+    cutoff: float | None = None,
+) -> float:
+    """Evaluate travel with optional conservative pruning for a boolean decision.
+
+    Without a cutoff, compute the complete public metric. With a cutoff, the result
+    preserves its comparison to that cutoff; rejected alignments contribute infinity.
+    """
+    pair_score: Callable[[ASUStructure, ASUStructure], tuple[object, tuple[tuple[int, int], ...]]]
     if use_numpy:
         # Resolve the optional dependency before bounded searches catch numerical failures.
         from httk.atomistic.models._vector_guards import require_numpy
 
         require_numpy()
 
-    pair_score = partial(_pair_travel_score, use_numpy=True) if use_numpy else _pair_travel_score
+    if cutoff is not None and (not math.isfinite(cutoff) or cutoff < 0.0):
+        raise ValueError("cutoff must be a finite non-negative real")
+    if cutoff is not None:
+        pair_score = partial(_pair_travel_score, use_numpy=use_numpy, cache=cache, cutoff=cutoff)
+    elif use_numpy and cache is not None:
+        pair_score = partial(_pair_travel_score, use_numpy=True, cache=cache)
+    elif use_numpy:
+        pair_score = partial(_pair_travel_score, use_numpy=True)
+    elif cache is not None:
+        pair_score = partial(_pair_travel_score, cache=cache)
+    else:
+        pair_score = _pair_travel_score
     _register_subgroup_matching_citation()
+    first_source = first
+    second_source = second
     first = _exact_asu(first, "structure_delta")
     second = _exact_asu(second, "structure_delta")
     _validate(first, "structure_delta")
     _validate(second, "structure_delta")
     if first == second:
         return 0.0
-    first_canonical = canonicalize_full(first, first.spacegroup, tolerance=tolerance)
-    second_canonical = canonicalize_full(second, second.spacegroup, tolerance=tolerance)
+    if cache is None:
+        first_canonical = canonicalize_full(first, first.spacegroup, tolerance=tolerance)
+        second_canonical = canonicalize_full(second, second.spacegroup, tolerance=tolerance)
+    else:
+        first_canonical = cache._structure(
+            first_source,
+            lambda: canonicalize_full(first, first.spacegroup, tolerance=tolerance),
+            tolerance=tolerance,
+            kind="canonical",
+        )
+        second_canonical = cache._structure(
+            second_source,
+            lambda: canonicalize_full(second, second.spacegroup, tolerance=tolerance),
+            tolerance=tolerance,
+            kind="canonical",
+        )
     common = set(subgroup_closure(first_canonical.spacegroup, include_self=True)) & set(
         subgroup_closure(second_canonical.spacegroup, include_self=True)
     )
@@ -903,12 +984,15 @@ def structure_delta(
         for reference, candidate in ((first_child, second_child), (second_child, first_child)):
             try:
                 alignment = _aligned(candidate, reference, tolerance=tolerance, pair_score=pair_score)
+            except _TravelCutoffExceeded:
+                directed.append(math.inf)
+                continue
             except ValueError:
                 continue
             # Recompute in the returned setting, as before, sharing preparation across
-            # the selected orbit pairs. No geometry survives this directed comparison.
+            # the selected orbit pairs and, when supplied, the caller-scoped cache.
             if alignment.pairs:
-                travel = _prepare_travel(reference, alignment.structure, use_numpy=use_numpy)
+                travel = _prepare_travel(reference, alignment.structure, use_numpy=use_numpy, cache=cache)
                 delta = math.fsum(
                     travel(reference_index, candidate_index) for reference_index, candidate_index in alignment.pairs
                 )
@@ -916,6 +1000,8 @@ def structure_delta(
                 delta = 0.0
             if not math.isfinite(delta):
                 raise ValueError("structure_delta produced a non-finite travel")
+            if cutoff is not None and delta <= cutoff:
+                return delta
             directed.append(delta)
         return min(directed) if directed else None
 
@@ -936,11 +1022,36 @@ def structure_delta(
             continue
         if delta == 0.0:
             return 0.0
+        if cutoff is not None and delta <= cutoff:
+            return delta
         if best is None or delta < best:
             best = delta
     if best is None:
         raise NoCommonRepresentation("no common subgroup representation succeeded")
     return best
+
+
+def _structure_within_delta(
+    first: ASUStructure | FundamentalDomainStructure,
+    second: ASUStructure | FundamentalDomainStructure,
+    delta: float,
+    *,
+    use_numpy: bool = True,
+    cache: StructureComparisonCache | None = None,
+    tolerance: float | None = None,
+) -> bool:
+    """Return whether approximate structure travel is within a cutoff."""
+    return (
+        _structure_delta(
+            first,
+            second,
+            tolerance=tolerance,
+            use_numpy=use_numpy,
+            cache=cache,
+            cutoff=delta,
+        )
+        <= delta
+    )
 
 
 def interpolate_structures(

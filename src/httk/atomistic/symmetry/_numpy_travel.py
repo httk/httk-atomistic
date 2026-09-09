@@ -11,9 +11,15 @@ from typing import Any
 
 from httk.atomistic.models._vector_guards import require_numpy
 from httk.atomistic.models.structure.asu import ASUStructure
+from httk.atomistic.symmetry.comparison_cache import StructureComparisonCache
 
 
-def prepare_travel(first: ASUStructure, second: ASUStructure) -> Callable[[int, int], float]:
+def prepare_travel(
+    first: ASUStructure,
+    second: ASUStructure,
+    *,
+    cache: StructureComparisonCache | None = None,
+) -> Callable[[int, int], float]:
     """Prepare vectorized orbit travel between two exact asymmetric units.
 
     The exact Wyckoff expansions and cell bases are rendered once as temporary
@@ -24,6 +30,7 @@ def prepare_travel(first: ASUStructure, second: ASUStructure) -> Callable[[int, 
 
     :param first: The first structure, whose orbit indices are accepted by the result.
     :param second: The second structure, whose orbit indices are accepted by the result.
+    :param cache: Optional caller-scoped cache for reusable Cartesian orbit arrays.
     :return: A callable returning the approximate travel cost for two orbit indices.
     :raises ImportError: If the optional NumPy dependency is unavailable.
     :raises ValueError: If the expanded structures or their metric are not finite or
@@ -37,8 +44,12 @@ def prepare_travel(first: ASUStructure, second: ASUStructure) -> Callable[[int, 
     from httk.atomistic.symmetry.paths import _minimum_assignment_cost, _TravelMetric
 
     metric = _TravelMetric.from_cells(first.cell, second.cell)
-    first_orbits = _cartesian_orbits(first, numpy)
-    second_orbits = _cartesian_orbits(second, numpy)
+    if cache is None:
+        first_orbits = _cartesian_orbits(first, numpy)
+        second_orbits = _cartesian_orbits(second, numpy)
+    else:
+        first_orbits = cache._geometry(first, lambda: _cartesian_orbits(first, numpy))
+        second_orbits = cache._geometry(second, lambda: _cartesian_orbits(second, numpy))
 
     gram = numpy.asarray(metric.gram, dtype=numpy.float64)
     lower = numpy.asarray(metric.lower, dtype=numpy.float64)
