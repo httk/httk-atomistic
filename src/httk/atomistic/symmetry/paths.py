@@ -5,7 +5,7 @@ import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from fractions import Fraction
-from functools import cache
+from functools import cache, partial
 from typing import Self
 
 from httk.core import FracVector, SurdVector, register_citation
@@ -462,7 +462,27 @@ def _pair_score(candidate: ASUStructure, reference: ASUStructure) -> tuple[Fract
     return score, tuple(pairs)
 
 
-def _pair_travel_score(candidate: ASUStructure, reference: ASUStructure) -> tuple[float, tuple[tuple[int, int], ...]]:
+def _prepare_travel(
+    first: ASUStructure, second: ASUStructure, *, use_numpy: bool = False
+) -> Callable[[int, int], float]:
+    """Prepare local endpoint geometry and return an orbit-pair distance function."""
+    if use_numpy:
+        from httk.atomistic.symmetry._numpy_travel import prepare_travel
+
+        return prepare_travel(first, second)
+    metric = _TravelMetric.from_cells(first.cell, second.cell)
+    first_orbits = _cartesian_orbits(first)
+    second_orbits = _cartesian_orbits(second)
+
+    def travel(first_index: int, second_index: int) -> float:
+        return _prepared_orbit_travel(first_orbits[first_index], second_orbits[second_index], metric)
+
+    return travel
+
+
+def _pair_travel_score(
+    candidate: ASUStructure, reference: ASUStructure, *, use_numpy: bool = False
+) -> tuple[float, tuple[tuple[int, int], ...]]:
     """Pair compatible Wyckoff orbits by their total physical Cartesian travel."""
     candidate_classes = _classes(candidate)
     reference_classes = _classes(reference)
@@ -474,19 +494,14 @@ def _pair_travel_score(candidate: ASUStructure, reference: ASUStructure) -> tupl
     if not reference_classes:
         return 0.0, ()
     # Prepared data is local to this candidate/reference pair, never a process-wide cache.
-    metric = _TravelMetric.from_cells(reference.cell, candidate.cell)
-    reference_orbits = _cartesian_orbits(reference)
-    candidate_orbits = _cartesian_orbits(candidate)
+    travel = _prepare_travel(reference, candidate, use_numpy=use_numpy)
     score = 0.0
     pairs: list[tuple[int, int]] = []
     for key in sorted(reference_classes, key=lambda item: (item[0].name, item[1], repr(item[0]))):
         reference_indices = reference_classes[key]
         candidate_indices = candidate_classes[key]
         costs = tuple(
-            tuple(
-                _prepared_orbit_travel(reference_orbits[reference_index], candidate_orbits[candidate_index], metric)
-                for candidate_index in candidate_indices
-            )
+            tuple(travel(reference_index, candidate_index) for candidate_index in candidate_indices)
             for reference_index in reference_indices
         )
         distance, assignment = _minimum_assignment(costs)
@@ -798,6 +813,7 @@ def structure_delta(
     second: ASUStructure | FundamentalDomainStructure,
     *,
     tolerance: float | None = None,
+    use_numpy: bool = False,
 ) -> float:
     """Return the total Cartesian atom travel between two compatible structures.
 
@@ -831,20 +847,35 @@ def structure_delta(
     order, evaluating at most ``_STRUCTURE_DELTA_SUBGROUP_LIMIT`` of them and returning at an
     exact coincidence or the least travel seen within that bound. Each subgroup considers both
     directed bounded normalizer alignments and every tabulated normalizer image, scoring each
-    by its exact per-orbit Cartesian travel and keeping the minimum, which makes the metric
+    by its per-orbit Cartesian travel and keeping the minimum, which makes the metric
     symmetric. Atom and orbit
     assignment uses a deterministic Hungarian minimum-cost matching, so repeated
     Wyckoff classes do not require a factorial permutation search. Charges do not enter this
     geometrical metric.
 
+    With ``use_numpy=True``, temporary float64 coordinate arrays and vectorized distance
+    arithmetic accelerate approximate clustering. Exact input structures, canonicalization,
+    and discrete symmetry searches are retained. Rounding can change ties and comparisons
+    close to a travel threshold; cross-platform reproducibility is not guaranteed. The default
+    subtracts exact Cartesian coordinates before float conversion, retaining cancellation of
+    large exact values. Both modes use the same periodic-image search and assignment algorithm.
+
     :param first: The first fully periodic, non-molecular asymmetric-unit or fundamental-domain structure.
     :param second: The second fully periodic, non-molecular asymmetric-unit or fundamental-domain structure.
     :param tolerance: Cartesian tolerance passed only to any required upward rerepresentation.
+    :param use_numpy: Opt into float64 geometry; requires the ``numpy`` extra.
     :return: Total atom travel in the endpoint cells' length units.
     :raises ValueError: If the structures are unsupported, cannot be represented in a
         common subgroup, have incompatible species/Wyckoff classes, or yield a non-finite
         travel.
     """
+    if use_numpy:
+        # Resolve the optional dependency before bounded searches catch numerical failures.
+        from httk.atomistic.models._vector_guards import require_numpy
+
+        require_numpy()
+
+    pair_score = partial(_pair_travel_score, use_numpy=True) if use_numpy else _pair_travel_score
     _register_subgroup_matching_citation()
     first = _exact_asu(first, "structure_delta")
     second = _exact_asu(second, "structure_delta")
@@ -871,18 +902,15 @@ def structure_delta(
         directed: list[float] = []
         for reference, candidate in ((first_child, second_child), (second_child, first_child)):
             try:
-                alignment = _aligned(candidate, reference, tolerance=tolerance, pair_score=_pair_travel_score)
+                alignment = _aligned(candidate, reference, tolerance=tolerance, pair_score=pair_score)
             except ValueError:
                 continue
             # Recompute in the returned setting, as before, sharing preparation across
             # the selected orbit pairs. No geometry survives this directed comparison.
             if alignment.pairs:
-                metric = _TravelMetric.from_cells(reference.cell, alignment.structure.cell)
-                reference_orbits = _cartesian_orbits(reference)
-                aligned_orbits = _cartesian_orbits(alignment.structure)
+                travel = _prepare_travel(reference, alignment.structure, use_numpy=use_numpy)
                 delta = math.fsum(
-                    _prepared_orbit_travel(reference_orbits[reference_index], aligned_orbits[candidate_index], metric)
-                    for reference_index, candidate_index in alignment.pairs
+                    travel(reference_index, candidate_index) for reference_index, candidate_index in alignment.pairs
                 )
             else:
                 delta = 0.0

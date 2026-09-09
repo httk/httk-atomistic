@@ -46,7 +46,7 @@ class ProtostructureAPI(ABC):
         """Return an optional geometrical-class discriminator."""
         return None
 
-    def similar(self, other: "ProtostructureLike", delta: float) -> bool:
+    def similar(self, other: "ProtostructureLike", delta: float, *, use_numpy: bool = False) -> bool:
         """Return whether two protostructures have compatible geometry within ``delta``.
 
         The base identity (space group, occupations, and any discriminators present on
@@ -56,6 +56,9 @@ class ProtostructureAPI(ABC):
 
         :param other: The protostructure-like value to compare against.
         :param delta: The non-negative finite Cartesian travel budget.
+        :param use_numpy: Use temporary NumPy float64 geometry for approximate comparison;
+            requires the ``numpy`` extra and may change ties or near-threshold decisions.
+            Retained representatives and their identities remain exact.
         :return: Whether the two values are compatible within ``delta``.
         :raises TypeError: If ``delta`` is not a real number.
         :raises ValueError: If ``delta`` is negative or non-finite.
@@ -96,6 +99,8 @@ class ProtostructureAPI(ABC):
         from httk.atomistic.symmetry.paths import NoCommonRepresentation, structure_delta
 
         try:
+            if use_numpy:
+                return structure_delta(left.representative, resolved.representative, use_numpy=True) <= delta
             return structure_delta(left.representative, resolved.representative) <= delta
         except NoCommonRepresentation:
             return False

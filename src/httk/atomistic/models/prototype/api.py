@@ -66,7 +66,7 @@ class PrototypeAPI(ABC):
     def _prototype_label_text(self) -> str:
         return render_prototype_label(self.spacegroup, [(value.wyckoff, value.label) for value in self.occupations])
 
-    def similar(self, other: "PrototypeLike", delta: float) -> bool:
+    def similar(self, other: "PrototypeLike", delta: float, *, use_numpy: bool = False) -> bool:
         """Return whether two prototypes have compatible geometry within ``delta``.
 
         The base identity (space group, anonymous occupations, and any discriminators
@@ -77,6 +77,9 @@ class PrototypeAPI(ABC):
 
         :param other: The prototype-like or protostructure-like value to compare against.
         :param delta: The non-negative finite Cartesian travel budget.
+        :param use_numpy: Use temporary NumPy float64 geometry for approximate comparison;
+            requires the ``numpy`` extra and may change ties or near-threshold decisions.
+            Retained representatives and their identities remain exact.
         :return: Whether the two values are compatible within ``delta``.
         :raises TypeError: If ``delta`` is not a real number.
         :raises ValueError: If ``delta`` is negative or non-finite.
@@ -120,6 +123,8 @@ class PrototypeAPI(ABC):
         first = _prototype_to_structure(left.representative)
         second = _prototype_to_structure(resolved.representative)
         try:
+            if use_numpy:
+                return structure_delta(first, second, use_numpy=True) <= delta
             return structure_delta(first, second) <= delta
         except NoCommonRepresentation:
             return False

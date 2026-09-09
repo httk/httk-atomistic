@@ -284,7 +284,7 @@ The AFLOW-style `-001` discriminators belong to a `Prototype` or a
 `Protostructure` (their `discriminator` field), which name a species-independent
 geometrical class. They are **never** part of the label.
 
-## Similarity and exact travel
+## Similarity and atom travel
 
 `Prototype.similar` and `Protostructure.similar` first compare their discrete
 space-group and occupation keys, then apply discriminator compatibility. If
@@ -299,6 +299,20 @@ positions. It is not a content-id or label comparison. `similar` returns
 `ValueError` subclass in `httk.atomistic.symmetry.paths`); other errors from a
 broken representative — a singular cell basis, a non-three-dimensional cell, or
 non-finite travel — propagate.
+
+For approximate clustering, install *httk-atomistic* with its `numpy` extra and pass
+`use_numpy=True` to either `similar(other, delta, use_numpy=True)` or
+`structure_delta(first, second, use_numpy=True)`. This converts each endpoint's
+expanded coordinates once to temporary NumPy float64 arrays and computes orbit
+distance matrices with vectorized arithmetic. Storage for coordinates is linear in
+the expanded atom count; temporary distance matrices are limited to one orbit pair.
+The periodic-image search still handles skew cells, and atom/orbit assignment keeps
+the same minimum-cost matching. Discrete symmetry and canonicalization remain exact.
+
+This option permits rounding differences in ties and near a comparison threshold,
+including variation across floating-point platforms. It also gives up exact
+cancellation before coordinate subtraction. The default comparison remains available.
+Neither mode modifies representatives, stored records, or content identity.
 
 ## Storage records
 
