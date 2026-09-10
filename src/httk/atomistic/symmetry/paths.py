@@ -581,8 +581,17 @@ def _normalizer_image(structure: ASUStructure, operation: AffineOperation) -> AS
     return _apply_normalizer_operation(structure, operation)
 
 
-def _normalizer_candidates(represented: ASUStructure) -> tuple[ASUStructure, ...]:
+def _normalizer_candidates(
+    represented: ASUStructure, *, cache: StructureComparisonCache | None = None
+) -> tuple[ASUStructure, ...]:
     """Return the standard-frame candidates shared by alignment and grid filtering."""
+    if cache is not None:
+        return cache._normalizer_images(represented, lambda: _build_normalizer_candidates(represented))
+    return _build_normalizer_candidates(represented)
+
+
+def _build_normalizer_candidates(represented: ASUStructure) -> tuple[ASUStructure, ...]:
+    """Enumerate and deduplicate exact normalizer images in their established order."""
     candidates: dict[tuple[tuple[str, str, tuple[Fraction, ...]], ...], ASUStructure] = {
         _canonical_sites(represented.wyckoff_sites): represented
     }
@@ -606,6 +615,7 @@ def _aligned(
     *,
     tolerance: float | None,
     pair_score: Callable[[ASUStructure, ASUStructure], tuple[object, tuple[tuple[int, int], ...]]] = _pair_score,
+    cache: StructureComparisonCache | None = None,
 ) -> _Alignment:
     _validate(end, "represent_like")
     _validate(reference, "represent_like")
@@ -622,7 +632,7 @@ def _aligned(
             f"structures are not representable alike: signatures {represented_signature!r} and {reference_signature!r}"
         )
 
-    candidates = _normalizer_candidates(represented)
+    candidates = _normalizer_candidates(represented, cache=cache)
 
     best: (
         tuple[object, tuple[tuple[str, str, tuple[Fraction, ...]], ...], ASUStructure, tuple[tuple[int, int], ...]]
@@ -990,7 +1000,7 @@ def _structure_delta(
         directed: list[float] = []
         for reference, candidate in ((first_child, second_child), (second_child, first_child)):
             try:
-                alignment = _aligned(candidate, reference, tolerance=tolerance, pair_score=pair_score)
+                alignment = _aligned(candidate, reference, tolerance=tolerance, pair_score=pair_score, cache=cache)
             except _TravelCutoffExceeded:
                 directed.append(math.inf)
                 continue

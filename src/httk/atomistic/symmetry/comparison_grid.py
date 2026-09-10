@@ -139,7 +139,7 @@ class StructureComparisonGrid:
     def _build(
         self, values: Sequence[_Value], delta: float, dimensions: int, strategy: str, cache: StructureComparisonCache
     ) -> None:
-        from httk.atomistic.symmetry._numpy_travel import _cartesian_orbits
+        from httk.atomistic.symmetry._numpy_travel import _cached_cartesian_orbits
         from httk.atomistic.symmetry.lift import rerepresent
         from httk.atomistic.symmetry.paths import _normalizer_candidates
         from httk.atomistic.symmetry.subgroups import _standard_input
@@ -162,7 +162,7 @@ class StructureComparisonGrid:
             inverse = numpy.linalg.inv(basis)
             if retained + _point_count(reference) > self._max_points:
                 raise ValueError("expanded point limit exceeded")
-            orbits = _cartesian_orbits(reference, numpy)
+            orbits = _cached_cartesian_orbits(reference, numpy, cache)
             anchors: list[tuple[_Class, Any]] = []
             sizes: dict[_Class, int] = {}
             for site, orbit in zip(reference.wyckoff_sites, orbits, strict=True):
@@ -186,13 +186,14 @@ class StructureComparisonGrid:
             )
             self._references.append(_Reference(basis, inverse, anchors[:4]))
             represented = _standard_input(rerepresent(reference, reference.spacegroup, tolerance=None))
-            for candidate in _normalizer_candidates(represented):
+            for candidate in _normalizer_candidates(represented, cache=cache):
                 if retained + _point_count(candidate) > self._max_points:
                     raise ValueError("expanded point limit exceeded")
                 candidate_basis = numpy.asarray(candidate.cell.basis.to_floats(), dtype=float)
                 condition = max(condition, _condition(candidate_basis, numpy))
                 scale = max(scale, float(numpy.max(numpy.abs(basis))), float(numpy.max(numpy.abs(candidate_basis))))
-                for site, orbit in zip(candidate.wyckoff_sites, _cartesian_orbits(candidate, numpy), strict=True):
+                candidate_orbits = _cached_cartesian_orbits(candidate, numpy, cache)
+                for site, orbit in zip(candidate.wyckoff_sites, candidate_orbits, strict=True):
                     retained += len(orbit)
                     if retained > self._max_points:
                         raise ValueError("expanded point limit exceeded")

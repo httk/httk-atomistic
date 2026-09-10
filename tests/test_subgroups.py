@@ -47,6 +47,23 @@ def test_closure_duality_on_deterministic_sample_of_actual_edges() -> None:
         assert (child in subgroup_closure(parent)) == (parent in supergroup_closure(child))
 
 
+def test_closures_reuse_immutable_results_across_spacegroup_inputs() -> None:
+    """Object and integer inputs share results without conflating direction or self inclusion."""
+    from httk.atomistic.symmetry.subgroups import _closure
+
+    _closure.cache_clear()
+    try:
+        for operation in (subgroup_closure, supergroup_closure):
+            for include_self in (False, True):
+                first = operation(225, include_self=include_self)
+                assert operation(Spacegroup.standard(225), include_self=include_self) is first
+                assert (225 in first) is include_self
+        assert _closure.cache_info().misses == 4
+        assert _closure.cache_info().hits == 4
+    finally:
+        _closure.cache_clear()
+
+
 def test_minimal_supergroups_contains_every_inverted_maximal_edge() -> None:
     for parent in range(1, 231):
         for child in maximal_subgroups(parent):

@@ -44,12 +44,8 @@ def prepare_travel(
     from httk.atomistic.symmetry.paths import _minimum_assignment_cost, _TravelMetric
 
     metric = _TravelMetric.from_cells(first.cell, second.cell)
-    if cache is None:
-        first_orbits = _cartesian_orbits(first, numpy)
-        second_orbits = _cartesian_orbits(second, numpy)
-    else:
-        first_orbits = cache._geometry(first, lambda: _cartesian_orbits(first, numpy))
-        second_orbits = cache._geometry(second, lambda: _cartesian_orbits(second, numpy))
+    first_orbits = _cached_cartesian_orbits(first, numpy, cache)
+    second_orbits = _cached_cartesian_orbits(second, numpy, cache)
 
     gram = numpy.asarray(metric.gram, dtype=numpy.float64)
     lower = numpy.asarray(metric.lower, dtype=numpy.float64)
@@ -115,6 +111,19 @@ def prepare_travel(
         return _minimum_assignment_cost(tuple(tuple(float(value) for value in row) for row in costs))
 
     return orbit_travel
+
+
+def _cached_cartesian_orbits(
+    structure: ASUStructure, numpy: Any, cache: StructureComparisonCache | None
+) -> tuple[Any, ...]:
+    """Share immutable orbit arrays between grid construction and numerical comparisons."""
+    if cache is None:
+        return _cartesian_orbits(structure, numpy)
+    return cache._geometry(
+        structure,
+        lambda: _cartesian_orbits(structure, numpy),
+        nbytes=lambda orbits: sum(orbit.nbytes for orbit in orbits),
+    )
 
 
 def _cartesian_orbits(structure: ASUStructure, numpy: Any) -> tuple[Any, ...]:

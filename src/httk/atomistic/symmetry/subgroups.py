@@ -192,8 +192,9 @@ def minimal_supergroups(spacegroup: Spacegroup | int) -> tuple[int, ...]:
     return _supergroup_graph()[it_number]
 
 
+@cache
 def _closure(
-    spacegroup: Spacegroup | int,
+    spacegroup: int,
     neighbours: Callable[[int], tuple[int, ...]],
     include_self: bool,
 ) -> tuple[int, ...]:
@@ -220,7 +221,7 @@ def subgroup_closure(spacegroup: Spacegroup | int, *, include_self: bool = False
     :return: Sorted reachable subgroup IT numbers.
     :raises KeyError: If the IT number has no vendored subgroup record.
     """
-    return _closure(spacegroup, maximal_subgroups, include_self)
+    return _closure(_it_number(spacegroup), maximal_subgroups, bool(include_self))
 
 
 def supergroup_closure(spacegroup: Spacegroup | int, *, include_self: bool = False) -> tuple[int, ...]:
@@ -231,7 +232,7 @@ def supergroup_closure(spacegroup: Spacegroup | int, *, include_self: bool = Fal
     :return: Sorted reachable supergroup IT numbers.
     :raises KeyError: If the IT number has no vendored subgroup record.
     """
-    return _closure(spacegroup, minimal_supergroups, include_self)
+    return _closure(_it_number(spacegroup), minimal_supergroups, bool(include_self))
 
 
 def subgroup_transforms(parent: Spacegroup | int, subgroup: Spacegroup | int) -> tuple[SubgroupTransform, ...]:
