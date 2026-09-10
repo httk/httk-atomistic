@@ -1698,13 +1698,28 @@ def _polar_translation_normal_form(structure: ASUStructure, axes: list[int]) -> 
         return None
     axis = axes[0]
     orbits: list[tuple[str, str, tuple[tuple[Fraction, ...], ...]]] = []
-    candidates = {Fraction(0)}
     for site in structure.wyckoff_sites:
         points = tuple(
             tuple(value % 1 for value in point.to_fractions()) for point in position.coordinates(site.free_params)
         )
         orbits.append((site.species, site.wyckoff, points))
-        candidates.update((-point[axis]) % 1 for point in points)
+    if not orbits:
+        return structure
+
+    # Translation leaves species, letter and coordinates before this axis unchanged.
+    # The least such prefix must begin the winning sorted key. Canceling the axis
+    # coordinate of any point with that prefix makes the next key coordinate zero,
+    # its least possible wrapped value. Every winning shift is therefore among these
+    # anchors. Retain all tied anchors (later coordinates/rows can distinguish them)
+    # and identity, preserving the existing representative tie policy.
+    prefix = min((species, letter, point[:axis]) for species, letter, points in orbits for point in points)
+    candidates = {Fraction(0)}
+    candidates.update(
+        (-point[axis]) % 1
+        for species, letter, points in orbits
+        for point in points
+        if (species, letter, point[:axis]) == prefix
+    )
 
     def translated_key(shift: Fraction) -> tuple[tuple[str, str, tuple[Fraction, ...]], ...]:
         return tuple(
