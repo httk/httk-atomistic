@@ -581,6 +581,25 @@ def _normalizer_image(structure: ASUStructure, operation: AffineOperation) -> AS
     return _apply_normalizer_operation(structure, operation)
 
 
+def _normalizer_candidates(represented: ASUStructure) -> tuple[ASUStructure, ...]:
+    """Return the standard-frame candidates shared by alignment and grid filtering."""
+    candidates: dict[tuple[tuple[str, str, tuple[Fraction, ...]], ...], ASUStructure] = {
+        _canonical_sites(represented.wyckoff_sites): represented
+    }
+    try:
+        record = data.affine_normalizer_coset_record(represented.spacegroup.hall_entry)
+    except KeyError:
+        record = {}
+    for coset in record.get("affine_normalizer_cosets", ()):
+        if represented.spacegroup.crystal_system not in coset["compatible_systems"]:
+            continue
+        image = _normalizer_image(represented, AffineOperation.from_record(coset))
+        if image is not None:
+            candidates.setdefault(_canonical_sites(image.wyckoff_sites), image)
+
+    return tuple(candidates.values())
+
+
 def _aligned(
     end: ASUStructure,
     reference: ASUStructure,
@@ -603,26 +622,14 @@ def _aligned(
             f"structures are not representable alike: signatures {represented_signature!r} and {reference_signature!r}"
         )
 
-    candidates: dict[tuple[tuple[str, str, tuple[Fraction, ...]], ...], ASUStructure] = {
-        _canonical_sites(represented.wyckoff_sites): represented
-    }
-    try:
-        record = data.affine_normalizer_coset_record(represented.spacegroup.hall_entry)
-    except KeyError:
-        record = {}
-    for coset in record.get("affine_normalizer_cosets", ()):
-        if represented.spacegroup.crystal_system not in coset["compatible_systems"]:
-            continue
-        image = _normalizer_image(represented, AffineOperation.from_record(coset))
-        if image is not None:
-            candidates.setdefault(_canonical_sites(image.wyckoff_sites), image)
+    candidates = _normalizer_candidates(represented)
 
     best: (
         tuple[object, tuple[tuple[str, str, tuple[Fraction, ...]], ...], ASUStructure, tuple[tuple[int, int], ...]]
         | None
     ) = None
     saw_exceeded = False
-    for candidate in candidates.values():
+    for candidate in candidates:
         try:
             score, pairs = pair_score(candidate, reference_standard)
         except _TravelCutoffExceeded:

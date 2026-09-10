@@ -403,3 +403,46 @@ conversion contracts above:
 The full guide, {doc}`details/structural_classes`, covers the naming rationale
 and how the classes relate to isopointal/isoconfigurational structures and
 AFLOW labels.
+
+## Grid candidate filtering
+
+For a batch of geometry-carrying prototypes, protostructures, or exact structures
+in the same declared space group, use
+`httk.atomistic.symmetry.comparison_grid.StructureComparisonGrid` to avoid
+comparisons that cannot meet a Cartesian travel threshold:
+
+```python
+from httk.atomistic.symmetry.comparison_cache import StructureComparisonCache
+from httk.atomistic.symmetry.comparison_grid import StructureComparisonGrid
+
+cache = StructureComparisonCache(max_structures=max(1, 2 * len(values)))
+grid = StructureComparisonGrid(values, delta, dimensions=2, strategy="variance", cache=cache)
+# Within the existing clustering loop:
+if grid.might_match(i, j):
+    matches = values[i].similar(values[j], delta, use_numpy=True, cache=cache)
+```
+
+The grid indexes one, two, or three Cartesian projections of expanded Wyckoff
+coordinates. It includes normalizer alternatives, periodic images, and repeated
+orbit members. `first` selects axes in order, `variance` prefers axes with larger
+coordinate variance, and `occupancy` prefers axes with more occupied scalar bins.
+These are selection strategies, not changes to the matching threshold. A grid
+candidate still needs the ordinary comparison; an excluded pair needs neither
+an assignment solve nor alignment scoring.
+
+The necessary neighborhood radius follows the endpoint-cell travel metric:
+if an atom contributes at most `delta`, a candidate point must be within
+`sqrt(2) * delta` of a periodic image in the reference cell. Projecting that bound
+onto fewer coordinates admits extra candidates without removing valid ones.
+Numerical padding makes the filter conservative near float boundaries. Both
+alignment directions remain possible, and the retained exact representatives
+are unaffected.
+
+Sparse buckets and a bounded query cache limit retained index data. `max_points`
+and `max_images` cap extra preparation and periodic-image work. Unsupported
+preparations, missing geometry, mixed groups, a zero threshold, or poorly
+conditioned cells fall back to unfiltered comparison; `fallback_reason` reports
+a group-wide fallback. `selected_axes` and `indexed_points` expose index diagnostics.
+Use the same shared cache for index construction and subsequent comparisons so
+canonicalization is reused. Index preparation may cost more than it saves for
+small or densely matching groups; benchmark complete groups when selecting settings.
