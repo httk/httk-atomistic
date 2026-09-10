@@ -1673,6 +1673,73 @@ def _discrete_normalizer_translations(spacegroup: Spacegroup) -> tuple[tuple[Fra
     return result
 
 
+def _polar_translation_normal_form(structure: ASUStructure, axes: list[int]) -> ASUStructure | None:
+    """Rank pure origin shifts by exact coordinate keys for the simple polar groups.
+
+    The standard settings of SG 4, 29 and 33 have one general Wyckoff position with
+    an identity representative and one continuous origin axis. Its parameters are precisely
+    the least wrapped orbit point. Expand each orbit once, compare translated rows,
+    and materialize only the winning image. Other table shapes retain the generic
+    path; no Wyckoff identification shortcut is assumed for them.
+    """
+    if (
+        structure.spacegroup.it_number not in (4, 29, 33)
+        or not structure.spacegroup.is_standard_setting
+        or len(axes) != 1
+    ):
+        return None
+    positions = structure.spacegroup.wyckoff
+    if len(positions) != 1:
+        return None
+    position = positions[0]
+    if not position.representative.operation.is_identity() or position.representative.free != (0, 1, 2):
+        return None
+    if any(site.wyckoff != position.letter for site in structure.wyckoff_sites):
+        return None
+    axis = axes[0]
+    orbits: list[tuple[str, str, tuple[tuple[Fraction, ...], ...]]] = []
+    candidates = {Fraction(0)}
+    for site in structure.wyckoff_sites:
+        points = tuple(
+            tuple(value % 1 for value in point.to_fractions()) for point in position.coordinates(site.free_params)
+        )
+        orbits.append((site.species, site.wyckoff, points))
+        candidates.update((-point[axis]) % 1 for point in points)
+
+    def translated_key(shift: Fraction) -> tuple[tuple[str, str, tuple[Fraction, ...]], ...]:
+        return tuple(
+            sorted(
+                (
+                    species,
+                    letter,
+                    min(
+                        tuple((value + shift) % 1 if index == axis else value for index, value in enumerate(point))
+                        for point in points
+                    ),
+                )
+                for species, letter, points in orbits
+            )
+        )
+
+    # Preserve the generic routine's identity-first tie policy, then its increasing
+    # translation order. Equal keys must not change the stored representative.
+    winner = Fraction(0)
+    best_key = translated_key(winner)
+    for candidate in sorted(candidates):
+        if not candidate:
+            continue
+        key = translated_key(candidate)
+        if key < best_key:
+            winner, best_key = candidate, key
+    if not winner:
+        return structure
+    translation = [Fraction(0), Fraction(0), Fraction(0)]
+    translation[axis] = winner
+    return _apply_normalizer_operation(
+        structure, AffineOperation(FracVector.eye((3, 3)), FracVector(translation)), trusted=True
+    )
+
+
 def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
     """Return the origin-canonical image under the group's continuous-normalizer translations.
 
@@ -1689,6 +1756,9 @@ def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
     # Every tabulated continuous-normalizer vector is an axis-aligned unit vector, so the continuous
     # directions are simply the axes those vectors point along.
     axes = sorted({index for vector in shift_basis for index in range(3) if vector[index]})
+    polar = _polar_translation_normal_form(structure, axes)
+    if polar is not None:
+        return polar
     identity = FracVector.eye((3, 3))
     candidates: set[tuple[Fraction, ...]] = {(Fraction(0), Fraction(0), Fraction(0))}
     for site in structure.wyckoff_sites:
