@@ -1,0 +1,61 @@
+httk.atomistic.integrations.ase.view
+====================================
+
+.. py:module:: httk.atomistic.integrations.ase.view
+
+.. autoapi-nested-parse::
+
+   ASE ``Atoms`` view for the :mod:`httk.atomistic` structure family.
+
+   ASE is an optional dependency. This module intentionally imports it unconditionally,
+   so the package-level exports can guard the import while documentation tools can see
+   the public :class:`ASEAtomsView` definition.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.ase.view.ASEAtomsView
+
+
+Module Contents
+---------------
+
+.. py:class:: ASEAtomsView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.view.StructureView`, :py:obj:`ase.Atoms`
+
+
+   Present a structure-like value as ASE ``Atoms``.
+
+   The conversion carries the structure quartet: cell, reduced positions, atomic
+   numbers, and periodicity. ASE must be installed to construct this view. Mixed or
+   attached species cannot be represented by ASE atomic numbers and raise
+   :class:`TypeError`.
+
+   Site moments map to ``initial_magmoms`` and species charges map to
+   ``initial_charges``. Structure charge, species spins, labels, masses, assemblies,
+   declared chemical composition, and non-element species are rejected rather than
+   discarded; :meth:`unwrap` recovers the original value behind the backend.
+
+   :param obj: A structure-like value to present as ``Atoms``.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the original value represented by the underlying backend.
+
+
+
+   .. py:method:: unview()
+
+      Return a base ``Atoms`` copy of this view.
+
+      :return: A standalone ASE ``Atoms`` object.
+
+
+

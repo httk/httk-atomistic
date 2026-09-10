@@ -1,0 +1,82 @@
+httk.atomistic.symmetry.comparison_grid
+=======================================
+
+.. py:module:: httk.atomistic.symmetry.comparison_grid
+
+.. autoapi-nested-parse::
+
+   Conservative sparse grids for approximate structure comparison candidates.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.comparison_grid.StructureComparisonGrid
+
+
+Module Contents
+---------------
+
+.. py:class:: StructureComparisonGrid(values, delta, *, dimensions = 2, strategy = 'occupancy', cache = None, max_points = 100000, max_images = 512)
+
+   Index necessary atom-neighborhood conditions for one same-group comparison batch.
+
+   A false result from :meth:`might_match` excludes a pair; a true result still needs
+   the ordinary similarity comparison. One to three Cartesian projections of expanded
+   Wyckoff coordinates are gridded. Every candidate orbit member and normalizer image
+   is indexed, allowing repeated sites and symmetry-equivalent descriptions. Queries
+   include the reference cell's periodic images and both alignment directions.
+
+   For atom travel c, the current endpoint metric implies
+   ``norm(r1 - r2 + n B1) <= sqrt(2) c`` for some integer image n. Total travel within
+   delta therefore requires every matched atom to satisfy this neighborhood condition.
+   Selected projections only weaken that condition. Sparse buckets retain occupied
+   cells only; caps and unsupported preparations fall back to ordinary comparison.
+
+   :param values: Exact structures or geometry-carrying prototypes/protostructures.
+   :param delta: Finite non-negative Cartesian travel threshold.
+   :param dimensions: Number of Cartesian projections to index, from one to three.
+   :param strategy: Axis selection: ``first``, ``variance``, or ``occupancy``.
+   :param cache: Optional shared canonicalization and prototype-conversion cache.
+   :param max_points: Maximum expanded points retained during index preparation.
+   :param max_images: Maximum periodic images examined for any reference anchor.
+   :raises ValueError: If a threshold, strategy, dimension, or capacity is invalid.
+   :raises TypeError: If a value is not a supported structure or prototype.
+   :raises ImportError: If NumPy is unavailable.
+
+
+   .. py:property:: fallback_reason
+      :type: str | None
+
+
+      Return why this index permits every pair, or ``None`` when indexing succeeded.
+
+
+   .. py:property:: indexed_points
+      :type: int
+
+
+      Return the number of candidate orbit points processed by the index.
+
+
+   .. py:property:: selected_axes
+      :type: tuple[int, ...]
+
+
+      Return the selected Cartesian coordinate indices in grid-key order.
+
+
+   .. py:method:: might_match(first, second)
+
+      Return whether a pair still requires the ordinary similarity comparison.
+
+      :param first: Index of the first input value.
+      :param second: Index of the second input value.
+      :return: False only when both directed neighborhood tests exclude the pair.
+      :raises IndexError: If an index is outside the supplied sequence.
+
+
+

@@ -1,0 +1,26 @@
+httk.atomistic.models.bareprotostructure.like
+=============================================
+
+.. py:module:: httk.atomistic.models.bareprotostructure.like
+
+.. autoapi-nested-parse::
+
+   The accepted-input union for protostructures.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprotostructure.like.BareProtostructureLike
+
+
+Module Contents
+---------------
+
+.. py:type:: BareProtostructureLike
+   :canonical: httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend | httk.atomistic.models.bareprotostructure.view_base.BareProtostructureViewBase | httk.atomistic.models.bareprotostructure.bareprotostructure.BareProtostructure | str | httk.atomistic.models.protostructure.backend.ProtostructureBackend | httk.atomistic.models.protostructure.view_base.ProtostructureViewBase | httk.atomistic.models.bareprototype.view_base.BarePrototypeViewBase | httk.atomistic.models.prototype.view_base.PrototypeViewBase | httk.atomistic.models.structure.backend.StructureBackend | httk.atomistic.models.structure.view.StructureView
+
+

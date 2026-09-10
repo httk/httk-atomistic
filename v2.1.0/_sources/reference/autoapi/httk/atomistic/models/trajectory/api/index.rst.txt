@@ -1,0 +1,113 @@
+httk.atomistic.models.trajectory.api
+====================================
+
+.. py:module:: httk.atomistic.models.trajectory.api
+
+.. autoapi-nested-parse::
+
+   Define the canonical trajectory interface for httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.trajectory.api.TrajectoryAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: TrajectoryAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Define the common, frame-oriented trajectory interface.
+
+   A trajectory has one constant composition for all frames. Trajectories whose
+   number or identity of sites changes are intentionally outside this interface.
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Count frames by streaming them in O(n) time.
+
+      Each call requires ``frames()`` to provide a fresh traversal; a one-shot backend must
+      override this default or cache its frames. Random-access backends override this default.
+
+      :return: The number of frames.
+
+
+   .. py:method:: frame(i)
+
+      Stream to and return one frame in O(n) time.
+
+      Each call requires ``frames()`` to provide a fresh traversal; a one-shot backend must
+      override this default or cache its frames. Random-access backends override this default.
+
+      :param i: Frame index.
+      :return: The requested :class:`~httk.atomistic.models.structure.unitcell.UnitcellStructure`.
+      :raises IndexError: If ``i`` is before the first frame or past the end.
+      :raises TypeError: If ``i`` is not an integer.
+
+
+
+   .. py:method:: frames()
+      :abstractmethod:
+
+
+      Iterate over the frames with a fresh traversal on every call.
+
+      A one-shot backend must override the streaming defaults or cache its frames.
+
+      :return: A fresh iterator of unit-cell structures.
+
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+      :abstractmethod:
+
+
+      Return the constant distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+      :abstractmethod:
+
+
+      Return the constant species name at each site.
+
+
+   .. py:property:: reference_frames
+      :type: tuple[int, ...] | None
+
+
+      Return stored reference-frame indexes, or ``None``.
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, ...]
+
+
+      Return the names of available per-frame observables.
+
+
+   .. py:method:: observable(name)
+
+      Return one observable's values by frame.
+
+      :param name: Observable name.
+      :return: The observable values in frame order.
+      :raises KeyError: If the observable is unavailable.
+
+
+

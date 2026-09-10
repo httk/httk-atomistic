@@ -1,0 +1,42 @@
+httk.atomistic.models.prototype.occupation
+==========================================
+
+.. py:module:: httk.atomistic.models.prototype.occupation
+
+.. autoapi-nested-parse::
+
+   An occupied Wyckoff position labelled by an anonymous species class.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.occupation.PrototypeOccupation
+
+
+Module Contents
+---------------
+
+.. py:class:: PrototypeOccupation
+
+   Store one Wyckoff orbit assigned to one anonymous species class.
+
+   Unlike :class:`~httk.atomistic.models.protostructure.occupation.WyckoffOccupation`,
+   the class carries an anonymous class label (``"A"``, ``"B"``, ...) rather than a real
+   :class:`~httk.atomistic.Species`, so it can represent an element-agnostic prototype.
+
+   :param wyckoff: The Wyckoff letter in the standard setting.
+   :param label: The anonymous species-class label.
+
+
+   .. py:attribute:: wyckoff
+      :type:  str
+
+
+   .. py:attribute:: label
+      :type:  str
+
+

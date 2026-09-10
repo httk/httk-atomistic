@@ -1,0 +1,30 @@
+httk.atomistic.models.formula.view_base
+=======================================
+
+.. py:module:: httk.atomistic.models.formula.view_base
+
+.. autoapi-nested-parse::
+
+   The abstract base class for all chemical-formula views in httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.view_base.ChemicalFormulaViewBase
+
+
+Module Contents
+---------------
+
+.. py:class:: ChemicalFormulaViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`\ ]
+
+
+   Abstract base class for all views of chemical-formula data.
+
+

@@ -1,0 +1,37 @@
+httk.atomistic.models.species.backend
+=====================================
+
+.. py:module:: httk.atomistic.models.species.backend
+
+.. autoapi-nested-parse::
+
+   The abstract base class for all species backends in httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.species.backend.SpeciesBackend
+
+
+Module Contents
+---------------
+
+.. py:class:: SpeciesBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`SpeciesBackend`\ ], :py:obj:`httk.atomistic.models.species.api.SpeciesAPI`
+
+
+   Abstract base class for all backends of single-species data.
+
+   Concrete backends carry a native representation and produce the canonical OPTIMADE
+   species accessors declared by ``SpeciesAPI`` from it.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+

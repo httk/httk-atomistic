@@ -1,0 +1,226 @@
+httk.atomistic.models.bareprotostructure
+========================================
+
+.. py:module:: httk.atomistic.models.bareprotostructure
+
+.. autoapi-nested-parse::
+
+   The assigned-species Wyckoff-only classification family.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/bareprotostructure/api/index
+   /reference/autoapi/httk/atomistic/models/bareprotostructure/backend/index
+   /reference/autoapi/httk/atomistic/models/bareprotostructure/bareprotostructure/index
+   /reference/autoapi/httk/atomistic/models/bareprotostructure/label/index
+   /reference/autoapi/httk/atomistic/models/bareprotostructure/label_string/index
+   /reference/autoapi/httk/atomistic/models/bareprotostructure/like/index
+   /reference/autoapi/httk/atomistic/models/bareprotostructure/projected/index
+   /reference/autoapi/httk/atomistic/models/bareprotostructure/recognized/index
+   /reference/autoapi/httk/atomistic/models/bareprotostructure/view/index
+   /reference/autoapi/httk/atomistic/models/bareprotostructure/view_base/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprotostructure.BareProtostructureLike
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprotostructure.WyckoffOccupation
+   httk.atomistic.models.bareprotostructure.BareProtostructureAPI
+   httk.atomistic.models.bareprotostructure.BareProtostructureBackend
+   httk.atomistic.models.bareprotostructure.BareProtostructure
+   httk.atomistic.models.bareprotostructure.BareProtostructureViewBase
+
+
+Package Contents
+----------------
+
+.. py:class:: WyckoffOccupation
+
+   Store one Wyckoff orbit occupied by one possibly disordered species.
+
+   :param wyckoff: The Wyckoff letter in the standard setting.
+   :param species: The real species occupying the orbit.
+
+
+   .. py:attribute:: wyckoff
+      :type:  str
+
+
+   .. py:attribute:: species
+      :type:  httk.atomistic.models.species.species.Species
+
+
+.. py:class:: BareProtostructureAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   The common interface for standard-setting occupied Wyckoff positions.
+
+   Composition and formula derivations from this interface use the standard-setting
+   conventional-cell scale, independently of the setting or transform of a source
+   structure from which a protostructure was recognized.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+      :abstractmethod:
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+      :abstractmethod:
+
+
+      Return the occupied Wyckoff positions in canonical order.
+
+
+   .. py:method:: multiplicities()
+
+      Return tabulated standard-setting multiplicities for each occupation.
+
+      These are deliberately not multiplicities from a source structure's transform;
+      they define the provenance-independent conventional-cell scale of this value.
+
+      :return: The standard-setting multiplicity for each occupation.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the total number of sites in the standard conventional cell.
+
+      :return: The conventional-cell site count.
+
+
+   .. py:property:: formula
+      :type: httk.atomistic.models.formula.formula_view.ChemicalFormulaView
+
+
+      Return a reduced formula at the standard conventional-cell scale.
+
+      :return: The conventional-cell reduced formula view.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatype_view.FormulatypeView
+
+
+      Return a reduced anonymous formula at the standard conventional-cell scale.
+
+      :return: The conventional-cell anonymous formula view.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.bareprotostructure.label.BareProtostructureLabel
+
+
+      Return the httk protostructure label of this protostructure.
+
+      The label's unsuffixed part orders classes by their Wyckoff letters, so it is the
+      prototype label of the erased anonymous prototype; the suffix lists the class species names.
+      This is NOT an AFLOW label: AFLOW orders classes alphabetically by element (see
+      :attr:`aflow_label`). Any faithful render is *the* protostructure label; the
+      *canonical* protostructure label comes from a normalizer-canonical protostructure.
+
+      :return: The protostructure label view.
+
+
+   .. py:property:: aflow_label
+      :type: str
+
+
+      Return the AFLOW-style label of this protostructure.
+
+      Unlike :attr:`label`, AFLOW orders classes alphabetically by element symbol and
+      reassigns the anonymous symbols in that order, so the unsuffixed prefix depends on
+      the chemistry. Provided for interoperability only.
+
+      :return: The AFLOW-style label text.
+
+
+   .. py:property:: bare_protostructure
+      :type: Self
+
+
+      Return this protostructure value.
+
+
+.. py:class:: BareProtostructureBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`BareProtostructureBackend`\ ], :py:obj:`httk.atomistic.models.bareprotostructure.api.BareProtostructureAPI`
+
+
+   Backend root for standard-setting assigned-species classification keys.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+
+.. py:class:: BareProtostructure(spacegroup, occupations)
+
+   Bases: :py:obj:`httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend`
+
+
+   Store only standard-setting Wyckoff occupations, without geometrical refinement.
+
+   :param spacegroup: The standard-setting space group or its IT number.
+   :param occupations: Occupied Wyckoff positions and their assigned species.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'bare_protostructure'
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+
+      Return the canonical occupied Wyckoff positions.
+
+
+.. py:type:: BareProtostructureLike
+   :canonical: httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend | httk.atomistic.models.bareprotostructure.view_base.BareProtostructureViewBase | httk.atomistic.models.bareprotostructure.bareprotostructure.BareProtostructure | str | httk.atomistic.models.protostructure.backend.ProtostructureBackend | httk.atomistic.models.protostructure.view_base.ProtostructureViewBase | httk.atomistic.models.bareprototype.view_base.BarePrototypeViewBase | httk.atomistic.models.prototype.view_base.PrototypeViewBase | httk.atomistic.models.structure.backend.StructureBackend | httk.atomistic.models.structure.view.StructureView
+
+
+.. py:class:: BareProtostructureViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend`\ ]
+
+
+   Base class for views presenting protostructure backends.
+
+

@@ -1,0 +1,53 @@
+httk.atomistic.models.protostructure.view
+=========================================
+
+.. py:module:: httk.atomistic.models.protostructure.view
+
+.. autoapi-nested-parse::
+
+   Lazy refined protostructure presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protostructure.view.ProtostructureView
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtostructureView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.protostructure.view_base.ProtostructureViewBase`, :py:obj:`httk.atomistic.models.protostructure.protostructure.Protostructure`
+
+
+   Present an existing refined protostructure lazily.
+
+   Raw structures and plain labels require a bare view; refinement must be constructed
+   explicitly with a representative or discriminator. A bare projection view retaining
+   a refined source can recover that source here.
+
+   :param obj: Existing refined classification.
+   :param \*\*hints: Reserved hints; recognition arguments are rejected.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the refined protostructure as a standalone value.
+
+      :return: The protostructure value.
+
+
+

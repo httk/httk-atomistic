@@ -1,0 +1,82 @@
+httk.atomistic.entries
+======================
+
+.. py:module:: httk.atomistic.entries
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/entries/charge/index
+   /reference/autoapi/httk/atomistic/entries/definitions/index
+   /reference/autoapi/httk/atomistic/entries/moments/index
+   /reference/autoapi/httk/atomistic/entries/precision/index
+   /reference/autoapi/httk/atomistic/entries/prototypes/index
+   /reference/autoapi/httk/atomistic/entries/structures/index
+   /reference/autoapi/httk/atomistic/entries/symmetry/index
+   /reference/autoapi/httk/atomistic/entries/trajectories/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.PRECISION_PROPERTY_KEYS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.load_httk_definitions
+   httk.atomistic.entries.precision_definitions
+   httk.atomistic.entries.precision_properties
+
+
+Package Contents
+----------------
+
+.. py:function:: load_httk_definitions(names)
+
+   Load vendored property definitions by served name.
+
+   Each document is loaded verbatim, ``$id`` included. Note that a definition's own
+   ``x-optimade-definition.name`` stays the unprefixed name it was published under, which
+   will differ from the prefixed name httk serves it as — that is correct, and rewriting a
+   published document to match a local naming choice would defeat the point of pointing at
+   it.
+
+   :param names: A map from served property name to vendored definition stem.
+   :return: The loaded definitions keyed by served property name.
+
+
+.. py:data:: PRECISION_PROPERTY_KEYS
+   :type:  dict[str, str]
+
+.. py:function:: precision_definitions()
+
+   Load the vendored coordinate and basis precision definitions.
+
+   :return: Definitions keyed by their served names.
+
+
+.. py:function:: precision_properties(structure)
+
+   Project the stated coordinate and basis precision.
+
+   Both are ``null`` for a structure that does not say — one built by hand, or read from a
+   source that does not write its numbers to a definite number of digits. That is the
+   honest answer, and it is distinguishable from a claim of exactness.
+
+   Rendered as floats, since that is what a JSON consumer will use them as; they are held
+   exactly on the structure itself.
+
+   :param structure: The structure to project, or ``None`` for an empty entry.
+   :return: The ``_httk_coordinate_precision`` and ``_httk_basis_precision`` values.
+
+

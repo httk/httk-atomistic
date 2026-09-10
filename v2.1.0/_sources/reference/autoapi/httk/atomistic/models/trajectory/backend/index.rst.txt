@@ -1,0 +1,36 @@
+httk.atomistic.models.trajectory.backend
+========================================
+
+.. py:module:: httk.atomistic.models.trajectory.backend
+
+.. autoapi-nested-parse::
+
+   Define the abstract base class for trajectory backends.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.trajectory.backend.TrajectoryBackend
+
+
+Module Contents
+---------------
+
+.. py:class:: TrajectoryBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`TrajectoryBackend`\ ], :py:obj:`httk.atomistic.models.trajectory.api.TrajectoryAPI`
+
+
+   Define the backend base for all trajectory representations.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+      :value: []
+
+
+

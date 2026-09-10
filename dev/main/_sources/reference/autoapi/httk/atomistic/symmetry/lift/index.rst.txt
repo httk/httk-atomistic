@@ -1,0 +1,222 @@
+httk.atomistic.symmetry.lift
+============================
+
+.. py:module:: httk.atomistic.symmetry.lift
+
+.. autoapi-nested-parse::
+
+   Exact one-hop backward lifts through Bärnighausen tables.
+
+   The public functions in this module invert one tabulated subgroup descent.  Coordinates,
+   Wyckoff parameters, affine maps, modular solves, and returned shifts are rational.  A
+   Cartesian tolerance is used only when accepting a measured structure that is not an exact
+   solution of the assembled equations. Cell-metric validation covers monoclinic, orthorhombic,
+   tetragonal, trigonal, hexagonal, and cubic systems; every tabulated trigonal and hexagonal parent
+   is in a hexagonal-axes standard setting, so their metric constraint is a=b with alpha=beta=90 and
+   gamma=120. Normalizer retry applies tabulated cosets to child fractional coordinates, maps
+   successful results back with the exact inverse, and follows tabulated coset order.
+
+   On top of the one-hop lift, :func:`highest_symmetry` / :func:`canonicalize` search upward for the
+   highest-symmetry description of a crystal and return one deterministic, normalizer-canonical
+   representative.  Every search state is reduced to a normal form that collapses same-group
+   descriptions of the same crystal: mislabeled special sites are demoted, and the state is quotiented
+   by the group's continuous- and discrete-Euclidean-normalizer translations and its affine-normalizer
+   cosets.  A triclinic (SG 1 or 2) entry is first Niggli-reduced so the result is independent of the
+   input basis choice, and the returned cell is put in the standard orientation of its metric.  The
+   result is therefore invariant under origin shift, cell-basis choice (relabeling/shear), and site
+   order for the same crystal, and agrees with direct entry at the crystal's own space group.  For a
+   P1 / unit-cell start, build the ASU in SG 1 and canonicalize it::
+
+       cell = Cell(((4, 0, 0), (0, 4, 0), (0, 0, 4)))
+       sites = [WyckoffSite("a", FracVector((0, 0, 0)), "Cs"),
+                WyckoffSite("a", FracVector((Fraction(1, 2),) * 3), "Cl")]
+       p1 = ASUStructure(cell, 1, sites, [Species(...), Species(...)])
+       result = canonicalize(p1)  # result.spacegroup.it_number == 221
+
+   The upward search lifts each state through three fail-only tiers, tried in order and only when the
+   earlier ones return nothing for a state: (1) the direct tabulated lift; (2) tabulated
+   affine-normalizer-coset retries; (3) a conventional-cell re-choice.  The third tier exists because
+   a centred-lattice parent can be presented, in the reduced cell the search carries, in an axis choice
+   that misses the parent's exact metric class even though the lattice admits a conforming cell -- an
+   F-centred cubic (NaCl from its Niggli primitive) is the motivating case.  It searches the candidate
+   parent lattice for a conventional basis meeting the parent metric exactly, derives the implied child
+   re-expression, and applies it through two arms: an integer lattice-normalizer re-choice on the
+   conventional lattice (the F-centred cubic case), and -- when the parent conventional cell is an
+   intrinsic supercell of the child's conventional lattice, so the conventional-lattice search cannot
+   produce it (the R-centred trigonal case, Bi-166) -- a re-choice enumerated on the child's PRIMITIVE
+   lattice (centring vectors included; the det-3 hexagonal basis lives there) and crossed with the
+   child's discrete normalizer translations, which is what places the atoms on the tabulated
+   splitting's origin coset.  Centred-arm re-expressions are verified to conjugate the child's op set
+   onto itself exactly and may in general be half-integer on the conventional cell (a supported
+   generalization; every map accepted so far has been integer).  The descent round-trip gate stays
+   authoritative in both arms.  The tier is inert whenever an earlier tier succeeds, so it never runs
+   on a normally-climbing (e.g. P-lattice) input.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.lift.COMPATIBLE_CRYSTAL_SYSTEMS
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.lift.LiftResult
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.lift.backward_lift
+   httk.atomistic.symmetry.lift.lift_candidates
+   httk.atomistic.symmetry.lift.highest_symmetry
+   httk.atomistic.symmetry.lift.canonicalize
+   httk.atomistic.symmetry.lift.rerepresent
+
+
+Module Contents
+---------------
+
+.. py:data:: COMPATIBLE_CRYSTAL_SYSTEMS
+   :type:  dict[str, frozenset[str]]
+
+.. py:class:: LiftResult
+
+   One exact or tolerance-accepted parent representation.
+
+   :param asu: The parent-standard-setting asymmetric unit.
+   :param spacegroup: The parent space group in standard setting.
+   :param path: Child-first tabulated parent-to-child subgroup transforms used.
+   :param shift: The continuous-normalizer origin shift from the final hop, expressed in that
+       hop's parent standard frame.  ``path`` and ``shift`` document the lift route; they do not by
+       themselves reconstruct ``asu``, since :func:`highest_symmetry` additionally passes each state
+       through an unrecorded normal form and canonical orientation.  ``asu`` is authoritative.
+       When a default (chirality-normalizing) canonicalization flips an enantiomorphic terminal,
+       ``path`` and ``shift`` describe the route to the pre-flip higher-member terminal, while
+       ``asu``/``spacegroup`` carry the flipped lower-member result -- ``asu`` remains authoritative.
+   :param residual: The largest wrapped fractional residual accepted.
+
+
+   .. py:attribute:: asu
+      :type:  httk.atomistic.models.structure.asu.ASUStructure
+
+
+   .. py:attribute:: spacegroup
+      :type:  httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+   .. py:attribute:: path
+      :type:  tuple[httk.atomistic.symmetry.subgroups.SubgroupTransform, ...]
+
+
+   .. py:attribute:: shift
+      :type:  httk.core.FracVector
+
+
+   .. py:attribute:: residual
+      :type:  fractions.Fraction
+
+
+.. py:function:: backward_lift(structure, supergroup, *, tolerance = None)
+
+   Return all exact or tolerance-accepted lifts into one minimal supergroup.
+
+   :param structure: The child-group asymmetric unit to lift.
+   :param supergroup: The one-hop parent space group or IT number.
+   :param tolerance: Cartesian acceptance tolerance, or the recognition-derived default.
+   :return: Distinct parent representations in table order and canonical order.
+   :raises ValueError: If the input is unsupported or the target is not one hop above it.
+
+   A bounded normalizer retry applies tabulated cosets to child fractional coordinates and maps
+   successful results back with the exact inverse, in tabulated coset order.
+
+
+.. py:function:: lift_candidates(structure, *, tolerance = None)
+
+   Return all one-hop parent lifts in deterministic order.
+
+   :param structure: The child-group asymmetric unit to lift.
+   :param tolerance: Cartesian acceptance tolerance, or the recognition-derived default.
+   :return: Results ordered by parent IT number, table order, and exact key.
+
+
+.. py:function:: highest_symmetry(structure, *, tolerance = None, all_paths = False, preserve_chirality = True)
+
+   Return all terminal upward lifts reached by breadth-first search.
+
+   :param structure: The starting asymmetric-unit structure.
+   :param tolerance: Cartesian acceptance tolerance, or the recognition-derived default.
+   :param all_paths: When ``False`` (default) the visited set collapses alternate Bärnighausen
+       routes to one entry per state, so each terminal appears once.  When ``True`` the visited set
+       also keys on the accumulated path, so every distinct ``(terminal, path)`` pair is returned;
+       the ``.asu`` representatives of the extra results are identical, only ``path`` differs.  The
+       state cap therefore binds sooner under the flag.
+   :param preserve_chirality: When ``True`` (the default), the recognized group is kept.  When
+       ``False``, a terminal landing in the higher member of an enantiomorphic pair is flipped by an
+       exact chirality transformation to its lower-numbered partner and re-normal-formed in that
+       partner group.  The flip is applied only at terminal emission, never to mid-search states (the
+       Bärnighausen tables are per-group).
+   :return: Deterministically ordered highest-symmetry representations.
+   :raises ValueError: If the input is unsupported, or if the breadth-first search exceeds its
+       visited-state cap.  A per-parent modular-solver branch-cap failure is not raised: that parent
+       target is skipped and reported through the ``"symmetry"`` warning channel, so in that rare
+       case the returned symmetry may be lower than the true maximum.  The noisy least-squares
+       fallback is capped the same way -- a candidate whose integer-wrap box exceeds the noisy cap is
+       skipped (also on the ``"symmetry"`` warning channel), which could likewise lower the returned
+       symmetry for a genuinely noisy large-box lift.
+
+   An exact P1 supercell entry is first collapsed to its unique primitive description (any
+   multiplicity or sublattice orientation), and a triclinic (SG 1 or 2) entry is then Niggli-reduced
+   so the search is independent of the input basis choice.  Each search state is then reduced to its
+   normalizer-canonical normal form --
+   special-site demotion plus the continuous- and discrete-Euclidean-normalizer translation
+   quotients and the affine-normalizer coset quotient -- collapsing origin-, basis- and
+   normalizer-equivalent representations to one visited entry so the search terminates from a raw
+   P1 input.  The returned ``asu`` is that normalizer-canonical representative, its cell placed in
+   the standard orientation of its metric, so the result is invariant under origin shift, cell-basis
+   choice, and site order for the same crystal.  ``path`` records the tabulated hops of the route
+   that reached it, and a bounded normalizer retry along that route applies tabulated cosets to
+   child coordinates and maps results back with the exact inverse, in tabulated coset order.
+
+
+.. py:function:: canonicalize(structure, *, tolerance = None, preserve_chirality = True)
+
+   Return the first deterministic highest-symmetry representation.
+
+   The result is the normalizer-canonical representative of the input's crystal: the same exact
+   ``(it_number, sorted (species, wyckoff, free_params), cell basis)`` for any origin shift,
+   cell-basis choice (relabeling/shear), or site ordering of that crystal, and coherent with direct
+   entry at its own space group.  See :func:`highest_symmetry` for the full contract; for a
+   P1/unit-cell start build the ASU in SG 1 and pass it here.
+
+   :param structure: The structure to canonicalize.
+   :param tolerance: Cartesian acceptance tolerance, or the recognition-derived default.
+   :param preserve_chirality: When ``True`` (the default), the recognized group is kept, so a
+       genuinely chiral crystal retains its handedness.  When ``False``, a result in the higher
+       member of an enantiomorphic pair is normalized to its lower-numbered partner by an exact
+       chirality flip (magnetic structures excepted; :func:`~httk.atomistic.normalize_chirality` is the standalone
+       bridge).  See :func:`highest_symmetry`.
+   :return: The canonical terminal lift.
+
+
+.. py:function:: rerepresent(structure, target, *, tolerance = None)
+
+   Express a structure in a reachable subgroup or supergroup setting.
+
+   :param structure: The input asymmetric-unit structure.
+   :param target: The target space group or IT number.
+   :param tolerance: Cartesian acceptance tolerance for upward lifts.
+   :return: The target-group asymmetric unit.
+   :raises ValueError: If the target is unrelated, an upward hop has no lift, or a cross-group
+       rerepresentation requires descending or lifting a structure with site moments, assemblies,
+       or molecular semantics.
+
+

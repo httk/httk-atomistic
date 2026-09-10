@@ -1,0 +1,104 @@
+httk.atomistic.models.prototype.api
+===================================
+
+.. py:module:: httk.atomistic.models.prototype.api
+
+.. autoapi-nested-parse::
+
+   The anonymous geometrical-class prototype interface.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.api.PrototypeAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: PrototypeAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Common interface for anonymous standard-setting Wyckoff prototypes.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+      :abstractmethod:
+
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototype.occupation.PrototypeOccupation, ...]
+
+      :abstractmethod:
+
+
+
+   .. py:property:: representative
+      :type: FundamentalDomainTemplate | None
+
+
+      Return an optional retained exact representative.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return an optional geometrical-class discriminator.
+
+
+   .. py:method:: multiplicities()
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+
+   .. py:property:: pearson_symbol
+      :type: str
+
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatype_view.FormulatypeView
+
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.prototype.label.PrototypeLabel
+
+
+
+   .. py:property:: prototype
+      :type: Self
+
+
+
+   .. py:method:: similar(other, delta)
+
+      Return whether two prototypes have compatible geometry within ``delta``.
+
+      The base identity (space group, anonymous occupations, and any discriminators
+      present on both) must agree; when both sides retain a geometrical representative,
+      their total Cartesian atom travel must not exceed ``delta``. A prototype-like or
+      protostructure-like ``other`` is erased through :class:`~httk.atomistic.PrototypeView` first, so a
+      bare protostructure compares against its anonymous prototype.
+
+      :param other: The prototype-like or protostructure-like value to compare against.
+      :param delta: The non-negative finite Cartesian travel budget.
+      :return: Whether the two values are compatible within ``delta``.
+      :raises TypeError: If ``delta`` is not a real number.
+      :raises ValueError: If ``delta`` is negative or non-finite.
+
+
+

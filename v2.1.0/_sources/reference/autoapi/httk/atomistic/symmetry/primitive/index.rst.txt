@@ -1,0 +1,100 @@
+httk.atomistic.symmetry.primitive
+=================================
+
+.. py:module:: httk.atomistic.symmetry.primitive
+
+.. autoapi-nested-parse::
+
+   Express a structure in the fixed primitive cell of its standard setting.
+
+   The primitive basis is obtained from the IT standard-setting conventional cell with the
+   centring-dependent matrices documented by spglib. The matrices are stated here in their
+   column-vector convention and transposed for httk's row-vector cell representation.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.primitive.PrimitiveCellResult
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.primitive.primitive_cell
+
+
+Module Contents
+---------------
+
+.. py:class:: PrimitiveCellResult
+
+   Store a structure in the fixed primitive cell of its conventional cell.
+
+   ``transform`` is the row-convention matrix actually applied to the conventional basis:
+   ``basis_primitive = transform * basis_conventional``. The matrices are the transposes of
+   spglib's documented column-vector matrices, where ``B_p = B_s P_c``; fractional row
+   coordinates therefore transform as ``f_p = f_s * transform.inv()`` and are wrapped into
+   ``[0, 1)``. See the `spglib primitive-cell definition
+   <https://spglib.readthedocs.io/en/latest/definition.html#transformation-to-the-primitive-cell>`_.
+
+   ``multiplier`` is the exact ratio of primitive-cell site count to input site count.
+
+   :param structure: The resulting primitive-cell structure.
+   :param spacegroup: The space group of the standardized input.
+   :param conventional: The conventional-cell result used as input.
+   :param transform: The row-convention matrix applied to the conventional basis.
+   :param multiplier: The exact ratio of result site count to input site count.
+
+
+   .. py:attribute:: structure
+      :type:  httk.atomistic.models.structure.unitcell.UnitcellStructure
+
+
+   .. py:attribute:: spacegroup
+      :type:  httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+   .. py:attribute:: conventional
+      :type:  httk.atomistic.symmetry.standardization.ConventionalCellResult
+
+
+   .. py:attribute:: transform
+      :type:  httk.core.FracVector
+
+
+   .. py:attribute:: multiplier
+      :type:  fractions.Fraction
+
+
+.. py:function:: primitive_cell(structure, *, tolerance = None, limit_denominator = None)
+
+   Return ``structure`` in the spglib-convention primitive cell.
+
+   The input is first recognized or, when it already contains an asymmetric unit, used exactly
+   as stored. Recognition arguments are rejected for an existing ASU. The recognized structure
+   is converted to its IT standard-setting conventional cell by
+   :func:`~httk.atomistic.conventional_cell`, then the fixed matrix for its centring type is
+   applied exactly. Site moments are carried through as per-site data: Cartesian and collinear
+   moments are unchanged by the basis recombination, and translation images that collapse onto one
+   primitive site must agree, or the magnetic order needs the larger cell. Assemblies are refused
+   because the centring collapse cannot preserve correlated site groups. This operation does not
+   perform Niggli reduction.
+
+   :param structure: The structure to express in a primitive cell.
+   :param tolerance: The Cartesian recognition tolerance, or ``None`` to derive it.
+   :param limit_denominator: The maximum denominator for idealised free parameters, or
+       ``None`` to retain their exact stated values.
+   :return: The primitive-cell structure and transform metadata.
+   :raises ImportError: If recognition is needed and the optional spglib dependency is
+       unavailable.
+   :raises ValueError: If recognition arguments are invalid for the input, the structure has
+       assemblies or crystal-axis moments, its magnetic order is incompatible with the primitive
+       cell, it is not fully periodic, or it has an unsupported centring type.
+
+

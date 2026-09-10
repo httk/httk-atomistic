@@ -1,0 +1,57 @@
+httk.atomistic.models.moments.collinear
+=======================================
+
+.. py:module:: httk.atomistic.models.moments.collinear
+
+.. autoapi-nested-parse::
+
+   Collinear per-site magnetic-moment backend.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.collinear.CollinearSiteMoments
+
+
+Module Contents
+---------------
+
+.. py:class:: CollinearSiteMoments(moments, precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.moments.backend.SiteMomentsBackend`
+
+
+   Signed per-site scalar moments with no assigned Cartesian axis.
+
+
+   .. py:attribute:: kind
+      :value: 'collinear'
+
+
+
+   .. py:property:: collinear_moments
+      :type: httk.core.FracVector
+
+
+      The exact signed scalar moment for each site.
+
+
+   .. py:property:: cartesian_moments
+      :type: httk.core.SurdVector
+
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      How precisely the moments were stated, in Bohr magnetons, or ``None``.
+
+      Concrete rather than abstract, so a backend with no source of precision inherits
+      ``None`` instead of breaking.
+
+

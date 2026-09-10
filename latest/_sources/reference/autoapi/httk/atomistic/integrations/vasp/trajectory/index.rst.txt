@@ -1,0 +1,128 @@
+httk.atomistic.integrations.vasp.trajectory
+===========================================
+
+.. py:module:: httk.atomistic.integrations.vasp.trajectory
+
+.. autoapi-nested-parse::
+
+   Lazy VASP trajectory access through neutral httk payloads.
+
+   This backend is explicit-only: a generic trajectory source must not claim an
+   OUTCAR/XDATCAR path.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.vasp.trajectory.VASPTrajectory
+
+
+Module Contents
+---------------
+
+.. py:class:: VASPTrajectory(source, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.trajectory.backend.TrajectoryBackend`
+
+
+   Read VASP OUTCAR and/or XDATCAR data lazily.
+
+   XDATCAR supplies geometry when present.  OUTCAR observables use the
+   per-frame ``energy_sigma0``, parsed as a float, plus temperature and
+   ``stress_gpa_voigt()``.  One bounded pass caches those three scalar/6-tuple
+   sequences; frame geometry is never cached.
+
+   XDATCAR geometry is preferred when both files are available. Cartesian coordinates
+   are reduced exactly against the frame cell. A mismatch between OUTCAR and XDATCAR
+   frame counts raises an error.
+
+   :param source: A VASP trajectory path, directory, payload, or VASP-outputs-like object.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'vasp'
+
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Return the validated number of frames.
+
+
+   .. py:property:: species
+      :type: tuple[Any, ...]
+
+
+      Return the composition inferred from POSCAR, XDATCAR, or OUTCAR.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the species name at each site.
+
+
+   .. py:property:: reference_frames
+      :type: None
+
+
+      Return ``None`` because VASP frames are not bounded references.
+
+
+   .. py:method:: frame(i)
+
+      Read one VASP frame by index.
+
+      :param i: Frame index; negative indexes count from the end.
+      :return: The requested unit-cell structure.
+      :raises IndexError: If the frame index is out of range.
+      :raises ValueError: If the source has no complete frame geometry.
+
+
+
+   .. py:method:: frames()
+
+      Stream VASP frame geometry without caching full frames.
+
+      :yields: Unit-cell structures in source order.
+
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, ...]
+
+
+      Return available OUTCAR observable names.
+
+
+   .. py:method:: observable(name)
+
+      Return one OUTCAR observable in frame order.
+
+      :param name: Observable name.
+      :return: The observable values.
+      :raises KeyError: If the observable is unavailable.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the original VASP trajectory source.
+
+
+
+   .. py:property:: source_locator
+      :type: str | None
+
+
+      Return the source path, if one is available.
+
+

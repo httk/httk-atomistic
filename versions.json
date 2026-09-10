@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "project": "httk-atomistic",
+  "url": "https://docs.httk.org/httk-atomistic",
+  "source_commit": "4f636da761a25f2937785ca98750a42954c0dc3e",
+  "default": {
+    "name": "v2.1.0",
+    "path": "latest/",
+    "channel": "release"
+  },
+  "versions": [
+    {
+      "name": "v2.1.0",
+      "path": "v2.1.0/",
+      "channel": "release"
+    },
+    {
+      "name": "dev:main",
+      "path": "dev/main/",
+      "channel": "dev"
+    }
+  ]
+}
