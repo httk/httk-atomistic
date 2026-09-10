@@ -19,13 +19,12 @@ Every backend produces the same canonical quartet — `cell`, `sites`,
 there is no pairwise conversion between representations. `unwrap()` always
 recovers the exact original.
 
-`Structure` is the exact-geometry, assigned-species cell of the three-row
-material-information taxonomy; {doc}`prototypes` lays out that matrix and the
-coarser levels (`Structuretype`, `Protostructure`, `Prototype`, and
-`Formulatype`) that a structure projects to. A middle-row value may additionally carry an exact representative
-and/or a discriminator when the user constructs it with them (recognition and
-derivation return a base value); those optional fields affect equality and content
-identity while remaining separate from its label.
+`Structure` is the exact-geometry, assigned-species cell of the four-row
+material-information taxonomy; {doc}`prototypes` lays out that matrix.
+Ordinary Wyckoff classification produces `BareProtostructure` or anonymous
+`BarePrototype`. A `Protostructure` or `Prototype` additionally requires an
+explicit representative and/or discriminator for a geometrical class. These
+refinements affect equality and content identity but remain separate from the label.
 
 `structure_delta(first, second)` is the public total Cartesian atom travel
 between compatible exact representatives after common-subgroup alignment. It
@@ -36,6 +35,7 @@ The full guide, {doc}`details/structures`, covers `DatastreamStructure` and
 lazy remote sources, the component families (`Cell`, `Sites`, `Species`),
 exact geometry (surd matrices, Cartesian positions), the numeric float/numpy
 layer, POSCAR loading, supercells, serving structures over OPTIMADE, and
-`unwrap`/`unview` semantics. Storage tables for the retained middle-row records
-are `atomistic_prototype` and `atomistic_protostructure`; stores using the
-retired layout must be rebuilt.
+`unwrap`/`unview` semantics. The intermediate levels have separate tables:
+`atomistic_bare_prototype`, `atomistic_bare_protostructure`,
+`atomistic_prototype`, and `atomistic_protostructure`. Development stores using
+the previous layout must be rebuilt.

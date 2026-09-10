@@ -13,9 +13,9 @@ from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 
 if TYPE_CHECKING:
+    from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
+    from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
     from httk.atomistic.models.formula.composition import Composition
-    from httk.atomistic.models.protostructure.protostructure import Protostructure
-    from httk.atomistic.models.prototype.prototype import Prototype
     from httk.atomistic.models.structure.like import StructureLike
 
 
@@ -117,7 +117,7 @@ class StructureAPI(ABC):
             charge=self.charge,
         )
 
-    def canonical_protostructure(self) -> "Protostructure":
+    def canonical_bare_protostructure(self) -> "BareProtostructure":
         """Return the canonical assigned-species classification of this structure.
 
         Enantiomorphic structures are deliberately collapsed to the lower-numbered
@@ -125,13 +125,13 @@ class StructureAPI(ABC):
 
         :return: A standalone canonical protostructure value.
         """
-        from httk.atomistic.models.protostructure.view import ProtostructureView
+        from httk.atomistic.models.bareprotostructure.view import BareProtostructureView
         from httk.atomistic.symmetry.canonical import canonical_asu
 
         canonical = canonical_asu(cast("StructureLike", self), preserve_chirality=False)
-        return ProtostructureView(canonical).unview()
+        return BareProtostructureView(canonical).unview()
 
-    def canonical_prototype(self) -> "Prototype":
+    def canonical_bare_prototype(self) -> "BarePrototype":
         """Return the canonical anonymous geometrical classification of this structure.
 
         Enantiomorphic structures are deliberately collapsed to the lower-numbered
@@ -139,11 +139,11 @@ class StructureAPI(ABC):
 
         :return: A standalone canonical prototype value.
         """
-        from httk.atomistic.models.prototype.view import PrototypeView
+        from httk.atomistic.models.bareprototype.view import BarePrototypeView
         from httk.atomistic.symmetry.canonical import canonical_asu
 
         canonical = canonical_asu(cast("StructureLike", self), preserve_chirality=False)
-        return PrototypeView(canonical).unview()
+        return BarePrototypeView(canonical).unview()
 
     @cached_property
     def composition(self) -> "Composition":

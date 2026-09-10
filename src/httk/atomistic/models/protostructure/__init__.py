@@ -11,8 +11,6 @@ from .view_base import ProtostructureViewBase
 
 if TYPE_CHECKING:
     from .label import ProtostructureLabel
-    from .label_string import ProtostructureLabelString
-    from .recognized import RecognizedProtostructure
     from .view import ProtostructureView
 
 __all__ = [
@@ -20,21 +18,14 @@ __all__ = [
     "ProtostructureAPI",
     "ProtostructureBackend",
     "ProtostructureLabel",
-    "ProtostructureLabelString",
     "ProtostructureLike",
     "ProtostructureView",
     "ProtostructureViewBase",
-    "RecognizedProtostructure",
     "WyckoffOccupation",
 ]
 
 
 def __getattr__(name: str) -> object:
-    if name == "RecognizedProtostructure":
-        from .recognized import RecognizedProtostructure
-
-        globals()[name] = RecognizedProtostructure
-        return RecognizedProtostructure
     if name == "ProtostructureView":
         from .view import ProtostructureView
 
@@ -45,9 +36,4 @@ def __getattr__(name: str) -> object:
 
         globals()[name] = ProtostructureLabel
         return ProtostructureLabel
-    if name == "ProtostructureLabelString":
-        from .label_string import ProtostructureLabelString
-
-        globals()[name] = ProtostructureLabelString
-        return ProtostructureLabelString
     raise AttributeError(name)

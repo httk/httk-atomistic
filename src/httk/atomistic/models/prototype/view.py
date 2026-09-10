@@ -1,4 +1,4 @@
-"""Lazy prototype recognition and presentation view."""
+"""Lazy refined prototype presentation view."""
 
 from typing import Any, Self
 
@@ -6,60 +6,34 @@ from httk.core import MISSING, unwrap
 
 from httk.atomistic.models.prototype.backend import PrototypeBackend
 from httk.atomistic.models.prototype.prototype import Prototype
-from httk.atomistic.models.prototype.recognized import RecognizedPrototype
 from httk.atomistic.models.prototype.view_base import PrototypeViewBase
 
 
 class PrototypeView(PrototypeViewBase, Prototype):
-    r"""Present a lazy anonymous geometrical-class prototype view.
+    r"""Present an existing refined prototype lazily.
 
-    Sources may be an existing prototype, a Protostructure (erased to its anonymous class),
-    or a structure-like source recognized to a
-    representative-carrying prototype. Recognition of a raw structure accepts optional
-    ``tolerance`` and ``limit_denominator`` values; resolution is deferred until the first
-    field access.
+    Raw structures and plain labels require a bare view; refinement must be constructed
+    explicitly with a representative or discriminator. A bare projection view retaining
+    a refined source can recover that source here.
 
-    :param obj: The prototype-like, protostructure-like, or structure-like source.
-    :param \*\*hints: Backend-selection and recognition hints.
+    :param obj: Existing refined classification or assigned refined classification.
+    :param \*\*hints: Reserved hints; recognition arguments are rejected.
     """
 
     _backend: PrototypeBackend
     _resolved_prototype: Prototype | None
-    _tolerance: float | None
-    _limit_denominator: int | None
     _DEFERRED_FIELDS = frozenset({"_spacegroup", "_occupations", "_representative", "_discriminator"})
 
-    def __new__(
-        cls,
-        obj: Any = MISSING,
-        *,
-        tolerance: float | None = None,
-        limit_denominator: int | None = None,
-        **hints: Any,
-    ) -> Self:
-        if obj is MISSING:  # pickle/copy rebuild an empty instance; __setstate__ restores it
+    def __new__(cls, obj: Any = MISSING, **hints: Any) -> Self:
+        if obj is MISSING:
             return super().__new__(cls)
+        if hints:
+            raise ValueError("PrototypeView does not accept recognition arguments")
         if isinstance(obj, cls):
-            if any(value is not None for value in (tolerance, limit_denominator)) or hints:
-                raise ValueError("PrototypeView rewrapping does not accept recognition arguments")
             return obj
-
-        backend_hints = dict(hints)
-        if tolerance is not None:
-            backend_hints["tolerance"] = tolerance
-        if limit_denominator is not None:
-            backend_hints["limit_denominator"] = limit_denominator
-        backend = cls._prepare_backend(obj, backend_hints)
-        if not isinstance(backend, RecognizedPrototype):
-            if not isinstance(backend, PrototypeBackend):
-                raise TypeError(f"Cannot recognize {type(backend).__name__} as a prototype source")
-            if any(value is not None for value in (tolerance, limit_denominator)) or hints:
-                raise ValueError("PrototypeView recognition arguments cannot be used with a prototype")
         instance = super().__new__(cls)
-        instance._backend = backend
+        instance._backend = cls._prepare_backend(obj, hints)
         instance._resolved_prototype = None
-        instance._tolerance = tolerance
-        instance._limit_denominator = limit_denominator
         return instance
 
     def __init__(self, obj: Any, **hints: Any) -> None:
@@ -79,7 +53,7 @@ class PrototypeView(PrototypeViewBase, Prototype):
         backend = object.__getattribute__(self, "_backend")
         if type(backend) is Prototype:
             resolved = backend
-        elif isinstance(backend, RecognizedPrototype) or hasattr(backend, "resolve"):
+        elif hasattr(backend, "resolve"):
             resolved = backend.resolve()
         else:
             # A generic backend can carry class identity even though its base
@@ -103,7 +77,7 @@ class PrototypeView(PrototypeViewBase, Prototype):
         return unwrap(self._backend)
 
     def unview(self) -> Prototype:
-        """Return the recognized prototype as a standalone value.
+        """Return the refined prototype as a standalone value.
 
         :return: The prototype value.
         """
@@ -112,8 +86,6 @@ class PrototypeView(PrototypeViewBase, Prototype):
     def __getstate__(self) -> dict[str, Any]:
         state: dict[str, Any] = {
             "backend": self._backend,
-            "tolerance": self._tolerance,
-            "limit_denominator": self._limit_denominator,
         }
         if self._resolved_prototype is not None:
             state["resolved"] = self._resolved_prototype
@@ -121,8 +93,6 @@ class PrototypeView(PrototypeViewBase, Prototype):
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         self._backend = state["backend"]
-        self._tolerance = state["tolerance"]
-        self._limit_denominator = state["limit_denominator"]
         self._resolved_prototype = None
         resolved = state.get("resolved")
         if resolved is not None:

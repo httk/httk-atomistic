@@ -21,6 +21,8 @@ from httk.core.storage import IdentitySkip, Indexed, StorageInfo, Unique, stored
 from httk.atomistic._composition_values import as_fraction
 from httk.atomistic.composition import Assembly, ChemicalComposition, validate_assemblies
 from httk.atomistic.models._vector_guards import to_periodicity, to_precision
+from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
+from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
@@ -43,6 +45,8 @@ __all__ = [
     "ASUStructureRecord",
     "AssemblyGroupRecord",
     "AssemblyRecord",
+    "BareProtostructureRecord",
+    "BarePrototypeRecord",
     "CellRecord",
     "ChemicalCompositionRecord",
     "CompositionAmountRecord",
@@ -1766,13 +1770,72 @@ class WyckoffOccupationRecord:
 
 
 @dataclass(frozen=True)
+class BareProtostructureRecord:
+    """Store a Wyckoff-only protostructure without geometrical refinement.
+
+    Labels are query conveniences, not unique identities.
+
+    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_hall_entry: The standard-setting Hall entry.
+    :param occupations: The canonical occupied Wyckoff positions.
+    :param id: The public lineage id, if assigned.
+    :param immutable_id: The revision id, if assigned.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_bare_protostructure",
+        identity_name="atomistic_bare_protostructure",
+        indexes=(("spacegroup_it_number",), ("label",)),
+    )
+    __httk_canonical_source__: ClassVar = BareProtostructure
+
+    spacegroup_it_number: int
+    spacegroup_hall_entry: str
+    occupations: tuple[WyckoffOccupationRecord, ...]
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+    @stored_property
+    def label(self) -> str:
+        """Expose the deterministic Wyckoff-only label for querying."""
+        return _protostructure_record_label(self)
+
+    def __post_init__(self) -> None:
+        _validate_protostructure_fields(type(self).__name__, self)
+
+    @classmethod
+    def __httk_validate__(cls, record: "BareProtostructureRecord") -> None:
+        """Validate semantic consistency and canonical occupation order.
+
+        :param record: The record to validate.
+        """
+        canonical = _bare_protostructure_record_from_value(_bare_protostructure_from_record(record))
+        _require_canonical("BareProtostructureRecord", "occupations", record.occupations, canonical.occupations)
+
+    @classmethod
+    def __httk_project__(cls, value: BareProtostructure) -> Mapping[str, object]:
+        """Project a bare value into durable fields.
+
+        :param value: The bare value to project.
+        :return: The projected record fields.
+        """
+        return {
+            "spacegroup_it_number": value.spacegroup.it_number,
+            "spacegroup_hall_entry": value.spacegroup.hall_entry,
+            "occupations": value.occupations,
+            "id": None,
+            "immutable_id": None,
+        }
+
+
+@dataclass(frozen=True)
 class ProtostructureRecord:
     """Represent the durable backing for an assigned-species classification key.
 
     The record carries exactly the value identity of
     :class:`~httk.atomistic.models.protostructure.protostructure.Protostructure`: its
     standard-setting space group and its occupied Wyckoff positions with real species,
-    in canonical order, plus an optional exact representative and/or discriminator.
+    in canonical order, plus an exact representative and/or discriminator.
     The record's content identity is independent of its storage layout, and two equal
     protostructures produce the same content identity.
 
@@ -1819,21 +1882,12 @@ class ProtostructureRecord:
         return _protostructure_record_label(self)
 
     def __post_init__(self) -> None:
-        if not isinstance(self.spacegroup_it_number, int) or isinstance(self.spacegroup_it_number, bool):
-            raise TypeError("ProtostructureRecord spacegroup_it_number must be an integer")
-        if not 1 <= self.spacegroup_it_number <= 230:
-            raise ValueError("ProtostructureRecord spacegroup_it_number must be in [1, 230]")
-        if not isinstance(self.spacegroup_hall_entry, str) or not self.spacegroup_hall_entry:
-            raise TypeError("ProtostructureRecord spacegroup_hall_entry must be a non-empty string")
-        occupations = tuple(self.occupations)
-        if not occupations or not all(
-            _effective_record_type(value) is WyckoffOccupationRecord for value in occupations
-        ):
-            raise TypeError("ProtostructureRecord occupations must contain WyckoffOccupationRecord values")
-        object.__setattr__(self, "occupations", occupations)
+        _validate_protostructure_fields(type(self).__name__, self)
         if self.representative is not None and not isinstance(self.representative, FundamentalDomainStructureRecord):
             raise TypeError("ProtostructureRecord representative must be a FundamentalDomainStructureRecord or None")
         _validate_discriminator(type(self).__name__, self.discriminator)
+        if self.representative is None and self.discriminator is None:
+            raise ValueError(f"{type(self).__name__} requires a representative or discriminator")
 
     @classmethod
     def __httk_validate__(cls, record: "ProtostructureRecord") -> None:
@@ -1955,12 +2009,71 @@ class FundamentalDomainTemplateRecord:
 
 
 @dataclass(frozen=True)
+class BarePrototypeRecord:
+    """Store a Wyckoff-only prototype without geometrical refinement.
+
+    Labels are query conveniences, not unique identities.
+
+    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_hall_entry: The standard-setting Hall entry.
+    :param occupations: The canonical occupied Wyckoff positions.
+    :param id: The public lineage id, if assigned.
+    :param immutable_id: The revision id, if assigned.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_bare_prototype",
+        identity_name="atomistic_bare_prototype",
+        indexes=(("spacegroup_it_number",), ("label",)),
+    )
+    __httk_canonical_source__: ClassVar = BarePrototype
+
+    spacegroup_it_number: int
+    spacegroup_hall_entry: str
+    occupations: tuple[PrototypeOccupation, ...]
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+    @stored_property
+    def label(self) -> str:
+        """Expose the deterministic Wyckoff-only label for querying."""
+        return _prototype_label_from_fields(self.spacegroup_hall_entry, self.occupations)
+
+    def __post_init__(self) -> None:
+        _validate_prototype_fields(type(self).__name__, self)
+
+    @classmethod
+    def __httk_validate__(cls, record: "BarePrototypeRecord") -> None:
+        """Validate semantic consistency and canonical occupation order.
+
+        :param record: The record to validate.
+        """
+        canonical = _bare_prototype_record_from_value(_bare_prototype_from_record(record))
+        _require_canonical("BarePrototypeRecord", "occupations", record.occupations, canonical.occupations)
+
+    @classmethod
+    def __httk_project__(cls, value: BarePrototype) -> Mapping[str, object]:
+        """Project a bare value into durable fields.
+
+        :param value: The bare value to project.
+        :return: The projected record fields.
+        """
+        return {
+            "spacegroup_it_number": value.spacegroup.it_number,
+            "spacegroup_hall_entry": value.spacegroup.hall_entry,
+            "occupations": value.occupations,
+            "id": None,
+            "immutable_id": None,
+        }
+
+
+@dataclass(frozen=True)
 class PrototypeRecord:
     """Represent the durable backing for an anonymous prototype.
 
     The record carries anonymous class-partitioned Wyckoff occupations, plus an optional
-    exact fundamental-domain-template representative and/or discriminator. Base-only
-    values are valid. The discriminator is species-independent and is not part of the label.
+    exact fundamental-domain-template representative and/or discriminator. At least
+    one refinement is required. The discriminator is species-independent and is not part of the label.
 
     :param spacegroup_it_number: The International Tables space-group number.
     :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
@@ -2005,6 +2118,8 @@ class PrototypeRecord:
         ):
             raise TypeError("PrototypeRecord representative must be a FundamentalDomainTemplateRecord or None")
         _validate_discriminator(type(self).__name__, self.discriminator)
+        if self.representative is None and self.discriminator is None:
+            raise ValueError(f"{type(self).__name__} requires a representative or discriminator")
 
     @classmethod
     def __httk_validate__(cls, record: "PrototypeRecord") -> None:
@@ -2033,6 +2148,20 @@ class PrototypeRecord:
             "id": None,
             "immutable_id": None,
         }
+
+
+def _validate_protostructure_fields(record_name: str, record: Any) -> None:
+    """Validate assigned Wyckoff storage fields shared by bare and refined records."""
+    if not isinstance(record.spacegroup_it_number, int) or isinstance(record.spacegroup_it_number, bool):
+        raise TypeError(f"{record_name} spacegroup_it_number must be an integer")
+    if not 1 <= record.spacegroup_it_number <= 230:
+        raise ValueError(f"{record_name} spacegroup_it_number must be in [1, 230]")
+    if not isinstance(record.spacegroup_hall_entry, str) or not record.spacegroup_hall_entry:
+        raise TypeError(f"{record_name} spacegroup_hall_entry must be a non-empty string")
+    occupations = tuple(record.occupations)
+    if not occupations or not all(_effective_record_type(value) is WyckoffOccupationRecord for value in occupations):
+        raise TypeError(f"{record_name} occupations must contain WyckoffOccupationRecord values")
+    object.__setattr__(record, "occupations", occupations)
 
 
 def _validate_prototype_fields(record_name: str, record: Any) -> None:
@@ -2073,7 +2202,7 @@ def _require_canonical(record_name: str, field: str, stored: Any, canonical: Any
         )
 
 
-def _protostructure_record_label(record: "ProtostructureRecord") -> str:
+def _protostructure_record_label(record: BareProtostructureRecord | ProtostructureRecord) -> str:
     """Render the httk protostructure label for a durable protostructure record.
 
     :param record: The durable protostructure record.
@@ -2273,6 +2402,72 @@ def _prototype_record_from_value(value: Prototype) -> PrototypeRecord:
         occupations=tuple(value.occupations),
         representative=representative,
         discriminator=value.discriminator,
+    )
+
+
+def _bare_protostructure_from_record(record: BareProtostructureRecord) -> BareProtostructure:
+    """Reconstruct a protostructure value from its durable record.
+
+    :param record: The durable protostructure record.
+    :return: The reconstructed protostructure value.
+    """
+    from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
+    if spacegroup.it_number != record.spacegroup_it_number:
+        raise ValueError("stored space-group Hall entry contradicts its International Tables number")
+    return BareProtostructure(
+        spacegroup,
+        tuple(WyckoffOccupation(value.wyckoff, _species_from_record(value.species)) for value in record.occupations),
+    )
+
+
+def _bare_protostructure_record_from_value(value: BareProtostructure) -> BareProtostructureRecord:
+    """Build a durable protostructure record from a protostructure value.
+
+    :param value: The protostructure value to store.
+    :return: The durable protostructure record.
+    """
+    return BareProtostructureRecord(
+        spacegroup_it_number=value.spacegroup.it_number,
+        spacegroup_hall_entry=value.spacegroup.hall_entry,
+        occupations=tuple(
+            WyckoffOccupationRecord(
+                wyckoff=occupation.wyckoff,
+                species=SpeciesRecord(**cast(dict[str, Any], SpeciesRecord.__httk_project__(occupation.species))),
+            )
+            for occupation in value.occupations
+        ),
+    )
+
+
+def _bare_prototype_from_record(record: BarePrototypeRecord) -> BarePrototype:
+    """Reconstruct a prototype value from its durable record.
+
+    :param record: The durable prototype record.
+    :return: The reconstructed prototype value.
+    """
+    from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
+    if spacegroup.it_number != record.spacegroup_it_number:
+        raise ValueError("stored space-group Hall entry contradicts its International Tables number")
+    return BarePrototype(
+        spacegroup,
+        tuple(record.occupations),
+    )
+
+
+def _bare_prototype_record_from_value(value: BarePrototype) -> BarePrototypeRecord:
+    """Build a durable prototype record from a prototype value.
+
+    :param value: The prototype value to store.
+    :return: The durable prototype record.
+    """
+    return BarePrototypeRecord(
+        spacegroup_it_number=value.spacegroup.it_number,
+        spacegroup_hall_entry=value.spacegroup.hall_entry,
+        occupations=tuple(value.occupations),
     )
 
 

@@ -5,25 +5,22 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
+from httk.atomistic.models.bareprototype.backend import BarePrototypeBackend
+from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.view_base import ChemicalFormulaViewBase
-from httk.atomistic.models.prototype.backend import PrototypeBackend
-from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.view import StructureView
 from httk.atomistic.models.structuretype.backend import StructuretypeBackend
 from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
 
 
-class RecognizedPrototype(PrototypeBackend):
+class RecognizedBarePrototype(BarePrototypeBackend):
     r"""Recognize an ordinary structure or template lazily as a prototype.
 
-    The source is used as the geometrical-class anchor: it is recognized (through
-    :class:`~httk.atomistic.models.structuretype.fundamental_view.FundamentalDomainTemplateView`,
-    which handles an exact fundamental domain without spglib and a raw structure with it) to a
-    standard-setting dummy-species representative, and the anonymous prototype folds from
-    that representative. The resulting prototype is representative-carrying and has no
-    discriminator.
+    Recognition resolves an exact fundamental-domain template, then retains only
+    its standard-setting Wyckoff occupations and anonymous class partition.
+    The original source remains available through ``unwrap()``.
 
     :param obj: The structure-like source to recognize.
     :param \*\*hints: Backend-selection and recognition hints.
@@ -47,8 +44,8 @@ class RecognizedPrototype(PrototypeBackend):
         from httk.atomistic.models.protostructure.backend import ProtostructureBackend
         from httk.atomistic.models.protostructure.view_base import ProtostructureViewBase
 
-        # A bare protostructure carries no geometry, so it cannot anchor a
-        # geometrical class; the chemical-formula family is not a structure source at all.
+        # Assigned classifications use the dedicated erasure adapter.
+        # Chemical formulas are not structure sources.
         if isinstance(obj, (ProtostructureBackend, ProtostructureViewBase)):
             return None
         if isinstance(obj, (ChemicalFormulaBackend, ChemicalFormulaViewBase)):
@@ -72,19 +69,16 @@ class RecognizedPrototype(PrototypeBackend):
         self._limit_denominator = hints.get("limit_denominator")
 
     @cached_property
-    def _derived(self) -> Prototype:
+    def _derived(self) -> BarePrototype:
         from httk.atomistic.models.structuretype.fundamental_view import FundamentalDomainTemplateView
 
         source = self._source
-        # Recognition yields a base prototype. A representative/discriminator is attached only
-        # when the user constructs a Prototype with one explicitly, so recognized values compare
-        # equal to hand-built and label-parsed ones of the same class.
         template = FundamentalDomainTemplateView(
             source, tolerance=self._tolerance, limit_denominator=self._limit_denominator
         ).unview()
-        return Prototype(template.spacegroup, [(site.wyckoff, site.species) for site in template.wyckoff_sites])
+        return BarePrototype(template.spacegroup, [(site.wyckoff, site.species) for site in template.wyckoff_sites])
 
-    def resolve(self) -> Prototype:
+    def resolve(self) -> BarePrototype:
         """Return the complete recognized prototype."""
         return self._derived
 
@@ -95,16 +89,6 @@ class RecognizedPrototype(PrototypeBackend):
     @property
     def occupations(self):
         return self._derived.occupations
-
-    @property
-    def representative(self):
-        """Return the recognized canonical class representative."""
-        return self._derived.representative
-
-    @property
-    def discriminator(self) -> str | None:
-        """Return ``None``; a recognized prototype carries no discriminator."""
-        return self._derived.discriminator
 
     def unwrap(self) -> Any:
         """Return the original recognition source."""

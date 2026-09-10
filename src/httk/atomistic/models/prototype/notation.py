@@ -44,8 +44,8 @@ from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.protostructure.protostructure import Protostructure
-    from httk.atomistic.models.prototype.prototype import Prototype
+    from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
+    from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 
 # The 27th Wyckoff letter used by a handful of high-multiplicity settings (group 47's
 # eightfold orbit). It renders as 'A' and parses back from it; positionally a group token
@@ -275,7 +275,7 @@ def _parse_group(token: str) -> list[str]:
     return letters
 
 
-def parse_prototype_label(text: str) -> "Prototype":
+def parse_bare_prototype_label(text: str) -> "BarePrototype":
     """Parse a strictly canonical prototype label into a prototype.
 
     Every Wyckoff letter must exist in the resolved standard setting, and the Pearson
@@ -284,10 +284,10 @@ def parse_prototype_label(text: str) -> "Prototype":
     :func:`~httk.atomistic.models.formula.notation.parse_anonymous_formula`.
 
     :param text: The prototype label to parse.
-    :return: The parsed :class:`~httk.atomistic.models.prototype.prototype.Prototype`.
+    :return: The parsed :class:`~httk.atomistic.models.bareprototype.bareprototype.BarePrototype`.
     :raises ValueError: If ``text`` is not a canonical prototype label.
     """
-    from httk.atomistic.models.prototype.prototype import Prototype
+    from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 
     main, fields, names = _split_label(text)
     if names is not None:
@@ -297,13 +297,13 @@ def parse_prototype_label(text: str) -> "Prototype":
     for index, token in enumerate(fields[3:]):
         for letter in _parse_group(token):
             occupations.append((letter, anonymous_symbol(index)))
-    value = Prototype(it_number, occupations)
+    value = BarePrototype(it_number, occupations)
     if render_prototype_label(value.spacegroup, [(o.wyckoff, o.label) for o in value.occupations]) != main:
         raise ValueError(f"{text!r} is not a canonical prototype label")
     return value
 
 
-def parse_protostructure_label(text: str) -> "Protostructure":
+def parse_bare_protostructure_label(text: str) -> "BareProtostructure":
     """Parse a strictly canonical httk protostructure label into a protostructure.
 
     The unsuffixed part is validated as for a prototype label; each ``:`` name must be a
@@ -311,10 +311,10 @@ def parse_protostructure_label(text: str) -> "Protostructure":
     are rejected.
 
     :param text: The protostructure label to parse.
-    :return: The parsed :class:`~httk.atomistic.models.protostructure.protostructure.Protostructure`.
+    :return: The parsed :class:`~httk.atomistic.models.bareprotostructure.bareprotostructure.BareProtostructure`.
     :raises ValueError: If ``text`` is not a canonical protostructure label.
     """
-    from httk.atomistic.models.protostructure.protostructure import Protostructure
+    from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
     from httk.atomistic.models.species.species import Species
 
     _, fields, names = _split_label(text)
@@ -331,13 +331,13 @@ def parse_protostructure_label(text: str) -> "Protostructure":
         species = Species(name, (name,), (1,))
         for letter in _parse_group(token):
             occupations.append((letter, species))
-    value = Protostructure(it_number, occupations)
+    value = BareProtostructure(it_number, occupations)
     if render_protostructure_label(value.spacegroup, [(o.wyckoff, o.species.name) for o in value.occupations]) != text:
         raise ValueError(f"{text!r} is not a canonical protostructure label")
     return value
 
 
-def try_parse_prototype(text: str) -> "Prototype | None":
+def try_parse_bare_prototype(text: str) -> "BarePrototype | None":
     """Return the parsed prototype, or ``None`` when *text* is not a canonical one.
 
     :param text: The label text to test.
@@ -346,12 +346,12 @@ def try_parse_prototype(text: str) -> "Prototype | None":
     if not isinstance(text, str) or ":" in text:
         return None
     try:
-        return parse_prototype_label(text)
+        return parse_bare_prototype_label(text)
     except ValueError:
         return None
 
 
-def try_parse_protostructure(text: str) -> "Protostructure | None":
+def try_parse_bare_protostructure(text: str) -> "BareProtostructure | None":
     """Return the parsed protostructure, or ``None`` when *text* is not a canonical one.
 
     :param text: The label text to test.
@@ -360,6 +360,6 @@ def try_parse_protostructure(text: str) -> "Protostructure | None":
     if not isinstance(text, str) or ":" not in text:
         return None
     try:
-        return parse_protostructure_label(text)
+        return parse_bare_protostructure_label(text)
     except ValueError:
         return None

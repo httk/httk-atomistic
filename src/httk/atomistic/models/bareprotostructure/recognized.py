@@ -5,11 +5,11 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
+from httk.atomistic.models.bareprotostructure.backend import BareProtostructureBackend
+from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.view_base import ChemicalFormulaViewBase
-from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
-from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.view import StructureView
@@ -18,7 +18,7 @@ from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
 from httk.atomistic.symmetry.recognition import recognize_asu
 
 
-class RecognizedProtostructure(ProtostructureBackend):
+class RecognizedBareProtostructure(BareProtostructureBackend):
     r"""Project an ordinary structure lazily to a protostructure.
 
     :param obj: The ordinary structure to recognize.
@@ -68,7 +68,7 @@ class RecognizedProtostructure(ProtostructureBackend):
             hints.get(name) is not None
             for name in ("setting", "standard", "transform", "tolerance", "limit_denominator")
         ):
-            raise ValueError("ProtostructureView recognition arguments cannot be used with an existing ASU")
+            raise ValueError("BareProtostructureView recognition arguments cannot be used with an existing ASU")
         if setting is not None and (standard is not None or transform is not None):
             raise TypeError("recognize_asu() takes either 'setting' or 'standard'/'transform', not both")
         if setting is None and (standard is not None or transform is not None):
@@ -114,20 +114,20 @@ class RecognizedProtostructure(ProtostructureBackend):
         for species in structure.species:
             if "X" in species.chemical_symbols or "X" in (species.attached or ()):
                 raise ValueError(
-                    f"Protostructure cannot represent structure species {species.name!r} with unknown symbol 'X'"
+                    f"BareProtostructure cannot represent structure species {species.name!r} with unknown symbol 'X'"
                 )
         if getattr(structure, "assemblies", None) is not None:
-            raise ValueError("Protostructure cannot represent assemblies")
+            raise ValueError("BareProtostructure cannot represent assemblies")
         if getattr(structure, "molecular", False):
-            raise ValueError("Protostructure cannot represent molecular structures")
+            raise ValueError("BareProtostructure cannot represent molecular structures")
         if getattr(structure, "chemical_composition", None) is not None:
-            raise ValueError("Protostructure cannot represent chemical_composition")
+            raise ValueError("BareProtostructure cannot represent chemical_composition")
         if isinstance(structure, FundamentalDomainStructure):
             has_site_moments = any(site.moment is not None for site in structure.wyckoff_sites)
         else:
             has_site_moments = getattr(structure, "site_moments", None) is not None
         if has_site_moments:
-            raise ValueError("Protostructure cannot represent site_moments")
+            raise ValueError("BareProtostructure cannot represent site_moments")
 
     def _has_recognition_options(self) -> bool:
         return any(
@@ -136,11 +136,11 @@ class RecognizedProtostructure(ProtostructureBackend):
         )
 
     @cached_property
-    def _derived(self) -> Protostructure:
+    def _derived(self) -> BareProtostructure:
         structure = self._effective_structure()
         asu = structure if isinstance(structure, FundamentalDomainStructure) else getattr(structure, "asu", None)
         if asu is not None and self._has_recognition_options():
-            raise ValueError("ProtostructureView recognition arguments cannot be used with an existing ASU")
+            raise ValueError("BareProtostructureView recognition arguments cannot be used with an existing ASU")
         self._validate_structure(structure)
         if asu is None:
             asu = recognize_asu(
@@ -152,15 +152,12 @@ class RecognizedProtostructure(ProtostructureBackend):
                 limit_denominator=self._limit_denominator,
             )
             self._validate_structure(asu)
-        # Recognition yields a base protostructure. A representative/discriminator is attached
-        # only when the user constructs a Protostructure with one explicitly, so recognized
-        # values compare equal to hand-built and label-parsed ones of the same class.
         standard, sites = asu._standard_wyckoff_sites()
         species_by_name = {species.name: species for species in asu.species}
         occupations = tuple((site.wyckoff, species_by_name[site.species]) for site in sites)
-        return Protostructure(standard, occupations)
+        return BareProtostructure(standard, occupations)
 
-    def resolve(self) -> Protostructure:
+    def resolve(self) -> BareProtostructure:
         """Return the complete recognized protostructure."""
         return self._derived
 
@@ -173,14 +170,6 @@ class RecognizedProtostructure(ProtostructureBackend):
     def occupations(self) -> tuple[WyckoffOccupation, ...]:
         """Return the recognized occupied Wyckoff positions."""
         return self._derived.occupations
-
-    @property
-    def representative(self):
-        return self._derived.representative
-
-    @property
-    def discriminator(self):
-        return self._derived.discriminator
 
     def unwrap(self) -> Any:
         """Return the original source (an ordinary structure or a prototype)."""

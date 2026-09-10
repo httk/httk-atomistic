@@ -8,9 +8,9 @@ from httk.core import FracVector
 import httk.atomistic.symmetry.canonical as canonical_module
 from httk.atomistic import (
     ASUStructure,
+    BareProtostructure,
+    BarePrototype,
     Cell,
-    Protostructure,
-    Prototype,
     Species,
     UnitcellStructure,
     UnitcellStructureView,
@@ -378,11 +378,11 @@ def test_structure_api_canonical_proto_values_collapse_enantiomorphs(
     monkeypatch.setattr(canonical_module, "canonical_asu", tracking_canonical_asu)
     structure = UnitcellStructureView(_p4332())
 
-    protostructure = structure.canonical_protostructure()
-    prototype = structure.canonical_prototype()
+    protostructure = structure.canonical_bare_protostructure()
+    prototype = structure.canonical_bare_prototype()
 
-    assert type(protostructure) is Protostructure
-    assert type(prototype) is Prototype
+    assert type(protostructure) is BareProtostructure
+    assert type(prototype) is BarePrototype
     assert protostructure.spacegroup.it_number == 212
     assert prototype.spacegroup.it_number == 212
     assert calls == [False, False]

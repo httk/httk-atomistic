@@ -3,22 +3,19 @@
 from collections.abc import Sequence
 from typing import ClassVar
 
-from httk.atomistic.models.formula.notation import anonymous_symbol
+from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 from httk.atomistic.models.prototype.backend import PrototypeBackend
-from httk.atomistic.models.prototype.notation import canonical_label_map
 from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
 class Prototype(PrototypeBackend):
-    """Store anonymous occupied Wyckoff positions and optional class information.
+    """Store occupied Wyckoff positions with explicit geometrical-class information.
 
-    The base value is provenance-independent: recognition and derivation return a base
-    ``Prototype``, so a value recognized from a structure compares equal to one built by hand
-    or parsed from a label. A geometrical representative and/or a discriminator are optional
-    refinements, present only when the user constructs the value with them; recognition never
-    attaches them. They participate in equality and content identity.
+    At least one of an exact representative or a nonempty discriminator is required.
+    Both participate in equality and content identity. Use ``BarePrototype`` for
+    the broader Wyckoff-only classification; recognizing a structure yields that level.
 
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: The occupied Wyckoff positions and canonical anonymous labels.
@@ -37,7 +34,7 @@ class Prototype(PrototypeBackend):
         *,
         representative: FundamentalDomainTemplate | None = None,
         discriminator: str | None = None,
-        prototype: "Prototype | None" = None,
+        prototype: "Prototype | BarePrototype | None" = None,
     ) -> None:
         if (spacegroup is None) != (occupations is None):
             raise ValueError("Prototype spacegroup and occupations must be supplied together")
@@ -48,7 +45,7 @@ class Prototype(PrototypeBackend):
             unview = getattr(representative, "unview", None)
             representative = unview() if unview is not None else representative
         if prototype is not None:
-            if not isinstance(prototype, Prototype):
+            if not isinstance(prototype, (Prototype, BarePrototype)):
                 from httk.atomistic.models.prototype.view import PrototypeView
 
                 prototype = PrototypeView(prototype).unview()
@@ -56,9 +53,9 @@ class Prototype(PrototypeBackend):
                 raise TypeError("Prototype accepts either prototype or spacegroup/occupations")
             spacegroup, occupations = prototype.spacegroup, prototype.occupations
             if representative is None:
-                representative = prototype.representative
+                representative = getattr(prototype, "representative", None)
             if discriminator is None:
-                discriminator = prototype.discriminator
+                discriminator = getattr(prototype, "discriminator", None)
             base_supplied = True
         if discriminator is not None and (not isinstance(discriminator, str) or not discriminator):
             raise ValueError("Prototype discriminator must be a non-empty string when given")
@@ -69,35 +66,16 @@ class Prototype(PrototypeBackend):
                 representative.spacegroup,
                 [(site.wyckoff, site.species) for site in representative.wyckoff_sites],
             )
-        self._spacegroup = spacegroup if isinstance(spacegroup, Spacegroup) else Spacegroup.standard(spacegroup)
-        if not self._spacegroup.is_standard_setting:
-            raise ValueError("Prototype records Wyckoff data in the IT standard setting")
-        raw = tuple(
-            value if isinstance(value, PrototypeOccupation) else PrototypeOccupation(*value) for value in occupations
-        )
-        if not raw:
-            raise ValueError("Prototype occupations must be non-empty")
-        letters_by_label: dict[str, list[str]] = {}
-        for value in raw:
-            try:
-                self._spacegroup.wyckoff_position(value.wyckoff)
-            except KeyError as exc:
-                raise ValueError(str(exc)) from exc
-            letters_by_label.setdefault(value.label, []).append(value.wyckoff)
-        expected = {anonymous_symbol(index) for index in range(len(letters_by_label))}
-        if set(letters_by_label) != expected:
-            raise ValueError("Prototype class labels must be consecutive anonymous symbols from 'A'")
-        relabel = canonical_label_map({label: tuple(sorted(letters)) for label, letters in letters_by_label.items()})
-        self._occupations = tuple(
-            sorted(
-                (PrototypeOccupation(value.wyckoff, relabel[value.label]) for value in raw),
-                key=lambda value: (value.label, value.wyckoff),
-            )
-        )
+        bare = BarePrototype(spacegroup, occupations)
+        self._spacegroup, self._occupations = bare.spacegroup, bare.occupations
         if representative is not None and base_supplied:
             expected_base = Prototype(representative=representative)
             if (self._spacegroup, self._occupations) != (expected_base.spacegroup, expected_base.occupations):
                 raise ValueError("Prototype base disagrees with its representative")
+        if representative is None and discriminator is None:
+            raise ValueError(
+                "Prototype requires a representative or discriminator; use BarePrototype for Wyckoff-only values"
+            )
         self._representative = representative
         self._discriminator = discriminator
 

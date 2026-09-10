@@ -147,7 +147,10 @@ def test_grid_falls_back_for_ill_conditioned_cells() -> None:
 
 
 def test_grid_falls_back_for_missing_prototype_representative() -> None:
-    values = (Prototype(1, [("a", "A")]), Prototype(1, [("a", "A")]))
+    values = (
+        Prototype(1, [("a", "A")], discriminator="001"),
+        Prototype(1, [("a", "A")], discriminator="002"),
+    )
     grid = StructureComparisonGrid(values, 0.1)
 
     assert grid.fallback_reason is not None

@@ -20,7 +20,7 @@ from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.prototype.prototype import Prototype
+    from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 
 
 class FundamentalDomainTemplate(StructuretypeBackend):
@@ -28,7 +28,7 @@ class FundamentalDomainTemplate(StructuretypeBackend):
 
     ``FundamentalDomainTemplate`` is the fundamental-domain member of the ``Structuretype``
     family, the anonymous-species, exact-geometry cell used as a representative for
-    :class:`~httk.atomistic.models.prototype.prototype.Prototype`.
+    :class:`~httk.atomistic.models.bareprototype.bareprototype.BarePrototype`.
 
     :param cell: The standard-setting cell geometry.
     :param spacegroup: The standard-setting space group.
@@ -178,19 +178,19 @@ class FundamentalDomainTemplate(StructuretypeBackend):
         return sum(self.multiplicities())
 
     @cached_property
-    def prototype(self) -> "Prototype":
+    def bare_prototype(self) -> "BarePrototype":
         """Return the anonymous prototype this fundamental domain folds to.
 
         The template keeps this domain's occupied Wyckoff letters and their dummy-species
         class partition; the exact geometry is discarded. The template's constructor
         re-canonicalizes the class labels by the pinned group-ordering rule.
 
-        :return: The folded :class:`~httk.atomistic.models.prototype.prototype.Prototype`.
+        :return: The folded :class:`~httk.atomistic.models.bareprototype.bareprototype.BarePrototype`.
         """
+        from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
         from httk.atomistic.models.prototype.occupation import PrototypeOccupation
-        from httk.atomistic.models.prototype.prototype import Prototype
 
-        return Prototype(
+        return BarePrototype(
             self._spacegroup,
             [PrototypeOccupation(site.wyckoff, site.species) for site in self._wyckoff_sites],
         )

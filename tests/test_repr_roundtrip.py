@@ -2,6 +2,8 @@
 
 from fractions import Fraction
 
+from httk.core.vectors import FracScalar, FracVector, SurdScalar, SurdVector
+
 from httk.atomistic import (
     Cell,
     ChemicalFormula,
@@ -9,7 +11,6 @@ from httk.atomistic import (
     Formulatype,
     Species,
 )
-from httk.core.vectors import FracScalar, FracVector, SurdScalar, SurdVector
 
 # eval(repr(x)) needs every class the repr can name in scope.
 _NS = {
@@ -66,6 +67,8 @@ def test_prototype_and_protostructure_repr_render_optional_markers() -> None:
 
     from httk.atomistic import (
         ASUStructure,
+        BareProtostructure,
+        BarePrototype,
         FundamentalDomainTemplate,
         Protostructure,
         Prototype,
@@ -75,8 +78,8 @@ def test_prototype_and_protostructure_repr_render_optional_markers() -> None:
     cell = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
     empty = FracVector(())
 
-    base = Prototype(225, [("a", "A"), ("b", "B")])
-    assert repr(base) == "Prototype('225', a:A, b:B)"
+    base = BarePrototype(225, [("a", "A"), ("b", "B")])
+    assert repr(base) == "BarePrototype('225', a:A, b:B)"
     assert repr(Prototype(225, [("a", "A")], discriminator="001")) == "Prototype('225', a:A, discriminator='001')"
     template = FundamentalDomainTemplate(
         cell,
@@ -87,8 +90,8 @@ def test_prototype_and_protostructure_repr_render_optional_markers() -> None:
     with_all = repr(Prototype(representative=template, discriminator="001"))
     assert with_all == "Prototype('225', a:A, b:B, representative=..., discriminator='001')"
 
-    proto = Protostructure(225, [("a", "Na"), ("b", "Cl")])
-    assert repr(proto) == "Protostructure('225', b:Cl, a:Na)"
+    proto = BareProtostructure(225, [("a", "Na"), ("b", "Cl")])
+    assert repr(proto) == "BareProtostructure('225', b:Cl, a:Na)"
     asu = ASUStructure(
         cell,
         225,

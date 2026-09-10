@@ -8,6 +8,10 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
+import httk.atomistic.models.bareprotostructure.backend
+import httk.atomistic.models.bareprotostructure.view_base
+import httk.atomistic.models.bareprototype.backend
+import httk.atomistic.models.bareprototype.view_base
 import httk.atomistic.models.protostructure.backend
 import httk.atomistic.models.protostructure.view_base
 import httk.atomistic.models.prototype.backend
@@ -49,9 +53,13 @@ class WyckoffComposition(ChemicalFormulaBackend):
                 StructuretypeBackend,
                 StructuretypeViewBase,
                 httk.atomistic.models.prototype.backend.PrototypeBackend,
+                httk.atomistic.models.bareprototype.backend.BarePrototypeBackend,
                 httk.atomistic.models.prototype.view_base.PrototypeViewBase,
+                httk.atomistic.models.bareprototype.view_base.BarePrototypeViewBase,
                 httk.atomistic.models.protostructure.backend.ProtostructureBackend,
+                httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend,
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
+                httk.atomistic.models.bareprotostructure.view_base.BareProtostructureViewBase,
             ),
         ):
             return cls(obj, **hints)
@@ -63,7 +71,9 @@ class WyckoffComposition(ChemicalFormulaBackend):
             (
                 StructuretypeViewBase,
                 httk.atomistic.models.prototype.view_base.PrototypeViewBase,
+                httk.atomistic.models.bareprototype.view_base.BarePrototypeViewBase,
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
+                httk.atomistic.models.bareprotostructure.view_base.BareProtostructureViewBase,
             ),
         ):
             self._prototype = obj._backend
@@ -72,11 +82,23 @@ class WyckoffComposition(ChemicalFormulaBackend):
 
     @property
     def _is_protostructure(self) -> bool:
-        return isinstance(self._prototype, httk.atomistic.models.protostructure.backend.ProtostructureBackend)
+        return isinstance(
+            self._prototype,
+            (
+                httk.atomistic.models.protostructure.backend.ProtostructureBackend,
+                httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend,
+            ),
+        )
 
     @property
     def _is_prototype(self) -> bool:
-        return isinstance(self._prototype, httk.atomistic.models.prototype.backend.PrototypeBackend)
+        return isinstance(
+            self._prototype,
+            (
+                httk.atomistic.models.prototype.backend.PrototypeBackend,
+                httk.atomistic.models.bareprototype.backend.BarePrototypeBackend,
+            ),
+        )
 
     @cached_property
     def _projected(self) -> Composition:

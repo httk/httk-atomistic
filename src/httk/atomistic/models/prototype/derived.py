@@ -1,11 +1,13 @@
 """Lazy adapters from assigned structures to anonymous prototypes."""
 
+from collections.abc import Sequence
 from functools import cached_property
 from typing import Any, Self
 
 from httk.core import unwrap
 
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
+from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.view_base import ProtostructureViewBase
 from httk.atomistic.models.prototype.backend import PrototypeBackend
 from httk.atomistic.models.prototype.notation import canonical_label_map
@@ -46,13 +48,20 @@ def _anonymous_template_from_structure(structure: FundamentalDomainStructure) ->
     )
 
 
+def _anonymous_occupations(occupations: Sequence[WyckoffOccupation]) -> list[PrototypeOccupation]:
+    by_name: dict[str, list[str]] = {}
+    for occupation in occupations:
+        by_name.setdefault(occupation.species.name, []).append(occupation.wyckoff)
+    relabel = canonical_label_map({name: tuple(sorted(letters)) for name, letters in by_name.items()})
+    return [PrototypeOccupation(o.wyckoff, relabel[o.species.name]) for o in occupations]
+
+
 class DerivedPrototype(PrototypeBackend):
     """Erase assigned Protostructure occupations to anonymous labels lazily.
 
-    A base Protostructure erases to a base Prototype. An explicit refinement carried by the
-    source is preserved: the discriminator verbatim, and the representative by the exact
-    conversion of its :class:`~httk.atomistic.FundamentalDomainStructure` to the anonymous
-    :class:`~httk.atomistic.FundamentalDomainTemplate` that a Prototype representative uses.
+    The source discriminator is preserved verbatim. An exact retained representative
+    is converted to an anonymous fundamental-domain template without approximating
+    its geometry.
     """
 
     kind = "prototype"
@@ -74,11 +83,7 @@ class DerivedPrototype(PrototypeBackend):
     def _derived(self) -> Prototype:
         source = self._source
         value = source._backend if isinstance(source, ProtostructureViewBase) else source
-        by_name: dict[str, list[str]] = {}
-        for occupation in value.occupations:
-            by_name.setdefault(occupation.species.name, []).append(occupation.wyckoff)
-        relabel = canonical_label_map({name: tuple(sorted(letters)) for name, letters in by_name.items()})
-        occupations = [PrototypeOccupation(o.wyckoff, relabel[o.species.name]) for o in value.occupations]
+        occupations = _anonymous_occupations(value.occupations)
         representative = value.representative
         anon_rep = None if representative is None else _anonymous_template_from_structure(representative)
         return Prototype(value.spacegroup, occupations, representative=anon_rep, discriminator=value.discriminator)

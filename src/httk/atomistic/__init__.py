@@ -80,6 +80,8 @@ from httk.atomistic.entries.structures import StructureEntry, StructureEntryProv
 from httk.atomistic.entries.trajectories import TrajectoryEntry, TrajectoryEntryProvider
 from httk.atomistic.storage.records import (
     ASUStructureRecord,
+    BarePrototypeRecord,
+    BareProtostructureRecord,
     FundamentalDomainTemplateRecord,
     FundamentalDomainStructureRecord,
     ProtostructureRecord,
@@ -133,25 +135,38 @@ AnonymousStructureLike = StructuretypeLike
 
 # Protostructure imports follow the structuretype block: the assigned-species
 # classification family bridges through the completed formula and structure registrations.
+from httk.atomistic.models.bareprotostructure.backend import BareProtostructureBackend
+from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
+from httk.atomistic.models.bareprotostructure.like import BareProtostructureLike
+from httk.atomistic.models.bareprotostructure.view import BareProtostructureView
+from httk.atomistic.models.bareprotostructure.label import BareProtostructureLabel
+from httk.atomistic.models.bareprotostructure.label_string import BareProtostructureLabelString
+from httk.atomistic.models.bareprotostructure.recognized import RecognizedBareProtostructure
+from httk.atomistic.models.bareprotostructure.projected import ProjectedBareProtostructure
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.label import ProtostructureLabel
-from httk.atomistic.models.protostructure.label_string import ProtostructureLabelString
 from httk.atomistic.models.protostructure.like import ProtostructureLike
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.protostructure import Protostructure
-from httk.atomistic.models.protostructure.recognized import RecognizedProtostructure
 from httk.atomistic.models.protostructure.view import ProtostructureView
 
 # Prototype imports follow the protostructure block: the anonymous family composes the
 # completed structuretype (its representative) and protostructure (its erasure).
+from httk.atomistic.models.bareprototype.backend import BarePrototypeBackend
+from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
+from httk.atomistic.models.bareprototype.like import BarePrototypeLike
+from httk.atomistic.models.bareprototype.view import BarePrototypeView
+from httk.atomistic.models.bareprototype.label import BarePrototypeLabel
+from httk.atomistic.models.bareprototype.label_string import BarePrototypeLabelString
+from httk.atomistic.models.bareprototype.recognized import RecognizedBarePrototype
+from httk.atomistic.models.bareprototype.projected import ProjectedBarePrototype
 from httk.atomistic.models.prototype.backend import PrototypeBackend
+from httk.atomistic.models.bareprototype.derived import DerivedBarePrototype
 from httk.atomistic.models.prototype.derived import DerivedPrototype
 from httk.atomistic.models.prototype.label import PrototypeLabel
-from httk.atomistic.models.prototype.label_string import PrototypeLabelString
 from httk.atomistic.models.prototype.like import PrototypeLike
 from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.models.prototype.prototype import Prototype
-from httk.atomistic.models.prototype.recognized import RecognizedPrototype
 from httk.atomistic.models.prototype.view import PrototypeView
 
 from httk.atomistic.symmetry.affine_operation import AffineOperation
@@ -221,8 +236,19 @@ StructuretypeBackend.backend_classes = [AnonymizedStructure]
 # The label-string probe is first: it is a cheap exact parse that either matches a
 # canonical label or declines, mirroring the record-first rationale, so recognition
 # sources never fall through it.
-ProtostructureBackend.backend_classes = [ProtostructureLabelString, RecognizedProtostructure]
-PrototypeBackend.backend_classes = [PrototypeLabelString, DerivedPrototype, RecognizedPrototype]
+BareProtostructureBackend.backend_classes = [
+    ProjectedBareProtostructure,
+    BareProtostructureLabelString,
+    RecognizedBareProtostructure,
+]
+BarePrototypeBackend.backend_classes = [
+    ProjectedBarePrototype,
+    DerivedBarePrototype,
+    BarePrototypeLabelString,
+    RecognizedBarePrototype,
+]
+ProtostructureBackend.backend_classes = []
+PrototypeBackend.backend_classes = [DerivedPrototype]
 register_coercer(view_class_coercer([ChemicalFormulaView, FormulatypeView, CompositionView]), Any)
 StructureBackend.backend_classes = [
     RecordStructure,
@@ -250,6 +276,10 @@ ASUStructure.__httk_storage_record__ = ASUStructureRecord
 ASUStructureView.__httk_storage_record__ = ASUStructureRecord
 Trajectory.__httk_storage_record__ = TrajectoryRecord
 TrajectoryView.__httk_storage_record__ = TrajectoryRecord
+BarePrototype.__httk_storage_record__ = BarePrototypeRecord
+BarePrototypeView.__httk_storage_record__ = BarePrototypeRecord
+BareProtostructure.__httk_storage_record__ = BareProtostructureRecord
+BareProtostructureView.__httk_storage_record__ = BareProtostructureRecord
 Protostructure.__httk_storage_record__ = ProtostructureRecord
 ProtostructureView.__httk_storage_record__ = ProtostructureRecord
 # ASUTemplate is deliberately not storable (matches the phase-2 decision for ASUStructure).
@@ -273,6 +303,16 @@ __all__ = [
     "AnonymousStructureLike",
     "AnonymousStructureView",
     "Assembly",
+    "BareProtostructure",
+    "BareProtostructureLabel",
+    "BareProtostructureLike",
+    "BareProtostructureRecord",
+    "BareProtostructureView",
+    "BarePrototype",
+    "BarePrototypeLabel",
+    "BarePrototypeLike",
+    "BarePrototypeRecord",
+    "BarePrototypeView",
     "CartesianSiteMoments",
     "CartesianSiteMomentsView",
     "Cell",

@@ -6,6 +6,12 @@ A ``str`` in this union is always a formula, never a filename.
 from collections.abc import Mapping
 from typing import Any
 
+import httk.atomistic.models.bareprotostructure.backend
+import httk.atomistic.models.bareprotostructure.bareprotostructure
+import httk.atomistic.models.bareprotostructure.view_base
+import httk.atomistic.models.bareprototype.backend
+import httk.atomistic.models.bareprototype.bareprototype
+import httk.atomistic.models.bareprototype.view_base
 import httk.atomistic.models.formula.backend
 import httk.atomistic.models.formula.composition
 import httk.atomistic.models.formula.formula
@@ -36,11 +42,17 @@ type ChemicalFormulaLike = (
     | httk.atomistic.models.structuretype.structuretype.Structuretype
     | httk.atomistic.models.structuretype.fundamental.FundamentalDomainTemplate
     | httk.atomistic.models.prototype.backend.PrototypeBackend
+    | httk.atomistic.models.bareprototype.backend.BarePrototypeBackend
     | httk.atomistic.models.prototype.view_base.PrototypeViewBase
+    | httk.atomistic.models.bareprototype.view_base.BarePrototypeViewBase
     | httk.atomistic.models.prototype.prototype.Prototype
+    | httk.atomistic.models.bareprototype.bareprototype.BarePrototype
     | httk.atomistic.models.protostructure.backend.ProtostructureBackend
+    | httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend
     | httk.atomistic.models.protostructure.view_base.ProtostructureViewBase
+    | httk.atomistic.models.bareprotostructure.view_base.BareProtostructureViewBase
     | httk.atomistic.models.protostructure.protostructure.Protostructure
+    | httk.atomistic.models.bareprotostructure.bareprotostructure.BareProtostructure
     | httk.atomistic.storage.records.NormalizedCompositionRecord
     | httk.atomistic.models.structure.backend.StructureBackend
     | httk.atomistic.models.structure.view.StructureView

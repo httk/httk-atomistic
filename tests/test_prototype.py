@@ -7,6 +7,10 @@ from httk.core import FracVector
 
 from httk.atomistic import (
     ASUStructure,
+    BareProtostructure,
+    BarePrototype,
+    BarePrototypeLabel,
+    BarePrototypeView,
     DerivedPrototype,
     FundamentalDomainTemplate,
     Protostructure,
@@ -15,7 +19,7 @@ from httk.atomistic import (
     PrototypeLabel,
     PrototypeOccupation,
     PrototypeView,
-    RecognizedPrototype,
+    RecognizedBarePrototype,
     Species,
     UnitcellStructure,
     WyckoffSite,
@@ -47,8 +51,8 @@ def _asu() -> ASUStructure:
     )
 
 
-def _base() -> Prototype:
-    return Prototype(225, [("a", "A"), ("b", "B")])
+def _base() -> BarePrototype:
+    return BarePrototype(225, [("a", "A"), ("b", "B")])
 
 
 class IdentityCarryingPrototypeBackend(PrototypeBackend):
@@ -105,8 +109,8 @@ def test_representative_base_mismatch_is_rejected() -> None:
 
 
 def test_canonical_anonymous_occupations_and_label() -> None:
-    first = Prototype(225, [("a", "A"), ("b", "B")])
-    permuted = Prototype(225, [("b", "A"), ("a", "B")])
+    first = BarePrototype(225, [("a", "A"), ("b", "B")])
+    permuted = BarePrototype(225, [("b", "A"), ("a", "B")])
     assert first == permuted
     assert str(first.label) == "AB_cF8_225_a_b"
     assert first.pearson_symbol == "cF8"
@@ -119,7 +123,7 @@ def test_exact_equality_includes_optional_information_and_is_hashable() -> None:
     assert Prototype(225, [("a", "A"), ("b", "B")], discriminator="001") != Prototype(
         225, [("a", "A"), ("b", "B")], discriminator="002"
     )
-    assert Prototype(225, [("a", "A"), ("b", "B")]) != Prototype(225, [("a", "A"), ("b", "B")], discriminator="001")
+    assert BarePrototype(225, [("a", "A"), ("b", "B")]) != Prototype(225, [("a", "A"), ("b", "B")], discriminator="001")
     # Hashable over the base identity (space group, occupations, discriminator): equal values
     # hash equal and work as dict keys; a retained representative is excluded from the hash.
     first = Prototype(225, [("a", "A"), ("b", "B")], discriminator="001")
@@ -131,17 +135,17 @@ def test_exact_equality_includes_optional_information_and_is_hashable() -> None:
 
 def test_fundamental_template_and_structure_views_derive_prototypes() -> None:
     representative = _template()
-    assert representative.prototype == _base()
-    recognized = PrototypeView(_asu()).unview()
-    assert isinstance(recognized, Prototype)
-    assert recognized.representative is None  # recognition returns a base value
+    assert representative.bare_prototype == _base()
+    recognized = BarePrototypeView(_asu()).unview()
+    assert isinstance(recognized, BarePrototype)
+    assert not hasattr(recognized, "representative")
     assert recognized.label == "AB_cF8_225_a_b"
 
 
 def test_raw_structure_recognition_options_reach_recognized_backend() -> None:
     structure = UnitcellStructure(CELL, [(0, 0, 0)], (Species("Na", ("Na",), (1,)),), ("Na",))
-    view = PrototypeView(structure, tolerance=0.123, limit_denominator=97)
-    assert isinstance(view._backend, RecognizedPrototype)
+    view = BarePrototypeView(structure, tolerance=0.123, limit_denominator=97)
+    assert isinstance(view._backend, RecognizedBarePrototype)
     assert view._backend._tolerance == 0.123
     assert view._backend._limit_denominator == 97
 
@@ -167,11 +171,11 @@ def test_prototype_views_and_labels_preserve_optional_identity() -> None:
     assert view.unview() == expected
     assert PrototypeLabel(derived).unview() == expected
 
-    recognized = RecognizedPrototype(_asu())
-    recognized_view = PrototypeView(recognized)
+    recognized = RecognizedBarePrototype(_asu())
+    recognized_view = BarePrototypeView(recognized)
     assert recognized_view._resolved_prototype is None
-    assert recognized_view.unview().representative is None  # recognition returns a base value
-    assert PrototypeLabel(recognized).unview() == recognized_view.unview()
+    assert not hasattr(recognized_view.unview(), "representative")
+    assert BarePrototypeLabel(recognized).unview() == recognized_view.unview()
 
     value = Prototype(representative=_template(), discriminator="003")
     generic_backend = IdentityCarryingPrototypeBackend(value)
@@ -182,30 +186,26 @@ def test_prototype_views_and_labels_preserve_optional_identity() -> None:
 
 
 def test_view_is_lazy_and_pickle_preserves_state() -> None:
-    view = PrototypeView(_asu())
+    view = BarePrototypeView(_asu())
     assert view._resolved_prototype is None
     restored = pickle.loads(pickle.dumps(view))
     assert restored._resolved_prototype is None
     assert restored.unview() == view.unview()
-    resolved = PrototypeView(_asu())
+    resolved = BarePrototypeView(_asu())
     _ = resolved.spacegroup
     restored = pickle.loads(pickle.dumps(resolved))
     assert restored.unview() == resolved.unview()
 
 
 def test_similar_optional_fields_and_delta_validation() -> None:
-    one = Prototype(225, [("a", "A"), ("b", "B")])
-    two = Prototype(225, [("a", "A"), ("b", "B")], discriminator="001")
-    assert one.similar(two, 0.0)
-    assert two.similar(one, 0.0)
-    assert not two.similar(Prototype(225, [("a", "A"), ("b", "B")], discriminator="002"), 0.0)
-    # A bare protostructure is erased through PrototypeView to its anonymous prototype and
-    # matches the base (both sides lack a representative, so geometry is not compared).
-    assert one.similar(Protostructure(225, [("a", "Na"), ("b", "Cl")]), 0.0)
-    with pytest.raises(ValueError):
-        one.similar(one, -1)
-    with pytest.raises(ValueError):
-        one.similar(one, float("nan"))
+    one = Prototype(225, [("a", "A"), ("b", "B")], discriminator="001")
+    two = Prototype(225, [("a", "A"), ("b", "B")], discriminator="002")
+    assert one.similar(one, 0.0)
+    assert not one.similar(two, 0.0)
+    assert not one.similar(BarePrototype(225, [("a", "A"), ("b", "B")]), 0.0)
+    for invalid in (-1, float("nan"), float("inf")):
+        with pytest.raises(ValueError):
+            one.similar(one, invalid)
     with pytest.raises(TypeError):
         one.similar(one, "0")
 
@@ -214,15 +214,15 @@ def test_label_string_and_native_view_dispatch() -> None:
     # Ported from the retired prototemplate suite: label-string adoption, native-view
     # identity, and lazy unwrap of an erasure source.
     base = _base()
-    assert PrototypeView("AB_cF8_225_a_b").unview() == base
-    assert str(PrototypeLabel("AB_cF8_225_a_b")) == "AB_cF8_225_a_b"
+    assert BarePrototypeView("AB_cF8_225_a_b").unview() == base
+    assert str(BarePrototypeLabel("AB_cF8_225_a_b")) == "AB_cF8_225_a_b"
 
-    assert PrototypeView(base).unview() is base  # a value is adopted by identity
-    view = PrototypeView(_template())
-    assert PrototypeView(view) is view  # rewrapping a native view returns it unchanged
+    assert BarePrototypeView(base).unview() is base  # a value is adopted by identity
+    view = BarePrototypeView(_template())
+    assert BarePrototypeView(view) is view  # rewrapping a native view returns it unchanged
 
-    proto = Protostructure(225, [("a", "Na"), ("b", "Cl")])
-    lazy = PrototypeView(proto)
+    proto = BareProtostructure(225, [("a", "Na"), ("b", "Cl")])
+    lazy = BarePrototypeView(proto)
     assert lazy._resolved_prototype is None
     assert lazy.unwrap() is proto  # unwrap recovers the source without resolving
     assert lazy._resolved_prototype is None
@@ -239,4 +239,4 @@ def test_prototype_occupation_str_coerces_fields() -> None:
 def test_erasure_from_fundamental_domain_template_needs_no_spglib() -> None:
     # Ported from the retired prototemplate suite: a clean fundamental-domain template is
     # erased directly, with no symmetry recognition (and thus no spglib) required.
-    assert str(PrototypeView(_template()).label) == "AB_cF8_225_a_b"
+    assert str(BarePrototypeView(_template()).label) == "AB_cF8_225_a_b"

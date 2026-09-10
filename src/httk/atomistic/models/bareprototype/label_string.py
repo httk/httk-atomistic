@@ -2,11 +2,11 @@
 
 from typing import Any, Self
 
-from httk.atomistic.models.prototype.backend import PrototypeBackend
-from httk.atomistic.models.prototype.notation import try_parse_prototype
+from httk.atomistic.models.bareprototype.backend import BarePrototypeBackend
+from httk.atomistic.models.prototype.notation import try_parse_bare_prototype
 
 
-class PrototypeLabelString(PrototypeBackend):
+class BarePrototypeLabelString(BarePrototypeBackend):
     r"""Wrap a canonical prototype label held as a plain string.
 
     The string must be a canonical unsuffixed prototype label (no ``:`` species
@@ -17,7 +17,7 @@ class PrototypeLabelString(PrototypeBackend):
     :param \*\*hints: Backend-selection hints.
     """
 
-    kind = "prototype"
+    kind = "bare_prototype"
     _raw: str
 
     @classmethod
@@ -28,17 +28,17 @@ class PrototypeLabelString(PrototypeBackend):
         :param \**hints: Backend-selection hints.
         :return: An initialized backend, or ``None`` when this backend declines ``obj``.
         """
-        if hints and hints.get("kind", "prototype") != "prototype":
+        if hints and hints.get("kind", "bare_prototype") != "bare_prototype":
             return None
         if not isinstance(obj, str):
             return None
-        if try_parse_prototype(obj) is None:
+        if try_parse_bare_prototype(obj) is None:
             return None
         return cls(obj, **hints)
 
     def __init__(self, obj: str, **hints: Any) -> None:
         self._raw = obj
-        parsed = try_parse_prototype(obj)
+        parsed = try_parse_bare_prototype(obj)
         assert parsed is not None  # _backend_adopt guarantees a canonical label
         self._value = parsed
 
@@ -51,14 +51,6 @@ class PrototypeLabelString(PrototypeBackend):
     def occupations(self):
         """Return the class-partitioned occupations of the parsed label."""
         return self._value.occupations
-
-    @property
-    def representative(self):
-        return None
-
-    @property
-    def discriminator(self):
-        return None
 
     def unwrap(self) -> str:
         """Return the original label text."""

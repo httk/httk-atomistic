@@ -78,3 +78,23 @@ register_entry_record(
     family="prototypes",
     record="httk.atomistic.storage.records:PrototypeRecord",
 )
+
+register_entry_family(
+    name="bare_prototypes",
+    family="httk.atomistic.entries.prototypes:BarePrototypeEntry",
+)
+register_entry_record(
+    name="atomistic-bare-prototype",
+    family="bare_prototypes",
+    record="httk.atomistic.storage.records:BarePrototypeRecord",
+)
+
+register_entry_family(
+    name="bare_protostructures",
+    family="httk.atomistic.entries.prototypes:BareProtostructureEntry",
+)
+register_entry_record(
+    name="atomistic-bare-protostructure",
+    family="bare_protostructures",
+    record="httk.atomistic.storage.records:BareProtostructureRecord",
+)

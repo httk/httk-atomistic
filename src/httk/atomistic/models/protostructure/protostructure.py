@@ -10,20 +10,11 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
 class Protostructure(ProtostructureBackend):
-    """Store a standard-setting space group and its occupied Wyckoff positions.
+    """Store occupied Wyckoff positions with explicit geometrical-class information.
 
-    The base value is provenance-independent: recognition and derivation return a base
-    ``Protostructure``, so a value recognized from a structure compares equal to one built
-    by hand or parsed from a label. Multiplicities, composition, and formula derivations are
-    defined at the standard-setting conventional-cell scale, even when the source used to
-    recognize it was stored in a volume-scaled setting.
-
-    A geometrical representative and/or a discriminator are optional refinements, present
-    only when the user constructs the value with them; recognition never attaches them. They
-    participate in equality and content identity: equality covers the space group, the
-    occupations, the discriminator, and the representative when present, so two values
-    sharing space group, occupations, and discriminator but differing in representative are
-    not equal.
+    At least one of an exact representative or a nonempty discriminator is required.
+    Both participate in equality and content identity. Use ``BareProtostructure`` for
+    the broader Wyckoff-only classification; recognizing a structure yields that level.
 
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: The occupied Wyckoff positions and their species.
@@ -56,36 +47,18 @@ class Protostructure(ProtostructureBackend):
             raise ValueError("Protostructure needs spacegroup and occupations or a representative")
         if discriminator is not None and (not isinstance(discriminator, str) or not discriminator):
             raise ValueError("Protostructure discriminator must be a non-empty string when given")
-        self._spacegroup = spacegroup if isinstance(spacegroup, Spacegroup) else Spacegroup.standard(spacegroup)
-        if not self._spacegroup.is_standard_setting:
-            raise ValueError(
-                f"Protostructure records Wyckoff data in the IT standard setting, but was given "
-                f"{self._spacegroup.setting}; pass Spacegroup.standard({self._spacegroup.it_number}) "
-                "instead"
-            )
-        raw = tuple(
-            occupation if isinstance(occupation, WyckoffOccupation) else WyckoffOccupation(occupation[0], occupation[1])
-            for occupation in occupations
-        )
-        if not raw:
-            raise ValueError("Protostructure occupations must be non-empty")
-        species_by_name: dict[str, Any] = {}
-        for occupation in raw:
-            try:
-                self._spacegroup.wyckoff_position(occupation.wyckoff)
-            except KeyError as exc:
-                raise ValueError(str(exc)) from exc
-            previous = species_by_name.get(occupation.species.name)
-            if previous is not None and previous != occupation.species:
-                raise ValueError(
-                    f"Protostructure occupations naming species {occupation.species.name!r} must carry equal Species"
-                )
-            species_by_name[occupation.species.name] = occupation.species
-        self._occupations = tuple(sorted(raw, key=lambda value: (value.species.name, value.wyckoff)))
+        from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
+
+        bare = BareProtostructure(spacegroup, occupations)
+        self._spacegroup, self._occupations = bare.spacegroup, bare.occupations
         if representative is not None and base_supplied:
             expected = Protostructure(representative=representative)
             if (self._spacegroup, self._occupations) != (expected.spacegroup, expected.occupations):
                 raise ValueError("Protostructure base disagrees with its representative")
+        if representative is None and discriminator is None:
+            raise ValueError(
+                "Protostructure requires a representative or discriminator; use BareProtostructure for Wyckoff-only values"
+            )
         self._representative = representative
         self._discriminator = discriminator
 
