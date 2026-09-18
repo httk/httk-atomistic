@@ -30,9 +30,12 @@ from httk.core import (
 from httk.core.optimade import (
     IncompleteOptimadeResourceError,
     OptimadeResource,
+    complete_standard_schema,
     decode_optimade_value,
     optimade_document_root,
+    parse_optimade_api_version,
 )
+from httk.core.register import optimade_entry_binding
 from httk.core.storage import stored_property
 
 from httk.atomistic._composition_values import normalization
@@ -154,6 +157,15 @@ class OptimadeStructure(StructureBackend):
 
     @cached_property
     def _remote_names_by_definition_id(self) -> Mapping[str, str]:
+        """Map semantic property IRIs to remote names from the frozen info document.
+
+        Declared ``$id`` definitions are authoritative. Any remaining standard
+        namespace names the declared specification version identifies then fill
+        in, but only for IRIs the declared map does not already claim, so a
+        service that publishes no property definitions (every large real
+        provider) is still recognized by the OPTIMADE standard-name rule.
+        """
+
         root = optimade_document_root(self.resource.schema.info_document)
         data = root.get("data")
         if not isinstance(data, Mapping):
@@ -177,6 +189,10 @@ class OptimadeStructure(StructureBackend):
                     f"OPTIMADE structure schema assigns {definition_id!r} to both {previous!r} and {remote_name!r}"
                 )
             names[definition_id] = remote_name
+        completion = complete_standard_schema(self.resource.schema)
+        for remote_name, inferred_id in completion.definitions_by_name.items():
+            if inferred_id not in names:
+                names[inferred_id] = remote_name
         return MappingProxyType(names)
 
     def _value(self, property_name: str, *, component: str, optional: bool = False) -> object:
@@ -188,7 +204,8 @@ class OptimadeStructure(StructureBackend):
                 return _MISSING
             raise IncompleteOptimadeResourceError(
                 f"OPTIMADE {component} requires semantic property {property_name!r} "
-                f"({definition_id}), but the schema does not identify it"
+                f"({definition_id}), but the schema does not identify it: "
+                f"{self._identification_failure(property_name)}"
             )
         attributes = self.raw.get("attributes")
         if not isinstance(attributes, Mapping):
@@ -204,6 +221,69 @@ class OptimadeStructure(StructureBackend):
                 f"OPTIMADE {component} has {state} semantic property {property_name!r}"
             )
         return value
+
+    def _identification_failure(self, property_name: str) -> str:
+        """Explain why the schema does not identify one required standard property.
+
+        The declared specification version is read only from the info document's
+        ``meta.api_version`` (through the completion). A ``$id``-free unprefixed
+        name is completed by the standard-name rule, so its failure is always a
+        version, entry-type, or version-gate problem rather than a missing map.
+
+        :param property_name: Local standard property name that stayed unknown.
+        :return: A factual clause naming the declared version, the specific
+            cause, and the (redacted) info document source URL.
+        """
+
+        schema = self.resource.schema
+        completion = complete_standard_schema(schema)
+        declared_raw = completion.api_version
+        declared = parse_optimade_api_version(declared_raw)
+        prefix = f"the service at {schema.info_document.source_url!r}"
+        version_clause = (
+            f"declares OPTIMADE specification version {declared_raw!r}"
+            if declared_raw is not None
+            else "declares no OPTIMADE specification version"
+        )
+        root = optimade_document_root(schema.info_document)
+        data = root.get("data")
+        properties = data.get("properties") if isinstance(data, Mapping) else None
+        advertised = properties.get(property_name, _MISSING) if isinstance(properties, Mapping) else _MISSING
+        if advertised is _MISSING:
+            return f"{prefix} {version_clause} but advertises no property named {property_name!r}"
+        if isinstance(advertised, Mapping) and _is_definition_iri(advertised.get("$id")):
+            return (
+                f"{prefix} {version_clause} but advertises {property_name!r} under the definition identity "
+                f"{advertised['$id']!r}, which denotes a different property"
+            )
+        # The name is an advertised, unprefixed, standard-namespace spelling.
+        if declared_raw is None:
+            return (
+                f"{prefix} declares no OPTIMADE specification version, "
+                f"so unprefixed {property_name!r} carries no standard identity"
+            )
+        if declared is None:
+            return (
+                f"{prefix} declares OPTIMADE specification version {declared_raw!r}, which is not a usable "
+                f"major-1 version, so unprefixed {property_name!r} carries no standard identity"
+            )
+        if completion.entry_type_definition_id is None:
+            return (
+                f"{prefix} serves entry type {schema.entry_type!r}, which is not a standard OPTIMADE entry "
+                f"type, so unprefixed names carry no standard meaning"
+            )
+        binding = optimade_entry_binding(self.entry_type_definition_id)
+        introduced_raw = binding.standard_property_versions.get(property_name) if binding is not None else None
+        introduced = parse_optimade_api_version(introduced_raw)
+        if introduced is not None and introduced > declared:
+            return (
+                f"{prefix} {version_clause} but advertises {property_name!r}, which became a standard property "
+                f"only in OPTIMADE version {introduced_raw!r}, later than the declared version"
+            )
+        return (
+            f"{prefix} {version_clause} but advertises {property_name!r}, "
+            f"which is not a standard property of this entry type"
+        )
 
     def _raw_optional(self, property_name: str) -> object:
         """Return a supplied semantic value, preserving missing/null separately."""

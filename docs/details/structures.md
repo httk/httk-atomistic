@@ -325,6 +325,30 @@ complete {doc}`/examples/build_a_supercell` example for the skewed cell from the
 httk v1 Step 2 tutorial and the reason its old `tolerance` search knob became
 an exact multiplier in v2.
 
+## Reading remote OPTIMADE structures
+
+`OptimadeStructure` wraps an `OptimadeResource` (typically from
+`httk.core.optimade.optimade_resource_from_url`) and `UnitcellStructureView`
+presents it as an ordinary structure. A property is recognized by its
+definition IRI, never by its transport spelling, so a service must map each
+name to a definition. Almost no large real provider publishes a
+property-definition `$id` in `/info/structures`, so httk applies the OPTIMADE
+standard-name rule: on a standard endpoint an unprefixed property name is the
+standard property of that name as of the specification version the service
+declares in the info document's `meta.api_version`. A declared `$id` always wins
+over the inferred identity; provider-prefixed names (`_exmpl_…`) stay unknown; a
+name introduced only in a later specification version than the one declared also
+stays unknown; and a service that declares no usable major-1 version gets no
+inference. See the *httk-core*
+[property definitions guide](https://docs.httk.org/httk-core/dev/main/details/property_definitions.html)
+for the mechanism.
+
+A backend built directly over an `OptimadeResource` always applies this rule.
+Restricting recognition to declared `$id` definitions (strict auditing) is a
+client-discovery concern, governed by *httk-store*'s
+`OptimadeStore(infer_standard_definitions=False)`, not a property of the schema
+snapshot.
+
 ## Serving structures as OPTIMADE
 
 `StructureEntryProvider` maps `{id: UnitcellStructure}` onto the neutral

@@ -1,4 +1,6 @@
+import datetime
 import json
+import pathlib
 from fractions import Fraction
 
 import pytest
@@ -62,7 +64,9 @@ def _resource(*, ids: dict[str, object] | None = None, attributes: dict[str, obj
     }
     if attributes is not None:
         values = attributes
-    info = OptimadeDocument.from_response(json.dumps({"data": {"properties": info_properties}}), "https://example.test/info")
+    info = OptimadeDocument.from_response(
+        json.dumps({"data": {"properties": info_properties}}), "https://example.test/info"
+    )
     document = OptimadeDocument.from_response(
         json.dumps({"data": [{"id": "example-1", "type": "structures", "attributes": values}]}),
         "https://example.test/v1/structures",
@@ -670,7 +674,14 @@ def test_unitcell_view_reads_metadata_through_the_decoding_backend() -> None:
     from collections.abc import Mapping
 
     schema = load_entry_type_definition(_STRUCTURES_ID)
-    names = ("lattice_vectors", "cartesian_site_positions", "species", "species_at_sites", "dimension_types", "last_modified")
+    names = (
+        "lattice_vectors",
+        "cartesian_site_positions",
+        "species",
+        "species_at_sites",
+        "dimension_types",
+        "last_modified",
+    )
     properties = {name: {"$id": schema.properties[name].definition_id} for name in names}
     attributes = {
         "lattice_vectors": [[2, 0, 0], [0, 3, 0], [0, 0, 4]],
@@ -705,3 +716,275 @@ def test_unitcell_view_reads_metadata_through_the_decoding_backend() -> None:
     assert view.last_modified == datetime.datetime(2023, 11, 16, 7, 57, 59, tzinfo=datetime.UTC)
     assert view.immutable_id is None
     assert view.formula == "ClNa"
+
+
+_INFO_FIXTURES = pathlib.Path(__file__).parent / "data" / "optimade_info"
+
+
+def _fixture_info(filename: str, source_url: str) -> OptimadeDocument:
+    """Load a captured info document verbatim (fixture files are read-only)."""
+
+    return OptimadeDocument.from_response((_INFO_FIXTURES / filename).read_text(), source_url)
+
+
+def _fixture_info_with_version(filename: str, source_url: str, api_version: str | None) -> OptimadeDocument:
+    """Load a captured info document with ``meta.api_version`` replaced or deleted.
+
+    A string replaces the declared version; ``None`` deletes it (both simulate a
+    differently versioned service). Only the in-memory copy is edited.
+    """
+
+    document = json.loads((_INFO_FIXTURES / filename).read_text())
+    meta = document.setdefault("meta", {})
+    if api_version is None:
+        meta.pop("api_version", None)
+    else:
+        meta["api_version"] = api_version
+    return OptimadeDocument.from_response(json.dumps(document), source_url)
+
+
+def _resource_with_info(
+    info: OptimadeDocument, attributes: dict[str, object], *, entry_type: str = "structures"
+) -> OptimadeResource:
+    """Wrap *attributes* in an entry document against schema snapshot *info*."""
+
+    document = OptimadeDocument.from_response(
+        json.dumps({"data": [{"id": "fixture-1", "type": "structures", "attributes": attributes}]}),
+        "https://example.test/v1/structures",
+    )
+    return OptimadeResource(document, 0, OptimadeSchemaSnapshot(entry_type, info))
+
+
+def _fixture_resource(filename: str, attributes: dict[str, object], *, source_url: str) -> OptimadeResource:
+    """Build a resource against a captured real ``/info/structures`` document."""
+
+    return _resource_with_info(_fixture_info(filename, source_url), attributes)
+
+
+def _nacl_standard_attributes() -> dict[str, object]:
+    """A valid rock-salt structure keyed by unprefixed standard property names."""
+
+    return {
+        "lattice_vectors": [[2, 0, 0], [0, 3, 0], [0, 0, 4]],
+        "cartesian_site_positions": [[0, 0, 0], [1, 1.5, 2]],
+        "species": [
+            {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1]},
+            {"name": "Cl", "chemical_symbols": ["Cl"], "concentration": [1]},
+        ],
+        "species_at_sites": ["Na", "Cl"],
+        "dimension_types": [1, 1, 1],
+        "nsites": 2,
+        "elements": ["Cl", "Na"],
+        "nelements": 2,
+        "chemical_formula_reduced": "ClNa",
+        "last_modified": "2023-11-16T07:57:59Z",
+        "immutable_id": "alx-1",
+    }
+
+
+def test_alexandria_schema_resolves_through_standard_name_rule() -> None:
+    """A 1.1.0 provider that publishes no $id is presented as an httk structure."""
+
+    resource = _fixture_resource(
+        "alexandria_pbe_info_structures.json",
+        _nacl_standard_attributes(),
+        source_url="https://alexandria.example/v1/info/structures",
+    )
+    view = UnitcellStructureView(resource)
+
+    assert str(view.formula) == "ClNa"
+    assert view.species_at_sites == ("Na", "Cl")
+    assert len(view.sites.reduced_coords.to_fractions()) == 2
+    assert view.cell.volume == 24
+    assert view.last_modified == datetime.datetime(2023, 11, 16, 7, 57, 59, tzinfo=datetime.UTC)
+    assert view.last_modified.tzinfo is not None
+    assert view.immutable_id == "alx-1"
+
+
+def test_materials_project_space_group_resolves_at_declared_version() -> None:
+    """A 1.2-introduced standard name resolves against a 1.2.0 provider."""
+
+    attributes = _nacl_standard_attributes()
+    attributes["space_group_it_number"] = 225
+    resource = _fixture_resource(
+        "materials_project_info_structures.json",
+        attributes,
+        source_url="https://materialsproject.example/v1/info/structures",
+    )
+    backend = OptimadeStructure(resource)
+
+    assert backend.space_group_it_number == 225
+    assert UnitcellStructureView(resource).space_group_it_number == 225
+
+
+def test_standard_name_version_gate_hides_later_property() -> None:
+    """The same 1.2 name stays unidentified when the service declares only 1.1.0."""
+
+    attributes = _nacl_standard_attributes()
+    attributes["space_group_it_number"] = 225
+    info = _fixture_info_with_version(
+        "materials_project_info_structures.json",
+        "https://materialsproject.example/v1/info/structures",
+        "1.1.0",
+    )
+    resource = _resource_with_info(info, attributes)
+    backend = OptimadeStructure(resource)
+
+    assert backend.space_group_it_number is None
+    assert tuple(species.name for species in backend.species) == ("Na", "Cl")
+    view = UnitcellStructureView(resource)
+    assert str(view.formula) == "ClNa"
+    assert view.space_group_it_number is None
+
+
+def test_declared_definition_id_wins_over_unprefixed_name() -> None:
+    """A declared $id under a renamed label beats an unprefixed same-name property."""
+
+    schema = load_entry_type_definition(_STRUCTURES_ID)
+    species_id = schema.properties["species"].definition_id
+    properties = {
+        "renamed_species": {"$id": species_id},
+        "species": {"x-optimade-type": "list"},
+    }
+    info = OptimadeDocument.from_response(
+        json.dumps({"data": {"properties": properties}, "meta": {"api_version": "1.1.0"}}),
+        "https://declared.example/v1/info/structures",
+    )
+    attributes = {
+        "renamed_species": [{"name": "Na", "chemical_symbols": ["Na"], "concentration": [1]}],
+        "species": [{"name": "Wrong", "chemical_symbols": ["Cl"], "concentration": [1]}],
+    }
+    document = OptimadeDocument.from_response(
+        json.dumps({"data": [{"id": "declared", "type": "structures", "attributes": attributes}]}),
+        "https://example.test/v1/structures",
+    )
+    backend = OptimadeStructure(OptimadeResource(document, 0, OptimadeSchemaSnapshot("structures", info)))
+
+    assert tuple(species.name for species in backend.species) == ("Na",)
+    assert backend._remote_names_by_definition_id[species_id] == "renamed_species"
+
+
+def test_provider_prefixed_name_is_never_inferred() -> None:
+    """A provider-prefixed spelling of a standard name carries no standard identity."""
+
+    info = OptimadeDocument.from_response(
+        json.dumps(
+            {"data": {"properties": {"_exmpl_species": {"x-optimade-type": "list"}}}, "meta": {"api_version": "1.1.0"}}
+        ),
+        "https://prefixed.example/v1/info/structures",
+    )
+    document = OptimadeDocument.from_response(
+        json.dumps({"data": [{"id": "prefixed", "type": "structures", "attributes": {"_exmpl_species": []}}]}),
+        "https://example.test/v1/structures",
+    )
+    backend = OptimadeStructure(OptimadeResource(document, 0, OptimadeSchemaSnapshot("structures", info)))
+
+    with pytest.raises(IncompleteOptimadeResourceError, match="species"):
+        _ = backend.species
+
+
+def test_missing_api_version_disables_inference() -> None:
+    """An info document that declares no version cannot complete standard names."""
+
+    info = _fixture_info_with_version(
+        "alexandria_pbe_info_structures.json",
+        "https://alexandria.example/v1/info/structures",
+        None,
+    )
+    backend = OptimadeStructure(_resource_with_info(info, _nacl_standard_attributes()))
+
+    with pytest.raises(IncompleteOptimadeResourceError) as error:
+        _ = backend.species
+    message = str(error.value)
+    assert "declares no OPTIMADE specification version" in message
+    assert "'species'" in message
+
+
+def test_identification_failure_message_names_declared_version_and_cause() -> None:
+    """The required-property failure names the declared version and the actual cause."""
+
+    # No declared version: inference cannot run, and the message says so.
+    no_version = OptimadeStructure(
+        _resource_with_info(
+            _fixture_info_with_version(
+                "alexandria_pbe_info_structures.json",
+                "https://alexandria.example/v1/info/structures",
+                None,
+            ),
+            _nacl_standard_attributes(),
+        )
+    )
+    no_version_message = no_version._identification_failure("species")
+    assert "declares no OPTIMADE specification version" in no_version_message
+    assert "carries no standard identity" in no_version_message
+
+    # A property not advertised at all, with a usable declared version present.
+    prefixed_info = OptimadeDocument.from_response(
+        json.dumps(
+            {"data": {"properties": {"_exmpl_species": {"x-optimade-type": "list"}}}, "meta": {"api_version": "1.1.0"}}
+        ),
+        "https://prefixed.example/v1/info/structures",
+    )
+    not_advertised = OptimadeStructure(_resource_with_info(prefixed_info, {"_exmpl_species": []}))
+    with pytest.raises(IncompleteOptimadeResourceError) as not_advertised_error:
+        _ = not_advertised.species
+    not_advertised_message = str(not_advertised_error.value)
+    assert "'1.1.0'" in not_advertised_message
+    assert "advertises no property named 'species'" in not_advertised_message
+
+    # A 1.2 name at a service that declares only 1.1.0: the version gate fires.
+    version_gated = OptimadeStructure(
+        _resource_with_info(
+            _fixture_info_with_version(
+                "materials_project_info_structures.json",
+                "https://materialsproject.example/v1/info/structures",
+                "1.1.0",
+            ),
+            _nacl_standard_attributes(),
+        )
+    )
+    gated_message = version_gated._identification_failure("space_group_it_number")
+    assert "'1.1.0'" in gated_message
+    assert "'1.2'" in gated_message
+    assert "later than the declared version" in gated_message
+
+    # A version-gated name that is NOT later than declared must not falsely
+    # claim a version gate: an in-table 1.0 name at declared 1.2.0.
+    not_later = OptimadeStructure(
+        _fixture_resource(
+            "materials_project_info_structures.json",
+            _nacl_standard_attributes(),
+            source_url="https://materialsproject.example/v1/info/structures",
+        )
+    )
+    not_later_message = not_later._identification_failure("elements")
+    assert "later than the declared version" not in not_later_message
+
+    # An unusable (non-major-1) declared version disables inference.
+    unusable = OptimadeStructure(
+        _resource_with_info(
+            _fixture_info_with_version(
+                "alexandria_pbe_info_structures.json",
+                "https://alexandria.example/v1/info/structures",
+                "2.0.0",
+            ),
+            _nacl_standard_attributes(),
+        )
+    )
+    unusable_message = unusable._identification_failure("species")
+    assert "'2.0.0'" in unusable_message
+    assert "which is not a usable major-1 version" in unusable_message
+
+    # A non-standard entry type carries no standard-name meaning at all.
+    vendor_info = OptimadeDocument.from_response(
+        json.dumps(
+            {"data": {"properties": {"lattice_vectors": {"x-optimade-type": "list"}}}, "meta": {"api_version": "1.2.0"}}
+        ),
+        "https://vendor.example/v1/info/structures-vendor",
+    )
+    vendor = OptimadeStructure(
+        _resource_with_info(vendor_info, {"lattice_vectors": [[1, 0, 0]]}, entry_type="structures-vendor")
+    )
+    vendor_message = vendor._identification_failure("lattice_vectors")
+    assert "'structures-vendor'" in vendor_message
+    assert "not a standard OPTIMADE entry type" in vendor_message
