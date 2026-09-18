@@ -32,6 +32,7 @@ from httk.core.optimade import (
     OptimadeResource,
     complete_standard_schema,
     decode_optimade_value,
+    decode_optional_timestamp,
     optimade_document_root,
     parse_optimade_api_version,
 )
@@ -557,9 +558,23 @@ class OptimadeStructure(StructureBackend):
     def last_modified(self) -> datetime.datetime | None:
         """Expose the portable source modification timestamp.
 
-        :return: The timestamp, or ``None`` when absent.
+        A supplied timestamp without a UTC offset violates RFC 3339 and denotes
+        no defined instant, so it is reported once per service origin through the
+        report channel and decoded as unknown (``None``) rather than assumed to
+        be UTC.
+
+        :return: The offset-aware timestamp, or ``None`` when absent or offset-less.
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the value is a non-null, unparseable timestamp.
         """
-        return cast(datetime.datetime | None, self._portable_value("last_modified"))
+        raw = self._raw_optional("last_modified")
+        if raw is _MISSING:
+            raw = None
+        try:
+            return decode_optional_timestamp(raw, source_url=self.resource.document.source_url)
+        except ValueError as exc:
+            raise IncompleteOptimadeResourceError(
+                f"OPTIMADE portable property 'last_modified' is invalid: {exc}"
+            ) from exc
 
     @stored_property
     def elements(self) -> tuple[str, ...] | None:
@@ -703,6 +718,18 @@ class OptimadeStructure(StructureBackend):
                 raise IncompleteOptimadeResourceError(
                     "OPTIMADE semantic property 'chemical_formula_anonymous' has invalid symbol or coefficient order"
                 )
+            projected = self._composition_from_sites
+            features = self._portable_value("structure_features")
+            if (
+                projected is not None
+                and (not isinstance(features, tuple) or "implicit_atoms" not in features)
+                and projected.chemical_formula_anonymous is not None
+            ):
+                if value != projected.chemical_formula_anonymous:
+                    raise IncompleteOptimadeResourceError(
+                        "OPTIMADE semantic property 'chemical_formula_anonymous' disagrees with the supplied site composition"
+                    )
+                return value
             ratios = self.elements_ratios
             if ratios is not None:
                 total = sum(coefficients)
@@ -715,17 +742,6 @@ class OptimadeStructure(StructureBackend):
                     raise IncompleteOptimadeResourceError(
                         "OPTIMADE semantic property 'chemical_formula_anonymous' disagrees with 'elements_ratios'"
                     )
-            projected = self._composition_from_sites
-            features = self._portable_value("structure_features")
-            if (
-                projected is not None
-                and (not isinstance(features, tuple) or "implicit_atoms" not in features)
-                and projected.chemical_formula_anonymous is not None
-                and value != projected.chemical_formula_anonymous
-            ):
-                raise IncompleteOptimadeResourceError(
-                    "OPTIMADE semantic property 'chemical_formula_anonymous' disagrees with the supplied site composition"
-                )
             return value
         tokens = self._formula_tokens(value, property_name)
         if len({element for element, _ in tokens}) != len(tokens):
@@ -748,16 +764,6 @@ class OptimadeStructure(StructureBackend):
             raise IncompleteOptimadeResourceError(
                 f"OPTIMADE semantic property {property_name!r} disagrees with 'elements'"
             )
-        declared_ratios = self.elements_ratios
-        if declared_elements is not None and declared_ratios is not None:
-            counts = dict(tokens)
-            total = sum(counts.values())
-            named_formula_ratios = tuple(Fraction(counts[element], total) for element in declared_elements)
-            width = self._elements_ratio_width()
-            if any(abs(left - right) > width for left, right in zip(named_formula_ratios, declared_ratios)):
-                raise IncompleteOptimadeResourceError(
-                    f"OPTIMADE semantic property {property_name!r} disagrees with 'elements_ratios'"
-                )
         projected = self._composition_from_sites
         features = self._portable_value("structure_features")
         if projected is not None and (not isinstance(features, tuple) or "implicit_atoms" not in features):
@@ -779,6 +785,17 @@ class OptimadeStructure(StructureBackend):
                     raise IncompleteOptimadeResourceError(
                         "OPTIMADE semantic property 'chemical_formula_hill' disagrees with the supplied site composition"
                     ) from exc
+            return value
+        declared_ratios = self.elements_ratios
+        if declared_elements is not None and declared_ratios is not None:
+            counts = dict(tokens)
+            total = sum(counts.values())
+            named_formula_ratios = tuple(Fraction(counts[element], total) for element in declared_elements)
+            width = self._elements_ratio_width()
+            if any(abs(left - right) > width for left, right in zip(named_formula_ratios, declared_ratios)):
+                raise IncompleteOptimadeResourceError(
+                    f"OPTIMADE semantic property {property_name!r} disagrees with 'elements_ratios'"
+                )
         return value
 
     def _elements_ratio_width(self) -> Fraction:

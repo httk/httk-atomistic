@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import pathlib
 from fractions import Fraction
 
@@ -988,3 +989,173 @@ def test_identification_failure_message_names_declared_version_and_cause() -> No
     vendor_message = vendor._identification_failure("lattice_vectors")
     assert "'structures-vendor'" in vendor_message
     assert "not a standard OPTIMADE entry type" in vendor_message
+
+
+def _materials_project_attributes() -> dict[str, object]:
+    """Reproduce the Materials Project (api 1.2.0) pattern for ``mp-1018810``.
+
+    ``elements_ratios`` is ordered by ``species_at_sites`` (Na first) rather
+    than by the alphabetical ``elements`` list, so it disagrees with the
+    projected site composition while every formula stays correct.
+
+    :return: Structure attributes with misordered ratios but correct formulas.
+    """
+    return {
+        "elements": ["Cl", "Na"],
+        "nelements": 2,
+        "elements_ratios": [0.6666666666666666, 0.3333333333333333],
+        "chemical_formula_descriptive": "Na4Cl2",
+        "chemical_formula_reduced": "ClNa2",
+        "chemical_formula_hill": "Cl2Na4",
+        "chemical_formula_anonymous": "A2B",
+        "nsites": 6,
+        "lattice_vectors": [[6, 0, 0], [0, 6, 0], [0, 0, 6]],
+        "cartesian_site_positions": [[0, 0, 0], [3, 0, 0], [0, 3, 0], [0, 0, 3], [3, 3, 0], [0, 3, 3]],
+        "species_at_sites": ["Na", "Na", "Na", "Na", "Cl", "Cl"],
+        "species": [
+            {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1]},
+            {"name": "Cl", "chemical_symbols": ["Cl"], "concentration": [1]},
+        ],
+        "structure_features": [],
+        "dimension_types": [1, 1, 1],
+        "nperiodic_dimensions": 3,
+        "site_coordinate_span": "unit_cell",
+    }
+
+
+def test_misordered_elements_ratios_do_not_invalidate_correct_formulas() -> None:
+    backend = OptimadeStructure(_semantic_resource(_materials_project_attributes()))
+    assert backend.chemical_formula_reduced == "ClNa2"
+    assert backend.chemical_formula_anonymous == "A2B"
+    assert backend.chemical_formula_hill == "Cl2Na4"
+    assert backend.chemical_formula_descriptive == "Na4Cl2"
+    assert UnitcellStructureView(backend).formula == "ClNa2"
+    with pytest.raises(IncompleteOptimadeResourceError, match="disagrees with the supplied site composition"):
+        _ = backend.elements_ratios
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("chemical_formula_reduced", "ClNa"),
+        ("chemical_formula_anonymous", "AB"),
+        ("chemical_formula_hill", "ClNa"),
+    ],
+)
+def test_formula_inconsistent_with_sites_still_raises(name: str, value: str) -> None:
+    attributes = _materials_project_attributes()
+    attributes[name] = value
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    with pytest.raises(IncompleteOptimadeResourceError, match="disagrees with the supplied site composition"):
+        _ = getattr(backend, name)
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("chemical_formula_reduced", "Cl99Na"),
+        ("chemical_formula_hill", "Cl99Na"),
+    ],
+)
+def test_source_formulas_use_ratios_when_sites_are_absent(name: str, value: str) -> None:
+    attributes = {
+        "elements": ["Cl", "Na"],
+        "nelements": 2,
+        "elements_ratios": [0.5, 0.5],
+        "structure_features": [],
+        name: value,
+    }
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    assert backend._composition_from_sites is None
+    with pytest.raises(IncompleteOptimadeResourceError, match="disagrees with 'elements_ratios'"):
+        _ = getattr(backend, name)
+
+
+def test_offsetless_last_modified_is_reported_once_and_decoded_as_unknown(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A Materials Project style offset-less timestamp is unknown, not naive UTC."""
+    import httk.core.optimade.entries as optimade_entries
+
+    optimade_entries._naive_timestamp_origins_warned.clear()
+    attributes = _nacl_standard_attributes()
+    attributes["last_modified"] = "2023-02-11T01:06:23.403000"
+    resource = _fixture_resource(
+        "alexandria_pbe_info_structures.json",
+        attributes,
+        source_url="https://alexandria.example/v1/info/structures",
+    )
+    backend = OptimadeStructure(resource)
+
+    with caplog.at_level(logging.WARNING, logger="httk.core.optimade.entries"):
+        assert backend.last_modified is None
+        view = UnitcellStructureView(resource)
+        assert view.last_modified is None
+        assert str(view.formula) == "ClNa"
+        assert view.species_at_sites == ("Na", "Cl")
+        assert len(view.sites.reduced_coords.to_fractions()) == 2
+        assert backend.immutable_id == "alx-1"
+
+    optimade_warnings = [
+        record
+        for record in caplog.records
+        if getattr(record, "context", None) == "optimade" and "example.test" in record.getMessage()
+    ]
+    assert len(optimade_warnings) == 1
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("chemical_formula_reduced", "ClK2"),
+        ("chemical_formula_hill", "Cl2K4"),
+    ],
+)
+def test_named_formula_naming_foreign_element_raises_against_elements_with_sites(name: str, value: str) -> None:
+    """The element-set check does not depend on ratio ordering, so it stays unconditional."""
+    attributes = _materials_project_attributes()
+    attributes[name] = value
+    backend = OptimadeStructure(_semantic_resource(attributes))
+    with pytest.raises(IncompleteOptimadeResourceError, match="disagrees with 'elements'"):
+        _ = getattr(backend, name)
+
+
+def _incomplete_projection_attributes(anonymous: str) -> dict[str, object]:
+    """Rock salt plus a pure-unknown (``X``) site, so the projection is incomplete.
+
+    The unknown site leaves ``chemical_formula_anonymous`` undefined on the
+    projection while the known amounts stay 1:1, exercising the anonymous
+    ratio-based fallback when sites are present.
+
+    :param anonymous: The declared anonymous formula under test.
+    :return: Structure attributes whose projected anonymous formula is ``None``.
+    """
+    return {
+        "elements": ["Cl", "Na"],
+        "nelements": 2,
+        "elements_ratios": [0.5, 0.5],
+        "chemical_formula_anonymous": anonymous,
+        "nsites": 3,
+        "lattice_vectors": [[6, 0, 0], [0, 6, 0], [0, 0, 6]],
+        "cartesian_site_positions": [[0, 0, 0], [3, 0, 0], [0, 3, 0]],
+        "species_at_sites": ["Na", "Cl", "Vac"],
+        "species": [
+            {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1]},
+            {"name": "Cl", "chemical_symbols": ["Cl"], "concentration": [1]},
+            {"name": "Vac", "chemical_symbols": ["X"], "concentration": [1]},
+        ],
+        "structure_features": [],
+        "dimension_types": [1, 1, 1],
+        "site_coordinate_span": "unit_cell",
+    }
+
+
+def test_anonymous_formula_falls_back_to_ratios_when_projection_has_no_anonymous_formula() -> None:
+    consistent = OptimadeStructure(_semantic_resource(_incomplete_projection_attributes("AB")))
+    assert consistent._composition_from_sites is not None
+    assert consistent._composition_from_sites.chemical_formula_anonymous is None
+    assert consistent.chemical_formula_anonymous == "AB"
+
+    inconsistent = OptimadeStructure(_semantic_resource(_incomplete_projection_attributes("A3B")))
+    with pytest.raises(IncompleteOptimadeResourceError, match="disagrees with 'elements_ratios'"):
+        _ = inconsistent.chemical_formula_anonymous
