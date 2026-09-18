@@ -662,3 +662,46 @@ def test_optimade_site_moments_reject_malformed_shape() -> None:
 
     with pytest.raises(IncompleteOptimadeResourceError, match="_httk_site_moments"):
         _ = backend.site_moments
+
+
+def test_unitcell_view_reads_metadata_through_the_decoding_backend() -> None:
+    """A remote store row exposes raw JSON attributes by name; the view must not trust them."""
+    import datetime
+    from collections.abc import Mapping
+
+    schema = load_entry_type_definition(_STRUCTURES_ID)
+    names = ("lattice_vectors", "cartesian_site_positions", "species", "species_at_sites", "dimension_types", "last_modified")
+    properties = {name: {"$id": schema.properties[name].definition_id} for name in names}
+    attributes = {
+        "lattice_vectors": [[2, 0, 0], [0, 3, 0], [0, 0, 4]],
+        "cartesian_site_positions": [[0, 0, 0], [1, 1.5, 2]],
+        "species": [
+            {"name": "Na", "chemical_symbols": ["Na"], "concentration": [1]},
+            {"name": "Cl", "chemical_symbols": ["Cl"], "concentration": [1]},
+        ],
+        "species_at_sites": ["Na", "Cl"],
+        "dimension_types": [1, 1, 1],
+        "last_modified": "2023-11-16T07:57:59Z",
+    }
+
+    class RawAttributeResource(OptimadeResource):
+        def __getattr__(self, name: str) -> object:
+            if name.startswith("__"):
+                raise AttributeError(name)
+            raw = self.unwrap().get("attributes")
+            if isinstance(raw, Mapping) and name in raw:
+                return raw[name]
+            raise AttributeError(name)
+
+    info = OptimadeDocument.from_response(json.dumps({"data": {"properties": properties}}), "https://example.test/info")
+    document = OptimadeDocument.from_response(
+        json.dumps({"data": [{"id": "raw-1", "type": "structures", "attributes": attributes}]}),
+        "https://example.test/v1/structures",
+    )
+    resource = RawAttributeResource(document, 0, OptimadeSchemaSnapshot("structures", info))
+    assert resource.last_modified == "2023-11-16T07:57:59Z"
+
+    view = UnitcellStructureView(resource)
+    assert view.last_modified == datetime.datetime(2023, 11, 16, 7, 57, 59, tzinfo=datetime.UTC)
+    assert view.immutable_id is None
+    assert view.formula == "ClNa"

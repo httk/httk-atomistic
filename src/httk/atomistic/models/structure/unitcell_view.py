@@ -97,8 +97,11 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
             if resolver is not None:
                 resolved_immutable_id, resolved_last_modified = None, None
             else:
+                # Native structures (including views carrying attached metadata)
+                # speak for themselves; foreign sources such as raw OPTIMADE
+                # resources are read through the backend that decodes them.
                 resolved_immutable_id, resolved_last_modified = _resolve_view_metadata(
-                    obj,
+                    obj if isinstance(obj, StructureBackend) else backend,
                     immutable_id=immutable_id,
                     last_modified=last_modified,
                 )
