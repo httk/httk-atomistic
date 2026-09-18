@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "httk-atomistic"
-version = "2.1.0"
+version = "2.1.1"
 description = "httk₂ module for atomistic structures, their representations, and file I/O (CIF/mCIF, VASP, trajectories)."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
