@@ -1,0 +1,73 @@
+httk.atomistic.models.cell.plain
+================================
+
+.. py:module:: httk.atomistic.models.cell.plain
+
+.. autoapi-nested-parse::
+
+   Backend wrapping a raw 3x3 cell basis (the matrix of cell vectors).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.plain.PlainCell
+
+
+Module Contents
+---------------
+
+.. py:class:: PlainCell(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.cell.backend.CellBackend`
+
+
+   Backend for a cell backed by a raw 3x3 list or tuple of numbers (or any 3x3 vector-like).
+
+   The native representation is preserved verbatim (one cell vector per row); the exact
+   :class:`~httk.core.SurdVector` ``basis`` is built lazily and cached. This representation carries
+   no separate length factor, so ``scale`` is the exact ``1`` and ``unscaled_basis == basis``.
+   ``unwrap`` returns the original raw object.
+
+   :param obj: The raw 3x3 basis representation.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: basis
+      :type: httk.core.SurdVector
+
+
+      Return the raw basis in the canonical representation.
+
+      :return: The cell vectors.
+
+
+   .. py:property:: scale
+      :type: httk.core.SurdScalar
+
+
+      Return the unit scale factor.
+
+      :return: The factor applied to ``unscaled_basis``.
+
+
+   .. py:property:: unscaled_basis
+      :type: httk.core.SurdVector
+
+
+      Return the basis before scaling.
+
+      :return: The cell vectors.
+
+
+   .. py:method:: unwrap()
+
+      Return the original basis object.
+
+      :return: The raw basis representation.
+
+
+

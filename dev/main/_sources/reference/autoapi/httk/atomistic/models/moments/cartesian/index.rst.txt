@@ -1,0 +1,52 @@
+httk.atomistic.models.moments.cartesian
+=======================================
+
+.. py:module:: httk.atomistic.models.moments.cartesian
+
+.. autoapi-nested-parse::
+
+   Cartesian per-site magnetic-moment backend.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.cartesian.CartesianSiteMoments
+
+
+Module Contents
+---------------
+
+.. py:class:: CartesianSiteMoments(moments, precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.moments.backend.SiteMomentsBackend`
+
+
+   Per-site Cartesian magnetic moments, exactly held in Bohr magnetons.
+
+
+   .. py:attribute:: kind
+      :value: 'cartesian'
+
+
+
+   .. py:property:: cartesian_moments
+      :type: httk.core.SurdVector
+
+
+      The exact Nx3 Cartesian moments, one row per site.
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      How precisely the moments were stated, in Bohr magnetons, or ``None``.
+
+      Concrete rather than abstract, so a backend with no source of precision inherits
+      ``None`` instead of breaking.
+
+

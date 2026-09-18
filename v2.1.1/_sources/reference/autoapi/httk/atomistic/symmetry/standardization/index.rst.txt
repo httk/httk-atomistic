@@ -1,0 +1,107 @@
+httk.atomistic.symmetry.standardization
+=======================================
+
+.. py:module:: httk.atomistic.symmetry.standardization
+
+.. autoapi-nested-parse::
+
+   Express an asymmetric-unit structure in its IT standard-setting cell.
+
+   The operation is exact after any optional recognition step. A setting-local ASU is mapped
+   to the standard Wyckoff table only here, because this operation explicitly requests the
+   standard conventional cell. An untabulated ASU instead uses its stored exact transform.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.standardization.ConventionalCellResult
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.standardization.conventional_cell
+
+
+Module Contents
+---------------
+
+.. py:class:: ConventionalCellResult
+
+   Store a structure in its space group's IT standard-setting conventional cell.
+
+   ``asu`` is the new standard-setting ASU that was expanded to make ``structure``.
+   ``transform`` is the standard-to-own transform from the ASU that was supplied to, or
+   recognized from, the operation; its orientation is :math:`f_own = f_std M^T + v`, so
+   this operation undoes it for the cell basis. ``multiplier`` is the exact ratio of
+   conventional-cell site count to input-cell site count. For the 527 vendored settings
+   it is at least one; an untabulated, caller-supplied supercell transform may still
+   produce a ratio below one.
+
+   :param structure: The resulting full conventional-cell structure.
+   :param asu: The resulting asymmetric-unit structure in the standard setting.
+   :param spacegroup: The space group represented by the result.
+   :param transform: The standard-to-own transform used for the input structure.
+   :param multiplier: The exact ratio of result site count to input site count.
+
+
+   .. py:attribute:: structure
+      :type:  httk.atomistic.models.structure.unitcell.UnitcellStructure
+
+
+   .. py:attribute:: asu
+      :type:  httk.atomistic.models.structure.asu.ASUStructure
+
+
+   .. py:attribute:: spacegroup
+      :type:  httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+   .. py:attribute:: transform
+      :type:  httk.atomistic.symmetry.setting_transform.SettingTransform
+
+
+   .. py:attribute:: multiplier
+      :type:  fractions.Fraction
+
+
+.. py:function:: conventional_cell(structure, *, tolerance = None, limit_denominator = None)
+
+   Return ``structure`` in its space group's IT standard-setting conventional cell.
+
+   An existing :class:`~httk.atomistic.ASUStructure` (including an
+   :class:`~httk.atomistic.ASUStructureView`, an ASU backend, or a full-cell view backed
+   by one) is used exactly as stored. Supplying ``tolerance`` or ``limit_denominator`` for
+   that path raises :class:`ValueError`, because those arguments belong to recognition.
+   Any other :class:`~httk.atomistic.StructureLike` is first passed to
+   :func:`~httk.atomistic.recognize_asu`. That tolerant step may snap measured coordinates
+   onto symmetry positions and chooses the transform recorded in the result; it does not
+   preserve an unstated input transform or promise a :func:`~httk.atomistic.same_crystal`
+   match to noisy input coordinates. The optional tolerance is a Cartesian matching
+   distance and the optional denominator limit idealises free parameters.
+
+   The returned ``transform`` is the existing ASU's transform, or the transform chosen by
+   recognition for a plain input; the returned ``asu`` has an identity transform.
+   Construction and expansion are exact, including the rhombohedral case where the
+   standard hexagonal cell contains three primitive cells. Basis precision is multiplied by
+   ``M.T()`` and coordinate precision by the maximum absolute column sum of
+   ``inv(M.T())``; unknown precision remains unknown. Requires a fully 3D-periodic
+   structure.
+
+   :param structure: The structure or asymmetric-unit structure to standardize.
+   :param tolerance: The Cartesian recognition tolerance, or ``None`` to derive it.
+   :param limit_denominator: The maximum denominator for idealised free parameters, or
+       ``None`` to retain their exact stated values.
+   :return: The standardized structure and transform metadata.
+   :raises ImportError: If recognition is needed and the optional spglib dependency is
+       unavailable.
+   :raises ValueError: If recognition arguments are supplied for an existing ASU, the
+       structure is not fully periodic, or unsupported site moments are present.
+
+

@@ -1,0 +1,63 @@
+httk.atomistic.elements
+=======================
+
+.. py:module:: httk.atomistic.elements
+
+.. autoapi-nested-parse::
+
+   Minimal periodic table for httk-atomistic.
+
+   Provides the IUPAC element symbols in atomic-number order and helpers to convert
+   between a chemical symbol and its atomic number. The pseudo-symbols ``"X"``
+   (unknown element) and ``"vacancy"`` are deliberately not elements here; they are
+   handled at the ``Species`` level.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.elements.SYMBOLS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.elements.atomic_number
+   httk.atomistic.elements.symbol_of
+
+
+Module Contents
+---------------
+
+.. py:data:: SYMBOLS
+   :type:  tuple[str, ...]
+   :value: ('H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl',...
+
+
+   The 118 IUPAC element symbols in atomic-number order (``SYMBOLS[0]`` is hydrogen).
+
+.. py:function:: atomic_number(symbol)
+
+   Return the atomic number of an element symbol.
+
+   The pseudo-symbols ``"X"`` and ``"vacancy"`` are not elements here.
+
+   :param symbol: The IUPAC element symbol.
+   :return: The element's atomic number.
+   :raises ValueError: If ``symbol`` is not one of the 118 element symbols.
+
+
+.. py:function:: symbol_of(z)
+
+   Return the element symbol for an atomic number.
+
+   :param z: The atomic number in the range 1 through 118.
+   :return: The corresponding IUPAC element symbol.
+   :raises ValueError: If ``z`` is outside the range 1 through 118.
+
+

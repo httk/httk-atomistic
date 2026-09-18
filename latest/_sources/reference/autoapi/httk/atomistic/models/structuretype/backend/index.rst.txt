@@ -1,0 +1,34 @@
+httk.atomistic.models.structuretype.backend
+===========================================
+
+.. py:module:: httk.atomistic.models.structuretype.backend
+
+.. autoapi-nested-parse::
+
+   The abstract backend for structuretypes and prototypes.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structuretype.backend.StructuretypeBackend
+
+
+Module Contents
+---------------
+
+.. py:class:: StructuretypeBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`StructuretypeBackend`\ ], :py:obj:`httk.atomistic.models.structuretype.api.StructuretypeAPI`
+
+
+   Backend root for the dummy-species structuretype family.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+

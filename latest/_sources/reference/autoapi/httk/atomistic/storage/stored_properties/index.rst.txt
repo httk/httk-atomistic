@@ -1,0 +1,61 @@
+httk.atomistic.storage.stored_properties
+========================================
+
+.. py:module:: httk.atomistic.storage.stored_properties
+
+.. autoapi-nested-parse::
+
+   Stored OPTIMADE property declarations for native structure backings.
+
+   The declarations in this module deliberately name the durable record graph,
+   not a storage implementation.  In particular, composition predicates use the
+   authoritative normalized-composition relation and exact cross multiplication;
+   they never compare presentation floats or persist rendered formula strings.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.storage.stored_properties.unitcell_structure_properties
+   httk.atomistic.storage.stored_properties.fundamental_domain_structure_properties
+   httk.atomistic.storage.stored_properties.asymmetric_unit_structure_properties
+   httk.atomistic.storage.stored_properties.attach_structure_property_projections
+
+
+Module Contents
+---------------
+
+.. py:function:: unitcell_structure_properties()
+
+   Build the stored-property declarations for unit-cell records.
+
+   :return: The property declaration map for unit-cell structure records.
+
+
+.. py:function:: fundamental_domain_structure_properties()
+
+   Build the stored-property declarations for fundamental-domain records.
+
+   :return: The property declaration map for fundamental-domain records.
+
+
+.. py:function:: asymmetric_unit_structure_properties()
+
+   Build the stored-property declarations for asymmetric-unit records.
+
+   :return: The property declaration map for asymmetric-unit records.
+
+
+.. py:function:: attach_structure_property_projections(unitcell, fundamental_domain, asymmetric_unit)
+
+   Attach exact-class property declarations to structure record classes.
+
+   :param unitcell: The unit-cell record class to receive its declarations.
+   :param fundamental_domain: The fundamental-domain record class to receive its declarations.
+   :param asymmetric_unit: The asymmetric-unit record class to receive its declarations.
+   :return: ``None`` after attaching the declaration maps.
+
+

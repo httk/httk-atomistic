@@ -1,0 +1,546 @@
+httk.atomistic.models.trajectory
+================================
+
+.. py:module:: httk.atomistic.models.trajectory
+
+.. autoapi-nested-parse::
+
+   Expose trajectory models and views.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/trajectory/api/index
+   /reference/autoapi/httk/atomistic/models/trajectory/backend/index
+   /reference/autoapi/httk/atomistic/models/trajectory/jsonl/index
+   /reference/autoapi/httk/atomistic/models/trajectory/like/index
+   /reference/autoapi/httk/atomistic/models/trajectory/plain/index
+   /reference/autoapi/httk/atomistic/models/trajectory/record/index
+   /reference/autoapi/httk/atomistic/models/trajectory/trajectory/index
+   /reference/autoapi/httk/atomistic/models/trajectory/view/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.trajectory.TrajectoryLike
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.trajectory.TrajectoryAPI
+   httk.atomistic.models.trajectory.TrajectoryBackend
+   httk.atomistic.models.trajectory.JsonlTrajectory
+   httk.atomistic.models.trajectory.PlainTrajectory
+   httk.atomistic.models.trajectory.Trajectory
+   httk.atomistic.models.trajectory.TrajectoryView
+
+
+Package Contents
+----------------
+
+.. py:class:: TrajectoryAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Define the common, frame-oriented trajectory interface.
+
+   A trajectory has one constant composition for all frames. Trajectories whose
+   number or identity of sites changes are intentionally outside this interface.
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Count frames by streaming them in O(n) time.
+
+      Each call requires ``frames()`` to provide a fresh traversal; a one-shot backend must
+      override this default or cache its frames. Random-access backends override this default.
+
+      :return: The number of frames.
+
+
+   .. py:method:: frame(i)
+
+      Stream to and return one frame in O(n) time.
+
+      Each call requires ``frames()`` to provide a fresh traversal; a one-shot backend must
+      override this default or cache its frames. Random-access backends override this default.
+
+      :param i: Frame index.
+      :return: The requested :class:`~httk.atomistic.models.structure.unitcell.UnitcellStructure`.
+      :raises IndexError: If ``i`` is before the first frame or past the end.
+      :raises TypeError: If ``i`` is not an integer.
+
+
+
+   .. py:method:: frames()
+      :abstractmethod:
+
+
+      Iterate over the frames with a fresh traversal on every call.
+
+      A one-shot backend must override the streaming defaults or cache its frames.
+
+      :return: A fresh iterator of unit-cell structures.
+
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+      :abstractmethod:
+
+
+      Return the constant distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+      :abstractmethod:
+
+
+      Return the constant species name at each site.
+
+
+   .. py:property:: reference_frames
+      :type: tuple[int, ...] | None
+
+
+      Return stored reference-frame indexes, or ``None``.
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, ...]
+
+
+      Return the names of available per-frame observables.
+
+
+   .. py:method:: observable(name)
+
+      Return one observable's values by frame.
+
+      :param name: Observable name.
+      :return: The observable values in frame order.
+      :raises KeyError: If the observable is unavailable.
+
+
+
+.. py:class:: TrajectoryBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`TrajectoryBackend`\ ], :py:obj:`httk.atomistic.models.trajectory.api.TrajectoryAPI`
+
+
+   Define the backend base for all trajectory representations.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+      :value: []
+
+
+
+.. py:class:: JsonlTrajectory(source, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.trajectory.backend.TrajectoryBackend`
+
+
+   Stream a neutral ``httk-trajectory-jsonl`` payload or path lazily.
+
+   Frame data remains in the JSONL container and is read as requested.
+
+   :param source: A JSONL payload or path to one.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'jsonl'
+
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Return the number of frames in the container.
+
+
+   .. py:property:: header
+      :type: collections.abc.Mapping[str, Any]
+
+
+      Return the neutral JSONL header mapping.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Return the constant distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the constant species name at each site.
+
+
+   .. py:property:: reference_frames
+      :type: tuple[int, ...] | None
+
+
+      Return stored reference-frame indexes, or ``None``.
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, ...]
+
+
+      Return the names of available per-frame observables.
+
+
+   .. py:method:: observable(name)
+
+      Read one observable's values in frame order.
+
+      :param name: Observable name.
+      :return: The observable values.
+      :raises KeyError: If the observable is unavailable.
+
+
+
+   .. py:method:: frame(i)
+
+      Read one frame from the JSONL container.
+
+      :param i: Frame index.
+      :return: The requested unit-cell structure.
+      :raises IndexError: If the frame index is out of range.
+
+
+
+   .. py:method:: frames()
+
+      Stream all frames from the JSONL container.
+
+      :yields: Unit-cell structures in container order.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the original JSONL source payload or path.
+
+
+
+   .. py:property:: source_locator
+      :type: str | None
+
+
+      Return the JSONL path, if the source has one.
+
+
+.. py:type:: TrajectoryLike
+   :canonical: TrajectoryBackend | TrajectoryView | Trajectory | PlainTrajectory | Mapping[str, Any]
+
+
+.. py:class:: PlainTrajectory(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.trajectory.backend.TrajectoryBackend`
+
+
+   Represent a mapping whose structure properties have a frame axis.
+
+   A compact constant property is represented by a one-element leading axis,
+   e.g. ``nelements=[2]`` for any number of frames. Only properties declaring
+   ``constant`` on that axis accept this compact form.
+
+   :param obj: A trajectory property mapping.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'plain'
+
+
+
+   .. py:method:: frame(i)
+
+      Return one frame from the property mapping.
+
+      :param i: Frame index; negative indexes count from the end.
+      :return: The requested unit-cell structure.
+      :raises IndexError: If the frame index is out of range.
+      :raises KeyError: If a required trajectory property is absent.
+      :raises TypeError: If the frame index is not an integer.
+      :raises ValueError: If the frame cannot be represented as a structure.
+
+
+
+   .. py:method:: frames()
+
+      Iterate over all frames in source order.
+
+      :return: An iterator of unit-cell structures.
+
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Return the number of frames.
+
+
+   .. py:property:: reference_frames
+      :type: tuple[int, ...] | None
+
+
+      Return normalized reference-frame indexes, or ``None``.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Return the constant distinct species from the first frame.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the constant species name at each site.
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, ...]
+
+
+      Return names outside the recognized trajectory and structure properties.
+
+
+   .. py:method:: observable(name)
+
+      Return one mapped observable's values in frame order.
+
+      :param name: Observable property name.
+      :return: The observable values.
+      :raises KeyError: If the property is not an observable.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the original property mapping.
+
+
+
+.. py:class:: Trajectory(frames, observables = None, reference_frames = None)
+
+   Bases: :py:obj:`httk.atomistic.models.trajectory.backend.TrajectoryBackend`
+
+
+   Store an immutable trajectory in the native backend.
+
+   A trajectory requires at least one frame and keeps one constant composition
+   across all frames.
+
+   :param frames: Unit-cell structures to coerce and store.
+   :param observables: Optional per-frame observable values.
+   :param reference_frames: Optional indexes of bounded reference frames.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'native'
+
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Return the number of stored frames.
+
+
+   .. py:method:: frame(i)
+
+      Return one stored frame by index.
+
+      :param i: Frame index.
+      :return: The requested unit-cell structure.
+      :raises IndexError: If the index is out of range.
+
+
+
+   .. py:method:: frames()
+
+      Iterate over the stored frames.
+
+      :return: An iterator of unit-cell structures.
+
+
+
+   .. py:property:: reference_frames
+      :type: tuple[int, ...] | None
+
+
+      Return the bounded reference-frame indexes, or ``None``.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Return the constant distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the constant species name at each site.
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, ...]
+
+
+      Return the names of stored observables.
+
+
+   .. py:method:: observable(name)
+
+      Return one observable's values in frame order.
+
+      :param name: Observable name.
+      :return: The observable values.
+      :raises KeyError: If the observable is unavailable.
+
+
+
+.. py:class:: TrajectoryView(obj, **hints)
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.trajectory.backend.TrajectoryBackend`\ ], :py:obj:`httk.atomistic.models.trajectory.api.TrajectoryAPI`
+
+
+   Present any trajectory backend through the canonical trajectory API.
+
+   :param obj: A trajectory backend or another accepted trajectory value.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Return the number of frames.
+
+
+   .. py:method:: frame(i)
+
+      Return one frame by index.
+
+      :param i: Frame index.
+      :return: The requested unit-cell structure.
+
+
+
+   .. py:method:: frames()
+
+      Iterate over the frames.
+
+      :return: An iterator of unit-cell structures.
+
+
+
+   .. py:property:: reference_frames
+      :type: tuple[int, ...] | None
+
+
+      Return stored reference-frame indexes, or ``None``.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Return the constant distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the constant species name at each site.
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, ...]
+
+
+      Return the names of available per-frame observables.
+
+
+   .. py:property:: observable_summaries
+      :type: tuple[Any, ...]
+
+
+      Return backend-provided observable summaries, if any.
+
+
+   .. py:property:: immutable_id
+      :type: str | None
+
+
+      Return the backend immutable identifier, if available.
+
+
+   .. py:property:: last_modified
+      :type: Any
+
+
+      Return the backend modification marker, if available.
+
+
+   .. py:property:: source_locator
+      :type: str | None
+
+
+      Return the source locator, if available.
+
+
+   .. py:method:: observable(name)
+
+      Return one observable's values in frame order.
+
+      :param name: Observable name.
+      :return: The observable values.
+      :raises KeyError: If the observable is unavailable.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the original value wrapped by the backend.
+
+
+
