@@ -5,10 +5,11 @@ The Cell class for httk-atomistic.
 import fractions
 from typing import TYPE_CHECKING, Any
 
-from httk.core import SurdScalar, SurdVector, VectorLike
+from httk.core import SurdScalar, SurdVector
+from httk.core._sentinel import MISSING
 
-from httk.atomistic.models._vector_guards import to_periodicity, to_precision, to_surdscalar, to_surdvector
-from httk.atomistic.models.cell.api import _scalar_length
+from httk.atomistic.models._vector_guards import is_params6, to_periodicity, to_precision, to_surdscalar, to_surdvector
+from httk.atomistic.models.cell.api import CellAPI, _scalar_length
 from httk.atomistic.models.cell.backend import CellBackend
 
 if TYPE_CHECKING:
@@ -46,10 +47,16 @@ class Cell(CellBackend):
     *coordinate frame*: see :attr:`periodicity` for what that means and
     :attr:`periodic_measure` for the quantity that replaces :attr:`volume`.
 
-    :param basis: The three cell vectors, one per row.
-    :param scale: The positive factor separated from ``basis``.
+    The constructor accepts any cell-like value: a 3x3 basis (one cell vector per row), the six
+    cell parameters ``(a, b, c, alpha, beta, gamma)`` in degrees (built through
+    :class:`~httk.atomistic.models.cell.params.CellParams` in the standard orientation, so
+    ``Cell([3, 3, 5, 90, 90, 120])`` is the exact hexagonal cell), or another cell backend or
+    view, whose ``scale``, ``precision`` and ``periodicity`` are adopted unless given explicitly.
+
+    :param basis: The three cell vectors, one per row; or six cell parameters; or a cell.
+    :param scale: The positive factor separated from ``basis`` (default ``1``).
     :param precision: The absolute precision carried from the source, if known.
-    :param periodicity: Flags identifying which basis rows are lattice translations.
+    :param periodicity: Flags identifying which basis rows are lattice translations (default all).
     """
 
     _scale: SurdScalar
@@ -64,11 +71,28 @@ class Cell(CellBackend):
 
     def __init__(
         self,
-        basis: VectorLike,
-        scale: Any = 1,
-        precision: Any = None,
-        periodicity: Any = None,
+        basis: Any,
+        scale: Any = MISSING,
+        precision: Any = MISSING,
+        periodicity: Any = MISSING,
     ) -> None:
+        if isinstance(basis, CellAPI):
+            source = basis
+            basis = source.unscaled_basis
+            scale = source.scale if scale is MISSING else scale
+            precision = source.precision if precision is MISSING else precision
+            periodicity = source.periodicity if periodicity is MISSING else periodicity
+        elif is_params6(basis):
+            # Lazy import: params.py imports the cell backend base from this package.
+            from httk.atomistic.models.cell.params import CellParams
+
+            basis = CellParams(basis).basis
+        if scale is MISSING:
+            scale = 1
+        if precision is MISSING:
+            precision = None
+        if periodicity is MISSING:
+            periodicity = None
         unscaled = to_surdvector(basis)
         if unscaled.dim != (3, 3):
             raise ValueError("Cell basis must be a 3x3 vector-like")

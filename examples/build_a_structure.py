@@ -11,9 +11,9 @@ object and are inspected with exactly the same code:
    $\\mathbf{b}$, $\\mathbf{c}$. This is the direct route, and the only one that
    pins down the cell's orientation in space.
 2. **Cell parameters** — the flat 6-tuple
-   $(a, b, c, \\alpha, \\beta, \\gamma)$, angles in degrees, wrapped by
-   `CellParams`. A basis is built for you using the standard orientation
-   convention: $\\mathbf{a}$ along $x$, $\\mathbf{b}$ in the $xy$-plane.
+   $(a, b, c, \\alpha, \\beta, \\gamma)$, angles in degrees, accepted directly by
+   `Cell` and `UnitcellStructure`. A basis is built for you using the standard
+   orientation convention: $\\mathbf{a}$ along $x$, $\\mathbf{b}$ in the $xy$-plane.
 3. **An spglib-style triple** — `(lattice, positions, numbers)`, the shape
    symmetry libraries speak. `UnitcellStructureView` presents it as a `UnitcellStructure`,
    inventing one species per distinct atomic number.
@@ -46,7 +46,6 @@ import fractions
 
 from httk.atomistic import (
     Cell,
-    CellParams,
     CellParamsView,
     PlainStructureView,
     UnitcellStructure,
@@ -108,9 +107,9 @@ def describe(label: str, structure: UnitcellStructure) -> None:
 
 def exact_hexagonal() -> None:
     """A hexagonal cell: the sqrt(3) is carried exactly, all the way into Cartesian space."""
-    # CellParams turns (3, 3, 5, 90, 90, 120) into a basis with a genuine sqrt(3) in it,
-    # not a float approximation of one. `radicands` lists the radicals actually present.
-    cell = Cell(CellParams((3, 3, 5, 90, 90, 120)).basis)
+    # Six cell parameters give a basis with a genuine sqrt(3) in it, not a float
+    # approximation of one. `radicands` lists the radicals actually present.
+    cell = Cell((3, 3, 5, 90, 90, 120))
     structure = UnitcellStructure(
         cell=cell,
         sites=[[F(0), F(0), F(0)], [F(1, 3), F(1, 3), F(0)]],
@@ -150,7 +149,7 @@ def parameters_carry_no_orientation() -> None:
 
     # Round-tripping the rotated cell through its parameters cannot recover the rotation:
     # the reconstruction comes back in the standard orientation.
-    reconstructed = Cell(CellParams(tuple(rotated_params)).basis)
+    reconstructed = Cell(tuple(rotated_params))
     print("  reconstructed basis  ", reconstructed.basis.to_floats())
     print("  == rotated basis?    ", reconstructed.basis == rotated.basis, "(lossy: the rotation is gone)")
     print(

@@ -172,12 +172,12 @@ where radicals such as the hexagonal $\sqrt3$ appear — is exact in the squaref
 import fractions
 
 from httk.core import FracVector, SurdVector
-from httk.atomistic import Cell, CellParams, UnitcellStructure
+from httk.atomistic import Cell, UnitcellStructure
 
 F = fractions.Fraction
 
 # Cell parameters -> an EXACT basis: hexagonal a=b=3, c=5, gamma=120 carries a real sqrt(3).
-cell = Cell(CellParams((3, 3, 5, 90, 90, 120)).basis)
+cell = Cell([3, 3, 5, 90, 90, 120])
 assert 3 in cell.basis.radicands                       # the sqrt(3) is exact, not a float
 
 # Angles come back exactly through the reverse-Niven table; volume is (45/2)*sqrt(3):
@@ -238,11 +238,11 @@ except this numpy presentation.)
 import numpy
 import fractions
 
-from httk.atomistic import Cell, CellParams, UnitcellStructure
+from httk.atomistic import Cell, UnitcellStructure
 
 F = fractions.Fraction
 
-cell = Cell(CellParams((3, 3, 5, 90, 90, 120)).basis)   # hexagonal: a real sqrt(3)
+cell = Cell([3, 3, 5, 90, 90, 120])   # hexagonal: a real sqrt(3)
 structure = UnitcellStructure(
     cell=cell,
     sites=[[F(0), F(0), F(0)], [F(1, 3), F(1, 3), F(0)]],
