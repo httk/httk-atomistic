@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "httk-atomistic"
-version = "2.1.1"
+version = "2.1.2"
 description = "httk₂ module for atomistic structures, their representations, and file I/O (CIF/mCIF, VASP, trajectories)."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -12,7 +12,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "Rickard Armiento", email = "rickard-gpg@armiento.net" }]
 dependencies = [
-  "httk-core>=2.1.1,<3",
+  "httk-core>=2.1.2,<3",
 ]
 keywords = [
   "Materials Discovery",
@@ -33,7 +33,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Physics",
 ]
 [project.optional-dependencies]
-numpy = ["httk-core[numpy]>=2.1.0,<3"]
+numpy = ["httk-core[numpy]>=2.1.2,<3"]
 dev = [
   # Full-source type checks and tests cover these optional integrations.
   "httk-atomistic[default]",
