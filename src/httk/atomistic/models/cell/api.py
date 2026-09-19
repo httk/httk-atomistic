@@ -22,9 +22,9 @@ def _scalar_length(lsq: SurdScalar) -> SurdScalar:
             return SurdVector(fractions.Fraction(root_num, root_den))._as_scalar()
         if num * den <= _MAX_EXACT_RADICAND:
             return SurdVector.sqrt_of(q)
-        return SurdVector(exactmath.sqrt(q, prec=_FALLBACK_PREC, limit=True))._as_scalar()
+        return SurdVector(exactmath.sqrt(q, prec=_FALLBACK_PREC, limit=True, exact=False))._as_scalar()
     approx = lsq.to_fractions_approx(_FALLBACK_PREC)
-    return SurdVector(exactmath.sqrt(approx, prec=_FALLBACK_PREC, limit=True))._as_scalar()
+    return SurdVector(exactmath.sqrt(approx, prec=_FALLBACK_PREC, limit=True, exact=False))._as_scalar()
 
 
 def _angle_from_gram(gram: SurdVector, i: int, j: int) -> fractions.Fraction:
@@ -43,7 +43,7 @@ def _angle_from_gram(gram: SurdVector, i: int, j: int) -> fractions.Fraction:
         fractions.Fraction(-1),
         min(fractions.Fraction(1), cosine.to_fractions_approx(_FALLBACK_PREC)),
     )
-    return fractions.Fraction(exactmath.acos(cos_value, degrees=True, prec=_FALLBACK_PREC, limit=False))
+    return fractions.Fraction(exactmath.acos(cos_value, degrees=True, prec=_FALLBACK_PREC, limit=False, exact=False))
 
 
 class CellAPI(ABC):

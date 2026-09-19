@@ -17,12 +17,12 @@ _PARAMS_PREC = exactmath.default_accuracy
 
 def _rcos(deg: fractions.Fraction) -> fractions.Fraction:
     """A deterministic rational cosine of ``deg`` degrees at ``_PARAMS_PREC``."""
-    return fractions.Fraction(exactmath.cos(deg, degrees=True, prec=_PARAMS_PREC, limit=False))
+    return fractions.Fraction(exactmath.cos(deg, degrees=True, prec=_PARAMS_PREC, limit=False, exact=False))
 
 
 def _rsin(deg: fractions.Fraction) -> fractions.Fraction:
     """A deterministic rational sine of ``deg`` degrees at ``_PARAMS_PREC``."""
-    return fractions.Fraction(exactmath.sin(deg, degrees=True, prec=_PARAMS_PREC, limit=False))
+    return fractions.Fraction(exactmath.sin(deg, degrees=True, prec=_PARAMS_PREC, limit=False, exact=False))
 
 
 def _params_to_basis(params: tuple[fractions.Fraction, ...]) -> SurdVector:
@@ -60,7 +60,7 @@ def _params_to_basis(params: tuple[fractions.Fraction, ...]) -> SurdVector:
     sg = _rsin(gamma)
     cy_r = (ca - cb * cg) / sg
     cz_sq_r = max(fractions.Fraction(0), fractions.Fraction(1) - cb * cb - cy_r * cy_r)
-    cz_r = c * fractions.Fraction(exactmath.sqrt(cz_sq_r, prec=_PARAMS_PREC, limit=False))
+    cz_r = c * fractions.Fraction(exactmath.sqrt(cz_sq_r, prec=_PARAMS_PREC, limit=False, exact=False))
     rows = [
         [a, fractions.Fraction(0), fractions.Fraction(0)],
         [b * cg, b * sg, fractions.Fraction(0)],
