@@ -1,5 +1,5 @@
 # httk-docs-lock-schema: 1
-# input-hash: sha256:2cc1107e9eba01d1d29028d397a92a6ac7c8bd41736026575270fc2b52f05bb4
+# input-hash: sha256:b30ba5771c75cfd6f13a04889ccd23769bee90b47a669a26b630580d89bd58a7
 # python: 3.12
 # platform: linux
 accessible-pygments==0.0.5
@@ -19,7 +19,7 @@ executing==2.2.1
 fastjsonschema==2.22.2
 furo==2025.12.19
 greenlet==3.5.6
-httk-core==2.1.1
+httk-core==2.1.2
 idna==3.20
 imagesize==2.0.1
 importlib-metadata==9.0.1
@@ -46,7 +46,7 @@ nest-asyncio2==1.7.2
 packaging==26.3
 parso==0.8.7
 pexpect==4.9.0
-platformdirs==4.11.10
+platformdirs==4.11.11
 prompt-toolkit==3.0.53
 psutil==7.2.2
 ptyprocess==0.7.0
