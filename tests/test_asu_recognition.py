@@ -12,6 +12,7 @@ returns the input only when the input was already exact.
 
 import fractions
 import sys
+from dataclasses import replace
 
 import pytest
 from httk.core import FracVector, unwrap
@@ -27,6 +28,7 @@ from httk.atomistic import (
     UnitcellStructure,
     UnitcellStructureView,
     WyckoffSite,
+    canonical_asu,
     recognize_asu,
     same_crystal,
 )
@@ -293,7 +295,7 @@ def test_view_recognizes_a_plain_structure() -> None:
 def test_spglib_transform_keeps_a_data_derived_origin_shift() -> None:
     """An arbitrary origin is not rounded onto the small crystallographic-fraction grid."""
     operation = recognition_module._exact_operation(
-        [[1.0, 0.0, 0.0], [0.0, 1.0 / 3.0, 0.0], [0.0, 0.0, 1.0]],
+        [[1.0, 0.0, 0.0], [0.0, 1.0 / 3.0 + 1e-15, 0.0], [0.0, 0.0, 1.0]],
         [1.0 / 3.0, 0.96857143, 0.0],
     )
 
@@ -302,6 +304,40 @@ def test_spglib_transform_keeps_a_data_derived_origin_shift() -> None:
     assert operation.matrix[1][1] == F(1, 3)
     assert operation.vector[0] == F(1, 3)
     assert operation.vector[1] == F(96857143, 100000000)
+
+
+@pytest.mark.parametrize("entry", [-1.74975272, float("nan"), float("inf"), -float("inf")])
+def test_spglib_transform_rejects_a_noncrystallographic_matrix(entry: float) -> None:
+    # ICSD 15931's failed loose recognition: blindly approximating these entries
+    # creates an inverse with billion-sized denominators and an enormous coset group.
+    matrix = [
+        [entry, -0.42444699, -1.82580029],
+        [-0.12356489, 2.14398174, -0.02041685],
+        [0.05255591, -0.04195886, -2.01059705],
+    ]
+    with pytest.raises(ValueError, match="spglib transformation matrix"):
+        recognition_module._exact_operation(matrix, [0.0, 0.0, 0.0])
+
+
+def test_canonicalization_retries_a_bad_spglib_transform(monkeypatch: pytest.MonkeyPatch) -> None:
+    spglib = pytest.importorskip("spglib")
+    structure = _rocksalt()
+    expected = canonical_asu(structure, tolerance=1e-3, factors=(1,))
+    find_symmetry = spglib.get_symmetry_dataset
+    attempted = []
+
+    def bad_loose_transform(cell, *, symprec):
+        attempted.append(symprec)
+        dataset = find_symmetry(cell, symprec=symprec)
+        if len(attempted) == 1:
+            matrix = dataset.transformation_matrix.copy()
+            matrix[0, 0] += 1e-4
+            return replace(dataset, transformation_matrix=matrix)
+        return dataset
+
+    monkeypatch.setattr(spglib, "get_symmetry_dataset", bad_loose_transform)
+    assert canonical_asu(structure, tolerance=1e-3) == expected
+    assert attempted == [5e-3, 1e-3]
 
 
 def test_asu_view_no_arguments_uses_spglib() -> None:

@@ -251,8 +251,8 @@ def recognize_asu(
     :raises TypeError: If the supplied setting arguments are incomplete or mutually
         exclusive.
     :raises ValueError: If the structure is not fully periodic, the standard setting is
-        invalid, or the sites cannot be placed into complete Wyckoff orbits within the
-        tolerance.
+        invalid, spglib returns a noncrystallographic transformation matrix, or the sites
+        cannot be placed into complete Wyckoff orbits within the tolerance.
     """
     from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
@@ -747,7 +747,15 @@ def _exact_operation(matrix: Any, vector: Any) -> Any:
     from httk.atomistic.symmetry.affine_operation import AffineOperation
 
     def exact_matrix(value: Any) -> fractions.Fraction:
-        return fractions.Fraction(float(value)).limit_denominator(_SPGLIB_MATRIX_MAX_DENOMINATOR)
+        floating = float(value)
+        if not math.isfinite(floating):
+            raise ValueError("spglib transformation matrix contains a non-finite entry")
+        crystallographic = fractions.Fraction(floating).limit_denominator(_SPGLIB_MATRIX_MAX_DENOMINATOR)
+        # A failed recognition can return a noncrystallographic matrix. Inventing exact
+        # fractions for it can make its inverse generate billions of lattice cosets.
+        if abs(float(crystallographic) - floating) > _SPGLIB_SMALL_RATIONAL_TOLERANCE:
+            raise ValueError(f"spglib transformation matrix entry {floating!r} is not a crystallographic rational")
+        return crystallographic
 
     def exact_origin(value: Any) -> fractions.Fraction:
         floating = float(value)
@@ -769,5 +777,5 @@ def _exact_operation(matrix: Any, vector: Any) -> Any:
 #: Change-of-basis entries are crystallographic halves, thirds, quarters, sixths, and eighths.
 _SPGLIB_MATRIX_MAX_DENOMINATOR = 48
 
-#: Preserve true crystallographic origin fractions when spglib's float is merely round-off away.
+#: Recover crystallographic matrix/origin fractions only within floating-point round-off.
 _SPGLIB_SMALL_RATIONAL_TOLERANCE = 1e-12
