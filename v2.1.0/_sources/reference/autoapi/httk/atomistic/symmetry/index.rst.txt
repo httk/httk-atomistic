@@ -1,0 +1,907 @@
+httk.atomistic.symmetry
+=======================
+
+.. py:module:: httk.atomistic.symmetry
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/symmetry/affine_operation/index
+   /reference/autoapi/httk/atomistic/symmetry/canonical/index
+   /reference/autoapi/httk/atomistic/symmetry/lift/index
+   /reference/autoapi/httk/atomistic/symmetry/magnetic/index
+   /reference/autoapi/httk/atomistic/symmetry/paths/index
+   /reference/autoapi/httk/atomistic/symmetry/primitive/index
+   /reference/autoapi/httk/atomistic/symmetry/recognition/index
+   /reference/autoapi/httk/atomistic/symmetry/setting_transform/index
+   /reference/autoapi/httk/atomistic/symmetry/spacegroup/index
+   /reference/autoapi/httk/atomistic/symmetry/standardization/index
+   /reference/autoapi/httk/atomistic/symmetry/subgroups/index
+   /reference/autoapi/httk/atomistic/symmetry/symop_key/index
+   /reference/autoapi/httk/atomistic/symmetry/wyckoff/index
+   /reference/autoapi/httk/atomistic/symmetry/xyz/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.AffineOperation
+   httk.atomistic.symmetry.SettingTransform
+   httk.atomistic.symmetry.Spacegroup
+   httk.atomistic.symmetry.WyckoffBranch
+   httk.atomistic.symmetry.WyckoffPosition
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.wyckoff_letter_map
+   httk.atomistic.symmetry.wyckoff_positions
+   httk.atomistic.symmetry.operation_from_xyz
+   httk.atomistic.symmetry.operation_from_xyzt
+   httk.atomistic.symmetry.parse_linear_expression
+
+
+Package Contents
+----------------
+
+.. py:class:: AffineOperation(matrix, vector = (0, 0, 0))
+
+   Represent an exact affine map ``x -> W x + w`` on fractional coordinates.
+
+   Two operations compare equal when their matrix and translation are exactly equal.
+   Equality is *not* modulo lattice translations — use :meth:`wrapped` first when
+   comparing symmetry operations as members of a space group, since ``x+1/2`` and
+   ``x+3/2`` are the same operation there but different objects here.
+
+   :param matrix: The 3x3 rotation part in the column-vector convention, or a comma-separated
+       ``"x,y,z"`` operation string (as emitted by :meth:`to_xyz` and ``repr``), in which case
+       ``vector`` is ignored.
+   :param vector: The translation part in fractional coordinates.
+
+
+   .. py:method:: identity()
+      :classmethod:
+
+
+      Return the identity operation.
+
+      :return: The identity affine operation.
+
+
+
+   .. py:method:: from_record(record)
+      :classmethod:
+
+
+      Build an operation from either vendored affine-record shape.
+
+      The record's ``matrix`` and ``vector`` hold exact rational strings (``"1/2"``,
+      ``"-1"``), which embed exactly.
+
+      :param record: The affine record, or a mapping containing one under
+          ``"affine_transformation"``.
+      :return: The corresponding affine operation.
+
+
+
+   .. py:property:: matrix
+      :type: httk.core.FracVector
+
+
+      Return the 3x3 rotation part ``W`` in the column-vector convention.
+
+      :return: The exact rotation matrix.
+
+
+   .. py:property:: vector
+      :type: httk.core.FracVector
+
+
+      Return the translation part ``w``.
+
+      :return: The exact translation vector.
+
+
+   .. py:method:: determinant()
+
+      Return the determinant of the rotation part exactly.
+
+      For a symmetry operation this is ``+1`` (proper) or ``-1`` (improper). For a
+      change of basis it is the ratio of cell volumes, so a value other than ``±1``
+      means the operation changes the lattice.
+
+      :return: The exact determinant.
+
+
+
+   .. py:method:: is_identity()
+
+      Report whether this operation is the identity.
+
+      :return: Whether the matrix and translation are both identity values.
+
+
+
+   .. py:method:: apply(coords)
+
+      Map reduced coordinates through this operation exactly.
+
+      ``coords`` is a single ``(3,)`` coordinate or an ``(N, 3)`` block of them; the
+      result has the same shape. No wrapping is applied — see :meth:`apply_wrapped`.
+
+      :param coords: A single reduced coordinate or a block of reduced coordinates.
+      :return: The transformed coordinates with the same shape as ``coords``.
+      :raises ValueError: If ``coords`` is neither a length-three coordinate nor an
+          ``(N, 3)`` block.
+
+
+
+   .. py:method:: apply_wrapped(coords)
+
+      Map coordinates and wrap every component into ``[0, 1)``.
+
+      :param coords: A single reduced coordinate or a block of reduced coordinates.
+      :return: The transformed and wrapped coordinates.
+      :raises ValueError: If ``coords`` has an unsupported shape.
+
+
+
+   .. py:method:: inverse()
+
+      Return the inverse map exactly.
+
+      :return: The inverse affine operation.
+      :raises ZeroDivisionError: If the rotation part is singular.
+
+
+
+   .. py:method:: conjugated_by(change)
+
+      Rewrite this operation through a change of basis.
+
+      If ``self`` is a symmetry operation expressed in one setting and ``change`` maps
+      that setting's coordinates into another, the result is the same symmetry operation
+      expressed in the other setting.
+
+      :param change: The affine operation defining the coordinate change.
+      :return: This operation conjugated by ``change``.
+
+
+
+   .. py:method:: wrapped()
+
+      Return this operation with its translation reduced into ``[0, 1)``.
+
+      Two symmetry operations of a space group are the same element modulo lattice
+      translations exactly when their wrapped forms are equal, which is what makes
+      symop *sets* comparable.
+
+      :return: An operation with a normalized translation.
+
+
+
+   .. py:method:: to_xyz()
+
+      Render the operation in ``x,y,z`` notation.
+
+      For example, return ``"-x+1/2,y,-z+1/2"``.
+
+      :return: The crystallographic operation string.
+
+
+
+.. py:class:: SettingTransform(matrix, vector = (0, 0, 0), *, hall_entry = None)
+
+   Represent an exact rational change of basis from the IT standard setting.
+
+   Wraps an :class:`~httk.atomistic.AffineOperation` and gives it the standard-to-own
+   reading described in the module docstring, plus the cell-basis and symmetry-operation
+   transformations that follow from it.
+
+   :param matrix: The 3x3 matrix ``M`` mapping standard coordinates to the own setting.
+   :param vector: The origin shift ``v`` in the own setting.
+   :param hall_entry: The normalized Hall entry associated with a tabulated transform, if
+       known.
+
+
+   .. py:method:: identity()
+      :classmethod:
+
+
+      Return the transform of a structure already in its IT standard setting.
+
+      :return: The identity setting transform.
+
+
+
+   .. py:method:: from_hall_entry(hall_entry)
+      :classmethod:
+
+
+      Return the tabulated transform for one of the 527 known settings.
+
+      ``hall_entry`` is the normalized Hall symbol of the setting, which names it
+      unambiguously — symbol, axes, and origin choice together.
+
+      :param hall_entry: The normalized Hall symbol naming the setting.
+      :return: The stored standard-to-own transform.
+      :raises KeyError: If ``hall_entry`` is not in the vendored setting table.
+
+
+
+   .. py:property:: operation
+      :type: httk.atomistic.symmetry.affine_operation.AffineOperation
+
+
+      Return the underlying affine map from standard to own setting.
+
+      :return: The underlying affine operation.
+
+
+   .. py:property:: matrix
+      :type: httk.core.FracVector
+
+
+      Return the 3x3 rotation part ``M``.
+
+      :return: The exact change-of-basis matrix.
+
+
+   .. py:property:: vector
+      :type: httk.core.FracVector
+
+
+      Return the origin shift ``v``.
+
+      :return: The exact origin-shift vector.
+
+
+   .. py:property:: hall_entry
+      :type: str | None
+
+
+      Return the Hall entry used to look up this transform, if any.
+
+      :return: The normalized Hall entry, or ``None`` for a caller-supplied transform.
+
+
+   .. py:method:: determinant()
+
+      Return the signed inverse volume factor ``det M``.
+
+      Its magnitude satisfies ``abs(det M) = V_standard / V_own``; the sign records
+      orientation reversal.
+
+      ``1`` for 520 of the 527 tabulated settings. The exceptions are the seven
+      rhombohedral-axes settings (IT numbers 146, 148, 155, 160, 161, 166, 167) where it
+      is ``3``, because the standard hexagonal cell holds three primitive rhombohedral
+      cells. A caller-supplied transform may have any non-zero value.
+
+      :return: The exact determinant of ``M``.
+
+
+
+   .. py:method:: is_identity()
+
+      Report whether the transform is the identity.
+
+      :return: Whether the matrix and origin shift leave the standard setting unchanged.
+
+
+
+   .. py:method:: to_setting(coords)
+
+      Map standard-setting reduced coordinates into this setting without wrapping.
+
+      :param coords: A reduced coordinate or block of reduced coordinates in the standard
+          setting.
+      :return: The corresponding coordinates in the own setting.
+
+
+
+   .. py:method:: to_standard(coords)
+
+      Map own-setting reduced coordinates into the standard setting without wrapping.
+
+      :param coords: A reduced coordinate or block of reduced coordinates in the own
+          setting.
+      :return: The corresponding coordinates in the standard setting.
+
+
+
+   .. py:method:: symop_to_setting(operation)
+
+      Rewrite a standard-setting symmetry operation in this setting.
+
+      :param operation: The symmetry operation expressed in the standard setting.
+      :return: The conjugated symmetry operation in the own setting.
+
+
+
+   .. py:method:: symop_to_standard(operation)
+
+      Rewrite an own-setting symmetry operation in the standard setting.
+
+      :param operation: The symmetry operation expressed in the own setting.
+      :return: The conjugated symmetry operation in the standard setting.
+
+
+
+   .. py:method:: basis_to_setting(basis)
+
+      Map a standard-setting cell basis into this setting.
+
+      Follows from coordinate invariance: if ``f_own = f_std * M.T()`` then
+      ``B_own = inv(M).T() * B_std``, so that ``f * B`` is the same Cartesian point
+      either way. The transform is rational, so an exact basis stays exact — a
+      hexagonal cell keeps its ``sqrt(3)``.
+
+      :param basis: The standard-setting cell basis with lattice vectors as rows.
+      :return: The own-setting cell basis with lattice vectors as rows.
+
+
+
+   .. py:method:: basis_to_standard(basis)
+
+      Map this setting's cell basis into the standard setting.
+
+      :param basis: The own-setting cell basis with lattice vectors as rows.
+      :return: The standard-setting cell basis with lattice vectors as rows.
+
+
+
+   .. py:method:: lattice_cosets()
+
+      Return the translations of this setting's cell that are standard-lattice translations.
+
+      Expanding an orbit generates points from the standard setting's symmetry
+      operations, which carry the standard lattice's periodicity. When this setting's
+      cell is *larger* than the standard one, that is not enough: points related by a
+      standard lattice translation are genuinely distinct sites here, and the missing
+      ones are recovered by also applying each translation returned by this method.
+
+      The result is the finite subgroup of ``(Q/Z)^3`` generated by the columns of ``M``
+      reduced modulo 1, always including the zero translation. It is trivial (just zero)
+      whenever ``M`` is an integer matrix, which covers **all 527** tabulated settings —
+      including the seven with ``det M == 3``, where this setting's cell is *smaller* and
+      the surplus points collapse under wrapping instead. So this only ever does work for
+      a caller-supplied transform to a supercell setting.
+
+      :return: The normalized finite set of translations, including zero.
+
+
+
+   .. py:method:: inverse()
+
+      Return the transform in the opposite direction.
+
+      :return: The transform from this setting to the standard setting.
+
+
+
+.. py:class:: Spacegroup(record)
+
+   Represent a tabulated space-group setting from the vendored symmetry data.
+
+   :param record: The read-only vendored mapping describing one space-group setting.
+
+
+   .. py:method:: standard(it_number)
+      :classmethod:
+
+
+      Return the IT standard setting for a space-group number.
+
+      :param it_number: The International Tables space-group number.
+      :return: The IT standard setting for ``it_number``.
+
+
+
+   .. py:method:: from_hall_entry(hall_entry)
+      :classmethod:
+
+
+      Return the setting named by a normalized Hall symbol.
+
+      For example, ``"-c_2yc"`` names one setting.
+
+      :param hall_entry: The normalized Hall symbol naming the setting.
+      :return: The corresponding space-group setting.
+
+
+
+   .. py:method:: from_setting(setting_it_nc)
+      :classmethod:
+
+
+      Return the setting named by an IT number and coordinate-system code.
+
+      For example, ``"15:c1"`` names one setting.
+
+      :param setting_it_nc: The IT setting identifier.
+      :return: The corresponding space-group setting.
+
+
+
+   .. py:method:: from_hm_entry(hm_entry)
+      :classmethod:
+
+
+      Return the setting named by a Hermann-Mauguin entry.
+
+      For example, ``"C 1 2/c 1"`` names one setting.
+
+      :param hm_entry: The Hermann-Mauguin symbol naming the setting.
+      :return: The corresponding space-group setting.
+
+
+
+   .. py:property:: record
+      :type: collections.abc.Mapping[str, Any]
+
+
+      Return the raw vendored record for fields this class does not model.
+
+      :return: The source record for this setting.
+
+
+   .. py:property:: it_number
+      :type: int
+
+
+      Return the International Tables space-group number.
+
+      :return: The space-group number from 1 through 230.
+
+
+   .. py:property:: setting
+      :type: str
+
+
+      Return the setting name, such as ``"15:c1"``.
+
+      :return: The IT number and coordinate-system code.
+
+
+   .. py:property:: hall_entry
+      :type: str
+
+
+      Return the normalized Hall symbol naming the setting unambiguously.
+
+      :return: The normalized Hall symbol.
+
+
+   .. py:property:: hall_symbol
+      :type: str
+
+
+      Return the Hall symbol as conventionally written.
+
+      :return: The conventional Hall symbol.
+
+
+   .. py:property:: hermann_mauguin
+      :type: str
+
+
+      Return the short Hermann-Mauguin symbol for this setting.
+
+      :return: The short Hermann-Mauguin symbol.
+
+
+   .. py:property:: hermann_mauguin_full
+      :type: str
+
+
+      Return the full Hermann-Mauguin symbol for this setting.
+
+      :return: The full Hermann-Mauguin symbol.
+
+
+   .. py:property:: crystal_system
+      :type: str
+
+
+      Return the crystal system, such as ``"monoclinic"``.
+
+      :return: The crystal-system name.
+
+
+   .. py:property:: centring_type
+      :type: str
+
+
+      Return the lattice centring letter, such as ``"P"``, ``"C"``, or ``"F"``.
+
+      :return: The centring letter.
+
+
+   .. py:property:: is_standard_setting
+      :type: bool
+
+
+      Report whether this is the IT standard setting for its space-group number.
+
+      :return: Whether this setting is the IT reference setting.
+
+
+   .. py:property:: symmetry_operations
+      :type: tuple[httk.atomistic.symmetry.affine_operation.AffineOperation, ...]
+
+
+      Return every symmetry operation of the group in this setting's coordinates.
+
+      The full set with centring translations already folded in, so its length is the
+      group order and no separate centring pass is needed.
+
+      :return: The complete tuple of symmetry operations.
+
+
+   .. py:property:: centering_translations
+      :type: tuple[httk.core.FracVector, ...]
+
+
+      Return the lattice centring translations, including zero.
+
+      :return: The centring translations in this setting.
+
+
+   .. py:property:: wyckoff
+      :type: tuple[httk.atomistic.symmetry.wyckoff.WyckoffPosition, ...]
+
+
+      Return the Wyckoff positions ordered most specific first.
+
+      Sorted by ``(free_count, multiplicity, letter)``, so identifying a coordinate by
+      walking this order returns the most specific position it lies on.
+
+      :return: The ordered Wyckoff positions for this setting.
+
+
+   .. py:method:: wyckoff_position(letter)
+
+      Return the Wyckoff position with the given letter.
+
+      For example, ``"e"`` selects the position with letter ``e``.
+
+      :param letter: The bare Wyckoff letter.
+      :return: The matching Wyckoff position.
+      :raises KeyError: If this setting has no position with ``letter``.
+
+
+
+   .. py:method:: identify_wyckoff(coordinate)
+
+      Identify the most specific Wyckoff position holding an exact coordinate.
+
+      Returns ``None`` when the coordinate lies on no position, which for a complete
+      table means the input was not an exact rational site of this group. Matching is
+      exact: an approximate coordinate must be snapped first (see
+      :class:`~httk.atomistic.ASUStructure`'s recognition path), never passed here in
+      the hope that it lands.
+
+      :param coordinate: The exact reduced coordinate to identify.
+      :return: The matching position and free parameters, or ``None`` when no position
+          matches exactly.
+
+
+
+   .. py:property:: transform_from_standard
+      :type: httk.atomistic.symmetry.setting_transform.SettingTransform
+
+
+      Return the change of basis from the IT standard setting to this one.
+
+      The identity exactly when this *is* the standard setting.
+
+      :return: The stored standard-to-own setting transform.
+
+
+   .. py:method:: standard_setting()
+
+      Return the IT standard setting for this space-group number.
+
+      :return: The IT standard setting.
+
+
+
+.. py:function:: wyckoff_letter_map(standard, target)
+
+   Map standard-setting Wyckoff letters to their names in another setting.
+
+   Almost always the identity — but not always, and the exception is silent. Across all
+   3210 non-reference ``(setting, letter)`` pairs in the vendored tables, exactly one
+   setting permutes letters: in ``224:1`` the standard setting's ``j`` is that setting's
+   ``i`` and vice versa. So a CIF that declares site ``24i`` in setting ``224:1`` does
+   *not* mean standard-setting letter ``i``, and taking the letter at face value across
+   a setting boundary produces the wrong structure with no error.
+
+   Computed rather than hard-coded, so it survives a data refresh: each standard position
+   is evaluated at generic parameters, mapped through the setting transform, and
+   identified in the target's own Wyckoff table.
+
+   :param standard: The IT standard setting whose letters are being mapped.
+   :param target: The setting receiving the mapped letters.
+   :return: A mapping from standard-setting letters to target-setting letters.
+   :raises ValueError: If the settings belong to different space groups or the mapping is
+       not bijective.
+
+
+.. py:class:: WyckoffBranch(operation, free)
+
+   Represent one member of a Wyckoff orbit as an affine parameter map.
+
+   A position of multiplicity *m* has *m* branches. The representative branch is the
+   first, but a coordinate may lie on any of them, which is why
+   :meth:`WyckoffPosition.parameters_of` tries them all.
+
+   :param operation: The affine map for this orbit branch.
+   :param free: The indices of the free parameters in ``(x, y, z)``.
+
+
+   .. py:property:: operation
+      :type: httk.atomistic.symmetry.affine_operation.AffineOperation
+
+
+      Return the affine map from ``(x, y, z)`` to this branch's coordinate.
+
+      :return: The branch's affine operation.
+
+
+   .. py:property:: free
+      :type: tuple[int, ...]
+
+
+      Return the ascending indices of the free parameters in ``(x, y, z)``.
+
+      :return: The free-parameter indices.
+
+
+   .. py:method:: coordinate(parameters)
+
+      Compute the coordinate this branch places at given free-parameter values.
+
+      ``parameters`` has one entry per free parameter. Because the non-free columns of
+      the matrix are zero, the values placed at the non-free positions are irrelevant.
+
+      :param parameters: The free-parameter values for this branch.
+      :return: The exact reduced coordinate generated by the branch.
+      :raises ValueError: If the number of parameters does not match the branch.
+
+
+
+   .. py:method:: parameters_of(coordinate)
+
+      Recover the free parameters putting this branch on ``coordinate``, if possible.
+
+      ``None`` means the coordinate does not lie on this branch — for *any* lattice
+      translation, not merely the one given. That completeness is what the row-Hermite
+      form buys: with ``U`` unimodular over the integers, ``A t = d (mod Z^3)`` holds iff
+      ``U A t = U d (mod Z^3)``, and the zero rows of ``U A`` turn the lattice-membership
+      question into "are these components integers?" with no search over translations.
+
+      The returned parameters are reduced into ``[0, 1)``, which is canonical: the pivot
+      block has determinant ``±1`` throughout the vendored tables, so the solution is
+      unique modulo one. The result is verified by re-evaluating the branch, so a table
+      that ever violated that assumption would yield a clean miss rather than a wrong
+      answer.
+
+      :param coordinate: The exact reduced coordinate to match.
+      :return: The normalized free parameters, or ``None`` when the coordinate is not on
+          this branch.
+
+
+
+   .. py:method:: nearest_parameters(coordinate)
+
+      Compute free parameters that put this branch as close to ``coordinate`` as possible.
+
+      Unlike :meth:`parameters_of` this always returns a value: the free directions are
+      solved exactly and any discrepancy is left in the *fixed* directions, where the
+      branch's own coordinates win. It is the projection used when recognizing a measured
+      structure, whose coordinates carry rounding and do not lie exactly on any position.
+
+      The projection is taken along the branch's own lattice basis rather than being
+      minimised in the cell metric, so for a strongly oblique cell it is a near-optimal
+      rather than provably optimal choice. That is safe because the caller measures the
+      resulting Cartesian displacement and rejects anything beyond its tolerance — the
+      method can cost a match, never grant a wrong one.
+
+      :param coordinate: The reduced coordinate to approximate.
+      :return: The normalized free parameters for the nearest branch point.
+
+
+
+   .. py:method:: nearest_parameters_float(coordinate)
+
+      Project a coordinate onto this branch in floating point for screening.
+
+      This deliberately mirrors :meth:`nearest_parameters` without its exact verification.
+      It is only a candidate-screening aid; callers must calculate and compare the final
+      distance with the exact methods before accepting a match.
+
+      :param coordinate: A reduced coordinate as three floating-point values.
+      :return: The normalized floating-point free parameters.
+
+
+
+   .. py:method:: coordinate_float(parameters)
+
+      Evaluate this branch in floating point for candidate screening.
+
+      :param parameters: One floating-point value for every free parameter.
+      :return: The unwrapped floating-point reduced coordinate.
+      :raises ValueError: If the parameter count is wrong.
+
+
+
+.. py:class:: WyckoffPosition(record)
+
+   Represent a Wyckoff position of one space-group setting.
+
+   :param record: The vendored record describing the Wyckoff position.
+
+
+   .. py:method:: from_record(record)
+      :classmethod:
+
+
+      Build a Wyckoff position from a vendored record.
+
+      :param record: The vendored Wyckoff-position record.
+      :return: The corresponding Wyckoff position.
+
+
+
+   .. py:property:: letter
+      :type: str
+
+
+      Return the bare Wyckoff letter, such as ``"e"``.
+
+      :return: The Wyckoff letter without a multiplicity prefix.
+
+
+   .. py:property:: multiplicity
+      :type: int
+
+
+      Return the number of sites generated by one parameter set.
+
+      :return: The position multiplicity in the unit cell.
+
+
+   .. py:property:: site_symmetry
+      :type: str
+
+
+      Return the site-symmetry group in Hermann-Mauguin notation.
+
+      :return: The site-symmetry symbol.
+
+
+   .. py:property:: free
+      :type: tuple[int, ...]
+
+
+      Return the indices of the free parameters in ``(x, y, z)``.
+
+      :return: The free-parameter indices.
+
+
+   .. py:property:: free_count
+      :type: int
+
+
+      Return the number of degrees of freedom of the position.
+
+      :return: The number of free parameters, from zero through three.
+
+
+   .. py:property:: branches
+      :type: tuple[WyckoffBranch, ...]
+
+
+      Return the complete, deduplicated orbit branches.
+
+      :return: One branch for each equivalent site.
+
+
+   .. py:property:: representative
+      :type: WyckoffBranch
+
+
+      Return the first orbit member printed as ``first_orbit`` in the tables.
+
+      :return: The representative orbit branch.
+
+
+   .. py:method:: coordinates(parameters)
+
+      Compute every coordinate of the orbit as an exact ``(multiplicity, 3)`` block.
+
+      Not wrapped and not deduplicated: within one setting the tabulated orbit is
+      already distinct, so wrapping is the caller's business (and matters only once a
+      setting transform enters).
+
+      :param parameters: The free-parameter values for the position.
+      :return: The unwrapped coordinates of all orbit branches.
+      :raises ValueError: If the number of parameters does not match a branch.
+
+
+
+   .. py:method:: parameters_of(coordinate)
+
+      Recover free parameters placing some branch on ``coordinate``, if possible.
+
+      Tries every branch, not only the representative. That matters: across the vendored
+      tables, 11673 of the 20639 non-representative orbit members lie on a different
+      branch than the representative, so a matcher that only tested ``first_orbit``
+      would reject a majority of legitimate orbit points.
+
+      :param coordinate: The exact reduced coordinate to match.
+      :return: The normalized free parameters, or ``None`` when no branch matches.
+
+
+
+.. py:function:: wyckoff_positions(record)
+
+   Build the Wyckoff positions of a setting record, most specific first.
+
+   Ordered by ``(free_count, multiplicity, letter)`` so that the first match found when
+   identifying a coordinate is the most specific position it lies on. Ties do not arise:
+   positions are affine subspaces, so a coordinate on two distinct positions of the same
+   dimension also lies on their lower-dimensional intersection, which is covered by an
+   earlier entry.
+
+   :param record: The vendored space-group setting record.
+   :return: The setting's ordered Wyckoff positions.
+
+
+.. py:function:: operation_from_xyz(operation)
+
+   Parse an exact three-coordinate crystallographic operation.
+
+   :param operation: The comma-separated ``x,y,z`` operation string.
+   :return: The exact affine operation.
+   :raises ValueError: If the operation does not contain three valid coordinate
+       expressions.
+
+
+.. py:function:: operation_from_xyzt(operation)
+
+   Parse an exact magnetic operation and return its time-reversal flag.
+
+   The first three comma-separated fields use crystallographic ``x,y,z`` grammar; the
+   fourth field must be ``+1`` or ``-1``.
+
+   :param operation: The comma-separated ``x,y,z,time-reversal`` operation string.
+   :return: The affine operation and its time-reversal sign.
+   :raises ValueError: If the operation does not contain three coordinate expressions and
+       a valid time-reversal flag.
+
+
+.. py:function:: parse_linear_expression(expression, allowed_vars = _SUPERSPACE_VARS)
+
+   Parse one superspace linear expression into integer coefficients and a translation.
+
+   The parser accepts the six superspace variables ``x1`` through ``x6`` by default and
+   preserves an exact rational translation.
+
+   :param expression: The linear expression to parse.
+   :param allowed_vars: The variable names accepted in ``expression``.
+   :return: The integer coefficients in ``allowed_vars`` and the exact translation.
+   :raises ValueError: If the expression is empty, malformed, or has a non-integer
+       variable coefficient.
+
+

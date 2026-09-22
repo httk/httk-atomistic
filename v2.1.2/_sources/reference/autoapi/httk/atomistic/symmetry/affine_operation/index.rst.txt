@@ -1,0 +1,185 @@
+httk.atomistic.symmetry.affine_operation
+========================================
+
+.. py:module:: httk.atomistic.symmetry.affine_operation
+
+.. autoapi-nested-parse::
+
+   Exact rational affine maps on fractional coordinates.
+
+   An :class:`AffineOperation` is a rotation part and a translation part held exactly as
+   :class:`~httk.core.FracVector` values. The same object serves for the two things this
+   package does with affine maps — a crystallographic symmetry operation, and a
+   change-of-basis between space-group settings — because they are the same algebra; only
+   their interpretation differs (see :class:`~httk.atomistic.SettingTransform` for the
+   latter).
+
+   Everything here is closed over the rationals: composing, inverting, conjugating, and
+   applying an operation to reduced coordinates all stay exact. That is the whole reason the
+   ASU machinery needs no tolerance.
+
+   **Convention.** The stored ``matrix`` is written for column vectors, matching how
+   crystallographic tables print an operation (``x' = W x + w``, i.e. ``-x+1/2,y,-z``).
+   httk holds coordinates as *rows*, so :meth:`AffineOperation.apply` evaluates
+   ``coords * matrix.T() + vector``. Both spellings describe the same map; only one of them is ever written out in
+   code here.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.affine_operation.AffineOperation
+
+
+Module Contents
+---------------
+
+.. py:class:: AffineOperation(matrix, vector = (0, 0, 0))
+
+   Represent an exact affine map ``x -> W x + w`` on fractional coordinates.
+
+   Two operations compare equal when their matrix and translation are exactly equal.
+   Equality is *not* modulo lattice translations — use :meth:`wrapped` first when
+   comparing symmetry operations as members of a space group, since ``x+1/2`` and
+   ``x+3/2`` are the same operation there but different objects here.
+
+   :param matrix: The 3x3 rotation part in the column-vector convention, or a comma-separated
+       ``"x,y,z"`` operation string (as emitted by :meth:`to_xyz` and ``repr``), in which case
+       ``vector`` is ignored.
+   :param vector: The translation part in fractional coordinates.
+
+
+   .. py:method:: identity()
+      :classmethod:
+
+
+      Return the identity operation.
+
+      :return: The identity affine operation.
+
+
+
+   .. py:method:: from_record(record)
+      :classmethod:
+
+
+      Build an operation from either vendored affine-record shape.
+
+      The record's ``matrix`` and ``vector`` hold exact rational strings (``"1/2"``,
+      ``"-1"``), which embed exactly.
+
+      :param record: The affine record, or a mapping containing one under
+          ``"affine_transformation"``.
+      :return: The corresponding affine operation.
+
+
+
+   .. py:property:: matrix
+      :type: httk.core.FracVector
+
+
+      Return the 3x3 rotation part ``W`` in the column-vector convention.
+
+      :return: The exact rotation matrix.
+
+
+   .. py:property:: vector
+      :type: httk.core.FracVector
+
+
+      Return the translation part ``w``.
+
+      :return: The exact translation vector.
+
+
+   .. py:method:: determinant()
+
+      Return the determinant of the rotation part exactly.
+
+      For a symmetry operation this is ``+1`` (proper) or ``-1`` (improper). For a
+      change of basis it is the ratio of cell volumes, so a value other than ``±1``
+      means the operation changes the lattice.
+
+      :return: The exact determinant.
+
+
+
+   .. py:method:: is_identity()
+
+      Report whether this operation is the identity.
+
+      :return: Whether the matrix and translation are both identity values.
+
+
+
+   .. py:method:: apply(coords)
+
+      Map reduced coordinates through this operation exactly.
+
+      ``coords`` is a single ``(3,)`` coordinate or an ``(N, 3)`` block of them; the
+      result has the same shape. No wrapping is applied — see :meth:`apply_wrapped`.
+
+      :param coords: A single reduced coordinate or a block of reduced coordinates.
+      :return: The transformed coordinates with the same shape as ``coords``.
+      :raises ValueError: If ``coords`` is neither a length-three coordinate nor an
+          ``(N, 3)`` block.
+
+
+
+   .. py:method:: apply_wrapped(coords)
+
+      Map coordinates and wrap every component into ``[0, 1)``.
+
+      :param coords: A single reduced coordinate or a block of reduced coordinates.
+      :return: The transformed and wrapped coordinates.
+      :raises ValueError: If ``coords`` has an unsupported shape.
+
+
+
+   .. py:method:: inverse()
+
+      Return the inverse map exactly.
+
+      :return: The inverse affine operation.
+      :raises ZeroDivisionError: If the rotation part is singular.
+
+
+
+   .. py:method:: conjugated_by(change)
+
+      Rewrite this operation through a change of basis.
+
+      If ``self`` is a symmetry operation expressed in one setting and ``change`` maps
+      that setting's coordinates into another, the result is the same symmetry operation
+      expressed in the other setting.
+
+      :param change: The affine operation defining the coordinate change.
+      :return: This operation conjugated by ``change``.
+
+
+
+   .. py:method:: wrapped()
+
+      Return this operation with its translation reduced into ``[0, 1)``.
+
+      Two symmetry operations of a space group are the same element modulo lattice
+      translations exactly when their wrapped forms are equal, which is what makes
+      symop *sets* comparable.
+
+      :return: An operation with a normalized translation.
+
+
+
+   .. py:method:: to_xyz()
+
+      Render the operation in ``x,y,z`` notation.
+
+      For example, return ``"-x+1/2,y,-z+1/2"``.
+
+      :return: The crystallographic operation string.
+
+
+

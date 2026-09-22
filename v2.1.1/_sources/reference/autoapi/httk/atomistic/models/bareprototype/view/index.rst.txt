@@ -1,0 +1,54 @@
+httk.atomistic.models.bareprototype.view
+========================================
+
+.. py:module:: httk.atomistic.models.bareprototype.view
+
+.. autoapi-nested-parse::
+
+   Lazy prototype recognition and presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprototype.view.BarePrototypeView
+
+
+Module Contents
+---------------
+
+.. py:class:: BarePrototypeView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.bareprototype.view_base.BarePrototypeViewBase`, :py:obj:`httk.atomistic.models.bareprototype.bareprototype.BarePrototype`
+
+
+   Recognize or project a lazy Wyckoff-only classification.
+
+   Existing bare values, refined classifications, plain labels, and structure-like
+   sources are accepted. Recognition hints are retained until first field access.
+   Projecting a refined source preserves it for view round-trips; ``unview()``
+   materializes a standalone bare value without geometrical refinement.
+
+   :param obj: Classification or structure-like source.
+   :param \*\*hints: Backend-selection and recognition hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the recognized prototype as a standalone value.
+
+      :return: The prototype value.
+
+
+

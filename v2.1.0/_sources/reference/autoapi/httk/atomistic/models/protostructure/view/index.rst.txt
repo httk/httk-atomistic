@@ -1,0 +1,52 @@
+httk.atomistic.models.protostructure.view
+=========================================
+
+.. py:module:: httk.atomistic.models.protostructure.view
+
+.. autoapi-nested-parse::
+
+   Lazy protostructure recognition and presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protostructure.view.ProtostructureView
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtostructureView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.protostructure.view_base.ProtostructureViewBase`, :py:obj:`httk.atomistic.models.protostructure.protostructure.Protostructure`
+
+
+   Recognize a lazy standard-setting protostructure view.
+
+   Recognition accepts optional ``setting``, ``standard``, ``transform``, ``tolerance``,
+   and ``limit_denominator`` values through the recognition hints.
+
+   :param obj: The structure-like or protostructure-like source.
+   :param \*\*hints: Backend-selection and recognition hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the recognized protostructure as a standalone value.
+
+      :return: The protostructure value.
+
+
+

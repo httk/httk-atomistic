@@ -1,0 +1,277 @@
+httk.atomistic.models.structure.unitcell
+========================================
+
+.. py:module:: httk.atomistic.models.structure.unitcell
+
+.. autoapi-nested-parse::
+
+   The Simple structure representation for httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.unitcell.UnitcellStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: UnitcellStructure(cell, sites, species = None, species_at_sites = None, *, site_moments = None, molecular = False, assemblies = None, symmetry = None, chemical_composition = None, chemical_formula_descriptive = None, chemical_formula_hill = None, optimization_type = None, immutable_id = None, last_modified = None, charge = None)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.semantics.StructureSemanticsMixin`, :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent a crystal structure in the Unitcell representation.
+
+   A UnitcellStructure holds a ``cell`` (a ``Cell`` of 3x3 cell vectors), ``sites`` (a ``Sites``
+   of Nx3 reduced coordinates), a list of ``species`` (each a ``Species``), and a
+   length-N ``species_at_sites`` giving the species name occupying each site. Inputs are
+   normalized on construction through the component families: the cell, sites, and each
+   species are passed through their ``*Like`` unions, and every ``species_at_sites`` name
+   must match one of the (uniquely named) species. When ``species`` is omitted,
+   ``species_at_sites`` may itself contain species-like values; the distinct species table
+   is then inferred in first-occurrence order.
+
+   The numeric model is exact and split by purpose. The fractional frame — reduced coordinates
+   and symmetry — is rational and lives in ``sites`` as a :class:`~httk.core.FracVector`. The
+   Cartesian frame — where radicals such as the hexagonal ``sqrt(3)`` appear — is exact in the
+   squarefree-radical field: ``cell.basis`` is a :class:`~httk.core.SurdVector` and
+   :meth:`cartesian_sites` returns the exact Cartesian positions. Pure magnitudes (bond-length
+   comparisons) stay rational-exact via ``cell.metric()``. Floats appear only at the presentation
+   and JSON boundaries.
+
+   :param cell: The unit-cell geometry.
+   :param sites: The reduced coordinates of the sites.
+   :param species: The distinct species definitions. Omit this to infer them from
+       ``species_at_sites``.
+   :param species_at_sites: The species name occupying each site; this value is required.
+   :param site_moments: Optional magnetic moments aligned with the sites.
+   :param molecular: Whether the structure describes a molecular unit cell.
+   :param assemblies: Optional correlations among sites.
+   :param symmetry: Optional symmetry metadata.
+   :param chemical_composition: Optional chemical composition metadata.
+   :param chemical_formula_descriptive: Optional descriptive chemical formula.
+   :param chemical_formula_hill: Optional Hill chemical formula.
+   :param optimization_type: Optional optimization provenance.
+   :param immutable_id: Optional immutable source identifier.
+   :param last_modified: Optional source modification timestamp.
+   :param charge: An explicitly assigned charge for the cell content; it is not derived
+       from the species, and an explicit zero remains distinct from an unstated charge.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'unitcell'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the cell geometry.
+
+      :return: The cell in the structure's exact representation.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the reduced site coordinates.
+
+      :return: The sites in the structure's exact representation.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Expose the distinct species.
+
+      :return: The species referenced by the structure.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Expose the species name occupying each site.
+
+      :return: Site species names in site order.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose optional per-site magnetic moments in ``sites`` order.
+
+      :return: Site moments, or ``None`` when they are unstated.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned exact charge of the cell.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:property:: coordinate_precision
+      :type: fractions.Fraction | None
+
+
+      Expose the precision recorded for the reduced coordinates.
+
+      Read through from :attr:`sites`. Dimensionless — see :meth:`cartesian_precision`
+      for the corresponding length.
+
+      :return: The fractional precision, or ``None`` when it is unknown.
+
+
+   .. py:property:: basis_precision
+      :type: fractions.Fraction | None
+
+
+      Expose the precision recorded for the cell basis.
+
+      Read through from :attr:`cell`.
+
+      :return: The absolute precision, or ``None`` when it is unknown.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Expose which cell directions are periodic.
+
+      Read through from :attr:`cell`, where the full account lives. ``(True, True, True)``
+      for an ordinary crystal, which is what a structure built without saying otherwise is.
+
+      :return: The periodicity flags for the cell directions.
+
+
+   .. py:property:: site_coordinate_span
+      :type: str
+
+
+      Expose the coordinate span asserted by this representation.
+
+      :return: ``unit_cell`` or ``molecular_unit_cell``.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Expose whether this structure describes a molecular unit cell.
+
+      :return: Whether molecular semantics are enabled.
+
+
+   .. py:property:: symmetry
+      :type: httk.atomistic.models.structure.semantics.StructureSymmetry | None
+
+
+      Expose the optional symmetry metadata.
+
+      :return: The symmetry metadata, or ``None`` when it is absent.
+
+
+   .. py:method:: cartesian_precision()
+
+      The coordinate precision as a length, or ``None`` if it is unknown.
+
+      This is the number a real tolerance wants — an interatomic matching tolerance or an
+      spglib ``symprec`` is a distance, and a fractional precision is not. A coordinate
+      good to ``1e-4`` of a cell edge means something quite different in a 3 Å cell and a
+      30 Å one.
+
+      Computed as the fractional precision times the *longest* cell edge, which is the
+      conservative choice: it is the largest displacement that fractional uncertainty can
+      produce along any axis. The cell's own precision is folded in as well, since a cell
+      stated to ``1e-3`` cannot place an atom better than that however many digits the
+      coordinates carry.
+
+      :return: The conservative Cartesian precision, or ``None`` when the coordinate
+          precision is unknown.
+
+
+
+   .. py:method:: cartesian_sites()
+
+      Compute the exact Cartesian site positions.
+
+      Under the row-vector convention this is ``reduced_coords * cell.basis`` (each Cartesian
+      position is the sum over lattice vectors ``sum_k reduced[k] * basis[k]``). The reduced
+      coordinates are rational (a ``FracVector``), the cell basis carries the radicals (a
+      ``SurdVector``), so the product is exact in the surd field — the hexagonal ``sqrt(3)``
+      survives into the Cartesian positions.
+
+      :return: The Cartesian positions in the exact surd representation.
+
+
+
+   .. py:method:: numeric()
+
+      Create a plain-numpy presentation of this structure.
+
+      :return: The numpy-backed structure view.
+      :raises ImportError: If numpy is unavailable.
+
+
+
+   .. py:method:: supercell(transformation, *, max_sites = 100000)
+
+      Build an exact supercell from an integer transformation.
+
+      :param transformation: The lattice transformation to apply.
+      :param max_sites: The maximum permitted number of sites, or ``None`` for no limit.
+      :return: The generated supercell and transformation metadata.
+
+
+
+   .. py:method:: orthogonal_supercell(multiplier = None, *, tolerance = None, max_multiplier = None, search_radius = 1, max_sites = 100000)
+
+      Build a deterministically selected orthogonal supercell.
+
+      :param multiplier: The requested volume multiplier, or ``None`` to search.
+      :param tolerance: The geometric tolerance used during the search.
+      :param max_multiplier: The largest multiplier considered when searching.
+      :param search_radius: The integer search radius for candidate transformations.
+      :param max_sites: The maximum permitted number of sites, or ``None`` for no limit.
+      :return: The generated supercell and transformation metadata.
+
+
+
+   .. py:method:: cubic_supercell(multiplier = None, *, tolerance = None, max_multiplier = None, search_radius = 1, max_sites = 100000)
+
+      Build a deterministically selected cubic supercell.
+
+      :param multiplier: The requested volume multiplier, or ``None`` to search.
+      :param tolerance: The geometric tolerance used during the search.
+      :param max_multiplier: The largest multiplier considered when searching.
+      :param search_radius: The integer search radius for candidate transformations.
+      :param max_sites: The maximum permitted number of sites, or ``None`` for no limit.
+      :return: The generated supercell and transformation metadata.
+
+
+
+   .. py:method:: conventional_cell(*, tolerance = None, limit_denominator = None)
+
+      Express this structure in its conventional standard-setting cell.
+
+      :param tolerance: The tolerance used when standardizing the structure.
+      :param limit_denominator: The denominator limit used for rationalizing measured
+          coordinates.
+      :return: The standardized structure and its transformation metadata.
+
+
+

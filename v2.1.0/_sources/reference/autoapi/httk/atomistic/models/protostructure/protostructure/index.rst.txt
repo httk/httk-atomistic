@@ -1,0 +1,82 @@
+httk.atomistic.models.protostructure.protostructure
+===================================================
+
+.. py:module:: httk.atomistic.models.protostructure.protostructure
+
+.. autoapi-nested-parse::
+
+   The immutable assigned-species geometrical-classification value.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protostructure.protostructure.Protostructure
+
+
+Module Contents
+---------------
+
+.. py:class:: Protostructure(spacegroup = None, occupations = None, *, representative = None, discriminator = None)
+
+   Bases: :py:obj:`httk.atomistic.models.protostructure.backend.ProtostructureBackend`
+
+
+   Store a standard-setting space group and its occupied Wyckoff positions.
+
+   The base value is provenance-independent: recognition and derivation return a base
+   ``Protostructure``, so a value recognized from a structure compares equal to one built
+   by hand or parsed from a label. Multiplicities, composition, and formula derivations are
+   defined at the standard-setting conventional-cell scale, even when the source used to
+   recognize it was stored in a volume-scaled setting.
+
+   A geometrical representative and/or a discriminator are optional refinements, present
+   only when the user constructs the value with them; recognition never attaches them. They
+   participate in equality and content identity: equality covers the space group, the
+   occupations, the discriminator, and the representative when present, so two values
+   sharing space group, occupations, and discriminator but differing in representative are
+   not equal.
+
+   :param spacegroup: The standard-setting space group or its IT number.
+   :param occupations: The occupied Wyckoff positions and their species.
+   :param representative: An optional exact standard-setting class anchor.
+   :param discriminator: An optional external class discriminator.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'protostructure'
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+
+      Return the canonical occupied Wyckoff positions.
+
+
+   .. py:property:: representative
+      :type: httk.atomistic.models.structure.asu.FundamentalDomainStructure | None
+
+
+      Return an optional retained exact representative.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return an optional geometrical-class discriminator.
+
+

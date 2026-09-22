@@ -1,0 +1,37 @@
+httk.atomistic.models.sites.backend
+===================================
+
+.. py:module:: httk.atomistic.models.sites.backend
+
+.. autoapi-nested-parse::
+
+   The abstract base class for all sites backends in httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.backend.SitesBackend
+
+
+Module Contents
+---------------
+
+.. py:class:: SitesBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`SitesBackend`\ ], :py:obj:`httk.atomistic.models.sites.api.SitesAPI`
+
+
+   Abstract base class for all backends of sites data.
+
+   Concrete backends carry a native representation and produce the canonical Nx3
+   ``reduced_coords`` declared by ``SitesAPI`` from it.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+

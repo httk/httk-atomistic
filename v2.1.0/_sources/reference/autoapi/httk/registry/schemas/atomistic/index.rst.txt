@@ -1,0 +1,11 @@
+httk.registry.schemas.atomistic
+===============================
+
+.. py:module:: httk.registry.schemas.atomistic
+
+.. autoapi-nested-parse::
+
+   Register httk-atomistic's vendored entry-type and property schemas.
+
+
+

@@ -1,0 +1,71 @@
+httk.atomistic.models.sites.record
+==================================
+
+.. py:module:: httk.atomistic.models.sites.record
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.record.RecordSites
+
+
+Module Contents
+---------------
+
+.. py:class:: RecordSites(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.backend.SitesBackend`
+
+
+   Backend for sites stored in an exact record.
+
+   :param obj: The stored sites record.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: reduced_coords
+      :type: httk.core.FracVector
+
+
+      Return the stored reduced coordinates.
+
+      :return: The exact reduced coordinates.
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      Return the stored coordinate precision.
+
+      :return: The fractional precision, or ``None`` when unknown.
+
+
+   .. py:method:: reduced_coords_floats()
+
+      Return the reduced site coordinates as float rows.
+
+      :return: The store's fetched float columns when available, else the exact coordinates as floats.
+
+
+
+   .. py:property:: num_sites
+      :type: int
+
+
+      Return the number of coordinate rows.
+
+      :return: The store's fetched row count when available, else the exact row count.
+
+
+   .. py:method:: unwrap()
+
+      Return the stored sites record.
+
+      :return: The source record.
+
+
+

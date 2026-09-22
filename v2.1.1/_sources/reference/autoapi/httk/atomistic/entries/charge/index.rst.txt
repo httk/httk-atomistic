@@ -1,0 +1,49 @@
+httk.atomistic.entries.charge
+=============================
+
+.. py:module:: httk.atomistic.entries.charge
+
+.. autoapi-nested-parse::
+
+   Serving an explicitly assigned structure charge.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.charge.CHARGE_PROPERTY_KEYS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.charge.charge_definitions
+   httk.atomistic.entries.charge.charge_properties
+
+
+Module Contents
+---------------
+
+.. py:data:: CHARGE_PROPERTY_KEYS
+   :type:  dict[str, str]
+
+.. py:function:: charge_definitions()
+
+   Load the vendored structure-charge property definition.
+
+   :return: The definition keyed by ``_httk_charge``.
+
+
+.. py:function:: charge_properties(structure)
+
+   Project an explicitly assigned structure charge.
+
+   :param structure: The structure to project, or ``None`` for an empty entry.
+   :return: The top-level ``_httk_charge`` value, preserving an unstated charge as ``None``.
+
+

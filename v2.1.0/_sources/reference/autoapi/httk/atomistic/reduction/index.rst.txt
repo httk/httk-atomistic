@@ -1,0 +1,120 @@
+httk.atomistic.reduction
+========================
+
+.. py:module:: httk.atomistic.reduction
+
+.. autoapi-nested-parse::
+
+   Exact Niggli reduction of three-dimensional periodic cells and structures.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.reduction.NiggliReductionResult
+   httk.atomistic.reduction.NiggliReducedStructureResult
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.reduction.niggli_reduce
+   httk.atomistic.reduction.is_niggli_reduced
+   httk.atomistic.reduction.niggli_reduced
+
+
+Module Contents
+---------------
+
+.. py:class:: NiggliReductionResult
+
+   Store a cell in exact Niggli-reduced form.
+
+   ``transform`` uses the row-vector convention ``basis_reduced = transform * basis``.
+   Its entries are integers and its determinant is +1. ``parameters`` contains the
+   reduced ``(A, B, C, xi, eta, zeta)`` metric parameters as exact fractions.
+
+   :param cell: The reduced cell.
+   :param transform: The integer row-convention transform from the source basis.
+   :param parameters: The reduced exact metric parameters.
+
+
+   .. py:attribute:: cell
+      :type:  httk.atomistic.models.cell.cell.Cell
+
+
+   .. py:attribute:: transform
+      :type:  httk.core.FracVector
+
+
+   .. py:attribute:: parameters
+      :type:  tuple[fractions.Fraction, ...]
+
+
+.. py:class:: NiggliReducedStructureResult
+
+   Store a structure whose cell and fractional coordinates are in Niggli form.
+
+   ``transform`` uses the row-vector convention ``basis_reduced = transform * basis``;
+   site coordinates are remapped by its exact inverse and wrapped into ``[0, 1)``.
+
+   :param structure: The structure expressed in the reduced cell.
+   :param cell: The reduced cell.
+   :param transform: The integer row-convention transform from the source basis.
+
+
+   .. py:attribute:: structure
+      :type:  httk.atomistic.models.structure.unitcell.UnitcellStructure
+
+
+   .. py:attribute:: cell
+      :type:  httk.atomistic.models.cell.cell.Cell
+
+
+   .. py:attribute:: transform
+      :type:  httk.core.FracVector
+
+
+.. py:function:: niggli_reduce(cell)
+
+   Return the exact Niggli reduction of a fully periodic cell.
+
+   The calculation uses the rational Gram matrix with no tolerance. The returned integer
+   transform follows ``basis_reduced = transform * basis`` and has determinant +1.
+
+   :param cell: The fully periodic cell to reduce.
+   :return: The reduced cell, transform, and exact metric parameters.
+   :raises ValueError: If the cell is not fully periodic or its Gram matrix is not rational.
+
+
+.. py:function:: is_niggli_reduced(cell)
+
+   Return whether a fully periodic cell satisfies the complete exact Niggli conditions.
+
+   :param cell: The cell to inspect.
+   :return: Whether the cell satisfies the exact Niggli conditions.
+   :raises ValueError: If the cell is not fully periodic or its Gram matrix is not rational.
+
+
+.. py:function:: niggli_reduced(structure)
+
+   Return a structure remapped into the exact Niggli-reduced cell.
+
+   The site order and count are unchanged. With row-vector fractional coordinates, the
+   exact remapping is ``f_reduced = f_original * transform.inv()`` followed by periodic
+   normalization. Species, species-at-sites order, Cartesian site moments, molecular
+   information, assemblies, chemical composition, formulas, optimization type, charge,
+   and precision are carried unchanged or propagated. Symmetry is invalidated because
+   its operations are basis-relative; immutable identifiers and last-modified metadata
+   are invalidated because this operation creates a derived structure.
+
+   :param structure: The structure to express in a Niggli-reduced cell.
+   :return: The reduced structure and its exact reduction metadata.
+   :raises ValueError: If the structure cell is not fully periodic or its Gram matrix is not rational.
+
+
