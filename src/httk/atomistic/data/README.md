@@ -94,11 +94,9 @@ artifacts; no derived documents are generated here.
 
 ## Refreshing
 
-```sh
-make symmetry-data DATA_GENERATORS=/path/to/data-generators
-```
-
-This copies the six canonical `.json.gz` files from the local data-generators checkout's
-`data/` directory, byte-for-byte, and is offline. After a refresh, review the diff and
-re-run `tests/test_symmetry_data.py`, which asserts the record counts and structural
+There is no build-time or tooling dependency on data-generators. When a new upstream
+release should be adopted, copy the six canonical `.json.gz` files from the upstream
+`data/` directory into this directory byte-for-byte, review the diff (including the
+version and attribution headers), update the table and version above, and re-run
+`tests/test_symmetry_data.py`, which asserts the record counts and structural
 invariants documented above.

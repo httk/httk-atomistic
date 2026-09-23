@@ -5,7 +5,7 @@ DIST_DIR ?= dist
 # between httk repositories (read by docs/conf.py via HTTK_DOCS_BASE_URL).
 DOCS_BASE_URL ?= https://docs.httk.org
 
-.PHONY: docs docs-live docs-clean docs-inventories docs-lock docs-lock-check optimade-defs symmetry-data clean dist-clean dist dist-check release-check release-prepare format format-check typecheck typecheck_pyright lint test test_fastfail test-extended test-extended-fastfail benchmarks audit
+.PHONY: docs docs-live docs-clean docs-inventories docs-lock docs-lock-check optimade-defs clean dist-clean dist dist-check release-check release-prepare format format-check typecheck typecheck_pyright lint test test_fastfail test-extended test-extended-fastfail benchmarks audit
 
 docs: docs-clean
 	HTTK_DOCS_BASE_URL=$(DOCS_BASE_URL) $(PYTHON) -m sphinx -E -a -b html -W --keep-going docs docs/_build/html
@@ -75,13 +75,6 @@ httk-defs:
 		curl -fsSL "https://schemas.httk.org/defs/v0.1/properties/$$def.json" \
 			-o "src/httk/registry/schemas/atomistic/$$(basename "$$def").json"; \
 	done
-
-# Refresh the vendored CC BY 4.0 symmetry datasets under src/httk/atomistic/data/ from a
-# local data-generators checkout. Offline, unlike optimade-defs. The five canonical
-# appropriately-sized json.gz files are copied byte-for-byte; see README.md.
-DATA_GENERATORS ?= ../data-generators-validation/data-generators
-symmetry-data:
-	$(PYTHON) tools/vendor_symmetry_data.py $(DATA_GENERATORS)
 
 clean: docs-clean dist-clean
 	find . -name "*.pyc" -print0 | xargs -0 rm -f
