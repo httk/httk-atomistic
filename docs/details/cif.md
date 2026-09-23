@@ -107,6 +107,13 @@ make many unrelated positions plausible. A caller who has inspected the source m
 structure = load("coarse.cif", allow_large_cif_uncertainty=True)
 ```
 
+Wyckoff matching uses each site's own stated uncertainty. A site whose coordinate tokens
+make no precision claim is matched with only the cell-precision floor, so another site's
+large ESD cannot loosen its match. The structure's shared coordinate precision remains
+the coarsest claim across sites; it is a conservative bound on the entire site list.
+Declared Wyckoff letters accept a one-last-digit coordinate bound, allowing truncated
+decimals such as `0.6666` for `2/3`; undeclared matching keeps the half-digit bound.
+
 Recognition tolerances are capped strictly below half the nearest-site separation. The cap
 includes a small numerical margin because the later squared-distance calculation rebuilds
 the same Cartesian distance through matrix arithmetic. This prevents two distinct sites on

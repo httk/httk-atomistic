@@ -516,6 +516,7 @@ def asu_structure_from_cif(
     ambiguous_warning_count = 0
     debug_uncertainties: list[Any] = []
     warned_type_symbols: set[str] = set()
+    ignored_wyckoff: dict[tuple[str, str, str], list[str]] = {}
     for index, exact_position in enumerate(exact_positions):
         dummy = calc_flags is not None and str(calc_flags[index]).lower() == "dum"
         if occupancies_exact is not None and occupancies_exact[index] is not None:
@@ -584,9 +585,9 @@ def asu_structure_from_cif(
         position_bounds = data.get("position_snap_bounds")
         coordinate_bounds = None if not derived_tolerance or position_bounds is None else position_bounds[index]
         site_tolerance = tolerance
-        if uncertainty is not None and data.get("position_precisions") is not None:
-            site_tolerance = math.sqrt(uncertainty[0].to_float())
+        if derived_tolerance and data.get("position_precisions") is not None:
             basis_precision = data.get("basis_precision")
+            site_tolerance = 0.0 if uncertainty is None else math.sqrt(uncertainty[0].to_float())
             if basis_precision is not None:
                 site_tolerance = max(site_tolerance, float(basis_precision) * _SAFETY_FACTOR)
         if site_tolerance not in general_screens:
@@ -605,6 +606,13 @@ def asu_structure_from_cif(
         )
         ignored_declaration: tuple[str, str] | None = None
         if declaration is not None and declared_position is not None:
+            # A stated Wyckoff letter can disambiguate truncated decimals such as
+            # 0.6666 for 2/3; keep the tighter rounding bound for undeclared matches.
+            declared_bounds = (
+                None
+                if coordinate_bounds is None
+                else tuple(None if bound is None else 2 * bound for bound in coordinate_bounds)
+            )
             match = _snap(
                 standard,
                 standard_point,
@@ -613,16 +621,22 @@ def asu_structure_from_cif(
                 transform,
                 site_tolerance,
                 uncertainty=uncertainty,
-                coordinate_bounds=coordinate_bounds,
+                coordinate_bounds=declared_bounds,
                 allow_large_cif_uncertainty=allow_large_cif_uncertainty,
                 positions=(declared_position,),
                 orbit_screen=orbit_screen,
             )
             if match is None:
+                distance = _nearest_wyckoff_distance(declared_position, standard_point, coordinate, cell, transform)
+                if distance <= site_tolerance and coordinate_bounds is not None:
+                    mismatch = (
+                        f"measured distance {distance:.6g} is within Cartesian tolerance {site_tolerance:.6g}, "
+                        "but no position satisfies the coordinate precision bounds"
+                    )
+                else:
+                    mismatch = f"measured distance {distance:.6g} exceeds Cartesian tolerance {site_tolerance:.6g}"
                 declaration_error = (
-                    f"does not lie on its declared Wyckoff position {declared_position.letter!r}: "
-                    f"measured distance {_nearest_wyckoff_distance(declared_position, standard_point, coordinate, cell, transform):.6g} "
-                    f"exceeds tolerance {site_tolerance:.6g}"
+                    f"does not lie on its declared Wyckoff position {declared_position.letter!r}: {mismatch}"
                 )
             elif match is not None:
                 assert orbit_screen is not None
@@ -751,10 +765,7 @@ def asu_structure_from_cif(
         letter, parameters = match
         if ignored_declaration is not None:
             rejected, reason = ignored_declaration
-            _cif_warning(
-                f"CIF block {_block_name(data)!r}, site {labels[index]!r}: ignored declared Wyckoff data "
-                f"{rejected!r} ({reason}) and selected Wyckoff position {letter!r} from the coordinates"
-            )
+            ignored_wyckoff.setdefault((rejected, reason, letter), []).append(labels[index])
         if limit_denominator is not None and parameters.dim not in ((), (0,)):
             parameters = FracVector([value.limit_denominator(limit_denominator) for value in parameters.to_fractions()])
         wyckoff_sites.append(WyckoffSite(letter, parameters, name, coordinate.normalize()))
@@ -773,6 +784,14 @@ def asu_structure_from_cif(
             elif classifiable_uncertainty:
                 debug_uncertainties.append(uncertainty[0])
 
+    for (rejected, reason, letter), site_labels in ignored_wyckoff.items():
+        sites = f"site {site_labels[0]!r}"
+        if len(site_labels) > 1:
+            sites += f" and {len(site_labels) - 1} other sites"
+        _cif_warning(
+            f"CIF block {_block_name(data)!r}, {sites}: ignored declared Wyckoff data "
+            f"{rejected!r} ({reason}) and selected Wyckoff position {letter!r} from the coordinates"
+        )
     if warning_uncertainties:
         maximum = max(warning_uncertainties)
         _cif_warning(

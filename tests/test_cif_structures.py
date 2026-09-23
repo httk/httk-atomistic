@@ -1503,6 +1503,53 @@ def test_invalid_declaration_fallback_uses_the_undeclared_rounded_site_path(
     assert len(warnings) == 1
 
 
+def test_identical_invalid_wyckoff_warnings_are_grouped(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_cif(
+        tmp_path / "unknown-declarations.cif",
+        Spacegroup.standard(149).setting,
+        (4.7241, 4.7241, 4.3862, 90, 90, 120),
+        [
+            ("N1", "N", ("0.12345", "0.23456", "0.34567"), "1"),
+            ("N2", "N", ("0.22345", "0.33456", "0.44567"), "1"),
+        ],
+        wyckoff_labels=["z", "z"],
+    )
+
+    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
+        load(str(path), repair=True)
+
+    warnings = [record.getMessage() for record in caplog.records if "ignored declared Wyckoff data" in record.getMessage()]
+    assert len(warnings) == 1
+    assert "site 'N1' and 1 other sites" in warnings[0]
+
+
+def test_declared_wyckoff_accepts_truncated_last_digit(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "truncated-third.cif",
+        Spacegroup.standard(191).setting,
+        (5.120, 5.120, 8.083, 90, 90, 120),
+        [("Ge1", "Ge", ("0.3333", "0.6666", "0"), "1")],
+        wyckoff_labels=["c"],
+    )
+
+    assert load(str(path)).wyckoff_sites[0].wyckoff == "c"
+
+
+def test_declared_wyckoff_reports_precision_bound_separately_from_distance(tmp_path: Path) -> None:
+    path = _write_cif(
+        tmp_path / "beyond-last-digit.cif",
+        Spacegroup.standard(191).setting,
+        (5.120, 5.120, 8.083, 90, 90, 120),
+        [("Ge1", "Ge", ("0.3333", "0.6664", "0"), "1")],
+        wyckoff_labels=["c"],
+    )
+
+    with pytest.raises(ValueError, match="within Cartesian tolerance.*coordinate precision bounds"):
+        load(str(path))
+
+
 @pytest.mark.parametrize("value", ("", "?"))
 def test_empty_wyckoff_declaration_entries_are_absent(value: str) -> None:
     assert _site_declaration([value], 0) is None
