@@ -17,6 +17,52 @@ structure = UnitcellStructureView(asu)     # the full cell, exactly
 structure is accepted, and expansion is exact and lazy — reading the space
 group never generates the cell.
 
+## Experimental protostructure-first canonicalization
+
+`canonical_asu_protostructure` is an opt-in alternative that chooses the discrete
+Wyckoff occupation pattern before the geometry:
+
+```python
+from httk.atomistic import canonical_asu_protostructure
+
+alternative = canonical_asu_protostructure(asu, tolerance=1e-3)
+```
+
+It uses the same tolerant symmetry-recognition policy as `canonical_asu` with
+`lift=False`. After recognition, it first minimizes the anonymous species-class
+occupation pattern, then the species assignment within that pattern. It compares
+exact cell metrics and Wyckoff parameters only among mappings into that discrete
+target. Normalizer actions on the Wyckoff families are compiled into exact
+parameter maps; continuous origin freedom and equivalent orbit representatives
+are resolved in the geometric stage.
+
+The result can differ from `canonical_asu`, whose ordering gives the metric
+priority. Compare repeated results within one convention. Existing
+`canonical_asu`, `canonicalize`, canonical bare-label conveniences and storage
+callers continue to use their established convention. The alternative does not
+perform upward pseudosymmetry searches or change any stored identities.
+
+Chirality is preserved by default; `preserve_chirality=False` selects the
+lower-numbered enantiomorphic group before choosing the discrete target.
+Unsupported magnetic, molecular and assembly-bearing inputs are rejected.
+Supplied formulas, optimization provenance and source identifiers/timestamps are
+retained without participating in the geometric ordering. A supplied chemical
+composition is scaled by the cell-content multiplier when the cell changes.
+The exact stage operates on the symmetry model accepted within the recognition
+tolerance, so it does not recover information lost when noisy coordinates were
+fitted to symmetry.
+
+The normalizer coverage uses the existing finite tables and lattice-reduction
+machinery; it is not an enumeration of an infinite affine normalizer. Patterns
+containing only general positions may leave almost every geometric alternative
+to examine. A non-rational metric can also retain the existing exact-orientation
+limitation when its Cartesian factor would require unsupported nested radicals.
+
+The standalone `benchmarks/bench_protostructure_first.py` compares both methods
+on local CIF inputs using seeded unimodular shears, rational origin shifts and
+site permutations. It records exact within-method mismatches separately from
+exceptions and timeouts; corpus files are not distributed with the package.
+
 ## Canonicalization
 
 Two crystals that are the same up to origin, cell-basis choice, site order, or

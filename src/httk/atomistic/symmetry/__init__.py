@@ -83,6 +83,7 @@ __all__ = [
     "WyckoffSplitPiece",
     "backward_lift",
     "canonical_asu",
+    "canonical_asu_protostructure",
     "canonicalize",
     "canonicalize_full",
     "common_subgroup_representation",
@@ -115,6 +116,7 @@ __all__ = [
 
 if TYPE_CHECKING:
     from .canonical import canonical_asu
+    from .canonical_protostructure import canonical_asu_protostructure
     from .lift import (
         LiftResult,
         backward_lift,
@@ -280,5 +282,10 @@ def __getattr__(name: str) -> object:
         from .canonical import canonical_asu
 
         globals().update(canonical_asu=canonical_asu)
+        return globals()[name]
+    if name == "canonical_asu_protostructure":
+        from .canonical_protostructure import canonical_asu_protostructure
+
+        globals().update(canonical_asu_protostructure=canonical_asu_protostructure)
         return globals()[name]
     raise AttributeError(name)
