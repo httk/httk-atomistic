@@ -185,7 +185,10 @@ from httk.atomistic.symmetry.subgroups import (
     supergroup_closure,
 )
 from httk.atomistic.symmetry.canonical import canonical_asu
-from httk.atomistic.symmetry.canonical_protostructure import canonical_asu_protostructure
+from httk.atomistic.symmetry.canonical_protostructure import (
+    canonical_asu_protostructure,
+    canonical_asu_protostructure_assignments,
+)
 from httk.atomistic.symmetry.lift import (
     LiftResult,
     backward_lift,
@@ -408,6 +411,7 @@ __all__ = [
     "build_supercell",
     "canonical_asu",
     "canonical_asu_protostructure",
+    "canonical_asu_protostructure_assignments",
     "canonicalize",
     "canonicalize_full",
     "cif_setting",

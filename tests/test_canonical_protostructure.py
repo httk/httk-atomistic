@@ -292,7 +292,7 @@ def test_public_wrapper_rejects_unsupported_information_before_recognition(
     def reached_recognition(*args: object, **kwargs: object) -> object:
         raise AssertionError("unsupported data reached P1 preconditioning")
 
-    monkeypatch.setattr(protostructure_module, "_preconditioned_p1", reached_recognition)
+    monkeypatch.setattr(protostructure_module, "_anonymous_p1_frame", reached_recognition)
     with pytest.raises(ValueError, match=kind):
         canonical_asu_protostructure(UnitcellStructureView(source))
 

@@ -84,6 +84,7 @@ __all__ = [
     "backward_lift",
     "canonical_asu",
     "canonical_asu_protostructure",
+    "canonical_asu_protostructure_assignments",
     "canonicalize",
     "canonicalize_full",
     "common_subgroup_representation",
@@ -116,7 +117,7 @@ __all__ = [
 
 if TYPE_CHECKING:
     from .canonical import canonical_asu
-    from .canonical_protostructure import canonical_asu_protostructure
+    from .canonical_protostructure import canonical_asu_protostructure, canonical_asu_protostructure_assignments
     from .lift import (
         LiftResult,
         backward_lift,
@@ -283,9 +284,12 @@ def __getattr__(name: str) -> object:
 
         globals().update(canonical_asu=canonical_asu)
         return globals()[name]
-    if name == "canonical_asu_protostructure":
-        from .canonical_protostructure import canonical_asu_protostructure
+    if name in {"canonical_asu_protostructure", "canonical_asu_protostructure_assignments"}:
+        from .canonical_protostructure import canonical_asu_protostructure, canonical_asu_protostructure_assignments
 
-        globals().update(canonical_asu_protostructure=canonical_asu_protostructure)
+        globals().update(
+            canonical_asu_protostructure=canonical_asu_protostructure,
+            canonical_asu_protostructure_assignments=canonical_asu_protostructure_assignments,
+        )
         return globals()[name]
     raise AttributeError(name)

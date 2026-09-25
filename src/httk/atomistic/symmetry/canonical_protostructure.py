@@ -14,14 +14,28 @@ from httk.core import FracVector, SurdVector
 
 from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.symmetry._anonymous import (
+    _anonymous_p1_frame,
+    _proxy_niggli_transform,
+    _rational_basis_change,
+)
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
-from httk.atomistic.symmetry._standardization_common import _scaled_composition
+from httk.atomistic.symmetry._standardization_common import (
+    _matrix_column_sum_factor,
+    _matrix_row_sum_factor,
+    _scaled_composition,
+    _scaled_precision,
+)
 from httk.atomistic.symmetry._wyckoff_actions import compile_wyckoff_action
 from httk.atomistic.symmetry.affine_operation import AffineOperation
-from httk.atomistic.symmetry.canonical import _preconditioned_p1, _recognition_sweep, _reversed_p1_frame
+from httk.atomistic.symmetry.canonical import (
+    _recognition_sweep,
+    _reversed_p1_frame,
+)
 from httk.atomistic.symmetry.lift import (
     _basis_key,
     _canonical_orientation,
@@ -30,6 +44,7 @@ from httk.atomistic.symmetry.lift import (
     _discrete_normalizer_translations,
     _enantiomorph,
     _isomorphic_reduced_entry,
+    _metric_automorphism_operations,
     _niggli_reduced_entry,
     _p1_metric_automorphism_operations,
     _primitive_reduced_entry,
@@ -41,7 +56,7 @@ from httk.atomistic.symmetry.recognition import structure_tolerance
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.subgroups import _standard_input
 
-__all__ = ["canonical_asu_protostructure"]
+__all__ = ["canonical_asu_protostructure", "canonical_asu_protostructure_assignments"]
 
 
 @dataclass(frozen=True)
@@ -81,26 +96,122 @@ def _restore_source_metadata(result: ASUStructure, source: Any) -> ASUStructure:
     )
 
 
-def _apply_action(structure: ASUStructure, operation: AffineOperation) -> ASUStructure:
-    sites = []
-    for site in structure.wyckoff_sites:
-        action = compile_wyckoff_action(structure.spacegroup, operation, site.wyckoff)
-        sites.append(WyckoffSite(action.target_letter, action.apply(site.free_params), site.species))
-    basis = SurdVector(operation.matrix.T().inv()) * structure.cell.basis
+def _restore_assignment(result: ASUStructure, assignment: tuple[Species, ...], source: Any) -> ASUStructure:
+    by_anonymous = {anonymous.name: original for anonymous, original in zip(result.species, assignment, strict=True)}
+    restored = ASUStructure(
+        result.cell,
+        result.spacegroup,
+        tuple(
+            WyckoffSite(site.wyckoff, site.free_params, by_anonymous[site.species].name)
+            for site in result.wyckoff_sites
+        ),
+        source.species,
+        transform=result.transform,
+        coordinate_precision=result.coordinate_precision,
+        charge=result.charge,
+    )
+    return _restore_source_metadata(restored, source)
+
+
+def _anonymize_asu(
+    structure: ASUStructure,
+    anonymous_species: tuple[Species, ...],
+    assignment: tuple[Species, ...],
+) -> ASUStructure:
+    anonymous_by_original = {
+        original.name: anonymous.name for anonymous, original in zip(anonymous_species, assignment, strict=True)
+    }
     return ASUStructure(
-        Cell(basis, precision=structure.cell.precision, periodicity=structure.cell.periodicity),
+        structure.cell,
         structure.spacegroup,
-        sites,
-        structure.species,
-        transform=SettingTransform.identity(),
+        tuple(
+            WyckoffSite(site.wyckoff, site.free_params, anonymous_by_original[site.species])
+            for site in structure.wyckoff_sites
+        ),
+        anonymous_species,
+        transform=structure.transform,
         coordinate_precision=structure.coordinate_precision,
         charge=structure.charge,
     )
 
 
-def _with_basis(structure: ASUStructure, basis: SurdVector) -> ASUStructure:
+def _anonymous_geometry_key(structure: ASUStructure) -> tuple[Any, ...]:
+    classes: dict[str, list[tuple[str, tuple[Fraction, ...]]]] = {}
+    populations: dict[str, int] = {}
+    for site in structure.wyckoff_sites:
+        classes.setdefault(site.species, []).append((site.wyckoff, tuple(site.free_params.to_fractions())))
+        populations[site.species] = (
+            populations.get(site.species, 0) + structure.spacegroup.wyckoff_position(site.wyckoff).multiplicity
+        )
+    metric = structure.cell.metric()
+    return (
+        structure.spacegroup.it_number,
+        structure.spacegroup.hall_entry,
+        tuple(metric._element((row, column)) for row in range(3) for column in range(3)),
+        tuple(sorted((populations[name], tuple(sorted(values))) for name, values in classes.items())),
+        0 if structure.cell.basis.det().sign() > 0 else 1,
+        _basis_key(structure.cell.basis),
+    )
+
+
+def _chemical_key(structure: ASUStructure) -> tuple[Any, ...]:
+    return _site_key(structure), tuple(repr(species) for species in structure.species)
+
+
+def _deduplicate_results(values: list[ASUStructure]) -> tuple[ASUStructure, ...]:
+    unique: dict[tuple[Any, ...], ASUStructure] = {}
+    for value in values:
+        key = (
+            value.spacegroup,
+            value.cell.basis,
+            _site_key(value),
+            value.species,
+            value.coordinate_precision,
+            value.charge,
+        )
+        unique.setdefault(key, value)
+    return tuple(sorted(unique.values(), key=_chemical_key))
+
+
+def _apply_action(structure: ASUStructure, operation: AffineOperation) -> ASUStructure:
+    sites = []
+    for site in structure.wyckoff_sites:
+        action = compile_wyckoff_action(structure.spacegroup, operation, site.wyckoff)
+        sites.append(WyckoffSite(action.target_letter, action.apply(site.free_params), site.species))
+    basis_change = operation.matrix.T().inv()
+    basis = SurdVector(basis_change) * structure.cell.basis
     return ASUStructure(
-        Cell(basis, precision=structure.cell.precision, periodicity=structure.cell.periodicity),
+        Cell(
+            basis,
+            precision=_scaled_precision(
+                structure.cell.precision,
+                _matrix_row_sum_factor(basis_change),
+            ),
+            periodicity=structure.cell.periodicity,
+        ),
+        structure.spacegroup,
+        sites,
+        structure.species,
+        transform=SettingTransform.identity(),
+        coordinate_precision=_scaled_precision(
+            structure.coordinate_precision,
+            _matrix_column_sum_factor(basis_change.inv()),
+        ),
+        charge=structure.charge,
+    )
+
+
+def _with_basis(structure: ASUStructure, basis: SurdVector) -> ASUStructure:
+    basis_change = _rational_basis_change(basis, structure.cell.basis)
+    return ASUStructure(
+        Cell(
+            basis,
+            precision=_scaled_precision(
+                structure.cell.precision,
+                _matrix_row_sum_factor(basis_change),
+            ),
+            periodicity=structure.cell.periodicity,
+        ),
         structure.spacegroup,
         structure.wyckoff_sites,
         structure.species,
@@ -223,20 +334,50 @@ def _validate_exact_input(structure: ASUStructure) -> None:
         raise ValueError("canonical_asu_protostructure does not support molecular structures")
 
 
-def _canonical_protostructure_asu(
-    structure: ASUStructure,
+def _triclinic_proxy_entries(structure: ASUStructure) -> tuple[ASUStructure, ...]:
+    """Return every tied proper proxy-reduced entry for an exact P-1 structure."""
+    transform = _proxy_niggli_transform(structure.cell.metric())
+    if transform.det() < 0:
+        transform = -transform
+    reduced = _apply_action(
+        structure,
+        AffineOperation(transform.T().inv(), (0, 0, 0)),
+    )
+    proxy = reduced.cell.metric().coefficient(1)
+    gram = tuple(tuple(value for value in row) for row in proxy.to_fractions())
+    candidates = [
+        _apply_action(reduced, operation)
+        for operation in _metric_automorphism_operations(gram)
+        if operation.determinant() == 1
+    ]
+    if not candidates:
+        raise ValueError("P-1 proxy reduction found no proper metric automorphism")
+    keyed = [
+        (
+            candidate,
+            tuple(candidate.cell.metric()._element((row, column)) for row in range(3) for column in range(3)),
+        )
+        for candidate in candidates
+    ]
+    least = min(key for _candidate, key in keyed)
+    winners: list[ASUStructure] = []
+    winner_keys: set[tuple[Any, ...]] = set()
+    for candidate, key in keyed:
+        if key != least:
+            continue
+        candidate_key = (_site_key(candidate), _basis_key(candidate.cell.basis))
+        if candidate_key not in winner_keys:
+            winner_keys.add(candidate_key)
+            winners.append(candidate)
+    return tuple(winners)
+
+
+def _canonical_protostructure_geometry_entry(
+    current: ASUStructure,
     *,
-    preserve_chirality: bool = True,
+    preserve_chirality: bool,
 ) -> ASUStructure:
-    """Canonicalize one recognized ASU by discrete occupation before exact geometry."""
-    if not isinstance(structure, ASUStructure):
-        raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")
-    _validate_exact_input(structure)
-    current = _standard_input(structure)
-    if current.spacegroup.it_number == 1:
-        current = _primitive_reduced_entry(current)
-    else:
-        current = _isomorphic_reduced_entry(current)
+    """Run the finite exact terminal from one already normalized lattice entry."""
     if current.spacegroup.it_number in (1, 2):
         current = _niggli_reduced_entry(current)
     current = _demote_sites(current)
@@ -258,17 +399,102 @@ def _canonical_protostructure_asu(
         for candidate in candidates
     )
     _key, best = min(choices, key=lambda value: value[0])
-    return _restore_source_metadata(_canonical_orientation(best), structure)
+    return _canonical_orientation(best)
 
 
-def canonical_asu_protostructure(
+def _terminal_result_key(structure: ASUStructure) -> tuple[Any, ...]:
+    """Order tied lattice entries through the terminal's discrete and geometric tiers."""
+    metric = structure.cell.metric()
+    return (
+        _discrete_key(structure, AffineOperation.identity()),
+        tuple(metric._element((row, column)) for row in range(3) for column in range(3)),
+        _site_key(structure),
+        0 if structure.cell.basis.det().sign() > 0 else 1,
+        _basis_key(structure.cell.basis),
+    )
+
+
+def _canonical_protostructure_geometry(
+    structure: ASUStructure,
+    *,
+    preserve_chirality: bool = True,
+) -> ASUStructure:
+    """Canonicalize one anonymously labelled ASU by discrete occupation before geometry."""
+    if not isinstance(structure, ASUStructure):
+        raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")
+    _validate_exact_input(structure)
+    current = _standard_input(structure)
+    if current.spacegroup.it_number == 1:
+        current = _primitive_reduced_entry(current)
+    else:
+        current = _isomorphic_reduced_entry(current)
+    entries = _triclinic_proxy_entries(current) if current.spacegroup.it_number == 2 else (current,)
+    return min(
+        (
+            _canonical_protostructure_geometry_entry(
+                entry,
+                preserve_chirality=preserve_chirality,
+            )
+            for entry in entries
+        ),
+        key=_terminal_result_key,
+    )
+
+
+def _canonical_protostructure_assignments_asu(
+    structure: ASUStructure,
+    *,
+    preserve_chirality: bool = True,
+) -> tuple[ASUStructure, ...]:
+    """Return all tied chemical assignments of one recognized exact ASU."""
+    if not isinstance(structure, ASUStructure):
+        raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")
+    _validate_exact_input(structure)
+    frame = _anonymous_p1_frame(UnitcellStructureView(structure))
+    anonymous_species = frame.structure.species
+    candidates = []
+    for assignment in frame.assignments:
+        # For P1 the anonymous frame is itself the complete exact ASU.  Feeding that frame into
+        # the terminal preserves its proxy-Niggli basis choice when the full Gram matrix contains
+        # irrational coefficients (the legacy rational-only Niggli helper intentionally skips
+        # such a metric).  Higher groups must retain their declared Wyckoff representation here;
+        # their P1 expansion is used only to choose anonymous class identities.
+        anonymous = (
+            frame.structure
+            if structure.spacegroup.it_number == 1
+            else _anonymize_asu(structure, anonymous_species, assignment)
+        )
+        canonical = _canonical_protostructure_geometry(anonymous, preserve_chirality=preserve_chirality)
+        candidates.append((canonical, assignment, _anonymous_geometry_key(canonical)))
+    best_geometry = min(key for _canonical, _assignment, key in candidates)
+    restored = [
+        _restore_assignment(canonical, assignment, structure)
+        for canonical, assignment, key in candidates
+        if key == best_geometry
+    ]
+    return _deduplicate_results(restored)
+
+
+def _canonical_protostructure_asu(
+    structure: ASUStructure,
+    *,
+    preserve_chirality: bool = True,
+) -> ASUStructure:
+    """Canonicalize one recognized ASU, selecting chemistry only after geometry."""
+    return min(
+        _canonical_protostructure_assignments_asu(structure, preserve_chirality=preserve_chirality),
+        key=_chemical_key,
+    )
+
+
+def canonical_asu_protostructure_assignments(
     structure: StructureLike,
     *,
     tolerance: float | None = None,
     factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
     preserve_chirality: bool = True,
-) -> ASUStructure:
-    """Recognize and canonicalize a structure using the protostructure-first convention.
+) -> tuple[ASUStructure, ...]:
+    """Recognize and return every tied assignment of the anonymous canonical geometry.
 
     Recognition uses the established tolerance sweep and deterministic P1 frames. The accepted ASU
     is then handled exactly, without an upward pseudosymmetry search.
@@ -277,7 +503,7 @@ def canonical_asu_protostructure(
     :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
     :param factors: Multipliers for the recognition tolerance sweep.
     :param preserve_chirality: Whether to keep the recognized enantiomorphic group.
-    :return: The protostructure-first canonical asymmetric unit.
+    :return: The tied protostructure-first canonical asymmetric units.
     :raises ValueError: If the structure is unsupported or no tolerance member fits.
     """
     source_view = UnitcellStructureView(structure)
@@ -289,7 +515,8 @@ def canonical_asu_protostructure(
         raise ValueError("canonical_asu_protostructure does not support molecular structures")
     require_full_periodicity(source_view.cell, "canonical_asu_protostructure")
     base = structure_tolerance(source_view) if tolerance is None else float(tolerance)
-    normalized_p1 = _preconditioned_p1(source_view)
+    outer_frame = _anonymous_p1_frame(source_view)
+    normalized_p1 = outer_frame.structure
     winner, failures = _recognition_sweep(UnitcellStructureView(normalized_p1), base, factors)
     if winner is None or winner.spacegroup.it_number == 1:
         alternate, alternate_failures = _recognition_sweep(
@@ -302,5 +529,38 @@ def canonical_asu_protostructure(
             winner = alternate
     if winner is None:
         raise ValueError(f"no symmetry fit the structure within tolerance {base:g}; tried [{', '.join(failures)}]")
-    result = _canonical_protostructure_asu(winner, preserve_chirality=preserve_chirality)
-    return _restore_source_metadata(result, source_view)
+    inner = _canonical_protostructure_assignments_asu(winner, preserve_chirality=preserve_chirality)
+    outer_by_name = {anonymous.name: index for index, anonymous in enumerate(outer_frame.structure.species)}
+    restored = []
+    for candidate in inner:
+        for outer_assignment in outer_frame.assignments:
+            assignment = tuple(outer_assignment[outer_by_name[species.name]] for species in candidate.species)
+            restored.append(_restore_assignment(candidate, assignment, source_view))
+    return _deduplicate_results(restored)
+
+
+def canonical_asu_protostructure(
+    structure: StructureLike,
+    *,
+    tolerance: float | None = None,
+    factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
+    preserve_chirality: bool = True,
+) -> ASUStructure:
+    """Return one chemically ordered member of the anonymous canonical assignment family.
+
+    :param structure: The measured structure to recognize.
+    :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
+    :param factors: Multipliers for the recognition tolerance sweep.
+    :param preserve_chirality: Whether to keep the recognized enantiomorphic group.
+    :return: One protostructure-first canonical asymmetric unit.
+    :raises ValueError: If the structure is unsupported or no tolerance member fits.
+    """
+    return min(
+        canonical_asu_protostructure_assignments(
+            structure,
+            tolerance=tolerance,
+            factors=factors,
+            preserve_chirality=preserve_chirality,
+        ),
+        key=_chemical_key,
+    )

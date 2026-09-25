@@ -28,13 +28,41 @@ from httk.atomistic import canonical_asu_protostructure
 alternative = canonical_asu_protostructure(asu, tolerance=1e-3)
 ```
 
-It uses the same tolerant symmetry-recognition policy as `canonical_asu` with
-`lift=False`. After recognition, it first minimizes the anonymous species-class
-occupation pattern, then the species assignment within that pattern. It compares
-exact cell metrics and Wyckoff parameters only among mappings into that discrete
-target. Normalizer actions on the Wyckoff families are compiled into exact
-parameter maps; continuous origin freedom and equivalent orbit representatives
-are resolved in the geometric stage.
+It uses the same tolerance sweep as `canonical_asu` with `lift=False`, after
+placing the measured input in an anonymous geometric frame. Every atom in every
+tied least-populated species class is an origin candidate. Populations and full
+coordinate patterns rank the classes without chemical names. Equivalent cell
+orientations are considered exactly, and recognition receives deterministic
+anonymous class identifiers.
+
+After fitting, anonymous class identifiers also govern the exact stage: the
+Wyckoff occupation pattern is selected first, followed by exact metric and
+parameter comparisons within that target. Normalizer actions on the Wyckoff
+families are compiled into exact parameter maps; continuous origin freedom and
+equivalent orbit representatives are resolved in the geometric stage. Original
+chemical species definitions are restored after the geometry has been selected.
+
+Bijective species substitutions that preserve the occupied-site partition leave
+the anonymous geometric result unchanged. Substituting the same species onto
+two formerly distinct classes changes that partition and is a different problem.
+Some anonymous crystals have symmetries that exchange whole species classes:
+NaCl's two classes, for example, can be exchanged by changing the origin. A single
+labeled result cannot both ignore that origin change and follow a pointwise
+species swap. The scalar function resolves this final chemical assignment tie
+only after fixing the anonymous geometry. To retain the complete tied assignment
+family, use:
+
+```python
+from httk.atomistic import canonical_asu_protostructure_assignments
+
+assignments = canonical_asu_protostructure_assignments(asu, tolerance=1e-3)
+```
+
+The returned tuple contains the tied assignments of original species to the
+canonical anonymous geometry. Its family transforms consistently under species
+substitution; when there is only one assignment, the scalar result does too.
+These are assignment alternatives for the chosen symmetry fit, not an enumeration
+of all structures that could fit the measured coordinates within tolerance.
 
 The result can differ from `canonical_asu`, whose ordering gives the metric
 priority. Compare repeated results within one convention. Existing
