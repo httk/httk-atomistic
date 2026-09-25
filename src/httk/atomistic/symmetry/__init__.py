@@ -83,10 +83,16 @@ __all__ = [
     "WyckoffSplitPiece",
     "backward_lift",
     "canonical_asu",
+    "canonical_asu_legacy",
     "canonical_asu_protostructure",
     "canonical_asu_protostructure_assignments",
+    "canonical_bare_protostructure",
+    "canonical_bare_prototype",
+    "canonical_protostructure",
+    "canonical_prototype",
     "canonicalize",
     "canonicalize_full",
+    "canonicalize_legacy",
     "common_subgroup_representation",
     "conventional_cell",
     "find_magnetic_symmetry",
@@ -116,12 +122,19 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
-    from .canonical import canonical_asu
+    from .canonical import canonical_asu, canonical_asu_legacy
+    from .canonical_classification import (
+        canonical_bare_protostructure,
+        canonical_bare_prototype,
+        canonical_protostructure,
+        canonical_prototype,
+    )
     from .canonical_protostructure import canonical_asu_protostructure, canonical_asu_protostructure_assignments
     from .lift import (
         LiftResult,
         backward_lift,
         canonicalize,
+        canonicalize_legacy,
         highest_symmetry,
         lift_candidates,
         normalize_chirality,
@@ -254,6 +267,7 @@ def __getattr__(name: str) -> object:
         "LiftResult",
         "backward_lift",
         "canonicalize",
+        "canonicalize_legacy",
         "highest_symmetry",
         "lift_candidates",
         "normalize_chirality",
@@ -263,6 +277,7 @@ def __getattr__(name: str) -> object:
             LiftResult,
             backward_lift,
             canonicalize,
+            canonicalize_legacy,
             highest_symmetry,
             lift_candidates,
             normalize_chirality,
@@ -273,16 +288,17 @@ def __getattr__(name: str) -> object:
             LiftResult=LiftResult,
             backward_lift=backward_lift,
             canonicalize=canonicalize,
+            canonicalize_legacy=canonicalize_legacy,
             highest_symmetry=highest_symmetry,
             lift_candidates=lift_candidates,
             normalize_chirality=normalize_chirality,
             rerepresent=rerepresent,
         )
         return globals()[name]
-    if name == "canonical_asu":
-        from .canonical import canonical_asu
+    if name in {"canonical_asu", "canonical_asu_legacy"}:
+        from .canonical import canonical_asu, canonical_asu_legacy
 
-        globals().update(canonical_asu=canonical_asu)
+        globals().update(canonical_asu=canonical_asu, canonical_asu_legacy=canonical_asu_legacy)
         return globals()[name]
     if name in {"canonical_asu_protostructure", "canonical_asu_protostructure_assignments"}:
         from .canonical_protostructure import canonical_asu_protostructure, canonical_asu_protostructure_assignments
@@ -290,6 +306,26 @@ def __getattr__(name: str) -> object:
         globals().update(
             canonical_asu_protostructure=canonical_asu_protostructure,
             canonical_asu_protostructure_assignments=canonical_asu_protostructure_assignments,
+        )
+        return globals()[name]
+    if name in {
+        "canonical_bare_prototype",
+        "canonical_bare_protostructure",
+        "canonical_prototype",
+        "canonical_protostructure",
+    }:
+        from .canonical_classification import (
+            canonical_bare_protostructure,
+            canonical_bare_prototype,
+            canonical_protostructure,
+            canonical_prototype,
+        )
+
+        globals().update(
+            canonical_bare_prototype=canonical_bare_prototype,
+            canonical_bare_protostructure=canonical_bare_protostructure,
+            canonical_prototype=canonical_prototype,
+            canonical_protostructure=canonical_protostructure,
         )
         return globals()[name]
     raise AttributeError(name)

@@ -17,91 +17,17 @@ structure = UnitcellStructureView(asu)     # the full cell, exactly
 structure is accepted, and expansion is exact and lazy — reading the space
 group never generates the cell.
 
-## Experimental protostructure-first canonicalization
-
-`canonical_asu_protostructure` is an opt-in alternative that chooses the discrete
-Wyckoff occupation pattern before the geometry:
-
-```python
-from httk.atomistic import canonical_asu_protostructure
-
-alternative = canonical_asu_protostructure(asu, tolerance=1e-3)
-```
-
-It uses the same tolerance sweep as `canonical_asu` with `lift=False`, after
-placing the measured input in an anonymous geometric frame. Every atom in every
-tied least-populated species class is an origin candidate. Populations and full
-coordinate patterns rank the classes without chemical names. Equivalent cell
-orientations are considered exactly, and recognition receives deterministic
-anonymous class identifiers.
-
-After fitting, anonymous class identifiers also govern the exact stage: the
-Wyckoff occupation pattern is selected first, followed by exact metric and
-parameter comparisons within that target. Normalizer actions on the Wyckoff
-families are compiled into exact parameter maps; continuous origin freedom and
-equivalent orbit representatives are resolved in the geometric stage. Original
-chemical species definitions are restored after the geometry has been selected.
-
-Bijective species substitutions that preserve the occupied-site partition leave
-the anonymous geometric result unchanged. Substituting the same species onto
-two formerly distinct classes changes that partition and is a different problem.
-Some anonymous crystals have symmetries that exchange whole species classes:
-NaCl's two classes, for example, can be exchanged by changing the origin. A single
-labeled result cannot both ignore that origin change and follow a pointwise
-species swap. The scalar function resolves this final chemical assignment tie
-only after fixing the anonymous geometry. To retain the complete tied assignment
-family, use:
-
-```python
-from httk.atomistic import canonical_asu_protostructure_assignments
-
-assignments = canonical_asu_protostructure_assignments(asu, tolerance=1e-3)
-```
-
-The returned tuple contains the tied assignments of original species to the
-canonical anonymous geometry. Its family transforms consistently under species
-substitution; when there is only one assignment, the scalar result does too.
-These are assignment alternatives for the chosen symmetry fit, not an enumeration
-of all structures that could fit the measured coordinates within tolerance.
-
-The result can differ from `canonical_asu`, whose ordering gives the metric
-priority. Compare repeated results within one convention. Existing
-`canonical_asu`, `canonicalize`, canonical bare-label conveniences and storage
-callers continue to use their established convention. The alternative does not
-perform upward pseudosymmetry searches or change any stored identities.
-
-Chirality is preserved by default; `preserve_chirality=False` selects the
-lower-numbered enantiomorphic group before choosing the discrete target.
-Unsupported magnetic, molecular and assembly-bearing inputs are rejected.
-Supplied formulas, optimization provenance and source identifiers/timestamps are
-retained without participating in the geometric ordering. A supplied chemical
-composition is scaled by the cell-content multiplier when the cell changes.
-The exact stage operates on the symmetry model accepted within the recognition
-tolerance, so it does not recover information lost when noisy coordinates were
-fitted to symmetry.
-
-The normalizer coverage uses the existing finite tables and lattice-reduction
-machinery; it is not an enumeration of an infinite affine normalizer. Patterns
-containing only general positions may leave almost every geometric alternative
-to examine. A non-rational metric can also retain the existing exact-orientation
-limitation when its Cartesian factor would require unsupported nested radicals.
-
-The standalone `benchmarks/bench_protostructure_first.py` compares both methods
-on local CIF inputs using seeded unimodular shears, rational origin shifts and
-site permutations. It records exact within-method mismatches separately from
-exceptions and timeouts; corpus files are not distributed with the package.
-
 ## Canonicalization
 
 Two crystals that are the same up to origin, cell-basis choice, site order, or
-setting have many `ASUStructure` descriptions. `canonicalize` collapses that
-freedom exactly: given an `ASUStructure` it returns the single deterministic,
-highest-symmetry representative, using only exact rational arithmetic.
+setting have many `ASUStructure` descriptions. `canonicalize` searches upward
+from a declared exact `ASUStructure`, then chooses the terminal by anonymous
+Wyckoff occupation before chemical assignment:
 
 ```python
 from httk.atomistic import canonicalize
 
-result = canonicalize(asu)          # exact input, exact answer
+result = canonicalize(asu)          # declared exact ASU, highest exact lift
 canonical = result.asu
 ```
 
@@ -110,6 +36,12 @@ its unique primitive description before the search, so `canonicalize` returns th
 same answer whichever cell you hand it. That collapse fires only on exact
 rational invariance; a *noisy* supercell whose copies merely nearly coincide is
 snapped instead by `canonical_asu` below, within its tolerance.
+
+The returned `LiftResult` also carries the child-first subgroup path, final-hop
+origin shift, and largest accepted residual from the upward search. The ASU is
+authoritative because state normal forms and the terminal canonicalization are
+not encoded in that route metadata. Use `canonicalize_legacy` when continuing a
+workflow pinned to the earlier metric-first convention.
 
 The 11 enantiomorphic space-group pairs (76/78, 91/95, 92/96, 144/145, 151/153,
 152/154, 169/170, 171/172, 178/179, 180/181, 212/213) describe the same crystal
@@ -126,17 +58,17 @@ group hits the pre-existing chirality-preserving orientation ceiling — its
 left-handed cell is kept — so it still yields a distinct mirror representative;
 recognition-path inputs, whose spglib cells are right-handed, are unaffected.) The
 standalone `normalize_chirality` applies that same exact map to an already-preserved
-result, so a caller need not re-canonicalize to get both forms — and this is exactly
-how canonical prototypes and protostructures, which deliberately ignore chirality,
-are derived from `canonical_asu(preserve_chirality=False)`. Magnetic structures (any
-site carrying a moment) are never flipped — an axial moment does not transform
-trivially under an improper map — and are left in their own group regardless. The
-explicit-target functions `canonicalize_full`, `list_representations`, and
-`rerepresent` honor their target group exactly and are unaffected.
+result, so a caller need not re-canonicalize to get both forms. The four
+classification-family canonicalizers expose the same policy directly. The
+`canonicalize` and `canonical_asu` entry points reject site moments;
+`normalize_chirality` returns a moment-bearing input unchanged because an axial
+moment does not transform trivially under an improper map. The explicit-target
+functions `canonicalize_full`, `list_representations`, and `rerepresent` honor
+their target group exactly and are unaffected.
 
-For *measured* input — coordinates carrying noise — use `canonical_asu`, the
-one-liner that recognizes the symmetry within a tolerance (with spglib) and then
-canonicalizes the result exactly:
+For *measured* input, use `canonical_asu`. It first puts the unit cell in a
+deterministic anonymous P1 frame, recognizes symmetry within a Cartesian
+tolerance with spglib, and canonicalizes the accepted model exactly:
 
 ```python
 from httk.atomistic import canonical_asu
@@ -145,27 +77,34 @@ from httk.core import load
 asu = canonical_asu(load("measured.cif"))   # noisy input, canonical answer
 ```
 
-It sweeps recognition over a few tolerance multiples and keeps the
-highest-symmetry model whose atoms still sit within the base tolerance of the
-input, so a boundary flip can be rescued without accepting extra noise. It always
-works from the coordinates, so it can raise a declared symmetry the geometry
-supports — or lower one it does not, at the derived tolerance.
+It sweeps tolerance multiples from loosest to tightest and accepts the first
+recognized model whose expanded atoms admit a bijective same-species fit within
+the base tolerance. It always works from coordinates, so it can raise a declared
+symmetry the geometry supports or lower one it does not support at that
+tolerance.
 
 By default (`lift=False`) it returns the canonical representative of the
-*recognized* symmetry: fully deterministic, all representational freedom removed,
-and cheap — the cost is essentially recognition. It does **not** hunt for
-pseudosymmetry above what recognition found. Pass `lift=True` to additionally run
-the exact upward search for higher symmetry the recognition missed; that is exact
-too but can be slow — minutes and beyond for low-symmetry, many-atom cells. Use
-the default for bulk sweeps over many structures; use `lift=True` when you are
-specifically hunting the maximal (pseudo)symmetry of one crystal.
+*recognized* symmetry and does not hunt for pseudosymmetry above what recognition
+found. Its exact terminal removes the tabulated representational freedom and is
+deterministic for supported rational crystallographic metrics. A non-rational
+metric whose Cartesian factor needs unsupported nested radicals can retain its
+input global rotation, as detailed in {doc}`canonicalization`. The default is
+suited to bulk sweeps; `lift=True` additionally runs the exact upward search for
+higher symmetry the recognition missed. That search can be slow — minutes and
+beyond for low-symmetry, many-atom cells.
 
-Only the recognition step is floating-point: which symmetry is *accepted* near a
-tolerance boundary can vary across platforms or spglib builds, but the exact
-canonicalization erases spglib's representational freedom, so *how* an accepted
-symmetry is represented never does. Free-parameter values are least-squares fits
-of the measured coordinates: two noisy measurements of the same crystal reach the
-same Wyckoff choices but slightly different rational parameter values.
+The anonymous geometry is fixed before a final chemical tie is resolved. Use
+`canonical_asu_protostructure_assignments` to retain every tied assignment of the
+original species to that geometry. The explicit
+`canonical_asu_protostructure` name remains an alias for the scalar convention.
+`canonical_asu_legacy` selects the earlier metric-first convention.
+
+Only recognition and its fit test use floating point. Free Wyckoff parameters
+come from exact row-Hermite chart projection of the recognized coordinates, not
+from a metric least-squares fit. Boundary decisions can still vary with the
+floating-point platform or spglib build. See {doc}`canonicalization` for the
+numbered wrapper and terminal algorithms, exact ordering keys, finite bounds,
+table hashes, and tested spglib version.
 
 ## From the command line
 

@@ -13,6 +13,7 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 - **Composition and formulas**: {doc}`composition`
 - **Material-information levels**: {doc}`prototypes`
 - **Asymmetric units**: {doc}`asu`
+- **Canonicalization algorithms**: {doc}`canonicalization`
 - **Subgroups and pathfinding**: {doc}`subgroups`
 - **Site moments (magnetism)**: {doc}`moments`
 - **Integrations (ASE, pymatgen, VASP)**: {doc}`integrations`
@@ -77,6 +78,7 @@ wavecar
 wavefunctions
 trajectory_jsonl
 asu
+canonicalization
 subgroups
 moments
 integrations

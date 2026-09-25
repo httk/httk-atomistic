@@ -92,6 +92,7 @@ __all__ = [
     "LiftResult",
     "backward_lift",
     "canonicalize",
+    "canonicalize_legacy",
     "highest_symmetry",
     "lift_candidates",
     "rerepresent",
@@ -3212,8 +3213,18 @@ def _canonical_without_bfs(
     # The normal-form pipeline strips moments before the flip would see them, so gate on the ORIGINAL
     # input's moments -- a magnetic structure is left in its own group (see :func:`_enantiomorph`).
     if not preserve_chirality and not any(site.moment is not None for site in structure.wyckoff_sites):
-        return normalize_chirality(entry)
+        return _normalize_chirality_legacy(entry)
     return entry
+
+
+def _normalize_chirality_legacy(structure: ASUStructure) -> ASUStructure:
+    """Collapse a legacy canonical ASU onto its lower-numbered enantiomorph."""
+    if not isinstance(structure, ASUStructure):
+        raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")
+    flipped = _enantiomorph(structure)
+    if flipped is None:
+        return structure
+    return _canonical_orientation(_terminal_normal_form(flipped))
 
 
 def normalize_chirality(structure: ASUStructure) -> ASUStructure:
@@ -3227,7 +3238,13 @@ def normalize_chirality(structure: ASUStructure) -> ASUStructure:
     flipped = _enantiomorph(structure)
     if flipped is None:
         return structure
-    return _canonical_orientation(_terminal_normal_form(flipped))
+    from httk.atomistic.symmetry.canonical_protostructure import (
+        _canonical_protostructure_asu,
+        _restore_source_metadata,
+    )
+
+    normalized = _canonical_protostructure_asu(flipped, preserve_chirality=True)
+    return _restore_source_metadata(normalized, structure)
 
 
 def highest_symmetry(
@@ -3298,7 +3315,7 @@ def highest_symmetry(
         if not lifts:
             emitted = _canonical_orientation(_terminal_normal_form(state))
             if not preserve_chirality:
-                emitted = normalize_chirality(emitted)
+                emitted = _normalize_chirality_legacy(emitted)
             terminals.append(_terminal_result(emitted, path, shift, residual))
             continue
         for result in lifts:
@@ -3331,10 +3348,10 @@ def highest_symmetry(
     )
 
 
-def canonicalize(
+def canonicalize_legacy(
     structure: ASUStructure, *, tolerance: float | None = None, preserve_chirality: bool = True
 ) -> LiftResult:
-    """Return the first deterministic highest-symmetry representation.
+    """Return the first legacy metric-first highest-symmetry representation.
 
     The result is the normalizer-canonical representative of the input's crystal: the same exact
     ``(it_number, sorted (species, wyckoff, free_params), cell basis)`` for any origin shift,
@@ -3352,6 +3369,33 @@ def canonicalize(
     :return: The canonical terminal lift.
     """
     return highest_symmetry(structure, tolerance=tolerance, preserve_chirality=preserve_chirality)[0]
+
+
+def canonicalize(
+    structure: ASUStructure, *, tolerance: float | None = None, preserve_chirality: bool = True
+) -> LiftResult:
+    """Return the first highest-symmetry result in the anonymous canonical convention.
+
+    The upward search, route metadata, and residual are inherited from
+    :func:`canonicalize_legacy`. The selected terminal is then put in the anonymous
+    protostructure-first exact normal form.
+
+    :param structure: The structure to canonicalize.
+    :param tolerance: Cartesian acceptance tolerance, or the recognition-derived default.
+    :param preserve_chirality: Whether to keep an enantiomorphic terminal's handedness.
+    :return: The canonical terminal lift with the legacy search route metadata.
+    """
+    legacy = canonicalize_legacy(structure, tolerance=tolerance, preserve_chirality=preserve_chirality)
+    from httk.atomistic.symmetry.canonical_protostructure import (
+        _canonical_protostructure_asu,
+        _restore_source_metadata,
+        _restore_unchanged_precision,
+    )
+
+    canonical = _canonical_protostructure_asu(legacy.asu, preserve_chirality=True)
+    canonical = _restore_source_metadata(canonical, structure)
+    canonical = _restore_unchanged_precision(canonical, structure)
+    return LiftResult(canonical, canonical.spacegroup, legacy.path, legacy.shift, legacy.residual)
 
 
 def _supergroup_path(start: int, target: int) -> tuple[int, ...] | None:

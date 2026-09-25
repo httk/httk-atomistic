@@ -1,9 +1,9 @@
-"""Protostructure-first canonicalization of a recognized crystal structure.
+"""Anonymous protostructure-first canonicalization of measured crystal structures.
 
-This opt-in convention chooses the anonymous Wyckoff occupation pattern, then its species
-assignment, and only then the exact geometry. Its finite affine search is the same tabulated
-normalizer scope used by the established canonicalizer; it does not enumerate an infinite affine
-normalizer and performs no upward pseudosymmetry search.
+This convention chooses the anonymous Wyckoff occupation pattern, then its species assignment,
+and only then the exact geometry. Its finite affine search uses the same tabulated normalizer scope
+as the legacy canonicalizer and does not enumerate an infinite affine normalizer. Public measured
+structure entry points optionally perform the established upward pseudosymmetry search first.
 """
 
 from dataclasses import dataclass
@@ -16,6 +16,7 @@ from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
+from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.symmetry._anonymous import (
@@ -111,6 +112,30 @@ def _restore_assignment(result: ASUStructure, assignment: tuple[Species, ...], s
         charge=result.charge,
     )
     return _restore_source_metadata(restored, source)
+
+
+def _restore_unchanged_precision(result: ASUStructure, source: StructureLike) -> ASUStructure:
+    """Restore source bounds when canonicalization leaves the exact unit-cell data unchanged."""
+    source_view = UnitcellStructureView(source)
+    if not same_crystal(result, source_view):
+        return result
+    return ASUStructure(
+        Cell(result.cell, precision=source_view.cell.precision),
+        result.spacegroup,
+        result.wyckoff_sites,
+        result.species,
+        transform=result.transform,
+        coordinate_precision=source_view.sites.precision,
+        charge=result.charge,
+        molecular=result.molecular,
+        assemblies=result.assemblies,
+        chemical_composition=result.chemical_composition,
+        chemical_formula_descriptive=result.chemical_formula_descriptive,
+        chemical_formula_hill=result.chemical_formula_hill,
+        optimization_type=result.optimization_type,
+        immutable_id=result.immutable_id,
+        last_modified=result.last_modified,
+    )
 
 
 def _anonymize_asu(
@@ -467,11 +492,12 @@ def _canonical_protostructure_assignments_asu(
         canonical = _canonical_protostructure_geometry(anonymous, preserve_chirality=preserve_chirality)
         candidates.append((canonical, assignment, _anonymous_geometry_key(canonical)))
     best_geometry = min(key for _canonical, _assignment, key in candidates)
-    restored = [
-        _restore_assignment(canonical, assignment, structure)
-        for canonical, assignment, key in candidates
-        if key == best_geometry
-    ]
+    restored = []
+    for canonical, assignment, key in candidates:
+        if key != best_geometry:
+            continue
+        result = _restore_assignment(canonical, assignment, structure)
+        restored.append(_restore_unchanged_precision(result, structure))
     return _deduplicate_results(restored)
 
 
@@ -492,16 +518,19 @@ def canonical_asu_protostructure_assignments(
     *,
     tolerance: float | None = None,
     factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
+    lift: bool = False,
     preserve_chirality: bool = True,
 ) -> tuple[ASUStructure, ...]:
     """Recognize and return every tied assignment of the anonymous canonical geometry.
 
     Recognition uses the established tolerance sweep and deterministic P1 frames. The accepted ASU
-    is then handled exactly, without an upward pseudosymmetry search.
+    is then handled exactly. When ``lift`` is true, the anonymous winner is first searched for
+    upward pseudosymmetry.
 
     :param structure: The measured structure to recognize.
     :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
     :param factors: Multipliers for the recognition tolerance sweep.
+    :param lift: Whether to search upward for pseudosymmetry after recognition.
     :param preserve_chirality: Whether to keep the recognized enantiomorphic group.
     :return: The tied protostructure-first canonical asymmetric units.
     :raises ValueError: If the structure is unsupported or no tolerance member fits.
@@ -529,13 +558,19 @@ def canonical_asu_protostructure_assignments(
             winner = alternate
     if winner is None:
         raise ValueError(f"no symmetry fit the structure within tolerance {base:g}; tried [{', '.join(failures)}]")
+    if lift:
+        from httk.atomistic.symmetry.lift import canonicalize_legacy
+
+        winner = canonicalize_legacy(winner, tolerance=base, preserve_chirality=preserve_chirality).asu
+        preserve_chirality = True
     inner = _canonical_protostructure_assignments_asu(winner, preserve_chirality=preserve_chirality)
     outer_by_name = {anonymous.name: index for index, anonymous in enumerate(outer_frame.structure.species)}
     restored = []
     for candidate in inner:
         for outer_assignment in outer_frame.assignments:
             assignment = tuple(outer_assignment[outer_by_name[species.name]] for species in candidate.species)
-            restored.append(_restore_assignment(candidate, assignment, source_view))
+            result = _restore_assignment(candidate, assignment, source_view)
+            restored.append(_restore_unchanged_precision(result, source_view))
     return _deduplicate_results(restored)
 
 
@@ -544,6 +579,7 @@ def canonical_asu_protostructure(
     *,
     tolerance: float | None = None,
     factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
+    lift: bool = False,
     preserve_chirality: bool = True,
 ) -> ASUStructure:
     """Return one chemically ordered member of the anonymous canonical assignment family.
@@ -551,6 +587,7 @@ def canonical_asu_protostructure(
     :param structure: The measured structure to recognize.
     :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
     :param factors: Multipliers for the recognition tolerance sweep.
+    :param lift: Whether to search upward for pseudosymmetry after recognition.
     :param preserve_chirality: Whether to keep the recognized enantiomorphic group.
     :return: One protostructure-first canonical asymmetric unit.
     :raises ValueError: If the structure is unsupported or no tolerance member fits.
@@ -560,6 +597,7 @@ def canonical_asu_protostructure(
             structure,
             tolerance=tolerance,
             factors=factors,
+            lift=lift,
             preserve_chirality=preserve_chirality,
         ),
         key=_chemical_key,

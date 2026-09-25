@@ -33,6 +33,7 @@ from httk.atomistic import (
     subgroup_representation,
 )
 from httk.atomistic.models.cell.params import CellParams
+from httk.atomistic.symmetry.canonical_protostructure import _canonical_protostructure_asu
 from httk.atomistic.symmetry.lift import (
     _canonical_without_bfs,
     _cell_for_transform,
@@ -892,7 +893,7 @@ def test_p1_cubic_metric_stabilizer_normalizes_a_signed_permutation() -> None:
     assert first.spacegroup.it_number == second.spacegroup.it_number == 1
     assert first.cell.basis == second.cell.basis
     assert first.wyckoff_sites == second.wyckoff_sites
-    assert _canonical_without_bfs(first) == first
+    assert _canonical_protostructure_asu(first) == first
 
 
 def test_p1_elongated_metric_stabilizer_enumeration_is_exact() -> None:
@@ -918,7 +919,7 @@ def test_canonical_asu_fixture_scramble_normalizes_full_affine_cosets(number: in
     assert scrambled.spacegroup == reference.spacegroup
     assert scrambled.cell.basis == reference.cell.basis
     assert scrambled.wyckoff_sites == reference.wyckoff_sites
-    assert _canonical_without_bfs(reference) == reference
+    assert _canonical_protostructure_asu(reference) == reference
     if number == 43:
         # A proper Cartesian rotation changes no fractional data or chirality and must not influence
         # the final tie between normalizer-equivalent cell bases.

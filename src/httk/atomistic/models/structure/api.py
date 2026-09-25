@@ -127,9 +127,10 @@ class StructureAPI(ABC):
         """
         from httk.atomistic.models.bareprotostructure.view import BareProtostructureView
         from httk.atomistic.symmetry.canonical import canonical_asu
+        from httk.atomistic.symmetry.canonical_classification import canonical_bare_protostructure
 
         canonical = canonical_asu(cast("StructureLike", self), preserve_chirality=False)
-        return BareProtostructureView(canonical).unview()
+        return canonical_bare_protostructure(BareProtostructureView(canonical).unview(), preserve_chirality=False)
 
     def canonical_bare_prototype(self) -> "BarePrototype":
         """Return the canonical anonymous geometrical classification of this structure.
@@ -141,9 +142,10 @@ class StructureAPI(ABC):
         """
         from httk.atomistic.models.bareprototype.view import BarePrototypeView
         from httk.atomistic.symmetry.canonical import canonical_asu
+        from httk.atomistic.symmetry.canonical_classification import canonical_bare_prototype
 
         canonical = canonical_asu(cast("StructureLike", self), preserve_chirality=False)
-        return BarePrototypeView(canonical).unview()
+        return canonical_bare_prototype(BarePrototypeView(canonical).unview(), preserve_chirality=False)
 
     @cached_property
     def composition(self) -> "Composition":

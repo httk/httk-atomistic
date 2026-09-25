@@ -26,10 +26,12 @@ from httk.atomistic import (
 )
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
+from httk.atomistic.symmetry.canonical_protostructure import _canonical_protostructure_asu
 from httk.atomistic.symmetry.lift import (
     _canonical_entry,
     _canonical_without_bfs,
     _enantiomorph,
+    _normalize_chirality_legacy,
     _site_key,
 )
 
@@ -89,12 +91,14 @@ def test_default_preservation_is_idempotent() -> None:
 
 
 def test_chirality_normalization_reuses_a_chirality_preserving_canonical_asu() -> None:
-    higher = _canonical_without_bfs(_p32(), preserve_chirality=True)
+    higher = _canonical_protostructure_asu(_p32(), preserve_chirality=True)
     lower = normalize_chirality(higher)
 
     assert higher.spacegroup.it_number == 145
-    assert lower == _canonical_without_bfs(_p32(), preserve_chirality=False)
+    assert lower == _canonical_protostructure_asu(_p32(), preserve_chirality=False)
     assert normalize_chirality(lower) is lower
+    legacy_higher = _canonical_without_bfs(_p32(), preserve_chirality=True)
+    assert _normalize_chirality_legacy(legacy_higher) == _canonical_without_bfs(_p32(), preserve_chirality=False)
 
 
 def test_lower_member_input_is_unchanged_by_default() -> None:

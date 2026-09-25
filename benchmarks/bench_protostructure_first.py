@@ -282,7 +282,7 @@ def _canonicalizer(method: str):
         "httk.atomistic.symmetry.canonical" if method == "old" else "httk.atomistic.symmetry.canonical_protostructure"
     )
     if method == "old":
-        function = lambda structure, tolerance: module.canonical_asu(
+        function = lambda structure, tolerance: module.canonical_asu_legacy(
             structure, tolerance=tolerance, lift=False, preserve_chirality=True
         )
     else:

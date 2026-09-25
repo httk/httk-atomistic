@@ -197,9 +197,41 @@ order. `BarePrototype` is its anonymous counterpart. Both are hashable.
 Refined values additionally compare their representative and discriminator;
 values differing only in representative may hash alike but remain unequal.
 
-The structure conveniences `canonical_bare_protostructure()` and
-`canonical_bare_prototype()` return standalone chirality-normalized bare keys.
+Once their input views have been materialized, the four canonicalizers operate
+at the classification level:
+
+```python
+from httk.atomistic import (
+    canonical_bare_prototype,
+    canonical_bare_protostructure,
+    canonical_prototype,
+    canonical_protostructure,
+)
+
+bare_assigned = canonical_bare_protostructure(bare_assigned_source)
+bare_anonymous = canonical_bare_prototype(bare_anonymous_source)
+refined_assigned = canonical_protostructure(refined_assigned_source)
+refined_anonymous = canonical_prototype(refined_anonymous_source)
+
+assert canonical_bare_protostructure(bare_assigned) == bare_assigned
+assert canonical_bare_prototype(bare_anonymous) == bare_anonymous
+assert canonical_protostructure(refined_assigned) == refined_assigned
+assert canonical_prototype(refined_anonymous) == refined_anonymous
+```
+
+View materialization preserves the conversion boundaries in the table above, so
+a raw ordinary structure accepted by a bare view can first require tolerant
+spglib recognition. The bare minimization itself uses no geometry and enumerates
+finite exact letter-changing actions. The refined operations canonicalize an
+exact retained representative when one exists; with only a discriminator they
+canonicalize the bare base and retain that discriminator. A refined geometry
+terminal can demote special positions or collapse an exact supercell, operations
+for which a bare value has no geometry. Canonicalize the projected value when a
+canonical bare result is required; projection and canonicalization do not
+generally commute.
 `FundamentalDomainTemplate.bare_prototype` extracts the discrete anonymous key.
+The full procedure and retained-coordinate policy are specified in
+{doc}`canonicalization`.
 
 ## Labels
 
@@ -220,11 +252,15 @@ alphabetically, a letter occupied `k >= 2` times prefixed by the integer `k`
 ...) built in group order with per-group summed conventional multiplicities
 reduced by their overall GCD.
 
-A structure's canonicalization preserves chirality by default. The canonical
-`BareProtostructure`/`BarePrototype` label is instead built from the chirality-normalized
-result (`canonical_asu(preserve_chirality=False)`, or `normalize_chirality`
-applied to a chirality-preserved result; see {doc}`asu`), so the two members of an
-enantiomorphic pair share one canonical label.
+A structure's canonicalization preserves chirality by default. Pass
+`preserve_chirality=False` to the corresponding classification canonicalizer
+when a canonical `BareProtostructure` or `BarePrototype` label should identify
+the two members of an enantiomorphic pair. The same policy is available through
+`canonical_asu(preserve_chirality=False)` and `normalize_chirality`; see
+{doc}`asu`.
+The structure methods `canonical_bare_protostructure()` and
+`canonical_bare_prototype()` retain their chirality-normalized convention: they
+recognize and canonicalize the structure, then canonicalize its bare projection.
 
 ### httk labels are not AFLOW labels
 
@@ -287,10 +323,13 @@ returns only its bare classification; the text cannot encode its refinement.
 
 Any faithful render of an object is *the* prototype or protostructure label.
 The *canonical* prototype or protostructure label is the one obtained from a
-normalizer-canonical object — one derived via `canonical_asu`. The renderer
-performs no affine-normalizer pass this round, so labels from hand-built,
-non-canonical objects are faithful but not necessarily canonical. Whenever text
-speaks of the label of an arbitrary value it uses the plain form ("the
+normalizer-canonical object produced by the corresponding
+`canonical_bare_*`/`canonical_*` function. A value derived from `canonical_asu`
+must first be projected to the required family and then passed through that
+family canonicalizer because projection and canonicalization do not generally
+commute. The renderer itself performs no affine-normalizer pass, so labels from
+hand-built, non-canonical objects are faithful but not necessarily canonical.
+Whenever text speaks of the label of an arbitrary value it uses the plain form ("the
 protostructure label"), reserving "the canonical … label" for a
 normalizer-canonical source.
 
@@ -403,8 +442,9 @@ conversion contracts above:
   protostructure families.
 - The species-assignment convenience constructors
   (`Protostructure(prototype, species=...)`, `Structure(structuretype, species=...)`).
-- Normalizer-canonicalized label rendering (the affine-normalizer pass that
-  would make every faithful label canonical).
+- Automatic normalizer canonicalization inside label rendering. Call the
+  classification canonicalizer explicitly before rendering when canonical text
+  is required.
 
 The full guide, {doc}`details/structural_classes`, covers the naming rationale
 and how the classes relate to isopointal/isoconfigurational structures and

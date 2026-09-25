@@ -184,7 +184,13 @@ from httk.atomistic.symmetry.subgroups import (
     subgroup_representation,
     supergroup_closure,
 )
-from httk.atomistic.symmetry.canonical import canonical_asu
+from httk.atomistic.symmetry.canonical import canonical_asu, canonical_asu_legacy
+from httk.atomistic.symmetry.canonical_classification import (
+    canonical_bare_prototype,
+    canonical_bare_protostructure,
+    canonical_prototype,
+    canonical_protostructure,
+)
 from httk.atomistic.symmetry.canonical_protostructure import (
     canonical_asu_protostructure,
     canonical_asu_protostructure_assignments,
@@ -193,6 +199,7 @@ from httk.atomistic.symmetry.lift import (
     LiftResult,
     backward_lift,
     canonicalize,
+    canonicalize_legacy,
     highest_symmetry,
     lift_candidates,
     normalize_chirality,
@@ -410,10 +417,16 @@ __all__ = [
     "backward_lift",
     "build_supercell",
     "canonical_asu",
+    "canonical_asu_legacy",
     "canonical_asu_protostructure",
     "canonical_asu_protostructure_assignments",
+    "canonical_bare_protostructure",
+    "canonical_bare_prototype",
+    "canonical_protostructure",
+    "canonical_prototype",
     "canonicalize",
     "canonicalize_full",
+    "canonicalize_legacy",
     "cif_setting",
     "conventional_cell",
     "cubic_supercell",

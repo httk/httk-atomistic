@@ -154,15 +154,25 @@ def compile_wyckoff_action(
     spacegroup: Spacegroup,
     operation: AffineOperation,
     source_letter: str,
+    *,
+    target_spacegroup: Spacegroup | None = None,
 ) -> WyckoffAction:
-    """Compile and prove one exact normalizer action without coordinate sampling.
+    """Compile and prove one exact Wyckoff action without coordinate sampling.
 
     The proof compares complete affine orbit families coefficient by coefficient modulo lattice
     translations. Multiple target branches can be valid charts of one orbit; table order chooses a
-    deterministic chart only after whole-orbit equality has been established.
+    deterministic chart only after whole-orbit equality has been established.  Omitting
+    ``target_spacegroup`` compiles the usual same-group normalizer action.
+
+    :param spacegroup: The source standard-setting space group.
+    :param operation: The exact affine operation on reduced coordinates.
+    :param source_letter: The source Wyckoff letter.
+    :param target_spacegroup: The target standard-setting group, or the source group.
+    :return: The proven target letter and parameter map.
     """
+    target_spacegroup = spacegroup if target_spacegroup is None else target_spacegroup
     source = spacegroup.wyckoff_position(source_letter)
-    for target in spacegroup.wyckoff:
+    for target in target_spacegroup.wyckoff:
         if target.free_count != source.free_count or target.multiplicity != source.multiplicity:
             continue
         for branch in target.branches:
@@ -173,6 +183,6 @@ def compile_wyckoff_action(
             if _orbit_matches(source, target, operation, matrix, vector):
                 return WyckoffAction(source_letter, target.letter, matrix, vector)
     raise UnsupportedWyckoffAction(
-        f"cannot compile exact Wyckoff action in {spacegroup.setting} for "
+        f"cannot compile exact Wyckoff action from {spacegroup.setting} to {target_spacegroup.setting} for "
         f"{operation.to_xyz()} on letter {source_letter!r}"
     )

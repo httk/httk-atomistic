@@ -6,6 +6,7 @@ import pytest
 from httk.core import FracVector
 
 import httk.atomistic.symmetry.canonical as canonical_module
+import httk.atomistic.symmetry.canonical_protostructure as protostructure_module
 from httk.atomistic import (
     ASUStructure,
     BareProtostructure,
@@ -272,7 +273,7 @@ def test_loosest_fitting_member_wins_and_stops_the_sweep(monkeypatch: pytest.Mon
     pytest.importorskip("spglib")
     recognitions = 0
     real_recognize = canonical_module.recognize_asu
-    real_stage = canonical_module._canonical_without_bfs
+    real_stage = protostructure_module._canonical_protostructure_assignments_asu
     stages = 0
 
     def counting_recognize(*args, **kwargs):
@@ -286,7 +287,7 @@ def test_loosest_fitting_member_wins_and_stops_the_sweep(monkeypatch: pytest.Mon
         return real_stage(structure, **kwargs)
 
     monkeypatch.setattr(canonical_module, "recognize_asu", counting_recognize)
-    monkeypatch.setattr(canonical_module, "_canonical_without_bfs", counting_stage)
+    monkeypatch.setattr(protostructure_module, "_canonical_protostructure_assignments_asu", counting_stage)
     # Clean NaCl: the loosest symprec (base*5) already recognizes and fits, so the sweep stops after
     # one recognition; the exact canonicalization stage runs once for the recognized result (P1
     # preconditioning is now the lighter Niggli path) -- no matter how many factors are passed.
@@ -309,9 +310,15 @@ def test_p1_rescue_reverses_the_canonical_frame_instead_of_retrying_the_source(
         frames.append((view.cell.basis, tuple(view.species_at_sites)))
         if len(frames) == 1:
             return canonical_module._exact_p1(view), []
-        return _nacl(), []
+        names = tuple(species.name for species in view.species)
+        return ASUStructure(
+            _nacl().cell,
+            225,
+            (WyckoffSite("a", FracVector(()), names[0]), WyckoffSite("b", FracVector(()), names[1])),
+            view.species,
+        ), []
 
-    monkeypatch.setattr(canonical_module, "_recognition_sweep", staged_sweep)
+    monkeypatch.setattr(protostructure_module, "_recognition_sweep", staged_sweep)
     result = canonical_asu(UnitcellStructureView(_nacl()))
 
     assert result.spacegroup.it_number == 225

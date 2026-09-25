@@ -1,14 +1,11 @@
-"""A one-liner canonical form for noisy input: tolerant recognition composed with exact lifting.
+"""Canonical forms for noisy input: tolerant recognition composed with exact normalization.
 
 :func:`canonical_asu` bridges the two layers. Before tolerant recognition, the exact unit-cell geometry
-is normalized as P1, giving spglib one deterministic basis, origin, and site order for every exact
-re-expression of the same measured structure. The tolerant layer (:func:`~httk.atomistic.recognize_asu`,
-backed by spglib) then snaps that stable input onto a space group within a Cartesian tolerance. Because
-a measured structure can sit just inside or just outside a tolerance boundary, recognition is swept
-over a few symprec multiples from loosest to tightest, and the first member that fits within the
-*base* tolerance wins. The exact layer finally fixes that winner's representation deterministically:
-by default (``lift=False``) it returns the canonical representative *within the recognized group*;
-``lift=True`` additionally runs :func:`~httk.atomistic.canonicalize` to hunt higher pseudosymmetry.
+is put in an anonymous P1 frame, giving spglib one deterministic basis, origin, and site order for
+every exact re-expression of the same measured structure. The tolerant layer
+(:func:`~httk.atomistic.recognize_asu`, backed by spglib) then snaps that stable input onto a space
+group within a Cartesian tolerance. The exact layer selects an anonymous protostructure-first
+representative. :func:`canonical_asu_legacy` retains the metric-first convention.
 
 This module is deliberately outside ``lift.py``: ``lift`` imports ``recognition`` (for its tolerance
 helpers) and stays spglib-free, while this composer imports both.
@@ -22,10 +19,10 @@ from httk.core import FracVector
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
-from httk.atomistic.symmetry.lift import _canonical_without_bfs, _niggli_reduced_entry, canonicalize
+from httk.atomistic.symmetry.lift import _canonical_without_bfs, _niggli_reduced_entry, canonicalize_legacy
 from httk.atomistic.symmetry.recognition import recognize_asu, structure_tolerance
 
-__all__ = ["canonical_asu"]
+__all__ = ["canonical_asu", "canonical_asu_legacy"]
 
 
 def _exact_p1(view: UnitcellStructureView) -> ASUStructure:
@@ -199,7 +196,7 @@ def _recognition_sweep(
     return None, failures
 
 
-def canonical_asu(
+def canonical_asu_legacy(
     structure: StructureLike,
     *,
     tolerance: float | None = None,
@@ -207,9 +204,9 @@ def canonical_asu(
     lift: bool = False,
     preserve_chirality: bool = True,
 ) -> ASUStructure:
-    """Return the canonical :class:`~httk.atomistic.ASUStructure` of a measured structure's symmetry.
+    """Return the legacy metric-first canonical ASU of a measured structure's symmetry.
 
-    This is the noisy-input counterpart to :func:`~httk.atomistic.canonicalize`: it first normalizes
+    This is the noisy-input counterpart to :func:`~httk.atomistic.canonicalize_legacy`: it first normalizes
     the exact measured geometry in P1, recognizes its symmetry with spglib, and then canonicalizes the
     recognized result exactly. P1 preconditioning prevents spglib's tolerance-boundary result from
     depending on an equivalent input shear, origin shift, or site ordering.
@@ -234,7 +231,7 @@ def canonical_asu(
       basis orientation all fixed), returned *without* searching upward.  The result is the canonical
       form of the recognized symmetry; no pseudosymmetry above it is sought.
     * ``lift=True``: it is additionally run through the exact upward search
-      (:func:`~httk.atomistic.canonicalize`) to find higher pseudosymmetry the recognition missed.
+      (:func:`~httk.atomistic.canonicalize_legacy`) to find higher pseudosymmetry the recognition missed.
       This is exact but can be expensive -- minutes and beyond for low-symmetry, many-atom cells.
 
     Tolerance bound: the recognition stage is held to the base tolerance -- every returned atom sits
@@ -249,9 +246,10 @@ def canonical_asu(
     crystallographic Gram matrices, so cross-platform variation is confined to *which* symmetry is
     accepted near a tolerance boundary, never to *how* an accepted symmetry is represented.  An exact
     non-rational Gram whose canonical Cartesian factor requires nested radicals outside the supported
-    surd field remains idempotent but can retain its input's global Cartesian rotation.  Free-parameter
-    values are least-squares fits of the measured coordinates, so two noisy measurements of the same
-    crystal reach the same Wyckoff choices but slightly different rational parameter values.
+    surd field remains idempotent but can retain its input's global Cartesian rotation. Free-parameter
+    values come from row-Hermite chart projection of the measured coordinates, so two noisy
+    measurements of the same crystal can reach the same Wyckoff choices with slightly different
+    rational parameter values.
 
     :param structure: The measured structure, ``UnitcellStructure`` or ``ASUStructure``.
     :param tolerance: The base Cartesian tolerance, or ``None`` to derive it from the structure's
@@ -319,8 +317,41 @@ def canonical_asu(
         raise ValueError(f"no symmetry fit the structure within tolerance {base:g}; tried [{', '.join(failures)}]")
 
     if lift:
-        return canonicalize(winner, tolerance=base, preserve_chirality=preserve_chirality).asu
+        return canonicalize_legacy(winner, tolerance=base, preserve_chirality=preserve_chirality).asu
     return _canonical_without_bfs(
         winner,
+        preserve_chirality=preserve_chirality,
+    )
+
+
+def canonical_asu(
+    structure: StructureLike,
+    *,
+    tolerance: float | None = None,
+    factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
+    lift: bool = False,
+    preserve_chirality: bool = True,
+) -> ASUStructure:
+    """Return the anonymous protostructure-first canonical ASU of a measured structure.
+
+    Recognition and the public call contract match :func:`canonical_asu_legacy`; the exact
+    representative is selected by anonymous Wyckoff occupation before chemical assignment.
+
+    :param structure: The measured structure to recognize.
+    :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
+    :param factors: Multipliers for the recognition tolerance sweep.
+    :param lift: Whether to search upward for pseudosymmetry after recognition.
+    :param preserve_chirality: Whether to keep the recognized enantiomorphic group.
+    :return: The canonical asymmetric unit.
+    :raises ImportError: If spglib is unavailable.
+    :raises ValueError: If the structure is unsupported or recognition fails.
+    """
+    from httk.atomistic.symmetry.canonical_protostructure import canonical_asu_protostructure
+
+    return canonical_asu_protostructure(
+        structure,
+        tolerance=tolerance,
+        factors=factors,
+        lift=lift,
         preserve_chirality=preserve_chirality,
     )

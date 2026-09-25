@@ -28,7 +28,14 @@ Removing that cutoff-based refinement leaves the higher-level classification tha
 
 * A **bare protostructure**, `BareProtostructure`, is a structural representation specifying only the spacegroup (also distinguishing enantiomorphs), the occupied Wyckoff positions, and the species that occupy them.
 
-These classifications still *distinguish* the two members of an enantiomorphic pair through their space groups, as stated above. A structure's canonicalization (`canonicalize`, `canonical_asu`) preserves chirality by default; the canonical `BareProtostructure`/`BarePrototype` key is instead built from the chirality-normalized result (`canonical_asu(preserve_chirality=False)`, or `normalize_chirality` applied to a chirality-preserved result), so the two members of an enantiomorphic pair share one canonical label even though the classes can still tell them apart.
+These classifications still *distinguish* the two members of an enantiomorphic
+pair through their space groups, as stated above. Structure and classification
+canonicalization preserves chirality by default. Pass
+`preserve_chirality=False` to `canonical_bare_protostructure`,
+`canonical_bare_prototype`, `canonical_protostructure`, or
+`canonical_prototype` when the canonical classification should identify the two
+partners. The same policy is available through
+`canonical_asu(preserve_chirality=False)` or `normalize_chirality`.
 
 We can take the weaker geometrical representation one step further, down to:
 
