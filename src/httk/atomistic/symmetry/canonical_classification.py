@@ -32,6 +32,7 @@ from httk.atomistic.symmetry._wyckoff_actions import compile_wyckoff_action
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.canonical_protostructure import _canonical_protostructure_asu
 from httk.atomistic.symmetry.lift import _discrete_normalizer_translations, _resetting_preserves_group
+from httk.atomistic.symmetry.limits import _checkpoint
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -78,6 +79,7 @@ def _assigned_key(occupations: Iterable[tuple[str, Any]]) -> tuple[Any, ...]:
     """Order an assigned bare key without inspecting hidden geometry."""
     classes: dict[str, list[str]] = {}
     for letter, species in occupations:
+        _checkpoint()
         classes.setdefault(species.name, []).append(letter)
     groups = {name: tuple(sorted(letters)) for name, letters in classes.items()}
     return tuple(sorted(groups.values())), tuple(sorted((letters, name) for name, letters in groups.items()))
@@ -87,6 +89,7 @@ def _prototype_key(occupations: Iterable[tuple[str, str]]) -> tuple[tuple[str, .
     """Order an anonymous bare key without using class labels as a tie-break."""
     classes: dict[str, list[str]] = {}
     for letter, label in occupations:
+        _checkpoint()
         classes.setdefault(label, []).append(letter)
     return tuple(sorted(tuple(sorted(letters)) for letters in classes.values()))
 
@@ -107,6 +110,7 @@ def _canonical_bare(value: Any, *, prototype: bool, preserve_chirality: bool) ->
         chirality = AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
     candidates = []
     for action in _actions(target):
+        _checkpoint()
         operation = action * chirality
         mapped = _mapped_occupations(value, operation, target)
         candidate = BarePrototype(target, mapped) if prototype else BareProtostructure(target, mapped)
@@ -149,6 +153,7 @@ def _exact_representative(representative: FundamentalDomainStructure) -> ASUStru
     """Rebuild a representative as an exact ASU after rejecting imprecise retained points."""
     sites = []
     for site in representative.wyckoff_sites:
+        _checkpoint()
         if site.representative is not None:
             orbit = representative.spacegroup.wyckoff_position(site.wyckoff).coordinates(site.free_params)
             if site.representative.normalize() not in {point.normalize() for point in orbit}:
@@ -201,6 +206,7 @@ def _template_representative(result: ASUStructure) -> FundamentalDomainTemplate:
     """Rebuild a canonically relabelled anonymous representative carrier."""
     by_name: dict[str, list[WyckoffSite]] = {species.name: [] for species in result.species}
     for site in result.wyckoff_sites:
+        _checkpoint()
         by_name.setdefault(site.species, []).append(site)
     occupied = [name for name, sites in by_name.items() if sites]
     names = sorted(

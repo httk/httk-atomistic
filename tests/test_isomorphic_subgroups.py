@@ -20,7 +20,7 @@ from httk.atomistic import (
     Cell,
     Species,
     WyckoffSite,
-    canonicalize,
+    canonicalize_legacy as canonicalize,
     data,
 )
 from httk.atomistic.symmetry import isomorphic_subgroup_transforms, subgroup_transforms

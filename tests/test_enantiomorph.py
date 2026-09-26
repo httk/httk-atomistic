@@ -20,7 +20,7 @@ from httk.atomistic import (
     UnitcellStructure,
     UnitcellStructureView,
     WyckoffSite,
-    canonicalize,
+    canonicalize_legacy as canonicalize,
     normalize_chirality,
     same_crystal,
 )

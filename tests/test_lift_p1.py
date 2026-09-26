@@ -26,7 +26,7 @@ from httk.atomistic import (
     WyckoffSite,
     backward_lift,
     canonical_asu,
-    canonicalize,
+    canonicalize_legacy as canonicalize,
     data,
     highest_symmetry,
     same_crystal,
@@ -887,8 +887,8 @@ def test_p1_cubic_metric_stabilizer_normalizes_a_signed_permutation() -> None:
     # det=+1; this is another Niggli-reduced cubic basis, not a shear to be removed by one path.
     permuted = _rebased(cell_rows, sites, ["C", "O", "N"], FracVector(((0, 1, 0), (1, 0, 0), (0, 0, -1))))
 
-    first = canonical_asu(base, lift=False)
-    second = canonical_asu(permuted, lift=False)
+    first = canonical_asu(base)
+    second = canonical_asu(permuted)
 
     assert first.spacegroup.it_number == second.spacegroup.it_number == 1
     assert first.cell.basis == second.cell.basis
@@ -913,8 +913,8 @@ def test_canonical_asu_fixture_scramble_normalizes_full_affine_cosets(number: in
     fixture = Path(__file__).with_name("fixtures") / "structreading" / f"{number}.cif"
     source = load(str(fixture), repair=True)
 
-    reference = canonical_asu(UnitcellStructureView(source), lift=False)
-    scrambled = canonical_asu(_scrambled_p1(source, number * 1000 + 1), lift=False)
+    reference = canonical_asu(UnitcellStructureView(source))
+    scrambled = canonical_asu(_scrambled_p1(source, number * 1000 + 1))
 
     assert scrambled.spacegroup == reference.spacegroup
     assert scrambled.cell.basis == reference.cell.basis
@@ -937,7 +937,7 @@ def test_canonical_asu_fixture_scramble_normalizes_full_affine_cosets(number: in
             coordinate_precision=source.coordinate_precision,
             charge=source.charge,
         )
-        rotated_result = canonical_asu(UnitcellStructureView(rotated), lift=False)
+        rotated_result = canonical_asu(UnitcellStructureView(rotated))
         assert rotated_result.cell.basis == reference.cell.basis
         assert rotated_result.wyckoff_sites == reference.wyckoff_sites
 
@@ -952,8 +952,8 @@ def test_canonical_asu_fixture_scramble_avoids_pathological_exact_arithmetic(num
     fixture = Path(__file__).with_name("fixtures") / "structreading" / f"{number}.cif"
     source = load(str(fixture), repair=True)
 
-    reference = canonical_asu(UnitcellStructureView(source), lift=False, preserve_chirality=True)
-    scrambled = canonical_asu(_scrambled_p1(source, seed), lift=False, preserve_chirality=True)
+    reference = canonical_asu(UnitcellStructureView(source), preserve_chirality=True)
+    scrambled = canonical_asu(_scrambled_p1(source, seed), preserve_chirality=True)
 
     assert scrambled.spacegroup == reference.spacegroup
     assert scrambled.cell.basis == reference.cell.basis

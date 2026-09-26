@@ -14,7 +14,8 @@ from httk.atomistic.symmetry.canonical_protostructure import (
     _canonical_protostructure_assignments_asu,
     _canonical_protostructure_asu,
 )
-from httk.atomistic.symmetry.lift import LiftResult, canonicalize, canonicalize_legacy
+from httk.atomistic.symmetry.canonical import canonicalize
+from httk.atomistic.symmetry.lift import canonicalize_legacy
 
 
 def _species(name: str, symbol: str, **kwargs: object) -> Species:
@@ -43,13 +44,14 @@ def test_legacy_sg47_golden_and_promoted_exact_default(monkeypatch) -> None:
     assert legacy.spacegroup.it_number == 47
     assert _anonymous_pattern(legacy.asu) == (("a",), ("c",))
 
-    monkeypatch.setattr(lift_module, "canonicalize_legacy", lambda *args, **kwargs: legacy)
-    promoted = canonicalize(source, tolerance=1e-3)
-    assert promoted.asu == _canonical_protostructure_asu(legacy.asu)
-    assert _anonymous_pattern(promoted.asu) == (("a",), ("b",))
+    monkeypatch.setattr(lift_module, "canonicalize_legacy", lambda *args, **kwargs: pytest.fail("unexpected BFS"))
+    promoted = canonicalize(source, symmetry="declared")
+    assert isinstance(promoted, ASUStructure)
+    assert promoted == _canonical_protostructure_asu(source)
+    assert _anonymous_pattern(promoted) == (("a",), ("b",))
 
 
-def test_promoted_exact_default_retains_lift_route_and_source_metadata(monkeypatch) -> None:
+def test_declared_default_retains_source_metadata(monkeypatch) -> None:
     timestamp = datetime.datetime(2026, 9, 25, tzinfo=datetime.UTC)
     source = ASUStructure(
         Cell(_sg47().cell.basis, precision=F(1, 1000)),
@@ -70,35 +72,19 @@ def test_promoted_exact_default_retains_lift_route_and_source_metadata(monkeypat
         charge=F(2),
     )
     source = _canonical_protostructure_asu(source)
-    terminal = source
-    assert source.cell.precision is not None
-    assert source.coordinate_precision is not None
-    inflated = ASUStructure(
-        Cell(terminal.cell.basis, precision=2 * source.cell.precision),
-        terminal.spacegroup,
-        terminal.wyckoff_sites,
-        terminal.species,
-        transform=terminal.transform,
-        coordinate_precision=2 * source.coordinate_precision,
-        charge=terminal.charge,
-    )
-    route = LiftResult(inflated, inflated.spacegroup, (), FracVector((F(1, 7), 0, 0)), F(1, 1000))
-    monkeypatch.setattr(lift_module, "canonicalize_legacy", lambda *args, **kwargs: route)
+    monkeypatch.setattr(lift_module, "canonicalize_legacy", lambda *args, **kwargs: pytest.fail("unexpected BFS"))
+    result = canonicalize(source, symmetry="declared")
 
-    result = canonicalize(source)
-
-    assert (result.path, result.shift, result.residual) == (route.path, route.shift, route.residual)
-    assert result.spacegroup == result.asu.spacegroup
-    assert result.asu.cell.precision == source.cell.precision
-    assert result.asu.coordinate_precision == source.coordinate_precision
-    assert result.asu.species == source.species
-    assert result.asu.charge == source.charge
-    assert result.asu.chemical_composition == source.chemical_composition
-    assert result.asu.chemical_formula_descriptive == source.chemical_formula_descriptive
-    assert result.asu.chemical_formula_hill == source.chemical_formula_hill
-    assert result.asu.optimization_type == source.optimization_type
-    assert result.asu.immutable_id == source.immutable_id
-    assert result.asu.last_modified == source.last_modified
+    assert result.cell.precision == source.cell.precision
+    assert result.coordinate_precision == source.coordinate_precision
+    assert result.species == source.species
+    assert result.charge == source.charge
+    assert result.chemical_composition == source.chemical_composition
+    assert result.chemical_formula_descriptive == source.chemical_formula_descriptive
+    assert result.chemical_formula_hill == source.chemical_formula_hill
+    assert result.optimization_type == source.optimization_type
+    assert result.immutable_id == source.immutable_id
+    assert result.last_modified == source.last_modified
 
 
 def test_promoted_and_legacy_apis_are_exported() -> None:

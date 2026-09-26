@@ -24,6 +24,7 @@ from httk.atomistic.symmetry.lift import (
     _metric_automorphism_operations,
     _primitive_reduced_entry,
 )
+from httk.atomistic.symmetry.limits import _checkpoint
 
 
 @dataclass(frozen=True)
@@ -47,8 +48,10 @@ def _rational_basis_change(new: SurdVector, old: SurdVector) -> FracVector:
     change = new * old.inv()
     rows = []
     for row in range(3):
+        _checkpoint()
         values = []
         for column in range(3):
+            _checkpoint()
             value = change._element((row, column))
             if not value.is_rational:
                 raise ValueError("anonymous P1 framing produced a non-rational lattice re-expression")
@@ -79,6 +82,7 @@ def _proxy_niggli_transform(metric: SurdVector) -> FracVector:
     gram = metric.coefficient(1)
     transform = FracVector.eye((3, 3))
     for _ in range(_MAX_STEPS):
+        _checkpoint()
         step = _niggli_step(_parameters(gram))
         if step is None:
             return transform
@@ -108,6 +112,7 @@ def _anonymous_p1_frame(structure: StructureLike) -> _AnonymousFrame:
     initial_by_source: dict[str, str] = {}
     initial_names: list[str] = []
     for source_name in species_at_sites:
+        _checkpoint()
         if source_name not in initial_by_source:
             initial_name = _class_names(len(initial_by_source) + 1)[-1]
             initial_by_source[source_name] = initial_name
@@ -143,6 +148,7 @@ def _anonymous_p1_frame(structure: StructureLike) -> _AnonymousFrame:
     candidates: list[tuple[ASUStructure, tuple[Species, ...]]] = []
 
     for operation in operations:
+        _checkpoint()
         basis_change = operation.matrix.T().inv()
         basis = SurdVector(basis_change) * reduced.cell.basis
         if basis.det().sign() < 0:
@@ -152,10 +158,12 @@ def _anonymous_p1_frame(structure: StructureLike) -> _AnonymousFrame:
             for site in reduced.wyckoff_sites
         )
         for anchor_name, anchor in points:
+            _checkpoint()
             if populations[anchor_name] != least_population:
                 continue
             grouped: dict[str, list[tuple[Fraction, ...]]] = {}
             for class_name, point in points:
+                _checkpoint()
                 grouped.setdefault(class_name, []).append(
                     tuple((value - origin) % 1 for value, origin in zip(point, anchor, strict=True))
                 )

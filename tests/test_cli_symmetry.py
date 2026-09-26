@@ -10,7 +10,7 @@ from httk.core import CLIContext, FracVector, load, save
 
 from httk.atomistic import ASUStructure, Cell, Sites, Species, SymopsStructure, WyckoffSite
 from httk.atomistic.cli import _asu_for_info, command
-from httk.atomistic.symmetry.lift import canonicalize
+from httk.atomistic.symmetry.canonical import canonicalize
 
 
 def _species(*names: str) -> list[Species]:
@@ -248,7 +248,7 @@ def test_canonicalize_default(cif: Path, capsys) -> None:
     pytest.importorskip("spglib")
     assert _run(["canonicalize", str(cif)]) == 0
     out = capsys.readouterr().out
-    assert "canonical form (lift=False)" in out
+    assert "canonical form (symmetry=detect)" in out
     assert "IT 225" in out
 
 
@@ -257,18 +257,13 @@ def test_normalize_chirality_flag_threads_to_both_branches(cif: Path, monkeypatc
     from httk.atomistic import cli
 
     calls: dict[str, bool] = {}
-    real_canonicalize, real_canonical_asu = cli.canonicalize, cli.canonical_asu
+    real_canonicalize = cli.canonicalize
 
     def spy_canonicalize(*args, preserve_chirality=True, **kwargs):
-        calls["exact"] = preserve_chirality
+        calls["exact" if kwargs.get("symmetry") == "declared" else "default"] = preserve_chirality
         return real_canonicalize(*args, preserve_chirality=preserve_chirality, **kwargs)
 
-    def spy_canonical_asu(*args, preserve_chirality=True, **kwargs):
-        calls["default"] = preserve_chirality
-        return real_canonical_asu(*args, preserve_chirality=preserve_chirality, **kwargs)
-
     monkeypatch.setattr(cli, "canonicalize", spy_canonicalize)
-    monkeypatch.setattr(cli, "canonical_asu", spy_canonical_asu)
 
     # --normalize-chirality asks for the lower member -> preserve_chirality=False in both branches.
     assert _run(["canonicalize", "--exact", "--normalize-chirality", str(cif)]) == 0  # exact -> canonicalize
@@ -286,8 +281,8 @@ def test_canonicalize_exact_roundtrip(cif: Path, tmp_path: Path, capsys) -> None
     assert f"saved: {out_path}" in capsys.readouterr().out
     reloaded = load(str(out_path))
     assert isinstance(reloaded, ASUStructure)
-    expected = canonicalize(_rocksalt()).asu
-    assert _key(canonicalize(reloaded).asu) == _key(expected)
+    expected = canonicalize(_rocksalt(), symmetry="declared")
+    assert _key(canonicalize(reloaded, symmetry="declared")) == _key(expected)
 
 
 def test_canonicalize_batch_out_dir(tmp_path: Path, capsys) -> None:
@@ -386,3 +381,47 @@ def test_module_reports_repair_warning_to_stderr() -> None:
     )
     assert merged.returncode == 0, merged.stdout
     assert merged.stdout.index("dropped malformed auxiliary loop") < merged.stdout.index("input: ASUStructure")
+
+
+def test_declared_option_matches_exact_alias(cif: Path, monkeypatch, capsys) -> None:
+    from httk.atomistic import cli
+
+    calls = []
+    original = cli.canonicalize
+
+    def wrapped(*args, **kwargs):
+        calls.append(kwargs)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(cli, "canonicalize", wrapped)
+    assert _run(["canonicalize", "--symmetry", "declared", "--timeout", "none", str(cif)]) == 0
+    assert calls[0]["symmetry"] == "declared"
+    assert calls[0]["timeout"] is None
+
+
+def test_incomplete_search_never_saves_canonical_output(cif: Path, tmp_path: Path, monkeypatch, capsys) -> None:
+    from httk.atomistic import cli, SupergroupSearchResult
+    from httk.atomistic.symmetry.lift import LiftResult
+
+    source = _rocksalt()
+    candidate = LiftResult(source, source.spacegroup, (), FracVector((0, 0, 0)), Fraction(0))
+    monkeypatch.setattr(
+        cli,
+        "search_supergroups",
+        lambda *args, **kwargs: SupergroupSearchResult((candidate,), False, ("deadline_exceeded",), 1),
+    )
+    target = tmp_path / "partial.cif"
+    assert _run(["search-supergroups", "-o", str(target), str(cif)]) == 1
+    assert not target.exists()
+    captured = capsys.readouterr()
+    assert "search complete: False" in captured.out
+    assert "deadline_exceeded" in captured.out
+    assert "cannot save" in captured.err
+    assert _run(["search-supergroups", str(cif)]) == 1
+
+
+def test_canonicalize_deadline_is_reported_without_traceback(cif: Path, capsys) -> None:
+    assert _run(["canonicalize", "--exact", "--timeout", "0.000000000001", str(cif)]) == 1
+    captured = capsys.readouterr()
+    assert "deadline exceeded" in captured.err
+    assert "Traceback" not in captured.err

@@ -23,22 +23,23 @@ from httk.core.cli import CLIContext
 from httk.atomistic import (
     ASUStructure,
     ASUStructureView,
+    CanonicalizationLimitError,
     SymopsStructure,
     UnitcellStructure,
     UnitcellStructureView,
-    canonical_asu,
+    canonicalize,
     list_representations,
     recognize_asu,
     rerepresent,
+    search_supergroups,
     structure_tolerance,
 )
 from httk.atomistic.mcif_structures import _mcif_spatial_tolerance, _spatial_structure_from_mcif
-from httk.atomistic.symmetry.lift import canonicalize
 
 #: Everything a handler may raise that is the operator's problem rather than a defect.
 #: Anything here is reported as ``PROGRAM: message`` and exits ``1`` -- notably ImportError
 #: for a missing spglib on the tolerant paths, and ValueError for an unrelated target.
-_ERRORS = (OSError, ValueError, KeyError, TypeError, ImportError)
+_ERRORS = (OSError, ValueError, KeyError, TypeError, ImportError, CanonicalizationLimitError)
 
 Handler = Callable[[argparse.Namespace, CLIContext, str], int]
 
@@ -176,21 +177,50 @@ def _handle_info(arguments: argparse.Namespace, context: CLIContext, prog: str) 
 
 def _handle_canonicalize(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
     loaded = _load(arguments.file)
-    preserve_chirality = not arguments.normalize_chirality
-    if arguments.exact:
-        asu = _require_asu(loaded, "canonicalize --exact")
-        result = canonicalize(asu, tolerance=arguments.tolerance, preserve_chirality=preserve_chirality).asu
-        print("exact canonical form:")
-    else:
-        result = canonical_asu(
-            loaded, tolerance=arguments.tolerance, lift=arguments.lift, preserve_chirality=preserve_chirality
-        )
-        print(f"canonical form (lift={arguments.lift}):")
+    source = _require_asu(loaded, "canonicalize --symmetry declared") if arguments.symmetry == "declared" else loaded
+    result = canonicalize(
+        source,
+        symmetry=arguments.symmetry,
+        tolerance=arguments.tolerance,
+        preserve_chirality=not arguments.normalize_chirality,
+        timeout=arguments.timeout,
+    )
+    print(f"canonical form (symmetry={arguments.symmetry}):")
     _print_structure(result)
     destination = _destination(arguments)
     if destination is not None:
         _save(result, destination)
     return 0
+
+
+def _handle_search_supergroups(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
+    source = _require_asu(_load(arguments.file), "search-supergroups")
+    result = search_supergroups(
+        source,
+        tolerance=arguments.tolerance,
+        preserve_chirality=not arguments.normalize_chirality,
+        timeout=arguments.timeout,
+        max_states=arguments.max_states,
+        all_paths=arguments.all_paths,
+    )
+    print(f"search complete: {result.complete}")
+    print(f"states visited: {result.states_visited}")
+    if result.reasons:
+        print("incomplete reasons: " + ", ".join(result.reasons))
+    print(f"terminal candidates: {len(result.candidates)}")
+    for index, candidate in enumerate(result.candidates):
+        print(f"[{index}] hops: {len(candidate.path)}; residual: {candidate.residual}")
+        _print_structure(candidate.asu)
+    destination = _destination(arguments)
+    if destination is not None:
+        if not result.complete or not result.candidates:
+            raise ValueError("cannot save a canonical result from an incomplete or empty search")
+        _save(result.candidates[0].asu, destination)
+    return 0 if result.complete else 1
+
+
+def _timeout_argument(value: str) -> float | None:
+    return None if value.lower() == "none" else float(value)
 
 
 def _handle_rerepresent(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
@@ -273,11 +303,25 @@ def build_parser(program: str) -> argparse.ArgumentParser:
     canon.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to canonicalize")
     _add_output(canon)
     _add_tolerance(canon)
-    canon.add_argument("--lift", action="store_true", help="search upward for higher pseudosymmetry (spglib path)")
-    canon.add_argument(
+    selection = canon.add_mutually_exclusive_group()
+    selection.add_argument(
+        "--symmetry",
+        choices=("detect", "declared"),
+        default="detect",
+        help="recognize symmetry or retain a declared exact ASU",
+    )
+    selection.add_argument(
         "--exact",
-        action="store_true",
-        help="run the exact spglib-free canonicalization (requires declared symmetry)",
+        dest="symmetry",
+        action="store_const",
+        const="declared",
+        help="alias for --symmetry declared; no upward search",
+    )
+    canon.add_argument(
+        "--timeout",
+        type=_timeout_argument,
+        default=120.0,
+        help="cooperative time limit in seconds (default 120; none disables)",
     )
     canon.add_argument(
         "--normalize-chirality",
@@ -285,6 +329,18 @@ def build_parser(program: str) -> argparse.ArgumentParser:
         help="normalize an enantiomorphic pair to its lower-numbered member (default: keep the recognized group)",
     )
     canon.set_defaults(handler=_handle_canonicalize, help_parser=canon)
+
+    search = subparsers.add_parser("search-supergroups", help="explicitly explore higher symmetry with limits")
+    search.add_argument("files", metavar="FILE", nargs="+")
+    _add_tolerance(search)
+    _add_output(search)
+    search.add_argument(
+        "--timeout", type=_timeout_argument, default=120.0, help="cooperative seconds (default 120; none disables)"
+    )
+    search.add_argument("--max-states", type=int, default=10000, help="maximum discovered states (default 10000)")
+    search.add_argument("--all-paths", action="store_true", help="retain distinct routes to the same state")
+    search.add_argument("--normalize-chirality", action="store_true")
+    search.set_defaults(handler=_handle_search_supergroups, help_parser=search)
 
     rerep = subparsers.add_parser("rerepresent", help="re-represent a structure in a target space group")
     rerep.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to re-represent")
@@ -341,7 +397,7 @@ def command(argv: Sequence[str], context: CLIContext) -> int:
         if len(files) > 1:
             print(f"==> {filename} <==")
         try:
-            handler(arguments, context, parser.prog)
+            failed = handler(arguments, context, parser.prog) != 0 or failed
         except _ERRORS as error:
             print(f"{parser.prog}: {filename}: {error}", file=sys.stderr)
             failed = True

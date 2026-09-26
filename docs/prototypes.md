@@ -492,3 +492,16 @@ a group-wide fallback. `selected_axes` and `indexed_points` expose index diagnos
 Use the same shared cache for index construction and subsequent comparisons so
 canonicalization is reused. Index preparation may cost more than it saves for
 small or densely matching groups; benchmark complete groups when selecting settings.
+
+
+## Unified canonicalization
+
+`canonicalize(value)` dispatches explicitly on the four classification backend
+families (including their views) and returns the matching standalone value.
+It is equivalent to `canonical_bare_protostructure`, `canonical_bare_prototype`,
+`canonical_protostructure` or `canonical_prototype` as appropriate, with the
+unified cooperative `timeout` option. Refined examples are transformed with their
+classification; discriminators are retained. Raw structure sources instead follow
+the measured structure path and return an ASUStructure. To canonicalize a bare
+classification derived from a structure, construct its bare view explicitly.
+See {doc}`canonicalization` for the numbered algorithm and completion contract.

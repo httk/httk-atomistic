@@ -13,7 +13,7 @@ from httk.atomistic import (
     Species,
     WyckoffSite,
     backward_lift,
-    canonicalize,
+    canonicalize_legacy as canonicalize,
     data,
     highest_symmetry,
     lift_candidates,

@@ -13,16 +13,31 @@ helpers) and stays spglib-free, while this composer imports both.
 
 from collections import Counter
 from fractions import Fraction
+from typing import Literal, overload
 
 from httk.core import FracVector
 
+from httk.atomistic.models.bareprotostructure.backend import BareProtostructureBackend
+from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
+from httk.atomistic.models.bareprototype.backend import BarePrototypeBackend
+from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
+from httk.atomistic.models.protostructure.backend import ProtostructureBackend
+from httk.atomistic.models.protostructure.protostructure import Protostructure
+from httk.atomistic.models.prototype.backend import PrototypeBackend
+from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
-from httk.atomistic.symmetry.lift import _canonical_without_bfs, _niggli_reduced_entry, canonicalize_legacy
+from httk.atomistic.symmetry.lift import (
+    _canonical_without_bfs,
+    _niggli_reduced_entry,
+    _SolverLimitError,
+    canonicalize_legacy,
+)
+from httk.atomistic.symmetry.limits import CanonicalizationLimitError, _budget_scope, _checkpoint
 from httk.atomistic.symmetry.recognition import recognize_asu, structure_tolerance
 
-__all__ = ["canonical_asu", "canonical_asu_legacy"]
+__all__ = ["canonical_asu", "canonical_asu_legacy", "canonicalize"]
 
 
 def _exact_p1(view: UnitcellStructureView) -> ASUStructure:
@@ -115,7 +130,9 @@ def _fits_within(view: UnitcellStructureView, recognized: ASUStructure, toleranc
     limit = tolerance * tolerance
     candidates: list[list[tuple[float, int]]] = [[] for _ in input_coords]
     for i, (coordinate, species) in enumerate(zip(input_coords, input_species)):
+        _checkpoint()
         for m, (other, other_species) in enumerate(zip(model_coords, model_species)):
+            _checkpoint()
             if other_species != species:
                 continue
             wrapped = [coordinate[k] - other[k] - round(coordinate[k] - other[k]) for k in range(3)]
@@ -126,6 +143,7 @@ def _fits_within(view: UnitcellStructureView, recognized: ASUStructure, toleranc
     if any(not choices for choices in candidates):
         return False
     for choices in candidates:
+        _checkpoint()
         choices.sort()
 
     # Deterministic Kuhn-style augmenting paths, implemented iteratively so large cells do not risk
@@ -133,14 +151,17 @@ def _fits_within(view: UnitcellStructureView, recognized: ASUStructure, toleranc
     model_for_input: dict[int, int] = {}
     input_for_model: dict[int, int] = {}
     for root in sorted(range(len(input_coords)), key=lambda index: (len(candidates[index]), index)):
+        _checkpoint()
         queue = [root]
         seen_inputs = {root}
         seen_models: set[int] = set()
         previous_input: dict[int, int] = {}
         terminal: int | None = None
         while queue and terminal is None:
+            _checkpoint()
             current = queue.pop(0)
             for _distance, model in candidates[current]:
+                _checkpoint()
                 if model in seen_models:
                     continue
                 seen_models.add(model)
@@ -156,6 +177,7 @@ def _fits_within(view: UnitcellStructureView, recognized: ASUStructure, toleranc
             return False
         model = terminal
         while True:
+            _checkpoint()
             current = previous_input[model]
             previous_model = model_for_input.get(current)
             model_for_input[current] = model
@@ -174,6 +196,7 @@ def _recognition_sweep(
     """Return the loosest fitting recognized model and diagnostics for failed members."""
     failures: list[str] = []
     for factor in sorted(factors, key=lambda value: -float(value)):
+        _checkpoint()
         symprec = base * float(factor)
         try:
             recognized = recognize_asu(view, tolerance=symprec, _retain_found_transform=True)
@@ -324,34 +347,158 @@ def canonical_asu_legacy(
     )
 
 
-def canonical_asu(
-    structure: StructureLike,
+@overload
+def canonicalize(
+    structure: BarePrototypeBackend,
     *,
+    symmetry: Literal["detect", "declared"] = "detect",
     tolerance: float | None = None,
     factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
-    lift: bool = False,
     preserve_chirality: bool = True,
-) -> ASUStructure:
-    """Return the anonymous protostructure-first canonical ASU of a measured structure.
+    timeout: float | None = 120.0,
+) -> BarePrototype: ...
 
-    Recognition and the public call contract match :func:`canonical_asu_legacy`; the exact
-    representative is selected by anonymous Wyckoff occupation before chemical assignment.
 
-    :param structure: The measured structure to recognize.
-    :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
-    :param factors: Multipliers for the recognition tolerance sweep.
-    :param lift: Whether to search upward for pseudosymmetry after recognition.
-    :param preserve_chirality: Whether to keep the recognized enantiomorphic group.
-    :return: The canonical asymmetric unit.
-    :raises ImportError: If spglib is unavailable.
-    :raises ValueError: If the structure is unsupported or recognition fails.
+@overload
+def canonicalize(
+    structure: BareProtostructureBackend,
+    *,
+    symmetry: Literal["detect", "declared"] = "detect",
+    tolerance: float | None = None,
+    factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+) -> BareProtostructure: ...
+
+
+@overload
+def canonicalize(
+    structure: PrototypeBackend,
+    *,
+    symmetry: Literal["detect", "declared"] = "detect",
+    tolerance: float | None = None,
+    factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+) -> Prototype: ...
+
+
+@overload
+def canonicalize(
+    structure: ProtostructureBackend,
+    *,
+    symmetry: Literal["detect", "declared"] = "detect",
+    tolerance: float | None = None,
+    factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+) -> Protostructure: ...
+
+
+@overload
+def canonicalize(
+    structure: StructureLike,
+    *,
+    symmetry: Literal["detect", "declared"] = "detect",
+    tolerance: float | None = None,
+    factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+) -> ASUStructure: ...
+
+
+def canonicalize(
+    structure: StructureLike
+    | BarePrototypeBackend
+    | BareProtostructureBackend
+    | PrototypeBackend
+    | ProtostructureBackend,
+    *,
+    symmetry: Literal["detect", "declared"] = "detect",
+    tolerance: float | None = None,
+    factors: tuple[Fraction | float | int, ...] = (Fraction(1, 5), 1, 5),
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+) -> ASUStructure | BarePrototype | BareProtostructure | Prototype | Protostructure:
+    """Canonicalize a structure or classification without general upward symmetry search.
+
+    Structure inputs use anonymous framing, spglib recognition, and the exact
+    protostructure terminal. ``symmetry="declared"`` instead uses an already
+    materialized ASU's symmetry without recognition. Classification inputs use
+    their available group/occupation information and transform carried examples.
+    Their result has the corresponding classification type. No return value is
+    selected from a time-truncated candidate set. ``canonical_asu`` is an alias.
+
+    :param structure: A structure-like source or one of the four classification families.
+    :param symmetry: ``"detect"`` for structure recognition, or ``"declared"`` for an exact ASU.
+        Classification values always use their carried symmetry model.
+    :param tolerance: Cartesian recognition tolerance, or the precision-derived default.
+        Only valid for structure recognition.
+    :param factors: Multipliers in the recognition tolerance sweep; only default values
+        are accepted outside structure recognition.
+    :param preserve_chirality: Whether to retain enantiomorphic handedness.
+    :param timeout: Cooperative seconds for the operation; ``None`` disables the deadline.
+        A native call or individual arithmetic operation cannot be preempted.
+    :return: An ASUStructure for structure inputs, or the matching standalone classification.
+    :raises CanonicalizationLimitError: If the operation exceeds its limit; no partial result is returned.
+    :raises TypeError: If declared mode is given an input without a materialized exact ASU.
+    :raises ValueError: If options or the input are unsupported, or recognition fails.
+    :raises ImportError: If structure recognition requires unavailable spglib.
     """
-    from httk.atomistic.symmetry.canonical_protostructure import canonical_asu_protostructure
-
-    return canonical_asu_protostructure(
-        structure,
-        tolerance=tolerance,
-        factors=factors,
-        lift=lift,
-        preserve_chirality=preserve_chirality,
+    from httk.atomistic.symmetry.canonical_classification import (
+        canonical_bare_protostructure,
+        canonical_bare_prototype,
+        canonical_protostructure,
+        canonical_prototype,
     )
+    from httk.atomistic.symmetry.canonical_protostructure import (
+        _canonical_protostructure_asu,
+        canonical_asu_protostructure,
+    )
+
+    if symmetry not in ("detect", "declared"):
+        raise ValueError("symmetry must be 'detect' or 'declared'")
+    classification = isinstance(
+        structure, (BarePrototypeBackend, BareProtostructureBackend, PrototypeBackend, ProtostructureBackend)
+    )
+    if (classification or symmetry == "declared") and (tolerance is not None or factors != (Fraction(1, 5), 1, 5)):
+        raise ValueError("tolerance and factors apply only to structure recognition")
+    with _budget_scope(timeout) as budget:
+        _checkpoint()
+        result: ASUStructure | BarePrototype | BareProtostructure | Prototype | Protostructure
+        try:
+            if isinstance(structure, PrototypeBackend):
+                result = canonical_prototype(structure, preserve_chirality=preserve_chirality)
+            elif isinstance(structure, ProtostructureBackend):
+                result = canonical_protostructure(structure, preserve_chirality=preserve_chirality)
+            elif isinstance(structure, BarePrototypeBackend):
+                result = canonical_bare_prototype(structure, preserve_chirality=preserve_chirality)
+            elif isinstance(structure, BareProtostructureBackend):
+                result = canonical_bare_protostructure(structure, preserve_chirality=preserve_chirality)
+            elif symmetry == "declared":
+                result = _canonical_protostructure_asu(_declared_asu(structure), preserve_chirality=preserve_chirality)
+            else:
+                result = canonical_asu_protostructure(
+                    structure, tolerance=tolerance, factors=factors, preserve_chirality=preserve_chirality
+                )
+        except _SolverLimitError as error:
+            raise CanonicalizationLimitError(str(error)) from error
+        _checkpoint()
+        if budget.reasons:
+            raise CanonicalizationLimitError("canonicalization skipped bounded work: " + ", ".join(budget.reasons))
+        return result
+
+
+canonical_asu = canonicalize
+
+
+def _declared_asu(structure: object) -> ASUStructure:
+    from httk.atomistic.models.structure.asu_view import ASUStructureView
+
+    if not isinstance(structure, ASUStructure):
+        raise TypeError("declared symmetry requires a materialized ASUStructure")
+    if isinstance(structure, ASUStructureView):
+        if structure._resolved_asu is None and structure._pending_asu is None:
+            raise TypeError("resolve the declared ASU explicitly; this view would require recognition")
+        return structure.unview()
+    return structure

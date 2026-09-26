@@ -7,42 +7,75 @@ tolerant-recognition environment.
 
 ## Public operations
 
-The operations have different input boundaries and return types:
+`canonicalize` is the everyday operation. Its structure result is always an
+`ASUStructure`. `canonical_asu` is the **same callable**, with the same options.
+An ASU input does not silently select a different search from a full-cell input.
 
-| Operation | Input boundary | Symmetry search | Result |
-| --- | --- | --- | --- |
-| `canonical_asu` | measured `StructureLike`; float/spglib recognition | only when `lift=True` | one `ASUStructure` |
-| `canonicalize` | exact declared `ASUStructure` | upward Bärnighausen search | `LiftResult` |
-| `canonical_asu_legacy` | measured `StructureLike`; float/spglib recognition | only when `lift=True` | one legacy-convention `ASUStructure` |
-| `canonicalize_legacy` | exact declared `ASUStructure` | upward Bärnighausen search | legacy-convention `LiftResult` |
-| `canonical_asu_protostructure` | same as `canonical_asu` | only when `lift=True` | alias for the same scalar convention |
-| `canonical_asu_protostructure_assignments` | same as `canonical_asu` | only when `lift=True` | every tied chemical assignment |
+| Operation | Symmetry model | Result |
+| --- | --- | --- |
+| `canonicalize(structure)` | anonymous framing and spglib recognition | `ASUStructure` |
+| `canonicalize(asu, symmetry="declared")` | supplied exact model; no recognition or upward search | `ASUStructure` |
+| `canonicalize(classification)` | supplied classification and any carried example | matching classification value |
+| `search_supergroups(asu)` | explicit upward Bärnighausen exploration | `SupergroupSearchResult` |
+| `canonical_asu_legacy(structure)` | historical measured pipeline | legacy-convention `ASUStructure` |
+| `canonicalize_legacy(asu)` | historical upward search and terminal | `LiftResult` |
 
-`canonical_asu(..., lift=False)` is the bulk measured-data path. It recognizes
-one symmetry model and takes its exact canonical representative without an
-upward search. `canonicalize()` starts from declared exact symmetry and searches
-upward. Its search states still distinguish species names; the anonymous rule is
-applied to the selected terminal. Consequently the anonymous invariance claims
-for the measured pipeline do not by themselves prove species covariance of the
-upward search.
+```python
+from httk.atomistic import canonicalize, search_supergroups
+
+canonical = canonicalize(raw_structure)
+declared = canonicalize(declared_asu, symmetry="declared")
+search = search_supergroups(declared_asu, timeout=30, max_states=1000)
+if search.complete and search.candidates:
+    higher_symmetry = search.candidates[0].asu
+```
+
+Generic dispatch recognizes the `BareProtostructureBackend`, `BarePrototypeBackend`,
+`ProtostructureBackend` and `PrototypeBackend` families, including their views.
+It delegates to the corresponding explicit classification routine described below.
+Strings, files and ordinary structure inputs follow structure recognition; they
+are never guessed to be classification labels. Classification operations use
+available occupations and transform refined examples, preserving discriminators.
+`tolerance` and nondefault `factors` are rejected for classification and declared
+ASU operations: those options belong to structure recognition.
+
+The explicit `canonical_asu_protostructure` and assignment-family routines retain
+the historical experimental signatures, including `lift`; their default result
+uses the same measured convention. They are not identity aliases for the unified
+API. For new upward-search calls use `search_supergroups`. `highest_symmetry`
+retains its advanced legacy search contract. `canonicalize_full` belongs to
+explicit-target representation/alignment and is not a more thorough default.
 
 All exact ordering below is ascending Python tuple ordering unless stated
 otherwise. Fractional coordinates are reduced componentwise modulo one into
 `[0, 1)`. Matrices act on row cell bases as stated in each formula.
 
-```python
-from httk.atomistic import canonical_asu, canonicalize, canonicalize_legacy
+## Declared-symmetry canonicalization
 
-measured = canonical_asu(raw_structure)          # recognition; no upward search
-lift = canonicalize(declared_asu)                 # current terminal convention
-legacy_lift = canonicalize_legacy(declared_asu)   # earlier metric-first terminal
-```
+`canonicalize(asu, symmetry="declared")` performs these steps:
 
-## Exact `canonicalize` wrapper
+1. Validate options and enter the cooperative deadline scope described below.
+2. Require an already materialized `ASUStructure`. An ASU view with a retained
+   or resolved exact ASU can be materialized without recognition; a view requiring
+   recognition raises `TypeError`. No automatic spglib fallback is allowed.
+3. Require full periodicity and reject moments, assemblies and molecular inputs.
+4. Expand the declared ASU exactly to establish the anonymous frame and tied
+   species assignments, using shared-core steps 1–9. Preserve the declared
+   higher-group Wyckoff model; for P1 use the entire anonymous frame.
+5. Apply the shared exact core below to every tied assignment. This includes
+   exact translation/same-group cell reduction, not general upward exploration.
+6. Choose the anonymous geometry first, restore the compatible chemical
+   assignments, then choose the scalar chemical minimum. Restore metadata and
+   source precision under the exact unchanged-crystal gate described below.
+7. Check the deadline and any reported bounded-work skips before returning the
+   ASU. On a limit, raise `CanonicalizationLimitError` without a partial answer.
 
-`canonicalize(structure, tolerance=None, preserve_chirality=True)` performs the
-following steps. The search portion is also the complete behavior of
-`canonicalize_legacy`.
+## Explicit upward search
+
+`search_supergroups` uses the following search; its terminal normalization is
+shared with declared canonicalization. Its intermediate state keys still use
+species names. The measured pipeline's anonymous invariance results do not
+establish chemical-substitution covariance of these search states.
 
 1. Require an `ASUStructure`, full three-dimensional periodicity, no site
    moments, no assemblies, and a non-molecular structure.
@@ -62,7 +95,7 @@ following steps. The search portion is also the complete behavior of
    queue with `(state, path=(), shift=(0,0,0), residual=0)`.
 6. Key a visited state by `(IT number, structure signature)`. The signature is
    the sorted tuple `(species name, Wyckoff letter, complete sorted exact orbit)`
-   for every site followed by the nine exact Gram entries. `highest_symmetry`
+   for every site followed by the nine exact Gram entries. `search_supergroups`
    adds the accumulated path to this key only when `all_paths=True`.
 7. Pop the oldest state. Enumerate distinct minimal parent IT numbers in
    ascending numerical order. Within each parent, enumerate subgroup transforms in table order, then
@@ -81,16 +114,17 @@ following steps. The search portion is also the complete behavior of
    `SubgroupTransform` tuple to `path`, retain the current hop's `shift`, and set
    `residual=max(previous_residual, hop_residual)`. Enqueue the first occurrence
    of its visited key. Raise after 10,000 distinct visited states.
-10. A state with no lift is terminal. Apply the legacy terminal normal form and
-    canonical exact Cartesian orientation. If chirality is not preserved, map a
-    higher enantiomorphic group to its lower partner and normalize again.
-11. Deduplicate terminals by `(IT number, structure signature, path)`. Sort by
-    `(-number of symmetry operations, IT number, residual,
-    canonical_result_key)` and take the first.
-12. Apply the anonymous exact core below to that carried terminal with
-    `preserve_chirality=True`, restore source species and metadata, and replace
-    only the `asu` and `spacegroup` fields of the selected `LiftResult`. Preserve
-    its `path`, `shift`, and `residual` exactly.
+10. A state whose parent evaluation finished with no lift is terminal. Apply the
+    shared anonymous exact core directly, using the requested chirality policy.
+    Restore source metadata and unchanged precision; carry its path, shift and
+    residual unchanged. Check the deadline before retaining the terminal.
+11. Deduplicate completed terminals by `(IT number, structure signature, path)`.
+    Sort by `(-number of symmetry operations, IT number, residual,
+    canonical_result_key)`; expose all candidates, not only the first.
+12. Return the candidates, the count of discovered states (including queued
+    states), and explicit completion status. An interrupted current state or
+    queued frontier is never substituted for a completed terminal. No terminal
+    may have finished yet, so an incomplete result can contain no candidates.
 
 The `canonical_result_key` referenced in steps 7 and 11 is exactly
 
@@ -113,10 +147,11 @@ frame; `residual` is the largest accepted fractional residual. Unrecorded state
 normal forms and the final exact terminal mean that `path` plus `shift` is not a
 recipe for reconstructing `asu`.
 
-## Measured `canonical_asu` wrapper
+## Default structure canonicalization
 
-The measured path contains one intentionally tolerant boundary. Everything
-after recognition is exact.
+`canonicalize(structure)` (equivalently `canonical_asu`) enters its deadline
+scope and follows these steps. The measured path contains one intentionally
+tolerant boundary. Everything after recognition is exact.
 
 1. Present the input as a unit-cell view. Reject an empty occupied-site set,
    site moments, assemblies, molecular structures, or less than full
@@ -157,12 +192,9 @@ after recognition is exact.
    bipartite match. Candidate edges are sorted by `(squared distance, model
    index)` and input roots by `(candidate count, input index)`; deterministic
    augmenting paths require a distinct model site for every input site.
-10. If no candidate fits, raise with the attempted symprecs. Otherwise, with
-    `lift=False`, send the recognized exact ASU directly to the shared core. With
-    `lift=True`, call `canonicalize_legacy` on the anonymous recognized winner
-    to perform the upward search, carry its selected ASU into the one shared-core
-    family pass below, and treat chirality as already settled. This avoids
-    applying the anonymous terminal twice.
+10. If no candidate fits, raise with the attempted symprecs. Otherwise send
+    the recognized exact ASU directly to the shared core. There is no upward
+    search and no `lift` option on this entry point.
 11. Reframe the recognized ASU anonymously again. P1 uses the complete frame;
     higher groups retain their recognized Wyckoff representation and use the P1
     expansion only to establish anonymous class identities.
@@ -173,7 +205,8 @@ after recognition is exact.
     `(site_key, tuple(repr(species)))`. Chemistry is therefore consulted only
     after the anonymous geometry has been fixed.
 14. Restore metadata as described below. No recognition or upward-search pass is
-    run after the exact terminal.
+    run after the exact terminal. Check the deadline and bounded-work status
+    before returning; an incomplete minimum raises rather than returning a value.
 
 The recognition fit uses componentwise minimum-image wrapping and Python binary64
 arithmetic. It is a conservative upper bound for a skew cell outside the
@@ -184,9 +217,8 @@ all spglib builds or floating-point platforms.
 
 ## Shared anonymous exact core
 
-The following 35 steps specify the terminal used by the measured path, the
-terminal replacement used by `canonicalize`, and representative carrying
-classification values. Its input is a recognized exact ASU; it does no
+The following 35 steps specify the shared terminal used by detected and
+declared canonicalization and by classification values carrying representatives. Its input is a recognized exact ASU; it does no
 recognition and no upward symmetry search.
 
 1. **Validate.** Require an exact `ASUStructure`, full periodicity, no moments,
@@ -351,10 +383,9 @@ recognition and no upward symmetry search.
     multisets of `(complete Species, wrapped fractional coordinate)` in the
     expanded unit cell. If equal, restore the source precision bounds for the
     cell and fractional coordinates while keeping the result's canonical cell
-    representation, group, sites, species and metadata. Apply this rule at the exact-family boundary, the outer
-    measured-family boundary, and the `canonicalize` wrapper's final comparison
-    against its original input. This prevents internal, cancelling transforms from
-    inflating precision bounds on an unchanged result. A genuinely changed
+    representation, group, sites, species and metadata. Apply this rule at the
+    exact-family boundary and the outer measured-family boundary. This prevents
+    internal, cancelling transforms from inflating precision bounds on an unchanged result. A genuinely changed
     basis or occupied-site multiset retains the propagated conservative bounds.
 35. **Return.** Return the scalar minimum for `canonical_asu` and
     `canonicalize`; return the exact-deduplicated tied family for
@@ -527,12 +558,58 @@ result is required.
 - Metric automorphisms and discrete translation classes are exact finite
   enumerations with no heuristic candidate cap. Continuous normalizer freedom
   is reduced using the vendored axis-aligned basis convention.
-- The measured default does not run the breadth-first search. The upward-search
-  limits apply only to `canonicalize`, `highest_symmetry`, and
-  `canonical_asu(..., lift=True)`.
+- The measured default and declared canonicalization do not run the breadth-first
+  search. Upward-search limits concern `search_supergroups` and explicit legacy
+  or experimental calls that request that search.
 - The benchmark corpus exercises the measured anonymous recognition path. It
   does not establish full coverage of the upward BFS or prove species covariance
   for its name-bearing intermediate states.
+
+## Limits, completion and migration
+
+`canonicalize` and `search_supergroups` default to `timeout=120.0` seconds;
+`None` disables the deadline. A positive finite value is required. The clock is
+monotonic. A scoped `ContextVar` isolates concurrent callers and restores the
+previous scope even after exceptions; nested scopes cannot extend an enclosing
+deadline. Checkpoints cover recognition sweeps and fitting, anonymous origins,
+normalizer candidates, translation reductions, solver products/recursion, search
+states and parent/cell choices. A result is checked again before return.
+
+This is a **cooperative deadline**, not hard preemption: an individual native
+spglib call or uninterrupted arithmetic operation may overrun it. Process-level
+limits such as `httk memguard` remain useful for batch workloads. A deadline
+changes success versus failure, never which partial minimum becomes canonical.
+`CanonicalizationLimitError` is a `RuntimeError`, so normal recognition retries
+that catch `ValueError` cannot swallow exhaustion.
+
+`SupergroupSearchResult` carries `candidates`, `complete`, `reasons` and
+`states_visited`. Reasons can include `deadline_exceeded`, `state_limit_exceeded`,
+`modular_solver_branch_cap`, `noisy_solver_branch_cap` and
+`fourier_motzkin_limit`. More than one reason can be recorded. Modular/noisy
+branch skips continue exploring other branches but set `complete=False`. An
+escaping Fourier–Motzkin limit stops the search and retains previously completed
+terminals. Completion refers
+to the implemented finite tables and retry conventions, not proof of a global
+maximum over all possible interpretations. Partial candidates are exploratory,
+not canonical identities. The CLI returns a failure status for incomplete search
+and refuses to save its first candidate as a canonical structure.
+
+Legacy calls create no deadline scope, retain their original return types and
+numerical conventions, and retain the old fixed state cap. `highest_symmetry`
+returns all legacy terminals; `canonicalize_legacy` returns its first. Those
+legacy terminals use the historical metric-first terminal and optional chirality
+normalization rather than the shared anonymous terminal used by
+`search_supergroups`. `canonical_asu_legacy` preserves the earlier measured
+recognition/terminal behavior and its optional upward-search flag.
+
+Migration: replace `canonicalize(asu).asu` with `canonicalize(asu)` for ordinary
+canonicalization, or use `symmetry="declared"` to retain the supplied model.
+Code that needs search routes must call `search_supergroups` and inspect
+completion before selecting a candidate. Replace `canonical_asu(..., lift=True)`
+with explicit recognition followed by `search_supergroups(recognized_asu)`;
+remove redundant `lift=False`. Imports of `canonicalize` belong to
+`httk.atomistic`, `httk.atomistic.symmetry` or `symmetry.canonical`, not `lift`.
+Identity-pinned workflows can keep using the explicit legacy functions.
 
 ## Reproducibility pins
 
@@ -599,5 +676,6 @@ or use `canonical_asu_legacy` and `canonicalize_legacy` consistently when
 continuing a legacy build.
 
 The explicit protostructure names remain available for callers that already use
-them. New callers can use `canonical_asu` for measured structures and
-`canonicalize` for declared exact ASUs.
+them. New callers can use `canonicalize` (or its identical alias
+`canonical_asu`) for measured structures, and pass `symmetry="declared"`
+to either name for declared exact ASUs.

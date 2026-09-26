@@ -13,7 +13,7 @@ from httk.atomistic import (
     WyckoffSite,
     backward_lift,
     build_supercell,
-    canonicalize,
+    canonicalize_legacy as canonicalize,
     canonicalize_full,
     list_representations,
     same_crystal,

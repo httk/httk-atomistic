@@ -69,6 +69,7 @@ register_citation(
 __all__ = [
     "DEFAULT_TOLERANCE",
     "AffineOperation",
+    "CanonicalizationLimitError",
     "CommonSubgroupResult",
     "ConventionalCellResult",
     "LiftResult",
@@ -78,6 +79,7 @@ __all__ = [
     "StructurePath",
     "SubgroupRepresentationResult",
     "SubgroupTransform",
+    "SupergroupSearchResult",
     "WyckoffBranch",
     "WyckoffPosition",
     "WyckoffSplitPiece",
@@ -111,6 +113,7 @@ __all__ = [
     "recognize_asu",
     "represent_like",
     "rerepresent",
+    "search_supergroups",
     "structure_delta",
     "structure_tolerance",
     "subgroup_closure",
@@ -122,7 +125,7 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
-    from .canonical import canonical_asu, canonical_asu_legacy
+    from .canonical import canonical_asu, canonical_asu_legacy, canonicalize
     from .canonical_classification import (
         canonical_bare_protostructure,
         canonical_bare_prototype,
@@ -132,14 +135,16 @@ if TYPE_CHECKING:
     from .canonical_protostructure import canonical_asu_protostructure, canonical_asu_protostructure_assignments
     from .lift import (
         LiftResult,
+        SupergroupSearchResult,
         backward_lift,
-        canonicalize,
         canonicalize_legacy,
         highest_symmetry,
         lift_candidates,
         normalize_chirality,
         rerepresent,
+        search_supergroups,
     )
+    from .limits import CanonicalizationLimitError
     from .magnetic import find_magnetic_symmetry
     from .paths import (
         CommonSubgroupResult,
@@ -169,6 +174,11 @@ if TYPE_CHECKING:
 
 
 def __getattr__(name: str) -> object:
+    if name == "CanonicalizationLimitError":
+        from .limits import CanonicalizationLimitError
+
+        globals()[name] = CanonicalizationLimitError
+        return CanonicalizationLimitError
     if name == "find_magnetic_symmetry":
         from .magnetic import find_magnetic_symmetry
 
@@ -265,8 +275,9 @@ def __getattr__(name: str) -> object:
         return globals()[name]
     if name in {
         "LiftResult",
+        "SupergroupSearchResult",
+        "search_supergroups",
         "backward_lift",
-        "canonicalize",
         "canonicalize_legacy",
         "highest_symmetry",
         "lift_candidates",
@@ -275,19 +286,21 @@ def __getattr__(name: str) -> object:
     }:
         from .lift import (
             LiftResult,
+            SupergroupSearchResult,
             backward_lift,
-            canonicalize,
             canonicalize_legacy,
             highest_symmetry,
             lift_candidates,
             normalize_chirality,
             rerepresent,
+            search_supergroups,
         )
 
         globals().update(
             LiftResult=LiftResult,
+            SupergroupSearchResult=SupergroupSearchResult,
+            search_supergroups=search_supergroups,
             backward_lift=backward_lift,
-            canonicalize=canonicalize,
             canonicalize_legacy=canonicalize_legacy,
             highest_symmetry=highest_symmetry,
             lift_candidates=lift_candidates,
@@ -295,10 +308,12 @@ def __getattr__(name: str) -> object:
             rerepresent=rerepresent,
         )
         return globals()[name]
-    if name in {"canonical_asu", "canonical_asu_legacy"}:
-        from .canonical import canonical_asu, canonical_asu_legacy
+    if name in {"canonicalize", "canonical_asu", "canonical_asu_legacy"}:
+        from .canonical import canonical_asu, canonical_asu_legacy, canonicalize
 
-        globals().update(canonical_asu=canonical_asu, canonical_asu_legacy=canonical_asu_legacy)
+        globals().update(
+            canonicalize=canonicalize, canonical_asu=canonical_asu, canonical_asu_legacy=canonical_asu_legacy
+        )
         return globals()[name]
     if name in {"canonical_asu_protostructure", "canonical_asu_protostructure_assignments"}:
         from .canonical_protostructure import canonical_asu_protostructure, canonical_asu_protostructure_assignments

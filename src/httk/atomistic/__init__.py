@@ -184,7 +184,8 @@ from httk.atomistic.symmetry.subgroups import (
     subgroup_representation,
     supergroup_closure,
 )
-from httk.atomistic.symmetry.canonical import canonical_asu, canonical_asu_legacy
+from httk.atomistic.symmetry.canonical import canonical_asu, canonical_asu_legacy, canonicalize
+from httk.atomistic.symmetry.limits import CanonicalizationLimitError
 from httk.atomistic.symmetry.canonical_classification import (
     canonical_bare_prototype,
     canonical_bare_protostructure,
@@ -197,8 +198,9 @@ from httk.atomistic.symmetry.canonical_protostructure import (
 )
 from httk.atomistic.symmetry.lift import (
     LiftResult,
+    SupergroupSearchResult,
+    search_supergroups,
     backward_lift,
-    canonicalize,
     canonicalize_legacy,
     highest_symmetry,
     lift_candidates,
@@ -324,6 +326,7 @@ __all__ = [
     "BarePrototypeLike",
     "BarePrototypeRecord",
     "BarePrototypeView",
+    "CanonicalizationLimitError",
     "CartesianSiteMoments",
     "CartesianSiteMomentsView",
     "Cell",
@@ -395,6 +398,7 @@ __all__ = [
     "StructuretypeView",
     "SubgroupRepresentationResult",
     "SupercellResult",
+    "SupergroupSearchResult",
     "SymopsStructure",
     "Trajectory",
     "TrajectoryEntry",
@@ -448,6 +452,7 @@ __all__ = [
     "rerepresent",
     "same_crystal",
     "save_vesta",
+    "search_supergroups",
     "structure_delta",
     "structure_tolerance",
     "subgroup_closure",

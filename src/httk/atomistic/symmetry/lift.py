@@ -9,7 +9,7 @@ is in a hexagonal-axes standard setting, so their metric constraint is a=b with 
 gamma=120. Normalizer retry applies tabulated cosets to child fractional coordinates, maps
 successful results back with the exact inverse, and follows tabulated coset order.
 
-On top of the one-hop lift, :func:`highest_symmetry` / :func:`canonicalize` search upward for the
+On top of the one-hop lift, :func:`highest_symmetry` / :func:`search_supergroups` search upward for the
 highest-symmetry description of a crystal and return one deterministic, normalizer-canonical
 representative.  Every search state is reduced to a normal form that collapses same-group
 descriptions of the same crystal: mislabeled special sites are demoted, and the state is quotiented
@@ -24,7 +24,7 @@ P1 / unit-cell start, build the ASU in SG 1 and canonicalize it::
     sites = [WyckoffSite("a", FracVector((0, 0, 0)), "Cs"),
              WyckoffSite("a", FracVector((Fraction(1, 2),) * 3), "Cl")]
     p1 = ASUStructure(cell, 1, sites, [Species(...), Species(...)])
-    result = canonicalize(p1)  # result.spacegroup.it_number == 221
+    search = search_supergroups(p1)  # inspect search.complete before selecting candidates
 
 The upward search lifts each state through three fail-only tiers, tried in order and only when the
 earlier ones return nothing for a state: (1) the direct tabulated lift; (2) tabulated
@@ -70,6 +70,13 @@ from httk.atomistic.symmetry._standardization_common import (
     _scaled_precision,
 )
 from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.limits import (
+    CanonicalizationLimitError,
+    _budget_scope,
+    _checkpoint,
+    _incomplete,
+    _incomplete_count,
+)
 from httk.atomistic.symmetry.recognition import (
     _cartesian_distance_squared,
     structure_tolerance,
@@ -90,13 +97,18 @@ from httk.atomistic.symmetry.subgroups import (
 __all__ = [
     "COMPATIBLE_CRYSTAL_SYSTEMS",
     "LiftResult",
+    "SupergroupSearchResult",
     "backward_lift",
-    "canonicalize",
     "canonicalize_legacy",
     "highest_symmetry",
     "lift_candidates",
     "rerepresent",
+    "search_supergroups",
 ]
+
+
+class _SolverLimitError(ValueError):
+    """A bounded exact solver could not finish its candidate enumeration."""
 
 
 COMPATIBLE_CRYSTAL_SYSTEMS: dict[str, frozenset[str]] = {
@@ -242,7 +254,9 @@ def _fourier_motzkin(inequalities: tuple[_Inequality, ...]) -> tuple[_Inequality
     ]
     result = list(zero)
     for upper in positive:
+        _checkpoint()
         for lower in negative:
+            _checkpoint()
             upper_coefficient = upper.coefficients[0]
             lower_coefficient = lower.coefficients[0]
             result.append(
@@ -257,7 +271,8 @@ def _fourier_motzkin(inequalities: tuple[_Inequality, ...]) -> tuple[_Inequality
             )
     if len(result) > _MAX_FOURIER_MOTZKIN_INEQUALITIES:
         # ponytail: capped FM; replace with a polyhedral package only if table dimensions grow materially.
-        raise ValueError("Fourier-Motzkin inequality cap exceeded")
+        _incomplete("fourier_motzkin_limit")
+        raise _SolverLimitError("Fourier-Motzkin inequality cap exceeded")
     return tuple(result)
 
 
@@ -268,14 +283,17 @@ def _inequality_feasible(inequalities: tuple[_Inequality, ...]) -> bool:
 def _choose_feasible_free_values(inequalities: tuple[_Inequality, ...], free_count: int) -> tuple[Fraction, ...] | None:
     stages = [inequalities]
     for _ in range(free_count):
+        _checkpoint()
         stages.append(_fourier_motzkin(stages[-1]))
     if not _inequality_feasible(stages[-1]):
         return None
     chosen: list[Fraction] = []
     for stage in reversed(stages[:-1]):
+        _checkpoint()
         lower: tuple[Fraction, bool] | None = None
         upper: tuple[Fraction, bool] | None = None
         for inequality in stage:
+            _checkpoint()
             coefficient = inequality.coefficients[0]
             remainder = sum(value * chosen[index] for index, value in enumerate(inequality.coefficients[1:]))
             bound = inequality.bound - remainder
@@ -334,7 +352,8 @@ def _linear_solve(matrix: tuple[tuple[Fraction, ...], ...], rhs: tuple[Fraction,
         return None
     free_columns = tuple(column for column in range(width) if column not in pivot_columns)
     if len(free_columns) > 12:
-        raise ValueError("Fourier-Motzkin free-variable cap exceeded")
+        _incomplete("fourier_motzkin_limit")
+        raise _SolverLimitError("Fourier-Motzkin free-variable cap exceeded")
     inequalities: list[_Inequality] = []
     for index in range(len(free_columns)):
         coefficients = [Fraction(0)] * len(free_columns)
@@ -535,6 +554,7 @@ def _lattice_box_points(
     # coefficient's finite range follows from the box corners componentwise.
     ranges: list[range] = []
     for index in range(dimension):
+        _checkpoint()
         projector = tuple(
             sum(pseudo_inverse[index][j] * null_basis[j][row] for j in range(dimension))
             for row in range(len(particular))
@@ -542,6 +562,7 @@ def _lattice_box_points(
         low_sum = Fraction(0)
         high_sum = Fraction(0)
         for row, coefficient in enumerate(projector):
+            _checkpoint()
             first = coefficient * (lows[row] - particular[row])
             second = coefficient * (highs[row] - particular[row])
             low_sum += min(first, second)
@@ -551,6 +572,7 @@ def _lattice_box_points(
         return None
     points: list[tuple[int, ...]] = []
     for coefficients in itertools.product(*ranges):
+        _checkpoint()
         point = tuple(
             particular[row] + sum(coefficients[index] * columns[row][index] for index in range(dimension))
             for row in range(len(particular))
@@ -580,6 +602,7 @@ def _exact_modular_solution(
     if points is None:
         return None
     for integers in points:
+        _checkpoint()
         rhs = tuple(Fraction(integer) - constant for integer, constant in zip(integers, constants))
         solution = _linear_solve(matrix, rhs)
         if solution is not None:
@@ -603,6 +626,7 @@ def _solve_modular(equations: tuple[_Equation, ...]) -> tuple[tuple[Fraction, ..
     if branches > _MAX_SOLVER_BRANCHES:
         raise ValueError("exact modular lift solver branch cap exceeded")
     if branches > _MAX_NOISY_SWEEP_BRANCHES:
+        _incomplete("noisy_solver_branch_cap")
         # No exact wrap exists (the exact path already ran); a noisy match this deep in the wrap box
         # is not a real lift, so fail the candidate cheaply rather than grinding the full sweep.  This
         # can in principle silently drop a genuinely noisy lift in a large box, so record it on the
@@ -616,6 +640,7 @@ def _solve_modular(equations: tuple[_Equation, ...]) -> tuple[tuple[Fraction, ..
         return None
     best: tuple[tuple[Fraction, ...], Fraction, bool] | None = None
     for integers in itertools.product(*(tuple(item) for item in options)):
+        _checkpoint()
         rhs = tuple(Fraction(integer) - constant for integer, constant in zip(integers, constants))
         solution = _linear_solve(matrix, rhs)
         if solution is not None:
@@ -885,19 +910,23 @@ def _candidate_list(
     parent_labels = tuple(sorted(transform.splittings))
     target_counts: dict[str, int] = defaultdict(int)
     for orbit in orbits:
+        _checkpoint()
         target_counts[orbit.site.wyckoff] += 1
     candidates: list[_Candidate] = []
     for parent_label in parent_labels:
+        _checkpoint()
         parent_position = transform.parent.wyckoff_position(parent_label)
         pieces = transform.splittings[parent_label]
         piece_counts: dict[str, int] = defaultdict(int)
         for piece in pieces:
+            _checkpoint()
             piece_counts[piece.letter] += 1
         if any(label not in target_counts for label in piece_counts):
             continue
         piece_labels = {piece.letter for piece in pieces}
         species_values = sorted({orbit.site.species for orbit in orbits})
         for species in species_values:
+            _checkpoint()
             choices = [
                 tuple(
                     orbit.index
@@ -938,6 +967,7 @@ def _candidate_list(
                     # class of input matters.
                     branch_counts = [len(orbits[index].position.branches) for _, index in _selected]
                     for combo in itertools.product(*(range(count) for count in branch_counts)):
+                        _checkpoint()
                         equations = tuple(
                             _equation(
                                 _parent_position,
@@ -975,6 +1005,7 @@ def _candidate_list(
                     return
                 piece_index = _order[depth]
                 for orbit_index in _choices[piece_index]:
+                    _checkpoint()
                     _selected.append((piece_index, orbit_index))
                     visit(depth + 1)
                     _selected.pop()
@@ -1194,7 +1225,9 @@ def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, toler
         return ()
     by_orbit: dict[int, list[int]] = defaultdict(list)
     for index, candidate in enumerate(candidates):
+        _checkpoint()
         for orbit in candidate.covered:
+            _checkpoint()
             by_orbit[orbit].append(index)
     all_orbits = frozenset(range(len(structure.wyckoff_sites)))
     shift_vectors = _shift_basis(structure)
@@ -1221,6 +1254,7 @@ def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, toler
             offsets: list[tuple[int, int]] = []
             total_parent = 0
             for candidate in chosen:
+                _checkpoint()
                 count = transform.parent.wyckoff_position(candidate.parent_letter).free_count
                 offsets.append((total_parent, count))
                 total_parent += count
@@ -1235,6 +1269,7 @@ def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, toler
             solution, _, _ = solved
             parent_parameters: list[tuple[str, FracVector, str]] = []
             for candidate, (offset, count) in zip(chosen, offsets, strict=True):
+                _checkpoint()
                 parent_parameters.append(
                     (candidate.parent_letter, FracVector(solution[offset : offset + count]), candidate.species)
                 )
@@ -1254,6 +1289,7 @@ def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, toler
             shift = _matvec(_transpose(shift_vectors), solution[total_parent:]) if shift_vectors else (Fraction(0),) * 3
             residual = metric_cell.fractional_deviation
             for candidate, (offset, count) in zip(chosen, offsets, strict=True):
+                _checkpoint()
                 position = transform.parent.wyckoff_position(candidate.parent_letter)
                 check = _validate_candidate(
                     candidate,
@@ -1275,6 +1311,7 @@ def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, toler
             if alternate is not None and alternate != solution:
                 alternate_sites = []
                 for candidate, (offset, count) in zip(chosen, offsets, strict=True):
+                    _checkpoint()
                     alternate_sites.append(
                         WyckoffSite(
                             candidate.parent_letter,
@@ -1299,6 +1336,7 @@ def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, toler
                     alternate_residual = metric_cell.fractional_deviation
                     valid = True
                     for candidate, (offset, count) in zip(chosen, offsets, strict=True):
+                        _checkpoint()
                         check = _validate_candidate(
                             candidate,
                             alternate[offset : offset + count] + alternate[total_parent:],
@@ -1328,6 +1366,7 @@ def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, toler
             return
         pivot = min(remaining, key=lambda item: sum(index not in used for index in by_orbit[item]))
         for candidate_index in by_orbit[pivot]:
+            _checkpoint()
             if candidate_index in used:
                 continue
             candidate = candidates[candidate_index]
@@ -1346,6 +1385,7 @@ def _lift_transform(structure: ASUStructure, transform: SubgroupTransform, toler
     results = [result for result in results if _round_trip_reproduces(structure, result.asu, transform, tolerance)]
     deduplicated: dict[tuple[Any, ...], LiftResult] = {}
     for result in results:
+        _checkpoint()
         deduplicated.setdefault(_canonical_result_key(result), result)
     return tuple(deduplicated[key] for key in sorted(deduplicated))
 
@@ -1700,6 +1740,7 @@ def _polar_translation_normal_form(structure: ASUStructure, axes: list[int]) -> 
     axis = axes[0]
     orbits: list[tuple[str, str, tuple[tuple[Fraction, ...], ...]]] = []
     for site in structure.wyckoff_sites:
+        _checkpoint()
         points = tuple(
             tuple(value % 1 for value in point.to_fractions()) for point in position.coordinates(site.free_params)
         )
@@ -1742,6 +1783,7 @@ def _polar_translation_normal_form(structure: ASUStructure, axes: list[int]) -> 
     winner = Fraction(0)
     best_key = translated_key(winner)
     for candidate in sorted(candidates):
+        _checkpoint()
         if not candidate:
             continue
         key = translated_key(candidate)
@@ -1778,11 +1820,14 @@ def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
     identity = FracVector.eye((3, 3))
     candidates: set[tuple[Fraction, ...]] = {(Fraction(0), Fraction(0), Fraction(0))}
     for site in structure.wyckoff_sites:
+        _checkpoint()
         position = structure.spacegroup.wyckoff_position(site.wyckoff)
         for point in position.coordinates(site.free_params):
+            _checkpoint()
             values = FracVector(point).normalize().to_fractions()
             translation = [Fraction(0), Fraction(0), Fraction(0)]
             for index in axes:
+                _checkpoint()
                 translation[index] = (-values[index]) % 1
             candidates.add(tuple(translation))
 
@@ -1825,6 +1870,7 @@ def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
     best = structure
     best_key = _site_key(structure)
     for candidate in sorted(candidates):
+        _checkpoint()
         if not any(candidate):
             continue
         image = _apply_normalizer_operation(
@@ -1865,11 +1911,13 @@ def _metric_automorphism_operations(
     lower = [[Fraction(int(row == column)) for column in range(3)] for row in range(3)]
     diagonal = [Fraction(0), Fraction(0), Fraction(0)]
     for column in range(3):
+        _checkpoint()
         diagonal[column] = gram[column][column] - sum(
             (lower[column][prior] * lower[column][prior] * diagonal[prior] for prior in range(column)),
             Fraction(0),
         )
         for row in range(column + 1, 3):
+            _checkpoint()
             lower[row][column] = (
                 gram[row][column]
                 - sum(
@@ -1900,6 +1948,7 @@ def _metric_automorphism_operations(
             bound = remaining / diagonal[index]
             if index == 0:
                 for root in exact_square_roots(bound):
+                    _checkpoint()
                     exact_coordinate = root - offset
                     if exact_coordinate.denominator == 1:
                         vector[0] = exact_coordinate.numerator
@@ -1911,6 +1960,7 @@ def _metric_automorphism_operations(
             # conservative integer interval; the exact inequality below removes its fringe.
             centre_floor = (-offset).numerator // (-offset).denominator
             for integer_coordinate in range(centre_floor - radius - 2, centre_floor + radius + 3):
+                _checkpoint()
                 term = diagonal[index] * (Fraction(integer_coordinate) + offset) ** 2
                 if term > remaining:
                     continue
@@ -1923,10 +1973,13 @@ def _metric_automorphism_operations(
     row_candidates = tuple(candidates(gram[index][index]) for index in range(3))
     operations: list[AffineOperation] = []
     for first in row_candidates[0]:
+        _checkpoint()
         for second in row_candidates[1]:
+            _checkpoint()
             if _bilinear(gram, first, second) != gram[0][1]:
                 continue
             for third in row_candidates[2]:
+                _checkpoint()
                 if _bilinear(gram, first, third) != gram[0][2] or _bilinear(gram, second, third) != gram[1][2]:
                     continue
                 rows = (first, second, third)
@@ -2030,10 +2083,12 @@ def _normal_form(structure: ASUStructure) -> ASUStructure:
     best: ASUStructure | None = None
     best_key: tuple[Any, ...] | None = None
     for operation in operations:
+        _checkpoint()
         image = _apply_normalizer_operation(structure, operation)
         if image is None:
             continue
         for translation in translations:
+            _checkpoint()
             if any(translation):
                 shifted = _apply_normalizer_operation(image, AffineOperation(identity_matrix, FracVector(translation)))
             else:
@@ -2102,6 +2157,7 @@ def _terminal_normal_form(structure: ASUStructure) -> ASUStructure:
     # candidates; keep one per matrix (preferring the true identity for the final tie-break).
     point_operations: dict[tuple[tuple[Fraction, ...], ...], AffineOperation] = {}
     for operation in structure.spacegroup.symmetry_operations:
+        _checkpoint()
         matrix_key = tuple(tuple(row) for row in operation.matrix.to_fractions())
         if matrix_key not in point_operations or operation.is_identity():
             point_operations[matrix_key] = operation
@@ -2111,7 +2167,9 @@ def _terminal_normal_form(structure: ASUStructure) -> ASUStructure:
     # higher metric tier cannot beat a successful member of this one.
     by_metric: dict[tuple[Any, ...], list[tuple[AffineOperation, AffineOperation]]] = {}
     for representative in representatives:
+        _checkpoint()
         for group_operation in point_operations.values():
+            _checkpoint()
             operation = representative * group_operation
             metric_key = _normalizer_metric_key(structure, operation)
             by_metric.setdefault(metric_key, []).append((representative, group_operation))
@@ -2138,14 +2196,18 @@ def _terminal_normal_form(structure: ASUStructure) -> ASUStructure:
         return cached
 
     for metric_key in sorted(by_metric):
+        _checkpoint()
         grouped: dict[AffineOperation, list[AffineOperation]] = {}
         for representative, group_operation in by_metric[metric_key]:
+            _checkpoint()
             grouped.setdefault(representative, []).append(group_operation)
         for representative, group_operations in grouped.items():
+            _checkpoint()
             image = _apply_normalizer_operation(structure, representative, trusted=True)
             if image is None:
                 continue
             for translation in translations:
+                _checkpoint()
                 if any(translation):
                     shifted = _apply_normalizer_operation(
                         image,
@@ -2171,6 +2233,7 @@ def _terminal_normal_form(structure: ASUStructure) -> ASUStructure:
                 inverted_reduced: ASUStructure | None = None
                 inversion_attempted = False
                 for group_operation in group_operations:
+                    _checkpoint()
                     basis = SurdVector(group_operation.matrix.T().inv()) * reduced.cell.basis
                     site_source = reduced
                     if basis.det().sign() < 0:
@@ -2237,9 +2300,11 @@ def _normalizer_retries(structure: ASUStructure, target: Spacegroup, tolerance: 
     results: list[LiftResult] = []
     images: dict[tuple[Any, ...], ASUStructure | None] = {}
     for transform in transforms:
+        _checkpoint()
         if not _multiplicity_possible(structure, transform):
             continue
         for coset in record.get("affine_normalizer_cosets", ()):
+            _checkpoint()
             if target.crystal_system not in coset["compatible_systems"]:
                 continue
             affine = coset["affine_transformation"]
@@ -2257,12 +2322,14 @@ def _normalizer_retries(structure: ASUStructure, target: Spacegroup, tolerance: 
             operation = AffineOperation.from_record(coset)
             correction = transform.operation * operation.inverse() * transform.operation.inverse()
             for match in matches:
+                _checkpoint()
                 restored = _apply_normalizer_operation(match.asu, correction)
                 if restored is None:
                     continue
                 results.append(LiftResult(restored, match.spacegroup, match.path, match.shift, match.residual))
     deduplicated: dict[tuple[Any, ...], LiftResult] = {}
     for result in results:
+        _checkpoint()
         deduplicated.setdefault(_canonical_result_key(result), result)
     return tuple(deduplicated[key] for key in sorted(deduplicated))
 
@@ -2319,9 +2386,11 @@ def _search_conventional_basis(
 
     best: tuple[tuple[Any, ...], tuple[tuple[int, ...], ...]] | None = None
     for a in short:
+        _checkpoint()
         length_a = _bilinear(gram, a, a)
         for b in short:
             # Prune on the constraints that involve only the first two axes before the c loop.
+            _checkpoint()
             if (0, 1) in equal_lengths and _bilinear(gram, b, b) != length_a:
                 continue
             if any(not angle_ok((a, b, a), index, degrees) for index, degrees in basal_angles):
@@ -2332,6 +2401,7 @@ def _search_conventional_basis(
             if c_perpendicular_to_b:
                 candidates = candidates & perpendicular[b] if c_perpendicular_to_a else perpendicular[b]
             for c in candidates:
+                _checkpoint()
                 rows: tuple[tuple[int, ...], ...] = (a, b, c)
                 if _integer_determinant(rows) == 0:
                     continue
@@ -2405,8 +2475,10 @@ def _primitive_conventional_bases(
 
     found: list[tuple[tuple[int, ...], ...]] = []
     for a in short:
+        _checkpoint()
         length_a = _bilinear(gram, a, a)
         for b in short:
+            _checkpoint()
             if (0, 1) in equal_lengths and _bilinear(gram, b, b) != length_a:
                 continue
             if any(not angle_ok((a, b, a), index, degrees) for index, degrees in basal_angles):
@@ -2416,6 +2488,7 @@ def _primitive_conventional_bases(
             else:
                 candidates = short
             for c in candidates:
+                _checkpoint()
                 rows = (a, b, c)
                 if _integer_determinant(rows) == 0:
                     continue
@@ -2565,6 +2638,7 @@ def _centred_recell_lifts(
     identity_matrix = FracVector.eye((3, 3))
     results: list[LiftResult] = []
     for basis in _primitive_conventional_bases(primitive_gram, transform.parent.crystal_system):
+        _checkpoint()
         integer_candidate = tuple(tuple(Fraction(value) for value in row) for row in basis)
         new_cell_primitive = _matmul3(matrix_transpose, integer_candidate)
         if any(value.denominator != 1 for row in new_cell_primitive for value in row):
@@ -2581,6 +2655,7 @@ def _centred_recell_lifts(
         if _cell_for_transform(image, transform, tolerance) is None:
             continue
         for translation in _discrete_normalizer_translations(structure.spacegroup):
+            _checkpoint()
             shifted = (
                 image
                 if not any(translation)
@@ -2628,6 +2703,7 @@ def _recell_lifts(structure: ASUStructure, target: Spacegroup, tolerance: float)
     child_gram = tuple(tuple(value for value in row) for row in child_gram_surd.to_fractions_approx())
     results: list[LiftResult] = []
     for transform in subgroup_transforms(target, structure.spacegroup):
+        _checkpoint()
         if not _multiplicity_possible(structure, transform):
             continue
         if _cell_for_transform(structure, transform, tolerance) is not None:
@@ -2641,6 +2717,7 @@ def _recell_lifts(structure: ASUStructure, target: Spacegroup, tolerance: float)
         results.extend(lifted)
     deduplicated: dict[tuple[Any, ...], LiftResult] = {}
     for result in results:
+        _checkpoint()
         deduplicated.setdefault(_canonical_result_key(result), result)
     return tuple(deduplicated[key] for key in sorted(deduplicated))
 
@@ -2650,9 +2727,11 @@ def _raw_lifts(structure: ASUStructure, target: Spacegroup, tolerance: float) ->
         return ()
     results: list[LiftResult] = []
     for transform in subgroup_transforms(target, structure.spacegroup):
+        _checkpoint()
         results.extend(_lift_transform(structure, transform, tolerance))
     deduplicated: dict[tuple[Any, ...], LiftResult] = {}
     for result in results:
+        _checkpoint()
         deduplicated.setdefault(_canonical_result_key(result), result)
     return tuple(deduplicated[key] for key in sorted(deduplicated))
 
@@ -2721,6 +2800,7 @@ def _highest_lifts(structure: ASUStructure, tolerance: float) -> tuple[LiftResul
     parents = minimal_supergroups(structure.spacegroup)
     indices_by_parent: dict[int, dict[SubgroupTransform, int]] = {}
     for parent_number in parents:
+        _checkpoint()
         transforms = subgroup_transforms(parent_number, structure.spacegroup)
         indices = {transform: index for index, transform in enumerate(transforms)}
         indices_by_parent[parent_number] = indices
@@ -2734,6 +2814,7 @@ def _highest_lifts(structure: ASUStructure, tolerance: float) -> tuple[LiftResul
         except ValueError as error:
             if "branch cap exceeded" not in str(error):
                 raise
+            _incomplete("modular_solver_branch_cap")
             # One hopeless parent target may saturate the modular solver's per-row product; skip it
             # so the breadth-first search still explores the remaining minimal supergroups.
             logging.getLogger(__name__).warning(
@@ -2741,6 +2822,7 @@ def _highest_lifts(structure: ASUStructure, tolerance: float) -> tuple[LiftResul
             )
             continue
         for result in candidates:
+            _checkpoint()
             if result.path and result.path[0] in indices:
                 results.append((parent_number, indices[result.path[0]], result))
     if not results:
@@ -2748,11 +2830,14 @@ def _highest_lifts(structure: ASUStructure, tolerance: float) -> tuple[LiftResul
         # exact conventional-cell re-choice search, so its cost never touches states that climb
         # normally (the search is dormant on every P-lattice battery).
         for parent_number in parents:
+            _checkpoint()
             for result in _recell_lifts(structure, Spacegroup.standard(parent_number), tolerance):
+                _checkpoint()
                 if result.path and result.path[0] in indices_by_parent[parent_number]:
                     results.append((parent_number, indices_by_parent[parent_number][result.path[0]], result))
     deduplicated: dict[tuple[Any, ...], tuple[int, int, LiftResult]] = {}
     for parent_number, table_index, result in results:
+        _checkpoint()
         key = (parent_number, table_index, _canonical_result_key(result))
         deduplicated.setdefault(key, (parent_number, table_index, result))
     return tuple(
@@ -2946,11 +3031,13 @@ def _exact_translations(atoms: list[tuple[str, tuple[Fraction, ...]]]) -> list[t
     """
     by_species: dict[str, Counter[tuple[Fraction, ...]]] = defaultdict(Counter)
     for species, coordinate in atoms:
+        _checkpoint()
         by_species[species][coordinate] += 1
     smallest = min(by_species.values(), key=lambda counts: counts.total())
     anchor = FracVector(next(iter(smallest)))
     translations: list[tuple[Fraction, ...]] = []
     for point in smallest:
+        _checkpoint()
         candidate = (FracVector(point) - anchor).normalize()
         if not any(candidate.to_fractions()):
             continue
@@ -3019,6 +3106,7 @@ def _primitive_reduced_entry(structure: ASUStructure) -> ASUStructure:
     inverse = _rational_inverse(lattice)
     collapsed: dict[tuple[str, tuple[Fraction, ...]], int] = defaultdict(int)
     for species, coordinate in atoms:
+        _checkpoint()
         reduced = tuple((FracVector(coordinate) * FracVector(inverse)).normalize().to_fractions())
         collapsed[(species, reduced)] += 1
     if any(count != multiplicity for count in collapsed.values()):
@@ -3057,8 +3145,10 @@ def _pseudo_translations(structure: ASUStructure) -> list[tuple[Fraction, ...]]:
     """
     atoms: list[tuple[str, tuple[Fraction, ...]]] = []
     for site in structure.wyckoff_sites:
+        _checkpoint()
         position = structure.spacegroup.wyckoff_position(site.wyckoff)
         for point in position.coordinates(site.free_params):
+            _checkpoint()
             atoms.append((site.species, tuple(FracVector(point).normalize().to_fractions())))
     if len(atoms) < 2:
         return []
@@ -3100,6 +3190,7 @@ def _isomorphic_reduced_entry(structure: ASUStructure) -> ASUStructure:
     from httk.atomistic.symmetry.subgroups import isomorphic_subgroup_transforms
 
     while True:
+        _checkpoint()
         pseudo = _pseudo_translations(structure)
         if not pseudo:
             return structure
@@ -3108,6 +3199,7 @@ def _isomorphic_reduced_entry(structure: ASUStructure) -> ASUStructure:
         transforms: list[SubgroupTransform] = []
         seen: set[SubgroupTransform] = set()
         for transform in subgroup_transforms(number, number) + isomorphic_subgroup_transforms(number):
+            _checkpoint()
             if transform.index <= 1 or implied_index % transform.index != 0:
                 continue
             if transform in seen:
@@ -3117,6 +3209,7 @@ def _isomorphic_reduced_entry(structure: ASUStructure) -> ASUStructure:
         transforms.sort(key=lambda transform: transform.index)  # stable: table order within an index
         landed: ASUStructure | None = None
         for transform in transforms:
+            _checkpoint()
             results = _lift_transform(structure, transform, 0.0)
             if results:
                 landed = min(results, key=_canonical_result_key).asu
@@ -3299,43 +3392,146 @@ def highest_symmetry(
         raise ValueError("highest_symmetry does not support structures with assemblies")
     if structure.molecular:
         raise ValueError("highest_symmetry does not support molecular structures")
-    # Standardize, collapse exact P1 supercells, Niggli-reduce triclinic cells, and take the normal
-    # form -- the state the breadth-first search starts from.
-    current = _canonical_entry(structure)
-    accepted_tolerance = structure_tolerance(current) if tolerance is None else float(tolerance)
-    queue: list[tuple[ASUStructure, tuple[SubgroupTransform, ...], FracVector, Fraction]] = [
-        (current, (), FracVector((0, 0, 0)), Fraction(0))
-    ]
-    start_signature = (current.spacegroup.it_number, _structure_signature(current))
-    visited: set[tuple[Any, ...]] = {(*start_signature, ()) if all_paths else start_signature}
+    return _run_search(structure, tolerance, all_paths, preserve_chirality, max_states=10_000, partial=False).candidates
+
+
+@dataclass(frozen=True, slots=True)
+class SupergroupSearchResult:
+    """Completed terminal candidates and the scope of an upward search.
+
+    ``complete`` concerns the implemented finite search, not every possible symmetry
+    interpretation. Incomplete candidates are exploratory and must not be used as a
+    canonical identity. Candidates may be empty when no terminal finished in time.
+
+    :param candidates: Fully evaluated terminal lifts, sorted by symmetry and exact key.
+    :param complete: Whether the search finished without hitting a limit or skipping a solver branch.
+    :param reasons: Stable incompleteness codes; empty for a completed search.
+    :param states_visited: Number of distinct discovered states, including queued states.
+    """
+
+    candidates: tuple[LiftResult, ...]
+    complete: bool
+    reasons: tuple[str, ...]
+    states_visited: int
+
+
+def search_supergroups(
+    structure: ASUStructure,
+    *,
+    tolerance: float | None = None,
+    all_paths: bool = False,
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+    max_states: int = 10_000,
+) -> SupergroupSearchResult:
+    """Explore higher symmetry with explicit limits and completion information.
+
+    The declared exact ASU starts the existing breadth-first search. Finished
+    terminals use the anonymous canonical convention. Route fields remain provenance,
+    not a transform reconstructing the final ASU. The deadline is cooperative and
+    cannot interrupt one native call or arithmetic operation. Legacy searches remain
+    available through :func:`highest_symmetry` and :func:`canonicalize_legacy`.
+
+    :param structure: An already materialized exact asymmetric unit.
+    :param tolerance: Cartesian lift tolerance, or the precision-derived default.
+    :param all_paths: Whether distinct routes to the same state are retained.
+    :param preserve_chirality: Whether to retain enantiomorphic handedness.
+    :param timeout: Cooperative seconds for the whole search; ``None`` disables the deadline.
+    :param max_states: Positive maximum number of discovered search states.
+    :return: Completed terminal candidates and explicit completion status.
+    :raises TypeError: If the input is not a materialized ASUStructure.
+    :raises ValueError: If limits or the structure are unsupported.
+    """
+    from httk.atomistic.symmetry.canonical import _declared_asu
+    from httk.atomistic.symmetry.canonical_protostructure import _validate_exact_input
+
+    if isinstance(max_states, bool) or not isinstance(max_states, int) or max_states < 1:
+        raise ValueError("max_states must be a positive integer")
+    if tolerance is not None and (not math.isfinite(tolerance) or tolerance < 0):
+        raise ValueError("tolerance must be finite and nonnegative")
+    with _budget_scope(timeout) as budget:
+        source = _declared_asu(structure)
+        _validate_exact_input(source)
+        result = _run_search(source, tolerance, all_paths, preserve_chirality, max_states=max_states, partial=True)
+        try:
+            _checkpoint()
+        except CanonicalizationLimitError:
+            pass
+        return SupergroupSearchResult(
+            result.candidates, not budget.reasons, tuple(budget.reasons), result.states_visited
+        )
+
+
+def _run_search(
+    structure: ASUStructure,
+    tolerance: float | None,
+    all_paths: bool,
+    preserve_chirality: bool,
+    *,
+    max_states: int,
+    partial: bool,
+) -> SupergroupSearchResult:
+    visited: set[tuple[Any, ...]] = set()
     terminals: list[LiftResult] = []
-    while queue:
-        state, path, shift, residual = queue.pop(0)
-        lifts = _highest_lifts(state, accepted_tolerance)
-        if not lifts:
-            emitted = _canonical_orientation(_terminal_normal_form(state))
-            if not preserve_chirality:
-                emitted = _normalize_chirality_legacy(emitted)
-            terminals.append(_terminal_result(emitted, path, shift, residual))
-            continue
-        for result in lifts:
-            next_state = _normal_form(result.asu)
-            next_path = path + result.path
-            signature = (next_state.spacegroup.it_number, _structure_signature(next_state))
-            # all_paths keys the visited set on the route too, so alternate routes to a state are all
-            # explored rather than collapsed to the first one reached.
-            key = (*signature, next_path) if all_paths else signature
-            if key in visited:
+    try:
+        _checkpoint()
+        current = _canonical_entry(structure)
+        accepted_tolerance = structure_tolerance(current) if tolerance is None else float(tolerance)
+        queue: list[tuple[ASUStructure, tuple[SubgroupTransform, ...], FracVector, Fraction]] = [
+            (current, (), FracVector((0, 0, 0)), Fraction(0))
+        ]
+        start_signature = (current.spacegroup.it_number, _structure_signature(current))
+        visited.add((*start_signature, ()) if all_paths else start_signature)
+        while queue:
+            _checkpoint()
+            state, path, shift, residual = queue.pop(0)
+            incomplete_before = _incomplete_count()
+            lifts = _highest_lifts(state, accepted_tolerance)
+            if not lifts:
+                if partial and _incomplete_count() != incomplete_before:
+                    continue
+                if partial:
+                    from httk.atomistic.symmetry.canonical_protostructure import (
+                        _canonical_protostructure_asu,
+                        _restore_source_metadata,
+                        _restore_unchanged_precision,
+                    )
+
+                    emitted = _canonical_protostructure_asu(state, preserve_chirality=preserve_chirality)
+                    emitted = _restore_source_metadata(emitted, structure)
+                    emitted = _restore_unchanged_precision(emitted, structure)
+                else:
+                    emitted = _canonical_orientation(_terminal_normal_form(state))
+                    if not preserve_chirality:
+                        emitted = _normalize_chirality_legacy(emitted)
+                _checkpoint()
+                if partial and _incomplete_count() != incomplete_before:
+                    continue
+                terminals.append(_terminal_result(emitted, path, shift, residual))
                 continue
-            if len(visited) >= 10_000:
-                # ponytail: bounded state scan; add quotient-graph memoization if tables grow materially.
-                raise ValueError(f"highest_symmetry search cap exceeded for {current.spacegroup.setting}")
-            visited.add(key)
-            queue.append((next_state, next_path, result.shift, max(residual, result.residual)))
+            for result in lifts:
+                _checkpoint()
+                next_state = _normal_form(result.asu)
+                next_path = path + result.path
+                signature = (next_state.spacegroup.it_number, _structure_signature(next_state))
+                key = (*signature, next_path) if all_paths else signature
+                if key in visited:
+                    continue
+                if len(visited) >= max_states:
+                    if partial:
+                        _incomplete("state_limit_exceeded")
+                        raise CanonicalizationLimitError("supergroup search state limit exceeded")
+                    raise ValueError(f"highest_symmetry search cap exceeded for {current.spacegroup.setting}")
+                visited.add(key)
+                queue.append((next_state, next_path, result.shift, max(residual, result.residual)))
+        _checkpoint()
+    except (CanonicalizationLimitError, _SolverLimitError):
+        if not partial:
+            raise
     deduplicated: dict[tuple[Any, ...], LiftResult] = {}
     for result in terminals:
         deduplicated.setdefault((result.spacegroup.it_number, _structure_signature(result.asu), result.path), result)
-    return tuple(
+    candidates = tuple(
         sorted(
             deduplicated.values(),
             key=lambda result: (
@@ -3346,6 +3542,7 @@ def highest_symmetry(
             ),
         )
     )
+    return SupergroupSearchResult(candidates, True, (), len(visited))
 
 
 def canonicalize_legacy(
@@ -3369,33 +3566,6 @@ def canonicalize_legacy(
     :return: The canonical terminal lift.
     """
     return highest_symmetry(structure, tolerance=tolerance, preserve_chirality=preserve_chirality)[0]
-
-
-def canonicalize(
-    structure: ASUStructure, *, tolerance: float | None = None, preserve_chirality: bool = True
-) -> LiftResult:
-    """Return the first highest-symmetry result in the anonymous canonical convention.
-
-    The upward search, route metadata, and residual are inherited from
-    :func:`canonicalize_legacy`. The selected terminal is then put in the anonymous
-    protostructure-first exact normal form.
-
-    :param structure: The structure to canonicalize.
-    :param tolerance: Cartesian acceptance tolerance, or the recognition-derived default.
-    :param preserve_chirality: Whether to keep an enantiomorphic terminal's handedness.
-    :return: The canonical terminal lift with the legacy search route metadata.
-    """
-    legacy = canonicalize_legacy(structure, tolerance=tolerance, preserve_chirality=preserve_chirality)
-    from httk.atomistic.symmetry.canonical_protostructure import (
-        _canonical_protostructure_asu,
-        _restore_source_metadata,
-        _restore_unchanged_precision,
-    )
-
-    canonical = _canonical_protostructure_asu(legacy.asu, preserve_chirality=True)
-    canonical = _restore_source_metadata(canonical, structure)
-    canonical = _restore_unchanged_precision(canonical, structure)
-    return LiftResult(canonical, canonical.spacegroup, legacy.path, legacy.shift, legacy.residual)
 
 
 def _supergroup_path(start: int, target: int) -> tuple[int, ...] | None:

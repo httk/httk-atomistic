@@ -18,6 +18,7 @@ from httk.atomistic import (
     WyckoffSite,
     build_supercell,
     canonical_asu,
+    search_supergroups,
     normalize_chirality,
 )
 from httk.atomistic.symmetry.canonical import _fits_within
@@ -227,7 +228,9 @@ def test_default_and_lift_agree_on_a_clean_structure() -> None:
     pytest.importorskip("spglib")
     view = UnitcellStructureView(_nacl())
     default = canonical_asu(view)  # lift=False
-    lifted = canonical_asu(view, lift=True)
+    search = search_supergroups(default, timeout=None)
+    assert search.complete
+    lifted = search.candidates[0].asu
     assert default.spacegroup.it_number == lifted.spacegroup.it_number == 225
     assert _site_key(default) == _site_key(lifted)
     assert default.cell.basis == lifted.cell.basis
@@ -245,7 +248,7 @@ def test_recognized_supercell_scales_extensive_charge_to_the_standard_cell() -> 
     supercell = build_supercell(charged, 2).structure
 
     assert supercell.charge == 32
-    result = canonical_asu(supercell, lift=False)
+    result = canonical_asu(supercell)
     assert result.cell.basis == charged.cell.basis
     assert result.charge == charged.charge == 4
 
@@ -266,7 +269,10 @@ def test_lift_finds_pseudosymmetry_the_default_leaves_at_the_recognized_group() 
     )
     view = UnitcellStructureView(tetragonal)
     assert canonical_asu(view, factors=(F(1, 5),)).spacegroup.it_number == 123
-    assert canonical_asu(view, factors=(F(1, 5),), lift=True).spacegroup.it_number == 221
+    recognized = canonical_asu(view, factors=(F(1, 5),))
+    search = search_supergroups(recognized, timeout=None)
+    assert search.complete
+    assert search.candidates[0].spacegroup.it_number == 221
 
 
 def test_loosest_fitting_member_wins_and_stops_the_sweep(monkeypatch: pytest.MonkeyPatch) -> None:

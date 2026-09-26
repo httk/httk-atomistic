@@ -53,6 +53,7 @@ from httk.atomistic.symmetry.lift import (
     _site_key,
     _translation_normal_form,
 )
+from httk.atomistic.symmetry.limits import _checkpoint
 from httk.atomistic.symmetry.recognition import structure_tolerance
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.subgroups import _standard_input
@@ -164,6 +165,7 @@ def _anonymous_geometry_key(structure: ASUStructure) -> tuple[Any, ...]:
     classes: dict[str, list[tuple[str, tuple[Fraction, ...]]]] = {}
     populations: dict[str, int] = {}
     for site in structure.wyckoff_sites:
+        _checkpoint()
         classes.setdefault(site.species, []).append((site.wyckoff, tuple(site.free_params.to_fractions())))
         populations[site.species] = (
             populations.get(site.species, 0) + structure.spacegroup.wyckoff_position(site.wyckoff).multiplicity
@@ -186,6 +188,7 @@ def _chemical_key(structure: ASUStructure) -> tuple[Any, ...]:
 def _deduplicate_results(values: list[ASUStructure]) -> tuple[ASUStructure, ...]:
     unique: dict[tuple[Any, ...], ASUStructure] = {}
     for value in values:
+        _checkpoint()
         key = (
             value.spacegroup,
             value.cell.basis,
@@ -201,6 +204,7 @@ def _deduplicate_results(values: list[ASUStructure]) -> tuple[ASUStructure, ...]
 def _apply_action(structure: ASUStructure, operation: AffineOperation) -> ASUStructure:
     sites = []
     for site in structure.wyckoff_sites:
+        _checkpoint()
         action = compile_wyckoff_action(structure.spacegroup, operation, site.wyckoff)
         sites.append(WyckoffSite(action.target_letter, action.apply(site.free_params), site.species))
     basis_change = operation.matrix.T().inv()
@@ -251,6 +255,7 @@ def _discrete_key(
 ) -> tuple[tuple[tuple[str, ...], ...], tuple[Any, ...]]:
     letters: dict[str, list[str]] = {}
     for site in structure.wyckoff_sites:
+        _checkpoint()
         target = compile_wyckoff_action(structure.spacegroup, operation, site.wyckoff).target_letter
         letters.setdefault(site.species, []).append(target)
     classes = {species: tuple(sorted(values)) for species, values in letters.items()}
@@ -272,6 +277,7 @@ def _representatives(structure: ASUStructure) -> tuple[AffineOperation, ...]:
 def _point_operations(structure: ASUStructure) -> tuple[AffineOperation, ...]:
     by_matrix: dict[FracVector, AffineOperation] = {}
     for operation in structure.spacegroup.symmetry_operations:
+        _checkpoint()
         if operation.matrix not in by_matrix or operation.is_identity():
             by_matrix[operation.matrix] = operation
     return tuple(by_matrix.values())
@@ -290,7 +296,9 @@ def _discrete_candidates(structure: ASUStructure) -> tuple[_Candidate, ...]:
     source_metric = structure.cell.metric()
     source_handedness = structure.cell.basis.det().sign()
     for representative in _representatives(structure):
+        _checkpoint()
         for translation in _discrete_normalizer_translations(structure.spacegroup):
+            _checkpoint()
             operation = (
                 representative
                 if not any(translation)
@@ -298,6 +306,7 @@ def _discrete_candidates(structure: ASUStructure) -> tuple[_Candidate, ...]:
             )
             operation_basis_change = operation.matrix.T().inv()
             for point_operation, point_basis_change in point_operations:
+                _checkpoint()
                 basis_change = point_basis_change * operation_basis_change
                 site_operation = operation
                 if basis_change.det().sign() * source_handedness < 0 and can_invert:
@@ -388,6 +397,7 @@ def _triclinic_proxy_entries(structure: ASUStructure) -> tuple[ASUStructure, ...
     winners: list[ASUStructure] = []
     winner_keys: set[tuple[Any, ...]] = set()
     for candidate, key in keyed:
+        _checkpoint()
         if key != least:
             continue
         candidate_key = (_site_key(candidate), _basis_key(candidate.cell.basis))
@@ -415,6 +425,7 @@ def _canonical_protostructure_geometry_entry(
     candidates = tuple(candidate for candidate in candidates if candidate.metric_key == least_metric)
     reduced_by_action: dict[AffineOperation, ASUStructure] = {}
     for candidate in candidates:
+        _checkpoint()
         if candidate.operation not in reduced_by_action:
             reduced_by_action[candidate.operation] = _canonical_sites(
                 _translation_normal_form(_apply_action(current, candidate.operation))
@@ -484,6 +495,7 @@ def _canonical_protostructure_assignments_asu(
         # irrational coefficients (the legacy rational-only Niggli helper intentionally skips
         # such a metric).  Higher groups must retain their declared Wyckoff representation here;
         # their P1 expansion is used only to choose anonymous class identities.
+        _checkpoint()
         anonymous = (
             frame.structure
             if structure.spacegroup.it_number == 1
@@ -494,6 +506,7 @@ def _canonical_protostructure_assignments_asu(
     best_geometry = min(key for _canonical, _assignment, key in candidates)
     restored = []
     for canonical, assignment, key in candidates:
+        _checkpoint()
         if key != best_geometry:
             continue
         result = _restore_assignment(canonical, assignment, structure)
@@ -567,7 +580,9 @@ def canonical_asu_protostructure_assignments(
     outer_by_name = {anonymous.name: index for index, anonymous in enumerate(outer_frame.structure.species)}
     restored = []
     for candidate in inner:
+        _checkpoint()
         for outer_assignment in outer_frame.assignments:
+            _checkpoint()
             assignment = tuple(outer_assignment[outer_by_name[species.name]] for species in candidate.species)
             result = _restore_assignment(candidate, assignment, source_view)
             restored.append(_restore_unchanged_precision(result, source_view))
