@@ -97,6 +97,22 @@ decimal_precision("1/3")         # None — exact, not measured
 combined_precision(["0.123456", "0.5"])   # Fraction(1, 10) — the coarsest
 ```
 
+### Supplying a precision when loading
+
+`httk.core.load(path, precision=...)` is accepted by every structure reader (CIF, mCIF, POSCAR/CONTCAR), so
+format-agnostic code can pass the same keyword whatever the file is. It is a Cartesian
+precision in Å and must be a finite number greater than zero; an invalid value raises
+`ValueError` for every format.
+
+- **POSCAR/CONTCAR**: the value replaces the digit-derived precision of the cell and
+  coordinates (the values themselves stay exact). Relaxed CONTCAR files are written to full
+  double precision, whose digits claim ~machine epsilon, so pass a realistic value such as
+  `5e-4`; without one, a recommendation warning is emitted.
+- **CIF and mCIF**: accepted and validated, but without effect. Every number is read as the
+  exact decimal it writes, with its precision taken from its own digits and standard
+  uncertainty; nothing is converted from floats, so there is nothing for a caller-supplied
+  precision to govern, and the loaded structure is identical to one loaded without it.
+
 ## What it is used for
 
 {py:func}`~httk.atomistic.structure_tolerance` turns a recorded precision into a matching

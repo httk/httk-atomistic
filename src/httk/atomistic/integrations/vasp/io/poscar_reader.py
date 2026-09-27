@@ -25,12 +25,13 @@ file. It performs no numeric conversion and imports nothing from
 """
 
 import logging
-import math
 import re
 from collections.abc import Iterator
 from typing import Any
 
 from httk.core import combined_precision
+
+from httk.atomistic.io import _check_load_precision
 
 from ._text import source_lines
 
@@ -133,15 +134,8 @@ def read_poscar(source: Any, *, precision: float | None = None) -> dict[str, Any
     :raises ValueError: If the input is malformed, or ``precision`` is not a finite number
         greater than zero.
     """
-    if precision is not None:
-        if (
-            isinstance(precision, bool)
-            or not isinstance(precision, (int, float))
-            or not math.isfinite(precision)
-            or precision <= 0
-        ):
-            raise ValueError(f"read_poscar precision must be a finite number greater than zero, got {precision!r}.")
-    else:
+    _check_load_precision(precision, "read_poscar")
+    if precision is None:
         logger.warning(
             "when reading VASP POSCAR/CONTCAR files it is recommended to pass a value for precision "
             "(e.g. load(path, precision=5e-4)); without it the coordinate precision is inferred from the "

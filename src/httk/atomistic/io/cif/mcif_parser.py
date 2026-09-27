@@ -23,6 +23,8 @@ from typing import Any, cast
 
 from httk.core import combined_precision
 
+from httk.atomistic.io import _check_load_precision
+
 from ._xyz_expr import _parse_linear_expr, _parse_linear_expr_algebraic
 from .cif_parser import (
     _atom_type_masses,
@@ -620,7 +622,9 @@ def mag_asus_from_mcif_file(
     return outputs
 
 
-def read_mcif_asus(source: str | os.PathLike[str] | Iterable[str], *, repair: bool = False) -> dict[str, Any]:
+def read_mcif_asus(
+    source: str | os.PathLike[str] | Iterable[str], *, repair: bool = False, precision: float | None = None
+) -> dict[str, Any]:
     """Read an mcif into the neutral payload used by the ``.mcif`` loader.
 
     Magnetic positions and moments remain exact central tokens, symmetry operations remain
@@ -629,9 +633,14 @@ def read_mcif_asus(source: str | os.PathLike[str] | Iterable[str], *, repair: bo
 
     :param source: A filename, open text stream, or iterable of mcif lines.
     :param repair: Apply documented, warning-emitting CIF repairs while preserving structural data.
+    :param precision: Accepted for a uniform ``load(path, precision=...)`` call site across structure
+        formats and validated, but without effect: mcif numbers are read exactly and carry their own
+        digit and standard-uncertainty precision.
     :return: A neutral mcif payload containing magnetic blocks, unparsed reasons, and the header.
-    :raises ValueError: If the mcif stream contains malformed data that prevents parsing.
+    :raises ValueError: If the mcif stream contains malformed data that prevents parsing, or
+        ``precision`` is not a finite number greater than zero.
     """
+    _check_load_precision(precision, "read_mcif_asus")
     cifblocks, header = read_cif(source, allow_cif2=True, repair=repair)
     blocks = []
     unparsed = []

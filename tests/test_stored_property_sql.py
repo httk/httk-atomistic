@@ -360,8 +360,7 @@ def test_natural_collapsed_asu_orbit_preserves_expanded_composition(dialect):
         store.save(source)
         searcher = store.searcher()
         variable = searcher.variable(ASUStructureRecord)
-        searcher.output(variable, "record")
-        (fetched,), _names = next(iter(searcher))
+        fetched = next(iter(searcher.results(record=variable))).record
         assert tuple((value.element, value.amount) for value in fetched.normalized_composition.amounts) == (
             ("Bi", Fraction(1)),
         )

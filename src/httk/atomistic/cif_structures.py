@@ -1786,10 +1786,19 @@ def _decode_type_symbol(symbol: str, stated_mass: float | None) -> _DecodedCIFTy
 
 
 def _read_cif_for_atomistic(
-    source: Any, *, allow_large_cif_uncertainty: bool = False, repair: bool = False
+    source: Any, *, allow_large_cif_uncertainty: bool = False, repair: bool = False, precision: float | None = None
 ) -> Mapping[str, Any]:
-    """Read CIF and carry the atomistic override to its adapter."""
+    """Read CIF and carry the atomistic override to its adapter.
+
+    ``precision`` is accepted for a uniform ``load(path, precision=...)`` call site and is
+    validated, but has no effect: every CIF number is read as the exact decimal it writes and
+    its precision comes from its own digits and standard uncertainty, so nothing is converted
+    from floats that a caller-supplied precision could govern.
+    """
+    from httk.atomistic.io import _check_load_precision
     from httk.atomistic.io.cif import read_cif
+
+    _check_load_precision(precision, "CIF reader")
     from httk.atomistic.io.cif.cif_parser import cifblock_to_asu
 
     if repair:
