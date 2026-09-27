@@ -607,25 +607,30 @@ def asu_structure_from_cif(
         ignored_declaration: tuple[str, str] | None = None
         if declaration is not None and declared_position is not None:
             # A stated Wyckoff letter can disambiguate truncated decimals such as
-            # 0.6666 for 2/3; keep the tighter rounding bound for undeclared matches.
-            declared_bounds = (
-                None
+            # 0.6666 for 2/3: try the strict rounding bounds first and fall back to
+            # doubled bounds only when no declared position satisfies them.
+            declared_bounds_options = (
+                (None,)
                 if coordinate_bounds is None
-                else tuple(None if bound is None else 2 * bound for bound in coordinate_bounds)
+                else (coordinate_bounds, tuple(None if bound is None else 2 * bound for bound in coordinate_bounds))
             )
-            match = _snap(
-                standard,
-                standard_point,
-                coordinate,
-                cell,
-                transform,
-                site_tolerance,
-                uncertainty=uncertainty,
-                coordinate_bounds=declared_bounds,
-                allow_large_cif_uncertainty=allow_large_cif_uncertainty,
-                positions=(declared_position,),
-                orbit_screen=orbit_screen,
-            )
+            match = None
+            for declared_bounds in declared_bounds_options:
+                match = _snap(
+                    standard,
+                    standard_point,
+                    coordinate,
+                    cell,
+                    transform,
+                    site_tolerance,
+                    uncertainty=uncertainty,
+                    coordinate_bounds=declared_bounds,
+                    allow_large_cif_uncertainty=allow_large_cif_uncertainty,
+                    positions=(declared_position,),
+                    orbit_screen=orbit_screen,
+                )
+                if match is not None:
+                    break
             if match is None:
                 distance = _nearest_wyckoff_distance(declared_position, standard_point, coordinate, cell, transform)
                 if distance <= site_tolerance and coordinate_bounds is not None:

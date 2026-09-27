@@ -1503,9 +1503,7 @@ def test_invalid_declaration_fallback_uses_the_undeclared_rounded_site_path(
     assert len(warnings) == 1
 
 
-def test_identical_invalid_wyckoff_warnings_are_grouped(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_identical_invalid_wyckoff_warnings_are_grouped(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     path = _write_cif(
         tmp_path / "unknown-declarations.cif",
         Spacegroup.standard(149).setting,
@@ -1520,7 +1518,9 @@ def test_identical_invalid_wyckoff_warnings_are_grouped(
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
         load(str(path), repair=True)
 
-    warnings = [record.getMessage() for record in caplog.records if "ignored declared Wyckoff data" in record.getMessage()]
+    warnings = [
+        record.getMessage() for record in caplog.records if "ignored declared Wyckoff data" in record.getMessage()
+    ]
     assert len(warnings) == 1
     assert "site 'N1' and 1 other sites" in warnings[0]
 
@@ -1535,6 +1535,22 @@ def test_declared_wyckoff_accepts_truncated_last_digit(tmp_path: Path) -> None:
     )
 
     assert load(str(path)).wyckoff_sites[0].wyckoff == "c"
+
+
+def test_declared_wyckoff_prefers_strict_bounds_over_truncation_fallback(tmp_path: Path) -> None:
+    # 6b (x, 2x, 3/4): only x = 0.2248025 rounds to both 0.22480 and 0.44961; the
+    # simpler 0.2248 is admitted only by the doubled truncation bound.
+    path = _write_cif(
+        tmp_path / "redundant-rounded.cif",
+        Spacegroup.standard(179).setting,
+        (11.4544, 11.4544, 11.153, 90, 90, 120),
+        [("Cl1", "Cl", ("0.22480", "0.44961", "0.75000"), "1")],
+        wyckoff_labels=["b"],
+    )
+
+    site = load(str(path)).wyckoff_sites[0]
+    assert site.wyckoff == "b"
+    assert site.free_params.to_fractions() == [F(89921, 400000)]
 
 
 def test_declared_wyckoff_reports_precision_bound_separately_from_distance(tmp_path: Path) -> None:
