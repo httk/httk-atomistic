@@ -252,9 +252,13 @@ for structures raises with those reasons rather than returning an empty list.
 `StructureEntryProvider` serves an `ASUStructure`'s symmetry automatically. The standard
 OPTIMADE properties — `space_group_it_number`, the Hall and Hermann-Mauguin symbols,
 `space_group_symmetry_operations_xyz`, `wyckoff_positions`, `fractional_site_positions`,
-and `site_coordinate_span` — come straight from the ASU. A plain `UnitcellStructure` carries no
-symmetry, so they serve `null`; inferring a space group there would mean running a
-symmetry search behind the caller's back, with a tolerance nobody chose, on every record.
+and `site_coordinate_span` — come straight from the ASU. A plain `UnitcellStructure` that
+states no symmetry serves `null` for all of them, `space_group_symmetry_operations_xyz`
+included: that property is the complete operation set fitting what was stated, so an invented
+`["x,y,z"]` would be a false P1 claim. OPTIMADE allows the `null` — the property is nullable,
+and a `unit_cell` span is reconstructed by lattice translations alone. Inferring a space group
+there would mean running a symmetry search behind the caller's back, with a tolerance nobody
+chose, on every record. Operations the structure does state are served as given.
 
 The symbols and Wyckoff letters describe **the setting the structure is written in**, as
 OPTIMADE requires. Setting `224:1` therefore stores and serves its own letter `i`, not the

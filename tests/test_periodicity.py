@@ -410,16 +410,14 @@ def test_a_reduced_periodicity_structure_serves_no_space_group() -> None:
     `space_group_symbol_hall` and `space_group_it_number` MUST be null unless
     `nperiodic_dimensions` is 3, and `space_group_symmetry_operations_xyz` MUST be null when
     it is 0. Symmetry is only ever served for an `ASUStructure`, and one of those cannot
-    hold a reduced-periodicity cell, so there is no combination that could violate it.
+    hold a reduced-periodicity cell, so there is no combination that could violate it. A
+    structure stating no symmetry serves no operations either: no invented identity list.
     """
     for periodicity in ((1, 1, 0), (0, 0, 1), (0, 0, 0)):
         record = _record(periodicity)
         for name, value in record.items():
-            if (
-                name.startswith("space_group") and name != "space_group_symmetry_operations_xyz"
-            ) or name == "wyckoff_positions":
+            if name.startswith("space_group") or name == "wyckoff_positions":
                 assert value is None, f"{name} served for {periodicity}"
-        assert record["space_group_symmetry_operations_xyz"] == (["x,y,z"] if any(periodicity) else None)
 
 
 def test_a_crystal_still_serves_its_space_group() -> None:

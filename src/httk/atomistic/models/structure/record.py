@@ -14,7 +14,7 @@ from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.species.view import SpeciesView
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure
 from httk.atomistic.models.structure.backend import StructureBackend
-from httk.atomistic.models.structure.semantics import StructureSymmetry
+from httk.atomistic.models.structure.semantics import StructureSymmetry, _stated_symmetry
 from httk.atomistic.storage.records import (
     ASUStructureRecord,
     FundamentalDomainStructureRecord,
@@ -204,7 +204,11 @@ class RecordStructure(StructureBackend):
         :return: Symmetry metadata, or ``None`` when it is absent.
         """
         if isinstance(self._record, UnitcellStructureRecord):
-            return None if self._record.symmetry is None else _symmetry_from_record(self._record.symmetry)
+            return (
+                None
+                if self._record.symmetry is None
+                else _stated_symmetry(_symmetry_from_record(self._record.symmetry))
+            )
         native = self._native
         assert isinstance(native, FundamentalDomainStructure)
         positions = native.wyckoff_positions

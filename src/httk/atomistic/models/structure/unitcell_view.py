@@ -18,7 +18,13 @@ from httk.atomistic.models.structure.api import StructureAPI
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.like import StructureLike
-from httk.atomistic.models.structure.semantics import _METADATA_UNSET, _resolve_view_metadata, _semantic_value
+from httk.atomistic.models.structure.semantics import (
+    _METADATA_UNSET,
+    StructureSymmetry,
+    _resolve_view_metadata,
+    _semantic_value,
+    _stated_symmetry,
+)
 from httk.atomistic.models.structure.unitcell import (
     UnitcellStructure,
     _check_site_moments,
@@ -292,8 +298,9 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
 
     @property
     def symmetry(self) -> Any:
-        """Expose the optional symmetry metadata."""
-        return self._metadata("symmetry")
+        """Expose the optional symmetry metadata (``None`` when nothing is stated)."""
+        value = self._metadata("symmetry")
+        return _stated_symmetry(value) if isinstance(value, StructureSymmetry) else value
 
     @property
     def assemblies(self) -> tuple[Assembly, ...] | None:
@@ -353,8 +360,7 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
     @property
     def space_group_symmetry_operations_xyz(self) -> tuple[str, ...] | None:
         """Expose the optional symmetry operations in ``xyz`` notation."""
-        value = self._space_group_metadata("space_group_symmetry_operations_xyz")
-        return value if value is not None else (("x,y,z",) if self.nperiodic_dimensions else None)
+        return self._space_group_metadata("space_group_symmetry_operations_xyz")
 
     @property
     def wyckoff_positions(self) -> tuple[str, ...] | None:

@@ -77,10 +77,9 @@ def test_a_plain_structure_serves_null_symmetry() -> None:
     record = _record(structure)
 
     for name in SYMMETRY_PROPERTY_KEYS:
-        if name in ("fractional_site_positions", "site_coordinate_span", "space_group_symmetry_operations_xyz"):
+        if name in ("fractional_site_positions", "site_coordinate_span"):
             continue
         assert record[name] is None, name
-    assert record["space_group_symmetry_operations_xyz"] == ["x,y,z"]
     for name in SETTING_PROPERTY_KEYS:
         assert record[name] is None, name
 

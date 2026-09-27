@@ -7,7 +7,7 @@ import datetime
 import math
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from fractions import Fraction
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
@@ -308,6 +308,17 @@ class StructureSymmetry:
                 for record in settings
             ):
                 raise ValueError("supplied Wyckoff positions disagree with the space-group setting")
+
+
+def _stated_symmetry(symmetry: StructureSymmetry | None) -> StructureSymmetry | None:
+    """Return ``symmetry``, or ``None`` when it states nothing (every field ``None``).
+
+    ``None`` is the one canonical "no symmetry stated" value; an all-empty
+    :class:`StructureSymmetry` must never reach a live structure or a storage record.
+    """
+    if symmetry is None or all(getattr(symmetry, field.name) is None for field in fields(symmetry)):
+        return None
+    return symmetry
 
 
 def validate_optimization_type(value: str | None) -> str | None:
@@ -693,13 +704,10 @@ class StructureSemanticsMixin:
     def space_group_symmetry_operations_xyz(self) -> tuple[str, ...] | None:
         """Expose the declared raw ``xyz`` symmetry operations.
 
-        :return: The operation strings, or the identity for a periodic structure without
-            explicit operations.
+        :return: The operation strings, or ``None`` when no symmetry is stated.
         """
         symmetry = _semantic_value(self, "symmetry", private_name="_symmetry")
-        if symmetry is not None and symmetry.space_group_symmetry_operations_xyz is not None:
-            return symmetry.space_group_symmetry_operations_xyz
-        return ("x,y,z",) if cast(Any, self).nperiodic_dimensions else None
+        return None if symmetry is None else symmetry.space_group_symmetry_operations_xyz
 
     @property
     def wyckoff_positions(self) -> tuple[str, ...] | None:
@@ -781,6 +789,7 @@ def initialize_semantics(
         raise TypeError("molecular must be a bool")
     if symmetry is not None and not isinstance(symmetry, StructureSymmetry):
         raise TypeError("symmetry must be a StructureSymmetry or None")
+    symmetry = _stated_symmetry(symmetry)
     if chemical_composition is not None and not isinstance(chemical_composition, ChemicalComposition):
         raise TypeError("chemical_composition must be a ChemicalComposition or None")
     if immutable_id is not None and not isinstance(immutable_id, str):

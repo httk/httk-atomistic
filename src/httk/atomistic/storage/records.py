@@ -35,7 +35,7 @@ from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
-from httk.atomistic.models.structure.semantics import StructureSymmetry
+from httk.atomistic.models.structure.semantics import StructureSymmetry, _stated_symmetry
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.models.trajectory.api import TrajectoryAPI
@@ -1187,7 +1187,7 @@ class UnitcellStructureRecord:
             {
                 "sites": structure.sites,
                 "species_at_sites": structure.species_at_sites,
-                "symmetry": structure.symmetry,
+                "symmetry": _stated_symmetry(structure.symmetry),
                 "site_moments_kind": None if structure.site_moments is None else cast(Any, structure.site_moments).kind,
                 "site_moments": None if structure.site_moments is None else _moment_components(structure.site_moments),
                 "site_moments_precision": None if structure.site_moments is None else structure.site_moments.precision,
@@ -1531,10 +1531,9 @@ def _unitcell_record_from_structure(structure: UnitcellStructure) -> UnitcellStr
         if structure.assemblies is None
         else tuple(_assembly_record_from_assembly(assembly) for assembly in structure.assemblies)
     )
+    symmetry = _stated_symmetry(structure.symmetry)
     values["symmetry"] = (
-        None
-        if structure.symmetry is None
-        else SymmetryRecord(**cast(dict[str, Any], SymmetryRecord.__httk_project__(structure.symmetry)))
+        None if symmetry is None else SymmetryRecord(**cast(dict[str, Any], SymmetryRecord.__httk_project__(symmetry)))
     )
     values["chemical_composition"] = (
         None

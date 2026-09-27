@@ -1159,24 +1159,26 @@ class OptimadeStructure(StructureBackend):
         return CartesianSiteMoments(rows)
 
     @cached_property
-    def symmetry(self) -> StructureSymmetry:
+    def symmetry(self) -> StructureSymmetry | None:
         """Build typed source symmetry metadata for the common unit-cell view layer.
 
-        :return: Validated symmetry metadata.
+        :return: Validated symmetry metadata, or ``None`` when the resource states none.
         :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If supplied symmetry fields are inconsistent.
         """
-
+        values = {
+            "space_group_it_number": self._space_group_it_number_value(),
+            "space_group_symbol_hall": self._symmetry_string_value("space_group_symbol_hall"),
+            "space_group_symbol_hermann_mauguin": self._symmetry_string_value("space_group_symbol_hermann_mauguin"),
+            "space_group_symbol_hermann_mauguin_extended": self._symmetry_string_value(
+                "space_group_symbol_hermann_mauguin_extended"
+            ),
+            "space_group_symmetry_operations_xyz": self._space_group_operations_value(),
+            "wyckoff_positions": self._wyckoff_positions_value(),
+        }
+        if all(value is None for value in values.values()):
+            return None
         try:
-            return StructureSymmetry(
-                space_group_it_number=self._space_group_it_number_value(),
-                space_group_symbol_hall=self._symmetry_string_value("space_group_symbol_hall"),
-                space_group_symbol_hermann_mauguin=self._symmetry_string_value("space_group_symbol_hermann_mauguin"),
-                space_group_symbol_hermann_mauguin_extended=self._symmetry_string_value(
-                    "space_group_symbol_hermann_mauguin_extended"
-                ),
-                space_group_symmetry_operations_xyz=self._space_group_operations_value(),
-                wyckoff_positions=self._wyckoff_positions_value(),
-            )
+            return StructureSymmetry(**cast(dict[str, Any], values))
         except ValueError as exc:
             message = str(exc)
             if message == "supplied space-group number and symbols are inconsistent":
@@ -1250,7 +1252,8 @@ class OptimadeStructure(StructureBackend):
 
     @cached_property
     def _declared_spacegroup_candidates(self) -> tuple[Spacegroup, ...]:
-        return tuple(Spacegroup(record) for record in self.symmetry.matched_settings)
+        symmetry = self.symmetry
+        return () if symmetry is None else tuple(Spacegroup(record) for record in symmetry.matched_settings)
 
     def _declared_periodic_dimensions(self) -> int | None:
         periodic = self._portable_value("nperiodic_dimensions")

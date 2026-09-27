@@ -184,14 +184,10 @@ def _setting_transform_payload(transform: Any) -> dict[str, object]:
 
 def _unitcell_symmetry_value(record: Any, name: str) -> object:
     symmetry = record.symmetry
-    if name == "space_group_symmetry_operations_xyz":
-        if symmetry is not None and symmetry.space_group_symmetry_operations_xyz is not None:
-            return list(symmetry.space_group_symmetry_operations_xyz or ())
-        return ["x,y,z"] if any(record.cell.periodicity) else None
-    if name == "wyckoff_positions":
-        return (
-            None if symmetry is None or symmetry.wyckoff_positions is None else list(symmetry.wyckoff_positions or ())
-        )
+    if name in {"space_group_symmetry_operations_xyz", "wyckoff_positions"}:
+        # Serve only what is stated: never an invented identity operation list.
+        values = None if symmetry is None else getattr(symmetry, name)
+        return None if values is None else list(values)
     if name in {
         "space_group_it_number",
         "space_group_symbol_hall",

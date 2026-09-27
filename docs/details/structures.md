@@ -160,6 +160,20 @@ interpretation; class instances are selected by their type.
   group plus one site per orbit — and expands to a `UnitcellStructure` on demand; see {doc}`asu`.
   A `Cell` and a `Sites` each also carry an optional `precision` recording how precisely
   their numbers were stated by the source they came from; see {doc}`precision`.
+- "No symmetry stated" has exactly one value: `symmetry is None`. An all-empty
+  `StructureSymmetry()` states nothing, so structures (including a remote
+  `OptimadeStructure` that supplies no space-group field) collapse it to `None`, and it never
+  reaches a storage record: a structure read over OPTIMADE therefore has the same content ID as
+  its POSCAR twin. Partial metadata (only a Hall symbol, say) is a real claim and is kept, and a
+  stated P1 (`space_group_symmetry_operations_xyz=("x,y,z",)`) stays distinct from nothing
+  stated. `space_group_symmetry_operations_xyz` is `None` unless operations are stated or
+  implied by a stated space group; httk never invents the identity list. *Identity note,
+  September 27 2026:* records built from an OPTIMADE source that stated no symmetry used to
+  carry an all-empty symmetry record and now carry none, so their content IDs changed once;
+  POSCAR- and CIF-derived content IDs are unchanged. A legacy stored row carrying an all-empty
+  symmetry record keeps its stored ID, but its live view and any re-projection give the plain
+  ID, so re-saving such a structure does not deduplicate against the old row: rebuild stores
+  holding OPTIMADE-ingested structures.
 
 ## Exact geometry: scale, surd matrices, and Cartesian positions
 

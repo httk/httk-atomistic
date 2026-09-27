@@ -47,7 +47,8 @@ def test_structure_exposes_common_optimade_semantics() -> None:
     assert structure.multiplicities() == (1, 1)
     assert structure.dimension_types == (1, 1, 1)
     assert structure.site_coordinate_span == "unit_cell"
-    assert structure.space_group_symmetry_operations_xyz == ("x,y,z",)
+    assert structure.symmetry is None
+    assert structure.space_group_symmetry_operations_xyz is None
     assert structure.optimization_type == "experimental"
     assert structure.structure_features == ("disorder",)
 
