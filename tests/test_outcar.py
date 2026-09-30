@@ -115,6 +115,18 @@ def test_outcar_unknown_xc_and_unparseable_parameter(tmp_path: Path) -> None:
     assert any("ENCUT parameter value" in issue for issue in outcar.issues)
 
 
+def test_outcar_lnoncollinear_parameter(tmp_path: Path) -> None:
+    line = "   LNONCOLLINEAR =      T  non collinear calculations\n"
+    path = tmp_path / "noncollinear.outcar"
+    path.write_text(OUTCAR.replace("   GGA     =    --", line + "   GGA     =    --"), encoding="utf-8")
+    outcar = OutcarFile(path)
+    assert outcar.parameters["LNONCOLLINEAR"] == "T"
+    assert outcar.issues == ()
+    plain = tmp_path / "plain.outcar"
+    plain.write_text(OUTCAR, encoding="utf-8")
+    assert "LNONCOLLINEAR" not in OutcarFile(plain).parameters
+
+
 def test_outcar_compressed_and_registered(tmp_path: Path) -> None:
     path = tmp_path / "OUTCAR.bz2"
     path.write_bytes(bz2.compress(OUTCAR.encode("utf-8")))

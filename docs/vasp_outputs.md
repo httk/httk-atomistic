@@ -115,3 +115,5 @@ with VASPOutputs("calculation") as outputs:
 
 The runnable {doc}`/examples/parse_vasp_outputs` walks the composite reader
 end to end. For WAVECAR files, see {doc}`wavecar`.
+
+To ingest a directory tree of finished calculations into a database and serve it over OPTIMADE, see the [From VASP calculations](https://docs.httk.org/dev/main/serving-data/vasp-calculations.html) walkthrough.

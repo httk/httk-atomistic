@@ -55,8 +55,9 @@ _PARAMETERS = (
     "ISPIN",
     "GGA",
     "LEXCH",
+    "LNONCOLLINEAR",
 )
-_NUMERIC_PARAMETERS = frozenset(_PARAMETERS[:-2])
+_NUMERIC_PARAMETERS = frozenset(_PARAMETERS) - {"GGA", "LEXCH", "LNONCOLLINEAR"}
 _NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][+-]?\d+)?"
 _IONIC_MARKER = re.compile(r"\bIteration\s+\d+\s*\(")
 _FRAME_MARKER = re.compile(r"\bIteration\s+\d+\s*\(\s*1\s*\)")
