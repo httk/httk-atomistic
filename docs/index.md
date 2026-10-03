@@ -75,6 +75,7 @@ prototypes
 cif
 poscar
 vasp_outputs
+doscar
 wavecar
 wavefunctions
 trajectory_jsonl
