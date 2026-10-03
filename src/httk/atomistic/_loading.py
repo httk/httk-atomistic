@@ -182,7 +182,7 @@ _STRUCTURE_ADAPTERS: dict[str, Callable[[Mapping[str, Any]], Any]] = {
 
 
 def _trajectory_from_payload(data: Mapping[str, Any]) -> Any:
-    """Build a lazy VASPTrajectory; OUTCAR-only files are one-frame trajectories.
+    """Build a lazy trajectory; OUTCAR-only files are one-frame trajectories.
 
     The raw payload remains available through ``load(..., raw=True)``, including
     its ``final_energies`` object.
@@ -191,9 +191,14 @@ def _trajectory_from_payload(data: Mapping[str, Any]) -> Any:
         "vasp-outcar",
         "vasp-xdatcar",
         "httk-trajectory-jsonl",
+        "lammps-dump",
     ):
         fmt = data.get("format") if isinstance(data, Mapping) else None
-        raise ValueError(f"_trajectory_from_payload expected a VASP trajectory payload, got format={fmt!r}.")
+        raise ValueError(f"_trajectory_from_payload expected a trajectory payload, got format={fmt!r}.")
+    if data.get("format") == "lammps-dump":
+        from httk.atomistic.integrations.lammps.trajectory import LammpsTrajectory
+
+        return LammpsTrajectory(data["source"], **data["options"])
     if data.get("format") == "httk-trajectory-jsonl":
         from httk.atomistic.models.trajectory.jsonl import JsonlTrajectory
 

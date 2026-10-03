@@ -92,3 +92,20 @@ class TrajectoryAPI(ABC):
         if name not in self.observable_names:
             raise KeyError(name)
         raise KeyError(name)
+
+    def samples(self, *names: str) -> Iterator[tuple[UnitcellStructure, tuple[Any, ...]]]:
+        r"""Iterate over frames with selected observables aligned strictly.
+
+        The default implementation materializes the requested observable tuples.
+        Streaming backends should override it when they can read geometry and
+        observables together in one pass.
+
+        :param \*names: Observable names in the requested result order.
+        :return: An iterator of ``(frame, observable_values)`` pairs.
+        :raises KeyError: If an observable is unavailable.
+        :raises ValueError: If an observable is not aligned with the frames.
+        """
+        # ponytail: the generic fallback materializes only requested columns;
+        # synchronized file backends override this when bounded streaming matters.
+        observables = tuple(self.observable(name) for name in names)
+        return ((values[0], values[1:]) for values in zip(self.frames(), *observables, strict=True))

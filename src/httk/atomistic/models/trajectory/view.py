@@ -113,6 +113,16 @@ class TrajectoryView(View[TrajectoryBackend], TrajectoryAPI):
         """
         return self._effective_backend().observable(name)
 
+    def samples(self, *names: str) -> Iterator[tuple[UnitcellStructure, tuple[Any, ...]]]:
+        r"""Iterate over frames with selected observables aligned strictly.
+
+        :param \*names: Observable names in the requested result order.
+        :return: An iterator of ``(frame, observable_values)`` pairs.
+        :raises KeyError: If an observable is unavailable.
+        :raises ValueError: If an observable is not aligned with the frames.
+        """
+        return self._effective_backend().samples(*names)
+
     def unwrap(self) -> Any:
         """Return the original value wrapped by the backend."""
         return unwrap(self._backend)

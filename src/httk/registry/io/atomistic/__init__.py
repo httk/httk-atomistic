@@ -42,10 +42,16 @@ register_format_adapter(
 register_format_adapter(
     name="atomistic-trajectories",
     adapter="httk.atomistic._loading:_trajectory_from_payload",
-    formats=("vasp-outcar", "vasp-xdatcar", "httk-trajectory-jsonl"),
+    formats=("vasp-outcar", "vasp-xdatcar", "httk-trajectory-jsonl", "lammps-dump"),
 )
 
 from httk.core.register import register_reader, register_writer
+
+register_reader(
+    name="lammps-dump",
+    reader="httk.atomistic.integrations.lammps.io:read_lammps_dump",
+    extensions=(".lammpstrj", ".lammpsdump"),
+)
 
 # httk-core sends load kwargs to readers, not format adapters, so the ``.cif`` key maps
 # to the atomistic reader (which carries the atomistic override to its adapter) rather

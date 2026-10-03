@@ -27,6 +27,7 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 - **Reading and writing WAVECAR files**: {doc}`wavecar`
 - **Plane-wave wavefunctions**: {doc}`wavefunctions`
 - **Trajectory JSON Lines**: {doc}`trajectory_jsonl`
+- **LAMMPS trajectories**: {doc}`lammps`
 - **Runnable examples**: {doc}`examples/index`
 - **Examples notebook**: {doc}`notebooks/examples`
 - **Disorder walkthrough**: {doc}`notebooks/disorder`
@@ -77,6 +78,7 @@ vasp_outputs
 wavecar
 wavefunctions
 trajectory_jsonl
+lammps
 asu
 canonicalization
 subgroups
