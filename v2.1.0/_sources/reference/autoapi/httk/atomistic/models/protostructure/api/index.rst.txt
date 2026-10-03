@@ -1,0 +1,156 @@
+httk.atomistic.models.protostructure.api
+========================================
+
+.. py:module:: httk.atomistic.models.protostructure.api
+
+.. autoapi-nested-parse::
+
+   The assigned-species geometrical-classification interface.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protostructure.api.ProtostructureAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtostructureAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   The common interface for standard-setting occupied Wyckoff positions.
+
+   Composition and formula derivations from this interface use the standard-setting
+   conventional-cell scale, independently of the setting or transform of a source
+   structure from which a protostructure was recognized.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+      :abstractmethod:
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+      :abstractmethod:
+
+
+      Return the occupied Wyckoff positions in canonical order.
+
+
+   .. py:property:: representative
+      :type: FundamentalDomainStructure | None
+
+
+      Return an optional retained exact representative.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return an optional geometrical-class discriminator.
+
+
+   .. py:method:: similar(other, delta)
+
+      Return whether two protostructures have compatible geometry within ``delta``.
+
+      The base identity (space group, occupations, and any discriminators present on
+      both) must agree; when both sides retain a geometrical representative, their total
+      Cartesian atom travel must not exceed ``delta``. A protostructure-like ``other``
+      (a view, a backend, or a label string) is erased to a value first.
+
+      :param other: The protostructure-like value to compare against.
+      :param delta: The non-negative finite Cartesian travel budget.
+      :return: Whether the two values are compatible within ``delta``.
+      :raises TypeError: If ``delta`` is not a real number.
+      :raises ValueError: If ``delta`` is negative or non-finite.
+
+
+
+   .. py:method:: multiplicities()
+
+      Return tabulated standard-setting multiplicities for each occupation.
+
+      These are deliberately not multiplicities from a source structure's transform;
+      they define the provenance-independent conventional-cell scale of this value.
+
+      :return: The standard-setting multiplicity for each occupation.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the total number of sites in the standard conventional cell.
+
+      :return: The conventional-cell site count.
+
+
+   .. py:property:: formula
+      :type: httk.atomistic.models.formula.formula_view.ChemicalFormulaView
+
+
+      Return a reduced formula at the standard conventional-cell scale.
+
+      :return: The conventional-cell reduced formula view.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatype_view.FormulatypeView
+
+
+      Return a reduced anonymous formula at the standard conventional-cell scale.
+
+      :return: The conventional-cell anonymous formula view.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.protostructure.label.ProtostructureLabel
+
+
+      Return the httk protostructure label of this protostructure.
+
+      The label's unsuffixed part orders classes by their Wyckoff letters, so it is the
+      prototype label of the erased anonymous prototype; the suffix lists the class species names.
+      This is NOT an AFLOW label: AFLOW orders classes alphabetically by element (see
+      :attr:`aflow_label`). Any faithful render is *the* protostructure label; the
+      *canonical* protostructure label comes from a normalizer-canonical protostructure.
+
+      :return: The protostructure label view.
+
+
+   .. py:property:: aflow_label
+      :type: str
+
+
+      Return the AFLOW-style label of this protostructure.
+
+      Unlike :attr:`label`, AFLOW orders classes alphabetically by element symbol and
+      reassigns the anonymous symbols in that order, so the unsuffixed prefix depends on
+      the chemistry. Provided for interoperability only.
+
+      :return: The AFLOW-style label text.
+
+
+   .. py:property:: protostructure
+      :type: Self
+
+
+      Return this protostructure value.
+
+

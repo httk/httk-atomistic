@@ -1,0 +1,59 @@
+httk.atomistic.models.formula.diagnostics
+=========================================
+
+.. py:module:: httk.atomistic.models.formula.diagnostics
+
+.. autoapi-nested-parse::
+
+   Structured diagnostics produced while working with chemical formulas.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.diagnostics.CompositionDiagnostic
+
+
+Module Contents
+---------------
+
+.. py:class:: CompositionDiagnostic
+
+   Record a non-fatal issue encountered while projecting composition.
+
+   :param code: The stable diagnostic code.
+   :param message: The human-readable diagnostic message.
+   :param subject: The composition subject involved, if any.
+   :param total: The calculated total, if applicable.
+   :param width: The precision width used for the diagnostic, if applicable.
+
+
+   .. py:attribute:: code
+      :type:  str
+
+
+   .. py:attribute:: message
+      :type:  str
+
+
+   .. py:attribute:: subject
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: total
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+
+   .. py:attribute:: width
+      :type:  fractions.Fraction | None
+      :value: None
+
+
+

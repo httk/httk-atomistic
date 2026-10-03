@@ -1,0 +1,31 @@
+httk.atomistic.mcif_structures
+==============================
+
+.. py:module:: httk.atomistic.mcif_structures
+
+.. autoapi-nested-parse::
+
+   Build magnetic structures from neutral mCIF mappings.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.mcif_structures.symops_structures_from_mcif
+
+
+Module Contents
+---------------
+
+.. py:function:: symops_structures_from_mcif(payload)
+
+   Build one magnetic structure per block in a neutral mCIF payload.
+
+   :param payload: The loaded whole-mCIF payload or one loaded mCIF block.
+   :return: One symmetry-operations or modulated structure for each data block.
+   :raises ValueError: If a block has invalid format, moments, or magnetic symmetry operations.
+
+

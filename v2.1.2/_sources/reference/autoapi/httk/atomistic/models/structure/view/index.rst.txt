@@ -1,0 +1,30 @@
+httk.atomistic.models.structure.view
+====================================
+
+.. py:module:: httk.atomistic.models.structure.view
+
+.. autoapi-nested-parse::
+
+   The abstract base class for all structure views in httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.view.StructureView
+
+
+Module Contents
+---------------
+
+.. py:class:: StructureView
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`\ ]
+
+
+   Define the base class for crystal-structure views.
+
+

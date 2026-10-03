@@ -1,0 +1,71 @@
+httk.atomistic.models.prototype.prototype
+=========================================
+
+.. py:module:: httk.atomistic.models.prototype.prototype
+
+.. autoapi-nested-parse::
+
+   The immutable anonymous geometrical-class prototype value.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.prototype.Prototype
+
+
+Module Contents
+---------------
+
+.. py:class:: Prototype(spacegroup = None, occupations = None, *, representative = None, discriminator = None, prototype = None)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.backend.PrototypeBackend`
+
+
+   Store occupied Wyckoff positions with explicit geometrical-class information.
+
+   At least one of an exact representative or a nonempty discriminator is required.
+   Both participate in equality and content identity. Use ``BarePrototype`` for
+   the broader Wyckoff-only classification; recognizing a structure yields that level.
+
+   :param spacegroup: The standard-setting space group or its IT number.
+   :param occupations: The occupied Wyckoff positions and canonical anonymous labels.
+   :param representative: An optional exact anonymous class anchor.
+   :param discriminator: An optional external class discriminator.
+   :param prototype: An optional existing prototype whose base and unspecified optional
+       fields are copied.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'prototype'
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototype.occupation.PrototypeOccupation, ...]
+
+
+
+   .. py:property:: representative
+      :type: httk.atomistic.models.structuretype.fundamental.FundamentalDomainTemplate | None
+
+
+      Return an optional retained exact representative.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return an optional geometrical-class discriminator.
+
+

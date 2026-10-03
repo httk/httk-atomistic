@@ -1,0 +1,54 @@
+httk.atomistic.models.sites.plain
+=================================
+
+.. py:module:: httk.atomistic.models.sites.plain
+
+.. autoapi-nested-parse::
+
+   Backend wrapping a raw Nx3 matrix of reduced coordinates.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.plain.PlainSites
+
+
+Module Contents
+---------------
+
+.. py:class:: PlainSites(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.backend.SitesBackend`
+
+
+   Backend for sites backed by a raw Nx3 list or tuple of numbers (or any Nx3 vector-like).
+
+   The native representation is preserved verbatim (one site per row); the exact rational
+   :class:`~httk.core.FracVector` ``reduced_coords`` are built lazily and cached, and ``unwrap``
+   returns the original raw object.
+
+   :param obj: The raw reduced-coordinate representation.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: reduced_coords
+      :type: httk.core.FracVector
+
+
+      Return the reduced coordinates in the canonical representation.
+
+      :return: The exact reduced coordinates.
+
+
+   .. py:method:: unwrap()
+
+      Return the original coordinate object.
+
+      :return: The raw coordinate representation.
+
+
+

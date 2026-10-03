@@ -1,0 +1,75 @@
+httk.atomistic.models.prototype.recognized
+==========================================
+
+.. py:module:: httk.atomistic.models.prototype.recognized
+
+.. autoapi-nested-parse::
+
+   The structure-to-prototype recognition adapter.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.recognized.RecognizedPrototype
+
+
+Module Contents
+---------------
+
+.. py:class:: RecognizedPrototype(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.backend.PrototypeBackend`
+
+
+   Recognize an ordinary structure or template lazily as a prototype.
+
+   The source is used as the geometrical-class anchor: it is recognized (through
+   :class:`~httk.atomistic.models.structuretype.fundamental_view.FundamentalDomainTemplateView`,
+   which handles an exact fundamental domain without spglib and a raw structure with it) to a
+   standard-setting dummy-species representative, and the anonymous prototype folds from
+   that representative. The resulting prototype is representative-carrying and has no
+   discriminator.
+
+   :param obj: The structure-like source to recognize.
+   :param \*\*hints: Backend-selection and recognition hints.
+
+
+   .. py:attribute:: kind
+      :value: 'structure'
+
+
+
+   .. py:method:: resolve()
+
+      Return the complete recognized prototype.
+
+
+
+   .. py:property:: spacegroup
+
+
+   .. py:property:: occupations
+
+
+   .. py:property:: representative
+
+      Return the recognized canonical class representative.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return ``None``; a recognized prototype carries no discriminator.
+
+
+   .. py:method:: unwrap()
+
+      Return the original recognition source.
+
+
+

@@ -1,0 +1,58 @@
+httk.atomistic.models.protostructure.label_string
+=================================================
+
+.. py:module:: httk.atomistic.models.protostructure.label_string
+
+.. autoapi-nested-parse::
+
+   Backend wrapping a raw canonical protostructure label string.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protostructure.label_string.ProtostructureLabelString
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtostructureLabelString(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.protostructure.backend.ProtostructureBackend`
+
+
+   Wrap a canonical httk protostructure label held as a plain string.
+
+   The string must be a canonical label carrying a ``:`` species suffix; the unsuffixed
+   prototype labels are declined (they belong to the prototype family). Each name
+   becomes ``Species(name, (name,), (1,))``. Parsing is eager.
+
+   :param obj: The canonical protostructure label text.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :value: 'protostructure'
+
+
+
+   .. py:property:: spacegroup
+
+      Return the standard-setting space group of the parsed label.
+
+
+   .. py:property:: occupations
+
+      Return the occupied Wyckoff positions of the parsed label.
+
+
+   .. py:method:: unwrap()
+
+      Return the original label text.
+
+
+
