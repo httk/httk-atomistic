@@ -6,7 +6,7 @@
     "x-optimade-definition": {
         "label": "length_precision_core",
         "kind": "property",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "format": "1.3",
         "name": "length_precision"
     },
@@ -19,5 +19,51 @@
         0.0001,
         0.0003
     ],
-    "x-optimade-unit": "angstrom"
+    "x-optimade-unit": "angstrom",
+    "x-optimade-unit-definitions": [
+        {
+            "$id": "https://schemas.optimade.org/defs/v1.2/units/si/general/angstrom",
+            "title": "\u00e5ngstr\u00f6m",
+            "symbol": "angstrom",
+            "display-symbol": "\u00c5",
+            "description": "A unit of length equal to 10\u207b\u00b9\u2070 meter, using the current, or one of the historical, definitions of the SI units.\n\nThe \u00e5ngstr\u00f6m unit appears in the International System of Units (SI), 1st ed. (1970) defined as \"1 \u00c5 = 0.1 nm = 10\u207b\u00b9\u2070 m\".\n\nThe \u00e5ngstr\u00f6m unit was implicitly redefined via the redefinition of the metre at the 17th CGPM meeting (1983), resolution 1.\n\n- The International System of Units (SI), 1st ed. (1970) categorizes the unit as \"temporarily admitted\" for use with the SI units.\n- The International System of Units (SI), 7th ed. (1998) changes the categorization to \"Other non-SI units currently accepted for use with the International System.\"\n- The International System of Units (SI), 8th ed. (2006) changes the categorization to \"Other non-SI units\" and adds as a clarifying footnote \"The \u00e5ngstr\u00f6m is widely used by x-ray crystallographers and structural chemists because all chemical bonds lie in the range 1 to 3 \u00e5ngstr\u00f6ms. However it has no official sanction from the CIPM or the CGPM.\"\n- The \u00e5ngstr\u00f6m is omitted in the International System of Units (SI), 9th Edition (2019).\n\nThis is a generalized definition taken to reference the current, or one of the historical, SI unit definitions.\nThis definition is intended for situations when it is not possible to be more precise, e.g., in contexts where data have been collected that uses different historical SI definitions.",
+            "compatibility": [
+                "https://schemas.optimade.org/defs/v1.2/units/si/1970/temporary/angstrom",
+                "https://schemas.optimade.org/defs/v1.2/units/si/1983/temporary/angstrom"
+            ],
+            "resources": [
+                {
+                    "relation": "Definition in the International System of Units (SI), 1st Edition",
+                    "resource-id": "https://www.bipm.org/en/publications/si-brochure"
+                },
+                {
+                    "relation": "Redefinition of the metre at the 17th CGPM meeting (1983), resolution 1",
+                    "resource-id": "https://www.bipm.org/en/committees/cg/cgpm/17-1983/resolution-1"
+                },
+                {
+                    "relation": "Wikipedia article describing the unit",
+                    "resource-id": "https://en.wikipedia.org/wiki/Angstrom"
+                }
+            ],
+            "defining-relation": {
+                "base-units": [
+                    {
+                        "symbol": "m",
+                        "id": "https://schemas.optimade.org/defs/v1.2/units/si/general/metre"
+                    }
+                ],
+                "base-units-expression": "m",
+                "scale": {
+                    "exponent": -10
+                }
+            },
+            "x-optimade-definition": {
+                "label": "angstrom_si_general",
+                "kind": "unit",
+                "format": "1.2",
+                "version": "1.2.0",
+                "name": "angstrom"
+            }
+        }
+    ]
 }

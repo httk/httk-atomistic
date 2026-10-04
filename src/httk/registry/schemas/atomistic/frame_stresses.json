@@ -5,7 +5,7 @@
     "x-optimade-type": "list",
     "x-optimade-definition": {
         "kind": "property",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "format": "1.3",
         "name": "frame_stresses",
         "label": "frame_stresses_trajectories_httk"
@@ -13,17 +13,88 @@
     "x-optimade-unit": "GPa",
     "x-optimade-unit-definitions": [
         {
-            "$id": "https://schemas.httk.org/defs/v0.1/units/si/general/gigapascal",
-            "title": "gigapascal",
-            "symbol": "GPa",
-            "display-symbol": "GPa",
-            "description": "A unit of pressure and stress equal to 10^9 pascals.",
+            "$id": "https://schemas.optimade.org/defs/v1.2/prefixes/si/giga",
+            "title": "giga",
+            "symbol": "G",
+            "display-symbol": "G",
+            "description": "The giga SI prefix defined as a dimensionless multiple of 10\u2079, adopted into SI at its creation at the 11th CGPM Meeting in 1960, resolution 12.",
+            "resources": [
+                {
+                    "relation": "Definition in the 11th CGPM Meeting in 1960, resolution 12",
+                    "resource-id": "https://www.bipm.org/en/committees/cg/cgpm/11-1960/resolution-12"
+                },
+                {
+                    "relation": "Wikipedia article describing the prefix",
+                    "resource-id": "https://en.wikipedia.org/wiki/Giga-"
+                }
+            ],
+            "defining-relation": {
+                "base-units": [],
+                "base-units-expression": "",
+                "scale": {
+                    "exponent": 9
+                }
+            },
             "x-optimade-definition": {
-                "label": "gigapascal_si_general",
+                "label": "giga_prefix_si",
+                "kind": "prefix",
+                "format": "1.2",
+                "version": "1.2.0",
+                "name": "giga"
+            }
+        },
+        {
+            "$id": "https://schemas.optimade.org/defs/v1.2/units/si/general/pascal",
+            "title": "pascal",
+            "symbol": "Pa",
+            "display-symbol": "Pa",
+            "description": "A unit for pressure and stress equal to kg\u00b7m\u207b\u00b9\u00b7s\u207b\u00b2 using the current, or one of the historical, definitions of the SI units.\n\n\"The International Committee will ask the General Conference to approve two special names: pascal (symbol Pa) for the SI unit of pressure (N/m\u00b2), [...]\" [14th CGPM Meeting (1971)].\n\nThe pascal was defined at the 14th CGPM Meeting in 1971 and implicitly redefined via the redefinitions of the metre at the 17th CGPM Meeting in 1983, resolution 1, and the kilogram at the 26th CGPM Meeting (2018), resolution 1.\n\nThis is a generalized definition taken to reference the current, or one of the historical, SI unit definitions.\nThis definition is intended for situations when it is not possible to be more precise, e.g., in contexts where data have been collected that uses different historical SI definitions.",
+            "compatibility": [
+                "https://schemas.optimade.org/defs/v1.2/units/si/1971/named/pascal",
+                "https://schemas.optimade.org/defs/v1.2/units/si/1983/named/pascal",
+                "https://schemas.optimade.org/defs/v1.2/units/si/2019/named/pascal"
+            ],
+            "resources": [
+                {
+                    "relation": "Definition at the 14th CGPM Meeting (1971)",
+                    "resource-id": "https://www.bipm.org/en/committees/cg/cgpm/14-1971"
+                },
+                {
+                    "relation": "Wikipedia article describing the unit",
+                    "resource-id": "https://en.wikipedia.org/wiki/Pascal_(unit)"
+                },
+                {
+                    "relation": "Redefinition of the metre at the 17th CGPM meeting (1983), resolution 1",
+                    "resource-id": "https://www.bipm.org/en/committees/cg/cgpm/17-1983/resolution-1"
+                },
+                {
+                    "relation": "Redefinition of the kilogram at the 26th CGPM Meeting (2018), resolution 1",
+                    "resource-id": "https://www.bipm.org/en/committees/cg/cgpm/26-2018/resolution-1"
+                }
+            ],
+            "defining-relation": {
+                "base-units": [
+                    {
+                        "symbol": "kg",
+                        "id": "https://schemas.optimade.org/defs/v1.2/units/si/general/kilogram"
+                    },
+                    {
+                        "symbol": "m",
+                        "id": "https://schemas.optimade.org/defs/v1.2/units/si/general/metre"
+                    },
+                    {
+                        "symbol": "s",
+                        "id": "https://schemas.optimade.org/defs/v1.2/units/si/general/second"
+                    }
+                ],
+                "base-units-expression": "kg*m^-1*s^-2"
+            },
+            "x-optimade-definition": {
+                "label": "pascal_si_general",
                 "kind": "unit",
                 "format": "1.2",
-                "version": "0.1.0",
-                "name": "gigapascal"
+                "version": "1.2.0",
+                "name": "pascal"
             }
         }
     ],
@@ -44,7 +115,7 @@
         "x-optimade-unit": "inapplicable",
         "x-optimade-dimensions": {
             "names": [
-                "dim_voigt"
+                "_httk_dim_voigt"
             ],
             "sizes": [
                 6
