@@ -425,3 +425,57 @@ def test_structure_feature_literals_are_order_independent() -> None:
     )
     with pytest.raises(QueryLiteralError, match="repeat"):
         query(context, "HAS_ALL", ["disorder", "disorder"])
+
+
+@pytest.mark.parametrize("record_type", (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord))
+def test_species_members_query_flattened_rows_and_assemblies_stay_response_only(record_type: type[object]) -> None:
+    projections = stored_property_projections(record_type)
+    members = projections["species"].members
+    context = cast(QueryContext, _ProbeContext())
+    species = projections["species"].query
+    assert species is not None
+    assert _Value("count", _Scope(("species",))) in _walk(species(context, "LENGTH >", 1))
+    with pytest.raises(QueryLiteralError):
+        species(context, "HAS_ALL", ("Fe",))
+    assert set(members) == {
+        "name",
+        "original_name",
+        "chemical_symbols",
+        "concentration",
+        "mass",
+        "attached",
+        "nattached",
+    }
+    assert not projections["assemblies"].members
+
+    name = members["name"].query
+    concentration = members["concentration"].query
+    assert name is not None
+    assert concentration is not None
+    assert _Value("field", ("species", "name")) in _walk(name(context, "HAS_ALL", ("Fe", "O")))
+    rendered = _walk(concentration(context, "HAS_ONLY", ("0.25",)))
+    assert _Value("field", ("species", "constituents", "concentration")) in rendered
+    assert _Value("constant", Fraction(1, 4)) in rendered
+    assert name(context, "IS_UNKNOWN", None) == _Expression("false", ())
+    with pytest.raises(QueryLiteralError):
+        concentration(context, "HAS_ANY", ("nan?",))
+    with pytest.raises(QueryLiteralError):
+        name(context, "=", "Fe")
+
+
+def test_species_member_responses_flatten_the_served_species() -> None:
+    species = (
+        Species("FeNi", ("Fe", "Ni"), (Fraction(3, 4), Fraction(1, 4)), mass=(55.845, 58.6934), original_name="X"),
+        Species("CH2", ("C",), (1,), attached=("H",), nattached=(2,)),
+    )
+    record = _unitcell_record(UnitcellStructure([[3, 0, 0], [0, 3, 0], [0, 0, 3]], [[0, 0, 0]], species, ["FeNi"]))
+    members = stored_property_projections(UnitcellStructureRecord)["species"].members
+    assert {name: member.response(record) for name, member in members.items()} == {
+        "name": ["FeNi", "CH2"],
+        "original_name": ["X"],
+        "chemical_symbols": ["Fe", "Ni", "C"],
+        "concentration": [0.75, 0.25, 1.0],
+        "mass": [55.845, 58.6934],
+        "attached": ["H"],
+        "nattached": [2],
+    }

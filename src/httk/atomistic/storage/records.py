@@ -256,6 +256,8 @@ class SpeciesRecord:
         ):
             raise TypeError("SpeciesRecord constituents must contain SpeciesConstituentRecord values")
         object.__setattr__(self, "constituents", constituents)
+        if len({value.mass is None for value in constituents}) > 1:
+            raise ValueError(f"SpeciesRecord {self.name!r} must state a mass for all constituents or none")
         if self.original_name is not None and not isinstance(self.original_name, str):
             raise TypeError("SpeciesRecord original_name must be a string or None")
         if self.attached is not None:

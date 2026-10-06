@@ -836,6 +836,118 @@ def _count_query(
     return query
 
 
+# OPTIMADE ``species.<member>`` flattens each member over every species: the
+# member name, its row scope below the structure, the row field, the literal
+# kind, and whether rows with a null field are absent from the flattened list.
+_SPECIES_MEMBERS: tuple[tuple[str, tuple[str, ...], str, str, bool], ...] = (
+    ("name", ("species",), "name", "string", False),
+    ("original_name", ("species",), "original_name", "string", True),
+    ("chemical_symbols", ("species", "constituents"), "chemical_symbol", "string", False),
+    ("concentration", ("species", "constituents"), "concentration", "fraction", False),
+    ("mass", ("species", "constituents"), "mass", "float", True),
+    ("attached", ("species", "attached"), "value", "string", False),
+    ("nattached", ("species", "nattached"), "value", "integer", False),
+)
+
+
+def _species_member_literal(member: str, kind: str, literal: object) -> object:
+    """Validate one flattened ``species`` member value literal.
+
+    :param member: The species member name, for error messages.
+    :param kind: The member's literal kind.
+    :param literal: The parsed literal value.
+    :return: The literal in the member's query domain.
+    :raises httk.core.storage.QueryLiteralError: If the literal does not fit the member.
+    """
+    if kind == "fraction":
+        return _fraction_literal(literal, property_name=f"species.{member}")
+    accepted = {"string": str, "integer": int, "float": int | float}[kind]
+    if isinstance(literal, bool) or not isinstance(literal, accepted):
+        raise QueryLiteralError(f"species.{member} requires {kind} literals")
+    return literal
+
+
+def _species_member_projection(
+    member: str, path: tuple[str, ...], field: str, kind: str, nullable: bool
+) -> StoredPropertyProjection:
+    """Declare the HAS-family, LENGTH and unknown queries of one flattened species member.
+
+    :param member: The species member name.
+    :param path: The row scope path below the structure.
+    :param field: The row field holding the member value.
+    :param kind: The member's literal kind (``string``, ``integer``, ``float`` or ``fraction``).
+    :param nullable: Whether rows with a null field are absent from the flattened list.
+    :return: The member projection.
+    """
+
+    def rows(context: QueryContext) -> QueryScope:
+        scope: QueryScope = context
+        for name in path:
+            scope = scope.scope(name)
+        return context.filtered(scope, context.not_(context.is_null(scope.field(field)))) if nullable else scope
+
+    def matches(context: QueryContext, scope: QueryScope, value: object) -> QueryExpression:
+        equal = context.exact_equal if kind == "fraction" else context.equal
+        return equal(scope.field(field), context.constant(value))
+
+    def query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
+        # ``species`` is always stored, so every flattened member list is known (possibly empty).
+        if operator == "IS_KNOWN":
+            return context.always_true()
+        if operator == "IS_UNKNOWN":
+            return context.always_false()
+        if operator.startswith("LENGTH "):
+            if not isinstance(literal, int) or isinstance(literal, bool):
+                raise QueryLiteralError(f"species.{member} LENGTH requires an integer literal")
+            return context.compare(
+                context.count(rows(context)), operator.removeprefix("LENGTH "), context.constant(literal)
+            )
+        if operator not in {"HAS_ALL", "HAS_ANY", "HAS_ONLY"} or not isinstance(literal, tuple | list):
+            raise QueryLiteralError(f"species.{member} supports HAS, LENGTH, and unknown operators")
+        values = [_species_member_literal(member, kind, value) for value in literal]
+        if operator == "HAS_ONLY":
+            scope = rows(context)
+            allowed = context.or_(*[matches(context, scope, value) for value in values])
+            return context.compare(
+                context.count(context.filtered(scope, context.not_(allowed))), "=", context.constant(0)
+            )
+        present = []
+        for value in values:
+            scope = rows(context)  # A fresh peer scope per value.
+            present.append(
+                context.compare(
+                    context.count(context.filtered(scope, matches(context, scope, value))), ">", context.constant(0)
+                )
+            )
+        return context.and_(*present) if operator == "HAS_ALL" else context.or_(*present)
+
+    def response(record: Any) -> list[object]:
+        values: list[object] = []
+        for species in record.species:
+            value: Any = species_payload(species).get(member)
+            values.extend([value] if isinstance(value, str) else (item for item in value or () if item is not None))
+        return values
+
+    return StoredPropertyProjection(response=response, query=query)
+
+
+def _species_query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
+    """Filter the always-stored ``species`` list by presence and length only."""
+    if operator == "IS_KNOWN":
+        return context.always_true()
+    if operator == "IS_UNKNOWN":
+        return context.always_false()
+    if not operator.startswith("LENGTH ") or not isinstance(literal, int) or isinstance(literal, bool):
+        raise QueryLiteralError("species supports LENGTH with an integer literal and unknown operators")
+    return context.compare(
+        context.count(context.scope("species")), operator.removeprefix("LENGTH "), context.constant(literal)
+    )
+
+
+def _species_members() -> dict[str, StoredPropertyProjection]:
+    return {spec[0]: _species_member_projection(*spec) for spec in _SPECIES_MEMBERS}
+
+
 def _nperiodic_dimensions_query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
     """Count the persisted boolean periodicity rows without deriving a cache column."""
     if operator == "IS_KNOWN":
@@ -905,6 +1017,11 @@ def _common_queries(
     )
     projections["nperiodic_dimensions"] = StoredPropertyProjection(
         response=_response("nperiodic_dimensions", backing), query=_nperiodic_dimensions_query
+    )
+    # ``species`` filters by presence and length; its flattened members filter fully.
+    # ``assemblies`` has no member queries: the vendored definition mistypes it as a dictionary.
+    projections["species"] = StoredPropertyProjection(
+        response=_response("species", backing), query=_species_query, members=_species_members()
     )
     # ``dimension_types`` is a positional list. The neutral scope protocol has
     # no child-position selector, so only its response projection is exact.

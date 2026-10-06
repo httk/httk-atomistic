@@ -381,3 +381,91 @@ def test_zero_site_composition_keeps_elements_known_but_formulas_unknown(zero_si
     assert _counts(zero_site_plan, "chemical_formula_reduced IS KNOWN") == [0]
     assert _counts(zero_site_plan, 'chemical_formula_reduced != "ClNa"') == [0]
     assert _counts(zero_site_plan, 'NOT chemical_formula_reduced = "ClNa"') == [0]
+
+
+def _species_members_sources() -> tuple[Any, ...]:
+    fe_ni = Species("FeNi", ("Fe", "Ni"), (Fraction(3, 4), Fraction(1, 4)), mass=(55.845, 58.6934))
+    oxygen = Species("O", ("O",), (1,), original_name="O1")
+    methyl = Species("CH2", ("C",), (1,), mass=(12.011,), attached=("H",), nattached=(2,))
+    chlorine = Species("Cl", ("Cl",), (1,))
+    cell = [[4, 0, 0], [0, 4, 0], [0, 0, 4]]
+    half = [[0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]]
+
+    def domain(record_type: type[Any], species: tuple[Species, Species]) -> Any:
+        sites = (WyckoffSite("a", FracVector(()), species[0].name), WyckoffSite("b", FracVector(()), species[1].name))
+        return record_type(cell, 225, sites, species)
+
+    return (
+        UnitcellStructure(cell, half, (fe_ni, oxygen), ("FeNi", "O")),
+        UnitcellStructure(cell, half, (methyl, chlorine), ("CH2", "Cl")),
+        _unitcell_with_unused_disordered_species(),
+        _domain(FundamentalDomainStructure),
+        domain(FundamentalDomainStructure, (fe_ni, oxygen)),
+        _domain(ASUStructure),
+        domain(ASUStructure, (methyl, chlorine)),
+    )
+
+
+@pytest.fixture(params=("sqlite", "duckdb"))
+def species_plan(request):
+    database = _database_for(request)
+    with database:
+        store = SqlStore(
+            database,
+            entry_ids=EntryIdScheme("httk.test", "1"),
+            entry_records={
+                StructureEntry: (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord)
+            },
+        )
+        for source in _species_members_sources():
+            store.save(source)
+        yield stored_property_sql_plan(store, StructureEntry)
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "counts"),
+    (
+        # Backings hold [FeNi+O, CH2(H2)+Cl, Na+Cl+unused Na1/2], [NaCl, FeNi+O], [NaCl, CH2(H2)+Cl].
+        ('species.name HAS "O"', [1, 1, 0]),
+        ('species.name HAS ALL "FeNi","O"', [1, 1, 0]),
+        ('species.name HAS ANY "FeNi","CH2"', [2, 1, 1]),
+        ('species.name HAS ONLY "Na","Cl"', [0, 1, 1]),
+        ("species.name LENGTH 3", [1, 0, 0]),
+        ("species.name LENGTH 2", [2, 2, 2]),
+        ('species.chemical_symbols HAS "Fe"', [1, 1, 0]),
+        ('species.chemical_symbols HAS ONLY "Fe","Ni"', [0, 0, 0]),
+        ('species.chemical_symbols HAS ONLY "Fe","Ni","O"', [1, 1, 0]),
+        ('NOT species.chemical_symbols HAS "Fe"', [2, 1, 2]),
+        ("species.concentration HAS 0.25", [1, 1, 0]),
+        ("species.concentration HAS 0.2500001", [0, 0, 0]),
+        ("species.concentration HAS ALL 0.75,0.25", [1, 1, 0]),
+        ("species.mass HAS 58.6934", [1, 1, 0]),
+        ("species.mass LENGTH 1", [1, 0, 1]),
+        ("species.mass LENGTH 0", [1, 1, 1]),
+        ('species.attached HAS "H"', [1, 0, 1]),
+        ("species.nattached HAS 2", [1, 0, 1]),
+        ('species.original_name HAS "O1"', [1, 1, 0]),
+        ("species.original_name LENGTH 0", [2, 1, 2]),
+        ("species.mass IS KNOWN", [3, 2, 2]),
+        ("species.mass IS UNKNOWN", [0, 0, 0]),
+        ("species LENGTH 3", [1, 0, 0]),
+        ("species LENGTH 2", [2, 2, 2]),
+        ("species IS KNOWN", [3, 2, 2]),
+        ("species IS UNKNOWN", [0, 0, 0]),
+    ),
+)
+def test_species_members_filter_their_flattened_lists(species_plan, filter_string, counts):
+    assert _counts(species_plan, filter_string) == counts
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "category"),
+    (
+        ('species.nosuch HAS "x"', "unrecognized-property"),
+        ('species.name = "x"', "type-mismatch"),
+    ),
+)
+def test_invalid_species_member_filters_are_rejected(species_plan, filter_string, category):
+    with pytest.raises(FilterTranslationError) as caught:
+        species_plan.filter_searchers(filter_string)
+    assert caught.value.category == category

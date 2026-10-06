@@ -574,6 +574,17 @@ def test_species_constituent_rejects_nonfinite_mass(mass: float) -> None:
         SpeciesConstituentRecord("Fe", Fraction(1), mass=mass)
 
 
+def test_species_record_rejects_partial_constituent_masses() -> None:
+    with pytest.raises(ValueError, match="'FeNi' must state a mass for all constituents or none"):
+        SpeciesRecord(
+            "FeNi",
+            (
+                SpeciesConstituentRecord("Fe", Fraction(1, 2), mass=55.845),
+                SpeciesConstituentRecord("Ni", Fraction(1, 2)),
+            ),
+        )
+
+
 def test_assembly_record_rejects_mutable_group_impostors() -> None:
     class Impostor:
         def __init__(self) -> None:
