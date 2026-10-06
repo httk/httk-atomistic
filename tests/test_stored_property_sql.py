@@ -469,3 +469,62 @@ def test_invalid_species_member_filters_are_rejected(species_plan, filter_string
     with pytest.raises(FilterTranslationError) as caught:
         species_plan.filter_searchers(filter_string)
     assert caught.value.category == category
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "counts"),
+    (
+        # Compositions: FeNi+O is Fe 3/8, Ni 1/8, O 1/2; NaCl is Na 1/2, Cl 1/2;
+        # CH2(H2)+Cl is C 1/4, Cl 1/4, H 1/2.
+        ('elements:elements_ratios HAS "Fe":0.375', [1, 1, 0]),
+        ('elements_ratios:elements HAS 0.375:"Fe"', [1, 1, 0]),
+        ('elements:elements_ratios HAS "Fe":0.125', [0, 0, 0]),
+        ('elements:elements_ratios HAS <"G":0.375', [1, 1, 0]),
+        ('elements:elements_ratios HAS "Fe":!=0.375', [0, 0, 0]),
+        ('elements:elements_ratios HAS "Na":!=0.25', [1, 1, 1]),
+        ('elements:elements_ratios HAS ALL "Fe":0.375,"O":0.5', [1, 1, 0]),
+        ('elements:elements_ratios HAS ALL "Fe":0.375,"Ni":0.5', [0, 0, 0]),
+        ('elements:elements_ratios HAS ANY "Fe":0.375,"Na":0.5', [2, 2, 1]),
+        ('elements:elements_ratios HAS ONLY "Na":0.5,"Cl":0.5', [1, 1, 1]),
+        ('elements:elements_ratios HAS ONLY "Fe":0.375,"Ni":0.125', [0, 0, 0]),
+        ('elements:elements_ratios HAS ONLY "Fe":0.375,"Ni":0.125,"O":0.5', [1, 1, 0]),
+        ('NOT elements:elements_ratios HAS "Fe":0.375', [2, 1, 2]),
+        ('species.chemical_symbols:species.concentration HAS "Ni":0.25', [1, 1, 0]),
+        ('species.concentration:species.chemical_symbols HAS 0.25:"Ni"', [1, 1, 0]),
+        ('species.chemical_symbols:species.concentration HAS "Ni":0.75', [0, 0, 0]),
+        ('species.chemical_symbols:species.concentration HAS ALL "Fe":0.75,"Ni":0.25', [1, 1, 0]),
+        ('species.chemical_symbols:species.concentration HAS ANY "Ni":0.25,"Na":0.5', [2, 1, 0]),
+        ('species.chemical_symbols:species.concentration HAS ONLY "Fe":0.75,"Ni":0.25,"O":1', [1, 1, 0]),
+        # Unused species are part of the flattened ``species`` list.
+        ('species.chemical_symbols:species.concentration HAS ONLY "Na":1,"Cl":1', [0, 1, 1]),
+        ('NOT species.chemical_symbols:species.concentration HAS "Ni":0.25', [2, 1, 2]),
+    ),
+)
+def test_zip_filters_correlate_row_values(species_plan, filter_string, counts):
+    assert _counts(species_plan, filter_string) == counts
+
+
+def test_composition_zip_filters_preserve_sql_unknown(structure_plan):
+    plan, _sources = structure_plan
+
+    # The first backing's incomplete composition is unknown, never a (non-)match.
+    assert _counts(plan, 'elements:elements_ratios HAS "Na":0.5') == [2, 1, 1]
+    assert _counts(plan, 'NOT elements:elements_ratios HAS "Na":0.5') == [0, 0, 0]
+    assert _counts(plan, 'NOT elements:elements_ratios HAS "Na":1') == [2, 1, 1]
+
+
+@pytest.mark.parametrize(
+    "filter_string",
+    (
+        'species.chemical_symbols:species.mass HAS "Fe":55.845',
+        'species.name:species.chemical_symbols HAS "FeNi":"Fe"',
+        'elements:elements HAS "Fe":"Fe"',
+        # Exact rationals have no orderable stored form.
+        'elements:elements_ratios HAS "Fe":>0.3',
+        'species.chemical_symbols:species.concentration HAS "Ni":<0.5',
+    ),
+)
+def test_unsupported_zip_combinations_are_not_implemented(species_plan, filter_string):
+    with pytest.raises(FilterTranslationError) as caught:
+        species_plan.filter_searchers(filter_string)
+    assert caught.value.category == "not-implemented"

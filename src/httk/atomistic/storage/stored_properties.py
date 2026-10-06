@@ -23,6 +23,8 @@ from httk.core.storage import (
     QueryScope,
     QueryValue,
     StoredPropertyProjection,
+    StoredPropertyZipQuery,
+    ZipLiteral,
 )
 
 from httk.atomistic.elements import SYMBOLS
@@ -686,6 +688,79 @@ def _elements_ratios_query(context: QueryContext, operator: str, literal: object
     return _complete_composition(context, predicate)
 
 
+def _row_zip_query(
+    rows: Callable[[QueryContext], QueryScope], slots: Mapping[str, tuple[str, str | None]]
+) -> StoredPropertyZipQuery:
+    """Build a zip query over one row scope whose fields hold every zipped list.
+
+    The zipped lists are row-correlated (one row per element position), so no
+    alignment is needed: a value tuple matches a row when every slot does.
+
+    :param rows: Builds a fresh row scope (a fresh peer per value tuple).
+    :param slots: Maps each zippable path to its row field and, for exact
+        rational fields, the property name used in literal errors (``None``
+        for string fields).
+    :return: The zip query; it returns ``None`` unless ``paths`` names every slot
+        exactly once and rational slots use only ``=``/``!=``.
+    """
+
+    def matches(
+        context: QueryContext,
+        scope: QueryScope,
+        paths: tuple[str, ...],
+        ops: tuple[str, ...],
+        values: tuple[object, ...],
+    ) -> QueryExpression:
+        terms = []
+        for path, op, value in zip(paths, ops, values, strict=True):
+            field, fraction_name = slots[path]
+            if fraction_name is not None:
+                value = _fraction_literal(value, property_name=fraction_name)
+            elif not isinstance(value, str):
+                raise QueryLiteralError(f"{path} zip values must be strings")
+            terms.append(_comparison(context, scope.field(field), op, value, exact=True))
+        return context.and_(*terms)
+
+    def zip_query(context: QueryContext, operator: str, literal: ZipLiteral) -> QueryExpression | None:
+        paths = literal.paths
+        if operator not in {"HAS_ZIP_ALL", "HAS_ZIP_ANY", "HAS_ZIP_ONLY"} or sorted(paths) != sorted(slots):
+            return None
+        # SQL cannot order exact fraction columns, so rational slots accept only = and !=
+        if any(
+            op not in {"=", "!="} and slots[path][1] is not None
+            for ops in literal.operators
+            for path, op in zip(paths, ops, strict=True)
+        ):
+            return None
+        tuples = list(zip(literal.operators, literal.values, strict=True))
+        if operator == "HAS_ZIP_ONLY":
+            scope = rows(context)
+            allowed = context.or_(*[matches(context, scope, paths, ops, values) for ops, values in tuples])
+            return context.compare(
+                context.count(context.filtered(scope, context.not_(allowed))), "=", context.constant(0)
+            )
+        present = []
+        for ops, values in tuples:
+            scope = rows(context)
+            matching = context.filtered(scope, matches(context, scope, paths, ops, values))
+            present.append(context.compare(context.count(matching), ">", context.constant(0)))
+        return context.and_(*present) if operator == "HAS_ZIP_ALL" else context.or_(*present)
+
+    return zip_query
+
+
+_composition_zip_query = _row_zip_query(
+    lambda context: _composition_scope(context).scope("amounts"),
+    {"elements": ("element", None), "elements_ratios": ("ratio", "elements_ratios")},
+)
+
+
+def _elements_zip_query(context: QueryContext, operator: str, literal: ZipLiteral) -> QueryExpression | None:
+    """Zip ``elements`` with ``elements_ratios`` (either order) on their shared composition rows."""
+    predicate = _composition_zip_query(context, operator, literal)
+    return None if predicate is None else _complete_composition(context, predicate)
+
+
 def _span_query(spans: Mapping[str, bool]) -> Callable[[QueryContext, str, object], QueryExpression]:
 
     def query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
@@ -948,6 +1023,14 @@ def _species_members() -> dict[str, StoredPropertyProjection]:
     return {spec[0]: _species_member_projection(*spec) for spec in _SPECIES_MEMBERS}
 
 
+# Only always-present constituent members zip: ``mass`` may be absent per
+# constituent, which breaks positional alignment between routes.
+_species_zip_query = _row_zip_query(
+    lambda context: context.scope("species").scope("constituents"),
+    {"chemical_symbols": ("chemical_symbol", None), "concentration": ("concentration", "species.concentration")},
+)
+
+
 def _nperiodic_dimensions_query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
     """Count the persisted boolean periodicity rows without deriving a cache column."""
     if operator == "IS_KNOWN":
@@ -998,12 +1081,15 @@ def _common_queries(
     projections["last_modified"] = StoredPropertyProjection(
         response=_response("last_modified", backing), query=_timestamp_query, sort=_string_sort(("last_modified",))
     )
-    projections["elements"] = StoredPropertyProjection(response=_response("elements", backing), query=_elements_query)
+    # A top-level zip reaches the projection of its first property, so both own it.
+    projections["elements"] = StoredPropertyProjection(
+        response=_response("elements", backing), query=_elements_query, zip_query=_elements_zip_query
+    )
     projections["nelements"] = StoredPropertyProjection(
         response=_response("nelements", backing), query=_nelements_query
     )
     projections["elements_ratios"] = StoredPropertyProjection(
-        response=_response("elements_ratios", backing), query=_elements_ratios_query
+        response=_response("elements_ratios", backing), query=_elements_ratios_query, zip_query=_elements_zip_query
     )
     projections["chemical_formula_reduced"] = StoredPropertyProjection(
         response=_response("chemical_formula_reduced", backing), query=_formula_query(anonymous=False)
@@ -1021,7 +1107,10 @@ def _common_queries(
     # ``species`` filters by presence and length; its flattened members filter fully.
     # ``assemblies`` has no member queries: the vendored definition mistypes it as a dictionary.
     projections["species"] = StoredPropertyProjection(
-        response=_response("species", backing), query=_species_query, members=_species_members()
+        response=_response("species", backing),
+        query=_species_query,
+        members=_species_members(),
+        zip_query=_species_zip_query,
     )
     # ``dimension_types`` is a positional list. The neutral scope protocol has
     # no child-position selector, so only its response projection is exact.

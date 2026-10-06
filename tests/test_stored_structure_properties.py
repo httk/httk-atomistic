@@ -12,6 +12,7 @@ from httk.core.storage import (
     QueryLiteralError,
     QueryScope,
     QueryValue,
+    ZipLiteral,
     stored_property_projections,
 )
 from test_structure_record import _domain, _domain_record, _unitcell, _unitcell_record
@@ -479,3 +480,36 @@ def test_species_member_responses_flatten_the_served_species() -> None:
         "attached": ["H"],
         "nattached": [2],
     }
+
+
+def test_zip_queries_correlate_one_row_scope_and_reject_other_combinations() -> None:
+    projections = stored_property_projections(UnitcellStructureRecord)
+    context = cast(QueryContext, _ProbeContext())
+    elements = projections["elements"].zip_query
+    species = projections["species"].zip_query
+    assert elements is not None
+    assert species is not None
+    assert projections["elements_ratios"].zip_query is elements
+
+    pair = ZipLiteral(("elements_ratios", "elements"), (("=", "="),), ((0.375, "Fe"),))
+    expression = elements(context, "HAS_ZIP_ALL", pair)
+    assert isinstance(expression, _Expression) and expression.tag == "when_known"
+    rendered = _walk(expression)
+    assert _Value("field", ("normalized_composition", "amounts", "ratio")) in rendered
+    assert _Value("field", ("normalized_composition", "amounts", "element")) in rendered
+    assert _Value("constant", Fraction(3, 8)) in rendered
+
+    constituents = ZipLiteral(("chemical_symbols", "concentration"), (("=", "!="),), (("Ni", 0.25),))
+    rendered = _walk(species(context, "HAS_ZIP_ONLY", constituents))
+    assert _Value("field", ("species", "constituents", "chemical_symbol")) in rendered
+    assert _Value("constant", Fraction(1, 4)) in rendered
+
+    for query, literal in (
+        (species, ZipLiteral(("chemical_symbols", "mass"), (("=", "="),), (("Fe", 55.845),))),
+        (species, ZipLiteral(("name", "chemical_symbols"), (("=", "="),), (("FeNi", "Fe"),))),
+        (elements, ZipLiteral(("elements", "elements"), (("=", "="),), (("Fe", "Fe"),))),
+        (elements, ZipLiteral(("elements", "elements_ratios"), (("=", ">"),), (("Fe", 0.3),))),
+    ):
+        assert query(context, "HAS_ZIP_ALL", literal) is None
+    with pytest.raises(QueryLiteralError):
+        elements(context, "HAS_ZIP_ANY", ZipLiteral(("elements", "elements_ratios"), (("=", "="),), (("Fe", "x"),)))

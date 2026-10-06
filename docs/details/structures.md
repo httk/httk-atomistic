@@ -422,6 +422,19 @@ and `IS KNOWN`/`IS UNKNOWN` (always known), for example
 constituent and attachment members are rejected, like `elements`, because they
 nest correlated subqueries more than one level deep.
 
+Stored structures also accept two correlated (zip) filters, in either order:
+`elements:elements_ratios` (for example `elements:elements_ratios HAS "Si":0.375`)
+and `species.chemical_symbols:species.concentration` (for example
+`species.chemical_symbols:species.concentration HAS "Ge":0.625`). A value pair
+matches one composition row, or one species constituent; `HAS ALL` needs every
+pair matched by some row, `HAS ANY` some pair, and `HAS ONLY` every row matched
+by some pair. Ratios and concentrations compare as exact rationals with `=` and
+`!=` only (exact values have no orderable stored form); element symbols accept
+every comparison operator. An incomplete composition keeps the
+`elements:elements_ratios` filter unknown. Other combinations, including
+`species.mass` (not every constituent states a mass), answer not implemented.
+On ClickHouse both are rejected like `elements`.
+
 ## Shared Behavior, `unwrap`, and `unview`
 
 `unwrap(obj)` returns the most raw representation available:
