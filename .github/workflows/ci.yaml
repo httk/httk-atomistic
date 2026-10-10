@@ -34,7 +34,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e .[dev]
+          pip install -e .[dev,ci]
 
       - name: Run CI
         run: make ci
@@ -54,8 +54,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e .[dev]
-          pip install ase pymatgen
+          pip install -e .[dev,ci]
 
       - name: Run compatibility tests
         run: python -m pytest tests/test_compat.py tests/test_pymatgen_compat.py tests/test_unview.py tests/test_citations.py -q

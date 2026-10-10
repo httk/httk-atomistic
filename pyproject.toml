@@ -35,16 +35,19 @@ classifiers = [
 [project.optional-dependencies]
 numpy = ["httk-core[numpy]>=2.1.2,<3"]
 dev = [
-  # Full-source type checks and tests cover these optional integrations.
   "httk-atomistic[default]",
-  "ase",
-  "pymatgen",
   "pytest>=8.0",
   "pytest-xdist>=3.6",
   "ruff>=0.16,<0.17",
   "pyright",
   "mypy",
   "pydoclint>=0.9,<1"
+]
+# Full-source type checks and the compatibility tests cover these optional
+# integrations; the full CI gate installs [dev,ci].
+ci = [
+  "ase",
+  "pymatgen",
 ]
 docs = [
   "sphinx",
