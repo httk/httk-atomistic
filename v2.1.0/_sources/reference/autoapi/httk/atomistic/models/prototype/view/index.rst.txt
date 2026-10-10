@@ -1,0 +1,55 @@
+httk.atomistic.models.prototype.view
+====================================
+
+.. py:module:: httk.atomistic.models.prototype.view
+
+.. autoapi-nested-parse::
+
+   Lazy prototype recognition and presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.view.PrototypeView
+
+
+Module Contents
+---------------
+
+.. py:class:: PrototypeView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.view_base.PrototypeViewBase`, :py:obj:`httk.atomistic.models.prototype.prototype.Prototype`
+
+
+   Present a lazy anonymous geometrical-class prototype view.
+
+   Sources may be an existing prototype, a Protostructure (erased to its anonymous class),
+   or a structure-like source recognized to a
+   representative-carrying prototype. Recognition of a raw structure accepts optional
+   ``tolerance`` and ``limit_denominator`` values; resolution is deferred until the first
+   field access.
+
+   :param obj: The prototype-like, protostructure-like, or structure-like source.
+   :param \*\*hints: Backend-selection and recognition hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the recognized prototype as a standalone value.
+
+      :return: The prototype value.
+
+
+

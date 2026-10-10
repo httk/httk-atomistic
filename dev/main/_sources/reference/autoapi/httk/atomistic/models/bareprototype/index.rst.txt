@@ -1,0 +1,195 @@
+httk.atomistic.models.bareprototype
+===================================
+
+.. py:module:: httk.atomistic.models.bareprototype
+
+.. autoapi-nested-parse::
+
+   The anonymous Wyckoff-only prototype family.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/bareprototype/api/index
+   /reference/autoapi/httk/atomistic/models/bareprototype/backend/index
+   /reference/autoapi/httk/atomistic/models/bareprototype/bareprototype/index
+   /reference/autoapi/httk/atomistic/models/bareprototype/derived/index
+   /reference/autoapi/httk/atomistic/models/bareprototype/label/index
+   /reference/autoapi/httk/atomistic/models/bareprototype/label_string/index
+   /reference/autoapi/httk/atomistic/models/bareprototype/like/index
+   /reference/autoapi/httk/atomistic/models/bareprototype/projected/index
+   /reference/autoapi/httk/atomistic/models/bareprototype/recognized/index
+   /reference/autoapi/httk/atomistic/models/bareprototype/view/index
+   /reference/autoapi/httk/atomistic/models/bareprototype/view_base/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprototype.BarePrototypeLike
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprototype.PrototypeOccupation
+   httk.atomistic.models.bareprototype.BarePrototypeAPI
+   httk.atomistic.models.bareprototype.BarePrototypeBackend
+   httk.atomistic.models.bareprototype.BarePrototype
+   httk.atomistic.models.bareprototype.BarePrototypeViewBase
+
+
+Package Contents
+----------------
+
+.. py:class:: PrototypeOccupation
+
+   Store one Wyckoff orbit assigned to one anonymous species class.
+
+   Unlike :class:`~httk.atomistic.models.protostructure.occupation.WyckoffOccupation`,
+   the class carries an anonymous class label (``"A"``, ``"B"``, ...) rather than a real
+   :class:`~httk.atomistic.Species`, so it can represent an element-agnostic prototype.
+
+   :param wyckoff: The Wyckoff letter in the standard setting.
+   :param label: The anonymous species-class label.
+
+
+   .. py:attribute:: wyckoff
+      :type:  str
+
+
+   .. py:attribute:: label
+      :type:  str
+
+
+.. py:class:: BarePrototypeAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Common interface for anonymous standard-setting Wyckoff prototypes.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+      :abstractmethod:
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototype.occupation.PrototypeOccupation, ...]
+
+      :abstractmethod:
+
+
+      Return canonical anonymous Wyckoff occupations.
+
+
+   .. py:method:: multiplicities()
+
+      Return tabulated standard-setting multiplicities.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the number of sites in the conventional cell.
+
+
+   .. py:property:: pearson_symbol
+      :type: str
+
+
+      Return the Pearson symbol for the conventional cell.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatype_view.FormulatypeView
+
+
+      Return the reduced anonymous formula view.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.bareprototype.label.BarePrototypeLabel
+
+
+      Return the canonical Wyckoff label presentation.
+
+
+   .. py:property:: bare_prototype
+      :type: Self
+
+
+      Return this bare prototype value.
+
+
+.. py:class:: BarePrototypeBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`BarePrototypeBackend`\ ], :py:obj:`httk.atomistic.models.bareprototype.api.BarePrototypeAPI`
+
+
+   Backend root for anonymous Wyckoff-only prototypes.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+
+.. py:class:: BarePrototype(spacegroup, occupations)
+
+   Bases: :py:obj:`httk.atomistic.models.bareprototype.backend.BarePrototypeBackend`
+
+
+   Store only standard-setting Wyckoff occupations, without geometrical refinement.
+
+   :param spacegroup: The standard-setting space group or its IT number.
+   :param occupations: Occupied Wyckoff positions and their anonymous labels.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'bare_prototype'
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototype.occupation.PrototypeOccupation, ...]
+
+
+      Return canonical anonymous Wyckoff occupations.
+
+
+.. py:type:: BarePrototypeLike
+   :canonical: httk.atomistic.models.bareprototype.backend.BarePrototypeBackend | httk.atomistic.models.bareprototype.view_base.BarePrototypeViewBase | httk.atomistic.models.bareprototype.bareprototype.BarePrototype | httk.atomistic.models.bareprototype.label.BarePrototypeLabel | str | httk.atomistic.models.prototype.backend.PrototypeBackend | httk.atomistic.models.prototype.view_base.PrototypeViewBase | httk.atomistic.models.protostructure.backend.ProtostructureBackend | httk.atomistic.models.protostructure.view_base.ProtostructureViewBase | httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend | httk.atomistic.models.bareprotostructure.view_base.BareProtostructureViewBase | httk.atomistic.models.structure.backend.StructureBackend | httk.atomistic.models.structure.view.StructureView | httk.atomistic.models.structuretype.backend.StructuretypeBackend | httk.atomistic.models.structuretype.view_base.StructuretypeViewBase
+
+
+.. py:class:: BarePrototypeViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.bareprototype.backend.BarePrototypeBackend`\ ]
+
+
+   Base class for views presenting prototype backends.
+
+

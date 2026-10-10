@@ -1,0 +1,58 @@
+httk.atomistic.cli
+==================
+
+.. py:module:: httk.atomistic.cli
+
+.. autoapi-nested-parse::
+
+   The ``httk symmetry`` command: inspect and canonicalize a structure's symmetry.
+
+   The subcommands are thin wrappers over the public symmetry API
+   (:func:`~httk.atomistic.canonical_asu`, :func:`~httk.atomistic.canonicalize`,
+   :func:`~httk.atomistic.rerepresent`, :func:`~httk.atomistic.list_representations`,
+   :func:`~httk.atomistic.recognize_asu`): they load a file, run one operation, print a
+   human-readable report on stdout, and optionally save the resulting structure.
+   Inputs are loaded with ``repair=True`` where the format supports it; repair warnings
+   are reported on stderr through the ``httk`` logging channel before the report.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.cli.Handler
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.cli.build_parser
+   httk.atomistic.cli.command
+
+
+Module Contents
+---------------
+
+.. py:data:: Handler
+
+.. py:function:: build_parser(program)
+
+   Build the ``httk symmetry`` command tree.
+
+   :param program: Program name used by the parser in help and errors.
+   :return: Configured symmetry command parser.
+
+
+.. py:function:: command(argv, context)
+
+   Handle the registered top-level ``symmetry`` command.
+
+   :param argv: Arguments following the symmetry command name.
+   :param context: Root CLI invocation context.
+   :return: Command exit status.
+
+

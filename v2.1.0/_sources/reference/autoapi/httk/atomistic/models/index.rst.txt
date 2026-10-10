@@ -1,0 +1,24 @@
+httk.atomistic.models
+=====================
+
+.. py:module:: httk.atomistic.models
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/cell/index
+   /reference/autoapi/httk/atomistic/models/formula/index
+   /reference/autoapi/httk/atomistic/models/moments/index
+   /reference/autoapi/httk/atomistic/models/protostructure/index
+   /reference/autoapi/httk/atomistic/models/prototype/index
+   /reference/autoapi/httk/atomistic/models/sites/index
+   /reference/autoapi/httk/atomistic/models/species/index
+   /reference/autoapi/httk/atomistic/models/structure/index
+   /reference/autoapi/httk/atomistic/models/structuretype/index
+   /reference/autoapi/httk/atomistic/models/trajectory/index
+
+

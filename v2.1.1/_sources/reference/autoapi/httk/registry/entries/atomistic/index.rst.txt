@@ -1,0 +1,11 @@
+httk.registry.entries.atomistic
+===============================
+
+.. py:module:: httk.registry.entries.atomistic
+
+.. autoapi-nested-parse::
+
+   Register entry providers and storage backings implemented by :mod:`httk.atomistic`.
+
+
+

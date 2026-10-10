@@ -1,0 +1,83 @@
+httk.atomistic.models.structure.numeric
+=======================================
+
+.. py:module:: httk.atomistic.models.structure.numeric
+
+.. autoapi-nested-parse::
+
+   Backend for numeric unitcell structure presentations.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.numeric.NumericUnitcellStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: NumericUnitcellStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Backend recognizing the plain-numpy structure quartet.
+
+   The wrapped object must expose ``NumericCell``/``NumericSites`` values through
+   ``cell``/``sites`` and the usual ``species``/``species_at_sites`` attributes.
+   Its exact quartet is taken from an ``exact`` :class:`~httk.atomistic.models.structure.unitcell.UnitcellStructure` when available,
+   then from the component presentations' ``exact`` values. If neither component
+   carries an exact value, the numeric ``basis`` and ``reduced_coords`` arrays are
+   passed through the vector family into ``Cell`` and ``Sites``. That last route is
+   exact embedding of the floats: their binary float64 values, rather than their
+   decimal spellings, become the exact values.
+
+   :param obj: The numeric structure presentation to wrap.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the exact cell quartet component.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the exact sites quartet component.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Expose the exact structure's distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Expose the exact species name for each site.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Expose the explicitly assigned exact charge.
+
+
+   .. py:method:: unwrap()
+
+      Return the wrapped numeric presentation object.
+
+
+

@@ -1,0 +1,231 @@
+httk.atomistic.models.prototype
+===============================
+
+.. py:module:: httk.atomistic.models.prototype
+
+.. autoapi-nested-parse::
+
+   The anonymous geometrical-class prototype family.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/prototype/api/index
+   /reference/autoapi/httk/atomistic/models/prototype/backend/index
+   /reference/autoapi/httk/atomistic/models/prototype/derived/index
+   /reference/autoapi/httk/atomistic/models/prototype/label/index
+   /reference/autoapi/httk/atomistic/models/prototype/label_string/index
+   /reference/autoapi/httk/atomistic/models/prototype/like/index
+   /reference/autoapi/httk/atomistic/models/prototype/notation/index
+   /reference/autoapi/httk/atomistic/models/prototype/occupation/index
+   /reference/autoapi/httk/atomistic/models/prototype/prototype/index
+   /reference/autoapi/httk/atomistic/models/prototype/recognized/index
+   /reference/autoapi/httk/atomistic/models/prototype/view/index
+   /reference/autoapi/httk/atomistic/models/prototype/view_base/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.PrototypeLike
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.PrototypeAPI
+   httk.atomistic.models.prototype.PrototypeBackend
+   httk.atomistic.models.prototype.PrototypeOccupation
+   httk.atomistic.models.prototype.Prototype
+   httk.atomistic.models.prototype.PrototypeViewBase
+
+
+Package Contents
+----------------
+
+.. py:class:: PrototypeAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Common interface for anonymous standard-setting Wyckoff prototypes.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+      :abstractmethod:
+
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototype.occupation.PrototypeOccupation, ...]
+
+      :abstractmethod:
+
+
+
+   .. py:property:: representative
+      :type: FundamentalDomainTemplate | None
+
+
+      Return an optional retained exact representative.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return an optional geometrical-class discriminator.
+
+
+   .. py:method:: multiplicities()
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+
+   .. py:property:: pearson_symbol
+      :type: str
+
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatype_view.FormulatypeView
+
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.prototype.label.PrototypeLabel
+
+
+
+   .. py:property:: prototype
+      :type: Self
+
+
+
+   .. py:method:: similar(other, delta)
+
+      Return whether two prototypes have compatible geometry within ``delta``.
+
+      The base identity (space group, anonymous occupations, and any discriminators
+      present on both) must agree; when both sides retain a geometrical representative,
+      their total Cartesian atom travel must not exceed ``delta``. A prototype-like or
+      protostructure-like ``other`` is erased through :class:`~httk.atomistic.PrototypeView` first, so a
+      bare protostructure compares against its anonymous prototype.
+
+      :param other: The prototype-like or protostructure-like value to compare against.
+      :param delta: The non-negative finite Cartesian travel budget.
+      :return: Whether the two values are compatible within ``delta``.
+      :raises TypeError: If ``delta`` is not a real number.
+      :raises ValueError: If ``delta`` is negative or non-finite.
+
+
+
+.. py:class:: PrototypeBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`PrototypeBackend`\ ], :py:obj:`httk.atomistic.models.prototype.api.PrototypeAPI`
+
+
+   Backend root for anonymous geometrical-class prototypes.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+
+.. py:type:: PrototypeLike
+   :canonical: httk.atomistic.models.prototype.backend.PrototypeBackend | httk.atomistic.models.prototype.view_base.PrototypeViewBase | httk.atomistic.models.prototype.prototype.Prototype | httk.atomistic.models.prototype.label.PrototypeLabel | str
+
+
+.. py:class:: PrototypeOccupation
+
+   Store one Wyckoff orbit assigned to one anonymous species class.
+
+   Unlike :class:`~httk.atomistic.models.protostructure.occupation.WyckoffOccupation`,
+   the class carries an anonymous class label (``"A"``, ``"B"``, ...) rather than a real
+   :class:`~httk.atomistic.Species`, so it can represent an element-agnostic prototype.
+
+   :param wyckoff: The Wyckoff letter in the standard setting.
+   :param label: The anonymous species-class label.
+
+
+   .. py:attribute:: wyckoff
+      :type:  str
+
+
+   .. py:attribute:: label
+      :type:  str
+
+
+.. py:class:: Prototype(spacegroup = None, occupations = None, *, representative = None, discriminator = None, prototype = None)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.backend.PrototypeBackend`
+
+
+   Store anonymous occupied Wyckoff positions and optional class information.
+
+   The base value is provenance-independent: recognition and derivation return a base
+   ``Prototype``, so a value recognized from a structure compares equal to one built by hand
+   or parsed from a label. A geometrical representative and/or a discriminator are optional
+   refinements, present only when the user constructs the value with them; recognition never
+   attaches them. They participate in equality and content identity.
+
+   :param spacegroup: The standard-setting space group or its IT number.
+   :param occupations: The occupied Wyckoff positions and canonical anonymous labels.
+   :param representative: An optional exact anonymous class anchor.
+   :param discriminator: An optional external class discriminator.
+   :param prototype: An optional existing prototype whose base and unspecified optional
+       fields are copied.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'prototype'
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototype.occupation.PrototypeOccupation, ...]
+
+
+
+   .. py:property:: representative
+      :type: httk.atomistic.models.structuretype.fundamental.FundamentalDomainTemplate | None
+
+
+      Return an optional retained exact representative.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return an optional geometrical-class discriminator.
+
+
+.. py:class:: PrototypeViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.prototype.backend.PrototypeBackend`\ ]
+
+
+   Base class for views presenting prototype backends.
+
+

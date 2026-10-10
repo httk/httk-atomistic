@@ -1,0 +1,162 @@
+httk.atomistic.integrations.lammps.io
+=====================================
+
+.. py:module:: httk.atomistic.integrations.lammps.io
+
+.. autoapi-nested-parse::
+
+   Streaming readers for native LAMMPS output.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/integrations/lammps/io/dump/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.lammps.io.LammpsDumpFile
+   httk.atomistic.integrations.lammps.io.LammpsDumpFrame
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.lammps.io.read_lammps_dump
+
+
+Package Contents
+----------------
+
+.. py:class:: LammpsDumpFile
+
+   Reopen and stream a native text atom/custom dump on every traversal.
+
+   Atom IDs and their types must remain constant within each segment. Geometry
+   and vector values retain exact decimal values. No species or units are inferred.
+   Orthogonal, restricted triclinic and general ``abc origin`` boxes are supported.
+
+   :param path: Dump path, optionally compressed by a registered codec.
+   :param coordinates: ``auto`` requires one complete coordinate representation;
+       otherwise select ``x``, ``xs``, ``xu`` or ``xsu`` explicitly.
+   :raises ValueError: If the coordinate selector is invalid.
+
+
+   .. py:attribute:: path
+      :type:  str | os.PathLike[str]
+
+
+   .. py:attribute:: coordinates
+      :type:  str
+      :value: 'auto'
+
+
+
+   .. py:method:: frames()
+
+      Yield snapshots with memory bounded by the current atom count.
+
+      :yields: Exact snapshots in source order.
+      :raises ValueError: If syntax, geometry, atom identity or numeric fields are invalid.
+
+
+
+.. py:class:: LammpsDumpFrame
+
+   One exact, ID-sorted snapshot in the dump's source units and axes.
+
+   Positions include the laboratory box origin. Unwrapped positions are absent
+   unless supplied directly or reconstructible from all three image flags.
+   Segment numbers increase whenever printed steps fail to increase.
+
+   :param step: Printed integer step.
+   :param segment: Zero-based segment identified by non-increasing steps.
+   :param time: Printed time, when present.
+   :param units: Printed unit style, when present.
+   :param cell: Three row lattice vectors.
+   :param origin: Laboratory box origin.
+   :param periodicity: Periodic axes, or absent when the header omits flags.
+   :param atom_ids: Sorted persistent atom IDs.
+   :param atom_types: Types aligned with IDs.
+   :param positions: Cartesian positions in the printed coordinate convention.
+   :param unwrapped_positions: Unwrapped laboratory positions, if known.
+   :param velocities: Cartesian velocities, if printed.
+   :param forces: Cartesian forces, if printed.
+
+
+   .. py:attribute:: step
+      :type:  int
+
+
+   .. py:attribute:: segment
+      :type:  int
+
+
+   .. py:attribute:: time
+      :type:  fractions.Fraction | None
+
+
+   .. py:attribute:: units
+      :type:  str | None
+
+
+   .. py:attribute:: cell
+      :type:  tuple[tuple[fractions.Fraction, ...], ...]
+
+
+   .. py:attribute:: origin
+      :type:  tuple[fractions.Fraction, ...]
+
+
+   .. py:attribute:: periodicity
+      :type:  tuple[bool, ...] | None
+
+
+   .. py:attribute:: atom_ids
+      :type:  tuple[int, ...]
+
+
+   .. py:attribute:: atom_types
+      :type:  tuple[int, ...]
+
+
+   .. py:attribute:: positions
+      :type:  tuple[tuple[fractions.Fraction, ...], ...]
+
+
+   .. py:attribute:: unwrapped_positions
+      :type:  tuple[tuple[fractions.Fraction, ...], ...] | None
+
+
+   .. py:attribute:: velocities
+      :type:  tuple[tuple[fractions.Fraction, ...], ...] | None
+
+
+   .. py:attribute:: forces
+      :type:  tuple[tuple[fractions.Fraction, ...], ...] | None
+
+
+.. py:function:: read_lammps_dump(source, **kwargs)
+
+   Return a lazy neutral payload for a native LAMMPS text dump.
+
+   Reader keyword arguments are retained for the trajectory adapter; the file is
+   not opened or scanned here.
+
+   :param source: Filesystem dump path, optionally compressed.
+   :param \**kwargs: Explicit trajectory options such as species and units.
+   :return: A neutral ``lammps-dump`` payload.
+   :raises TypeError: If ``source`` is not path-like.
+   :raises FileNotFoundError: If the path is not a file.
+
+

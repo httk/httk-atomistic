@@ -1,0 +1,124 @@
+httk.atomistic.integrations.vasp.structure
+==========================================
+
+.. py:module:: httk.atomistic.integrations.vasp.structure
+
+.. autoapi-nested-parse::
+
+   Lazy VASP POSCAR structures backed by neutral httk payloads.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.vasp.structure.VASPStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: VASPStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Load a VASP POSCAR structure lazily.
+
+   This backend is explicitly constructed because a generic structure source should not
+   silently claim every POSCAR path.
+
+   It is not registered in ``backend_classes``. Constructing it from a view whose
+   unwrapped value is already a ``VASPStructure`` returns that backend by identity.
+   The payload's ``raw`` channel preserves the source representation for byte-exact
+   saving.
+
+   :param obj: A POSCAR path, neutral payload, or serializer-supported source.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'vasp'
+
+
+
+   .. py:property:: payload
+      :type: collections.abc.Mapping[str, Any]
+
+
+      Return the original, loaded, or synthesized neutral POSCAR payload.
+
+
+   .. py:property:: comment
+      :type: Any
+
+
+      Return the POSCAR comment, if present.
+
+
+   .. py:property:: selective_dynamics
+      :type: Any
+
+
+      Return selective-dynamics flags, if present.
+
+
+   .. py:method:: resolve()
+
+      Build and memoize the canonical structure from the POSCAR payload.
+
+      :return: The resolved unit-cell structure.
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the resolved cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Return the resolved reduced coordinates.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Return the resolved distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the resolved species name at each site.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Return resolved site moments, or ``None``.
+
+
+   .. py:property:: charge
+      :type: Any
+
+
+      Return the resolved structure charge, if present.
+
+
+   .. py:method:: unwrap()
+
+      Return the original POSCAR source.
+
+
+

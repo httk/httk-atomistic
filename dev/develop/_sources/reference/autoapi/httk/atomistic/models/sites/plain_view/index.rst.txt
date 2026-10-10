@@ -1,0 +1,52 @@
+httk.atomistic.models.sites.plain_view
+======================================
+
+.. py:module:: httk.atomistic.models.sites.plain_view
+
+.. autoapi-nested-parse::
+
+   A view presenting any sites backend as a raw Nx3 tuple of reduced coordinates.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.plain_view.PlainSitesView
+
+
+Module Contents
+---------------
+
+.. py:class:: PlainSitesView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.view_base.SitesViewBase`, :py:obj:`tuple`
+
+
+   A view presenting an underlying sites backend as a raw Nx3 matrix of floats.
+
+   This view is a genuine tuple of reduced-coordinate rows (rendered to floats from the exact
+   ``reduced_coords``), built eagerly and immutable.
+
+   :param obj: The sites-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the presented coordinates as a plain tuple.
+
+      :return: The reduced-coordinate rows.
+
+
+

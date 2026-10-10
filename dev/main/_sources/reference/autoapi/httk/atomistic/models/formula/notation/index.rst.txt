@@ -1,0 +1,99 @@
+httk.atomistic.models.formula.notation
+======================================
+
+.. py:module:: httk.atomistic.models.formula.notation
+
+.. autoapi-nested-parse::
+
+   The one home of httk's reduced/anonymous formula notation.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.notation.anonymous_symbol
+   httk.atomistic.models.formula.notation.reduced_coefficients
+   httk.atomistic.models.formula.notation.render_reduced
+   httk.atomistic.models.formula.notation.render_anonymous
+   httk.atomistic.models.formula.notation.parse_reduced_formula
+   httk.atomistic.models.formula.notation.parse_anonymous_formula
+   httk.atomistic.models.formula.notation.try_parse_reduced
+   httk.atomistic.models.formula.notation.try_parse_anonymous
+
+
+Module Contents
+---------------
+
+.. py:function:: anonymous_symbol(index)
+
+   Return the unbounded OPTIMADE anonymous symbol for a zero-based index.
+
+   :param index: The non-negative zero-based symbol index.
+   :return: The generated anonymous symbol.
+   :raises ValueError: If ``index`` is not a non-negative integer.
+
+
+.. py:function:: reduced_coefficients(ratios)
+
+   Return the least common integer coefficients for exact elemental ratios.
+
+   :param ratios: The exact elemental ratios in their desired output order.
+   :return: The reduced integer coefficients, or ``None`` for an empty sequence.
+
+
+.. py:function:: render_reduced(coefficients)
+
+   Render element symbols and reduced integer coefficients in the given order.
+
+   :param coefficients: The element and coefficient pairs to render.
+   :return: The canonical reduced formula text.
+
+
+.. py:function:: render_anonymous(counts)
+
+   Render descending-sorted integer counts using OPTIMADE anonymous symbols.
+
+   :param counts: The coefficients in descending order.
+   :return: The canonical anonymous formula text.
+
+
+.. py:function:: parse_reduced_formula(text)
+
+   Parse a strictly canonical reduced OPTIMADE chemical formula.
+
+   The reduced and anonymous grammars are disjoint by construction: an anonymous
+   label may have an arbitrary lowercase tail, while an element symbol has at most one.
+
+   :param text: The formula text to parse.
+   :return: The canonical element and coefficient pairs.
+   :raises ValueError: If ``text`` is not a canonical reduced formula.
+
+
+.. py:function:: parse_anonymous_formula(text)
+
+   Parse a strictly canonical OPTIMADE anonymous chemical formula.
+
+   :param text: The formula text to parse.
+   :return: The canonical anonymous-label and coefficient pairs.
+   :raises ValueError: If ``text`` is not a canonical anonymous formula.
+
+
+.. py:function:: try_parse_reduced(text)
+
+   Return canonical reduced coefficients, or ``None`` when *text* is not one.
+
+   :param text: The formula text to test.
+   :return: The parsed coefficients, or ``None`` for invalid text.
+
+
+.. py:function:: try_parse_anonymous(text)
+
+   Return canonical anonymous coefficients, or ``None`` when *text* is not one.
+
+   :param text: The formula text to test.
+   :return: The parsed coefficients, or ``None`` for invalid text.
+
+

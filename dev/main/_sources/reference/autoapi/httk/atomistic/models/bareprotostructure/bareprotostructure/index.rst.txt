@@ -1,0 +1,53 @@
+httk.atomistic.models.bareprotostructure.bareprotostructure
+===========================================================
+
+.. py:module:: httk.atomistic.models.bareprotostructure.bareprotostructure
+
+.. autoapi-nested-parse::
+
+   The immutable assigned-species Wyckoff-only classification value.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprotostructure.bareprotostructure.BareProtostructure
+
+
+Module Contents
+---------------
+
+.. py:class:: BareProtostructure(spacegroup, occupations)
+
+   Bases: :py:obj:`httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend`
+
+
+   Store only standard-setting Wyckoff occupations, without geometrical refinement.
+
+   :param spacegroup: The standard-setting space group or its IT number.
+   :param occupations: Occupied Wyckoff positions and their assigned species.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'bare_protostructure'
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+
+      Return the canonical occupied Wyckoff positions.
+
+

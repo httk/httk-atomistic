@@ -1,0 +1,152 @@
+httk.atomistic.supercell
+========================
+
+.. py:module:: httk.atomistic.supercell
+
+.. autoapi-nested-parse::
+
+   Exact supercell construction and deterministic cell-shape search.
+
+   Construction itself is rational/surd-exact. An integer matrix ``A`` maps the old
+   row-vector basis ``B`` to ``A * B`` and multiplies the number of sites by
+   ``abs(det(A))``. The corresponding finite rational translation group supplies
+   every periodic image exactly; no geometric tolerance or open-ended cell search
+   is involved.
+
+   Automatic shape selection fixes that multiplier up front. A 50-digit Decimal
+   approximation of the exact Gram matrix seeds a bounded set of nearby integer
+   matrices, but candidates are ranked by exact, dimensionless Gram-matrix scores.
+   The result is therefore the best member of the documented candidate set, not a
+   claim of unrestricted global optimality.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.supercell.SupercellResult
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.supercell.build_supercell
+   httk.atomistic.supercell.orthogonal_supercell
+   httk.atomistic.supercell.cubic_supercell
+
+
+Module Contents
+---------------
+
+.. py:class:: SupercellResult
+
+   Store a materialized supercell with its exact construction metadata.
+
+   ``orthogonality_score`` is the sum of the squared pairwise cosines between
+   cell vectors. ``cubicity_score`` is the squared Frobenius distance between
+   the trace-normalized Gram matrix and the identity. Both are exact
+   :class:`~httk.core.SurdScalar` values; zero proves the ideal shape exactly.
+
+   :param structure: The resulting full-periodic unit-cell structure.
+   :param transformation: The integer row-convention transformation applied to the source basis.
+   :param multiplier: The exact number of source cells represented in the result.
+   :param orthogonality_score: The exact orthogonality score of the result.
+   :param cubicity_score: The exact cubicity score of the result.
+
+
+   .. py:attribute:: structure
+      :type:  httk.atomistic.models.structure.unitcell.UnitcellStructure
+
+
+   .. py:attribute:: transformation
+      :type:  httk.core.FracVector
+
+
+   .. py:attribute:: multiplier
+      :type:  int
+
+
+   .. py:attribute:: orthogonality_score
+      :type:  httk.core.SurdScalar
+
+
+   .. py:attribute:: cubicity_score
+      :type:  httk.core.SurdScalar
+
+
+.. py:function:: build_supercell(structure, transformation, *, max_sites = DEFAULT_MAX_SITES)
+
+   Build the exact supercell selected by an integer transformation matrix.
+
+   Lattice vectors are rows and the returned basis is ``transformation * basis``.
+   Reduced coordinates are transformed by the inverse matrix and wrapped into
+   ``[0, 1)``. Any input representation is first presented as a full
+   :class:`~httk.atomistic.models.structure.unitcell.UnitcellStructure`.
+   Crystal-axis site moments are converted to Cartesian moments because the supercell has
+   new crystal axes; Cartesian and collinear moments retain their representation.
+   Structure charge and explicit composition amounts are scaled by the exact cell-content
+   multiplier.
+
+   Requires a fully 3D-periodic structure. Repeating a slab within its own plane is a
+   perfectly sensible operation, but it is not this one: the transformation matrix here
+   mixes all three rows and the coordinates are wrapped in all three directions, so applied
+   to a reduced-periodicity cell it would generate images along a direction that has no
+   lattice translation. Refused rather than half-supported.
+
+   :param structure: The structure to replicate.
+   :param transformation: A nonsingular integer transformation matrix, or a positive
+       integer selecting a diagonal repetition.
+   :param max_sites: The maximum allowed resulting site count, or ``None`` for no limit.
+   :return: The materialized supercell and its exact construction metadata.
+   :raises ValueError: If the transformation, site limit, cell, or periodicity is invalid.
+
+
+.. py:function:: orthogonal_supercell(structure, multiplier = None, *, tolerance = None, max_multiplier = None, search_radius = 1, max_sites = DEFAULT_MAX_SITES)
+
+   Build the most orthogonal supercell in the bounded candidate set.
+
+   Exactly one of ``multiplier`` and ``tolerance`` must be provided. With
+   ``multiplier``, it is the exact number of source cells in the result.
+   With ``tolerance``, the multiplier is increased from one until the exact
+   orthogonality score is at most the given bound, up to ``max_multiplier``.
+   Candidate matrices are centered on the ideal cubic real-valued transform
+   and vary each integer entry by at most ``search_radius`` (0--2); diagonal
+   factorizations provide guaranteed determinant-matching fallbacks. Exact
+   orthogonality is ranked first and cubicity breaks equal-shape ties.
+
+   :param structure: The structure to replicate.
+   :param multiplier: The exact positive cell-content multiplier, or ``None`` to search.
+   :param tolerance: The maximum orthogonality score, or ``None`` to use ``multiplier``.
+   :param max_multiplier: The largest multiplier considered during a tolerance search.
+   :param search_radius: The integer-entry radius around the ideal candidate transform.
+   :param max_sites: The maximum resulting site count, or ``None`` for no limit.
+   :return: The selected supercell and its exact construction metadata.
+   :raises ValueError: If the arguments are inconsistent, invalid, or no candidate meets the bound.
+
+
+.. py:function:: cubic_supercell(structure, multiplier = None, *, tolerance = None, max_multiplier = None, search_radius = 1, max_sites = DEFAULT_MAX_SITES)
+
+   Build the most cubic supercell in the bounded candidate set.
+
+   Exactly one of ``multiplier`` and ``tolerance`` must be provided. With
+   ``multiplier``, it is the exact number of source cells in the result.
+   With ``tolerance``, the multiplier is increased from one until the exact
+   cubicity score is at most the given bound, up to ``max_multiplier``.
+   Candidate matrices are centered on the ideal cubic real-valued transform
+   and vary each integer entry by at most ``search_radius`` (0--2); diagonal
+   factorizations provide guaranteed determinant-matching fallbacks.
+
+   :param structure: The structure to replicate.
+   :param multiplier: The exact positive cell-content multiplier, or ``None`` to search.
+   :param tolerance: The maximum cubicity score, or ``None`` to use ``multiplier``.
+   :param max_multiplier: The largest multiplier considered during a tolerance search.
+   :param search_radius: The integer-entry radius around the ideal candidate transform.
+   :param max_sites: The maximum resulting site count, or ``None`` for no limit.
+   :return: The selected supercell and its exact construction metadata.
+   :raises ValueError: If the arguments are inconsistent, invalid, or no candidate meets the bound.
+
+

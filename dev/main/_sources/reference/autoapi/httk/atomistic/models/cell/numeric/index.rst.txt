@@ -1,0 +1,138 @@
+httk.atomistic.models.cell.numeric
+==================================
+
+.. py:module:: httk.atomistic.models.cell.numeric
+
+.. autoapi-nested-parse::
+
+   The NumericCell presentation: a Cell exposed as plain numpy numbers.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.numeric.NumericCell
+
+
+Module Contents
+---------------
+
+.. py:class:: NumericCell(cell)
+
+   A plain-numpy presentation of a :class:`~httk.atomistic.Cell`.
+
+   Where a ``Cell`` holds its geometry **exactly** (a :class:`~httk.core.SurdVector` basis, exact
+   ``SurdScalar`` lengths/volume, exact ``Fraction`` angles), a ``NumericCell`` mirrors that
+   interface but returns plain numpy numbers — a ``float64`` :class:`numpy.ndarray` for every vector
+   and a plain :class:`float` for every scalar — for callers who do not need exact arithmetic and
+   just want numpy arrays.
+
+   The presentation is numpy-backed, so constructing a ``NumericCell`` **requires numpy** (the
+   ``httk-atomistic[numpy]`` extra) and raises :class:`ImportError` eagerly when it is unavailable.
+   The exact object is always one hop away via :attr:`exact`.
+
+   :param cell: The cell or cell-like object to present.
+
+
+   .. py:property:: scale
+      :type: float
+
+
+      The overall length factor.
+
+      :return: The scale as a floating-point value.
+
+
+   .. py:property:: precision
+      :type: float | None
+
+
+      The cell precision, or ``None`` if unknown.
+
+      :return: The absolute precision as a floating-point value.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Which of the three basis rows is a genuine lattice translation.
+
+      :return: Flags identifying the periodic basis rows.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int
+
+
+      How many of the three directions are periodic.
+
+      :return: The number of periodic directions.
+
+
+   .. py:property:: unscaled_basis
+      :type: httk.core.NumericVector
+
+
+      The 3x3 cell vectors before applying ``scale``.
+
+      :return: The unscaled lattice vectors as floating-point values.
+
+
+   .. py:property:: basis
+      :type: httk.core.NumericVector
+
+
+      The 3x3 lattice vectors ``scale * unscaled_basis``.
+
+      :return: The scaled lattice vectors as floating-point values.
+
+
+   .. py:property:: lengths
+      :type: httk.core.NumericVector
+
+
+      The three cell-vector lengths.
+
+      :return: The lengths as floating-point values.
+
+
+   .. py:property:: angles
+      :type: httk.core.NumericVector
+
+
+      The cell angles ``(alpha, beta, gamma)`` in degrees.
+
+      :return: The angles as floating-point values.
+
+
+   .. py:property:: volume
+      :type: float
+
+
+      The cell volume.
+
+      :return: The volume as a floating-point value.
+      :raises ValueError: If the exact cell is not periodic in all three directions.
+
+
+   .. py:method:: metric()
+
+      The Gram matrix ``basis * basis^T``.
+
+      :return: The Gram matrix as floating-point values.
+
+
+
+   .. py:property:: exact
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      The exact cell this presentation wraps.
+
+      :return: The exact cell.
+
+

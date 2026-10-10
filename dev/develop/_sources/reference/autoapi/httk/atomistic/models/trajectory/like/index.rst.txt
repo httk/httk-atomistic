@@ -1,0 +1,26 @@
+httk.atomistic.models.trajectory.like
+=====================================
+
+.. py:module:: httk.atomistic.models.trajectory.like
+
+.. autoapi-nested-parse::
+
+   Define accepted trajectory inputs.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.trajectory.like.TrajectoryLike
+
+
+Module Contents
+---------------
+
+.. py:type:: TrajectoryLike
+   :canonical: TrajectoryBackend | TrajectoryView | Trajectory | PlainTrajectory | Mapping[str, Any]
+
+
