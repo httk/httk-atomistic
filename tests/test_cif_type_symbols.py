@@ -4,12 +4,13 @@ from fractions import Fraction
 from pathlib import Path
 
 import pytest
+from conftest import DATABASES
 from httk.core import load, save
 
 from httk.atomistic.cif_structures import _CIF_CORE_TYPE_SYMBOLS, _decode_type_symbol, _normalize_type_symbol
 
-_COD_DEUTERIDE = Path(__file__).resolve().parents[2] / "DATA/COD/cif/1/00/88/1008801.cif"
-_COD_LACAFEO = Path(__file__).resolve().parents[2] / "DATA/COD/cif/2/10/86/2108697.cif"
+_COD_DEUTERIDE = DATABASES / "DATA/COD/cif/1/00/88/1008801.cif"
+_COD_LACAFEO = DATABASES / "DATA/COD/cif/2/10/86/2108697.cif"
 
 _CELL = """\
 data_symbols

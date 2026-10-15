@@ -20,9 +20,21 @@ entries are already absolute.
 """
 
 import os
+from pathlib import Path
 
 _PYTHONPATH = os.environ.get("PYTHONPATH")
 if _PYTHONPATH:
     os.environ["PYTHONPATH"] = os.pathsep.join(
         os.path.abspath(entry) if entry else entry for entry in _PYTHONPATH.split(os.pathsep)
     )
+
+
+def _find_databases() -> Path:
+    """Return the workspace ``databases/`` directory, or a nonexistent path outside a workspace."""
+    for ancestor in Path(__file__).resolve().parents:
+        if (ancestor / "databases").is_dir():
+            return ancestor / "databases"
+    return Path("/nonexistent/databases")
+
+
+DATABASES = _find_databases()

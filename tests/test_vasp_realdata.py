@@ -1,12 +1,11 @@
 """Workspace-only checks against the external VASP example-data tree."""
 
-from pathlib import Path
-
 import pytest
+from conftest import DATABASES
 
 from httk.atomistic.integrations.vasp.io import OutcarFile, VASPOutputs, XdatcarFile, read_oszicar, read_poscar
 
-FIXTURES = Path(__file__).resolve().parent.parent.parent / "electronic-structure-example-data"
+FIXTURES = DATABASES / "electronic-structure-example-data"
 pytestmark = pytest.mark.skipif(not FIXTURES.exists(), reason="workspace-only real-data fixtures not present")
 
 

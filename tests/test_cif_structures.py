@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import DATABASES
 from httk.core import FracVector, decimal_precision, load, save
 from httk.core.report import collect_reports
 
@@ -49,14 +50,14 @@ from httk.atomistic.symmetry.wyckoff import WyckoffBranch
 F = fractions.Fraction
 
 _COD_OCCUPANCY_FIXTURES = {
-    name: Path(__file__).resolve().parents[2] / f"DATA/COD/cif/{path}.cif"
+    name: DATABASES / f"DATA/COD/cif/{path}.cif"
     for name, path in {
         "4002923": "4/00/29/4002923",
         "4002853": "4/00/28/4002853",
         "4002910": "4/00/29/4002910",
     }.items()
 }
-_COD_BARE_SYMOP = Path(__file__).resolve().parents[2] / "DATA/COD/cif/1/00/18/1001844.cif"
+_COD_BARE_SYMOP = DATABASES / "DATA/COD/cif/1/00/18/1001844.cif"
 
 
 def _write_cif(

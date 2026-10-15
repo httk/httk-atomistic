@@ -1,14 +1,14 @@
 """Inferring atom-site element symbols from labels when a CIF omits the type-symbol column."""
 
 import logging
-from pathlib import Path
 
 import pytest
+from conftest import DATABASES
 
 from httk.atomistic.io.cif.cif_parser import _symbol_from_label, read_cif_asus
 
 # COD diopside; its atom_site loop carries no _atom_site_type_symbol column.
-COD_DIOPSIDE = Path(__file__).resolve().parents[2] / "DATA/COD/cif/1/00/00/1000008.cif"
+COD_DIOPSIDE = DATABASES / "DATA/COD/cif/1/00/00/1000008.cif"
 
 _CELL = """data_example
 _cell_length_a 4.0
