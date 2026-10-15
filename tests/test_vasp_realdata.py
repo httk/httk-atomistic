@@ -1,12 +1,18 @@
-"""Workspace-only checks against the external VASP example-data tree."""
+"""Opt-in checks against the external VASP example-data tree.
+
+Set ``HTTK_TEST_EXAMPLE_DATA`` to an ``electronic-structure-example-data`` checkout to run them;
+that data is unlicensed and is not vendored here.
+"""
+
+from pathlib import Path
 
 import pytest
-from conftest import DATABASES
+from conftest import EXAMPLE_DATA, EXAMPLE_DATA_SKIP_REASON
 
 from httk.atomistic.integrations.vasp.io import OutcarFile, VASPOutputs, XdatcarFile, read_oszicar, read_poscar
 
-FIXTURES = DATABASES / "electronic-structure-example-data"
-pytestmark = pytest.mark.skipif(not FIXTURES.exists(), reason="workspace-only real-data fixtures not present")
+FIXTURES = EXAMPLE_DATA or Path()
+pytestmark = pytest.mark.skipif(EXAMPLE_DATA is None, reason=EXAMPLE_DATA_SKIP_REASON)
 
 
 def test_static_nacl_outcar() -> None:

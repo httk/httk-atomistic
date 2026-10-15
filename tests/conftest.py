@@ -29,12 +29,7 @@ if _PYTHONPATH:
     )
 
 
-def _find_databases() -> Path:
-    """Return the workspace ``databases/`` directory, or a nonexistent path outside a workspace."""
-    for ancestor in Path(__file__).resolve().parents:
-        if (ancestor / "databases").is_dir():
-            return ancestor / "databases"
-    return Path("/nonexistent/databases")
-
-
-DATABASES = _find_databases()
+_EXAMPLE_DATA = os.environ.get("HTTK_TEST_EXAMPLE_DATA")
+# Opt-in checkout of electronic-structure-example-data (unlicensed, never vendored); None when unset or missing.
+EXAMPLE_DATA: Path | None = Path(_EXAMPLE_DATA) if _EXAMPLE_DATA and Path(_EXAMPLE_DATA).is_dir() else None
+EXAMPLE_DATA_SKIP_REASON = "HTTK_TEST_EXAMPLE_DATA is unset or not a directory"

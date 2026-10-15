@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import DATABASES
 from httk.core import FracVector, decimal_precision, load, save
 from httk.core.report import collect_reports
 
@@ -50,14 +49,9 @@ from httk.atomistic.symmetry.wyckoff import WyckoffBranch
 F = fractions.Fraction
 
 _COD_OCCUPANCY_FIXTURES = {
-    name: DATABASES / f"DATA/COD/cif/{path}.cif"
-    for name, path in {
-        "4002923": "4/00/29/4002923",
-        "4002853": "4/00/28/4002853",
-        "4002910": "4/00/29/4002910",
-    }.items()
+    name: Path(__file__).parent / "fixtures" / "cod" / f"{name}.cif" for name in ("4002923", "4002853", "4002910")
 }
-_COD_BARE_SYMOP = DATABASES / "DATA/COD/cif/1/00/18/1001844.cif"
+_COD_BARE_SYMOP = Path(__file__).parent / "fixtures" / "cod" / "1001844.cif"
 
 
 def _write_cif(
@@ -591,25 +585,16 @@ def test_gross_coincident_occupancies_are_rejected_even_with_repair(tmp_path: Pa
     assert "repair=True" not in str(error.value)
 
 
-@pytest.mark.skipif(
-    not _COD_OCCUPANCY_FIXTURES["4002923"].exists(), reason="workspace-only real-data fixture not present"
-)
 def test_cod_4002923_occupancy_loads_without_repair() -> None:
     load(_COD_OCCUPANCY_FIXTURES["4002923"])
 
 
-@pytest.mark.skipif(
-    not _COD_OCCUPANCY_FIXTURES["4002853"].exists(), reason="workspace-only real-data fixture not present"
-)
 def test_cod_4002853_occupancy_requires_repair() -> None:
     with pytest.raises(ValueError, match="repair=True"):
         load(_COD_OCCUPANCY_FIXTURES["4002853"])
     load(_COD_OCCUPANCY_FIXTURES["4002853"], repair=True)
 
 
-@pytest.mark.skipif(
-    not _COD_OCCUPANCY_FIXTURES["4002910"].exists(), reason="workspace-only real-data fixture not present"
-)
 def test_cod_4002910_occupancy_requires_repair() -> None:
     with pytest.raises(ValueError, match="repair=True"):
         load(_COD_OCCUPANCY_FIXTURES["4002910"])
@@ -800,7 +785,6 @@ def test_bare_scalar_symmetry_operation_loads_as_a_single_p1_operation(tmp_path:
     assert structure.spacegroup.it_number == 1
 
 
-@pytest.mark.skipif(not _COD_BARE_SYMOP.exists(), reason="workspace-only real-data fixture not present")
 def test_cod_1001844_with_bare_scalar_symmetry_operation_loads() -> None:
     structure = load(_COD_BARE_SYMOP)
 

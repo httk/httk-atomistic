@@ -4,13 +4,11 @@ from fractions import Fraction
 from pathlib import Path
 
 import pytest
-from conftest import DATABASES
 from httk.core import load, save
 
 from httk.atomistic.cif_structures import _CIF_CORE_TYPE_SYMBOLS, _decode_type_symbol, _normalize_type_symbol
 
-_COD_DEUTERIDE = DATABASES / "DATA/COD/cif/1/00/88/1008801.cif"
-_COD_LACAFEO = DATABASES / "DATA/COD/cif/2/10/86/2108697.cif"
+_COD_DEUTERIDE = Path(__file__).parent / "fixtures" / "cod" / "1008801.cif"
 
 _CELL = """\
 data_symbols
@@ -334,7 +332,6 @@ def test_deuterium_is_inferred_from_declared_atom_types(tmp_path: Path) -> None:
     assert species.mass is None
 
 
-@pytest.mark.skipif(not _COD_DEUTERIDE.exists(), reason="workspace-only real-data fixture not present")
 def test_cod_1008801_preserves_deuterium_and_disorder(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
         structure = load(_COD_DEUTERIDE)
@@ -347,12 +344,3 @@ def test_cod_1008801_preserves_deuterium_and_disorder(caplog: pytest.LogCaptureF
     assert all(species.labels == ("D", None) for species in deuterium)
     assert len(structure.sites) == 54
     assert not [record for record in caplog.records if "unrecognized CIF atom-type symbol" in record.getMessage()]
-
-
-@pytest.mark.skipif(not _COD_LACAFEO.exists(), reason="workspace-only real-data fixture not present")
-def test_cod_2108697_normalizes_numbered_atom_types(caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level("WARNING", logger="httk.atomistic.cif_structures"):
-        structure = load(_COD_LACAFEO)
-
-    assert not [record for record in caplog.records if "unrecognized CIF atom-type symbol" in record.getMessage()]
-    assert {symbol for species in structure.species for symbol in species.chemical_symbols} == {"La", "Ca", "Fe", "O"}

@@ -1,0 +1,105 @@
+#------------------------------------------------------------------------------
+#$Date: 2016-02-14 16:26:36 +0200 (Sun, 14 Feb 2016) $
+#$Revision: 176435 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/00/88/1008801.cif $
+#------------------------------------------------------------------------------
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/
+#
+# All data on this site have been placed in the public domain by the
+# contributors.
+#
+data_1008801
+loop_
+_publ_author_name
+'Bououdina, M'
+'Soubeyroux, J L'
+'Fruchart, D'
+'de Rango, P'
+_publ_section_title
+;
+Structural studies of Laves phases Zr (Cr1-x Nix)2 with 0 < x < 0.4 and
+their hydrides
+;
+_journal_coden_ASTM              JALCEU
+_journal_name_full               'Journal of Alloys Compd.'
+_journal_page_first              82
+_journal_page_last               90
+_journal_paper_doi               10.1016/S0925-8388(97)00028-5
+_journal_volume                  257
+_journal_year                    1997
+_chemical_formula_structural     'Zr (Cr0.622 Ni0.378)2 D3.3'
+_chemical_formula_sum            'Cr1.244 D3.3 Ni0.756 Zr'
+_chemical_name_systematic
+;
+Zirconium chromium nickel deuteride (1/1.244/0.756/3.3)
+;
+_space_group_IT_number           194
+_symmetry_cell_setting           hexagonal
+_symmetry_Int_Tables_number      194
+_symmetry_space_group_name_Hall  '-P 6c 2c'
+_symmetry_space_group_name_H-M   'P 63/m m c'
+_cell_angle_alpha                90
+_cell_angle_beta                 90
+_cell_angle_gamma                120
+_cell_formula_units_Z            4
+_cell_length_a                   5.343(2)
+_cell_length_b                   5.343(2)
+_cell_length_c                   8.750(3)
+_cell_volume                     216.3
+_refine_ls_R_factor_all          0.048
+_cod_original_formula_sum        'D3.3 Cr1.244 Ni.756 Zr'
+_cod_database_code               1008801
+loop_
+_symmetry_equiv_pos_as_xyz
+x,y,z
+-y,x-y,z
+y-x,-x,z
+-y,-x,z
+y-x,y,z
+x,x-y,z
+-x,-y,-z
+y,y-x,-z
+x-y,x,-z
+y,x,-z
+x-y,-y,-z
+-x,y-x,-z
+-x,-y,1/2+z
+y,y-x,1/2+z
+x-y,x,1/2+z
+y,x,1/2+z
+x-y,-y,1/2+z
+-x,y-x,1/2+z
+x,y,1/2-z
+-y,x-y,1/2-z
+y-x,-x,1/2-z
+-y,-x,1/2-z
+y-x,y,1/2-z
+x,x-y,1/2-z
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_symmetry_multiplicity
+_atom_site_Wyckoff_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+_atom_site_attached_hydrogens
+_atom_site_calc_flag
+Zr1 Zr0 4 f 0.3333 0.6667 0.4323(9) 1. 0 d
+Cr1 Cr0 2 a 0. 0. 0. 0.58 0 d
+Ni1 Ni0 2 a 0. 0. 0. 0.42 0 d
+Cr2 Cr0 6 h 0.844(2) 0.688(4) 0.25 0.636 0 d
+Ni2 Ni0 6 h 0.844(2) 0.688(4) 0.25 0.364 0 d
+D1 D0 24 l 0.045 0.333 0.557 0.245(7) 0 d
+D2 D0 12 k 0.461 0.922 0.626 0.307(9) 0 d
+D3 D0 6 h 0.459 0.918 0.25 0.606(18) 0 d
+loop_
+_atom_type_symbol
+_atom_type_oxidation_number
+Zr0 0.000
+Cr0 0.000
+Ni0 0.000
+D0 0.000

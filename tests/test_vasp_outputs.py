@@ -6,7 +6,7 @@ from pathlib import Path
 import httk.core
 import pytest
 
-from httk.atomistic.integrations.vasp.io import OutcarFile, VASPOutputs
+from httk.atomistic.integrations.vasp.io import OutcarFile, VASPOutputs, XdatcarFile
 
 POSCAR = """synthetic POSCAR
 1.0
@@ -69,3 +69,11 @@ def test_outputs_precision_propagates_to_reads(tmp_path: Path, caplog: pytest.Lo
         assert outputs.poscar is not None and outputs.poscar["precision_override"] == 5e-4
         assert outputs.contcar is not None and outputs.contcar["precision_override"] == 5e-4
     assert not [r for r in caplog.records if getattr(r, "context", None) == "poscar"]
+
+
+def test_outputs_resolve_xdatcar(tmp_path: Path) -> None:
+    xdatcar = POSCAR.replace("Si\n1\nDirect\n0 0 0\n", "Si\n1\nDirect configuration= 1\n0 0 0\n")
+    (tmp_path / "XDATCAR").write_text(xdatcar, encoding="utf-8")
+    with VASPOutputs(tmp_path) as outputs:
+        assert isinstance(outputs.xdatcar, XdatcarFile)
+        assert outputs.xdatcar.nframes == 1

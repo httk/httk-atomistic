@@ -4,7 +4,7 @@ from pathlib import Path
 
 import httk.core
 import pytest
-from conftest import DATABASES
+from conftest import EXAMPLE_DATA, EXAMPLE_DATA_SKIP_REASON
 from httk.core.storage import project_storage_record
 
 from httk.atomistic import TrajectoryRecord, TrajectoryView, VASPTrajectory
@@ -241,11 +241,11 @@ def test_loaded_payload_construction_is_lazy() -> None:
     assert trajectory.unwrap() is payload
 
 
-AL_300K = DATABASES / "electronic-structure-example-data" / "MD" / "VASP" / "Al_300K"
+AL_300K = EXAMPLE_DATA / "MD" / "VASP" / "Al_300K" if EXAMPLE_DATA else None
 
 
 @pytest.mark.extended
-@pytest.mark.skipif(not AL_300K.is_dir(), reason="workspace Al_300K fixture is unavailable")
+@pytest.mark.skipif(AL_300K is None, reason=EXAMPLE_DATA_SKIP_REASON)
 def test_workspace_al_300k_trajectory() -> None:
     trajectory = VASPTrajectory(AL_300K)
     assert trajectory.nframes == 10000

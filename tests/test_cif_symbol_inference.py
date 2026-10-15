@@ -1,14 +1,14 @@
 """Inferring atom-site element symbols from labels when a CIF omits the type-symbol column."""
 
 import logging
+from pathlib import Path
 
 import pytest
-from conftest import DATABASES
 
 from httk.atomistic.io.cif.cif_parser import _symbol_from_label, read_cif_asus
 
 # COD diopside; its atom_site loop carries no _atom_site_type_symbol column.
-COD_DIOPSIDE = DATABASES / "DATA/COD/cif/1/00/00/1000008.cif"
+COD_DIOPSIDE = Path(__file__).parent / "fixtures" / "cod" / "1000008.cif"
 
 _CELL = """data_example
 _cell_length_a 4.0
@@ -121,7 +121,6 @@ def test_present_type_symbol_column_is_unchanged(tmp_path, caplog):
     assert not [record for record in caplog.records if "inferred from _atom_site_label" in record.getMessage()]
 
 
-@pytest.mark.skipif(not COD_DIOPSIDE.exists(), reason="workspace-only real-data fixture not present")
 def test_cod_diopside_reads_without_type_symbol_column(caplog):
     with caplog.at_level(logging.DEBUG, logger="httk.atomistic.io.cif.cif_parser"):
         payload = read_cif_asus(str(COD_DIOPSIDE))

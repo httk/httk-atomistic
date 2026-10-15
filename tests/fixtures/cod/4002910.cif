@@ -1,0 +1,356 @@
+#------------------------------------------------------------------------------
+#$Date: 2019-11-04 17:50:13 +0200 (Mon, 04 Nov 2019) $
+#$Revision: 223184 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/4/00/29/4002910.cif $
+#------------------------------------------------------------------------------
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/
+#
+# All data on this site have been placed in the public domain by the
+# contributors.
+#
+data_4002910
+loop_
+_publ_author_name
+'Zhao, Jing'
+'Hao, Shiqiang'
+'Islam, Saiful M.'
+'Chen, Haijie'
+'Tan, Gangjian'
+'Ma, Shulan'
+'Wolverton, Christopher'
+'Kanatzidis, Mercouri G.'
+_publ_section_title
+;
+ Six Quaternary Chalcogenides of the Pavonite Homologous Series with
+ Ultralow Lattice Thermal Conductivity
+;
+_journal_issue                   9
+_journal_name_full               'Chemistry of Materials'
+_journal_page_first              3430
+_journal_paper_doi               10.1021/acs.chemmater.9b00585
+_journal_volume                  31
+_journal_year                    2019
+_chemical_formula_moiety         '0.5(Bi6.96 In1.03 Mn4.06 Se16)'
+_chemical_formula_sum            'Bi3.48 In0.51 Mn2.03 Se8'
+_chemical_formula_weight         1529.59
+_space_group_crystal_system      monoclinic
+_space_group_IT_number           12
+_space_group_name_Hall           '-C 2y'
+_space_group_name_H-M_alt        'C 1 2/m 1'
+_symmetry_space_group_name_Hall  '-C 2y'
+_symmetry_space_group_name_H-M   'C 1 2/m 1'
+_atom_sites_solution_primary     direct
+_atom_sites_solution_secondary   difmap
+_audit_creation_date             2018-01-09
+_audit_creation_method
+;
+Olex2 1.2
+(compiled 2017.08.10 svn.r3458 for OlexSys, GUI svn.r5381)
+;
+_cell_angle_alpha                90.00
+_cell_angle_beta                 115.43
+_cell_angle_gamma                90.00
+_cell_formula_units_Z            2
+_cell_length_a                   13.279
+_cell_length_b                   4.066
+_cell_length_c                   14.988
+_cell_measurement_reflns_used    3791
+_cell_measurement_temperature    293(2)
+_cell_measurement_theta_max      29.44
+_cell_measurement_theta_min      3.01
+_cell_volume                     730.832
+_computing_molecular_graphics    'Olex2 (Dolomanov et al., 2009)'
+_computing_publication_material  'Olex2 (Dolomanov et al., 2009)'
+_computing_structure_refinement  'XL (Sheldrick, 2008)'
+_computing_structure_solution    'SHELXS-97 (Sheldrick, 1990)'
+_diffrn_ambient_temperature      293(2)
+_diffrn_measured_fraction_theta_full 0.993
+_diffrn_measured_fraction_theta_max 0.993
+_diffrn_measurement_device_type  'STOE IPDS 2'
+_diffrn_radiation_monochromator  graphite
+_diffrn_radiation_type           MoK\a
+_diffrn_radiation_wavelength     0.71069
+_diffrn_reflns_av_R_equivalents  0.1271
+_diffrn_reflns_av_unetI/netI     0.0857
+_diffrn_reflns_limit_h_max       14
+_diffrn_reflns_limit_h_min       -15
+_diffrn_reflns_limit_k_max       4
+_diffrn_reflns_limit_k_min       -4
+_diffrn_reflns_limit_l_max       17
+_diffrn_reflns_limit_l_min       -17
+_diffrn_reflns_number            2400
+_diffrn_reflns_theta_full        25.00
+_diffrn_reflns_theta_max         25.00
+_diffrn_reflns_theta_min         3.01
+_diffrn_source                   'fine-focus sealed tube'
+_exptl_absorpt_coefficient_mu    64.123
+_exptl_crystal_density_diffrn    6.950
+_exptl_crystal_density_method    'not measured'
+_exptl_crystal_description       chunk
+_exptl_crystal_F_000             1274
+_refine_diff_density_max         4.543
+_refine_diff_density_min         -3.012
+_refine_diff_density_rms         0.698
+_refine_ls_extinction_method     none
+_refine_ls_goodness_of_fit_ref   0.827
+_refine_ls_hydrogen_treatment    undef
+_refine_ls_matrix_type           full
+_refine_ls_number_parameters     46
+_refine_ls_number_reflns         743
+_refine_ls_number_restraints     0
+_refine_ls_restrained_S_all      0.827
+_refine_ls_R_factor_all          0.0783
+_refine_ls_R_factor_gt           0.0727
+_refine_ls_shift/su_max          0.000
+_refine_ls_shift/su_mean         0.000
+_refine_ls_structure_factor_coef Fsqd
+_refine_ls_weighting_details
+'calc w=1/[\s^2^(Fo^2^)+(0.1230P)^2^+418.6491P] where P=(Fo^2^+2Fc^2^)/3'
+_refine_ls_weighting_scheme      calc
+_refine_ls_wR_factor_gt          0.1804
+_refine_ls_wR_factor_ref         0.1908
+_reflns_number_gt                683
+_reflns_number_total             743
+_reflns_threshold_expression     >2sigma(I)
+_cod_data_source_file            cm9b00585_si_002.cif
+_cod_data_source_block           jz1266i-jana
+_cod_depositor_comments
+'Adding full bibliography for 4002910--4002915.cif.'
+_cod_original_cell_volume        730.9
+_cod_database_code               4002910
+_olex2_refinement_description
+;
+1. Twinned data refinement
+ Scales: 0.858(6)
+ 0.142(6)
+2. Shared sites
+{In3, Mn3}
+{Bi2, Mn2}
+3. Uiso/Uaniso restraints and constraints
+Uanis(In3) = Uanis(Mn3)
+Uanis(Bi2) = Uanis(Mn2)
+4. Others
+ Fixed Sof: Bi1(0.47) Bi2(0.4) Mn2(0.13) In3(0.129) Mn3(0.128)
+;
+_olex2_submission_special_instructions 'No special instructions were received'
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 'x, y, z'
+2 '-x, y, -z'
+3 'x+1/2, y+1/2, z'
+4 '-x+1/2, y+1/2, -z'
+5 '-x, -y, -z'
+6 'x, -y, z'
+7 '-x+1/2, -y+1/2, -z'
+8 'x+1/2, -y+1/2, z'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_U_iso_or_equiv
+_atom_site_adp_type
+_atom_site_occupancy
+_atom_site_calc_flag
+_atom_site_site_symmetry_order
+_atom_site_refinement_flags_posn
+_atom_site_refinement_flags_adp
+_atom_site_refinement_flags_occupancy
+Bi1 Bi 0.71762(16) 0.0000 0.36017(16) 0.0284(6) Uani 0.94 d 2 S T P
+Bi2 Bi 0.84883(16) -1.5000 0.13000(14) 0.0227(6) Uani 0.80 d 2 S T P
+Mn2 Mn 0.84883(16) -1.5000 0.13000(14) 0.0227(6) Uani 0.26 d 2 S T P
+In3 In 1.0000 -1.0000 0.0000 0.0256(14) Uani 0.52 d 4 S T P
+Mn3 Mn 1.0000 -1.0000 0.0000 0.0256(14) Uani 0.51 d 4 S T P
+Mn4 Mn 1.0000 -0.5000 0.5000 0.034(3) Uani 1 d 4 S T P
+Se1 Se 0.8854(4) 0.0000 0.5454(3) 0.0209(10) Uani 1 d 2 S T P
+Se3 Se 0.8432(4) -0.5000 0.3234(4) 0.0250(11) Uani 1 d 2 S T P
+Se4 Se 0.8411(4) -0.5000 -0.0626(4) 0.0230(10) Uani 1 d 2 S T P
+Se5 Se 1.0067(4) -1.0000 0.1827(4) 0.0243(11) Uani 1 d 2 S T P
+loop_
+_atom_site_aniso_label
+_atom_site_aniso_U_11
+_atom_site_aniso_U_22
+_atom_site_aniso_U_33
+_atom_site_aniso_U_23
+_atom_site_aniso_U_13
+_atom_site_aniso_U_12
+Bi1 0.0283(10) 0.0185(10) 0.0255(10) 0.000 -0.0008(9) 0.000
+Bi2 0.0244(11) 0.0153(10) 0.0239(12) 0.000 0.0061(9) 0.000
+Mn2 0.0244(11) 0.0153(10) 0.0239(12) 0.000 0.0061(9) 0.000
+In3 0.028(3) 0.019(3) 0.029(3) 0.000 0.011(3) 0.000
+Mn3 0.028(3) 0.019(3) 0.029(3) 0.000 0.011(3) 0.000
+Mn4 0.034(6) 0.032(6) 0.024(6) 0.000 0.001(5) 0.000
+Se1 0.023(2) 0.017(2) 0.020(2) 0.000 0.0071(18) 0.000
+Se3 0.033(2) 0.019(2) 0.023(2) 0.000 0.012(2) 0.000
+Se4 0.025(2) 0.016(2) 0.024(2) 0.000 0.008(2) 0.000
+Se5 0.027(2) 0.018(2) 0.021(2) 0.000 0.003(2) 0.000
+loop_
+_atom_type_symbol
+_atom_type_description
+_atom_type_scat_dispersion_real
+_atom_type_scat_dispersion_imag
+_atom_type_scat_source
+Bi Bi -4.1077 10.2566 'International Tables Vol C Tables 4.2.6.8 and 6.1.1.4'
+In In -0.7276 1.3100 'International Tables Vol C Tables 4.2.6.8 and 6.1.1.4'
+Mn Mn 0.3368 0.7283 'International Tables Vol C Tables 4.2.6.8 and 6.1.1.4'
+Se Se -0.0929 2.2259 'International Tables Vol C Tables 4.2.6.8 and 6.1.1.4'
+loop_
+_geom_angle_atom_site_label_1
+_geom_angle_atom_site_label_2
+_geom_angle_atom_site_label_3
+_geom_angle
+_geom_angle_site_symmetry_1
+_geom_angle_site_symmetry_3
+Se1 Bi1 Se1 82.12(13) . 7_646
+Se1 Bi1 Se1 82.12(13) . 7_656
+Se1 Bi1 Se1 81.65(13) 7_646 7_656
+Se1 Bi1 Se3 84.57(13) . .
+Se1 Bi1 Se3 84.57(13) . 1_565
+Se3 Bi1 Se1 165.83(16) . 7_656
+Se3 Bi1 Se1 91.73(9) . 7_646
+Se3 Bi1 Se1 165.83(16) 1_565 7_646
+Se3 Bi1 Se1 91.73(9) 1_565 7_656
+Se3 Bi1 Se3 91.85(16) 1_565 .
+Se3 Bi2 Se4 87.66(13) 1_545 7_635
+Se3 Bi2 Se4 87.66(13) 1_545 7_625
+Se4 Bi2 Se3 176.82(15) 1_545 1_545
+Se4 Bi2 Se4 83.48(12) 7_625 7_635
+Se4 Bi2 Se4 89.97(12) 1_545 7_635
+Se4 Bi2 Se4 89.97(12) 1_545 7_625
+Se5 Bi2 Se3 93.15(13) 1_545 1_545
+Se5 Bi2 Se3 93.15(13) . 1_545
+Se5 Bi2 Se4 89.02(13) 1_545 1_545
+Se5 Bi2 Se4 174.63(11) 1_545 7_635
+Se5 Bi2 Se4 91.25(9) 1_545 7_625
+Se5 Bi2 Se4 174.63(11) . 7_625
+Se5 Bi2 Se4 89.02(13) . 1_545
+Se5 Bi2 Se4 91.25(9) . 7_635
+Se5 Bi2 Se5 94.00(15) . 1_545
+Se4 In3 Se4 86.31(14) 1_545 5_735
+Se4 In3 Se4 93.69(14) 1_545 .
+Se4 In3 Se4 86.31(14) 5_745 .
+Se4 In3 Se4 180.0(2) 5_745 1_545
+Se4 In3 Se4 93.69(14) 5_745 5_735
+Se4 In3 Se4 180.0 . 5_735
+Se5 In3 Se4 88.17(12) . 5_745
+Se5 In3 Se4 91.83(12) . 1_545
+Se5 In3 Se4 88.17(12) . 5_735
+Se5 In3 Se4 88.17(12) 5_735 .
+Se5 In3 Se4 91.83(12) 5_735 5_735
+Se5 In3 Se4 91.83(12) . .
+Se5 In3 Se4 88.17(12) 5_735 1_545
+Se5 In3 Se4 91.83(12) 5_735 5_745
+Se5 In3 Se5 180.0 5_735 .
+Se1 Mn4 Se1 86.57(13) 1_545 5_746
+Se1 Mn4 Se1 93.43(13) 5_756 5_746
+Se1 Mn4 Se1 180.0 5_756 1_545
+Se1 Mn4 Se1 86.57(13) 5_756 .
+Se1 Mn4 Se1 93.43(13) 1_545 .
+Se1 Mn4 Se1 180.00(19) 5_746 .
+Se3 Mn4 Se1 91.95(12) . 5_746
+Se3 Mn4 Se1 88.05(12) 5_746 5_756
+Se3 Mn4 Se1 88.05(12) . .
+Se3 Mn4 Se1 91.95(12) 5_746 1_545
+Se3 Mn4 Se1 91.95(12) . 5_756
+Se3 Mn4 Se1 88.05(12) . 1_545
+Se3 Mn4 Se1 88.05(12) 5_746 5_746
+Se3 Mn4 Se1 91.95(12) 5_746 .
+Se3 Mn4 Se3 180.0 5_746 .
+Bi1 Se1 Bi1 81.65(13) 7_646 7_656
+Bi1 Se1 Bi1 97.88(13) . 7_646
+Bi1 Se1 Bi1 97.88(13) . 7_656
+Bi1 Se1 Mn4 92.56(12) . 1_565
+Bi1 Se1 Mn4 92.56(12) . .
+Mn4 Se1 Bi1 168.22(18) 1_565 7_646
+Mn4 Se1 Bi1 91.56(3) . 7_646
+Mn4 Se1 Bi1 91.56(3) 1_565 7_656
+Mn4 Se1 Bi1 168.22(18) . 7_656
+Mn4 Se1 Mn4 93.43(13) 1_565 .
+Bi1 Se3 Bi1 91.85(16) 1_545 .
+Bi1 Se3 Bi2 117.38(13) . 1_565
+Bi1 Se3 Bi2 117.38(13) 1_545 1_565
+Bi1 Se3 Mn2 117.38(13) 1_545 1_565
+Bi1 Se3 Mn2 117.38(13) . 1_565
+Mn2 Se3 Bi2 0.00(7) 1_565 1_565
+Mn4 Se3 Bi1 94.82(13) . .
+Mn4 Se3 Bi1 94.82(13) . 1_545
+Mn4 Se3 Bi2 131.69(19) . 1_565
+Mn4 Se3 Mn2 131.69(19) . 1_565
+Bi2 Se4 Bi2 83.48(12) 7_625 7_635
+Bi2 Se4 Bi2 90.03(12) 1_565 7_635
+Bi2 Se4 Bi2 90.03(12) 1_565 7_625
+Bi2 Se4 Mn2 0.00(8) 1_565 1_565
+Mn2 Se4 Bi2 90.03(12) 1_565 7_635
+Mn2 Se4 Bi2 90.03(12) 1_565 7_625
+In3 Se4 Bi2 91.38(3) . 7_625
+In3 Se4 Bi2 174.51(14) . 7_635
+In3 Se4 Bi2 174.51(14) 1_565 7_625
+In3 Se4 Bi2 88.05(12) . 1_565
+In3 Se4 Bi2 88.05(12) 1_565 1_565
+In3 Se4 Bi2 91.38(3) 1_565 7_635
+In3 Se4 Mn2 88.05(12) 1_565 1_565
+In3 Se4 Mn2 88.05(12) . 1_565
+In3 Se4 In3 93.69(14) 1_565 .
+Mn3 Se4 Bi2 91.38(3) 1_565 7_635
+Mn3 Se4 Bi2 88.05(12) 1_565 1_565
+Mn3 Se4 Bi2 174.51(14) 1_565 7_625
+Mn3 Se4 Mn2 88.05(12) 1_565 1_565
+Mn3 Se4 In3 0.0 1_565 1_565
+Mn3 Se4 In3 93.69(14) 1_565 .
+Bi2 Se5 Bi2 94.00(15) . 1_565
+Bi2 Se5 Mn2 94.00(15) . 1_565
+Mn2 Se5 Bi2 0.00(13) 1_565 1_565
+In3 Se5 Bi2 91.11(13) . 1_565
+In3 Se5 Bi2 91.11(13) . .
+In3 Se5 Mn2 91.11(13) . 1_565
+loop_
+_geom_bond_atom_site_label_1
+_geom_bond_atom_site_label_2
+_geom_bond_distance
+_geom_bond_site_symmetry_2
+Bi1 Se1 2.713(5) .
+Bi1 Se1 3.110(4) 7_656
+Bi1 Se1 3.110(4) 7_646
+Bi1 Se3 2.830(4) .
+Bi1 Se3 2.830(4) 1_565
+Bi2 Se3 2.931(5) 1_545
+Bi2 Se4 3.054(4) 7_625
+Bi2 Se4 2.844(5) 1_545
+Bi2 Se4 3.054(4) 7_635
+Bi2 Se5 2.780(3) .
+Bi2 Se5 2.780(3) 1_545
+In3 Se4 2.787(3) 5_735
+In3 Se4 2.787(3) 5_745
+In3 Se4 2.787(3) 1_545
+In3 Se4 2.787(3) .
+In3 Se5 2.702(5) .
+In3 Se5 2.702(5) 5_735
+Mn4 Se1 2.793(3) 5_746
+Mn4 Se1 2.793(3) .
+Mn4 Se1 2.793(3) 1_545
+Mn4 Se1 2.793(3) 5_756
+Mn4 Se3 2.571(5) 5_746
+Mn4 Se3 2.571(5) .
+Se1 Bi1 3.110(4) 7_656
+Se1 Bi1 3.110(4) 7_646
+Se1 Mn4 2.793(3) 1_565
+Se3 Bi1 2.830(4) 1_545
+Se3 Bi2 2.931(5) 1_565
+Se3 Mn2 2.931(5) 1_565
+Se4 Bi2 3.054(4) 7_625
+Se4 Bi2 3.054(4) 7_635
+Se4 Bi2 2.844(5) 1_565
+Se4 Mn2 2.844(5) 1_565
+Se4 In3 2.787(3) 1_565
+Se4 Mn3 2.787(3) 1_565
+Se5 Bi2 2.780(3) 1_565
+Se5 Mn2 2.780(3) 1_565
+loop_
+_twin_individual_id
+_twin_individual_mass_fraction_refined
+1 0.858(6)
+2 0.142(6)
