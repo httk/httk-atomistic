@@ -400,7 +400,7 @@ def test_declared_option_matches_exact_alias(cif: Path, monkeypatch, capsys) -> 
 
 
 def test_incomplete_search_never_saves_canonical_output(cif: Path, tmp_path: Path, monkeypatch, capsys) -> None:
-    from httk.atomistic import cli, SupergroupSearchResult
+    from httk.atomistic import SupergroupSearchResult, cli
     from httk.atomistic.symmetry.lift import LiftResult
 
     source = _rocksalt()

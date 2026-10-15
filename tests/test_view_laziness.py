@@ -4,7 +4,6 @@ import pytest
 from httk.core import FracVector, unwrap
 
 from httk.atomistic import (
-    WyckoffSite,
     ASUStructure,
     Cell,
     CellView,
@@ -14,11 +13,12 @@ from httk.atomistic import (
     Species,
     UnitcellStructure,
     UnitcellStructureView,
+    WyckoffSite,
 )
-from httk.atomistic.models.cell.plain import PlainCell
 from httk.atomistic.models.cell.numeric_view import CellNumericView
-from httk.atomistic.models.sites.plain import PlainSites
+from httk.atomistic.models.cell.plain import PlainCell
 from httk.atomistic.models.sites.numeric_view import SitesNumericView
+from httk.atomistic.models.sites.plain import PlainSites
 from httk.atomistic.models.structure.backend import StructureBackend
 
 

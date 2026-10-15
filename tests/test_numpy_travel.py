@@ -179,9 +179,7 @@ def test_numpy_similarity_supports_anonymous_prototype_representatives() -> None
     assert content_id(second) == second_id
     assert first.representative is not None
     assert all(
-        isinstance(value, F)
-        for site in first.representative.wyckoff_sites
-        for value in site.free_params.to_fractions()
+        isinstance(value, F) for site in first.representative.wyckoff_sites for value in site.free_params.to_fractions()
     )
 
 

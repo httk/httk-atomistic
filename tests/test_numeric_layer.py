@@ -9,27 +9,27 @@ import pytest
 
 numpy = pytest.importorskip("numpy")
 
-import httk.core.vectors as vectors_pkg  # noqa: E402
-from httk.core import FracVector, unwrap  # noqa: E402
+import httk.core.vectors as vectors_pkg
+from httk.core import FracVector, unwrap
 
-from httk.atomistic import (  # noqa: E402
+from httk.atomistic import (
     Assembly,
-    WyckoffSite,
     ASUStructure,
     Cell,
     CellParams,
     NumericUnitcellStructureView,
-    Species,
     Sites,
+    Species,
     UnitcellStructure,
     UnitcellStructureView,
+    WyckoffSite,
 )
-from httk.atomistic.models.cell.numeric_view import CellNumericView
 from httk.atomistic.models.cell.numeric import NumericCell
+from httk.atomistic.models.cell.numeric_view import CellNumericView
 from httk.atomistic.models.sites.numeric import NumericSites
-from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
 from httk.atomistic.models.sites.numeric_view import SitesNumericView
 from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
 
 F = fractions.Fraction
 

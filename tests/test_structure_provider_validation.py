@@ -6,7 +6,7 @@ import pytest
 from httk.core import PropertyDefinition
 from test_symmetry_entries import _rocksalt
 
-from httk.atomistic import Cell, CellParams, Sites, Species, UnitcellStructure, StructureEntryProvider
+from httk.atomistic import Cell, CellParams, Sites, Species, StructureEntryProvider, UnitcellStructure
 
 
 def _structure(

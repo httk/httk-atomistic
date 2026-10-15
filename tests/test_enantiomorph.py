@@ -20,9 +20,11 @@ from httk.atomistic import (
     UnitcellStructure,
     UnitcellStructureView,
     WyckoffSite,
-    canonicalize_legacy as canonicalize,
     normalize_chirality,
     same_crystal,
+)
+from httk.atomistic import (
+    canonicalize_legacy as canonicalize,
 )
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments

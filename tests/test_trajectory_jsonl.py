@@ -1,7 +1,7 @@
 """Streaming trajectory JSONL reader/writer checks."""
 
-import json
 import io
+import json
 from pathlib import Path
 
 import pytest

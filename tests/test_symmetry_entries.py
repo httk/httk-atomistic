@@ -13,13 +13,13 @@ import pytest
 from httk.core import FracVector
 
 from httk.atomistic import (
-    WyckoffSite,
     ASUStructure,
     SettingTransform,
     Spacegroup,
     Species,
-    UnitcellStructure,
     StructureEntryProvider,
+    UnitcellStructure,
+    WyckoffSite,
 )
 from httk.atomistic.entries.symmetry import (
     SETTING_PROPERTY_KEYS,

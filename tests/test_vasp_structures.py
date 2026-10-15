@@ -12,8 +12,8 @@ from httk.core import load
 
 from httk.atomistic import (
     UnitcellStructure,
+    _loading,
 )
-from httk.atomistic import _loading
 
 build_payload = getattr(_loading, "_" + "structure_" + "from_payload")
 build_poscar = getattr(_loading, "_" + "structure_" + "from_poscar")

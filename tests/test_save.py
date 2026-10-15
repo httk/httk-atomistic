@@ -2,7 +2,6 @@ from fractions import Fraction
 from pathlib import Path
 
 import pytest
-
 from httk.core import FracVector, load, save
 
 from httk.atomistic import ASUStructure, Cell, Spacegroup, Species, UnitcellStructureView, WyckoffSite, same_crystal

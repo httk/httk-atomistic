@@ -6,7 +6,6 @@ from httk.core import load, unwrap
 
 from httk.atomistic import (
     Assembly,
-    WyckoffSite,
     ASUStructure,
     ASUStructureView,
     Cell,
@@ -16,11 +15,12 @@ from httk.atomistic import (
     Species,
     UnitcellStructure,
     UnitcellStructureView,
+    WyckoffSite,
 )
-from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.composition import ChemicalComposition
 from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
 from httk.atomistic.models.structure.semantics import StructureSymmetry
+from httk.atomistic.symmetry.affine_operation import AffineOperation
 
 
 def _structure(**kwargs):

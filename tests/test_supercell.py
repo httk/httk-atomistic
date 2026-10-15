@@ -7,14 +7,14 @@ from httk.core import FracVector, SurdScalar
 
 from httk.atomistic import (
     Assembly,
-    WyckoffSite,
     ASUStructure,
     Cell,
     CellParams,
     Sites,
     Species,
-    UnitcellStructure,
     SupercellResult,
+    UnitcellStructure,
+    WyckoffSite,
     build_supercell,
     cubic_supercell,
     orthogonal_supercell,

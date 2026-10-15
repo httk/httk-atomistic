@@ -814,6 +814,8 @@ def test_cif_uncertainty_thresholds_are_inclusive(tmp_path: Path) -> None:
     error_path = _cif_with_sites(tmp_path, "50", [("Si1", "Si", "1.10", "1/3", "1/3")])
     with pytest.raises(ValueError, match=r"projected positional uncertainty of 1 Å"):
         load(str(error_path))
+
+
 def test_nearest_image_retains_small_nonperiodic_component():
     from httk.atomistic.symmetry._nearest_image import _NearestImageMetric
 

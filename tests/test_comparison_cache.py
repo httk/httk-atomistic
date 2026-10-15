@@ -244,6 +244,7 @@ def test_normalizer_cache_is_separate_bounded_and_does_not_retain_failures() -> 
     first, second = _structure(5, F(1, 10)), _structure(5, F(11, 100))
     cache = StructureComparisonCache(max_structures=1)
     canonical = cache._structure(first, object)
+
     def fail():
         raise RuntimeError("failed")
 
@@ -266,9 +267,7 @@ def test_geometry_byte_budget_evicts_lru_and_bypasses_oversized_arrays() -> None
     first, second, third, large = (object() for _ in range(4))
 
     def prepare(source, count=1):
-        return cache._geometry(
-            source, lambda: numpy.zeros((count, 3)), nbytes=lambda array: array.nbytes
-        )
+        return cache._geometry(source, lambda: numpy.zeros((count, 3)), nbytes=lambda array: array.nbytes)
 
     a, b = prepare(first), prepare(second)
     assert cache._geometry_bytes == 48
@@ -302,9 +301,7 @@ def test_grid_populates_read_only_geometry_for_later_comparisons(monkeypatch: py
     cache = StructureComparisonCache()
     grid = StructureComparisonGrid(values, 0.01, dimensions=2, cache=cache)
     assert grid.fallback_reason is None
-    assert cache._geometry_bytes == sum(
-        orbit.nbytes for _, orbits, _ in cache._geometries.values() for orbit in orbits
-    )
+    assert cache._geometry_bytes == sum(orbit.nbytes for _, orbits, _ in cache._geometries.values() for orbit in orbits)
     assert cache._geometry_bytes > 0
     for source, orbits, _ in tuple(cache._geometries.values()):
         assert _numpy_travel._cached_cartesian_orbits(source, numpy, cache) is orbits

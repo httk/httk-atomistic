@@ -18,8 +18,8 @@ from httk.atomistic import (
     WyckoffSite,
     build_supercell,
     canonical_asu,
-    search_supergroups,
     normalize_chirality,
+    search_supergroups,
 )
 from httk.atomistic.symmetry.canonical import _fits_within
 from httk.atomistic.symmetry.lift import _site_key

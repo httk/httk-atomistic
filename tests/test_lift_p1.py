@@ -26,11 +26,13 @@ from httk.atomistic import (
     WyckoffSite,
     backward_lift,
     canonical_asu,
-    canonicalize_legacy as canonicalize,
     data,
     highest_symmetry,
     same_crystal,
     subgroup_representation,
+)
+from httk.atomistic import (
+    canonicalize_legacy as canonicalize,
 )
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.symmetry.canonical_protostructure import _canonical_protostructure_asu

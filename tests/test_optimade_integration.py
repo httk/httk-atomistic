@@ -14,12 +14,12 @@ import pytest
 
 pytest.importorskip("httk.serve.optimade")
 
-from httk.serve.optimade import adapter_from_providers  # noqa: E402
-from httk.serve.optimade.backend import execute_query  # noqa: E402
-from httk.serve.optimade.filter import parse_optimade_filter  # noqa: E402
+from httk.serve.optimade import adapter_from_providers
+from httk.serve.optimade.backend import execute_query
+from httk.serve.optimade.filter import parse_optimade_filter
 
-from httk.atomistic import UnitcellStructure, StructureEntryProvider  # noqa: E402
-from httk.atomistic.models.species.species import Species  # noqa: E402
+from httk.atomistic import StructureEntryProvider, UnitcellStructure
+from httk.atomistic.models.species.species import Species
 
 
 def _nacl(sid_cell: list[list[float]]) -> UnitcellStructure:

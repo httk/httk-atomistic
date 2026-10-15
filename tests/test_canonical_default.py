@@ -10,11 +10,11 @@ from httk.core import FracVector, load
 import httk.atomistic.symmetry.lift as lift_module
 from httk import atomistic
 from httk.atomistic import ASUStructure, Cell, ChemicalComposition, Species, WyckoffSite, symmetry
+from httk.atomistic.symmetry.canonical import canonicalize
 from httk.atomistic.symmetry.canonical_protostructure import (
     _canonical_protostructure_assignments_asu,
     _canonical_protostructure_asu,
 )
-from httk.atomistic.symmetry.canonical import canonicalize
 from httk.atomistic.symmetry.lift import canonicalize_legacy
 
 

@@ -9,30 +9,29 @@ from httk.core import FracVector
 from httk.atomistic import (
     ASUStructure,
     ASUStructureView,
+    BareProtostructure,
     BarePrototype,
     BarePrototypeView,
-    BareProtostructure,
     CanonicalizationLimitError,
     Cell,
+    Protostructure,
     Prototype,
     PrototypeView,
-    Protostructure,
     Species,
     UnitcellStructureView,
     WyckoffSite,
-    canonicalize,
     canonical_asu,
     canonical_asu_protostructure,
-    canonical_bare_prototype,
     canonical_bare_protostructure,
-    canonical_prototype,
+    canonical_bare_prototype,
     canonical_protostructure,
+    canonical_prototype,
+    canonicalize,
     search_supergroups,
 )
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
-from httk.atomistic.symmetry import limits
-import httk.atomistic.symmetry.lift as lift
+from httk.atomistic.symmetry import lift, limits
 
 
 def _source(group=47):
@@ -61,8 +60,8 @@ def test_alias_and_structure_representation_independence(monkeypatch):
 
 
 def test_declared_mode_never_recognizes_even_lazy_views(monkeypatch):
-    import httk.atomistic.symmetry.canonical as module
     import httk.atomistic.models.structure.asu_view as views
+    import httk.atomistic.symmetry.canonical as module
 
     monkeypatch.setattr(module, "recognize_asu", lambda *args, **kwargs: pytest.fail("recognition"))
     monkeypatch.setattr(views, "recognize_asu", lambda *args, **kwargs: pytest.fail("recognition"))

@@ -176,7 +176,8 @@ def test_coordinate_representation_is_stable_within_segment(tmp_path: Path) -> N
     source = tmp_path / 'coordinates.dump'
     source.write_text(
         _frame(step=0, columns='id type x y z ix iy iz', atoms='1 1 1 0 0 1 0 0\n2 1 0 0 0 0 0 0')
-        + _frame(step=1, columns='id type xu yu zu', atoms='1 1 5 0 0\n2 1 0 0 0'), encoding='utf-8'
+        + _frame(step=1, columns='id type xu yu zu', atoms='1 1 5 0 0\n2 1 0 0 0'),
+        encoding='utf-8',
     )
     frames = LammpsDumpFile(source).frames()
     next(frames)

@@ -13,11 +13,13 @@ from httk.atomistic import (
     WyckoffSite,
     backward_lift,
     build_supercell,
-    canonicalize_legacy as canonicalize,
     canonicalize_full,
     list_representations,
     same_crystal,
     subgroup_representation,
+)
+from httk.atomistic import (
+    canonicalize_legacy as canonicalize,
 )
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.symmetry.lift import rerepresent

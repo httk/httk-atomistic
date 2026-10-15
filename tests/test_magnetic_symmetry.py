@@ -164,11 +164,17 @@ def test_near_collinear_moments_are_projected_not_forwarded() -> None:
     lattice = [[3, 0, 0], [0, 3, 0], [0, 0, 5]]
     sites = [[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]]
     noisy = UnitcellStructure(
-        lattice, sites, _fe(), ("Fe", "Fe"),
+        lattice,
+        sites,
+        _fe(),
+        ("Fe", "Fe"),
         site_moments=CartesianSiteMoments([[5e-4, 0, 3], [0, -5e-4, -3]]),
     )
     clean = UnitcellStructure(
-        lattice, sites, _fe(), ("Fe", "Fe"),
+        lattice,
+        sites,
+        _fe(),
+        ("Fe", "Fe"),
         site_moments=CartesianSiteMoments([[0, 0, 3], [0, 0, -3]]),
     )
     noisy_result = find_magnetic_symmetry(noisy)
