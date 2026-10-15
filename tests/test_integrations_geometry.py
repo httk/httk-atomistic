@@ -249,3 +249,121 @@ def test_write_text(tmp_path: Any) -> None:
     stream = io.StringIO()
     _write_text(stream, {"format": "t"}, {}, _render_payload)
     assert stream.getvalue() == "rendered t\n"
+
+
+def _parameters(angles: tuple[str, str, str], **changes: Any) -> dict[str, Any]:
+    payload = _payload(**changes)
+    del payload["cell"]
+    payload.setdefault("cell_parameters", ["3.00", "4.00", "5.00", *angles])
+    return payload
+
+
+@pytest.mark.parametrize("angles", [("90", "104.5", "90"), ("90", "90", "120"), ("80", "95", "110")])
+def test_cell_parameters_use_the_cellparams_frame(angles: tuple[str, str, str]) -> None:
+    basis = _structure_from_geometry(_parameters(angles)).cell.basis
+    entry = basis._element
+    # a along +x, b in the xy plane with positive y, c with positive z (right-handed).
+    assert [entry((0, column)).sign() for column in range(3)] == [1, 0, 0]
+    assert entry((1, 1)).sign() == 1 and entry((1, 2)).sign() == 0
+    assert entry((2, 2)).sign() == 1 and basis.det().sign() == 1
+
+
+def test_cell_parameters_monoclinic_fractional() -> None:
+    structure = _structure_from_geometry(_parameters(("90", "104.5", "90")))
+    # The structure keeps the parameters themselves, not the approximated basis's.
+    assert list(structure.cell.lengths) == [3, 4, 5]
+    assert structure.cell.angles == (90, Fraction("104.5"), 90)
+    assert structure.cell.precision == Fraction(1, 100)
+    assert structure.sites.reduced_coords.to_fractions() == [[0, 0, 0], [Fraction(1, 2)] * 3]
+    integers = _structure_from_geometry(
+        _parameters(("90", "104.5", "90"), cell_parameters=[3, "4", "5", 90, "104.5", 90])
+    )
+    assert integers.cell.precision is None
+    bohr = _structure_from_geometry(_parameters(("90", "104.5", "90"), cell_unit="bohr", bohr_angstrom=BOHR))
+    assert list(bohr.cell.lengths) == [length * Fraction(BOHR) for length in (3, 4, 5)]
+    assert bohr.cell.angles == (90, Fraction("104.5"), 90)
+    assert bohr.cell.precision == Fraction(1, 100) * Fraction(BOHR)
+
+
+def test_cell_parameters_monoclinic_cartesian() -> None:
+    positions = [["0", "0", "0"], ["1.2500000000000000", "0.5000000000000000", "2.0000000000000000"]]
+    cartesian = {"positions": positions, "positions_kind": "cartesian", "positions_unit": "angstrom"}
+    structure = _structure_from_geometry(_parameters(("90", "104.5", "90"), **cartesian))
+    basis = structure.cell.basis.coefficient(1).to_fractions()  # the approximated basis is rational
+    reduced = structure.sites.reduced_coords.to_fractions()[1]
+    assert [sum(reduced[i] * basis[i][j] for i in range(3)) for j in range(3)] == [Fraction("1.25"), Fraction("0.5"), 2]
+    # The 16 written digits claim ~1e-16; the approximated basis caps the claim near 1e-11.
+    precision = structure.sites.precision
+    assert precision is not None and Fraction(1, 10**12) < precision < Fraction(1, 10**9)
+    exact = _structure_from_geometry(_parameters(("90", "90", "90"), **cartesian))
+    assert exact.sites.precision is not None and exact.sites.precision < Fraction(1, 10**15)
+    hexagonal = _structure_from_geometry(_parameters(("90", "90", "120"), **cartesian))
+    # Irrational fractional coordinates in the surd cell are rounded and claim no better.
+    assert hexagonal.sites.precision == exactmath.default_accuracy
+    override = _structure_from_geometry(_parameters(("90", "104.5", "90"), precision_override=0.001, **cartesian))
+    assert override.cell.precision == Fraction(1, 1000)
+    assert override.sites.precision == Fraction(1, 1000) / 5
+
+
+def test_cell_parameters_are_validated() -> None:
+    with pytest.raises(ValueError, match="either cell or cell_parameters"):
+        _structure_from_geometry(_payload(cell_parameters=["3", "4", "5", "90", "90", "90"]))
+    with pytest.raises(ValueError, match="six entries"):
+        _structure_from_geometry(_parameters(("90", "90", "90"), cell_parameters=["3", "4", "5"]))
+    with pytest.raises(ValueError, match="rational"):
+        _structure_from_geometry(
+            _parameters(("90", "90", "90"), cell_parameters=[exactmath.sqrt(2, exact=True), 4, 5, 90, 90, 90])
+        )
+    with pytest.raises(ValueError, match="degenerate"):
+        _structure_from_geometry(_parameters(("60", "60", "120")))
+
+
+def test_cell_parameters_with_partial_periodicity_keep_the_basis() -> None:
+    full = _structure_from_geometry(_parameters(("90", "104.5", "90")))
+    slab = _structure_from_geometry(_parameters(("90", "104.5", "90"), periodicity=[True, True, False]))
+    assert slab.cell.periodicity == (True, True, False)
+    assert slab.cell.basis == full.cell.basis and slab.cell.precision == Fraction(1, 100)
+
+
+@pytest.mark.parametrize("parameters", [False, True])
+def test_cell_precision_key(parameters: bool) -> None:
+    def build(**changes: Any) -> UnitcellStructure:
+        return _structure_from_geometry(
+            _parameters(("90", "90", "90"), **changes) if parameters else _payload(**changes)
+        )
+
+    assert build(cell_precision="0.005").cell.precision == Fraction(1, 200)
+    assert build(cell_precision=Fraction(1, 200), cell_unit="bohr", bohr_angstrom=BOHR).cell.precision == Fraction(
+        1, 200
+    ) * Fraction(BOHR)
+    assert build(cell_precision="0.005", precision_override=0.001).cell.precision == Fraction(1, 1000)
+    with pytest.raises(ValueError, match="cell_precision must be positive"):
+        build(cell_precision="-1")
+    with pytest.raises(ValueError, match="rational"):
+        build(cell_precision=exactmath.sqrt(2, exact=True))
+
+
+def test_positions_precision_key() -> None:
+    fractional = _structure_from_geometry(_payload(positions_precision="0.001"))
+    assert fractional.sites.precision == Fraction(1, 1000)
+    cartesian = {"positions_kind": "cartesian", "positions_unit": "angstrom"}
+    digits = _structure_from_geometry(_payload(positions=[["0", "0", "0"], ["2.00", "2.00", "2.00"]], **cartesian))
+    given = _structure_from_geometry(
+        _payload(positions=[[0, 0, 0], [2, 2, 2]], positions_precision=Fraction(1, 100), **cartesian)
+    )
+    # A Cartesian precision converts to fractional exactly as the digits of "2.00" do.
+    assert given.sites.precision == digits.sites.precision == Fraction(1, 400)
+    bohr = _structure_from_geometry(
+        _payload(
+            positions=[[0, 0, 0], [2, 2, 2]],
+            positions_precision="0.01",
+            positions_unit="bohr",
+            bohr_angstrom=BOHR,
+            positions_kind="cartesian",
+        )
+    )
+    assert bohr.sites.precision == Fraction(1, 400) * Fraction(BOHR)
+    override = _structure_from_geometry(_payload(positions_precision="0.001", precision_override=0.004))
+    assert override.sites.precision == Fraction(1, 1000)  # 0.004 Å / 4 Å
+    with pytest.raises(ValueError, match="positions_precision must be positive"):
+        _structure_from_geometry(_payload(positions_precision=0))

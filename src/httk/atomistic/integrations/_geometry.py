@@ -11,13 +11,39 @@ it for their writers. The payload is a mapping with these keys:
     Three rows (the a, b and c lattice vectors) of three entries. An entry is a decimal
     string (Fortran ``d``/``D`` exponents allowed) or an exact number: an ``int``, a
     :class:`~fractions.Fraction` or an *httk* exact scalar such as a ``SurdScalar``.
+``cell_parameters``
+    Instead of ``cell``: the six lattice parameters ``a``, ``b``, ``c`` (in ``cell_unit``)
+    and ``alpha``, ``beta``, ``gamma`` (degrees), each a decimal string or an exact rational.
+    The cell is built as for CIF, by :class:`~httk.atomistic.models.cell.params.CellParams`:
+    exact (with surds) for angles with exact cosines, otherwise CellParams' deterministic
+    rational approximation of the basis. Its precision derives from the digits of the three
+    length tokens only. A fully periodic structure keeps the parameters as its cell, so its
+    lengths and angles are exactly the given ones; a partially periodic one keeps only the
+    (possibly approximated) basis, since lattice parameters carry no periodicity. Cartesian
+    positions are interpreted in the *CellParams frame* and reduced through that basis:
+    ``a`` along +x, ``b`` in the xy plane with positive y, and ``c`` with positive z
+    (right-handed). A format whose lattice-parameter convention uses another frame must
+    give Cartesian positions with an explicit ``cell`` instead. With an approximated basis
+    the site precision also covers the approximation (see below).
 ``cell_unit``
     ``"angstrom"`` or ``"bohr"``.
 ``bohr_angstrom``
     The producing code's own Bohr length in Å as a decimal string; required when any
     unit is ``"bohr"``. Conversion through it is exact.
+``cell_precision``
+    Optional absolute precision of the ``cell`` or ``cell_parameters`` length entries, in
+    ``cell_unit`` (scaled to Å like the entries), as a decimal string or an exact positive
+    rational. It replaces the digit-derived cell precision; readers that multiply tokens by an
+    exact factor (QE ``alat``, ABINIT ``acell``) pass the true precision of the resulting
+    exact entries here.
 ``positions``
     One row of three entries per site, with the same entry types as ``cell``.
+``positions_precision``
+    Optional precision of the ``positions`` entries in their own coordinates: fractional
+    units when ``positions_kind`` is ``"fractional"``, a length in ``positions_unit`` when
+    ``"cartesian"`` (then converted to a fractional site precision exactly as a digit-derived
+    Cartesian precision is). A decimal string or an exact positive rational; it replaces the
+    digit-derived site precision.
 ``positions_kind``
     ``"fractional"`` or ``"cartesian"``.
 ``positions_unit``
@@ -30,25 +56,32 @@ it for their writers. The payload is a mapping with these keys:
 ``periodicity``
     Three booleans, one per cell row; all ``True`` when absent.
 ``precision_override``
-    Optional Cartesian precision in Å with the meaning and validation of POSCAR's.
+    Optional Cartesian precision in Å with the meaning and validation of POSCAR's; it wins
+    over ``cell_precision`` and ``positions_precision``.
 ``raw``
     Optional original text (a string), written verbatim by the writers.
 
-Any other key is format-specific and ignored here. Without ``precision_override``, the
-cell and site precisions are derived from the digits of the decimal-string entries exactly
-as for POSCAR (in fractional positions ``0.0``, ``0.5`` and ``1.0`` make no claim); exact
-entries make no precision claim. A trajectory payload is ``{"format": tag, "frames":
-[geometry payloads without "format"], ...}``.
+Any other key is format-specific and ignored here. Without ``precision_override``,
+``cell_precision`` or ``positions_precision``, the cell and site precisions are derived
+from the digits of the decimal-string entries exactly as for POSCAR (in fractional
+positions ``0.0``, ``0.5`` and ``1.0`` make no claim); exact entries make no precision
+claim. Cartesian positions whose fractional coordinates are irrational (in a surd cell)
+are rounded to within ``1e-10`` and claim no better. With ``cell_parameters`` whose basis
+is approximated, the Cartesian site claim adds that approximation's measured error to the
+token claim, bounded per site by twice the largest basis-entry error times the sum of the
+site's absolute fractional coordinates. A trajectory payload is ``{"format": tag,
+"frames": [geometry payloads without "format"], ...}``.
 """
 
 import fractions
 import io
+import math
 import os
 import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from httk.core import SurdScalar, SurdVector, combined_precision
+from httk.core import SurdScalar, SurdVector, combined_precision, exactmath
 
 from httk.atomistic._atomic_projection import require_bare_atomic_projection
 from httk.atomistic._loading import _cartesian_precision_factor, _cell_with_precision_override
@@ -59,6 +92,8 @@ from httk.atomistic.integrations.vasp.io.poscar_writer import _write_poscar_payl
 from httk.atomistic.io import _check_load_precision
 from httk.atomistic.models._vector_guards import to_surdscalar
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.cell.params import CellParams
+from httk.atomistic.models.cell.view import CellView
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
@@ -69,6 +104,8 @@ _NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eEdD][+-]?\d+)?")
 _LABEL_SUFFIX = re.compile(r"\d*(?:[_-].*)?")
 _ELEMENTS = frozenset(SYMBOLS)
 _UNITS = ("angstrom", "bohr")
+# Rounding of irrational fractional coordinates: exactmath's default accuracy, as CellParams'.
+_ROUNDING = exactmath.default_accuracy
 
 
 def _number(token: str) -> fractions.Fraction:
@@ -235,9 +272,58 @@ def _species(data: Mapping[str, Any]) -> list[Species]:
     return species
 
 
+def _parameters(data: Mapping[str, Any], cell_scale: fractions.Fraction) -> list[fractions.Fraction]:
+    """The exact ``cell_parameters`` with the lengths converted to Å."""
+    if "cell" in data:
+        raise ValueError("geometry payload must give either cell or cell_parameters, not both")
+    entries = data["cell_parameters"]
+    if isinstance(entries, (str, bytes)) or not isinstance(entries, Sequence) or len(entries) != 6:
+        raise ValueError(f"geometry payload cell_parameters must be six entries, got {entries!r}")
+    values = [_rational(entry, "cell_parameters") for entry in entries]
+    return [value * cell_scale for value in values[:3]] + values[3:]
+
+
+def _rational(entry: Any, field: str) -> fractions.Fraction:
+    """One exact rational payload entry."""
+    value = _exact(entry, field)
+    if not value.is_rational:
+        raise ValueError(f"geometry payload {field} entries must be rational, got {entry!r}")
+    return value.coefficient(1).to_fraction()
+
+
+def _given_precision(data: Mapping[str, Any], key: str) -> fractions.Fraction | None:
+    """An optional positive precision key of the payload."""
+    if data.get(key) is None:
+        return None
+    value = _rational(data[key], key)
+    if value <= 0:
+        raise ValueError(f"geometry payload {key} must be positive, got {data[key]!r}")
+    return value
+
+
+def _approximation_error(basis: SurdVector, params: Sequence[fractions.Fraction]) -> fractions.Fraction:
+    """The largest entry error of a lattice-parameter basis, or ``0`` when CellParams built it exactly."""
+    a, b, c, alpha, beta, gamma = params
+    gram = basis * basis.T()
+    if all((gram._element((row, row)) - length * length).is_zero() for row, length in ((1, b), (2, c))):
+        # ponytail: CellParams' exact branch reproduces the lengths exactly and its rational
+        # fallback (approximate cosines and sines) does not; a public "is exact" flag would be cleaner.
+        return fractions.Fraction(0)
+    alpha_r, beta_r, gamma_r = (math.radians(angle) for angle in (alpha, beta, gamma))
+    cos_c = (math.cos(alpha_r) - math.cos(beta_r) * math.cos(gamma_r)) / math.sin(gamma_r)
+    reference = [
+        [float(a), 0.0, 0.0],
+        [float(b) * math.cos(gamma_r), float(b) * math.sin(gamma_r), 0.0],
+        [float(c) * math.cos(beta_r), float(c) * cos_c, float(c) * math.sqrt(1 - math.cos(beta_r) ** 2 - cos_c**2)],
+    ]
+    approximate = basis.coefficient(1).to_fractions()  # the fallback basis is rational
+    error = max(abs(approximate[i][j] - fractions.Fraction(reference[i][j])) for i in range(3) for j in range(3))
+    # The double-precision reference is itself off by ~1e-16 per Å; pad by 2**-40 per Å.
+    return error + max(a, b, c) * fractions.Fraction(1, 2**40)
+
+
 def _unitcell(data: Mapping[str, Any]) -> UnitcellStructure:
     """Build one structure from a geometry payload, ignoring its ``format``."""
-    cell_rows = _rows(data.get("cell"), "cell", 3)
     positions = _rows(data.get("positions"), "positions")
     if not positions:
         raise ValueError("geometry payload positions must hold at least one site")
@@ -271,25 +357,71 @@ def _unitcell(data: Mapping[str, Any]) -> UnitcellStructure:
     if undeclared:
         raise ValueError(f"geometry payload species_at_sites names undeclared species {undeclared}")
 
-    raw_basis = _matrix(cell_rows, "cell")
-    if raw_basis.det().sign() == 0:
-        raise ValueError("geometry payload cell is degenerate (zero determinant)")
     cell_scale = _unit_scale(data, "cell_unit")
     coordinates = _matrix(positions, "positions")
-    # Cartesian rows in their own unit, re-expressed in the cell's unit, then reduced.
-    position_factor = _unit_scale(data, "positions_unit") / cell_scale if cartesian else fractions.Fraction(1)
-    reduced = coordinates * raw_basis.inv() * position_factor if cartesian else coordinates
-
-    coordinate_precision: fractions.Fraction | None
-    if override is not None:
-        cell, coordinate_precision = _cell_with_precision_override(raw_basis, cell_scale, override)
+    cell_claim = _given_precision(data, "cell_precision")  # in cell_unit
+    position_claim = _given_precision(data, "positions_precision")  # in the positions' own coordinates
+    override_sites: fractions.Fraction | None = None  # the fractional site precision an override implies
+    basis_error = fractions.Fraction(0)  # of an approximated lattice-parameter basis, in Å
+    cell: Any
+    if "cell_parameters" in data:
+        params = _parameters(data, cell_scale)
+        if cell_claim is None:
+            # As CIF's basis_precision: the length tokens only, never the angles (in degrees).
+            lengths = data["cell_parameters"][:3]
+            cell_claim = combined_precision(_normalized(entry) for entry in lengths if isinstance(entry, str))
+        if override is not None:
+            precision: fractions.Fraction | None = fractions.Fraction(str(override))
+            override_sites = fractions.Fraction(str(override)) / max(params[:3])
+        else:
+            precision = None if cell_claim is None else cell_claim * cell_scale
+        # Kept as the parameters (exact lengths and angles), as CIF keeps them.
+        cell = CellView(CellParams(params, precision=precision))
+        raw_basis = cell.basis  # in Å
+        position_factor = _unit_scale(data, "positions_unit") if cartesian else fractions.Fraction(1)
+        if cartesian:
+            basis_error = _approximation_error(raw_basis, params)
     else:
-        cell_precision = combined_precision(token for row in _tokens(cell_rows) for token in row)
-        cell = Cell(raw_basis, cell_scale, None if cell_precision is None else cell_precision * cell_scale)
-        coordinate_precision = _token_precision(_tokens(positions), cartesian=cartesian)
-        if coordinate_precision is not None and cartesian:
-            coordinate_precision *= position_factor * _cartesian_precision_factor(raw_basis)
-    cell = Cell(cell, periodicity=tuple(periodicity))
+        raw_basis = _matrix(_rows(data.get("cell"), "cell", 3), "cell")
+        if raw_basis.det().sign() == 0:
+            raise ValueError("geometry payload cell is degenerate (zero determinant)")
+        # Cartesian rows in their own unit, re-expressed in the cell's unit, then reduced.
+        position_factor = _unit_scale(data, "positions_unit") / cell_scale if cartesian else fractions.Fraction(1)
+        if cell_claim is None:
+            cell_claim = combined_precision(token for row in _tokens(data["cell"]) for token in row)
+        if override is not None:
+            cell, override_sites = _cell_with_precision_override(raw_basis, cell_scale, override)
+        else:
+            cell = Cell(raw_basis, cell_scale, None if cell_claim is None else cell_claim * cell_scale)
+
+    coordinate_precision: fractions.Fraction | None = override_sites
+    if not cartesian:
+        reduced: Any = coordinates
+        if override is None:
+            coordinate_precision = (
+                position_claim if position_claim is not None else _token_precision(_tokens(positions), cartesian=False)
+            )
+    else:
+        exact = coordinates * raw_basis.inv() * position_factor
+        # An irrational (surd) basis can give irrational fractional coordinates, which sites
+        # cannot hold: they are rounded within _ROUNDING, and the site precision says so.
+        reduced = exact.to_fractions_approx(_ROUNDING)
+        if override is None:
+            claim = (
+                position_claim if position_claim is not None else _token_precision(_tokens(positions), cartesian=True)
+            )
+            claim = None if claim is None else claim * position_factor
+            if basis_error:
+                spread = max(sum((abs(value) for value in row), start=fractions.Fraction()) for row in reduced)
+                if spread:  # a site at the origin is exact whatever the basis
+                    claim = (claim or fractions.Fraction(0)) + 2 * basis_error * spread
+            if claim is not None:
+                coordinate_precision = claim * _cartesian_precision_factor(raw_basis)
+            if not exact.is_rational:
+                coordinate_precision = max(coordinate_precision or fractions.Fraction(0), _ROUNDING)
+    if not all(periodicity) or not isinstance(cell, CellView):
+        # Lattice parameters carry no periodicity, so a partially periodic cell keeps only the basis.
+        cell = Cell(cell, periodicity=tuple(periodicity))
     return UnitcellStructure(cell, Sites(reduced, coordinate_precision), species, list(species_at_sites))
 
 

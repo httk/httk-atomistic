@@ -80,6 +80,9 @@ wavecar
 wavefunctions
 trajectory_jsonl
 lammps
+qe
+abinit
+cp2k
 asu
 canonicalization
 subgroups

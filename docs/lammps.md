@@ -1,4 +1,4 @@
-# Reading LAMMPS dump trajectories
+# Reading LAMMPS dumps and data files
 
 *httk-atomistic* reads native LAMMPS text dumps through
 `httk.atomistic.integrations.lammps`. The low-level `LammpsDumpFile` preserves
@@ -71,3 +71,71 @@ and field availability constant.
 
 The native subset does not include YAML, binary dump formats, local/grid
 records, arbitrary computed-column semantics, or a thermodynamic-log join.
+
+## Data files
+
+`httk.core.load` reads LAMMPS data files (the `read_data` format) and
+`httk.core.save` writes them. Data file names such as `data.si` or `in.lmp`
+are ambiguous, so the reader claims no extension and the format is always
+selected explicitly: `load("data.si", format="lammps-data")`. `save(s, "x.lmp")`
+selects the writer by the `.lmp` extension. Only `atomic` atom-style files are
+read: a `# atomic` comment on the `Atoms` line (5 columns, or 8 with image flags
+`id type x y z ix iy iz`), or no style comment and exactly 5 columns. Any other
+declared style is refused.
+
+```python
+import tempfile
+from pathlib import Path
+
+from httk.core import load, save
+
+text = """Si pair
+
+2 atoms
+1 atom types
+
+0.0 4.0 xlo xhi
+0.0 4.0 ylo yhi
+0.0 4.0 zlo zhi
+
+Masses
+
+1 28.0855 # Si
+
+Atoms # atomic
+
+1 1 0.0 0.0 0.0
+2 1 2.0 2.0 2.0
+"""
+
+with tempfile.TemporaryDirectory() as folder:
+    source = Path(folder) / "data.si"
+    source.write_text(text)
+    structure = load(str(source), format="lammps-data")
+    save(structure, str(Path(folder) / "copy.lmp"))
+    print(structure.species_at_sites, structure.cell.volume)
+```
+
+The box gives the cell exactly (orthogonal, `xy xz yz` restricted triclinic, or
+general `avec`/`bvec`/`cvec` with `abc origin`); positions are the wrapped
+Cartesian coordinates relative to the box origin, ordered by atom id. Image
+flags, `Velocities` and bonded sections are ignored.
+
+Data files carry no units, so lengths are read as Å. `units="metal"` (default)
+and `units="real"` are accepted; `lj`, `si`, `cgs`, `electron`, `micro` and
+`nano` are refused. Data files also name no elements. Per atom type the species
+come from, in order: the `species=` keyword (a mapping of type id to name, or a
+sequence in type order), an `Atom Type Labels` section, `Masses` line comments
+(`1 26.98 # Al`), then a `types: Si O` list in the first comment line (as the
+*httk* writers produce). The element is read from the name, never inferred from
+a mass; if no source names a type, pass `species=`. `Masses` values are kept as
+the species masses.
+
+`save` writes `Masses` (omitted when some species has no mass; override with
+`masses={"Si": 28.0855}`), an `Atom Type Labels` section so the file reads back
+without `species=`, and `Atoms # atomic` (the only `atom_style`). A cell that is
+already LAMMPS-framed (`a` along x, `b` in the xy plane, `a_x`, `b_y`, `c_z`
+positive) is written exactly. Any other cell is rotated into that frame in
+floating point and written to 16 significant digits, so saving an unframed cell
+is lossy at that level (and the lattice orientation changes). Left-handed cells
+are refused. A neutral payload loaded with `raw=True` is saved back verbatim.

@@ -53,3 +53,20 @@ These build on the low-level, string-preserving VASP readers: see {doc}`poscar`
 for the neutral POSCAR/CONTCAR mapping, {doc}`vasp_outputs` for the OUTCAR,
 XDATCAR, OSZICAR and POTCAR readers, and {doc}`wavecar` for the binary WAVECAR
 layer.
+
+## Quantum ESPRESSO, ABINIT, CP2K and LAMMPS
+
+`httk.core.load` and `httk.core.save` read and write the geometry of these codes'
+files without any third-party package. Unambiguous extensions dispatch by name;
+generic or shared names take an explicit `format=`:
+
+| Code | Load | Save | Extensions | `format=` |
+| --- | --- | --- | --- | --- |
+| Quantum ESPRESSO | pw.x input (structure), pw.x output (trajectory) | pw.x geometry input | `.pwi`, `.pwo` | `qe-pw-input`, `qe-pw-output` |
+| ABINIT | input (structure), main output (trajectory) | geometry input | `.abi`, `.abo` | `abinit-input`, `abinit-output` |
+| CP2K | input and `.restart` (structure) | `&SUBSYS` block | none | `cp2k-input` |
+| LAMMPS | data file (structure) | data file | `.lmp` | `lammps-data` |
+
+`save` writes the geometry part only; calculation parameters belong to the
+`httk.codes.<code>` input writers of the *httk-workflow-<code>* packages. See
+{doc}`qe`, {doc}`abinit`, {doc}`cp2k` and {doc}`lammps`.

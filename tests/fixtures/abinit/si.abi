@@ -1,0 +1,25 @@
+# Tiny Si diamond SCF, smoke-test fixture
+acell 3*10.26
+rprim
+ 0.0 0.5 0.5
+ 0.5 0.0 0.5
+ 0.5 0.5 0.0
+natom 2
+ntypat 1
+typat 1 1
+znucl 14
+xred
+ 0.00 0.00 0.00
+ 0.25 0.25 0.25
+
+ecut 8
+nstep 20
+toldfe 1.0d-8
+
+kptopt 1
+ngkpt 2 2 2
+nshiftk 1
+shiftk 0.0 0.0 0.0
+
+pp_dirpath "./"
+pseudos "Si.psp8"
