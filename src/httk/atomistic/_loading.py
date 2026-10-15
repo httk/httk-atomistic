@@ -55,16 +55,9 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
         scale = 1
 
     override = data.get("precision_override")
+    coordinate_precision: fractions.Fraction | None
     if override is not None:
-        # A realistic Cartesian precision (Å) supplied by the caller replaces the
-        # digit-derived one; relaxed CONTCAR digits otherwise imply ~machine-epsilon.
-        # Cell precision is an absolute length; Sites precision is fractional, so scale
-        # the length down by the longest cell edge exactly as cartesian_precision() folds
-        # it back up, making structure.cartesian_precision() return prec.
-        prec = fractions.Fraction(str(override))
-        cell = Cell(cell_rows, scale, prec)
-        longest = max(length.to_float() for length in cell.lengths)
-        coordinate_precision: fractions.Fraction | None = prec / fractions.Fraction(str(longest))
+        cell, coordinate_precision = _cell_with_precision_override(cell_rows, scale, override)
     else:
         cell = Cell(cell_rows, scale, _basis_precision(data, raw_basis, scale))
         coordinate_precision = _coordinate_precision(data, raw_basis)
@@ -157,7 +150,24 @@ def _coordinate_precision(data: Mapping[str, Any], raw_basis: SurdVector) -> fra
         return None
     if not data["cartesian"]:
         return fractions.Fraction(precision)
+    return fractions.Fraction(precision) * _cartesian_precision_factor(raw_basis)
 
+
+def _cell_with_precision_override(basis: Any, scale: Any, override: Any) -> tuple[Cell, fractions.Fraction]:
+    """A cell carrying a caller-supplied Cartesian precision, and the matching fractional site precision."""
+    # A realistic Cartesian precision (Å) supplied by the caller replaces the
+    # digit-derived one; relaxed CONTCAR digits otherwise imply ~machine-epsilon.
+    # Cell precision is an absolute length; Sites precision is fractional, so scale
+    # the length down by the longest cell edge exactly as cartesian_precision() folds
+    # it back up, making structure.cartesian_precision() return prec.
+    prec = fractions.Fraction(str(override))
+    cell = Cell(basis, scale, prec)
+    longest = max(length.to_float() for length in cell.lengths)
+    return cell, prec / fractions.Fraction(str(longest))
+
+
+def _cartesian_precision_factor(raw_basis: SurdVector) -> fractions.Fraction:
+    """The factor turning a Cartesian bound in ``raw_basis`` units into a fractional one."""
     # A Cartesian row vector transforms as reduced = Cartesian * basis^-1. If each
     # Cartesian component carries the same absolute bound p, reduced component j is
     # bounded by p * sum_i |basis^-1[i, j]|. The largest column sum is therefore the
@@ -165,13 +175,15 @@ def _coordinate_precision(data: Mapping[str, Any], raw_basis: SurdVector) -> fra
     # whose decimal tokens are rational, and remains safe for skewed cells where dividing
     # by the shortest lattice-vector length can severely underestimate the uncertainty.
     inverse_surd = raw_basis.inv()
-    if not inverse_surd.is_rational:
-        raise RuntimeError("a POSCAR decimal basis unexpectedly produced an irrational inverse")
-    inverse = inverse_surd.coefficient(1).to_fractions()
-    factor = max(
-        sum((abs(inverse[row][column]) for row in range(3)), start=fractions.Fraction()) for column in range(3)
-    )
-    return fractions.Fraction(precision) * factor
+    if inverse_surd.is_rational:
+        inverse = inverse_surd.coefficient(1).to_fractions()
+    else:
+        # ponytail: an irrational (exact-surd) basis bounds through a deterministic rational
+        # approximation padded by its accuracy; exact interval arithmetic if that ever matters.
+        inverse = [
+            [abs(value) + _FALLBACK_PREC for value in row] for row in inverse_surd.to_fractions_approx(_FALLBACK_PREC)
+        ]
+    return max(sum((abs(inverse[row][column]) for row in range(3)), start=fractions.Fraction()) for column in range(3))
 
 
 _STRUCTURE_ADAPTERS: dict[str, Callable[[Mapping[str, Any]], Any]] = {
