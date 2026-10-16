@@ -115,3 +115,30 @@ assert heading in credits.entries()
 assert len(credits.entries()[heading]) == 1
 """
     )
+
+
+def test_band_path_credit_is_lazy_and_deduplicated() -> None:
+    _run_isolated(
+        """
+from httk.core import FracVector, credits
+from httk.atomistic import ASUStructure, Species, WyckoffSite, band_path
+
+heading = "Band-structure paths follow the HPKOT convention (tables from SeeK-path)"
+no_parameters = FracVector(())
+structure = ASUStructure(
+    [["5.64", 0, 0], [0, "5.64", 0], [0, 0, "5.64"]],
+    225,
+    [WyckoffSite("a", no_parameters, "Na"), WyckoffSite("b", no_parameters, "Cl")],
+    [
+        Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,)),
+        Species(name="Cl", chemical_symbols=("Cl",), concentration=(1.0,)),
+    ],
+)
+assert heading not in credits.entries()
+band_path(structure)
+band_path(structure)
+assert heading in credits.entries()
+assert len(credits.entries()[heading]) == 1
+assert "Hinuma" in str(credits)
+"""
+    )
