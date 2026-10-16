@@ -47,6 +47,28 @@ A {py:class}`~httk.atomistic.BandPathResult` holds:
 2
 ```
 
+## Writing a VASP KPOINTS file
+
+`httk.atomistic.integrations.vasp.io.write_line_mode_kpoints` writes the points and path as a
+VASP line-mode KPOINTS file. Use it with a calculation on `result.structure`; the decimals are a
+rounded presentation of the exact points.
+
+```pycon
+>>> import io
+>>> from httk.atomistic.integrations.vasp.io import write_line_mode_kpoints
+>>> out = io.StringIO()
+>>> write_line_mode_kpoints(out, result.points, result.path, divisions=40, comment="NaCl")
+>>> print("".join(out.getvalue().splitlines(keepends=True)[:8]), end="")
+NaCl
+40
+Line-mode
+Reciprocal
+  0.000000000000  0.000000000000  0.000000000000 ! GAMMA
+  0.500000000000  0.000000000000  0.500000000000 ! X
+
+  0.500000000000  0.000000000000  0.500000000000 ! X
+```
+
 ## Which symmetry is used
 
 The space group is the one the structure holds. An {py:class}`~httk.atomistic.ASUStructure` uses
