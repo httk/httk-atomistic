@@ -175,6 +175,7 @@ from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 from httk.atomistic.symmetry.primitive import PrimitiveCellResult, primitive_cell
+from httk.atomistic.symmetry.band_paths import BandPathResult, band_path
 from httk.atomistic.symmetry.standardization import ConventionalCellResult, conventional_cell
 from httk.atomistic.symmetry.subgroups import (
     maximal_subgroups,
@@ -316,6 +317,7 @@ __all__ = [
     "AnonymousStructureLike",
     "AnonymousStructureView",
     "Assembly",
+    "BandPathResult",
     "BareProtostructure",
     "BareProtostructureLabel",
     "BareProtostructureLike",
@@ -419,6 +421,7 @@ __all__ = [
     "asu_structures_from_cif",
     "atomic_number",
     "backward_lift",
+    "band_path",
     "build_supercell",
     "canonical_asu",
     "canonical_asu_legacy",

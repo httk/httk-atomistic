@@ -21,6 +21,7 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 - **Periodicity (slabs, wires, molecules)**: {doc}`periodicity`
 - **Lattice reduction**: {doc}`lattice-reduction`
 - **Primitive cells**: {doc}`primitive-cells`
+- **Band-structure paths**: {doc}`band-paths`
 - **Reading and writing CIF files**: {doc}`cif`
 - **Reading POSCAR/CONTCAR files**: {doc}`poscar`
 - **Reading VASP output files**: {doc}`vasp_outputs`
@@ -92,6 +93,7 @@ precision
 periodicity
 lattice-reduction
 primitive-cells
+band-paths
 examples/index
 notebooks/examples
 notebooks/disorder

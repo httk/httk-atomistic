@@ -69,6 +69,7 @@ register_citation(
 __all__ = [
     "DEFAULT_TOLERANCE",
     "AffineOperation",
+    "BandPathResult",
     "CanonicalizationLimitError",
     "CommonSubgroupResult",
     "ConventionalCellResult",
@@ -84,6 +85,7 @@ __all__ = [
     "WyckoffPosition",
     "WyckoffSplitPiece",
     "backward_lift",
+    "band_path",
     "canonical_asu",
     "canonical_asu_legacy",
     "canonical_asu_protostructure",
@@ -125,6 +127,7 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
+    from .band_paths import BandPathResult, band_path
     from .canonical import canonical_asu, canonical_asu_legacy, canonicalize
     from .canonical_classification import (
         canonical_bare_protostructure,
@@ -229,6 +232,11 @@ def __getattr__(name: str) -> object:
             represent_like=represent_like,
             structure_delta=structure_delta,
         )
+        return globals()[name]
+    if name in {"BandPathResult", "band_path"}:
+        from .band_paths import BandPathResult, band_path
+
+        globals().update(BandPathResult=BandPathResult, band_path=band_path)
         return globals()[name]
     if name in {"PrimitiveCellResult", "primitive_cell"}:
         from .primitive import PrimitiveCellResult, primitive_cell

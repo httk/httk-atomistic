@@ -209,6 +209,26 @@ def _is_niggli_parameters(parameters: tuple[fractions.Fraction, ...]) -> bool:
     return total >= _ZERO and (total != _ZERO or 2 * (a + eta) + zeta <= _ZERO)
 
 
+def _niggli_reduce_metric(metric: FracVector) -> tuple[FracVector, FracVector]:
+    """Return ``(transform, reduced)`` for an exact rational positive-definite Gram matrix.
+
+    ``transform`` is integer with determinant +1 and ``reduced = transform * metric * transform^T``.
+    """
+    transform = FracVector([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    for _ in range(_MAX_STEPS):
+        matrix = _niggli_step(_parameters(metric))
+        if matrix is None:
+            break
+        transform = matrix * transform
+        metric = matrix * metric * matrix.T()
+    else:
+        raise RuntimeError("Niggli reduction did not converge after 10000 algorithm steps")
+
+    assert transform.det().to_fraction() == _ONE
+    assert _is_niggli_parameters(_parameters(metric))
+    return transform, metric
+
+
 def niggli_reduce(cell: CellLike) -> NiggliReductionResult:
     """Return the exact Niggli reduction of a fully periodic cell.
 
@@ -220,20 +240,8 @@ def niggli_reduce(cell: CellLike) -> NiggliReductionResult:
     :raises ValueError: If the cell is not fully periodic or its Gram matrix is not rational.
     """
     source = _as_cell(cell)
-    metric = _rational_metric(source)
-    transform = FracVector([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-    for _ in range(_MAX_STEPS):
-        matrix = _niggli_step(_parameters(metric))
-        if matrix is None:
-            break
-        transform = matrix * transform
-        metric = matrix * metric * matrix.T()
-    else:
-        raise RuntimeError("niggli_reduce did not converge after 10000 algorithm steps")
-
-    assert transform.det().to_fraction() == _ONE
+    transform, metric = _niggli_reduce_metric(_rational_metric(source))
     parameters = _parameters(metric)
-    assert _is_niggli_parameters(parameters)
     new_precision = _scaled_precision(source.precision, _matrix_row_sum_factor(transform))
     new_cell = Cell(
         SurdVector(transform) * source.unscaled_basis,
