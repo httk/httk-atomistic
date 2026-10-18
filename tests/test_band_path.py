@@ -596,6 +596,48 @@ def test_transform_round_trips_to_the_primitive_cell_sites(symbol: str) -> None:
     assert result.structure.species_at_sites == primitive.species_at_sites
 
 
+#: Representatives whose sites carry more symmetry than their declared group: the result is a raw
+#: structure, so re-entry recognizes this supergroup, after which ``band_path`` is a fixed point.
+_SUPERGROUP_SITES = {
+    "cF1": 216,
+    "cP1": 221,
+    "hP1": 191,
+    "oA1": 65,
+    "oA2": 65,
+    "oC1": 65,
+    "oC2": 65,
+    "oF2": 69,
+    "oI2": 65,
+    "oI3": 65,
+}
+
+_IDEMPOTENCE_CASES = (
+    *REPRESENTATIVES,
+    # Re-standardizing an HPKOT zincblende cell once put C on 3/4 (the normalizer-equivalent d orbit).
+    ("zincblende-SiC", 216, CUBIC, (("a", "Si"), ("c", "C"))),
+    ("zincblende-CSi", 216, CUBIC, (("a", "C"), ("c", "Si"))),
+)
+
+
+@pytest.mark.parametrize(
+    ("name", "it_number", "cell", "sites"), _IDEMPOTENCE_CASES, ids=[c[0] for c in _IDEMPOTENCE_CASES]
+)
+def test_band_path_is_idempotent(name: str, it_number: int, cell: Any, sites: tuple[tuple[str, str], ...]) -> None:
+    first = band_path(_asu(it_number, cell, sites))
+    second = band_path(first.structure)
+    if name in _SUPERGROUP_SITES:
+        assert second.spacegroup.it_number == _SUPERGROUP_SITES[name] != first.spacegroup.it_number
+        first, second = second, band_path(second.structure)
+
+    assert second.spacegroup.it_number == first.spacegroup.it_number
+    assert second.structure.cell.basis == first.structure.cell.basis
+    assert second.structure.species_at_sites == first.structure.species_at_sites
+    assert second.structure.sites.reduced_coords == first.structure.sites.reduced_coords
+    assert second.bravais_lattice_extended == first.bravais_lattice_extended
+    assert dict(second.points) == dict(first.points)
+    assert second.path == first.path
+
+
 def test_hand_derived_exact_point_values() -> None:
     cf2 = band_path(_representative("cF2"))
     assert cf2.points["W"] == FracVector([F(1, 2), F(1, 4), F(3, 4)])

@@ -5,10 +5,12 @@ to the standard Wyckoff table only here, because this operation explicitly reque
 standard conventional cell. An untabulated ASU instead uses its stored exact transform.
 """
 
+import contextlib
 import fractions
+from collections.abc import Mapping
 from dataclasses import dataclass
 
-from httk.core import unwrap
+from httk.core import SurdVector, unwrap
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.moments.backend import SiteMomentsBackend
@@ -138,11 +140,21 @@ def _moment_correspondence(
     return tuple(order)
 
 
+def _metric_admits(basis: SurdVector, spacegroup: Spacegroup) -> bool:
+    """Report whether every operation of ``spacegroup`` is an exact isometry of ``basis``."""
+    metric = basis * basis.T()
+    return all(
+        SurdVector(operation.matrix.T()) * metric * SurdVector(operation.matrix) == metric
+        for operation in spacegroup.symmetry_operations
+    )
+
+
 def conventional_cell(
     structure: StructureLike | ASUStructure,
     *,
     tolerance: float | None = None,
     limit_denominator: int | None = None,
+    _preferred_transforms: Mapping[str, SettingTransform] | None = None,
 ) -> ConventionalCellResult:
     """Return ``structure`` in its space group's IT standard-setting conventional cell.
 
@@ -169,6 +181,9 @@ def conventional_cell(
     :param tolerance: The Cartesian recognition tolerance, or ``None`` to derive it.
     :param limit_denominator: The maximum denominator for idealised free parameters, or
         ``None`` to retain their exact stated values.
+    :param _preferred_transforms: Internal hook mapping a centring type to a standard-to-own
+        transform that recognition should use instead of spglib's equivalent choice whenever the
+        plain input reconstructs exactly in it.
     :return: The standardized structure and transform metadata.
     :raises ImportError: If recognition is needed and the optional spglib dependency is
         unavailable.
@@ -213,6 +228,25 @@ def conventional_cell(
             tolerance=tolerance,
             limit_denominator=limit_denominator,
         )
+        preferred = None if _preferred_transforms is None else _preferred_transforms.get(asu.spacegroup.centring_type)
+        found = asu.transform_from_standard
+        if (
+            preferred is not None
+            and preferred != found
+            and abs(preferred.determinant()) == abs(found.determinant())
+            and _metric_admits(preferred.basis_to_standard(original.cell.basis), asu.spacegroup)
+        ):
+            # spglib may pick any normalizer-equivalent standard frame (zincblende C at 3/4 instead
+            # of 1/4). An input that already is the preferred cell of a standard setting keeps it;
+            # recognition checks only the sites, so the exact metric check above guards the cell.
+            with contextlib.suppress(ValueError):
+                asu = recognize_asu(
+                    recognition_source,
+                    standard=asu.spacegroup,
+                    transform=preferred,
+                    tolerance=tolerance,
+                    limit_denominator=limit_denominator,
+                )
 
     assert asu is not None
     # A Cartesian moment is a lab-frame vector and a collinear moment a frame-free scalar, so both

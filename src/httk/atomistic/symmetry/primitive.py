@@ -17,6 +17,7 @@ from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.semantics import initialize_semantics
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 from httk.atomistic.symmetry.standardization import ConventionalCellResult, conventional_cell
 
@@ -45,6 +46,13 @@ F = FracVector([["0", "1/2", "1/2"], ["1/2", "0", "1/2"], ["1/2", "1/2", "0"]])
 
 _COLUMN_CENTRING_MATRICES = {"P": P, "A": A, "C": C, "I": I, "F": F, "R": R}
 _ROW_CENTRING_MATRICES = {letter: matrix.T() for letter, matrix in _COLUMN_CENTRING_MATRICES.items()}
+# The standard-to-own transforms of an input that already is the fixed primitive cell (recognition
+# already prefers the identity for P). ponytail: only these spglib cells are kept on re-entry; an
+# HPKOT oA/mC primitive cell or a re-chosen o/m/a cell still takes spglib's frame, which the band-path
+# idempotence test covers; add those frames here if a case breaks.
+_PRIMITIVE_FRAMES = {
+    letter: SettingTransform(matrix.inv()) for letter, matrix in _COLUMN_CENTRING_MATRICES.items() if letter != "P"
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +149,7 @@ def primitive_cell(
         structure,
         tolerance=tolerance,
         limit_denominator=limit_denominator,
+        _preferred_transforms=_PRIMITIVE_FRAMES,
     )
     spacegroup = conventional.spacegroup
     try:
