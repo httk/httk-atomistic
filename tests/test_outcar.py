@@ -7,7 +7,7 @@ from pathlib import Path
 import httk.core
 import pytest
 
-from httk.atomistic.integrations.vasp.io import ElasticModuliBlock, OutcarFile, read_outcar
+from httk.atomistic.integrations.vasp.io import DielectricResponse, ElasticModuliBlock, OutcarFile, read_outcar
 
 OUTCAR = """ vasp.5.2.12 01Jan20 (build synthetic) complex
    LEXCH  = PE
@@ -449,3 +449,157 @@ def test_outcar_frames_stream_without_full_cache(tmp_path: Path) -> None:
     outcar = OutcarFile(path)
     assert sum(1 for _ in outcar.frames()) == 500
     assert outcar._full is None
+
+
+def dielectric_text(electronic: str) -> str:
+    return f"""
+ MACROSCOPIC STATIC DIELECTRIC TENSOR (including local field effects in DFT)
+ ------------------------------------------------------
+           {electronic}     0.000000     0.000000
+           0.000000     {electronic}    -0.000000
+           0.000000    -0.000000     {electronic}
+ ------------------------------------------------------
+
+ MACROSCOPIC STATIC DIELECTRIC TENSOR (including local field effects in RPA (Hartree))
+ ------------------------------------------------------
+           9.000000     0.000000     0.000000
+           0.000000     9.000000     0.000000
+           0.000000     0.000000     9.000000
+ ------------------------------------------------------
+
+ MACROSCOPIC STATIC DIELECTRIC TENSOR IONIC CONTRIBUTION
+ ------------------------------------------------------
+           1.500000     0.000000     0.000000
+           0.000000     1.500000     0.000000
+           0.000000     0.000000     2.500000
+ ------------------------------------------------------
+"""
+
+
+BORN = """
+ BORN EFFECTIVE CHARGES (in e, cummulative output)
+ -------------------------------------------------
+ ion    1
+    1     1.00000     0.00000     0.00000
+    2     0.00000     1.00000     0.00000
+    3     0.00000     0.00000     1.00000
+ ion    2
+    1    -1.00000     0.10000     0.00000
+    2     0.00000    -1.00000     0.00000
+    3     0.00000     0.00000    -1.50000
+"""
+
+PIEZO = """
+ PIEZOELECTRIC TENSOR  for field in x, y, z        (C/m^2)
+  XX           YY           ZZ           XY           YZ           ZX
+  --------------------------------------------------------------------------------
+  x     0.00000     0.00000     0.00000    -0.27000     0.00000     0.00000
+  y     0.00000     0.00000     0.00000     0.00000     0.00000     0.10000
+  z     0.20000     0.30000     0.40000     0.00000     0.00000     0.00000
+ PIEZOELECTRIC TENSOR  for field in x, y, z        (e Angst)
+  XX           YY           ZZ           XY           YZ           ZX
+  --------------------------------------------------------------------------------
+  x     9.00000     9.00000     9.00000     9.00000     9.00000     9.00000
+  y     9.00000     9.00000     9.00000     9.00000     9.00000     9.00000
+  z     9.00000     9.00000     9.00000     9.00000     9.00000     9.00000
+
+ PIEZOELECTRIC TENSOR IONIC CONTR  for field in x, y, z        (C/m^2)
+  XX           YY           ZZ           XY           YZ           ZX
+  --------------------------------------------------------------------------------
+  x     0.00000     0.00000     0.00000     1.00000     0.00000     0.00000
+  y     0.00000     0.00000     0.00000     0.00000     0.00000     2.00000
+  z     3.00000     4.00000     5.00000     0.00000     0.00000     0.00000
+"""
+
+
+def test_outcar_dielectric_response_blocks_last_wins(tmp_path: Path) -> None:
+    path = tmp_path / "OUTCAR"
+    path.write_text(
+        NIONS_FRAME_HEADER + dielectric_text("3.000000") + BORN + PIEZO + dielectric_text("5.925190") + BORN,
+        encoding="utf-8",
+    )
+    outcar = OutcarFile(path)
+    response = outcar.dielectric_response
+    assert isinstance(response, DielectricResponse)
+    assert response.electronic == (
+        ("5.925190", "0.000000", "0.000000"),
+        ("0.000000", "5.925190", "-0.000000"),
+        ("0.000000", "-0.000000", "5.925190"),
+    )
+    assert response.ionic is not None and response.ionic[2] == ("0.000000", "0.000000", "2.500000")
+    assert response.born_charges is not None and len(response.born_charges) == 2
+    assert response.born_charges[1][0] == ("-1.00000", "0.10000", "0.00000")
+    assert response.piezoelectric_electronic is not None
+    assert response.piezoelectric_electronic[0] == ("0.00000", "0.00000", "0.00000", "-0.27000", "0.00000", "0.00000")
+    assert response.piezoelectric_electronic[2][:3] == ("0.20000", "0.30000", "0.40000")
+    assert response.piezoelectric_ionic is not None
+    assert response.piezoelectric_ionic[1][5] == "2.00000"
+    assert response.electronic_floats() == (
+        (5.92519, 0.0, 0.0),
+        (0.0, 5.92519, -0.0),
+        (0.0, -0.0, 5.92519),
+    )
+    assert response.ionic_floats() is not None and response.ionic_floats()[2][2] == 2.5  # type: ignore[index]
+    born = response.born_charges_floats()
+    assert born is not None and born[1][2] == (0.0, 0.0, -1.5)
+    assert response.piezoelectric_electronic_floats()[0][3] == -0.27  # type: ignore[index]
+    assert response.piezoelectric_ionic_floats()[2] == (3.0, 4.0, 5.0, 0.0, 0.0, 0.0)  # type: ignore[index]
+    assert all("truncated" not in issue for issue in outcar.issues)
+
+
+def test_outcar_dielectric_response_partial_and_absent(tmp_path: Path) -> None:
+    path = tmp_path / "OUTCAR"
+    path.write_text(NIONS_FRAME_HEADER + BORN, encoding="utf-8")
+    response = OutcarFile(path).dielectric_response
+    assert response is not None and response.born_charges is not None
+    assert response.electronic is None and response.ionic_floats() is None
+    assert response.piezoelectric_electronic_floats() is None and response.born_charges_floats() is not None
+    path.write_text(FRAME_OUTCAR, encoding="utf-8")
+    assert OutcarFile(path).dielectric_response is None
+
+
+def test_outcar_truncated_dielectric_blocks_are_reported(tmp_path: Path) -> None:
+    path = tmp_path / "OUTCAR"
+    truncated = BORN.rsplit("    3 ", 1)[0]
+    path.write_text(NIONS_FRAME_HEADER + truncated, encoding="utf-8")
+    outcar = OutcarFile(path)
+    assert outcar.dielectric_response is None
+    assert any("truncated born_charges block" in issue for issue in outcar.issues)
+    path.write_text(
+        NIONS_FRAME_HEADER + "\n MACROSCOPIC STATIC DIELECTRIC TENSOR IONIC CONTRIBUTION\n 0.0 0.0 0.0\n",
+        encoding="utf-8",
+    )
+    outcar = OutcarFile(path)
+    assert outcar.dielectric_response is None
+    assert any("truncated ionic block" in issue for issue in outcar.issues)
+
+
+def test_outcar_negative_first_coordinate_rows_are_kept(tmp_path: Path) -> None:
+    negative = frame_text(1, "-1.100", ("1", "2", "3", "4", "5", "6")).replace(
+        "     0.10000  0.000000  0.000000       -0.100000  0.000000  0.000000\n",
+        "    -1.35000  1.350000  1.350000       -0.100000  0.000000  0.000000\n",
+    )
+    assert "-1.35000" in negative
+    path = tmp_path / "negative.outcar"
+    path.write_text(NIONS_FRAME_HEADER + negative + " General timing and accounting informations\n", encoding="utf-8")
+    outcar = OutcarFile(path)
+    assert outcar.issues == ()
+    assert outcar.nframes == 1
+    frame = outcar.last_frame
+    assert frame is not None and frame.positions is not None
+    assert frame.positions[0] == ("-1.35000", "1.350000", "1.350000")
+    assert frame.forces_floats()[0] == (-0.1, 0.0, 0.0)  # type: ignore[index]
+    assert len(frame.positions) == 2
+
+
+def test_outcar_row_count_uses_ions_per_type_without_nions(tmp_path: Path) -> None:
+    one_row = frame_text(1, "-1.100", ("1", "2", "3", "4", "5", "6")).replace(
+        "     0.000000  0.10000  0.000000        0.000000 -0.100000  0.000000\n", ""
+    )
+    path = tmp_path / "pertype.outcar"
+    path.write_text(
+        FRAME_HEADER + "   ions per type =               2\n" + one_row + " General timing\n", encoding="utf-8"
+    )
+    outcar = OutcarFile(path)
+    assert outcar.nframes == 0
+    assert any("POSITION/TOTAL-FORCE row count 1, expected 2" in issue for issue in outcar.issues)

@@ -22,8 +22,9 @@ import os
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from .eigenval import EigenvalFile, read_eigenval
 from .oszicar import read_oszicar
-from .outcar import ElasticModuliBlock, OutcarFile, OutcarFrame, read_outcar
+from .outcar import DielectricResponse, ElasticModuliBlock, OutcarFile, OutcarFrame, read_outcar
 from .outputs import VASPOutputs
 from .poscar_reader import read_poscar
 from .potcar import read_potcar_summary
@@ -107,11 +108,14 @@ def write_line_mode_kpoints(
 
 
 __all__ = [
+    "DielectricResponse",
+    "EigenvalFile",
     "ElasticModuliBlock",
     "OutcarFile",
     "OutcarFrame",
     "VASPOutputs",
     "XdatcarFile",
+    "read_eigenval",
     "read_oszicar",
     "read_outcar",
     "read_poscar",

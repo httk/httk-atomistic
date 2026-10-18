@@ -164,6 +164,70 @@ class ElasticModuliBlock:
     rows: tuple[tuple[str, ...], ...]
 
 
+def _float_rows(rows: tuple[tuple[str, ...], ...] | None) -> tuple[tuple[float, ...], ...] | None:
+    return None if rows is None else tuple(tuple(float(token) for token in row) for row in rows)
+
+
+@dataclass(frozen=True)
+class DielectricResponse:
+    """Store the DFPT response blocks of an OUTCAR with VASP numeric lexemes unchanged.
+
+    Rows and column orders are exactly as VASP prints them; in particular the piezoelectric
+    columns are ``XX YY ZZ XY YZ ZX`` and any reordering to Voigt order is the caller's job.
+    Each field is ``None`` when its block is absent; when a block repeats, the last complete
+    one is kept.
+
+    :param electronic: Static dielectric tensor including local-field effects in DFT, three rows.
+    :param ionic: Ionic contribution to the static dielectric tensor, three rows.
+    :param born_charges: Born effective charges, one three-row tensor per ion.
+    :param piezoelectric_electronic: Piezoelectric tensor in C/m^2, three rows of six columns.
+    :param piezoelectric_ionic: Ionic contribution to the piezoelectric tensor in C/m^2.
+    """
+
+    electronic: tuple[tuple[str, str, str], ...] | None = None
+    ionic: tuple[tuple[str, str, str], ...] | None = None
+    born_charges: tuple[tuple[tuple[str, str, str], ...], ...] | None = None
+    piezoelectric_electronic: tuple[tuple[str, ...], ...] | None = None
+    piezoelectric_ionic: tuple[tuple[str, ...], ...] | None = None
+
+    def electronic_floats(self) -> tuple[tuple[float, ...], ...] | None:
+        """Convert the electronic dielectric tensor to floating-point values when present.
+
+        :return: Converted tensor rows, or ``None`` when the block is absent.
+        """
+        return _float_rows(self.electronic)
+
+    def ionic_floats(self) -> tuple[tuple[float, ...], ...] | None:
+        """Convert the ionic dielectric tensor to floating-point values when present.
+
+        :return: Converted tensor rows, or ``None`` when the block is absent.
+        """
+        return _float_rows(self.ionic)
+
+    def born_charges_floats(self) -> tuple[tuple[tuple[float, ...], ...], ...] | None:
+        """Convert the Born effective charges to floating-point values when present.
+
+        :return: One converted three-row tensor per ion, or ``None`` when the block is absent.
+        """
+        if self.born_charges is None:
+            return None
+        return tuple(tuple(tuple(float(token) for token in row) for row in ion) for ion in self.born_charges)
+
+    def piezoelectric_electronic_floats(self) -> tuple[tuple[float, ...], ...] | None:
+        """Convert the electronic piezoelectric tensor to floating-point values when present.
+
+        :return: Converted rows in VASP column order, or ``None`` when the block is absent.
+        """
+        return _float_rows(self.piezoelectric_electronic)
+
+    def piezoelectric_ionic_floats(self) -> tuple[tuple[float, ...], ...] | None:
+        """Convert the ionic piezoelectric tensor to floating-point values when present.
+
+        :return: Converted rows in VASP column order, or ``None`` when the block is absent.
+        """
+        return _float_rows(self.piezoelectric_ionic)
+
+
 @dataclass(frozen=True)
 class _Prologue:
     version_string: str
@@ -189,6 +253,7 @@ class _FullPass:
     elastic_moduli: tuple[ElasticModuliBlock, ...]
     magnetization: tuple[float, ...] | None
     noncollinear_magnetization: bool
+    dielectric: DielectricResponse | None
 
 
 def _issue(issues: list[str], line: int, message: str) -> None:
@@ -305,7 +370,7 @@ class _FrameBuilder:
             self.position_rows = []
             return
         if self.positions_active:
-            if not stripped or stripped.startswith("-"):
+            if not stripped or _is_separator(stripped):
                 return
             if stripped.lower().startswith("total drift"):
                 self._finish_positions()
@@ -401,6 +466,99 @@ class _ElasticTracker:
 
 def _is_separator(stripped: str) -> bool:
     return len(stripped) >= 4 and set(stripped) == {"-"}
+
+
+# Whitespace-normalised headings; the RPA tensor and the (e Angst) piezoelectric variants are not listed on purpose.
+_DIELECTRIC_HEADINGS = {
+    "MACROSCOPIC STATIC DIELECTRIC TENSOR (including local field effects in DFT)": "electronic",
+    "MACROSCOPIC STATIC DIELECTRIC TENSOR IONIC CONTRIBUTION": "ionic",
+    "PIEZOELECTRIC TENSOR for field in x, y, z (C/m^2)": "piezoelectric_electronic",
+    "PIEZOELECTRIC TENSOR IONIC CONTR for field in x, y, z (C/m^2)": "piezoelectric_ionic",
+}
+
+
+class _DielectricTracker:
+    """Collect the dielectric, Born-charge and piezoelectric blocks; the last complete block of each wins."""
+
+    def __init__(self, nions: int | None) -> None:
+        self.nions = nions
+        self.kind: str | None = None
+        self.start = 0
+        self.rows: list[tuple[str, ...]] = []
+        self.ions: list[list[tuple[str, ...]]] = []
+        self.results: dict[str, Any] = {}
+
+    def _end(self, issues: list[str], complete: bool) -> None:
+        if self.kind is None:
+            return
+        if complete:
+            if self.kind == "born_charges":
+                self.results[self.kind] = tuple(tuple(ion) for ion in self.ions)
+            else:
+                self.results[self.kind] = tuple(self.rows)
+        else:
+            _issue(issues, self.start, f"truncated {self.kind} block")
+        self.kind = None
+
+    def _born_complete(self) -> bool:
+        return bool(self.ions) and len(self.ions[-1]) == 3 and self.nions in (None, len(self.ions))
+
+    def _take(self, stripped: str) -> bool:
+        if not stripped or _is_separator(stripped):
+            return True
+        tokens = stripped.split()
+        if self.kind == "born_charges":
+            if len(tokens) == 2 and tokens[0] == "ion" and tokens[1].isdigit():
+                if self.ions and len(self.ions[-1]) != 3:
+                    return False
+                self.ions.append([])
+                return True
+            if (
+                self.ions
+                and len(self.ions[-1]) < 3
+                and len(tokens) == 4
+                and tokens[0].isdigit()
+                and all(_number(token) for token in tokens[1:])
+            ):
+                self.ions[-1].append(tuple(tokens[1:]))
+                return True
+            return False
+        if self.kind in ("electronic", "ionic"):
+            if len(tokens) == 3 and all(_number(token) for token in tokens):
+                self.rows.append(tuple(tokens))
+                return True
+            return False
+        if tokens[0] == "XX":
+            return True
+        if len(tokens) == 7 and tokens[0] in ("x", "y", "z") and all(_number(token) for token in tokens[1:]):
+            self.rows.append(tuple(tokens[1:]))
+            return True
+        return False
+
+    def feed(self, line: str, lineno: int, issues: list[str]) -> None:
+        stripped = line.strip()
+        if self.kind is not None:
+            if self._take(stripped):
+                if self.kind == "born_charges":
+                    if self._born_complete() and self.nions is not None:
+                        self._end(issues, True)
+                elif len(self.rows) == 3:
+                    self._end(issues, True)
+                return
+            # ponytail: without NIONS a Born block cut exactly at an ion boundary reads as complete.
+            self._end(issues, self.kind == "born_charges" and self._born_complete())
+        heading = " ".join(stripped.split())
+        kind = _DIELECTRIC_HEADINGS.get(heading)
+        if kind is None and heading.startswith("BORN EFFECTIVE CHARGES"):
+            kind = "born_charges"
+        if kind is not None:
+            self.kind, self.start, self.rows, self.ions = kind, lineno, [], []
+
+    def finish(self, issues: list[str]) -> None:
+        self._end(issues, self.kind == "born_charges" and self._born_complete())
+
+    def response(self) -> DielectricResponse | None:
+        return DielectricResponse(**self.results) if self.results else None
 
 
 class _MagnetizationTracker:
@@ -500,6 +658,7 @@ def _iter_parsed_frames(
     elastic: _ElasticTracker | None = None,
     elastic_blocks: list[ElasticModuliBlock] | None = None,
     magnetization: _MagnetizationTracker | None = None,
+    dielectric: _DielectricTracker | None = None,
     line_counter: list[int] | None = None,
     nions: int | None = None,
 ) -> Iterator[OutcarFrame]:
@@ -546,6 +705,8 @@ def _iter_parsed_frames(
             builder.set_stress(stress)
         if elastic is not None and elastic_blocks is not None:
             elastic.feed(line, lineno, elastic_blocks, elastic_issues)
+        if dielectric is not None:
+            dielectric.feed(line, lineno, elastic_issues)
 
         starts_section = "direct lattice vectors" in line or ("POSITION" in line and "TOTAL-FORCE" in line)
         if builder is not None and starts_section and builder.positions_seen and not builder.positions_active:
@@ -570,6 +731,8 @@ def _iter_parsed_frames(
             yield frame
     if elastic is not None and elastic_blocks is not None:
         elastic.finish(elastic_blocks, elastic_issues, last_line + 1)
+    if dielectric is not None:
+        dielectric.finish(elastic_issues)
 
 
 class OutcarFile:
@@ -676,6 +839,8 @@ class OutcarFile:
                     if key in _NUMERIC_PARAMETERS and re.fullmatch(_NUMBER, token) is None:
                         _issue(issues, lineno, f"unparseable {key} parameter value {token!r}")
 
+        if nions is None and ions_per_type:
+            nions = sum(ions_per_type)  # VASP prints NIONS; the per-type counts are an equivalent fallback.
         gga = parameters.get("GGA")
         xc_tag = parameters.get("LEXCH") if gga == "--" else gga
         xc = vasp_xc_tags.get(xc_tag) if xc_tag is not None else None
@@ -706,6 +871,7 @@ class OutcarFile:
         elastic_blocks: list[ElasticModuliBlock] = []
         elastic = _ElasticTracker()
         magnetization = _MagnetizationTracker()
+        dielectric = _DielectricTracker(prologue.nions)
         line_counter = [0]
         nframes = 0
         last_frame: OutcarFrame | None = None
@@ -720,6 +886,7 @@ class OutcarFile:
                 elastic=elastic,
                 elastic_blocks=elastic_blocks,
                 magnetization=magnetization,
+                dielectric=dielectric,
                 line_counter=line_counter,
                 nions=prologue.nions,
             ):
@@ -746,6 +913,7 @@ class OutcarFile:
             tuple(elastic_blocks),
             magnetization.totals,
             magnetization.noncollinear,
+            dielectric.response(),
         )
         return self._full
 
@@ -876,6 +1044,16 @@ class OutcarFile:
         """
         self._require_open()
         return self._ensure_full().noncollinear_magnetization
+
+    @property
+    def dielectric_response(self) -> DielectricResponse | None:
+        """Return the DFPT dielectric, Born-charge and piezoelectric blocks, when any are present.
+
+        :return: The last complete block of each kind with VASP's rows and column order, or
+            ``None`` when the OUTCAR contains none of them.
+        """
+        self._require_open()
+        return self._ensure_full().dielectric
 
     @property
     def completed(self) -> bool:

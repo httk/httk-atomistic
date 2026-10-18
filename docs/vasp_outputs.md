@@ -63,6 +63,16 @@ block follows. `stresses()` returns every six-token `in kB` row. Elastic tables 
 available as `ElasticModuliBlock` values for the `TOTAL ELASTIC MODULI`,
 `SYMMETRIZED ELASTIC MODULI`, and ionic-relaxation headings.
 
+`dielectric_response` returns a `DielectricResponse` (or `None` when the OUTCAR
+has none of the blocks) with the macroscopic static dielectric tensor
+including local-field effects in DFT (`electronic`), its `ionic` contribution,
+the Born effective charges (`born_charges`, one three-row tensor per ion) and
+the electronic and ionic piezoelectric tensors in C/m^2. Each field is `None`
+when its block is absent, the last complete block wins, and a truncated block
+is dropped and reported in `issues`. Rows and column orders are exactly as VASP
+prints them (the piezoelectric columns are `XX YY ZZ XY YZ ZX`); reordering to
+Voigt order is the caller's job. The `*_floats()` methods convert on demand.
+
 VASP writes stress as `[xx, yy, zz, xy, yz, zx]` in kBar with compression
 positive. `stress_gpa_voigt()` multiplies by `0.1`, flips the sign to make
 tension positive, and returns `[xx, yy, zz, yz, xz, xy]`:
@@ -85,6 +95,39 @@ dropped and reported in `issues`. The header has `cartesian`, and every frame
 mapping has its own `cartesian` boolean from the configuration marker. Repeated-
 header frames also expose their validated per-frame `scale`; fixed-cell frames
 use `None`. `XdatcarFile.path` returns the source filename string.
+
+## EIGENVAL
+
+`read_eigenval` returns an `EigenvalFile` from a path or a text stream; a path
+is opened and closed by the reader and a caller-owned stream stays open. The
+occupation columns written by VASP 5.3 and later are told apart from the spin
+channels by `ISPIN` on the first line, and `occupations` is `None` for older
+files that lack them. Energies and occupations are shaped
+`(spins, kpoints, bands)`, with occupations per state on 0..1 for every `ISPIN`.
+As elsewhere, values are lexemes; `kpoints_floats()`, `weights_floats()`,
+`energies_floats()`, `occupations_floats()` and `nelect_float()` convert on
+demand:
+
+```python
+from io import StringIO
+
+from httk.atomistic.integrations.vasp.io import read_eigenval
+
+text = """   1    1    1    1
+  0.1E+02  0.2E-09  0.2E-09  0.2E-09  0.5E-03
+  1.0E-004
+  CAR
+ example
+     2     1     2
+
+  0.0  0.0  0.0  1.0
+  1  -5.5  1.0
+  2  2.25  0.0
+"""
+eigenval = read_eigenval(StringIO(text))
+assert eigenval.energies_floats() == (((-5.5, 2.25),),)
+assert eigenval.occupations_floats() == (((1.0, 0.0),),)
+```
 
 ## OSZICAR and POTCAR summary
 
