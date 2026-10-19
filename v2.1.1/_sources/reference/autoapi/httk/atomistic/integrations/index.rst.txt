@@ -1,0 +1,444 @@
+httk.atomistic.integrations
+===========================
+
+.. py:module:: httk.atomistic.integrations
+
+.. autoapi-nested-parse::
+
+   Expose external-library integration bridges.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/integrations/ase/index
+   /reference/autoapi/httk/atomistic/integrations/pymatgen/index
+   /reference/autoapi/httk/atomistic/integrations/vasp/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.ASEAtoms
+   httk.atomistic.integrations.ASEAtomsProtocol
+   httk.atomistic.integrations.PymatgenStructure
+   httk.atomistic.integrations.PymatgenStructureProtocol
+   httk.atomistic.integrations.VASPStructure
+   httk.atomistic.integrations.VASPTrajectory
+
+
+Package Contents
+----------------
+
+.. py:class:: ASEAtoms(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Import ASE ``Atoms`` and compatible duck-typed objects.
+
+   Conversion is eager because reading the four methods and normalizing their values is
+   real work. The original object remains available through :meth:`unwrap`.
+
+   Initial magnetic moments become site moments and nonzero initial charges become
+   charged single-element species. All-zero ASE defaults remain unstated.
+
+   :param obj: An ASE ``Atoms`` object or compatible duck-typed object.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the exact cell converted from native cell rows.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Return the exact reduced coordinates converted from native positions.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Return distinct single-element species in first-appearance order.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the species name occupying each site.
+
+
+   .. py:property:: site_moments
+      :type: Any
+
+
+      Return per-site moments, or ``None`` for absent and all-zero ASE defaults.
+
+
+   .. py:method:: unwrap()
+
+      Return the original ``Atoms``-like object.
+
+
+
+.. py:class:: ASEAtomsProtocol
+
+   Bases: :py:obj:`Protocol`
+
+
+   Describe the minimal method surface needed to read ASE ``Atoms``.
+
+   This is a runtime-checkable, duck-typed protocol. ASE is not required: any object
+   providing these four methods qualifies for :class:`ASEAtoms`.
+
+
+   .. py:method:: get_cell()
+
+      Return the cell vectors as rows.
+
+      :return: The native cell rows.
+
+
+
+   .. py:method:: get_scaled_positions()
+
+      Return the reduced positions.
+
+      :return: One reduced coordinate row per site.
+
+
+
+   .. py:method:: get_atomic_numbers()
+
+      Return one atomic number per site.
+
+      :return: The atomic numbers.
+
+
+
+   .. py:method:: get_pbc()
+
+      Return one periodicity flag per cell row.
+
+      :return: The periodicity flags.
+
+
+
+.. py:class:: PymatgenStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Import a pymatgen-compatible structure eagerly.
+
+   Pymatgen ``properties``, site labels, and site properties other than ``magmom`` are
+   intentionally discarded because they have no exact httk structure-family counterpart.
+   Pymatgen ``DummySpecies`` values with the default zero oxidation state are imported
+   with an unstated charge because pymatgen cannot distinguish that default from an
+   explicitly supplied zero; nonzero dummy oxidation states remain exact charges.
+
+   Partial occupancy and its exact ``Fraction`` values are retained. An occupancy
+   shortfall becomes an explicit vacancy constituent, which views omit when exporting
+   to pymatgen. The original object remains available through :meth:`unwrap`.
+
+   :param obj: A pymatgen ``Structure`` object or compatible duck-typed object.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'pymatgen'
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the converted cell and periodicity.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Return the converted reduced coordinates.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Return the imported distinct species and occupancies.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the imported species name at each site.
+
+
+   .. py:property:: site_moments
+      :type: Any
+
+
+      Return imported collinear or Cartesian site moments, if present.
+
+
+   .. py:property:: charge
+      :type: fractions.Fraction | None
+
+
+      Return the exact structure charge, or ``None`` when unstated.
+
+
+   .. py:method:: unwrap()
+
+      Return the original pymatgen-compatible object.
+
+
+
+.. py:class:: PymatgenStructureProtocol
+
+   Bases: :py:obj:`Protocol`
+
+
+   The three native attributes that identify a pymatgen structure.
+
+   ``lattice`` supplies the cell and periodicity, ``frac_coords`` supplies the reduced
+   coordinates, and ``species_and_occu`` supplies one per-site composition mapping. This
+   small surface is disjoint from ASE ``Atoms`` and httk structure objects while allowing
+   pymatgen-compatible duck-typed inputs without importing pymatgen.
+
+
+   .. py:attribute:: lattice
+      :type:  Any
+
+
+   .. py:attribute:: frac_coords
+      :type:  Any
+
+
+   .. py:attribute:: species_and_occu
+      :type:  Any
+
+
+.. py:class:: VASPStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Load a VASP POSCAR structure lazily.
+
+   This backend is explicitly constructed because a generic structure source should not
+   silently claim every POSCAR path.
+
+   It is not registered in ``backend_classes``. Constructing it from a view whose
+   unwrapped value is already a ``VASPStructure`` returns that backend by identity.
+   The payload's ``raw`` channel preserves the source representation for byte-exact
+   saving.
+
+   :param obj: A POSCAR path, neutral payload, or serializer-supported source.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'vasp'
+
+
+
+   .. py:property:: payload
+      :type: collections.abc.Mapping[str, Any]
+
+
+      Return the original, loaded, or synthesized neutral POSCAR payload.
+
+
+   .. py:property:: comment
+      :type: Any
+
+
+      Return the POSCAR comment, if present.
+
+
+   .. py:property:: selective_dynamics
+      :type: Any
+
+
+      Return selective-dynamics flags, if present.
+
+
+   .. py:method:: resolve()
+
+      Build and memoize the canonical structure from the POSCAR payload.
+
+      :return: The resolved unit-cell structure.
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Return the resolved cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Return the resolved reduced coordinates.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Return the resolved distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the resolved species name at each site.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Return resolved site moments, or ``None``.
+
+
+   .. py:property:: charge
+      :type: Any
+
+
+      Return the resolved structure charge, if present.
+
+
+   .. py:method:: unwrap()
+
+      Return the original POSCAR source.
+
+
+
+.. py:class:: VASPTrajectory(source, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.trajectory.backend.TrajectoryBackend`
+
+
+   Read VASP OUTCAR and/or XDATCAR data lazily.
+
+   XDATCAR supplies geometry when present.  OUTCAR observables use the
+   per-frame ``energy_sigma0``, parsed as a float, plus temperature and
+   ``stress_gpa_voigt()``.  One bounded pass caches those three scalar/6-tuple
+   sequences; frame geometry is never cached.
+
+   XDATCAR geometry is preferred when both files are available. Cartesian coordinates
+   are reduced exactly against the frame cell. A mismatch between OUTCAR and XDATCAR
+   frame counts raises an error.
+
+   :param source: A VASP trajectory path, directory, payload, or VASP-outputs-like object.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'vasp'
+
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Return the validated number of frames.
+
+
+   .. py:property:: species
+      :type: tuple[Any, ...]
+
+
+      Return the composition inferred from POSCAR, XDATCAR, or OUTCAR.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the species name at each site.
+
+
+   .. py:property:: reference_frames
+      :type: None
+
+
+      Return ``None`` because VASP frames are not bounded references.
+
+
+   .. py:method:: frame(i)
+
+      Read one VASP frame by index.
+
+      :param i: Frame index; negative indexes count from the end.
+      :return: The requested unit-cell structure.
+      :raises IndexError: If the frame index is out of range.
+      :raises ValueError: If the source has no complete frame geometry.
+
+
+
+   .. py:method:: frames()
+
+      Stream VASP frame geometry without caching full frames.
+
+      :yields: Unit-cell structures in source order.
+
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, ...]
+
+
+      Return available OUTCAR observable names.
+
+
+   .. py:method:: observable(name)
+
+      Return one OUTCAR observable in frame order.
+
+      :param name: Observable name.
+      :return: The observable values.
+      :raises KeyError: If the observable is unavailable.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the original VASP trajectory source.
+
+
+
+   .. py:property:: source_locator
+      :type: str | None
+
+
+      Return the source path, if one is available.
+
+

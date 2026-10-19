@@ -1,0 +1,49 @@
+httk.atomistic.entries.moments
+==============================
+
+.. py:module:: httk.atomistic.entries.moments
+
+.. autoapi-nested-parse::
+
+   Serve structure site moments as Cartesian JSON values.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.moments.MOMENT_PROPERTY_KEYS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.moments.moment_definitions
+   httk.atomistic.entries.moments.moment_properties
+
+
+Module Contents
+---------------
+
+.. py:data:: MOMENT_PROPERTY_KEYS
+   :type:  dict[str, str]
+
+.. py:function:: moment_definitions()
+
+   Load the vendored site-moment property definition.
+
+   :return: The definition keyed by ``_httk_site_moments``.
+
+
+.. py:function:: moment_properties(structure)
+
+   Project non-collinear site moments as Cartesian JSON values.
+
+   :param structure: The structure to project, or ``None`` for an empty entry.
+   :return: The ``_httk_site_moments`` value, or ``None`` when unavailable or collinear.
+
+

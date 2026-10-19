@@ -1,0 +1,673 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../../../genindex.html"><link rel="search" title="Search" href="../../../../../../search.html">
+
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+        <title>httk.atomistic.integrations.cp2k.io.cp2k_input - httk-atomistic dev:develop documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx_autodoc_typehints.css?v=057ac668" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/selector.css?v=626bada3" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     Development documentation (dev:develop) — built from the GitHub develop branch; content may differ from any release. 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../../../../index.html"><div class="brand">httk-atomistic dev:develop documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../../../index.html">
+  
+  <span class="sidebar-brand-text">httk-atomistic dev:develop documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../structures.html">Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../composition.html">Composition and formula families</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../prototypes.html">Material-information levels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../cif.html">Reading and writing CIF files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../poscar.html">Reading VASP POSCAR / CONTCAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../vasp_outputs.html">Reading VASP output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../doscar.html">VASP total density of states</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../wavecar.html">Reading and writing VASP WAVECAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../wavefunctions.html">Plane-wave wavefunctions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../trajectory_jsonl.html">Trajectory JSON Lines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../lammps.html">Reading LAMMPS dumps and data files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../qe.html">Quantum ESPRESSO pw.x files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../abinit.html">ABINIT input and output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../cp2k.html">CP2K input and restart files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../asu.html">Asymmetric units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../canonicalization.html">Canonicalization algorithms and reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../subgroups.html">Subgroups and pathfinding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../moments.html">Site moments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../integrations.html">Integrations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../precision.html">Data precision</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../periodicity.html">Periodicity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../lattice-reduction.html">Lattice reduction (Niggli)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../primitive-cells.html">Primitive cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../band-paths.html">Band-structure paths</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../notebooks/examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../notebooks/disorder.html">Disorder, vacancies, and attached species</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Details</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/structures.html">Structures in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/structural_classes.html">Naming of <em>httk₂</em> structural classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/asu.html">Asymmetric units in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/cif.html">CIF and mCIF reading in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/precision.html">Data precision in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/periodicity.html">Periodicity in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../reference/autoapi/index.html">API Reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for httk.atomistic.integrations.cp2k.io.cp2k_input</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Read the geometry of CP2K input and restart files; write it as a ``&amp;SUBSYS`` block.</span>
+
+<span class="sd">CP2K restart files use the input syntax, so one reader serves both. The reader returns a</span>
+<span class="sd">neutral geometry payload (see ``httk.atomistic.integrations._geometry``) tagged</span>
+<span class="sd">``"cp2k-input"``; constructs whose geometry it cannot reproduce exactly are refused.</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.elements</span><span class="w"> </span><span class="kn">import</span> <span class="n">SYMBOLS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.integrations._geometry</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_element_from_label</span><span class="p">,</span>
+    <span class="n">_geometry_from_structure</span><span class="p">,</span>
+    <span class="n">_number</span><span class="p">,</span>
+    <span class="n">_structure_from_geometry</span><span class="p">,</span>
+    <span class="n">_write_text</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.integrations.vasp.io._text</span><span class="w"> </span><span class="kn">import</span> <span class="n">source_lines</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">_check_load_precision</span>
+
+<span class="n">_TAG</span> <span class="o">=</span> <span class="s2">"cp2k-input"</span>
+<span class="n">_COMMENT</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"[!#].*"</span><span class="p">)</span>
+<span class="n">_TRUE</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">""</span><span class="p">,</span> <span class="s2">"T"</span><span class="p">,</span> <span class="s2">"TRUE"</span><span class="p">,</span> <span class="s2">".TRUE."</span><span class="p">,</span> <span class="s2">"Y"</span><span class="p">,</span> <span class="s2">"YES"</span><span class="p">,</span> <span class="s2">"ON"</span><span class="p">})</span>
+<span class="n">_FALSE</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"F"</span><span class="p">,</span> <span class="s2">"FALSE"</span><span class="p">,</span> <span class="s2">".FALSE."</span><span class="p">,</span> <span class="s2">"N"</span><span class="p">,</span> <span class="s2">"NO"</span><span class="p">,</span> <span class="s2">"OFF"</span><span class="p">})</span>
+<span class="n">_PERIODIC</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"XYZ"</span><span class="p">,</span> <span class="s2">"XY"</span><span class="p">,</span> <span class="s2">"XZ"</span><span class="p">,</span> <span class="s2">"YZ"</span><span class="p">,</span> <span class="s2">"X"</span><span class="p">,</span> <span class="s2">"Y"</span><span class="p">,</span> <span class="s2">"Z"</span><span class="p">,</span> <span class="s2">"NONE"</span><span class="p">})</span>
+<span class="n">_KIND_NAME</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"[A-Za-z][A-Za-z0-9_.+-]*"</span><span class="p">)</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_Section</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""One ``&amp;NAME parameter`` … ``&amp;END`` section: keyword lines and subsections in order."""</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">parameter</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">line</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">keywords</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">sections</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="s2">"_Section"</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="s2">"_Section"</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""The subsections called ``name``."""</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">section</span> <span class="k">for</span> <span class="n">section</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sections</span> <span class="k">if</span> <span class="n">section</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">only</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"_Section | None"</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The single subsection called ``name``, or ``None``; refuse repeats."""</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">found</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">found</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">line</span><span class="si">}</span><span class="s2">: more than one &amp;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> section in &amp;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">found</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">found</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">keyword</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The ``(line, value tokens)`` of keyword ``name``, or ``None``; refuse repeats."""</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="p">[(</span><span class="n">line</span><span class="p">,</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span> <span class="k">for</span> <span class="n">line</span><span class="p">,</span> <span class="n">tokens</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">keywords</span> <span class="k">if</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">==</span> <span class="n">name</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">found</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">found</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">: keyword </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> repeated in &amp;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">found</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">found</span> <span class="k">else</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="read_cp2k_input">
+<a class="viewcode-back" href="../../../../../../reference/autoapi/httk/atomistic/integrations/cp2k/io/index.html#httk.atomistic.integrations.cp2k.io.cp2k_input.read_cp2k_input">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_cp2k_input</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">precision</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Read the structure of a CP2K input or restart file into a neutral geometry payload.</span>
+
+<span class="sd">    The geometry is the single ``&amp;FORCE_EVAL/&amp;SUBSYS`` section (or a file holding just one</span>
+<span class="sd">    ``&amp;SUBSYS`` block, as the ``cp2k-input`` writer produces): ``&amp;CELL`` from ``A``/``B``/``C``</span>
+<span class="sd">    vectors or ``ABC`` with ``ALPHA_BETA_GAMMA`` (payload ``cell_parameters``, built as for</span>
+<span class="sd">    CIF in CP2K's frame: ``a`` along x, ``b`` in the xy plane), ``PERIODIC``, ``&amp;COORD`` (Cartesian or</span>
+<span class="sd">    ``SCALED``), and each atom's element from its ``&amp;KIND`` ``ELEMENT`` keyword or else its</span>
+<span class="sd">    kind name. Lengths must be in Å, CP2K's default. Keyword names are case-insensitive;</span>
+<span class="sd">    ``!``/``#`` comments and ``\\`` line continuations are honoured.</span>
+
+<span class="sd">    Refused: preprocessor directives (``@INCLUDE``, ``@SET``, ``@IF``, …) and ``$`` variables,</span>
+<span class="sd">    several ``&amp;FORCE_EVAL`` or ``&amp;SUBSYS`` sections, external coordinates (``&amp;TOPOLOGY``</span>
+<span class="sd">    ``COORD_FILE_NAME``/``COORD_FILE_FORMAT``), ``MULTIPLE_UNIT_CELL`` other than ``1 1 1``,</span>
+<span class="sd">    ``&amp;CELL_REF``, ``CELL_FILE_NAME``, ``SYMMETRY`` other than ``NONE``, units other than</span>
+<span class="sd">    ``[angstrom]`` (and ``[deg]`` for angles), ghost kinds, and atoms whose element cannot be</span>
+<span class="sd">    determined.</span>
+
+<span class="sd">    :param source: A path (compressed files are decompressed) or an open text or binary stream.</span>
+<span class="sd">    :param precision: Cartesian coordinate precision in Å overriding the digit-derived one,</span>
+<span class="sd">        or ``None``. Must be a finite number greater than zero when given.</span>
+<span class="sd">    :return: The geometry payload, with the original text in ``raw``.</span>
+<span class="sd">    :raises ValueError: If the source is not a CP2K input, is malformed, uses a refused</span>
+<span class="sd">        construct, or ``precision`` is invalid.</span>
+<span class="sd">    :raises TypeError: If ``source`` is neither a path nor a stream.</span>
+<span class="sd">    """</span>
+    <span class="n">_check_load_precision</span><span class="p">(</span><span class="n">precision</span><span class="p">,</span> <span class="s2">"read_cp2k_input"</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">source_lines</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">preserve_path</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">capture_stream</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">raw</span><span class="p">):</span>
+            <span class="k">pass</span>
+    <span class="k">except</span> <span class="ne">UnicodeDecodeError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"not a CP2K input: the source is not UTF-8 text"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input source must be a path or a stream, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">source</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">subsys</span> <span class="o">=</span> <span class="n">_subsys</span><span class="p">(</span><span class="n">_parse</span><span class="p">(</span><span class="n">raw</span><span class="p">))</span>
+    <span class="n">cell</span><span class="p">,</span> <span class="n">periodicity</span> <span class="o">=</span> <span class="n">_cell</span><span class="p">(</span><span class="n">subsys</span><span class="p">)</span>
+    <span class="n">labels</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">scaled</span> <span class="o">=</span> <span class="n">_coord</span><span class="p">(</span><span class="n">subsys</span><span class="p">)</span>
+    <span class="c1"># CP2K upper-cases kind names: "si" and "SI" are one kind, named by its first spelling.</span>
+    <span class="n">first</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">first</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">label</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">label</span><span class="p">)</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"format"</span><span class="p">:</span> <span class="n">_TAG</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">cell</span><span class="p">,</span>
+        <span class="s2">"cell_unit"</span><span class="p">:</span> <span class="s2">"angstrom"</span><span class="p">,</span>
+        <span class="s2">"positions"</span><span class="p">:</span> <span class="n">positions</span><span class="p">,</span>
+        <span class="s2">"positions_kind"</span><span class="p">:</span> <span class="s2">"fractional"</span> <span class="k">if</span> <span class="n">scaled</span> <span class="k">else</span> <span class="s2">"cartesian"</span><span class="p">,</span>
+        <span class="s2">"positions_unit"</span><span class="p">:</span> <span class="s2">"angstrom"</span><span class="p">,</span>
+        <span class="s2">"species"</span><span class="p">:</span> <span class="n">_species</span><span class="p">(</span><span class="n">subsys</span><span class="p">,</span> <span class="n">names</span><span class="p">),</span>
+        <span class="s2">"species_at_sites"</span><span class="p">:</span> <span class="n">names</span><span class="p">,</span>
+        <span class="s2">"periodicity"</span><span class="p">:</span> <span class="n">periodicity</span><span class="p">,</span>
+        <span class="s2">"precision_override"</span><span class="p">:</span> <span class="n">precision</span><span class="p">,</span>
+        <span class="s2">"raw"</span><span class="p">:</span> <span class="n">raw</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Section</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse CP2K input text into its section tree (an unnamed root)."""</span>
+    <span class="n">logical</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">pending</span><span class="p">,</span> <span class="n">first</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(),</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pending</span><span class="p">:</span>
+            <span class="n">first</span> <span class="o">=</span> <span class="n">number</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">pending</span> <span class="o">+</span> <span class="n">_COMMENT</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">content</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"</span><span class="se">\\</span><span class="s2">"</span><span class="p">):</span>
+            <span class="n">pending</span> <span class="o">=</span> <span class="n">content</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="s2">" "</span>
+            <span class="k">continue</span>
+        <span class="n">pending</span> <span class="o">=</span> <span class="s2">""</span>
+        <span class="k">if</span> <span class="n">content</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+            <span class="n">logical</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">first</span><span class="p">,</span> <span class="n">content</span><span class="o">.</span><span class="n">strip</span><span class="p">()))</span>
+    <span class="k">if</span> <span class="n">pending</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+        <span class="n">logical</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">first</span><span class="p">,</span> <span class="n">pending</span><span class="o">.</span><span class="n">strip</span><span class="p">()))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">content</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"&amp;"</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">content</span> <span class="ow">in</span> <span class="n">logical</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"not a CP2K input: no &amp;SECTION lines"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">content</span> <span class="ow">in</span> <span class="n">logical</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">content</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"@"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">: preprocessor directive </span><span class="si">{</span><span class="n">content</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> is not supported; "</span>
+                <span class="s2">"read a preprocessed input such as the .restart file CP2K writes"</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="s2">"$"</span> <span class="ow">in</span> <span class="n">content</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">: preprocessor variables ($...) are not supported"</span><span class="p">)</span>
+
+    <span class="n">root</span> <span class="o">=</span> <span class="n">_Section</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="s2">""</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">stack</span> <span class="o">=</span> <span class="p">[</span><span class="n">root</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">content</span> <span class="ow">in</span> <span class="n">logical</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">content</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"&amp;"</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">: content outside any &amp;SECTION: </span><span class="si">{</span><span class="n">content</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">keywords</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">number</span><span class="p">,</span> <span class="n">content</span><span class="o">.</span><span class="n">split</span><span class="p">()))</span>
+            <span class="k">continue</span>
+        <span class="n">head</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">rest</span> <span class="o">=</span> <span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"</span><span class="se">\t</span><span class="s2">"</span><span class="p">,</span> <span class="s2">" "</span><span class="p">)</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">" "</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">head</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">"END"</span><span class="p">:</span>
+            <span class="n">section</span> <span class="o">=</span> <span class="n">_Section</span><span class="p">(</span><span class="n">head</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">rest</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span> <span class="n">number</span><span class="p">)</span>
+            <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">sections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">section</span><span class="p">)</span>
+            <span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">section</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">: &amp;END without an open section"</span><span class="p">)</span>
+        <span class="n">closing</span> <span class="o">=</span> <span class="n">rest</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">closing</span> <span class="ow">and</span> <span class="n">closing</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">!=</span> <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">: &amp;END </span><span class="si">{</span><span class="n">closing</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> closes &amp;</span><span class="si">{</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">stack</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">line</span><span class="si">}</span><span class="s2">: &amp;</span><span class="si">{</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> is never closed (&amp;END)"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">root</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_subsys</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">_Section</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Section</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The single ``&amp;FORCE_EVAL/&amp;SUBSYS`` (or top-level ``&amp;SUBSYS``) section."""</span>
+    <span class="n">force_evals</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="s2">"FORCE_EVAL"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">force_evals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">force_evals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">line</span><span class="si">}</span><span class="s2">: several &amp;FORCE_EVAL sections are not supported (one geometry only)"</span>
+        <span class="p">)</span>
+    <span class="n">holder</span> <span class="o">=</span> <span class="n">force_evals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">force_evals</span> <span class="k">else</span> <span class="n">root</span>
+    <span class="n">subsys</span> <span class="o">=</span> <span class="n">holder</span><span class="o">.</span><span class="n">only</span><span class="p">(</span><span class="s2">"SUBSYS"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">subsys</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"not a CP2K input: no &amp;FORCE_EVAL/&amp;SUBSYS section"</span><span class="p">)</span>
+    <span class="n">topology</span> <span class="o">=</span> <span class="n">subsys</span><span class="o">.</span><span class="n">only</span><span class="p">(</span><span class="s2">"TOPOLOGY"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">topology</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="n">topology</span><span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="s2">"COORD_FILE_NAME"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">found</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">: external coordinates (COORD_FILE_NAME) are not supported"</span><span class="p">)</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="n">topology</span><span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="s2">"COORD_FILE_FORMAT"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">[</span><span class="n">token</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">found</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">!=</span> <span class="p">[</span><span class="s2">"OFF"</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">found</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">: external coordinates (COORD_FILE_FORMAT) are not supported"</span><span class="p">)</span>
+        <span class="n">_single_cell</span><span class="p">(</span><span class="n">topology</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">subsys</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_single_cell</span><span class="p">(</span><span class="n">section</span><span class="p">:</span> <span class="n">_Section</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Refuse a ``MULTIPLE_UNIT_CELL`` other than ``1 1 1``."""</span>
+    <span class="n">found</span> <span class="o">=</span> <span class="n">section</span><span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="s2">"MULTIPLE_UNIT_CELL"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">found</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="p">[</span><span class="s2">"1"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">found</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">: MULTIPLE_UNIT_CELL </span><span class="si">{</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">found</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="si">}</span><span class="s2"> is not supported"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_values</span><span class="p">(</span><span class="n">found</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">unit</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Three decimal tokens of a keyword, after an optional ``[unit]`` that must be ``unit``."""</span>
+    <span class="n">line</span><span class="p">,</span> <span class="n">tokens</span> <span class="o">=</span> <span class="n">found</span>
+    <span class="k">if</span> <span class="n">tokens</span> <span class="ow">and</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"["</span><span class="p">):</span>
+        <span class="n">given</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">given</span> <span class="o">!=</span> <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">unit</span><span class="si">}</span><span class="s2">]"</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> unit </span><span class="si">{</span><span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> is not supported, only [</span><span class="si">{</span><span class="n">unit</span><span class="si">}</span><span class="s2">]"</span><span class="p">)</span>
+        <span class="n">tokens</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="k">return</span> <span class="n">_checked</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">tokens</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_checked</span><span class="p">(</span><span class="n">line</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Three decimal tokens, validated."""</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> needs three numbers, got </span><span class="si">{</span><span class="n">tokens</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">tokens</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">_number</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="k">return</span> <span class="n">tokens</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cell</span><span class="p">(</span><span class="n">subsys</span><span class="p">:</span> <span class="n">_Section</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bool</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""The payload's ``cell`` or ``cell_parameters`` entry (Å, degrees) and periodicity of ``&amp;SUBSYS/&amp;CELL``."""</span>
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">subsys</span><span class="o">.</span><span class="n">only</span><span class="p">(</span><span class="s2">"CELL"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cell</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">subsys</span><span class="o">.</span><span class="n">line</span><span class="si">}</span><span class="s2">: &amp;SUBSYS has no &amp;CELL section"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cell</span><span class="o">.</span><span class="n">sections</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">cell</span><span class="o">.</span><span class="n">sections</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">line</span><span class="si">}</span><span class="s2">: &amp;</span><span class="si">{</span><span class="n">cell</span><span class="o">.</span><span class="n">sections</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not supported"</span><span class="p">)</span>
+    <span class="n">_single_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"CELL_FILE_NAME"</span><span class="p">,</span> <span class="s2">"SYMMETRY"</span><span class="p">):</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">[</span><span class="n">token</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">found</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">!=</span> <span class="p">[</span><span class="s2">"NONE"</span><span class="p">]:</span>
+            <span class="c1"># ponytail: SYMMETRY other than NONE is refused, not checked against the given cell.</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">found</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">found</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="si">}</span><span class="s2"> is not supported"</span><span class="p">)</span>
+    <span class="n">found</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="s2">"PERIODIC"</span><span class="p">)</span>
+    <span class="n">periodic</span> <span class="o">=</span> <span class="s2">"XYZ"</span> <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">found</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">periodic</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_PERIODIC</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">found</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">: PERIODIC </span><span class="si">{</span><span class="n">periodic</span><span class="si">!r}</span><span class="s2"> is not one of </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_PERIODIC</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">periodicity</span> <span class="o">=</span> <span class="p">[</span><span class="n">axis</span> <span class="ow">in</span> <span class="n">periodic</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"NONE"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="s2">"XYZ"</span><span class="p">]</span>
+
+    <span class="n">vectors</span> <span class="o">=</span> <span class="p">[</span><span class="n">cell</span><span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="s2">"ABC"</span><span class="p">]</span>
+    <span class="n">abc</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="s2">"ABC"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">abc</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="kc">None</span> <span class="ow">in</span> <span class="n">vectors</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">cell</span><span class="o">.</span><span class="n">line</span><span class="si">}</span><span class="s2">: &amp;CELL needs A, B and C vectors or ABC"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"cell"</span><span class="p">:</span> <span class="p">[</span><span class="n">_values</span><span class="p">(</span><span class="n">found</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="s2">"angstrom"</span><span class="p">)</span> <span class="k">for</span> <span class="n">found</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">vectors</span><span class="p">,</span> <span class="s2">"ABC"</span><span class="p">)</span> <span class="k">if</span> <span class="n">found</span><span class="p">]},</span> <span class="n">periodicity</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">vectors</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">abc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">: &amp;CELL gives both ABC and A/B/C vectors"</span><span class="p">)</span>
+    <span class="n">lengths</span> <span class="o">=</span> <span class="n">_values</span><span class="p">(</span><span class="n">abc</span><span class="p">,</span> <span class="s2">"ABC"</span><span class="p">,</span> <span class="s2">"angstrom"</span><span class="p">)</span>
+    <span class="n">found</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="s2">"ALPHA_BETA_GAMMA"</span><span class="p">)</span>
+    <span class="n">angles</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"90"</span><span class="p">,</span> <span class="s2">"90"</span><span class="p">,</span> <span class="s2">"90"</span><span class="p">]</span> <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_values</span><span class="p">(</span><span class="n">found</span><span class="p">,</span> <span class="s2">"ALPHA_BETA_GAMMA"</span><span class="p">,</span> <span class="s2">"deg"</span><span class="p">)</span>
+    <span class="c1"># CellParams' frame (a along +x, b in the xy plane, c with positive z) is CP2K's, so</span>
+    <span class="c1"># Cartesian &amp;COORD rows are meant in it too.</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"cell_parameters"</span><span class="p">:</span> <span class="n">lengths</span> <span class="o">+</span> <span class="n">angles</span><span class="p">},</span> <span class="n">periodicity</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_coord</span><span class="p">(</span><span class="n">subsys</span><span class="p">:</span> <span class="n">_Section</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="nb">bool</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Site kind names, coordinate tokens and the ``SCALED`` flag of ``&amp;SUBSYS/&amp;COORD``."""</span>
+    <span class="n">coord</span> <span class="o">=</span> <span class="n">subsys</span><span class="o">.</span><span class="n">only</span><span class="p">(</span><span class="s2">"COORD"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">coord</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">subsys</span><span class="o">.</span><span class="n">line</span><span class="si">}</span><span class="s2">: &amp;SUBSYS has no &amp;COORD section"</span><span class="p">)</span>
+    <span class="n">names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">positions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">scaled</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">for</span> <span class="n">line</span><span class="p">,</span> <span class="n">tokens</span> <span class="ow">in</span> <span class="n">coord</span><span class="o">.</span><span class="n">keywords</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">"SCALED"</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_TRUE</span> <span class="o">|</span> <span class="n">_FALSE</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: SCALED </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> is not a logical value"</span><span class="p">)</span>
+            <span class="n">scaled</span> <span class="o">=</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">_TRUE</span>
+        <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">"UNIT"</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">[</span><span class="n">token</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span> <span class="o">!=</span> <span class="p">[</span><span class="s2">"angstrom"</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: &amp;COORD UNIT </span><span class="si">{</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span><span class="si">}</span><span class="s2"> is not supported, only angstrom"</span>
+                <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+            <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">positions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_checked</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"&amp;COORD atom </span><span class="si">{</span><span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: expected 'kind x y z [molecule]' in &amp;COORD, got </span><span class="si">{</span><span class="n">tokens</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">names</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">coord</span><span class="o">.</span><span class="n">line</span><span class="si">}</span><span class="s2">: &amp;COORD lists no atoms"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">names</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">scaled</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_species</span><span class="p">(</span><span class="n">subsys</span><span class="p">:</span> <span class="n">_Section</span><span class="p">,</span> <span class="n">names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""One species per distinct site kind name, its element from ``&amp;KIND ELEMENT`` or the name."""</span>
+    <span class="n">elements</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">subsys</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="s2">"KIND"</span><span class="p">):</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="n">kind</span><span class="o">.</span><span class="n">parameter</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="k">if</span> <span class="n">kind</span><span class="o">.</span><span class="n">parameter</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="k">else</span> <span class="s2">""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">label</span> <span class="ow">or</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">kind</span><span class="o">.</span><span class="n">line</span><span class="si">}</span><span class="s2">: &amp;KIND needs a unique kind name, got </span><span class="si">{</span><span class="n">kind</span><span class="o">.</span><span class="n">parameter</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">ghost</span> <span class="o">=</span> <span class="n">kind</span><span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="s2">"GHOST"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ghost</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ghost</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="ow">in</span> <span class="n">_TRUE</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">ghost</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">: ghost kind </span><span class="si">{</span><span class="n">kind</span><span class="o">.</span><span class="n">parameter</span><span class="si">!r}</span><span class="s2"> is not supported"</span><span class="p">)</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="n">kind</span><span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="s2">"ELEMENT"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">found</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input line </span><span class="si">{</span><span class="n">found</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">: ELEMENT needs one element symbol, got </span><span class="si">{</span><span class="n">found</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">elements</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">found</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">species</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+        <span class="n">given</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+        <span class="n">element</span> <span class="o">=</span> <span class="n">_element_from_label</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">if</span> <span class="n">given</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">given</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">element</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SYMBOLS</span><span class="p">:</span>
+            <span class="n">reason</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"ELEMENT </span><span class="si">{</span><span class="n">given</span><span class="si">!r}</span><span class="s2"> is not an element"</span> <span class="k">if</span> <span class="n">given</span> <span class="k">else</span> <span class="s2">"it has no ELEMENT and its name names none"</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CP2K input: cannot determine the element of kind </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">: </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">species</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"name"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span> <span class="s2">"element"</span><span class="p">:</span> <span class="n">element</span><span class="p">,</span> <span class="s2">"mass"</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span>
+    <span class="k">return</span> <span class="n">species</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cp2k_input_payload_from_structure</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Serialize a structure to a ``cp2k-input`` geometry payload.</span>
+
+<span class="sd">    :param obj: Anything :class:`~httk.atomistic.UnitcellStructureView` accepts.</span>
+<span class="sd">    :return: The geometry payload.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">_geometry_from_structure</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">_TAG</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_render_subsys</span><span class="p">(</span><span class="n">payload</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Render a geometry payload as an ``&amp;SUBSYS`` block (Å cell, scaled coordinates)."""</span>
+    <span class="c1"># Re-normalizing through the structure makes any payload (Cartesian, Bohr, exact entries) fractional Å.</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">_geometry_from_structure</span><span class="p">(</span><span class="n">_structure_from_geometry</span><span class="p">(</span><span class="n">payload</span><span class="p">),</span> <span class="n">_TAG</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">({</span><span class="n">item</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">"species"</span><span class="p">]})</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"species"</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"cp2k-input cannot write species names differing only in letter case (CP2K kind names are not)"</span>
+        <span class="p">)</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">"species"</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_KIND_NAME</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"name"</span><span class="p">])</span> <span class="ow">or</span> <span class="n">item</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"SCALED"</span><span class="p">,</span> <span class="s2">"UNIT"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"cp2k-input cannot write species name </span><span class="si">{</span><span class="n">item</span><span class="p">[</span><span class="s1">'name'</span><span class="p">]</span><span class="si">!r}</span><span class="s2"> as a CP2K kind name"</span><span class="p">)</span>
+    <span class="n">periodic</span> <span class="o">=</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">axis</span> <span class="k">for</span> <span class="n">axis</span><span class="p">,</span> <span class="n">flag</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="s2">"XYZ"</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">"periodicity"</span><span class="p">])</span> <span class="k">if</span> <span class="n">flag</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">"NONE"</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"&amp;SUBSYS"</span><span class="p">,</span> <span class="s2">"  &amp;CELL"</span><span class="p">]</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"    </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">row</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="s2">"ABC"</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">"cell"</span><span class="p">])]</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"    PERIODIC </span><span class="si">{</span><span class="n">periodic</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"  &amp;END CELL"</span><span class="p">,</span> <span class="s2">"  &amp;COORD"</span><span class="p">,</span> <span class="s2">"    SCALED .TRUE."</span><span class="p">]</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"    </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">row</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"species_at_sites"</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="s2">"positions"</span><span class="p">])]</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"  &amp;END COORD"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">"species"</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">item</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="o">!=</span> <span class="n">item</span><span class="p">[</span><span class="s2">"element"</span><span class="p">]:</span>
+            <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"  &amp;KIND </span><span class="si">{</span><span class="n">item</span><span class="p">[</span><span class="s1">'name'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"    ELEMENT </span><span class="si">{</span><span class="n">item</span><span class="p">[</span><span class="s1">'element'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"  &amp;END KIND"</span><span class="p">]</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"&amp;END SUBSYS"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_write_cp2k_input_payload</span><span class="p">(</span>
+    <span class="n">destination</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOBase</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""Write a ``cp2k-input`` payload: its ``raw`` text verbatim, else an ``&amp;SUBSYS`` block.</span>
+
+<span class="sd">    :param destination: A path or an open text stream.</span>
+<span class="sd">    :param payload: The geometry payload.</span>
+<span class="sd">    :param \**kwargs: Not supported (the writer has no options).</span>
+<span class="sd">    """</span>
+    <span class="n">_write_text</span><span class="p">(</span><span class="n">destination</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">,</span> <span class="n">_render_subsys</span><span class="p">)</span>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, The httk-atomistic AUTHORS
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../../../../_static/documentation_options.js?v=952df46a"></script>
+    <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../../../_static/copybutton.js?v=fd10adb8"></script>
+    <script src="../../../../../../_static/selector.js?v=d8e9b3ce"></script>
+    <script>window.HTTK_DOCS_VERSIONING = {"channel":"dev","version":"dev:develop","versionPathDepth":2};</script>
+    </body>
+</html>
