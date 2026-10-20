@@ -1537,11 +1537,17 @@ def _unitcell_record_from_structure(structure: UnitcellStructure) -> UnitcellStr
     values["symmetry"] = (
         None if symmetry is None else SymmetryRecord(**cast(dict[str, Any], SymmetryRecord.__httk_project__(symmetry)))
     )
-    values["chemical_composition"] = (
+    composition = (
         None
         if structure.chemical_composition is None
+        else cast(dict[str, Any], ChemicalCompositionRecord.__httk_project__(structure.chemical_composition))
+    )
+    values["chemical_composition"] = (
+        None
+        if composition is None
         else ChemicalCompositionRecord(
-            **cast(dict[str, Any], ChemicalCompositionRecord.__httk_project__(structure.chemical_composition))
+            amounts=tuple(CompositionAmountRecord(*item) for item in composition["amounts"]),
+            mode=composition["mode"],
         )
     )
     return UnitcellStructureRecord(**values)
