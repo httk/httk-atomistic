@@ -19,11 +19,11 @@ import os
 import re
 from collections.abc import Iterable
 from fractions import Fraction
-from typing import Any, cast
+from typing import IO, Any, cast
 
 from httk.core import combined_precision
 
-from httk.atomistic.io import _check_load_precision
+from httk.atomistic.io import _check_as_written, _check_load_precision
 
 from ._xyz_expr import _parse_linear_expr, _parse_linear_expr_algebraic
 from .cif_parser import (
@@ -623,7 +623,11 @@ def mag_asus_from_mcif_file(
 
 
 def read_mcif_asus(
-    source: str | os.PathLike[str] | Iterable[str], *, repair: bool = False, precision: float | None = None
+    source: str | os.PathLike[str] | IO[bytes] | Iterable[str],
+    *,
+    repair: bool = False,
+    precision: float | None = None,
+    as_written: bool = False,
 ) -> dict[str, Any]:
     """Read an mcif into the neutral payload used by the ``.mcif`` loader.
 
@@ -631,16 +635,18 @@ def read_mcif_asus(
     raw strings, and the result contains no magnetic-domain objects. Blocks without atom
     sites are skipped; blocks that cannot be interpreted are reported in ``unparsed``.
 
-    :param source: A filename, open text stream, or iterable of mcif lines.
+    :param source: A filename, open text or binary stream, or iterable of mcif lines.
     :param repair: Apply documented, warning-emitting CIF repairs while preserving structural data.
     :param precision: Accepted for a uniform ``load(path, precision=...)`` call site across structure
         formats and validated, but without effect: mcif numbers are read exactly and carry their own
         digit and standard-uncertainty precision.
+    :param as_written: Already exact; accepted for a uniform load interface.
     :return: A neutral mcif payload containing magnetic blocks, unparsed reasons, and the header.
     :raises ValueError: If the mcif stream contains malformed data that prevents parsing, or
         ``precision`` is not a finite number greater than zero.
     """
     _check_load_precision(precision, "read_mcif_asus")
+    _check_as_written(as_written, "read_mcif_asus")
     cifblocks, header = read_cif(source, allow_cif2=True, repair=repair)
     blocks = []
     unparsed = []

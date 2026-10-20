@@ -112,7 +112,7 @@ precision in Å and must be a finite number greater than zero; an invalid value 
   By default each POSCAR number is read as the smallest-denominator rational within
   min(half a unit in its last written digit, `1e-4`) of it
   (`httk.core.exactmath.any_to_fraction`), so a scale line `3.567` becomes `346/97`.
-  Pass `as_written=True` (POSCAR/CONTCAR only) to keep every written decimal exactly
+  Pass `as_written=True` (see below) to keep every written decimal exactly
   instead: `3.567` is `3567/1000`, and a full-precision CONTCAR token keeps all its digits.
   It combines with `precision=`, which still sets only the precision metadata. A negative
   scale line (a target volume) still needs a cube root, which stays a deterministic
@@ -122,6 +122,26 @@ precision in Å and must be a finite number greater than zero; an invalid value 
   exact decimal it writes, with its precision taken from its own digits and standard
   uncertainty; nothing is converted from floats, so there is nothing for a caller-supplied
   precision to govern, and the loaded structure is identical to one loaded without it.
+
+### Reading numbers exactly as written
+
+`httk.core.load(path, as_written=True)` is accepted by every structure and trajectory
+reader, so format-agnostic code can ask for the numbers exactly as the file writes them
+(a non-bool value raises `ValueError`). Where the default reading already keeps each
+written decimal, it changes nothing.
+
+- **POSCAR/CONTCAR, XDATCAR and OUTCAR**: every written decimal becomes its exact value
+  (`3.567` is `3567/1000`) instead of the smallest-denominator rational consistent with
+  its digits.
+- **CIF**: Wyckoff positions are matched with zero tolerance, so a coordinate written as
+  `0.3333` or `0.3333(2)` stays `3333/10000` (without its uncertainty) instead of being
+  snapped onto the special position `1/3`. Its symmetry images then are distinct sites. A
+  declared Wyckoff letter the written coordinate does not lie on exactly is an error, as it
+  is for any explicit `tolerance=`; `repair=True` still applies.
+- **Trajectory JSONL**: frames take the decimal each JSON number writes instead of its
+  binary floating-point value.
+- **mCIF, Quantum ESPRESSO, ABINIT, CP2K, LAMMPS data and dump, and httk-structure**:
+  already exact; the keyword is accepted for a uniform load interface.
 
 ## What it is used for
 

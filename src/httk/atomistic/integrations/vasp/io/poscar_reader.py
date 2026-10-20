@@ -31,7 +31,7 @@ from typing import Any
 
 from httk.core import combined_precision
 
-from httk.atomistic.io import _check_load_precision
+from httk.atomistic.io import _check_as_written, _check_load_precision
 
 from ._text import source_lines
 
@@ -145,8 +145,7 @@ def read_poscar(source: Any, *, precision: float | None = None, as_written: bool
         greater than zero, or ``as_written`` is not a bool.
     """
     _check_load_precision(precision, "read_poscar")
-    if not isinstance(as_written, bool):
-        raise ValueError(f"read_poscar as_written must be a bool, got {as_written!r}.")
+    _check_as_written(as_written, "read_poscar")
     if precision is None:
         logger.warning(
             "when reading VASP POSCAR/CONTCAR files it is recommended to pass a value for precision "

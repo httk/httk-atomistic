@@ -8,7 +8,7 @@ import numbers
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Annotated, Any, ClassVar, TypedDict, cast
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, TypedDict, cast
 
 import httk.core.storage.markers
 from httk.core import (
@@ -16,7 +16,8 @@ from httk.core import (
     SurdScalar,
     SurdVector,
 )
-from httk.core.storage import IdentitySkip, Indexed, StorageInfo, Unique, stored_property
+from httk.core.files import FileRecord
+from httk.core.storage import IdentitySkip, IdentitySkipWhenNone, Indexed, StorageInfo, Unique, stored_property
 
 from httk.atomistic._composition_values import as_fraction
 from httk.atomistic.composition import Assembly, ChemicalComposition, validate_assemblies
@@ -40,6 +41,9 @@ from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.models.trajectory.api import TrajectoryAPI
 from httk.atomistic.symmetry.setting_transform import SettingTransform
+
+if TYPE_CHECKING:  # a runtime import is circular (records load during package import)
+    from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
 __all__ = [
     "ASUStructureRecord",
@@ -1111,6 +1115,8 @@ class UnitcellStructureRecord:
     :param chemical_formula_descriptive: The descriptive formula, if stated.
     :param chemical_formula_hill: The Hill formula, if stated.
     :param optimization_type: The optimization provenance, if stated.
+    :param source_file: The verbatim file this structure was read from, when the entry records an input file exactly
+        as given; outside content identity while ``None``.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
     :param immutable_id: The per-revision immutable id; minted by the store when None.
     :param last_modified: The source modification timestamp, if stated.
@@ -1139,6 +1145,7 @@ class UnitcellStructureRecord:
     chemical_formula_descriptive: str | None = None
     chemical_formula_hill: str | None = None
     optimization_type: str | None = None
+    source_file: Annotated[FileRecord | None, IdentitySkipWhenNone()] = None
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
     last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
@@ -1151,6 +1158,17 @@ class UnitcellStructureRecord:
         :return: ``None`` after successful validation.
         """
         validate_structure_record(record)
+
+    @classmethod
+    def from_structure(cls, structure: "UnitcellStructure | UnitcellStructureView") -> "UnitcellStructureRecord":
+        """Build the complete record of a unit-cell structure, with ``source_file`` unset.
+
+        Use :func:`dataclasses.replace` on the result to set the record-only ``source_file``.
+
+        :param structure: The unit-cell structure or view to record.
+        :return: The record, with every nested child record built.
+        """
+        return _unitcell_record_from_structure(cast(UnitcellStructure, structure))
 
     @property
     def type(self) -> str:
@@ -1175,6 +1193,8 @@ class UnitcellStructureRecord:
         _validate_moment_fields(self, "UnitcellStructureRecord", nsites=len(species_at_sites))
         if self.symmetry is not None and not isinstance(self.symmetry, SymmetryRecord):
             raise TypeError("UnitcellStructureRecord symmetry must be a SymmetryRecord or None")
+        if self.source_file is not None and not isinstance(self.source_file, FileRecord):
+            raise TypeError("UnitcellStructureRecord source_file must be a FileRecord or None")
         object.__setattr__(self, "species_at_sites", species_at_sites)
 
     @classmethod
@@ -1193,6 +1213,7 @@ class UnitcellStructureRecord:
                 "site_moments_kind": None if structure.site_moments is None else cast(Any, structure.site_moments).kind,
                 "site_moments": None if structure.site_moments is None else _moment_components(structure.site_moments),
                 "site_moments_precision": None if structure.site_moments is None else structure.site_moments.precision,
+                "source_file": None,
             }
         )
         return values

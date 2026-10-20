@@ -386,6 +386,9 @@ def asu_structures_from_cif(payload: Mapping[str, Any], *, repair: bool = False,
     reader recorded are raised here rather than returning an empty list, so a file that
     could not be interpreted does not read as a file that contained nothing.
 
+    A payload read with ``as_written=True`` defaults ``tolerance`` to ``0.0``, so every site
+    keeps its written coordinate exactly instead of being snapped onto a nearby special position.
+
     :param payload: The loaded whole-CIF payload or one loaded CIF block.
     :param repair: Apply documented CIF input repairs other than unconditional atom-type normalization,
         also enabled by a stamped payload.
@@ -395,6 +398,8 @@ def asu_structures_from_cif(payload: Mapping[str, Any], *, repair: bool = False,
     """
     options.setdefault("allow_large_cif_uncertainty", bool(payload.get(_ALLOW_LARGE_CIF_UNCERTAINTY, False)))
     options.setdefault("repair", repair or bool(payload.get("repair", False)))
+    if payload.get("as_written") is True:
+        options.setdefault("tolerance", 0.0)
     blocks = payload.get("blocks")
     if blocks is None:
         return [asu_structure_from_cif(payload, **options)]
@@ -1791,7 +1796,12 @@ def _decode_type_symbol(symbol: str, stated_mass: float | None) -> _DecodedCIFTy
 
 
 def _read_cif_for_atomistic(
-    source: Any, *, allow_large_cif_uncertainty: bool = False, repair: bool = False, precision: float | None = None
+    source: Any,
+    *,
+    allow_large_cif_uncertainty: bool = False,
+    repair: bool = False,
+    precision: float | None = None,
+    as_written: bool = False,
 ) -> Mapping[str, Any]:
     """Read CIF and carry the atomistic override to its adapter.
 
@@ -1799,11 +1809,16 @@ def _read_cif_for_atomistic(
     validated, but has no effect: every CIF number is read as the exact decimal it writes and
     its precision comes from its own digits and standard uncertainty, so nothing is converted
     from floats that a caller-supplied precision could govern.
+
+    ``as_written=True`` stamps the payload so that :func:`asu_structures_from_cif` matches
+    Wyckoff positions with zero tolerance: every site keeps its written coordinate exactly
+    (without its standard uncertainty) instead of being snapped onto a nearby special position.
     """
-    from httk.atomistic.io import _check_load_precision
+    from httk.atomistic.io import _check_as_written, _check_load_precision
     from httk.atomistic.io.cif import read_cif
 
     _check_load_precision(precision, "CIF reader")
+    _check_as_written(as_written, "CIF reader")
     from httk.atomistic.io.cif.cif_parser import cifblock_to_asu
 
     if repair:
@@ -1855,6 +1870,8 @@ def _read_cif_for_atomistic(
     payload: dict[str, Any] = {"format": "cif", "blocks": blocks, "unparsed": unparsed, "header": header}
     if repair:
         payload["repair"] = True
+    if as_written:
+        payload["as_written"] = True
     if not allow_large_cif_uncertainty:
         return payload
     return {**payload, _ALLOW_LARGE_CIF_UNCERTAINTY: True}

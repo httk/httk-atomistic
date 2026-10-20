@@ -74,8 +74,8 @@ class VASPTrajectory(TrajectoryBackend):
 
     XDATCAR geometry is preferred when both files are available. Cartesian coordinates
     are reduced exactly against the frame cell. A mismatch between OUTCAR and XDATCAR
-    frame counts raises an error. A VASP-outputs-like source whose ``as_written`` is
-    ``True`` builds the header and every frame from the exact written decimals.
+    frame counts raises an error. A VASP-outputs-like source or a payload whose ``as_written``
+    is ``True`` builds the header and every frame from the exact written decimals.
 
     :param source: A VASP trajectory path, directory, payload, or VASP-outputs-like object.
     :param \**hints: Backend-selection hints.
@@ -147,6 +147,7 @@ class VASPTrajectory(TrajectoryBackend):
                 self._outcar = source.get("outcar")
             else:
                 self._xdatcar = source.get("xdatcar")
+            self._as_written = source.get("as_written") is True
         elif isinstance(source, (str, os.PathLike)):
             path = Path(os.fsdecode(os.fspath(source)))
             paths = {

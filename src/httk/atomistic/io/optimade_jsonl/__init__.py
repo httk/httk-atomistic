@@ -65,6 +65,8 @@ from httk.core import TextstreamFileView
 from httk.core.atomic_write import atomic_destination
 from httk.core.datastream.compression import split_compression_suffix
 
+from httk.atomistic.io import _check_as_written
+
 FORMAT = "httk-trajectory-jsonl"
 VERSION = "2.1.0"  # full release tag the writer stamps into the header
 GENERATION = "2"  # accepted major format generation
@@ -425,15 +427,19 @@ def write_trajectory_jsonl(
             raise ValueError(f"trajectory JSONL header nframes={declared} does not match {count} frames")
 
 
-def read_trajectory_jsonl(source: str | os.PathLike[str]) -> dict[str, Any]:
+def read_trajectory_jsonl(source: str | os.PathLike[str], *, as_written: bool = False) -> dict[str, Any]:
     """Read a trajectory JSONL path into a lazy neutral payload.
 
     :param source: Filesystem path to a trajectory JSONL file, optionally compressed.
-    :return: A neutral payload containing the lazy trajectory reader.
+    :param as_written: Build the frames from the decimal each JSON number writes instead of
+        its binary floating-point value.
+    :return: A neutral payload containing the lazy trajectory reader and the ``as_written`` flag.
     :raises TypeError: If ``source`` is not a filesystem path.
     :raises FileNotFoundError: If the path does not exist.
+    :raises ValueError: If ``as_written`` is not a bool.
     """
-    return {"format": FORMAT, "trajectory_jsonl": TrajectoryJsonlFile(source)}
+    _check_as_written(as_written, "read_trajectory_jsonl")
+    return {"format": FORMAT, "trajectory_jsonl": TrajectoryJsonlFile(source), "as_written": as_written}
 
 
 def _write_trajectory_jsonl_payload(destination: TextIO, payload: Mapping[str, Any]) -> None:

@@ -7,7 +7,7 @@ from typing import Any
 from httk.core import combined_precision
 
 from httk.atomistic.integrations._geometry import _number
-from httk.atomistic.io import _check_load_precision
+from httk.atomistic.io import _check_as_written, _check_load_precision
 
 from .pw_input import BOHR_ANGSTROM, _label_element, _scaled_precision, _source_text
 
@@ -35,7 +35,7 @@ def _times(rows: list[list[str]], factor: fractions.Fraction) -> list[list[Any]]
     return [[_number(token) * factor for token in row] for row in rows]
 
 
-def read_pw_output(source: Any, *, precision: float | None = None) -> dict[str, Any]:
+def read_pw_output(source: Any, *, precision: float | None = None, as_written: bool = False) -> dict[str, Any]:
     """Parse the geometries of a Quantum ESPRESSO ``pw.x`` output into a frames payload.
 
     Frame 0 is the header geometry (``lattice parameter (alat)``, ``crystal axes`` and the
@@ -53,11 +53,13 @@ def read_pw_output(source: Any, *, precision: float | None = None) -> dict[str, 
     :param precision: Cartesian coordinate precision as a length in Å for every frame, or
         ``None`` to derive it from the written digits. Must be a finite number greater than
         zero when given.
+    :param as_written: Already exact; accepted for a uniform load interface.
     :return: A ``qe-pw-output`` frames payload.
     :raises ValueError: If the text is not UTF-8 or not a ``pw.x`` output with a header
         geometry, or a geometry block is malformed or truncated.
     """
     _check_load_precision(precision, "read_pw_output")
+    _check_as_written(as_written, "read_pw_output")
     lines = _source_text(source, "pw.x output").splitlines()
 
     def line(index: int, what: str) -> str:

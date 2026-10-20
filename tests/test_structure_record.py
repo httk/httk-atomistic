@@ -7,7 +7,7 @@ from fractions import Fraction
 from pathlib import Path
 
 import pytest
-from httk.core import FracVector, load
+from httk.core import FileRecord, FracVector, load
 from httk.core.storage import content_id, project_storage_record, storage_identity_name
 
 from httk.atomistic import (
@@ -307,6 +307,51 @@ def test_sql_store_round_trips_site_moments() -> None:
 
     assert _structure_from_record(fetched).site_moments == source.site_moments
     assert fetched.site_moments_precision == Fraction(1, 100)
+
+
+def _source_file() -> FileRecord:
+    return FileRecord("data/ws/jobs/x/POSCAR", "POSCAR", sha256="0" * 64, format="vasp-poscar")
+
+
+def test_source_file_is_identity_bearing_only_when_set() -> None:
+    record = _unitcell_record(_unitcell())
+
+    assert record.source_file is None
+    assert project_storage_record(UnitcellStructureRecord, _unitcell())["source_file"] is None
+    assert content_id(record) == "036604c0ddde27f40d377ec3de902e10209e5e11cfc3f7b5db133fc1ae568a37"
+    with_file = replace(record, source_file=_source_file())
+    assert content_id(with_file) != content_id(record)
+    assert content_id(with_file) != content_id(replace(record, source_file=replace(_source_file(), sha256="1" * 64)))
+    # The record-only file is dropped when the record is viewed as a domain structure.
+    assert UnitcellStructureView(with_file) == UnitcellStructureView(record)
+    with pytest.raises(TypeError, match="source_file"):
+        replace(record, source_file="POSCAR")
+
+
+def test_from_structure_builds_the_complete_record() -> None:
+    source = _unitcell()
+    record = UnitcellStructureRecord.from_structure(source)
+
+    assert record == _unitcell_record(source)
+    assert UnitcellStructureRecord.from_structure(UnitcellStructureView(source)) == record
+    assert replace(record, source_file=_source_file()).source_file == _source_file()
+
+
+def test_sql_store_round_trips_source_file() -> None:
+    pytest.importorskip("sqlalchemy")
+    pytest.importorskip("httk.store")
+    from httk.store import Backend, EntryIdScheme, SqlStore
+
+    source = replace(_unitcell_record(_unitcell()), source_file=_source_file())
+    with Backend.sqlite() as database:
+        store = SqlStore(
+            database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={StructureEntry: UnitcellStructureRecord}
+        )
+        fetched = store.fetch(UnitcellStructureRecord, store.save(source), eager=True)
+
+    assert fetched.source_file == _source_file()
+    assert content_id(fetched) == content_id(source)
+    assert _structure_from_record(fetched) == _structure_from_record(source)
 
 
 def test_sql_store_round_trips_implicit_atoms_and_site_attachments() -> None:

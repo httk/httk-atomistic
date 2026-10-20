@@ -25,7 +25,7 @@ from httk.atomistic.integrations._geometry import (
 )
 from httk.atomistic.integrations.vasp.io._text import source_lines
 from httk.atomistic.integrations.vasp.io.poscar_reader import _coordinate_precision
-from httk.atomistic.io import _check_load_precision
+from httk.atomistic.io import _check_as_written, _check_load_precision
 
 FORMAT = "abinit-input"
 BOHR_ANGSTROM = "0.52917720859"
@@ -358,7 +358,7 @@ def _geometry(values: Variables, units: Units) -> dict[str, Any]:
     return payload
 
 
-def read_abinit_input(source: Any, *, precision: float | None = None) -> dict[str, Any]:
+def read_abinit_input(source: Any, *, precision: float | None = None, as_written: bool = False) -> dict[str, Any]:
     """Read the structure of an ABINIT input file into a neutral geometry payload.
 
     The structure variables ``acell`` (with a ``Bohr``/``Angstrom`` unit), ``rprim`` or
@@ -372,6 +372,7 @@ def read_abinit_input(source: Any, *, precision: float | None = None) -> dict[st
     :param source: A file path (compressed files are decompressed), a text stream, or an
         iterable of lines.
     :param precision: Optional Cartesian precision in Å for the structure built from it.
+    :param as_written: Already exact; accepted for a uniform load interface.
     :return: The ``abinit-input`` geometry payload, with the original text in ``raw``.
     :raises ValueError: If the text is not a supported ABINIT input: malformed values,
         missing ``znucl``, inconsistent counts, multi-dataset or image structure variables,
@@ -379,6 +380,7 @@ def read_abinit_input(source: Any, *, precision: float | None = None) -> dict[st
         non-unit ``scalecart`` with ``angdeg`` angles that have no exact ABINIT frame.
     """
     _check_load_precision(precision, "read_abinit_input")
+    _check_as_written(as_written, "read_abinit_input")
     text, raw = _source_text(source)
     values, units = _variables(text)
     _check_supported(values, units)

@@ -15,12 +15,13 @@
 #    You should have received a copy of the GNU Affero General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import io
 import logging
 import os
 import re
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any, Self
+from typing import IO, Any, Self, cast
 
 from httk.core import TextstreamFileView
 
@@ -520,7 +521,7 @@ def _read_cif(
 
 
 def read_cif(
-    source: str | os.PathLike[str] | Iterable[str],
+    source: str | os.PathLike[str] | IO[bytes] | Iterable[str],
     pragmatic: bool = True,
     allow_cif2: bool = False,
     *,
@@ -530,9 +531,10 @@ def read_cif(
     """Read CIF text as ``(data_blocks, header)``.
 
     Paths are opened through :class:`httk.core.TextstreamFileView`, including compressed
-    CIF files. Open streams and iterables are consumed but left open.
+    CIF files. A binary stream is decoded like a file (UTF-8, with the same Latin-1 fallback
+    under ``repair``). Open streams and iterables are consumed but left open.
 
-    :param source: A filename, open text stream, or iterable of CIF lines.
+    :param source: A filename, open text or binary stream, or iterable of CIF lines.
     :param pragmatic: Accept selected common deviations from strict CIF tokenization.
     :param allow_cif2: Parse CIF2 list values in addition to CIF1 data.
     :param repair: Apply documented, warning-emitting CIF repairs, including malformed
@@ -556,4 +558,17 @@ def read_cif(
             )
             with TextstreamFileView(path, encoding="latin-1") as stream:
                 return _read_cif(_RewindableIterator(stream), pragmatic, allow_cif2, repair, structural_only)
-    return _read_cif(_RewindableIterator(source), pragmatic, allow_cif2, repair, structural_only)
+    if isinstance(source, (io.BufferedIOBase, io.RawIOBase)):
+        data = source.read()
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            if not repair:
+                raise
+            logger.warning(
+                "CIF stream is not valid UTF-8; decoded it as Latin-1 under repair=True", extra={"context": "cif"}
+            )
+            text = data.decode("latin-1")
+        lines = io.StringIO(text, newline=None)
+        return _read_cif(_RewindableIterator(lines), pragmatic, allow_cif2, repair, structural_only)
+    return _read_cif(_RewindableIterator(cast(Iterable[str], source)), pragmatic, allow_cif2, repair, structural_only)

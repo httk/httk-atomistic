@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from httk.atomistic.io import _check_load_precision
+from httk.atomistic.io import _check_as_written, _check_load_precision
 
 from .inputs import _NAME, _SUFFIXED, Exact, Units, _geometry, _source_text, _value, _variables
 
@@ -53,7 +53,7 @@ def _exact(echo: tuple[dict[str, list[str]], Units]) -> tuple[dict[str, list[Exa
     return {name: [_value(token, name) for token in tokens] for name, tokens in values.items()}, units
 
 
-def read_abinit_output(source: Any, *, precision: float | None = None) -> dict[str, Any]:
+def read_abinit_output(source: Any, *, precision: float | None = None, as_written: bool = False) -> dict[str, Any]:
     """Read the geometries an ABINIT main output echoes into a neutral frames payload.
 
     The ``-outvars:`` echo of the preprocessed input variables is the first frame; the echo
@@ -65,11 +65,13 @@ def read_abinit_output(source: Any, *, precision: float | None = None) -> dict[s
     :param source: A file path (compressed files are decompressed), a text stream, or an
         iterable of lines.
     :param precision: Optional Cartesian precision in Å for every frame.
+    :param as_written: Already exact; accepted for a uniform load interface.
     :return: ``{"format": "abinit-output", "frames": [geometry payloads]}``.
     :raises ValueError: If the text has no preprocessed-variables echo, is a multi-dataset
         output, or echoes an unsupported geometry.
     """
     _check_load_precision(precision, "read_abinit_output")
+    _check_as_written(as_written, "read_abinit_output")
     text, _ = _source_text(source)
     lines = text.splitlines()
     echoes = [_echo(lines, marker) for marker in _ECHOES]

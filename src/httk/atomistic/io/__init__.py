@@ -12,3 +12,9 @@ def _check_load_precision(precision: float | None, reader: str) -> None:
         or precision <= 0
     ):
         raise ValueError(f"{reader} precision must be a finite number greater than zero, got {precision!r}.")
+
+
+def _check_as_written(as_written: bool, reader: str) -> None:
+    """Validate the uniform ``load(..., as_written=...)`` keyword shared by the structure readers."""
+    if not isinstance(as_written, bool):
+        raise ValueError(f"{reader} as_written must be a bool, got {as_written!r}.")
