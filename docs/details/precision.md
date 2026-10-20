@@ -105,9 +105,19 @@ precision in Å and must be a finite number greater than zero; an invalid value 
 `ValueError` for every format.
 
 - **POSCAR/CONTCAR**: the value replaces the digit-derived precision of the cell and
-  coordinates (the values themselves stay exact). Relaxed CONTCAR files are written to full
+  coordinates; it does not change the values. Relaxed CONTCAR files are written to full
   double precision, whose digits claim ~machine epsilon, so pass a realistic value such as
   `5e-4`; without one, a recommendation warning is emitted.
+
+  By default each POSCAR number is read as the smallest-denominator rational within
+  min(half a unit in its last written digit, `1e-4`) of it
+  (`httk.core.exactmath.any_to_fraction`), so a scale line `3.567` becomes `346/97`.
+  Pass `as_written=True` (POSCAR/CONTCAR only) to keep every written decimal exactly
+  instead: `3.567` is `3567/1000`, and a full-precision CONTCAR token keeps all its digits.
+  It combines with `precision=`, which still sets only the precision metadata. A negative
+  scale line (a target volume) still needs a cube root, which stays a deterministic
+  rational approximation. `VASPOutputs(directory, as_written=True)` applies it to its
+  POSCAR/CONTCAR reads and to the header and frames of a `VASPTrajectory` built from it.
 - **CIF and mCIF**: accepted and validated, but without effect. Every number is read as the
   exact decimal it writes, with its precision taken from its own digits and standard
   uncertainty; nothing is converted from floats, so there is nothing for a caller-supplied

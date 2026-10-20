@@ -53,6 +53,15 @@ declares *selective dynamics*, the per-atom `T`/`F` flags are collected into
 `selective_dynamics` as booleans; otherwise that field is `None`. Trailing
 per-line species labels and velocity blocks are ignored.
 
+The remaining keys describe the reading rather than the file's content. `raw` holds the
+original decompressed text (or `None` when unavailable). `cell_precision`,
+`scale_precision` and `coordinate_precision` are the coarsest precisions the written
+tokens claim (or `None`); see {doc}`details/precision`. `precision_override` and
+`as_written` carry the caller's `precision=` and `as_written=` arguments. The first
+replaces the digit-derived precision; the second makes `httk.core.load` build the
+structure from the exact written decimals instead of the smallest-denominator rational
+consistent with each token.
+
 ## Loader registration and `load`
 
 Importing `httk.core` discovers `httk.registry.io.atomistic`, which registers the

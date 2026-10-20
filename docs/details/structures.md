@@ -292,8 +292,9 @@ The same presentation is also available as views over any backend — the whole-
 ## Loading a POSCAR
 
 `httk.core.load` returns a `UnitcellStructure` for POSCAR and CONTCAR files. It
-uses the neutral, string-preserving reader payload internally, so cell rows and
-coordinates remain exact; compressed `.bz2` and `.gz` files work too.
+uses the neutral, string-preserving reader payload internally and builds the cell
+rows and coordinates as exact rationals, never floats; compressed `.bz2` and `.gz`
+files work too.
 
 ```python
 from httk.core import load
@@ -306,7 +307,13 @@ assert structure.species_at_sites == ("Na", "Cl")
 
 A negative scale line encodes a target cell **volume**; the resulting overall
 scale is the cube root of `V / |det(basis)|`, which leaves the exact surd field,
-so it is a deterministic rational approximation (the basis rows stay exact).
+so it is a deterministic rational approximation (the basis rows themselves are
+not affected by it).
+By default each written number becomes the smallest-denominator rational within
+min(half a unit in its last written digit, `1e-4`) of it
+(`httk.core.exactmath.any_to_fraction`), so `3.567` reads as `346/97`, not as the
+decimal itself. `load(path, as_written=True)` keeps every written decimal exactly
+instead (`3567/1000`); see {doc}`precision`.
 The POSCAR reader ships in-tree and is registered when `httk.core` is imported;
 see {doc}`/poscar` for the neutral, string-preserving reader mapping. For VASP
 plane-wave coefficients, see {doc}`/wavefunctions`.

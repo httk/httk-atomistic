@@ -81,7 +81,7 @@ def _coordinate_precision(coords: list[list[str]], *, cartesian: bool) -> Any:
     return combined_precision(None if _DIRECT_UNKNOWN_PRECISION.fullmatch(token) else token for token in tokens)
 
 
-def read_poscar(source: Any, *, precision: float | None = None) -> dict[str, Any]:
+def read_poscar(source: Any, *, precision: float | None = None, as_written: bool = False) -> dict[str, Any]:
     """Parse a VASP POSCAR/CONTCAR into a neutral, string-preserving mapping.
 
     ``source`` may be a filename, opened through
@@ -125,16 +125,28 @@ def read_poscar(source: Any, *, precision: float | None = None) -> dict[str, Any
     every candidate; pass a realistic value (e.g. ``5e-4``) for such files. When
     ``precision`` is ``None`` a recommendation warning is emitted.
 
+    A final key, ``as_written``, carries the caller's ``as_written`` flag. By default the
+    structure builder reads each number as the smallest-denominator rational within
+    min(half a unit in its last written digit, ``1e-4``) of it
+    (:func:`httk.core.exactmath.any_to_fraction`), so ``3.567`` becomes ``346/97``. With ``as_written=True`` every scale, basis and coordinate
+    token is instead its exact decimal value (``3.567`` is ``3567/1000``). The precision
+    metadata is unchanged either way. A volume line (negative scale) still needs a cube
+    root, which stays a deterministic rational approximation.
+
     :param source: POSCAR/CONTCAR filename, text stream, or iterable of source lines.
     :param precision: Cartesian coordinate precision as a length in Å, or ``None`` to keep
         the digit-derived behavior (and emit a recommendation warning). Must be a finite
         number greater than zero when given.
+    :param as_written: Build the structure from the exact decimal value of every written
+        number instead of the simplest rational consistent with its digits.
     :return: The neutral mapping, including the original text in ``raw`` when available,
         and ``precision_override`` (the passed value or ``None``).
-    :raises ValueError: If the input is malformed, or ``precision`` is not a finite number
-        greater than zero.
+    :raises ValueError: If the input is malformed, ``precision`` is not a finite number
+        greater than zero, or ``as_written`` is not a bool.
     """
     _check_load_precision(precision, "read_poscar")
+    if not isinstance(as_written, bool):
+        raise ValueError(f"read_poscar as_written must be a bool, got {as_written!r}.")
     if precision is None:
         logger.warning(
             "when reading VASP POSCAR/CONTCAR files it is recommended to pass a value for precision "
@@ -146,6 +158,7 @@ def read_poscar(source: Any, *, precision: float | None = None) -> dict[str, Any
     with source_lines(source, preserve_path=True, capture_stream=True) as (lines, raw):
         data = _read_poscar(iter(lines))
     data["precision_override"] = precision
+    data["as_written"] = as_written
     data["raw"] = raw
     return data
 

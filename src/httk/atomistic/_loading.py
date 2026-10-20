@@ -1,7 +1,7 @@
 """Private neutral-payload adapters used by the core loading registry."""
 
 import fractions
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from httk.core import SurdScalar, SurdVector, exactmath
@@ -38,18 +38,26 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
     if fmt != "vasp-poscar":
         raise ValueError(f"_structure_from_poscar expected a 'vasp-poscar' mapping, got format={fmt!r}.")
 
-    cell_rows = data["cell"]
+    # Default: SurdVector/Cell parse each decimal string as the smallest-denominator rational
+    # within min(half a unit in its last written digit, 1e-4) of it
+    # (httk.core.exactmath.any_to_fraction); as_written takes the exact decimals.
+    as_written = data.get("as_written") is True
+    cell_rows = _exact_rows(data["cell"]) if as_written else data["cell"]
+    coords = _exact_rows(data["coords"]) if as_written else data["coords"]
     raw_basis = SurdVector(cell_rows)
 
     scale_str = data.get("scale")
     volume_str = data.get("volume")
     if scale_str is not None:
-        scale: Any = scale_str
+        scale: Any = fractions.Fraction(scale_str) if as_written else scale_str
     elif volume_str is not None:
         abs_det = abs(_to_fraction(raw_basis.det()))
         if abs_det == 0:
             raise ValueError("Cannot volume-scale a degenerate cell (zero determinant).")
-        target_volume = _to_fraction(SurdVector(volume_str)._as_scalar())
+        if as_written:
+            target_volume = fractions.Fraction(volume_str)
+        else:
+            target_volume = _to_fraction(SurdVector(volume_str)._as_scalar())
         scale = _cube_root(target_volume / abs_det)
     else:
         scale = 1
@@ -64,9 +72,9 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
 
     if data["cartesian"]:
         # reduced = cart * basis^-1 (row-vector convention); the universal scale cancels.
-        reduced: Any = SurdVector(data["coords"]) * raw_basis.inv()
+        reduced: Any = SurdVector(coords) * raw_basis.inv()
     else:
-        reduced = data["coords"]
+        reduced = coords
     sites = Sites(reduced, coordinate_precision)
 
     symbols = data.get("symbols")
@@ -90,6 +98,11 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
         species.append(Species(name=name, chemical_symbols=(symbol,), concentration=(1.0,)))
 
     return UnitcellStructure(cell, sites, species, species_at_sites)
+
+
+def _exact_rows(rows: Iterable[Iterable[str]]) -> list[list[fractions.Fraction]]:
+    """Each decimal token as its exact :class:`~fractions.Fraction` value."""
+    return [[fractions.Fraction(token) for token in row] for row in rows]
 
 
 def _structure_from_optimade_payload(data: Mapping[str, Any]) -> OptimadeStructure:

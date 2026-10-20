@@ -26,7 +26,9 @@ class VASPStructure(StructureBackend):
     It is not registered in ``backend_classes``. Constructing it from a view whose
     unwrapped value is already a ``VASPStructure`` returns that backend by identity.
     The payload's ``raw`` channel preserves the source representation for byte-exact
-    saving.
+    saving. Reading hints such as ``precision`` and ``as_written`` are not forwarded from a
+    path; pass a loaded payload instead, as in
+    ``VASPStructure(httk.core.load(path, raw=True, as_written=True))``.
 
     :param obj: A POSCAR path, neutral payload, or serializer-supported source.
     :param \**hints: Backend-selection hints.

@@ -41,17 +41,29 @@ class VASPOutputs:
         access, emits the same recommendation warning ``read_poscar`` does — relaxed
         CONTCAR coordinates are written to full double precision, so without a value the
         symmetry tolerance comes out unrealistically tight. Validated lazily by the reader.
+    :param as_written: Passed to the POSCAR/CONTCAR reads (see
+        :func:`~httk.atomistic.integrations.vasp.io.read_poscar`): build structures from the
+        exact decimal value of every written number. A ``VASPTrajectory`` built from this
+        object reads its frames the same way. Validated lazily by the reader.
     """
 
-    def __init__(self, directory: str | os.PathLike[str], *, precision: float | None = None) -> None:
+    def __init__(
+        self, directory: str | os.PathLike[str], *, precision: float | None = None, as_written: bool = False
+    ) -> None:
         if not isinstance(directory, (str, os.PathLike)):
             raise TypeError("VASPOutputs requires a filesystem directory")
         self._directory = Path(directory)
         if not self._directory.is_dir():
             raise NotADirectoryError(self._directory)
         self._precision = precision
+        self._as_written = as_written
         self._closed = False
         self._cache: dict[str, Any] = {}
+
+    @property
+    def as_written(self) -> bool:
+        """Whether POSCAR/CONTCAR reads, and trajectories built from this object, keep exact decimals."""
+        return self._as_written
 
     @property
     def closed(self) -> bool:
@@ -100,7 +112,7 @@ class VASPOutputs:
         return None if value is _MISSING else value
 
     def _read_poscar(self, path: Path) -> dict[str, Any]:
-        return read_poscar(path, precision=self._precision)
+        return read_poscar(path, precision=self._precision, as_written=self._as_written)
 
     @property
     def poscar(self) -> dict[str, Any] | None:
