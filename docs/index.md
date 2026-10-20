@@ -3,7 +3,7 @@
 This site documents specifically the *httk-atomistic* module. For the full
 documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org).
 
-*httk-atomistic* is a *httk₂* module providing crystal structure representations under the namespace `httk.atomistic`. It also carries the file input/output stack for atomistic data — the CIF/mCIF reader and writer, the VASP POSCAR/CONTCAR and output-file readers, the WAVECAR binary reader/writer, and the OPTIMADE trajectory JSON Lines holding format — registering these readers with *httk-core* through `httk.registry.io.atomistic`.
+*httk-atomistic* is a *httk₂* module providing crystal structure representations under the namespace `httk.atomistic`. It also carries the file input/output stack for atomistic data — the CIF/mCIF reader and writer, the VASP POSCAR/CONTCAR and output-file readers, the WAVECAR binary reader/writer, the lossless `.httkstruct` exact structure format, and the OPTIMADE trajectory JSON Lines holding format — registering these readers with *httk-core* through `httk.registry.io.atomistic`.
 
 ```{admonition} Quick links
 :class: tip
@@ -27,6 +27,7 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 - **Reading VASP output files**: {doc}`vasp_outputs`
 - **Reading and writing WAVECAR files**: {doc}`wavecar`
 - **Plane-wave wavefunctions**: {doc}`wavefunctions`
+- **Exact structure files**: {doc}`httk_structure`
 - **Trajectory JSON Lines**: {doc}`trajectory_jsonl`
 - **LAMMPS trajectories**: {doc}`lammps`
 - **Runnable examples**: {doc}`examples/index`
@@ -79,6 +80,7 @@ vasp_outputs
 doscar
 wavecar
 wavefunctions
+httk_structure
 trajectory_jsonl
 lammps
 qe

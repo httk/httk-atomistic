@@ -26,6 +26,9 @@ Ordinary Wyckoff classification produces `BareProtostructure` or anonymous
 explicit representative and/or discriminator for a geometrical class. These
 refinements affect equality and content identity but remain separate from the label.
 
+To keep a structure exactly in a file (scale, surds, precisions and all), save it
+as `.httkstruct`; see {doc}`httk_structure`.
+
 `structure_delta(first, second)` is the public total Cartesian atom travel
 between compatible exact representatives after common-subgroup alignment. It
 uses each endpoint's cell and shortest periodic images; it is not a label or

@@ -275,3 +275,28 @@ register_reader(
     format="abinit-output",
     extensions=(".abo",),
 )
+
+# The lossless exact structure format. Core dispatches on the final suffix only, so the
+# format takes a distinct extension rather than the generic ".json"; any other filename
+# (e.g. "x.httk.json") works through load/save(..., format="httk-structure").
+register_reader(
+    name="httk-structure",
+    reader="httk.atomistic.io.httk_structure:read_httk_structure",
+    format="httk-structure",
+    extensions=(".httkstruct",),
+)
+register_writer(
+    name="httk-structure",
+    writer="httk.atomistic.io.httk_structure:_write_httk_structure",
+    format="httk-structure",
+    extensions=(".httkstruct",),
+)
+register_format_serializer(
+    format="httk-structure",
+    serializer="httk.atomistic.io.httk_structure:_structure_document",
+)
+register_format_adapter(
+    name="httk-structure",
+    adapter="httk.atomistic.io.httk_structure:_structure_from_document",
+    formats=("httk-structure",),
+)
