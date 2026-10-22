@@ -9,8 +9,6 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Self
 
-from httk.atomistic.io import _check_as_written
-
 from ._text import source_lines
 
 _CONFIGURATION = re.compile(r"^\s*(Direct|Cartesian)\s+configuration\s*=\s*(\d+)", re.IGNORECASE)
@@ -336,16 +334,12 @@ class XdatcarFile:
         return self._nframes or 0
 
 
-def read_xdatcar(source: str | os.PathLike[str], *, as_written: bool = False) -> dict[str, Any]:
+def read_xdatcar(source: str | os.PathLike[str]) -> dict[str, Any]:
     """Read an XDATCAR path into a lazy neutral ``vasp-xdatcar`` payload.
 
     :param source: Filesystem path to an XDATCAR, optionally compressed.
-    :param as_written: Build the trajectory frames from the exact decimal value of every
-        written number instead of the simplest rational consistent with its digits.
-    :return: A neutral payload containing the lazy XDATCAR reader and the ``as_written`` flag.
+    :return: A neutral payload containing the lazy XDATCAR reader.
     :raises TypeError: If ``source`` is not a filesystem path.
     :raises FileNotFoundError: If the path does not exist.
-    :raises ValueError: If ``as_written`` is not a bool.
     """
-    _check_as_written(as_written, "read_xdatcar")
-    return {"format": "vasp-xdatcar", "xdatcar": XdatcarFile(source), "as_written": as_written}
+    return {"format": "vasp-xdatcar", "xdatcar": XdatcarFile(source)}

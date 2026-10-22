@@ -159,8 +159,9 @@ Wyckoff position. A structure that states no precision falls back to
 ### The exactness contract
 
 1. A file's decimals embed as the rational the file literally wrote. `0.3333` is
-   `3333/10000` — never silently `1/3`, and never `float("0.3333")`, whose exact
-   value is `6004199023210345/18014398509481984` and claims a precision nobody
+   `3333/10000` — never silently `1/3`. A Python float embeds as its shortest
+   decimal, so `0.3333` passed as a float is also `3333/10000`, not the binary
+   value `6004199023210345/18014398509481984`, which claims a precision nobody
    stated.
 2. Choosing a position is the only tolerant step, and it is a discrete decision.
 3. The chosen position then supplies **exact** values for its fixed components.

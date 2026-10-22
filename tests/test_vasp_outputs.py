@@ -87,21 +87,18 @@ Direct
 """
 
 
-def test_outputs_as_written_propagates_to_reads(tmp_path: Path) -> None:
+def test_outputs_read_exact_decimals(tmp_path: Path) -> None:
     (tmp_path / "CONTCAR").write_text(DIAMOND, encoding="utf-8")
-    exact = VASPOutputs(tmp_path, precision=5e-4, as_written=True)
-    assert exact.as_written is True
-    assert _structure_from_poscar(exact.contcar).cell.scale.fractions == Fraction(3567, 1000)
-    snapped = VASPOutputs(tmp_path, precision=5e-4).contcar
-    assert _structure_from_poscar(snapped).cell.scale.fractions == Fraction(346, 97)
+    contcar = VASPOutputs(tmp_path, precision=5e-4).contcar
+    assert _structure_from_poscar(contcar).cell.scale.fractions == Fraction(3567, 1000)
 
 
 @pytest.mark.parametrize("with_poscar", (True, False))
-def test_as_written_trajectory_frames_match_header(tmp_path: Path, with_poscar: bool) -> None:
+def test_trajectory_frames_match_header(tmp_path: Path, with_poscar: bool) -> None:
     if with_poscar:
         (tmp_path / "POSCAR").write_text(DIAMOND, encoding="utf-8")
     (tmp_path / "XDATCAR").write_text(DIAMOND.replace("Direct\n", "Direct configuration= 1\n"), encoding="utf-8")
-    with VASPOutputs(tmp_path, precision=5e-4, as_written=True) as outputs:
+    with VASPOutputs(tmp_path, precision=5e-4) as outputs:
         trajectory = VASPTrajectory(outputs)
         frame = trajectory.frame(0)
         assert frame.cell.basis == trajectory._header_structure().cell.basis

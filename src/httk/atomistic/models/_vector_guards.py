@@ -18,6 +18,7 @@ from httk.core import (
     FracVector,
     SurdScalar,
     SurdVector,
+    exactmath,
     numpy_available,
 )
 
@@ -115,6 +116,27 @@ def to_periodicity(obj: Any) -> tuple[bool, bool, bool]:
 def to_float_tuples(vector: FracVector | SurdVector) -> tuple[tuple[float, ...], ...]:
     """Render an exact 2-D vector to nested float tuples (the primitive-view presentation)."""
     return tuple(tuple(row) for row in vector.to_floats())
+
+
+def exact_literal(value: FracVector | SurdVector | fractions.Fraction) -> str:
+    """Render an exact value as a constructor literal that reads as written.
+
+    Rational content becomes nested lists of :func:`httk.core.exactmath.exact_text` tokens,
+    integers bare and everything else quoted (``[["5.64", 0, 0], ...]``); a value with
+    irrational (surd) entries keeps its own repr.
+    """
+    if isinstance(value, SurdVector):
+        if not value.is_rational:
+            return repr(value)
+        value = value.coefficient(1)
+
+    def render(node: Any) -> str:
+        if isinstance(node, (list, tuple)):
+            return "[" + ", ".join(render(item) for item in node) + "]"
+        number = fractions.Fraction(node)
+        return str(number.numerator) if number.denominator == 1 else f'"{exactmath.exact_text(number)}"'
+
+    return render(value.to_fractions() if isinstance(value, FracVector) else value)
 
 
 def _is_empty_sequence(obj: Any) -> bool:

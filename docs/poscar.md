@@ -56,11 +56,12 @@ per-line species labels and velocity blocks are ignored.
 The remaining keys describe the reading rather than the file's content. `raw` holds the
 original decompressed text (or `None` when unavailable). `cell_precision`,
 `scale_precision` and `coordinate_precision` are the coarsest precisions the written
-tokens claim (or `None`); see {doc}`details/precision`. `precision_override` and
-`as_written` carry the caller's `precision=` and `as_written=` arguments. The first
-replaces the digit-derived precision; the second makes `httk.core.load` build the
-structure from the exact written decimals instead of the smallest-denominator rational
-consistent with each token.
+tokens claim (or `None`); see {doc}`details/precision`. `precision_override` carries
+the caller's `precision=` argument, which replaces the digit-derived precision.
+`httk.core.load` builds the structure from each token exactly as written (`3.567` is
+`3567/1000`). A `Cartesian` file keeps its coordinates in a
+`httk.atomistic.CartesianSites` backend, so saving the structure as a POSCAR writes them
+back in `Cartesian` mode with the same numbers (see {doc}`details/structures`).
 
 ## Loader registration and `load`
 

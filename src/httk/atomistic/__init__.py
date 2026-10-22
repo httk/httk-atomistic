@@ -26,6 +26,7 @@ from httk.atomistic.models.cell.params_view import CellParamsView
 from httk.atomistic.models.cell.plain import PlainCell
 from httk.atomistic.models.cell.view import CellView
 from httk.atomistic.models.sites.backend import SitesBackend
+from httk.atomistic.models.sites.cartesian import CartesianSites
 from httk.atomistic.models.sites.like import SitesLike
 from httk.atomistic.models.sites.plain import PlainSites
 from httk.atomistic.models.sites.sites import Sites
@@ -274,7 +275,7 @@ StructureBackend.backend_classes = [
     DatastreamStructure,
 ]
 CellBackend.backend_classes = [RecordCell, PlainCell, CellParams]
-SitesBackend.backend_classes = [RecordSites, PlainSites]
+SitesBackend.backend_classes = [RecordSites, CartesianSites, PlainSites]
 SiteMomentsBackend.backend_classes = []
 SpeciesBackend.backend_classes = [RecordSpecies, PlainSpecies]
 from httk.atomistic.models.trajectory.backend import TrajectoryBackend
@@ -331,6 +332,7 @@ __all__ = [
     "CanonicalizationLimitError",
     "CartesianSiteMoments",
     "CartesianSiteMomentsView",
+    "CartesianSites",
     "Cell",
     "CellLike",
     "CellParams",

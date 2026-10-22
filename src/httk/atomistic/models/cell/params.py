@@ -75,8 +75,8 @@ class CellParams(CellBackend):
 
     The native representation is a flat length-6 vector-like of the cell-vector lengths
     ``a``/``b``/``c`` and the angles ``alpha``/``beta``/``gamma`` in degrees, stored as exact
-    :class:`~fractions.Fraction` values (parsed via
-    :func:`~httk.core.exactmath.any_to_fraction`). The exact ``basis`` is derived lazily and
+    :class:`~fractions.Fraction` values (converted through :class:`~httk.core.FracVector`, so a
+    string such as ``"3.567"`` is kept exactly as written). The exact ``basis`` is derived lazily and
     cached using the standard crystallographic orientation convention (first cell vector along x,
     second in the xy-plane); for the common Niven angles it is exact (radicals intact). Since
     parameters carry no separate length factor, ``scale`` is the exact ``1`` and

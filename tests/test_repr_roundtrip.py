@@ -142,3 +142,32 @@ def test_structure_and_trajectory_repr_and_str_are_clean() -> None:
     traj = Trajectory([structure, structure])
     assert repr(traj).startswith("Trajectory(") and "..." in repr(traj)
     assert "0x" not in repr(traj)
+
+
+def test_domain_reprs_read_as_written() -> None:
+    from httk.atomistic import CartesianSites, Sites, UnitcellStructure
+
+    rows = [["5.64", 0, 0], [0, "5.64", 0], [0, 0, "5.64"]]
+    assert repr(Cell(rows)) == 'Cell(basis=[["5.64", 0, 0], [0, "5.64", 0], [0, 0, "5.64"]])'
+    assert str(Cell(rows).volume) == "179.406144"
+    assert repr(Cell(rows, scale="2.5", precision="0.001")).endswith(', scale="2.5", precision="0.001")')
+    assert repr(Sites([[0, 0, 0], ["1/3", "0.5", 0]], "1/1000")) == (
+        'Sites(reduced_coords=[[0, 0, 0], ["1/3", "0.5", 0]], precision="0.001")'
+    )
+    # Irrational (surd) bases keep the exact vector repr.
+    assert "SurdVector(" in repr(Cell([3, 3, 5, 90, 90, 120]))
+
+    ns = dict(_NS, UnitcellStructure=UnitcellStructure, Sites=Sites, CartesianSites=CartesianSites)
+    _roundtrips(Cell(rows, scale="2.5", precision="0.001"))
+    _roundtrips(Cell([3, 3, 5, 90, 90, 120], scale="1.5"))
+    precise = UnitcellStructure(
+        Cell(rows, precision="0.001"), Sites([[0, 0, 0], ["1/3", "0.5", 0]], "1/10000"), None, ["Na", "Cl"]
+    )
+    assert eval(repr(precise), ns) == precise
+    cartesian = UnitcellStructure(
+        Cell(rows), CartesianSites([[0, 0, 0], ["2.82", "2.82", "2.82"]], rows, "0.001"), None, ["Na", "Cl"]
+    )
+    assert "sites=CartesianSites(" in repr(cartesian)
+    restored = eval(repr(cartesian), ns)
+    assert restored == cartesian
+    assert isinstance(restored.sites.unwrap(), CartesianSites)

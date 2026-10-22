@@ -21,7 +21,7 @@ from httk.atomistic.integrations._geometry import (
     _write_text,
 )
 from httk.atomistic.integrations.vasp.io._text import source_lines
-from httk.atomistic.io import _check_as_written, _check_load_precision
+from httk.atomistic.io import _check_load_precision
 
 _TAG = "cp2k-input"
 _COMMENT = re.compile(r"[!#].*")
@@ -60,7 +60,7 @@ class _Section:
         return found[0] if found else None
 
 
-def read_cp2k_input(source: Any, *, precision: float | None = None, as_written: bool = False) -> dict[str, Any]:
+def read_cp2k_input(source: Any, *, precision: float | None = None) -> dict[str, Any]:
     """Read the structure of a CP2K input or restart file into a neutral geometry payload.
 
     The geometry is the single ``&FORCE_EVAL/&SUBSYS`` section (or a file holding just one
@@ -81,14 +81,12 @@ def read_cp2k_input(source: Any, *, precision: float | None = None, as_written: 
     :param source: A path (compressed files are decompressed) or an open text or binary stream.
     :param precision: Cartesian coordinate precision in Å overriding the digit-derived one,
         or ``None``. Must be a finite number greater than zero when given.
-    :param as_written: Already exact; accepted for a uniform load interface.
     :return: The geometry payload, with the original text in ``raw``.
     :raises ValueError: If the source is not a CP2K input, is malformed, uses a refused
         construct, or ``precision`` is invalid.
     :raises TypeError: If ``source`` is neither a path nor a stream.
     """
     _check_load_precision(precision, "read_cp2k_input")
-    _check_as_written(as_written, "read_cp2k_input")
     try:
         with source_lines(source, preserve_path=True, capture_stream=True) as (_, raw):
             pass

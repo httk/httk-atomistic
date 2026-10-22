@@ -2,7 +2,6 @@
 
 import os
 from collections.abc import Iterator, Mapping
-from fractions import Fraction
 from typing import Any, ClassVar, Self
 
 import httk.core
@@ -17,10 +16,7 @@ from httk.atomistic.models.trajectory.backend import TrajectoryBackend
 class JsonlTrajectory(TrajectoryBackend):
     r"""Stream a neutral ``httk-trajectory-jsonl`` payload or path lazily.
 
-    Frame data remains in the JSONL container and is read as requested. JSON numbers are
-    floating-point values, taken exactly as binary floats; a payload read with
-    ``as_written=True`` takes the shortest decimal of each float instead, which is the
-    written decimal for every number of up to 15 significant digits.
+    Frame data remains in the JSONL container and is read as requested.
 
     :param source: A JSONL payload or path to one.
     :param \**hints: Backend-selection hints.
@@ -55,12 +51,10 @@ class JsonlTrajectory(TrajectoryBackend):
         if getattr(self, "_jsonl_initialized", False):
             return
         self._source = source
-        self._as_written = False
         if isinstance(source, Mapping):
             if source.get("format") != "httk-trajectory-jsonl":
                 raise ValueError("JsonlTrajectory payload must have format 'httk-trajectory-jsonl'.")
             self._file = source["trajectory_jsonl"]
-            self._as_written = source.get("as_written") is True
         elif isinstance(source, (str, os.PathLike)):
             payload = httk.core.load(os.fsdecode(os.fspath(source)), raw=True)
             if payload.get("format") != "httk-trajectory-jsonl":
@@ -120,14 +114,9 @@ class JsonlTrajectory(TrajectoryBackend):
         cell = frame.get("lattice_vectors", self._info.get("constant_cell"))
         if cell is None:
             raise ValueError("trajectory JSONL frame has no cell")
-        positions = frame["fractional_site_positions"]
-        if self._as_written:
-            # ponytail: repr() of the parsed float is the written decimal up to 15 significant
-            # digits (all httk-written files); json parse_float tokens if longer ones must survive.
-            cell, positions = ([[Fraction(repr(value)) for value in row] for row in rows] for rows in (cell, positions))
         return UnitcellStructure(
             Cell(cell),
-            Sites(positions),
+            Sites(frame["fractional_site_positions"]),
             self.species,
             self.species_at_sites,
         )

@@ -4,7 +4,6 @@ This backend is explicit-only: a generic trajectory source must not claim an
 OUTCAR/XDATCAR path.
 """
 
-import fractions
 import os
 import re
 from collections.abc import Iterator, Mapping
@@ -74,8 +73,7 @@ class VASPTrajectory(TrajectoryBackend):
 
     XDATCAR geometry is preferred when both files are available. Cartesian coordinates
     are reduced exactly against the frame cell. A mismatch between OUTCAR and XDATCAR
-    frame counts raises an error. A VASP-outputs-like source or a payload whose ``as_written``
-    is ``True`` builds the header and every frame from the exact written decimals.
+    frame counts raises an error. Every written number is read exactly as written.
 
     :param source: A VASP trajectory path, directory, payload, or VASP-outputs-like object.
     :param \**hints: Backend-selection hints.
@@ -109,7 +107,6 @@ class VASPTrajectory(TrajectoryBackend):
         self._outcar: Any | None = None
         self._xdatcar: Any | None = None
         self._poscar: Mapping[str, Any] | None = None
-        self._as_written = False
         self._sources_ready = False
         self._nframes: int | None = None
         self._header: UnitcellStructure | None = None
@@ -147,7 +144,6 @@ class VASPTrajectory(TrajectoryBackend):
                 self._outcar = source.get("outcar")
             else:
                 self._xdatcar = source.get("xdatcar")
-            self._as_written = source.get("as_written") is True
         elif isinstance(source, (str, os.PathLike)):
             path = Path(os.fsdecode(os.fspath(source)))
             paths = {
@@ -173,7 +169,6 @@ class VASPTrajectory(TrajectoryBackend):
         else:
             self._outcar = _payload_object(getattr(source, "outcar", None), "vasp-outcar", "outcar")
             self._xdatcar = _payload_object(getattr(source, "xdatcar", None), "vasp-xdatcar", "xdatcar")
-            self._as_written = getattr(source, "as_written", False) is True
             poscar = getattr(source, "poscar", None)
             if isinstance(poscar, Mapping):
                 self._poscar = poscar
@@ -255,7 +250,6 @@ class VASPTrajectory(TrajectoryBackend):
                 "coords": tuple(("0", "0", "0") for _ in range(sum(counts))),
                 "symbols": symbols,
                 "counts": counts,
-                "as_written": self._as_written,
             }
         from httk.atomistic._loading import _structure_from_poscar
 
@@ -267,7 +261,7 @@ class VASPTrajectory(TrajectoryBackend):
         assert self._xdatcar is not None
         scale = self._xdatcar.scale if frame_scale is None else frame_scale
         if float(scale) >= 0:
-            return Cell(self._exact(rows), fractions.Fraction(scale) if self._as_written else scale)
+            return Cell(rows, scale)
         header = self._header_structure()
         from httk.atomistic._loading import _structure_from_poscar
 
@@ -283,17 +277,8 @@ class VASPTrajectory(TrajectoryBackend):
                 "coords": tuple(("0", "0", "0") for _ in header.species_at_sites),
                 "symbols": symbols,
                 "counts": counts,
-                "as_written": self._as_written,
             }
         ).cell
-
-    def _exact(self, rows: Any) -> Any:
-        """The written tokens as exact decimals under ``as_written``, else unchanged."""
-        if not self._as_written:
-            return rows
-        from httk.atomistic._loading import _exact_rows
-
-        return _exact_rows(rows)
 
     @property
     def species(self) -> tuple[Any, ...]:
@@ -316,17 +301,17 @@ class VASPTrajectory(TrajectoryBackend):
         header = self._header_structure()
         raw_rows = frame["cell"] or self._xdatcar.cell
         cell = self._xdatcar_cell(raw_rows, frame.get("scale"))
-        coords = self._exact(frame["coords"])
+        coords = frame["coords"]
         if frame.get("cartesian", False):
-            coords = SurdVector(coords) * SurdVector(self._exact(raw_rows)).inv()
+            coords = SurdVector(coords) * SurdVector(raw_rows).inv()
         return UnitcellStructure(cell, Sites(coords), header.species, header.species_at_sites)
 
     def _from_outcar(self, frame: Any) -> UnitcellStructure:
         header = self._header_structure()
         if frame.positions is None:
             raise ValueError(f"OUTCAR frame {frame.index} has no Cartesian positions.")
-        cell = header.cell if frame.cell is None else Cell(self._exact(frame.cell))
-        reduced = SurdVector(self._exact(frame.positions)) * cell.basis.inv()
+        cell = header.cell if frame.cell is None else Cell(frame.cell)
+        reduced = SurdVector(frame.positions) * cell.basis.inv()
         return UnitcellStructure(cell, Sites(reduced), header.species, header.species_at_sites)
 
     def frame(self, i: int) -> UnitcellStructure:

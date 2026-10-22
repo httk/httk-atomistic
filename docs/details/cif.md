@@ -326,6 +326,16 @@ and only the cell parameters are rounded; the fractional coordinates are already
 and are written unchanged. An already-exactly-representable structure is written identically
 whether or not the default applies.
 
+The writer never changes a value. Every coordinate and cell parameter is written exactly as
+stored (terminating values as their exact decimal, others at sixteen significant digits), so a
+relaxed structure's float noise such as `0.3549999999999969` is written with all its digits; a
+coordinate is only padded with zeros to the width its precision resolves. For clean output,
+rationalize first, for example `save(structure.rationalized(), path)` for a CONTCAR loaded with
+`precision=5e-4` (see [Rationalizing explicitly](precision.md#rationalizing-explicitly)). Either way the precision
+read back is the coarsest of the written digits, so a file whose every coordinate carries float
+noise reads back at about `1e-16`; pass a `tolerance=` to {py:func}`~httk.atomistic.recognize_asu`
+when recognizing the symmetry of such a file.
+
 The `_httk_*_exact` companion tags — a non-standard httk extension carrying exact rational tokens
 such as `1/3` — are **off by default**, so a saved CIF holds only standard columns and interoperates
 cleanly. Callers who want a lossless httk round-trip pass `exact_companions=True`

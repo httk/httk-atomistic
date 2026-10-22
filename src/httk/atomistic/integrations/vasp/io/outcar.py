@@ -8,8 +8,6 @@ from itertools import islice
 from types import MappingProxyType, TracebackType
 from typing import Any, Self
 
-from httk.atomistic.io import _check_as_written
-
 from ._text import source_lines
 
 # Ported from old/httk/src/httk/iface/vasp_if.py:get_computation_info.
@@ -1076,16 +1074,12 @@ class OutcarFile:
         return self._ensure_full().issues
 
 
-def read_outcar(source: Any, *, as_written: bool = False) -> dict[str, Any]:
+def read_outcar(source: Any) -> dict[str, Any]:
     """Return a lazy OUTCAR payload; only filesystem filenames are accepted.
 
     :param source: Filesystem path to an OUTCAR, optionally compressed.
-    :param as_written: Build the trajectory frames from the exact decimal value of every
-        written number instead of the simplest rational consistent with its digits.
-    :return: A neutral payload containing the lazy OUTCAR reader and the ``as_written`` flag.
+    :return: A neutral payload containing the lazy OUTCAR reader.
     :raises TypeError: If ``source`` is not a filesystem path.
     :raises FileNotFoundError: If the path does not exist.
-    :raises ValueError: If ``as_written`` is not a bool.
     """
-    _check_as_written(as_written, "read_outcar")
-    return {"format": "vasp-outcar", "outcar": OutcarFile(source), "as_written": as_written}
+    return {"format": "vasp-outcar", "outcar": OutcarFile(source)}

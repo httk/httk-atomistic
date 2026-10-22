@@ -143,7 +143,13 @@ def test_poscar_save_load_roundtrip_and_suffixes(tmp_path) -> None:
     from httk.atomistic import same_crystal
 
     assert has_writer_for("POSCAR")
-    original = _structure()
+    # Terminating decimals: the reader takes each written token exactly, so these come back identical.
+    original = UnitcellStructure(
+        CELL,
+        [[0, 0, 0], [Fraction(1, 4), Fraction(1, 2), 0], [Fraction(5, 8), 0, 0]],
+        [Species("Si", ("Si",), (1.0,)), Species("O", ("O",), (1.0,))],
+        ["Si", "O", "Si"],
+    )
     for destination in (tmp_path / "POSCAR", tmp_path / "structure.vasp", tmp_path / "POSCAR.bz2"):
         save(original, destination)
         recovered = load(destination)

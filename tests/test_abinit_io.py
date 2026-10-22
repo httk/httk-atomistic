@@ -7,7 +7,7 @@ from fractions import Fraction
 from pathlib import Path
 
 import pytest
-from httk.core import SurdVector, load, save
+from httk.core import SurdVector, exactmath, load, save
 
 from httk.atomistic import Species, Trajectory, UnitcellStructure
 from httk.atomistic.integrations._geometry import _structure_from_geometry
@@ -106,6 +106,24 @@ def test_irrational_sqrt_value_stays_exact() -> None:
     assert structure.cell.basis == SurdVector.from_radicand_map(
         {1: [[2, 0, 0], [-1, 0, 0], [0, 0, 2]], 3: [[0, 0, 0], [0, 1, 0], [0, 0, 0]]}
     )
+
+
+def test_huge_sqrt_radicand_is_approximated_and_claimed() -> None:
+    # Untrusted radicands beyond httk-core's exact bound are approximated, never factored.
+    huge = 2**61 - 1  # a prime, far beyond the exact-surd radicand bound
+    payload = read_abinit_input(
+        io.StringIO(f"acell 3*1 rprim sqrt({huge}) 0 0 0 1 0 0 0 1 znucl 6 xcart sqrt({huge}) 0 0")
+    )
+    root = payload["cell"][0][0]
+    assert isinstance(root, Fraction) and abs(root * root - huge) < 1
+    assert payload["cell_precision"] == exactmath.default_accuracy
+    assert payload["positions_precision"] == exactmath.default_accuracy
+    angdeg = read_abinit_input(io.StringIO(f"acell sqrt({huge}) 1 1 angdeg 90 90 90 znucl 6"))
+    assert angdeg["cell_precision"] == exactmath.default_accuracy
+    # sqrt(2)-class tokens stay exact surds and claim nothing.
+    exact = read_abinit_input(io.StringIO("acell 3*1 rprim sqrt(2) 0 0 0 sqrt(3) 0 0 0 1 znucl 6 xred 0 0 0"))
+    assert exact["cell"][0][0] * exact["cell"][0][0] == 2
+    assert exact["cell_precision"] is None and "positions_precision" not in exact
 
 
 def test_defaults_and_xcart_xangst_scalecart() -> None:

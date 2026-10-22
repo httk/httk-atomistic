@@ -28,7 +28,7 @@ from httk.atomistic.integrations._geometry import (
     _write_text,
 )
 from httk.atomistic.integrations.vasp.io._text import source_lines
-from httk.atomistic.io import _check_as_written, _check_load_precision
+from httk.atomistic.io import _check_load_precision
 
 FORMAT = "qe-pw-input"
 BOHR_ANGSTROM = "0.52917720859"
@@ -423,7 +423,7 @@ def _decimal(token: str, lineno: int, card: str) -> str:
     return token
 
 
-def read_pw_input(source: Any, *, precision: float | None = None, as_written: bool = False) -> dict[str, Any]:
+def read_pw_input(source: Any, *, precision: float | None = None) -> dict[str, Any]:
     """Parse the geometry of a Quantum ESPRESSO ``pw.x`` input file into a neutral payload.
 
     Supported: ``ibrav = 0`` with ``CELL_PARAMETERS {alat|bohr|angstrom}`` and every lattice
@@ -447,7 +447,6 @@ def read_pw_input(source: Any, *, precision: float | None = None, as_written: bo
         iterable of lines.
     :param precision: Cartesian coordinate precision as a length in Å, or ``None`` to derive
         it from the written digits. Must be a finite number greater than zero when given.
-    :param as_written: Already exact; accepted for a uniform load interface.
     :return: A ``qe-pw-input`` geometry payload with the original text in ``raw``.
     :raises ValueError: If the input is malformed or not UTF-8, or uses an unsupported or
         ambiguous construct: ``space_group``/``crystal_sg``, an unsupported ``ibrav``, both
@@ -456,7 +455,6 @@ def read_pw_input(source: Any, *, precision: float | None = None, as_written: bo
         algebraic expressions, or a species label that names no element.
     """
     _check_load_precision(precision, "read_pw_input")
-    _check_as_written(as_written, "read_pw_input")
     text = _source_text(source, "pw.x input")
     namelists, offset = _namelists(text)
     system = namelists.get("system")

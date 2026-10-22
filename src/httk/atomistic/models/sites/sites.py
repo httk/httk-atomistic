@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from httk.core import FracVector, VectorLike
 
-from httk.atomistic.models._vector_guards import to_fracvector, to_precision
+from httk.atomistic.models._vector_guards import exact_literal, to_fracvector, to_precision
 from httk.atomistic.models.sites.backend import SitesBackend
 
 if TYPE_CHECKING:
@@ -112,4 +112,5 @@ class Sites(SitesBackend):
         return self._reduced_coords == other._reduced_coords
 
     def __repr__(self) -> str:
-        return f"Sites(reduced_coords={self._reduced_coords!r})"
+        precision = "" if self._precision is None else f", precision={exact_literal(self._precision)}"
+        return f"Sites(reduced_coords={exact_literal(self._reduced_coords)}{precision})"

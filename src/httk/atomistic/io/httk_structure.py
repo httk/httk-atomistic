@@ -55,7 +55,6 @@ from typing import IO, Any, cast
 from httk.core import FracVector, SurdScalar, SurdVector, TextstreamFileView
 
 from httk.atomistic.composition import Assembly, ChemicalComposition
-from httk.atomistic.io import _check_as_written
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
@@ -684,9 +683,7 @@ def _read_text(source: str | os.PathLike[str] | IO[str] | IO[bytes]) -> str:
     return text
 
 
-def read_httk_structure(
-    source: str | os.PathLike[str] | IO[str] | IO[bytes], *, as_written: bool = False
-) -> dict[str, Any]:
+def read_httk_structure(source: str | os.PathLike[str] | IO[str] | IO[bytes]) -> dict[str, Any]:
     """Read and validate an ``httk-structure`` file into its JSON document.
 
     The document is checked completely (members, types, shapes and exact-number spellings)
@@ -695,11 +692,9 @@ def read_httk_structure(
     semantic consistency.
 
     :param source: A filename, optionally compressed, or an open text or binary (UTF-8) stream.
-    :param as_written: Already exact; accepted for a uniform load interface.
     :return: The validated document, a mapping whose ``format`` is ``"httk-structure"``.
     :raises ValueError: If the text is not a valid ``httk-structure`` version-1 document.
     """
-    _check_as_written(as_written, "read_httk_structure")
     text = _read_text(source)
     try:
         document = json.loads(text, object_pairs_hook=_reject_duplicate_members, parse_constant=_reject_constant)

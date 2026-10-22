@@ -25,7 +25,7 @@ from httk.atomistic.integrations._geometry import (
 )
 from httk.atomistic.integrations.vasp.io._text import source_lines
 from httk.atomistic.integrations.vasp.io.poscar_reader import _coordinate_precision
-from httk.atomistic.io import _check_as_written, _check_load_precision
+from httk.atomistic.io import _check_load_precision
 
 FORMAT = "abinit-input"
 BOHR_ANGSTROM = "0.52917720859"
@@ -123,11 +123,16 @@ def _variables(text: str) -> tuple[Variables, Units]:
 
 
 def _value(token: str, name: str) -> Exact:
-    """One exact number: a decimal, ``a/b``, ``sqrt(x)`` or ``-sqrt(x)``."""
+    """One exact number: a decimal, ``a/b``, ``sqrt(x)`` or ``-sqrt(x)``.
+
+    ``sqrt(x)`` is an exact surd within httk-core's radicand bound; a larger (untrusted)
+    radicand is not factored but approximated within ``exactmath.default_accuracy``, which
+    :func:`_precision` then claims.
+    """
     try:
         root = _SQRT.fullmatch(token)
         if root is not None:
-            value = exactmath.sqrt(_number(root.group(2)), exact=True)
+            value = exactmath.sqrt(_number(root.group(2)))
             return -value if root.group(1) else value
         numerator, slash, denominator = token.partition("/")
         if slash:
@@ -149,8 +154,18 @@ def _precision(token: str, *, coefficient: bool = False) -> fractions.Fraction:
     coordinates: ``0.0``, ``0.5`` and ``1.0`` spell exact fractions and claim nothing.
     """
     if not _NUMBER.fullmatch(token):
-        return fractions.Fraction(0)
+        return exactmath.default_accuracy if _approximate_root(token) else fractions.Fraction(0)
     return _coordinate_precision([[_normalized(token)]], cartesian=not coefficient) or fractions.Fraction(0)
+
+
+def _approximate_root(token: str) -> bool:
+    """Whether a ``sqrt(x)`` token's value is only a rational approximation of the root."""
+    root = _SQRT.fullmatch(token)
+    if root is None:
+        return False
+    radicand = _number(root.group(2))
+    value = exactmath.sqrt(radicand)
+    return isinstance(value, (int, fractions.Fraction)) and value * value != radicand
 
 
 def _size(value: Any) -> fractions.Fraction:
@@ -329,9 +344,17 @@ def _geometry(values: Variables, units: Units) -> dict[str, Any]:
         payload["cell_parameters"] = [_entry(token, "acell") for token in acell_tokens] + [
             _entry(token, "angdeg") for token in angdeg
         ]
+        if any(_approximate_root(token) for token in acell_tokens):
+            payload["cell_precision"] = max(_precision(token) for token in acell_tokens)
     if given:
         coordinates = given[0]
-        flat_positions = [_entry(token, coordinates) for token in _get(values, coordinates, 3 * natom)]
+        position_tokens = _get(values, coordinates, 3 * natom)
+        flat_positions = [_entry(token, coordinates) for token in position_tokens]
+        if any(_approximate_root(token) for token in position_tokens):
+            # Approximate entries carry no digits, so their claim replaces the digit-derived one.
+            payload["positions_precision"] = max(
+                _precision(token, coefficient=coordinates == "xred") for token in position_tokens
+            )
         payload["positions"] = [flat_positions[3 * site : 3 * site + 3] for site in range(natom)]
         if coordinates == "xred":
             payload["positions_kind"] = "fractional"
@@ -358,7 +381,7 @@ def _geometry(values: Variables, units: Units) -> dict[str, Any]:
     return payload
 
 
-def read_abinit_input(source: Any, *, precision: float | None = None, as_written: bool = False) -> dict[str, Any]:
+def read_abinit_input(source: Any, *, precision: float | None = None) -> dict[str, Any]:
     """Read the structure of an ABINIT input file into a neutral geometry payload.
 
     The structure variables ``acell`` (with a ``Bohr``/``Angstrom`` unit), ``rprim`` or
@@ -372,7 +395,6 @@ def read_abinit_input(source: Any, *, precision: float | None = None, as_written
     :param source: A file path (compressed files are decompressed), a text stream, or an
         iterable of lines.
     :param precision: Optional Cartesian precision in Å for the structure built from it.
-    :param as_written: Already exact; accepted for a uniform load interface.
     :return: The ``abinit-input`` geometry payload, with the original text in ``raw``.
     :raises ValueError: If the text is not a supported ABINIT input: malformed values,
         missing ``znucl``, inconsistent counts, multi-dataset or image structure variables,
@@ -380,7 +402,6 @@ def read_abinit_input(source: Any, *, precision: float | None = None, as_written
         non-unit ``scalecart`` with ``angdeg`` angles that have no exact ABINIT frame.
     """
     _check_load_precision(precision, "read_abinit_input")
-    _check_as_written(as_written, "read_abinit_input")
     text, raw = _source_text(source)
     values, units = _variables(text)
     _check_supported(values, units)

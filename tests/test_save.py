@@ -129,9 +129,8 @@ def test_cif_save_uses_standard_decimals_and_exact_companions(tmp_path):
     assert "_httk_atom_site_fract_" not in decimal_destination.read_text(encoding="utf-8")
 
 
-# A relaxed CONTCAR carries full-precision float noise (0.355 arrives as 0.3549999999999969);
-# with a stated precision the CIF must render clean decimals and NOT fabricate _httk_*_exact
-# rational companions from that noise (e.g. 563492063538/1587301587431 for what is just 0.355).
+# A relaxed CONTCAR carries full-precision float noise (0.355 arrives as 0.3549999999999969).
+# The CIF writer never changes values, so clean decimals are an explicit rationalized() step.
 RELAXED_POSCAR = """CrVO4-like
 1.0
 5.5679999999999996 0.0000000000000000 0.0000000000000003
@@ -145,22 +144,28 @@ Direct
 """
 
 
-def test_relaxed_cif_snaps_float_noise_to_clean_decimals(tmp_path):
+def test_relaxed_cif_writes_rationalized_float_noise_as_clean_decimals(tmp_path):
     source = tmp_path / "CONTCAR"
     source.write_text(RELAXED_POSCAR, encoding="utf-8")
     structure = load(str(source), precision=5e-4)
+
+    # Without rationalized() the writer keeps every digit the file holds.
+    verbatim = tmp_path / "verbatim.cif"
+    save(structure, verbatim)
+    assert "0.3549999999999969" in verbatim.read_text(encoding="utf-8")
+
+    # Within the stated precision, the shortest decimal (0.355) is simpler than the best rational.
     destination = tmp_path / "relaxed.cif"
-    save(structure, destination)
+    save(structure.rationalized(), destination)
     text = destination.read_text(encoding="utf-8")
 
     # No exact companions and no huge-denominator rationals leaked from the float noise.
     assert "_exact" not in text
     assert "/" not in "".join(text.splitlines()[12:])  # no fraction tokens in the atom/loop body
-    # Clean, snapped values rather than the raw float noise.
     assert "_cell_length_a 5.568" in text
     assert "0.3549999999999969" not in text
-    # Coordinates are written only to the precision they resolve (~1e-4 -> 4 decimals), not padded
-    # to 16 places, so the digit count does not claim machine precision the data lacks.
+    # Coordinates are padded only to the precision they resolve (~1e-4 -> 4 decimals), not to 16
+    # places, so the digit count does not claim machine precision the data lacks.
     assert "V V 0.0000 0.3550 0.2500" in text
     assert "0.3550000000000000" not in text
     # A CIF round-trip therefore recovers a realistic precision, not 1e-16 -- and stays there on a
@@ -172,15 +177,29 @@ def test_relaxed_cif_snaps_float_noise_to_clean_decimals(tmp_path):
     assert load(resaved).coordinate_precision == Fraction(1, 10000)
 
 
-def test_relaxed_cif_strict_mode_refuses_snapped_cell(tmp_path):
-    # A relaxed structure has no exact CIF form: snapping to precision makes the cell
-    # honestly approximate, so the exact-or-nothing opt-out must refuse rather than
-    # writing float noise as if it were exact.
+def test_relaxed_cif_strict_mode_refuses_noisy_cell_until_rationalized(tmp_path):
+    # The relaxed cell's off-diagonal float noise makes its lengths irrational, so it has no exact
+    # CIF form and the exact-or-nothing opt-out refuses it; rationalizing the basis removes the
+    # noise and the strict write succeeds.
     source = tmp_path / "CONTCAR"
     source.write_text(RELAXED_POSCAR, encoding="utf-8")
     structure = load(str(source), precision=5e-4)
     with pytest.raises(ValueError, match="approximate=False"):
         save(structure, tmp_path / "strict.cif", format="cif", approximate=False)
+    save(structure.rationalized(), tmp_path / "strict.cif", format="cif", approximate=False)
+
+
+def test_cif_writer_never_changes_values(tmp_path):
+    # Regression: the coarsest token (0.25, precision 1/100) used to make the writer snap 0.123456
+    # onto 10/81 and write 0.1234567901234568.
+    source = tmp_path / "POSCAR"
+    source.write_text("x\n1.0\n3 0 0\n0 3 0\n0 0 3\nSi\n1\nDirect\n0.25 0.123456 0.5\n", encoding="utf-8")
+    structure = load(str(source))
+    destination = tmp_path / "x.cif"
+    save(structure, destination)
+    assert "0.1234567901234568" not in destination.read_text(encoding="utf-8")
+    recovered = UnitcellStructureView(load(destination))
+    assert recovered.sites.reduced_coords == structure.sites.reduced_coords
 
 
 def test_cif_exact_companions_are_opt_in(tmp_path):

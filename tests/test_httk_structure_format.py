@@ -97,14 +97,13 @@ def _everything() -> UnitcellStructure:
     )
 
 
-@pytest.mark.parametrize("as_written", [False, True])
-def test_diamond_poscar_round_trips_exactly(tmp_path, as_written):
+def test_diamond_poscar_round_trips_exactly(tmp_path):
     poscar = tmp_path / "diamond.POSCAR"
     poscar.write_text(DIAMOND_POSCAR, encoding="utf-8")
-    structure = load(poscar, as_written=as_written)
-    expected_scale = Fraction(3567, 1000) if as_written else Fraction(346, 97)
+    structure = load(poscar)
+    expected_scale = Fraction(3567, 1000)
     assert structure.cell.scale == SurdVector(expected_scale)
-    assert structure.basis_precision == (Fraction(3567, 10000) if as_written else Fraction(173, 485))
+    assert structure.basis_precision == Fraction(3567, 10000)
 
     _, path = _round_trip(structure, tmp_path)
 

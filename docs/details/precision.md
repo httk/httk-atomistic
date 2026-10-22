@@ -107,41 +107,74 @@ precision in Å and must be a finite number greater than zero; an invalid value 
 - **POSCAR/CONTCAR**: the value replaces the digit-derived precision of the cell and
   coordinates; it does not change the values. Relaxed CONTCAR files are written to full
   double precision, whose digits claim ~machine epsilon, so pass a realistic value such as
-  `5e-4`; without one, a recommendation warning is emitted.
-
-  By default each POSCAR number is read as the smallest-denominator rational within
-  min(half a unit in its last written digit, `1e-4`) of it
-  (`httk.core.exactmath.any_to_fraction`), so a scale line `3.567` becomes `346/97`.
-  Pass `as_written=True` (see below) to keep every written decimal exactly
-  instead: `3.567` is `3567/1000`, and a full-precision CONTCAR token keeps all its digits.
-  It combines with `precision=`, which still sets only the precision metadata. A negative
-  scale line (a target volume) still needs a cube root, which stays a deterministic
-  rational approximation. `VASPOutputs(directory, as_written=True)` applies it to its
-  POSCAR/CONTCAR reads and to the header and frames of a `VASPTrajectory` built from it.
+  `5e-4`; without one, a recommendation warning is emitted. A negative scale line (a
+  target volume) still needs a cube root, which stays a deterministic rational
+  approximation.
 - **CIF and mCIF**: accepted and validated, but without effect. Every number is read as the
   exact decimal it writes, with its precision taken from its own digits and standard
   uncertainty; nothing is converted from floats, so there is nothing for a caller-supplied
   precision to govern, and the loaded structure is identical to one loaded without it.
 
-### Reading numbers exactly as written
+### Numbers are read exactly as written
 
-`httk.core.load(path, as_written=True)` is accepted by every structure and trajectory
-reader, so format-agnostic code can ask for the numbers exactly as the file writes them
-(a non-bool value raises `ValueError`). Where the default reading already keeps each
-written decimal, it changes nothing.
+Every structure and trajectory reader builds its values from the numbers exactly as the
+file writes them: `3.567` is `3567/1000`, and a full-precision CONTCAR token keeps all its
+digits. The precision is still derived from the written digits (or set with `precision=`);
+it never changes the values. JSON numbers in trajectory JSONL are floats, and each embeds
+as its shortest decimal (`0.1` is `1/10`).
 
-- **POSCAR/CONTCAR, XDATCAR and OUTCAR**: every written decimal becomes its exact value
-  (`3.567` is `3567/1000`) instead of the smallest-denominator rational consistent with
-  its digits.
-- **CIF**: Wyckoff positions are matched with zero tolerance, so a coordinate written as
-  `0.3333` or `0.3333(2)` stays `3333/10000` (without its uncertainty) instead of being
-  snapped onto the special position `1/3`. Its symmetry images then are distinct sites. A
-  declared Wyckoff letter the written coordinate does not lie on exactly is an error, as it
-  is for any explicit `tolerance=`; `repair=True` still applies.
-- **Trajectory JSONL**: frames take the decimal each JSON number writes instead of its
-  binary floating-point value.
-- **mCIF, Quantum ESPRESSO, ABINIT, CP2K, LAMMPS data and dump, and httk-structure**:
-  already exact; the keyword is accepted for a uniform load interface.
+Recovering an exact rational the file only approximates, such as `1/3` from
+`0.3333333333333333`, is an explicit step (`UnitcellStructure.rationalized()`), never part
+of reading. The one exception is CIF: a coordinate written as `0.3333` or `0.3333(2)` at a
+Wyckoff special position is mapped onto that position's exact `1/3` within the
+precision-derived tolerance. To keep every written coordinate (`3333/10000`) instead, build
+the structures with zero tolerance,
+`httk.atomistic.asu_structures_from_cif(httk.core.load(path, raw=True), tolerance=0.0)`;
+symmetry images of such a site are then distinct sites, and a declared Wyckoff letter the
+written coordinate does not lie on exactly is an error.
+
+### Rationalizing explicitly
+
+`UnitcellStructure.rationalized()` is the explicit, lossy opt-in that snaps each reduced
+coordinate within `coordinate_tolerance`, and the cell within `basis_tolerance` (a length),
+to the simplest number in that interval: the smallest-denominator rational or the shortest
+decimal, whichever has fewer digits (a tie goes to the decimal). So `0.3333` becomes `1/3`,
+while a relaxed `0.3549999999999969` becomes `0.355` rather than `60/169` once the structure
+states a realistic precision (`load(path, precision=5e-4)`) or explicit tolerances are given;
+read with its digit-derived `1e-16` precision, a full-precision CONTCAR keeps its float noise.
+An omitted tolerance defaults to half the stated precision (`coordinate_precision` or
+`basis_precision`, the coarsest of the source's numbers), capped at `1e-4`; a component
+with neither a tolerance nor a stated precision is left unchanged. The result has plain
+`Sites` and keeps the recorded precision.
+
+Cells never lose their radicals. A cell built from parameters (as every CIF cell is) snaps
+only `a`, `b` and `c` and keeps its exact angles, so a hexagonal `gamma` stays exactly `120`;
+a cell with a rational basis snaps each unscaled entry within `basis_tolerance / scale`; any
+other cell is left unchanged.
+
+This is how a decimal round trip recovers non-terminating rationals. A POSCAR write renders
+`1/3` as `0.3333333333333333`, which reads back exactly as written, with a precision of
+`1e-16`; rationalizing within that precision recovers `1/3`:
+
+```python
+import tempfile
+from fractions import Fraction
+from pathlib import Path
+
+from httk.core import load, save
+from httk.atomistic import Cell, Sites, UnitcellStructure
+
+exact = UnitcellStructure(
+    Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]]),
+    Sites([[Fraction(1, 3), Fraction(2, 3), Fraction(1, 4)]]),
+    species_at_sites=["Si"],
+)
+path = Path(tempfile.mkdtemp()) / "POSCAR"
+save(exact, path)
+reread = load(str(path), precision=1e-12)  # an explicit precision also silences the CONTCAR advice
+reread.sites.reduced_coords == exact.sites.reduced_coords                 # False
+reread.rationalized().sites.reduced_coords == exact.sites.reduced_coords  # True
+```
 
 ## What it is used for
 

@@ -4,10 +4,12 @@ The Simple structure representation for httk-atomistic.
 
 import datetime
 import fractions
+import math
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from httk.core import SurdVector, VectorLike
+from httk.core import SurdVector, VectorLike, unwrap
+from httk.core.exactmath import best_rational_in_interval
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.like import CellLike
@@ -16,6 +18,7 @@ from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.moments.like import SiteMomentsLike
 from httk.atomistic.models.moments.view_base import SiteMomentsViewBase
+from httk.atomistic.models.sites.cartesian import CartesianSites
 from httk.atomistic.models.sites.like import SitesLike
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.sites.view import SitesView
@@ -42,6 +45,12 @@ def _norm_cell(cell: CellLike) -> Cell:
 
 def _norm_sites(sites: SitesLike) -> Sites:
     return sites if isinstance(sites, Sites) else SitesView(sites)
+
+
+def _cartesian_backend(sites: Sites, cell: Cell) -> CartesianSites | None:
+    """The sites' :class:`CartesianSites` backend when its frame is exactly the cell basis, else ``None``."""
+    backend = unwrap(sites)
+    return backend if isinstance(backend, CartesianSites) and backend.basis == cell.basis else None
 
 
 def _norm_species(species: Sequence[SpeciesLike]) -> tuple[Species, ...]:
@@ -188,6 +197,8 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
             raise TypeError("UnitcellStructure species_at_sites is required")
         norm_cell = _norm_cell(cell)
         norm_sites = _norm_sites(sites)
+        if isinstance(unwrap(norm_sites), CartesianSites) and _cartesian_backend(norm_sites, norm_cell) is None:
+            raise ValueError("UnitcellStructure CartesianSites basis must equal the cell basis exactly")
         if species is None:
             norm_species, norm_species_at_sites = _infer_species(species_at_sites)
         else:
@@ -337,16 +348,21 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
         conservative choice: it is the largest displacement that fractional uncertainty can
         produce along any axis. The cell's own precision is folded in as well, since a cell
         stated to ``1e-3`` cannot place an atom better than that however many digits the
-        coordinates carry.
+        coordinates carry. Sites backed by :class:`~httk.atomistic.CartesianSites` with a stated
+        ``cartesian_precision`` use that length directly instead of the fractional conversion.
 
         :return: The conservative Cartesian precision, or ``None`` when the coordinate
             precision is unknown.
         """
-        fractional = self._sites.precision
-        if fractional is None:
-            return None
-        longest = max(length.to_float() for length in self._cell.lengths)
-        cartesian = fractional * fractions.Fraction(str(longest))
+        backend = _cartesian_backend(self._sites, self._cell)
+        if backend is not None and backend.cartesian_precision is not None:
+            cartesian = backend.cartesian_precision
+        else:
+            fractional = self._sites.precision
+            if fractional is None:
+                return None
+            longest = max(length.to_float() for length in self._cell.lengths)
+            cartesian = fractional * fractions.Fraction(str(longest))
         basis = self._cell.precision
         return cartesian if basis is None or basis < cartesian else basis
 
@@ -359,8 +375,14 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
         ``SurdVector``), so the product is exact in the surd field — the hexagonal ``sqrt(3)``
         survives into the Cartesian positions.
 
+        Sites backed by :class:`~httk.atomistic.CartesianSites` return their stored coordinates
+        unchanged.
+
         :return: The Cartesian positions in the exact surd representation.
         """
+        cartesian = _cartesian_backend(self._sites, self._cell)
+        if cartesian is not None:
+            return cartesian.cartesian_coords
         return SurdVector(self._sites.reduced_coords) * self._cell.basis
 
     def numeric(self) -> "NumericUnitcellStructureView":
@@ -372,6 +394,67 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
         from httk.atomistic.models.structure.numeric_view import NumericUnitcellStructureView
 
         return NumericUnitcellStructureView(self)
+
+    def rationalized(self, *, coordinate_tolerance: Any = None, basis_tolerance: Any = None) -> "UnitcellStructure":
+        """Return an EXPLICIT lossy copy whose numbers are snapped to the simplest nearby values.
+
+        Numbers are kept exactly as written by default (``"0.3333"`` is ``3333/10000``); this
+        opt-in step replaces each reduced coordinate by the simplest number within
+        ``coordinate_tolerance``, and each cell length within ``basis_tolerance``: the
+        smallest-denominator rational or the shortest decimal in the interval, whichever has
+        fewer digits (a tie goes to the decimal). So ``0.3333`` becomes ``1/3``. An omitted
+        tolerance defaults to half the structure's stated precision (:attr:`coordinate_precision`
+        or :attr:`basis_precision`, the coarsest of the source's numbers), capped at ``1/10000``.
+        A full-precision CONTCAR read with digit-derived precision (``1e-16``) therefore keeps its
+        float noise; with a realistic stated precision (``load(path, precision=5e-4)``) or explicit
+        tolerances, a relaxed ``0.3549999999999969`` becomes ``0.355``. A component with neither a
+        tolerance nor a stated precision is left unchanged.
+
+        Coordinates come back as plain :class:`~httk.atomistic.Sites` (also for Cartesian-backed
+        sites). A cell built from parameters keeps its exact angles and only its lengths ``a``,
+        ``b``, ``c`` are snapped; a cell with a rational basis has each unscaled entry snapped
+        within ``basis_tolerance / scale`` (``scale`` is kept); any other cell (an irrational
+        basis not built from parameters) is left unchanged, so radicals such as the hexagonal
+        ``sqrt(3)`` are never rounded away. Crystal-axis moments are re-expressed in the new cell
+        so their Cartesian vectors are unchanged. Precision and all other metadata are carried
+        through; ``immutable_id`` and ``last_modified`` are not, since the result is a new value.
+
+        :param coordinate_tolerance: The fractional snapping tolerance, or ``None`` for the default.
+        :param basis_tolerance: The snapping tolerance for lengths, or ``None`` for the default.
+        :return: The rationalized structure.
+        :raises ValueError: If a tolerance is not strictly positive.
+        """
+        from httk.atomistic.models._vector_guards import to_precision
+        from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
+        from httk.atomistic.models.moments.crystalaxis_view import CrystalAxisSiteMomentsView
+
+        coordinate_tol = _rationalizing_tolerance(to_precision(coordinate_tolerance), self.coordinate_precision)
+        basis_tol = _rationalizing_tolerance(to_precision(basis_tolerance), self.basis_precision)
+        # Always plain Sites: Cartesian-backed sites would contradict a snapped cell's basis.
+        coords: VectorLike = self.sites.reduced_coords
+        if coordinate_tol is not None:
+            coords = [[_snap(x, coordinate_tol) for x in row] for row in self.sites.reduced_coords.to_fractions()]
+        sites = Sites(coords, precision=self.sites.precision)
+        cell = self.cell if basis_tol is None else _rationalized_cell(self.cell, basis_tol)
+        moments = self.site_moments
+        if cell is not self.cell and isinstance(moments, CrystalAxisSiteMoments):
+            cartesian = CartesianSiteMoments(moments.cartesian_moments, moments.precision)
+            moments = CrystalAxisSiteMomentsView(cartesian, cell=cell).unview()
+        return UnitcellStructure(
+            cell,
+            sites,
+            self.species,
+            self.species_at_sites,
+            site_moments=moments,
+            molecular=self.molecular,
+            assemblies=getattr(self, "assemblies", None),
+            symmetry=self.symmetry,
+            chemical_composition=getattr(self, "chemical_composition", None),
+            chemical_formula_descriptive=getattr(self, "chemical_formula_descriptive", None),
+            chemical_formula_hill=getattr(self, "chemical_formula_hill", None),
+            optimization_type=getattr(self, "optimization_type", None),
+            charge=self.charge,
+        )
 
     def supercell(
         self,
@@ -497,8 +580,11 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
     def __repr__(self) -> str:
         n = len(self._species_at_sites)
         if n <= 12:
+            # Cartesian-backed sites show their backend, so eval(repr(x)) keeps the representation.
+            cartesian = _cartesian_backend(self._sites, self._cell)
+            sites = self._sites if cartesian is None else cartesian
             return (
-                f"UnitcellStructure(cell={self._cell!r}, sites={self._sites!r}, "
+                f"UnitcellStructure(cell={self._cell!r}, sites={sites!r}, "
                 f"species={self._species!r}, species_at_sites={self._species_at_sites!r})"
             )
         # Large structure: abbreviate the bulky arguments and mark the elision with a trailing ...
@@ -520,3 +606,61 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
 
 if TYPE_CHECKING:
     from httk.atomistic.supercell import SupercellResult
+
+
+# Bounds the rational approximation of an irrational cell scale; far below any length tolerance.
+_SCALE_BOUND_ERROR = fractions.Fraction(1, 10**30)
+
+
+def _rationalizing_tolerance(
+    explicit: fractions.Fraction | None, precision: fractions.Fraction | None
+) -> fractions.Fraction | None:
+    """Return the explicit tolerance, else half the stated precision capped at ``1/10000``."""
+    if explicit is not None or precision is None:
+        return explicit
+    return min(precision / 2, fractions.Fraction(1, 10000))
+
+
+def _snap(value: fractions.Fraction, tolerance: fractions.Fraction) -> fractions.Fraction:
+    """Return the simpler of the best rational and the shortest decimal within ``tolerance``.
+
+    Simplicity is the number of digits written (sign excluded): numerator plus denominator for
+    ``p/q``, integer part plus fractional places for a decimal (``0.001001`` is seven); a tie
+    goes to the decimal.
+    """
+    low, high = value - tolerance, value + tolerance
+    rational = best_rational_in_interval(low, high)
+    places = 0
+    while math.ceil(low * 10**places) > math.floor(high * 10**places):
+        places += 1
+    scale = 10**places
+    mantissa = min(max(round(value * scale), math.ceil(low * scale)), math.floor(high * scale))
+    rational_digits = len(str(abs(rational.numerator))) + (
+        len(str(rational.denominator)) if rational.denominator > 1 else 0
+    )
+    decimal_digits = len(str(abs(mantissa) // scale)) + places
+    return rational if rational_digits < decimal_digits else fractions.Fraction(mantissa, scale)
+
+
+def _rationalized_cell(cell: Cell, tolerance: fractions.Fraction) -> Cell:
+    """Snap a parameter cell's lengths, or a rational basis's entries; leave other cells unchanged."""
+    from httk.atomistic.models.cell.params import CellParams
+
+    backend = getattr(cell, "_backend", cell)
+    if isinstance(backend, CellParams):
+        a, b, c, alpha, beta, gamma = backend.params
+        lengths = (_snap(a, tolerance), _snap(b, tolerance), _snap(c, tolerance))
+        return CellView(CellParams((*lengths, alpha, beta, gamma), precision=backend.precision))
+    unscaled = cell.unscaled_basis
+    if not unscaled.is_rational:
+        return cell
+    scale = cell.scale
+    # An upper bound on the scale keeps every scaled entry within the absolute ``tolerance``.
+    scale_bound = (
+        scale._rational_fraction()
+        if scale.is_rational
+        else scale.to_fractions_approx(_SCALE_BOUND_ERROR) + _SCALE_BOUND_ERROR
+    )
+    entry_tolerance = tolerance / scale_bound
+    rows = [[_snap(x, entry_tolerance) for x in row] for row in unscaled.to_fractions_approx()]
+    return Cell(rows, scale=scale, precision=cell.precision, periodicity=cell.periodicity)

@@ -22,7 +22,8 @@ also contain `lattice_vectors`. See the `httk.atomistic.io.optimade_jsonl`
 module docstring for the normative schema.
 
 The format is float64 presentation data and intentionally has no exact-token
-channel. Binary framing is not part of this format; its framing and
+channel. Frames embed each float as its shortest decimal (`0.1` is `1/10`), which is the
+written decimal for every number of up to 15 significant digits. Binary framing is not part of this format; its framing and
 random-access trade-offs remain a separate design decision.
 
 `TrajectoryJsonlFile.path` returns the source filename string used to construct

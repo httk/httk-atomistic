@@ -309,14 +309,45 @@ A negative scale line encodes a target cell **volume**; the resulting overall
 scale is the cube root of `V / |det(basis)|`, which leaves the exact surd field,
 so it is a deterministic rational approximation (the basis rows themselves are
 not affected by it).
-By default each written number becomes the smallest-denominator rational within
-min(half a unit in its last written digit, `1e-4`) of it
-(`httk.core.exactmath.any_to_fraction`), so `3.567` reads as `346/97`, not as the
-decimal itself. `load(path, as_written=True)` keeps every written decimal exactly
-instead (`3567/1000`); see {doc}`precision`.
+Every written number is read exactly as written: `3.567` is `3567/1000`; see
+{doc}`precision`.
 The POSCAR reader ships in-tree and is registered when `httk.core` is imported;
 see {doc}`/poscar` for the neutral, string-preserving reader mapping. For VASP
 plane-wave coefficients, see {doc}`/wavefunctions`.
+
+### Cartesian sites
+
+`httk.atomistic.CartesianSites(cartesian_coords, basis, cartesian_precision=None)` is a
+sites backend that holds Cartesian coordinates (Å) exactly as given, together with the exact
+basis that defines their frame and an optional precision stated as a length. Its reduced
+coordinates are derived exactly as `cartesian_coords * basis^-1` (a `ValueError` if that is
+irrational), and its fractional `precision` bounds the Cartesian one in that basis. A
+`UnitcellStructure` requires its cell basis to equal the backend's basis exactly; it presents
+the sites as an ordinary `Sites` view, `httk.core.unwrap(structure.sites)` reaches the
+`CartesianSites`, and `cartesian_sites()` returns the stored coordinates unchanged.
+`cartesian_precision()` reports the stated `cartesian_precision` length directly (folded with
+the cell's precision as usual), so `load(path, precision=5e-4)` reports `5e-4`.
+
+A `Cartesian` POSCAR loads this way and is written back as `Cartesian` with its numbers
+reproduced. Stored records keep reduced coordinates, so a stored structure reads back with
+plain `Sites` holding identical exact values; structures with the same exact values and the
+same precision metadata have the same content id whichever form they were built from. A record
+keeps only the fractional precision, so a structure read back from a store reports the
+Cartesian precision converted from it, not the stated length. For a
+volume-line (negative scale) POSCAR the scale is a rational cube-root approximation, which is
+what gets written back in place of the volume.
+
+```python
+from httk.core import unwrap
+from httk.atomistic import CartesianSites, Cell, Sites, UnitcellStructure
+
+basis = [["5.64", 0, 0], [0, "5.64", 0], [0, 0, "5.64"]]
+sites = CartesianSites([[0, 0, 0], ["2.82", "2.82", "2.82"]], basis, "0.001")
+structure = UnitcellStructure(Cell(basis), sites, None, ["Na", "Cl"])
+assert unwrap(structure.sites) is sites
+assert structure.cartesian_sites() is sites.cartesian_coords
+assert structure.sites == Sites([[0, 0, 0], ["0.5", "0.5", "0.5"]])
+```
 
 ## Building supercells
 

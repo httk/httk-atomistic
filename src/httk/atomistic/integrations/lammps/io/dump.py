@@ -8,8 +8,6 @@ from pathlib import Path
 
 from httk.core import TextstreamFileView
 
-from httk.atomistic.io import _check_as_written
-
 __all__ = ["LammpsDumpFile", "LammpsDumpFrame", "read_lammps_dump"]
 
 _COORDINATES = {
@@ -199,22 +197,18 @@ class LammpsDumpFile:
             stream.close()
 
 
-def read_lammps_dump(
-    source: str | os.PathLike[str], *, as_written: bool = False, **kwargs: object
-) -> dict[str, object]:
+def read_lammps_dump(source: str | os.PathLike[str], **kwargs: object) -> dict[str, object]:
     r"""Return a lazy neutral payload for a native LAMMPS text dump.
 
     Reader keyword arguments are retained for the trajectory adapter; the file is
     not opened or scanned here.
 
     :param source: Filesystem dump path, optionally compressed.
-    :param as_written: Already exact; accepted for a uniform load interface.
     :param \**kwargs: Explicit trajectory options such as species and units.
     :return: A neutral ``lammps-dump`` payload.
     :raises TypeError: If ``source`` is not path-like.
     :raises FileNotFoundError: If the path is not a file.
     """
-    _check_as_written(as_written, "read_lammps_dump")
     if not isinstance(source, str | os.PathLike):
         raise TypeError("LAMMPS dump source must be path-like")
     path = Path(os.fsdecode(os.fspath(source)))

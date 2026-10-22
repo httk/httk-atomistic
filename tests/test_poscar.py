@@ -296,7 +296,7 @@ def test_load_cif_bz2_transparent(tmp_path: Path) -> None:
     assert block["cell_length_a"] == "5.64"
 
 
-# --- as_written: exact decimal values instead of the simplest consistent rational ---
+# --- numbers are read exactly as written ---
 
 DIAMOND = """C2 diamond (Fd-3m, a = 3.567 A), primitive fcc cell
 3.567
@@ -328,13 +328,8 @@ def _load_text(text: str, tmp_path: Path, **kwargs: object) -> UnitcellStructure
     return httk.core.load(str(path), **kwargs)
 
 
-def test_default_reading_takes_simplest_consistent_rational(tmp_path: Path) -> None:
-    structure = _load_text(DIAMOND, tmp_path, precision=1e-12)
-    assert structure.cell.basis.fractions[0][1] == Fraction(173, 97)
-
-
-def test_as_written_keeps_exact_decimals(tmp_path: Path) -> None:
-    structure = _load_text(DIAMOND, tmp_path, as_written=True)
+def test_reading_keeps_exact_decimals(tmp_path: Path) -> None:
+    structure = _load_text(DIAMOND, tmp_path)
     assert structure.cell.basis.fractions == (
         (0, Fraction(3567, 2000), Fraction(3567, 2000)),
         (Fraction(3567, 2000), 0, Fraction(3567, 2000)),
@@ -343,31 +338,22 @@ def test_as_written_keeps_exact_decimals(tmp_path: Path) -> None:
     assert structure.sites.reduced_coords.fractions == ((0, 0, 0), (Fraction(1, 4),) * 3)
 
 
-def test_as_written_keeps_full_precision_tokens(tmp_path: Path) -> None:
+def test_reading_keeps_full_precision_tokens(tmp_path: Path) -> None:
     exact = Fraction("3.5670103092783510")
-    assert _load_text(CONTCAR_FULL_PRECISION, tmp_path, precision=5e-4).cell.basis.fractions[0][1] != exact
-    structure = _load_text(CONTCAR_FULL_PRECISION, tmp_path, as_written=True)
+    structure = _load_text(CONTCAR_FULL_PRECISION, tmp_path, precision=5e-4)
     assert structure.cell.basis.fractions[0][1] == exact
     # Cartesian coordinates divide by the exact written basis.
     assert structure.sites.reduced_coords.fractions[0][1] == Fraction("0.8917525773195877") / exact
 
 
-def test_as_written_with_precision_keeps_values_and_override(tmp_path: Path) -> None:
-    structure = _load_text(DIAMOND, tmp_path, as_written=True, precision=5e-4)
+def test_precision_override_keeps_values(tmp_path: Path) -> None:
+    structure = _load_text(DIAMOND, tmp_path, precision=5e-4)
     assert structure.cell.basis.fractions[0][1] == Fraction(3567, 2000)
     assert structure.cell.precision == Fraction(1, 2000)
 
 
-def test_as_written_volume_line_still_scales(tmp_path: Path) -> None:
+def test_volume_line_scales_to_the_written_volume(tmp_path: Path) -> None:
     text = NEGATIVE_SCALE.replace("-16.0", "-16.123").replace("1.0 0.0 0.0", "1.1 0.0 0.0")
-    default = _load_text(text, tmp_path, precision=5e-4)
-    assert abs(default.cell.volume.to_float() - 16.123) > 1e-6  # the snapped volume token
-    structure = _load_text(text, tmp_path, as_written=True, precision=5e-4)
+    structure = _load_text(text, tmp_path, precision=5e-4)
     assert abs(structure.cell.volume.to_float() - 16.123) < 1e-9
     assert structure.cell.unscaled_basis.fractions[0][0] == Fraction(11, 10)
-
-
-@pytest.mark.parametrize("bad", (1, "yes", None))
-def test_as_written_rejects_non_bool(bad: object) -> None:
-    with pytest.raises(ValueError, match="as_written"):
-        read_poscar(DIAMOND.splitlines(keepends=True), as_written=bad)  # type: ignore[arg-type]

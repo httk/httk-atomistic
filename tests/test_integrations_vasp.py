@@ -75,7 +75,7 @@ def test_poscar_is_lazy_and_preserves_extra_payload_fields(tmp_path: Path) -> No
     source.write_text(invalid, encoding="utf-8")
 
     backend = VASPStructure(source)
-    with pytest.raises(ValueError, match="Invalid literal"):
+    with pytest.raises(ValueError, match="NOT-A-NUMBER"):
         backend.resolve()
 
     selective_source = tmp_path / "selective.vasp"

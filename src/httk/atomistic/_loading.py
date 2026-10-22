@@ -1,7 +1,7 @@
 """Private neutral-payload adapters used by the core loading registry."""
 
 import fractions
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from httk.core import SurdScalar, SurdVector, exactmath
@@ -9,6 +9,10 @@ from httk.core.optimade import OptimadeResource
 
 from httk.atomistic.models._vector_guards import to_surdscalar
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.sites.cartesian import (  # noqa: F401 - the factor is re-exported for integrations._geometry
+    CartesianSites,
+    _cartesian_precision_factor,
+)
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.optimade import OptimadeStructure
@@ -38,44 +42,44 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
     if fmt != "vasp-poscar":
         raise ValueError(f"_structure_from_poscar expected a 'vasp-poscar' mapping, got format={fmt!r}.")
 
-    # Default: SurdVector/Cell parse each decimal string as the smallest-denominator rational
-    # within min(half a unit in its last written digit, 1e-4) of it
-    # (httk.core.exactmath.any_to_fraction); as_written takes the exact decimals.
-    as_written = data.get("as_written") is True
-    cell_rows = _exact_rows(data["cell"]) if as_written else data["cell"]
-    coords = _exact_rows(data["coords"]) if as_written else data["coords"]
+    # SurdVector/Cell read each decimal string exactly as written (3.567 is 3567/1000).
+    cell_rows = data["cell"]
+    coords = data["coords"]
     raw_basis = SurdVector(cell_rows)
 
     scale_str = data.get("scale")
     volume_str = data.get("volume")
     if scale_str is not None:
-        scale: Any = fractions.Fraction(scale_str) if as_written else scale_str
+        scale: Any = scale_str
     elif volume_str is not None:
         abs_det = abs(_to_fraction(raw_basis.det()))
         if abs_det == 0:
             raise ValueError("Cannot volume-scale a degenerate cell (zero determinant).")
-        if as_written:
-            target_volume = fractions.Fraction(volume_str)
-        else:
-            target_volume = _to_fraction(SurdVector(volume_str)._as_scalar())
+        target_volume = _to_fraction(SurdVector(volume_str)._as_scalar())
         scale = _cube_root(target_volume / abs_det)
     else:
         scale = 1
 
+    # Precision as stated: fractional for Direct sites, a length for Cartesian ones (the
+    # override as given, else the token precision times the scale).
     override = data.get("precision_override")
     coordinate_precision: fractions.Fraction | None
+    cartesian_precision: fractions.Fraction | None
     if override is not None:
         cell, coordinate_precision = _cell_with_precision_override(cell_rows, scale, override)
+        cartesian_precision = fractions.Fraction(str(override))
     else:
         cell = Cell(cell_rows, scale, _basis_precision(data, raw_basis, scale))
-        coordinate_precision = _coordinate_precision(data, raw_basis)
+        token_precision = data.get("coordinate_precision")
+        coordinate_precision = None if token_precision is None else fractions.Fraction(token_precision)
+        cartesian_precision = None if coordinate_precision is None else coordinate_precision * _to_fraction(cell.scale)
 
+    sites: Sites | CartesianSites
     if data["cartesian"]:
-        # reduced = cart * basis^-1 (row-vector convention); the universal scale cancels.
-        reduced: Any = SurdVector(coords) * raw_basis.inv()
+        # Kept as written (times the scale); reduced = cart * basis^-1 is derived exactly.
+        sites = CartesianSites(cell.scale * SurdVector(coords), cell.basis, cartesian_precision)
     else:
-        reduced = coords
-    sites = Sites(reduced, coordinate_precision)
+        sites = Sites(coords, coordinate_precision)
 
     symbols = data.get("symbols")
     if symbols is None:
@@ -98,11 +102,6 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
         species.append(Species(name=name, chemical_symbols=(symbol,), concentration=(1.0,)))
 
     return UnitcellStructure(cell, sites, species, species_at_sites)
-
-
-def _exact_rows(rows: Iterable[Iterable[str]]) -> list[list[fractions.Fraction]]:
-    """Each decimal token as its exact :class:`~fractions.Fraction` value."""
-    return [[fractions.Fraction(token) for token in row] for row in rows]
 
 
 def _structure_from_optimade_payload(data: Mapping[str, Any]) -> OptimadeStructure:
@@ -156,16 +155,6 @@ def _basis_precision(data: Mapping[str, Any], raw_basis: SurdVector, scale: Any)
     return scale_value * fractions.Fraction(cell_precision)
 
 
-def _coordinate_precision(data: Mapping[str, Any], raw_basis: SurdVector) -> fractions.Fraction | None:
-    """How precisely the POSCAR states its coordinates, in fractional units."""
-    precision = data.get("coordinate_precision")
-    if precision is None:
-        return None
-    if not data["cartesian"]:
-        return fractions.Fraction(precision)
-    return fractions.Fraction(precision) * _cartesian_precision_factor(raw_basis)
-
-
 def _cell_with_precision_override(basis: Any, scale: Any, override: Any) -> tuple[Cell, fractions.Fraction]:
     """A cell carrying a caller-supplied Cartesian precision, and the matching fractional site precision."""
     # A realistic Cartesian precision (Å) supplied by the caller replaces the
@@ -177,26 +166,6 @@ def _cell_with_precision_override(basis: Any, scale: Any, override: Any) -> tupl
     cell = Cell(basis, scale, prec)
     longest = max(length.to_float() for length in cell.lengths)
     return cell, prec / fractions.Fraction(str(longest))
-
-
-def _cartesian_precision_factor(raw_basis: SurdVector) -> fractions.Fraction:
-    """The factor turning a Cartesian bound in ``raw_basis`` units into a fractional one."""
-    # A Cartesian row vector transforms as reduced = Cartesian * basis^-1. If each
-    # Cartesian component carries the same absolute bound p, reduced component j is
-    # bounded by p * sum_i |basis^-1[i, j]|. The largest column sum is therefore the
-    # conservative scalar precision needed by Sites. This is exact for a POSCAR basis,
-    # whose decimal tokens are rational, and remains safe for skewed cells where dividing
-    # by the shortest lattice-vector length can severely underestimate the uncertainty.
-    inverse_surd = raw_basis.inv()
-    if inverse_surd.is_rational:
-        inverse = inverse_surd.coefficient(1).to_fractions()
-    else:
-        # ponytail: an irrational (exact-surd) basis bounds through a deterministic rational
-        # approximation padded by its accuracy; exact interval arithmetic if that ever matters.
-        inverse = [
-            [abs(value) + _FALLBACK_PREC for value in row] for row in inverse_surd.to_fractions_approx(_FALLBACK_PREC)
-        ]
-    return max(sum((abs(inverse[row][column]) for row in range(3)), start=fractions.Fraction()) for column in range(3))
 
 
 _STRUCTURE_ADAPTERS: dict[str, Callable[[Mapping[str, Any]], Any]] = {

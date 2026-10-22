@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING, Any
 from httk.core import SurdScalar, SurdVector
 from httk.core._sentinel import MISSING
 
-from httk.atomistic.models._vector_guards import is_params6, to_periodicity, to_precision, to_surdscalar, to_surdvector
+from httk.atomistic.models._vector_guards import (
+    exact_literal,
+    is_params6,
+    to_periodicity,
+    to_precision,
+    to_surdscalar,
+    to_surdvector,
+)
 from httk.atomistic.models.cell.api import CellAPI, _scalar_length
 from httk.atomistic.models.cell.backend import CellBackend
 
@@ -323,9 +330,11 @@ class Cell(CellBackend):
     def __repr__(self) -> str:
         # Emit the *unscaled* basis: the constructor's ``basis`` argument is pre-scale, so emitting
         # the scaled ``self.basis`` here would make eval(repr(x)) re-apply scale (scale**2).
-        parts = [f"basis={self.unscaled_basis!r}", f"scale={self._scale!r}"]
+        parts = [f"basis={exact_literal(self.unscaled_basis)}"]
+        if self._scale != 1:
+            parts.append(f"scale={exact_literal(self._scale)}")
         if self._precision is not None:
-            parts.append(f"precision={self._precision!r}")
+            parts.append(f"precision={exact_literal(self._precision)}")
         if self._periodicity != (True, True, True):
             parts.append(f"periodicity={self._periodicity!r}")
         return f"Cell({', '.join(parts)})"

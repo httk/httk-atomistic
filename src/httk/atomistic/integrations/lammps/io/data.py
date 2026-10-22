@@ -21,7 +21,7 @@ from httk.atomistic.integrations._geometry import (
     _write_text,
 )
 from httk.atomistic.integrations.vasp.io._text import source_lines
-from httk.atomistic.io import _check_as_written, _check_load_precision
+from httk.atomistic.io import _check_load_precision
 
 __all__ = ["read_lammps_data"]
 
@@ -46,7 +46,6 @@ def read_lammps_data(
     species: Mapping[int, str] | Sequence[str] | None = None,
     units: str = "metal",
     precision: float | None = None,
-    as_written: bool = False,
 ) -> dict[str, Any]:
     """Parse a LAMMPS data file (``read_data`` format, ``atomic`` atom style) into a neutral geometry payload.
 
@@ -70,7 +69,6 @@ def read_lammps_data(
     :param species: Species names by type id (mapping) or in type order (sequence).
     :param units: LAMMPS unit style the file was written for: ``metal`` or ``real``.
     :param precision: Cartesian coordinate precision in Å, or ``None`` for the digit-derived one.
-    :param as_written: Already exact; accepted for a uniform load interface.
     :return: The neutral ``lammps-data`` payload, including the original text in ``raw``.
     :raises ValueError: If the units are unsupported, the file is malformed or uses an
         unsupported atom style, or the species of some atom type cannot be determined.
@@ -81,7 +79,6 @@ def read_lammps_data(
             "convert the data file to metal or real units"
         )
     _check_load_precision(precision, "read_lammps_data")
-    _check_as_written(as_written, "read_lammps_data")
     with source_lines(source, preserve_path=True, capture_stream=True) as (lines, raw):
         text = list(lines)
     data = _parse(text, species)
