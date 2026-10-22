@@ -13,11 +13,20 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar, TypedDict, cast
 import httk.core.storage.markers
 from httk.core import (
     FracVector,
+    ReferenceRecord,
     SurdScalar,
     SurdVector,
 )
 from httk.core.files import FileRecord
-from httk.core.storage import IdentitySkip, IdentitySkipWhenNone, Indexed, StorageInfo, Unique, stored_property
+from httk.core.storage import (
+    IdentitySkip,
+    IdentitySkipWhenNone,
+    Indexed,
+    StorageInfo,
+    Unique,
+    WeakLink,
+    stored_property,
+)
 
 from httk.atomistic._composition_values import as_fraction
 from httk.atomistic.composition import Assembly, ChemicalComposition, validate_assemblies
@@ -1126,6 +1135,7 @@ class UnitcellStructureRecord:
         storage_name="atomistic_unitcell_structure",
         identity_name="atomistic_unitcell_structure",
         indexes=(("last_modified",), ("optimization_type",)),
+        links=(WeakLink("references", ReferenceRecord, exposed_relationship=True),),
     )
     __httk_canonical_source__: ClassVar = UnitcellStructure
 
@@ -1256,6 +1266,7 @@ class FundamentalDomainStructureRecord:
             ("last_modified",),
             ("optimization_type",),
         ),
+        links=(WeakLink("references", ReferenceRecord, exposed_relationship=True),),
     )
     __httk_canonical_source__: ClassVar = FundamentalDomainStructure
 
@@ -1352,6 +1363,7 @@ class ASUStructureRecord(FundamentalDomainStructureRecord):
             ("last_modified",),
             ("optimization_type",),
         ),
+        links=(WeakLink("references", ReferenceRecord, exposed_relationship=True),),
     )
     __httk_canonical_source__: ClassVar = ASUStructure
 
@@ -1652,6 +1664,7 @@ class TrajectoryRecord:
         storage_name="atomistic_trajectory",
         identity_name="atomistic_trajectory",
         indexes=(("last_modified",), ("nframes",)),
+        links=(WeakLink("references", ReferenceRecord, exposed_relationship=True),),
     )
     __httk_canonical_source__: ClassVar = cast(type[TrajectoryAPI], TrajectoryAPI)
 
