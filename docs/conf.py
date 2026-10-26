@@ -140,6 +140,7 @@ nitpick_ignore = [
     # Indexed/Unique markers on the id/immutable_id record fields render the same way.
     ("py:class", "Indexed"),
     ("py:class", "Unique"),
+    ("py:class", "IdentitySkipWhenNone"),
     # StoredPropertyProjection is new in the sibling core workspace; the
     # committed release inventory cannot name it until core is released.
     ("py:class", "httk.core.storage.StoredPropertyProjection"),
