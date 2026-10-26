@@ -1,0 +1,53 @@
+httk.atomistic.models.bareprototype.projected
+=============================================
+
+.. py:module:: httk.atomistic.models.bareprototype.projected
+
+.. autoapi-nested-parse::
+
+   Projection of refined prototype values onto their bare classification.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprototype.projected.ProjectedBarePrototype
+
+
+Module Contents
+---------------
+
+.. py:class:: ProjectedBarePrototype(obj)
+
+   Bases: :py:obj:`httk.atomistic.models.bareprototype.backend.BarePrototypeBackend`
+
+
+   Retain a refined source while exposing its discrete classification.
+
+   :param obj: Refined classification source.
+
+
+   .. py:attribute:: kind
+      :value: 'bare_prototype'
+
+
+
+   .. py:property:: spacegroup
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+
+      Return the canonical discrete occupations.
+
+
+   .. py:method:: unwrap()
+
+      Return the retained refined source.
+
+
+

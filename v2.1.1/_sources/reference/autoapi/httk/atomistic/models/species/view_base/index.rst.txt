@@ -1,0 +1,30 @@
+httk.atomistic.models.species.view_base
+=======================================
+
+.. py:module:: httk.atomistic.models.species.view_base
+
+.. autoapi-nested-parse::
+
+   The abstract base class for all species views in httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.species.view_base.SpeciesViewBase
+
+
+Module Contents
+---------------
+
+.. py:class:: SpeciesViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.species.backend.SpeciesBackend`\ ]
+
+
+   Abstract base class for all views of single-species data.
+
+

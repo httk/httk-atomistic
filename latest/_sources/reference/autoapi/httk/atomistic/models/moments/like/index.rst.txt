@@ -1,0 +1,30 @@
+httk.atomistic.models.moments.like
+==================================
+
+.. py:module:: httk.atomistic.models.moments.like
+
+.. autoapi-nested-parse::
+
+   The accepted backend/view union for site-moments functions.
+
+   There is intentionally no ``VectorLike`` arm: a bare Nx3 array is frame-ambiguous, and no
+   lossless conversion from collinear scalars to a Cartesian or crystal-axis representation exists.
+   There is consequently no ``CollinearSiteMomentsView`` either.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.like.SiteMomentsLike
+
+
+Module Contents
+---------------
+
+.. py:type:: SiteMomentsLike
+   :canonical: httk.atomistic.models.moments.backend.SiteMomentsBackend | httk.atomistic.models.moments.view_base.SiteMomentsViewBase
+
+

@@ -1,0 +1,134 @@
+httk.atomistic.integrations.lammps
+==================================
+
+.. py:module:: httk.atomistic.integrations.lammps
+
+.. autoapi-nested-parse::
+
+   Exact structure and trajectory access for LAMMPS output.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/integrations/lammps/io/index
+   /reference/autoapi/httk/atomistic/integrations/lammps/trajectory/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.lammps.LammpsTrajectory
+
+
+Package Contents
+----------------
+
+.. py:class:: LammpsTrajectory(source, *, species, units, coordinates = 'auto', timestep = None, segment = None, periodicity = None, lj_scales = None)
+
+   Bases: :py:obj:`httk.atomistic.models.trajectory.backend.TrajectoryBackend`
+
+
+   Read a native LAMMPS atom/custom text dump as a bounded stream.
+
+   Atom types are mapped through the required ``species`` mapping. Geometry and
+   observables are converted exactly to ångström, picosecond and electronvolt
+   units. ``real`` and ``metal`` use their defined LAMMPS units; ``lj`` requires
+   explicit length, time and energy scales in those canonical units.
+
+   A non-increasing printed step starts a new segment. If the source contains
+   more than one segment, ``segment`` must select one. General triclinic
+   ``abc origin`` dumps omit boundary flags, so they require ``periodicity``.
+
+   :param source: Dump path, optionally compressed by a registered codec.
+   :param species: Explicit positive atom-type to chemical-symbol mapping.
+   :param units: LAMMPS unit style: ``metal``, ``real`` or ``lj``.
+   :param coordinates: Coordinate representation: ``auto``, ``x``, ``xs``,
+       ``xu`` or ``xsu``.
+   :param timestep: Constant source-unit time per printed step, if printed times
+       are absent.
+   :param segment: Zero-based segment to select, or ``None`` for a single-segment
+       source.
+   :param periodicity: Explicit periodic axes; required when box flags are absent.
+   :param lj_scales: Length (Å), time (ps) and energy (eV) per source unit for
+       ``lj``.
+   :raises TypeError: If ``source`` is not path-like.
+   :raises ValueError: If metadata is invalid or the selected segment violates
+       the trajectory contract.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'lammps'
+
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Return the constant distinct species in first-site order.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return constant species names aligned with sorted atom IDs.
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, ...]
+
+
+      Return available canonical observable names.
+
+
+   .. py:method:: frames()
+
+      Stream structures from the selected segment.
+
+      :return: A fresh iterator of exact unit-cell structures.
+
+
+
+   .. py:method:: observable(name)
+
+      Materialize one canonical observable in frame order.
+
+      :param name: Available observable name.
+      :return: Values in frame order.
+      :raises KeyError: If the observable is unavailable.
+
+
+
+   .. py:method:: samples(*names)
+
+      Stream frames and requested observables together in one pass.
+
+      :param \*names: Observable names in the requested result order.
+      :return: A fresh iterator of aligned structure/value pairs.
+      :raises KeyError: If an observable is unavailable.
+      :raises ValueError: If selected frames violate the trajectory contract.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the normalized dump path.
+
+
+
+   .. py:property:: source_locator
+      :type: str
+
+
+      Return the dump path as a storage locator.
+
+

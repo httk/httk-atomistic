@@ -1,0 +1,54 @@
+httk.atomistic.integrations.pymatgen.view
+=========================================
+
+.. py:module:: httk.atomistic.integrations.pymatgen.view
+
+.. autoapi-nested-parse::
+
+   Pymatgen ``Structure`` view for the :mod:`httk.atomistic` structure family.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.pymatgen.view.PymatgenStructureView
+
+
+Module Contents
+---------------
+
+.. py:class:: PymatgenStructureView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.view.StructureView`, :py:obj:`pymatgen.core.Structure`
+
+
+   Present a structure-like value as a pymatgen ``Structure``.
+
+   Charges, spins, partial occupancy, dummy labels, and structure charge are
+   exported, with structure charge passed as an exact ``Fraction``. Vacancy
+   constituents created for occupancy shortfall are omitted because pymatgen
+   represents the shortfall directly. Masses, labels on elements, attached species,
+   assemblies, and declared chemical composition are rejected rather than discarded;
+   :meth:`unwrap` recovers the original value behind the backend.
+
+   :param obj: A structure-like value to present as ``Structure``.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the original value represented by the underlying backend.
+
+
+
+   .. py:method:: unview()
+
+      Return a base ``Structure`` copy preserving exported properties.
+
+      :return: A standalone pymatgen ``Structure`` object.
+
+
+

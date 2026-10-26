@@ -1,0 +1,57 @@
+httk.atomistic.models.formula.formulatype_string
+================================================
+
+.. py:module:: httk.atomistic.models.formula.formulatype_string
+
+.. autoapi-nested-parse::
+
+   Backend wrapping a raw canonical anonymous formula string.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.formulatype_string.FormulatypeString
+
+
+Module Contents
+---------------
+
+.. py:class:: FormulatypeString(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Wrap a canonical anonymous formula held as a plain string.
+
+   The canonical class name is ``FormulatypeString``; the legacy
+   ``AnonymousFormulaString`` name remains available as a package-internal
+   alias.
+
+   :param obj: The canonical anonymous formula text.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: is_anonymous
+      :type: bool
+
+
+      Return whether the formula uses anonymous labels.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], ...]
+
+
+      Return the anonymous coefficients as exact amounts.
+
+
+   .. py:method:: unwrap()
+
+      Return the original formula text.
+
+
+

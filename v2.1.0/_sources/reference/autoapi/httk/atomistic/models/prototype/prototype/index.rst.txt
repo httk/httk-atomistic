@@ -1,0 +1,73 @@
+httk.atomistic.models.prototype.prototype
+=========================================
+
+.. py:module:: httk.atomistic.models.prototype.prototype
+
+.. autoapi-nested-parse::
+
+   The immutable anonymous geometrical-class prototype value.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.prototype.Prototype
+
+
+Module Contents
+---------------
+
+.. py:class:: Prototype(spacegroup = None, occupations = None, *, representative = None, discriminator = None, prototype = None)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.backend.PrototypeBackend`
+
+
+   Store anonymous occupied Wyckoff positions and optional class information.
+
+   The base value is provenance-independent: recognition and derivation return a base
+   ``Prototype``, so a value recognized from a structure compares equal to one built by hand
+   or parsed from a label. A geometrical representative and/or a discriminator are optional
+   refinements, present only when the user constructs the value with them; recognition never
+   attaches them. They participate in equality and content identity.
+
+   :param spacegroup: The standard-setting space group or its IT number.
+   :param occupations: The occupied Wyckoff positions and canonical anonymous labels.
+   :param representative: An optional exact anonymous class anchor.
+   :param discriminator: An optional external class discriminator.
+   :param prototype: An optional existing prototype whose base and unspecified optional
+       fields are copied.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'prototype'
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototype.occupation.PrototypeOccupation, ...]
+
+
+
+   .. py:property:: representative
+      :type: httk.atomistic.models.structuretype.fundamental.FundamentalDomainTemplate | None
+
+
+      Return an optional retained exact representative.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return an optional geometrical-class discriminator.
+
+

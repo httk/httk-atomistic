@@ -1,0 +1,69 @@
+httk.atomistic.models.prototype.label
+=====================================
+
+.. py:module:: httk.atomistic.models.prototype.label
+
+.. autoapi-nested-parse::
+
+   Eager prototype-label presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.label.PrototypeLabel
+
+
+Module Contents
+---------------
+
+.. py:class:: PrototypeLabel(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.view_base.PrototypeViewBase`, :py:obj:`str`
+
+
+   Present a prototype as its eager httk label string.
+
+   Any faithful render is the prototype label; the *canonical* prototype label is
+   the one obtained from a normalizer-canonical prototype (for example one derived via
+   ``canonical_asu``). This view renders the label with no affine-normalizer pass.
+
+   :param obj: The prototype-like object to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: spacegroup
+
+      Return the standard-setting space group of the presented prototype.
+
+
+   .. py:property:: occupations
+
+      Return the class-partitioned occupations of the presented prototype.
+
+
+   .. py:property:: representative
+
+
+   .. py:property:: discriminator
+
+
+   .. py:method:: unview()
+
+      Return the presented prototype as a standalone value.
+
+      :return: The prototype value.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+

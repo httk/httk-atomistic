@@ -1,0 +1,20 @@
+httk.atomistic.integrations.cp2k
+================================
+
+.. py:module:: httk.atomistic.integrations.cp2k
+
+.. autoapi-nested-parse::
+
+   CP2K structure files: input/restart reading and ``&SUBSYS`` geometry writing.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/integrations/cp2k/io/index
+
+

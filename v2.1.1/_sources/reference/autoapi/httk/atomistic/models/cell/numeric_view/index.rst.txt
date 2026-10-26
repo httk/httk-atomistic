@@ -1,0 +1,53 @@
+httk.atomistic.models.cell.numeric_view
+=======================================
+
+.. py:module:: httk.atomistic.models.cell.numeric_view
+
+.. autoapi-nested-parse::
+
+   A view presenting any cell backend as a NumericCell (the plain-numpy presentation).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.numeric_view.CellNumericView
+
+
+Module Contents
+---------------
+
+.. py:class:: CellNumericView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.cell.view_base.CellViewBase`, :py:obj:`httk.atomistic.models.cell.numeric.NumericCell`
+
+
+   A view presenting an underlying cell backend as a ``NumericCell``.
+
+   This view is a genuine ``NumericCell``, so it can be passed anywhere one is accepted. Its exact
+   ``Cell`` is built lazily from the backend on first access, preserving the scale/unscaled split.
+   Like a ``NumericCell`` it requires numpy (raising :class:`ImportError` otherwise).
+
+   :param obj: The cell-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return this presentation as a standalone numeric cell.
+
+      :return: The plain-numpy presentation.
+
+
+

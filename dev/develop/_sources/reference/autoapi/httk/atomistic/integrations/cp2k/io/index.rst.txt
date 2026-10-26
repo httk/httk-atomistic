@@ -1,0 +1,59 @@
+httk.atomistic.integrations.cp2k.io
+===================================
+
+.. py:module:: httk.atomistic.integrations.cp2k.io
+
+.. autoapi-nested-parse::
+
+   CP2K file-format readers for *httk-atomistic*.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/integrations/cp2k/io/cp2k_input/index
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.cp2k.io.read_cp2k_input
+
+
+Package Contents
+----------------
+
+.. py:function:: read_cp2k_input(source, *, precision = None)
+
+   Read the structure of a CP2K input or restart file into a neutral geometry payload.
+
+   The geometry is the single ``&FORCE_EVAL/&SUBSYS`` section (or a file holding just one
+   ``&SUBSYS`` block, as the ``cp2k-input`` writer produces): ``&CELL`` from ``A``/``B``/``C``
+   vectors or ``ABC`` with ``ALPHA_BETA_GAMMA`` (payload ``cell_parameters``, built as for
+   CIF in CP2K's frame: ``a`` along x, ``b`` in the xy plane), ``PERIODIC``, ``&COORD`` (Cartesian or
+   ``SCALED``), and each atom's element from its ``&KIND`` ``ELEMENT`` keyword or else its
+   kind name. Lengths must be in Å, CP2K's default. Keyword names are case-insensitive;
+   ``!``/``#`` comments and ``\`` line continuations are honoured.
+
+   Refused: preprocessor directives (``@INCLUDE``, ``@SET``, ``@IF``, …) and ``$`` variables,
+   several ``&FORCE_EVAL`` or ``&SUBSYS`` sections, external coordinates (``&TOPOLOGY``
+   ``COORD_FILE_NAME``/``COORD_FILE_FORMAT``), ``MULTIPLE_UNIT_CELL`` other than ``1 1 1``,
+   ``&CELL_REF``, ``CELL_FILE_NAME``, ``SYMMETRY`` other than ``NONE``, units other than
+   ``[angstrom]`` (and ``[deg]`` for angles), ghost kinds, and atoms whose element cannot be
+   determined.
+
+   :param source: A path (compressed files are decompressed) or an open text or binary stream.
+   :param precision: Cartesian coordinate precision in Å overriding the digit-derived one,
+       or ``None``. Must be a finite number greater than zero when given.
+   :return: The geometry payload, with the original text in ``raw``.
+   :raises ValueError: If the source is not a CP2K input, is malformed, uses a refused
+       construct, or ``precision`` is invalid.
+   :raises TypeError: If ``source`` is neither a path nor a stream.
+
+

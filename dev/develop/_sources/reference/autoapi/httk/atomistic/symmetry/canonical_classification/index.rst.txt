@@ -1,0 +1,68 @@
+httk.atomistic.symmetry.canonical_classification
+================================================
+
+.. py:module:: httk.atomistic.symmetry.canonical_classification
+
+.. autoapi-nested-parse::
+
+   Exact canonicalization for the structural-classification value families.
+
+   Input conversion follows the corresponding View contract and can recognize a
+   structure-like source. Materialized bare values use occupations alone. A refined representative
+   uses its exact geometric terminal, so projecting it to a bare value can require a
+   separate bare canonicalization pass.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.canonical_classification.canonical_bare_protostructure
+   httk.atomistic.symmetry.canonical_classification.canonical_bare_prototype
+   httk.atomistic.symmetry.canonical_classification.canonical_protostructure
+   httk.atomistic.symmetry.canonical_classification.canonical_prototype
+
+
+Module Contents
+---------------
+
+.. py:function:: canonical_bare_protostructure(obj, *, preserve_chirality = True)
+
+   Return the finite-action canonical assigned bare classification.
+
+   :param obj: A bare-protostructure-like value, converted through its View;
+       structure-like inputs may require symmetry recognition.
+   :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+   :return: A standalone canonical bare protostructure.
+
+
+.. py:function:: canonical_bare_prototype(obj, *, preserve_chirality = True)
+
+   Return the finite-action canonical anonymous bare classification.
+
+   :param obj: A bare-prototype-like value, converted through its View;
+       structure-like inputs may require symmetry recognition.
+   :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+   :return: A standalone canonical bare prototype.
+
+
+.. py:function:: canonical_protostructure(obj, *, preserve_chirality = True)
+
+   Return the exact canonical assigned refined classification.
+
+   :param obj: A protostructure-like value.
+   :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+   :return: A standalone canonical protostructure.
+
+
+.. py:function:: canonical_prototype(obj, *, preserve_chirality = True)
+
+   Return the exact canonical anonymous refined classification.
+
+   :param obj: A prototype-like value.
+   :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+   :return: A standalone canonical prototype.
+
+

@@ -1,0 +1,66 @@
+httk.atomistic.models.moments.crystalaxis
+=========================================
+
+.. py:module:: httk.atomistic.models.moments.crystalaxis
+
+.. autoapi-nested-parse::
+
+   Crystal-axis per-site magnetic-moment backend and exact frame conversions.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.crystalaxis.CrystalAxisSiteMoments
+
+
+Module Contents
+---------------
+
+.. py:class:: CrystalAxisSiteMoments(moments, cell, precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.moments.backend.SiteMomentsBackend`
+
+
+   Moments along the unit lattice axes ``â``, ``b̂``, ``ĉ``, in Bohr magnetons.
+
+
+   .. py:attribute:: kind
+      :value: 'crystalaxis'
+
+
+
+   .. py:property:: crystalaxis_moments
+      :type: httk.core.SurdVector
+
+
+      The exact Nx3 moments along the cell's unit lattice axes.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      The cell defining the crystal-axis frame.
+
+
+   .. py:property:: cartesian_moments
+      :type: httk.core.SurdVector
+
+
+      The exact Cartesian moments, using rows ``moments * U``.
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      How precisely the moments were stated, in Bohr magnetons, or ``None``.
+
+      Concrete rather than abstract, so a backend with no source of precision inherits
+      ``None`` instead of breaking.
+
+

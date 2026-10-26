@@ -1,0 +1,20 @@
+httk.atomistic.integrations.abinit
+==================================
+
+.. py:module:: httk.atomistic.integrations.abinit
+
+.. autoapi-nested-parse::
+
+   ABINIT structure files: inputs read and written as structures, main outputs read as trajectories.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/integrations/abinit/io/index
+
+

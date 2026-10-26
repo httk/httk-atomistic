@@ -1,0 +1,203 @@
+httk.atomistic.models.moments
+=============================
+
+.. py:module:: httk.atomistic.models.moments
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/moments/api/index
+   /reference/autoapi/httk/atomistic/models/moments/backend/index
+   /reference/autoapi/httk/atomistic/models/moments/cartesian/index
+   /reference/autoapi/httk/atomistic/models/moments/cartesian_view/index
+   /reference/autoapi/httk/atomistic/models/moments/collinear/index
+   /reference/autoapi/httk/atomistic/models/moments/crystalaxis/index
+   /reference/autoapi/httk/atomistic/models/moments/crystalaxis_view/index
+   /reference/autoapi/httk/atomistic/models/moments/like/index
+   /reference/autoapi/httk/atomistic/models/moments/view_base/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.SiteMomentsLike
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.CartesianSiteMoments
+   httk.atomistic.models.moments.CartesianSiteMomentsView
+   httk.atomistic.models.moments.CollinearSiteMoments
+   httk.atomistic.models.moments.CrystalAxisSiteMoments
+   httk.atomistic.models.moments.CrystalAxisSiteMomentsView
+
+
+Package Contents
+----------------
+
+.. py:class:: CartesianSiteMoments(moments, precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.moments.backend.SiteMomentsBackend`
+
+
+   Per-site Cartesian magnetic moments, exactly held in Bohr magnetons.
+
+
+   .. py:attribute:: kind
+      :value: 'cartesian'
+
+
+
+   .. py:property:: cartesian_moments
+      :type: httk.core.SurdVector
+
+
+      The exact Nx3 Cartesian moments, one row per site.
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      How precisely the moments were stated, in Bohr magnetons, or ``None``.
+
+      Concrete rather than abstract, so a backend with no source of precision inherits
+      ``None`` instead of breaking.
+
+
+.. py:class:: CartesianSiteMomentsView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.moments.view_base.SiteMomentsViewBase`, :py:obj:`httk.atomistic.models.moments.cartesian.CartesianSiteMoments`
+
+
+   A lazy Cartesian site-moments presentation of any site-moments backend.
+
+
+   .. py:method:: unview()
+
+      Return the view's presented representation as a plain, non-View instance.
+
+      Concrete views that mimic a value type override this to shed the httk wrapper; the result
+      may alias the view's storage (no copy is promised). The default raises ``TypeError``,
+      which is the correct behavior for views that only adapt an interface and have no faithful
+      standalone value.
+
+      :return: The presented value as a plain, non-View instance.
+      :raises TypeError: If this interface-only view has no standalone plain value.
+
+
+
+.. py:class:: CollinearSiteMoments(moments, precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.moments.backend.SiteMomentsBackend`
+
+
+   Signed per-site scalar moments with no assigned Cartesian axis.
+
+
+   .. py:attribute:: kind
+      :value: 'collinear'
+
+
+
+   .. py:property:: collinear_moments
+      :type: httk.core.FracVector
+
+
+      The exact signed scalar moment for each site.
+
+
+   .. py:property:: cartesian_moments
+      :type: httk.core.SurdVector
+
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      How precisely the moments were stated, in Bohr magnetons, or ``None``.
+
+      Concrete rather than abstract, so a backend with no source of precision inherits
+      ``None`` instead of breaking.
+
+
+.. py:class:: CrystalAxisSiteMoments(moments, cell, precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.moments.backend.SiteMomentsBackend`
+
+
+   Moments along the unit lattice axes ``â``, ``b̂``, ``ĉ``, in Bohr magnetons.
+
+
+   .. py:attribute:: kind
+      :value: 'crystalaxis'
+
+
+
+   .. py:property:: crystalaxis_moments
+      :type: httk.core.SurdVector
+
+
+      The exact Nx3 moments along the cell's unit lattice axes.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      The cell defining the crystal-axis frame.
+
+
+   .. py:property:: cartesian_moments
+      :type: httk.core.SurdVector
+
+
+      The exact Cartesian moments, using rows ``moments * U``.
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      How precisely the moments were stated, in Bohr magnetons, or ``None``.
+
+      Concrete rather than abstract, so a backend with no source of precision inherits
+      ``None`` instead of breaking.
+
+
+.. py:class:: CrystalAxisSiteMomentsView(obj, *, cell = None, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.moments.view_base.SiteMomentsViewBase`, :py:obj:`httk.atomistic.models.moments.crystalaxis.CrystalAxisSiteMoments`
+
+
+   A lazy crystal-axis site-moments presentation with an eagerly checked frame hint.
+
+
+   .. py:method:: unview()
+
+      Return the view's presented representation as a plain, non-View instance.
+
+      Concrete views that mimic a value type override this to shed the httk wrapper; the result
+      may alias the view's storage (no copy is promised). The default raises ``TypeError``,
+      which is the correct behavior for views that only adapt an interface and have no faithful
+      standalone value.
+
+      :return: The presented value as a plain, non-View instance.
+      :raises TypeError: If this interface-only view has no standalone plain value.
+
+
+
+.. py:type:: SiteMomentsLike
+   :canonical: httk.atomistic.models.moments.backend.SiteMomentsBackend | httk.atomistic.models.moments.view_base.SiteMomentsViewBase
+
+

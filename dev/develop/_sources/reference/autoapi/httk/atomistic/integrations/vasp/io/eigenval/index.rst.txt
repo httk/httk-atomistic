@@ -1,0 +1,142 @@
+httk.atomistic.integrations.vasp.io.eigenval
+============================================
+
+.. py:module:: httk.atomistic.integrations.vasp.io.eigenval
+
+.. autoapi-nested-parse::
+
+   Read band energies and occupations from a VASP EIGENVAL file.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.vasp.io.eigenval.EigenvalFile
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.vasp.io.eigenval.read_eigenval
+
+
+Module Contents
+---------------
+
+.. py:class:: EigenvalFile
+
+   Store the contents of a VASP EIGENVAL file with numeric lexemes unchanged.
+
+   Band arrays are shaped ``(spins, kpoints, bands)``. Occupations are per state on 0..1
+   for every ``ispin``.
+
+   :param ispin: Number of spin channels declared by the file, 1 or 2.
+   :param nions: Ion count from the first header line.
+   :param nelect: Electron-count lexeme, printed either as an integer or as a float.
+   :param nkpoints: Number of k-points.
+   :param nbands: Number of bands per k-point.
+   :param system: System name from the header.
+   :param kpoints: Fractional k-point coordinate lexemes in the reciprocal basis.
+   :param weights: K-point weight lexemes.
+   :param energies: Band-energy lexemes shaped ``(spins, kpoints, bands)``.
+   :param occupations: Occupation lexemes shaped like ``energies``, or ``None`` for files without them.
+
+
+   .. py:attribute:: ispin
+      :type:  int
+
+
+   .. py:attribute:: nions
+      :type:  int
+
+
+   .. py:attribute:: nelect
+      :type:  str
+
+
+   .. py:attribute:: nkpoints
+      :type:  int
+
+
+   .. py:attribute:: nbands
+      :type:  int
+
+
+   .. py:attribute:: system
+      :type:  str
+
+
+   .. py:attribute:: kpoints
+      :type:  tuple[tuple[str, str, str], ...]
+
+
+   .. py:attribute:: weights
+      :type:  tuple[str, ...]
+
+
+   .. py:attribute:: energies
+      :type:  tuple[tuple[tuple[str, ...], ...], ...]
+
+
+   .. py:attribute:: occupations
+      :type:  tuple[tuple[tuple[str, ...], ...], ...] | None
+
+
+   .. py:method:: kpoints_floats()
+
+      Convert the k-point lexemes to floating-point values.
+
+      :return: Fractional k-point coordinates.
+
+
+
+   .. py:method:: weights_floats()
+
+      Convert the k-point weight lexemes to floating-point values.
+
+      :return: K-point weights.
+
+
+
+   .. py:method:: energies_floats()
+
+      Convert the band energies to floating-point values.
+
+      :return: Energies in eV shaped ``(spins, kpoints, bands)``.
+
+
+
+   .. py:method:: occupations_floats()
+
+      Convert the occupations to floating-point values when present.
+
+      :return: Occupations shaped ``(spins, kpoints, bands)``, or ``None`` when the file has none.
+
+
+
+   .. py:method:: nelect_float()
+
+      Convert the electron-count lexeme to a floating-point value.
+
+      :return: The number of electrons.
+
+
+
+.. py:function:: read_eigenval(source)
+
+   Read a VASP 5/6 EIGENVAL file, with or without occupation columns.
+
+   The occupation columns are told apart from the spin channels by ``ISPIN`` on the first
+   line, never by column count alone. Paths are opened and closed by the reader; caller-owned
+   text streams remain open.
+
+   :param source: EIGENVAL path or caller-owned text stream.
+   :return: The file contents with numeric lexemes unchanged.
+   :raises ValueError: If the header, a k-point block, a band line, or the trailing content is malformed.
+
+

@@ -1,0 +1,64 @@
+httk.atomistic.models.bareprototype.recognized
+==============================================
+
+.. py:module:: httk.atomistic.models.bareprototype.recognized
+
+.. autoapi-nested-parse::
+
+   The structure-to-prototype recognition adapter.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprototype.recognized.RecognizedBarePrototype
+
+
+Module Contents
+---------------
+
+.. py:class:: RecognizedBarePrototype(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.bareprototype.backend.BarePrototypeBackend`
+
+
+   Recognize an ordinary structure or template lazily as a prototype.
+
+   Recognition resolves an exact fundamental-domain template, then retains only
+   its standard-setting Wyckoff occupations and anonymous class partition.
+   The original source remains available through ``unwrap()``.
+
+   :param obj: The structure-like source to recognize.
+   :param \*\*hints: Backend-selection and recognition hints.
+
+
+   .. py:attribute:: kind
+      :value: 'structure'
+
+
+
+   .. py:method:: resolve()
+
+      Return the complete recognized prototype.
+
+
+
+   .. py:property:: spacegroup
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+
+      Return canonical anonymous Wyckoff occupations.
+
+
+   .. py:method:: unwrap()
+
+      Return the original recognition source.
+
+
+

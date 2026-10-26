@@ -1,0 +1,91 @@
+httk.atomistic.models.structure.asu_view
+========================================
+
+.. py:module:: httk.atomistic.models.structure.asu_view
+
+.. autoapi-nested-parse::
+
+   A lazy view presenting any structure as its asymmetric unit.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.asu_view.ASUStructureView
+
+
+Module Contents
+---------------
+
+.. py:class:: ASUStructureView(obj, *, setting = None, standard = None, transform = None, tolerance = None, immutable_id = _METADATA_UNSET, last_modified = _METADATA_UNSET, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.view.StructureView`, :py:obj:`httk.atomistic.models.structure.asu.ASUStructure`
+
+
+   Present an underlying structure backend as a lazy :class:`~httk.atomistic.ASUStructure`.
+
+   Resolver-backed and non-native sources are retained without recognition until the first
+   asymmetric-unit access. The view then publishes the complete validated ASU state on itself,
+   so its inherited API remains the genuine ASUStructure interface. Pickling retains the source
+   backend and view options; once resolved, it also retains the validated derived ASU state while
+   preserving that backend as the source returned by :meth:`unwrap`.
+
+   :param obj: The structure backend or source to recognize and present.
+   :param setting: The source structure's tabulated space-group setting.
+   :param standard: The IT-standard space group for an untabulated setting.
+   :param transform: The standard-to-source setting transform.
+   :param tolerance: The Cartesian recognition tolerance.
+   :param immutable_id: The optional immutable source identifier override.
+   :param last_modified: The optional source modification timestamp override.
+   :param \**hints: Backend-selection and reader hints.
+
+
+   .. py:method:: resolve()
+
+      Resolve and return the complete standalone asymmetric unit.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the original source without resolving it.
+
+
+
+   .. py:method:: unview()
+
+      Return the resolved standalone asymmetric-unit structure.
+
+
+
+   .. py:property:: sites
+      :type: Any
+
+
+      Expose the representative sites retained by the asymmetric-unit view.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Expose species names for the representative sites retained by the view.
+
+
+   .. py:property:: assemblies
+      :type: Any
+
+
+      Expose correlations among the retained domain sites.
+
+
+   .. py:property:: asu
+      :type: httk.atomistic.models.structure.asu.FundamentalDomainStructure
+
+
+      Expose this view as its own resolved fundamental domain.
+
+

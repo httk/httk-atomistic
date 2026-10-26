@@ -1,0 +1,37 @@
+httk.atomistic.models.cell.backend
+==================================
+
+.. py:module:: httk.atomistic.models.cell.backend
+
+.. autoapi-nested-parse::
+
+   The abstract base class for all cell backends in httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.backend.CellBackend
+
+
+Module Contents
+---------------
+
+.. py:class:: CellBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`CellBackend`\ ], :py:obj:`httk.atomistic.models.cell.api.CellAPI`
+
+
+   Abstract base class for all backends of cell data.
+
+   Concrete backends carry a native representation and produce the canonical 3x3
+   ``basis`` declared by ``CellAPI`` from it.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+

@@ -1,0 +1,778 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../../../genindex.html"><link rel="search" title="Search" href="../../../../../../search.html">
+
+    <!-- Generated with Sphinx 9.1.1 and Furo 2025.12.19 -->
+        <title>httk.atomistic.integrations.abinit.io.inputs - httk-atomistic dev:develop documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx_autodoc_typehints.css?v=057ac668" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/selector.css?v=626bada3" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     Development documentation (dev:develop) — built from the GitHub develop branch; content may differ from any release. 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../../../../index.html"><div class="brand">httk-atomistic dev:develop documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../../../index.html">
+  
+  <span class="sidebar-brand-text">httk-atomistic dev:develop documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../structures.html">Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../composition.html">Composition and formula families</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../prototypes.html">Material-information levels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../cif.html">Reading and writing CIF files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../poscar.html">Reading VASP POSCAR / CONTCAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../vasp_outputs.html">Reading VASP output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../doscar.html">VASP total density of states</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../wavecar.html">Reading and writing VASP WAVECAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../wavefunctions.html">Plane-wave wavefunctions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../httk_structure.html">Exact structure files (<code class="docutils literal notranslate"><span class="pre">.httkstruct</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../trajectory_jsonl.html">Trajectory JSON Lines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../lammps.html">Reading LAMMPS dumps and data files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../qe.html">Quantum ESPRESSO pw.x files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../abinit.html">ABINIT input and output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../cp2k.html">CP2K input and restart files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../asu.html">Asymmetric units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../canonicalization.html">Canonicalization algorithms and reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../subgroups.html">Subgroups and pathfinding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../moments.html">Site moments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../integrations.html">Integrations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../precision.html">Data precision</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../periodicity.html">Periodicity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../lattice-reduction.html">Lattice reduction (Niggli)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../primitive-cells.html">Primitive cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../band-paths.html">Band-structure paths</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../notebooks/examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../notebooks/disorder.html">Disorder, vacancies, and attached species</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Details</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/structures.html">Structures in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/structural_classes.html">Naming of <em>httk₂</em> structural classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/asu.html">Asymmetric units in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/cif.html">CIF and mCIF reading in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/precision.html">Data precision in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/periodicity.html">Periodicity in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../reference/autoapi/index.html">API Reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for httk.atomistic.integrations.abinit.io.inputs</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""ABINIT input files: the shared variable parser, the structure reader and the geometry writer.</span>
+
+<span class="sd">ABINIT converts lengths with its own Bohr radius, 0.52917720859 Å (CODATA 2006). ABINIT</span>
+<span class="sd">10.0.3 output confirms it: ``xcart 2.565`` Bohr is echoed as ``xangst 1.3573395400``, where</span>
+<span class="sd">the CODATA 2018 value ASE uses would give ``1.3573395451``. Conversion through it is exact.</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">fractions</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">SurdScalar</span><span class="p">,</span> <span class="n">exactmath</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.elements</span><span class="w"> </span><span class="kn">import</span> <span class="n">atomic_number</span><span class="p">,</span> <span class="n">symbol_of</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.integrations._geometry</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_NUMBER</span><span class="p">,</span>
+    <span class="n">_geometry_from_structure</span><span class="p">,</span>
+    <span class="n">_normalized</span><span class="p">,</span>
+    <span class="n">_number</span><span class="p">,</span>
+    <span class="n">_structure_from_geometry</span><span class="p">,</span>
+    <span class="n">_write_text</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.integrations.vasp.io._text</span><span class="w"> </span><span class="kn">import</span> <span class="n">source_lines</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.integrations.vasp.io.poscar_reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">_coordinate_precision</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">_check_load_precision</span>
+
+<span class="n">FORMAT</span> <span class="o">=</span> <span class="s2">"abinit-input"</span>
+<span class="n">BOHR_ANGSTROM</span> <span class="o">=</span> <span class="s2">"0.52917720859"</span>
+
+<span class="nb">type</span> <span class="n">Exact</span> <span class="o">=</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span> <span class="o">|</span> <span class="n">SurdScalar</span>
+<span class="nb">type</span> <span class="n">Variables</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span>
+<span class="nb">type</span> <span class="n">Units</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+
+<span class="c1"># A quoted string, a ``#``/``!`` comment to the end of the line, a bare token, or a lone quote.</span>
+<span class="n">_TOKEN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">'"[^"\n]*"|[#!].*|[^\s#!"]+|"'</span><span class="p">)</span>
+<span class="n">_NAME</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"[a-z_][\w:+?]*"</span><span class="p">)</span>
+<span class="c1"># A variable name split into its base and a dataset (digits, ``:``, ``+``, ``?``) or image suffix.</span>
+<span class="n">_SUFFIXED</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"([a-z_]+?)([0-9:+?]*|_[0-9]+img|_lastimg)"</span><span class="p">)</span>
+<span class="n">_SQRT</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(-?)sqrt\((.*)\)"</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">)</span>
+<span class="n">_INTEGER</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"[+-]?\d+"</span><span class="p">)</span>
+<span class="c1"># ABINIT's unit words; only the length units are meaningful for the structure variables.</span>
+<span class="n">_LENGTH_UNITS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"bohr"</span><span class="p">:</span> <span class="s2">"bohr"</span><span class="p">,</span> <span class="s2">"angstr"</span><span class="p">:</span> <span class="s2">"angstrom"</span><span class="p">,</span> <span class="s2">"angstrom"</span><span class="p">:</span> <span class="s2">"angstrom"</span><span class="p">}</span>
+<span class="n">_UNITS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+    <span class="p">{</span><span class="o">*</span><span class="n">_LENGTH_UNITS</span><span class="p">,</span> <span class="s2">"au"</span><span class="p">,</span> <span class="s2">"nm"</span><span class="p">,</span> <span class="s2">"ha"</span><span class="p">,</span> <span class="s2">"hartree"</span><span class="p">,</span> <span class="s2">"ry"</span><span class="p">,</span> <span class="s2">"rydberg"</span><span class="p">,</span> <span class="s2">"ev"</span><span class="p">,</span> <span class="s2">"mev"</span><span class="p">,</span> <span class="s2">"k"</span><span class="p">,</span> <span class="s2">"kelvin"</span><span class="p">,</span> <span class="s2">"t"</span><span class="p">,</span> <span class="s2">"tesla"</span><span class="p">,</span> <span class="s2">"s"</span><span class="p">,</span> <span class="s2">"sec"</span><span class="p">}</span>
+<span class="p">)</span>
+<span class="n">_STRUCTURE</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+    <span class="p">{</span><span class="s2">"acell"</span><span class="p">,</span> <span class="s2">"angdeg"</span><span class="p">,</span> <span class="s2">"natom"</span><span class="p">,</span> <span class="s2">"ntypat"</span><span class="p">,</span> <span class="s2">"rprim"</span><span class="p">,</span> <span class="s2">"scalecart"</span><span class="p">,</span> <span class="s2">"typat"</span><span class="p">,</span> <span class="s2">"xangst"</span><span class="p">,</span> <span class="s2">"xcart"</span><span class="p">,</span> <span class="s2">"xred"</span><span class="p">,</span> <span class="s2">"znucl"</span><span class="p">}</span>
+<span class="p">)</span>
+<span class="n">_REFUSED</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"spgroup"</span><span class="p">:</span> <span class="s2">"symmetry-generated atoms (spgroup)"</span><span class="p">,</span>
+    <span class="s2">"spgroupma"</span><span class="p">:</span> <span class="s2">"symmetry-generated atoms (spgroupma)"</span><span class="p">,</span>
+    <span class="s2">"natrd"</span><span class="p">:</span> <span class="s2">"symmetry-generated atoms (natrd)"</span><span class="p">,</span>
+    <span class="s2">"nobj"</span><span class="p">:</span> <span class="s2">"geometry built from objects (nobj)"</span><span class="p">,</span>
+    <span class="s2">"structure"</span><span class="p">:</span> <span class="s2">"the structure variable (geometry read from another file)"</span><span class="p">,</span>
+    <span class="s2">"xyzfile"</span><span class="p">:</span> <span class="s2">"geometry read from an xyz file (xyzfile)"</span><span class="p">,</span>
+    <span class="s2">"getcell"</span><span class="p">:</span> <span class="s2">"a cell taken from another dataset (getcell)"</span><span class="p">,</span>
+    <span class="s2">"getxcart"</span><span class="p">:</span> <span class="s2">"positions taken from another dataset (getxcart)"</span><span class="p">,</span>
+    <span class="s2">"getxred"</span><span class="p">:</span> <span class="s2">"positions taken from another dataset (getxred)"</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">_TOLERANCE</span> <span class="o">=</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="o">**</span><span class="mi">12</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_source_text</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Decode a path, stream or iterable of lines into text, plus the raw text when available."""</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">source_lines</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">preserve_path</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">capture_stream</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">raw</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">raw</span><span class="p">,</span> <span class="n">raw</span>
+            <span class="k">return</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">line</span> <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span> <span class="k">else</span> <span class="n">line</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">),</span> <span class="kc">None</span>
+    <span class="k">except</span> <span class="ne">UnicodeDecodeError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT file is not UTF-8 text: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_expand</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Expand ABINIT's ``n*value`` repetition."""</span>
+    <span class="n">count</span><span class="p">,</span> <span class="n">star</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">token</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"*"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">star</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">token</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_INTEGER</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">count</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">int</span><span class="p">(</span><span class="n">count</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"unsupported ABINIT repetition </span><span class="si">{</span><span class="n">token</span><span class="si">!r}</span><span class="s2">; expected n*value with a positive count n"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">value</span><span class="p">]</span> <span class="o">*</span> <span class="nb">int</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_variables</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Variables</span><span class="p">,</span> <span class="n">Units</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Parse ABINIT ``name value... [unit]`` text into value tokens and units per lower-case name.</span>
+
+<span class="sd">    Repetitions are expanded; values stay unconverted tokens. A unit word attaches to the</span>
+<span class="sd">    variable it follows.</span>
+<span class="sd">    """</span>
+    <span class="n">values</span><span class="p">:</span> <span class="n">Variables</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">units</span><span class="p">:</span> <span class="n">Units</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">match</span> <span class="ow">in</span> <span class="n">_TOKEN</span><span class="o">.</span><span class="n">finditer</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+        <span class="n">token</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">token</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="s2">"#!"</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">token</span> <span class="o">==</span> <span class="s1">'"'</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"ABINIT input has an unterminated string"</span><span class="p">)</span>
+        <span class="n">lower</span> <span class="o">=</span> <span class="n">token</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">lower</span> <span class="ow">in</span> <span class="n">_UNITS</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">values</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="ow">or</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">units</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT unit </span><span class="si">{</span><span class="n">token</span><span class="si">!r}</span><span class="s2"> does not follow a variable's values"</span><span class="p">)</span>
+            <span class="n">units</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">lower</span>
+        <span class="k">elif</span> <span class="n">_NAME</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">lower</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">values</span><span class="p">[</span><span class="n">name</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT variable </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> has no value (followed by </span><span class="si">{</span><span class="n">token</span><span class="si">!r}</span><span class="s2">)"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">lower</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT variable </span><span class="si">{</span><span class="n">lower</span><span class="si">!r}</span><span class="s2"> appears more than once"</span><span class="p">)</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">lower</span>
+            <span class="n">values</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">elif</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT value </span><span class="si">{</span><span class="n">token</span><span class="si">!r}</span><span class="s2"> precedes any variable name"</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">units</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT variable </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> has a value </span><span class="si">{</span><span class="n">token</span><span class="si">!r}</span><span class="s2"> after its unit"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">values</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_expand</span><span class="p">(</span><span class="n">token</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">values</span><span class="p">[</span><span class="n">name</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT variable </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> has no value"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">values</span><span class="p">,</span> <span class="n">units</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_value</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Exact</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""One exact number: a decimal, ``a/b``, ``sqrt(x)`` or ``-sqrt(x)``.</span>
+
+<span class="sd">    ``sqrt(x)`` is an exact surd within httk-core's radicand bound; a larger (untrusted)</span>
+<span class="sd">    radicand is not factored but approximated within ``exactmath.default_accuracy``, which</span>
+<span class="sd">    :func:`_precision` then claims.</span>
+<span class="sd">    """</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">_SQRT</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">exactmath</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">_number</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
+            <span class="k">return</span> <span class="o">-</span><span class="n">value</span> <span class="k">if</span> <span class="n">root</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">else</span> <span class="n">value</span>
+        <span class="n">numerator</span><span class="p">,</span> <span class="n">slash</span><span class="p">,</span> <span class="n">denominator</span> <span class="o">=</span> <span class="n">token</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"/"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">slash</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_number</span><span class="p">(</span><span class="n">numerator</span><span class="p">)</span> <span class="o">/</span> <span class="n">_number</span><span class="p">(</span><span class="n">denominator</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_number</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">ZeroDivisionError</span><span class="p">)</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> value </span><span class="si">{</span><span class="n">token</span><span class="si">!r}</span><span class="s2"> is not a supported number: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_entry</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Exact</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A payload entry: the token itself when it is a plain decimal (keeping its precision claim)."""</span>
+    <span class="k">return</span> <span class="n">token</span> <span class="k">if</span> <span class="n">_NUMBER</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="k">else</span> <span class="n">_value</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_precision</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A token's digit precision claim; ``0`` for exact expressions and digit-less integers.</span>
+
+<span class="sd">    Dimensionless ``coefficient`` tokens (``rprim``, ``scalecart``) follow POSCAR's direct</span>
+<span class="sd">    coordinates: ``0.0``, ``0.5`` and ``1.0`` spell exact fractions and claim nothing.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_NUMBER</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">token</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">exactmath</span><span class="o">.</span><span class="n">default_accuracy</span> <span class="k">if</span> <span class="n">_approximate_root</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="k">else</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_coordinate_precision</span><span class="p">([[</span><span class="n">_normalized</span><span class="p">(</span><span class="n">token</span><span class="p">)]],</span> <span class="n">cartesian</span><span class="o">=</span><span class="ow">not</span> <span class="n">coefficient</span><span class="p">)</span> <span class="ow">or</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_approximate_root</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Whether a ``sqrt(x)`` token's value is only a rational approximation of the root."""</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">_SQRT</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="n">radicand</span> <span class="o">=</span> <span class="n">_number</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">exactmath</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">radicand</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">))</span> <span class="ow">and</span> <span class="n">value</span> <span class="o">*</span> <span class="n">value</span> <span class="o">!=</span> <span class="n">radicand</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_size</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The magnitude of an exact number."""</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">abs</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="c1"># ponytail: surd magnitudes via float, ~1e-16 relative; only scales a precision bound.</span>
+    <span class="k">return</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="n">Variables</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""The value tokens of a variable, checked against the count ABINIT expects."""</span>
+    <span class="n">tokens</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tokens</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT structure needs the variable </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">!=</span> <span class="n">count</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> needs </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2"> values, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tokens</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_integer</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""One integer value; decimals with an integral value (as in output echoes) are accepted."""</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">_number</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="k">if</span> <span class="n">_NUMBER</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">value</span><span class="o">.</span><span class="n">denominator</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> value </span><span class="si">{</span><span class="n">token</span><span class="si">!r}</span><span class="s2"> is not an integer"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_supported</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="n">Variables</span><span class="p">,</span> <span class="n">units</span><span class="p">:</span> <span class="n">Units</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Refuse the input constructs this reader does not model."""</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="n">_SUFFIXED</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">base</span><span class="p">,</span> <span class="n">suffix</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">base</span> <span class="ow">in</span> <span class="n">_REFUSED</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT </span><span class="si">{</span><span class="n">_REFUSED</span><span class="p">[</span><span class="n">base</span><span class="p">]</span><span class="si">}</span><span class="s2"> is not supported; give the explicit geometry"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">suffix</span> <span class="ow">and</span> <span class="n">base</span> <span class="ow">in</span> <span class="n">_STRUCTURE</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"ABINIT dataset- or image-dependent structure variable </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is not supported; "</span>
+                <span class="s2">"a structure is read only from dataset-independent variables"</span>
+            <span class="p">)</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">units</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_STRUCTURE</span> <span class="ow">and</span> <span class="p">(</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"acell"</span><span class="p">,</span> <span class="s2">"xcart"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">unit</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_LENGTH_UNITS</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT unit </span><span class="si">{</span><span class="n">unit</span><span class="si">!r}</span><span class="s2"> on </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not supported (acell and xcart take Bohr or Angstrom)"</span><span class="p">)</span>
+
+
+<span class="c1"># Exact cosines of the angles (degrees) whose ABINIT angdeg cells this reader builds.</span>
+<span class="n">_HALF</span> <span class="o">=</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">_COS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Exact</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mi">0</span><span class="p">:</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+    <span class="mi">30</span><span class="p">:</span> <span class="n">exactmath</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">*</span> <span class="n">_HALF</span><span class="p">,</span>
+    <span class="mi">45</span><span class="p">:</span> <span class="n">exactmath</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">*</span> <span class="n">_HALF</span><span class="p">,</span>
+    <span class="mi">60</span><span class="p">:</span> <span class="n">_HALF</span><span class="p">,</span>
+    <span class="mi">90</span><span class="p">:</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+    <span class="mi">120</span><span class="p">:</span> <span class="o">-</span><span class="n">_HALF</span><span class="p">,</span>
+    <span class="mi">135</span><span class="p">:</span> <span class="o">-</span><span class="n">exactmath</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">*</span> <span class="n">_HALF</span><span class="p">,</span>
+    <span class="mi">150</span><span class="p">:</span> <span class="o">-</span><span class="n">exactmath</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">*</span> <span class="n">_HALF</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_Inexact</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""ABINIT's angdeg construction has no exact form for these angles."""</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cos</span><span class="p">(</span><span class="n">angle</span><span class="p">:</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">angle</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_COS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">_Inexact</span>
+    <span class="k">return</span> <span class="n">_COS</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">angle</span><span class="p">)]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sqrt</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">exactmath</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">_Inexact</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_angdeg_rprim</span><span class="p">(</span><span class="n">tokens</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The rprim rows ABINIT builds from angdeg (ingeo.F90, as documented for angdeg), or ``None``.</span>
+
+<span class="sd">    ``None`` means the construction is not exact: an angle outside 30, 45, 60, 90, 120, 135</span>
+<span class="sd">    and 150 degrees, or a square root of an irrational value.</span>
+<span class="sd">    """</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">_value</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="s2">"angdeg"</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">tokens</span><span class="p">]</span>
+    <span class="n">angles</span> <span class="o">=</span> <span class="p">[</span><span class="n">angle</span> <span class="k">for</span> <span class="n">angle</span> <span class="ow">in</span> <span class="n">values</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">angle</span><span class="p">,</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">angle</span> <span class="o">&lt;</span> <span class="mi">180</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">angles</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT angdeg angles must be rational degrees between 0 and 180, got </span><span class="si">{</span><span class="n">tokens</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_exact_angdeg_rprim</span><span class="p">(</span><span class="o">*</span><span class="n">angles</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">_Inexact</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_exact_angdeg_rprim</span><span class="p">(</span><span class="n">a1</span><span class="p">:</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">,</span> <span class="n">a2</span><span class="p">:</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">,</span> <span class="n">a3</span><span class="p">:</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""ingeo.F90's angdeg rows, raising :class:`_Inexact` when they have no exact form."""</span>
+    <span class="n">zero</span> <span class="o">=</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="nb">abs</span><span class="p">(</span><span class="n">a1</span> <span class="o">-</span> <span class="n">a2</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">_TOLERANCE</span>
+        <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">a2</span> <span class="o">-</span> <span class="n">a3</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">_TOLERANCE</span>
+        <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">a1</span> <span class="o">-</span> <span class="mi">90</span><span class="p">)</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="n">a2</span> <span class="o">-</span> <span class="mi">90</span><span class="p">)</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="n">a3</span> <span class="o">-</span> <span class="mi">90</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">_TOLERANCE</span>
+    <span class="p">):</span>
+        <span class="c1"># Equal angles: the trigonal axis along z.</span>
+        <span class="n">square</span> <span class="o">=</span> <span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">_cos</span><span class="p">(</span><span class="n">a1</span><span class="p">))</span>
+        <span class="n">aa</span><span class="p">,</span> <span class="n">cc</span> <span class="o">=</span> <span class="n">_sqrt</span><span class="p">(</span><span class="n">square</span><span class="p">),</span> <span class="n">_sqrt</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">square</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">exactmath</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">*</span> <span class="n">_HALF</span> <span class="o">*</span> <span class="n">aa</span>
+        <span class="k">return</span> <span class="p">[[</span><span class="n">aa</span><span class="p">,</span> <span class="n">zero</span><span class="p">,</span> <span class="n">cc</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="n">_HALF</span> <span class="o">*</span> <span class="n">aa</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cc</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="n">_HALF</span> <span class="o">*</span> <span class="n">aa</span><span class="p">,</span> <span class="o">-</span><span class="n">y</span><span class="p">,</span> <span class="n">cc</span><span class="p">]]</span>
+    <span class="n">cos1</span><span class="p">,</span> <span class="n">cos2</span><span class="p">,</span> <span class="n">cos3</span> <span class="o">=</span> <span class="n">_cos</span><span class="p">(</span><span class="n">a1</span><span class="p">),</span> <span class="n">_cos</span><span class="p">(</span><span class="n">a2</span><span class="p">),</span> <span class="n">_cos</span><span class="p">(</span><span class="n">a3</span><span class="p">)</span>
+    <span class="n">sin3</span> <span class="o">=</span> <span class="n">_cos</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="mi">90</span> <span class="o">-</span> <span class="n">a3</span><span class="p">))</span>
+    <span class="n">y3</span> <span class="o">=</span> <span class="p">(</span><span class="n">cos1</span> <span class="o">-</span> <span class="n">cos3</span> <span class="o">*</span> <span class="n">cos2</span><span class="p">)</span> <span class="o">/</span> <span class="n">sin3</span>
+    <span class="n">z3</span> <span class="o">=</span> <span class="n">_sqrt</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">cos2</span> <span class="o">*</span> <span class="n">cos2</span> <span class="o">-</span> <span class="n">y3</span> <span class="o">*</span> <span class="n">y3</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[[</span><span class="n">fractions</span><span class="o">.</span><span class="n">Fraction</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">zero</span><span class="p">,</span> <span class="n">zero</span><span class="p">],</span> <span class="p">[</span><span class="n">cos3</span><span class="p">,</span> <span class="n">sin3</span><span class="p">,</span> <span class="n">zero</span><span class="p">],</span> <span class="p">[</span><span class="n">cos2</span><span class="p">,</span> <span class="n">y3</span><span class="p">,</span> <span class="n">z3</span><span class="p">]]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_geometry</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="n">Variables</span><span class="p">,</span> <span class="n">units</span><span class="p">:</span> <span class="n">Units</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""The neutral geometry payload (without ``format``) of parsed ABINIT structure variables."""</span>
+    <span class="n">natom</span> <span class="o">=</span> <span class="n">_integer</span><span class="p">(</span><span class="n">_get</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">"natom"</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">[</span><span class="s2">"1"</span><span class="p">])[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">"natom"</span><span class="p">)</span>
+    <span class="n">ntypat</span> <span class="o">=</span> <span class="n">_integer</span><span class="p">(</span><span class="n">_get</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">"ntypat"</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">[</span><span class="s2">"1"</span><span class="p">])[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">"ntypat"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">natom</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">ntypat</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT natom and ntypat must be positive, got </span><span class="si">{</span><span class="n">natom</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">ntypat</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">typat</span> <span class="o">=</span> <span class="p">[</span><span class="n">_integer</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="s2">"typat"</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">_get</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">"typat"</span><span class="p">,</span> <span class="n">natom</span><span class="p">,</span> <span class="p">[</span><span class="s2">"1"</span><span class="p">]</span> <span class="k">if</span> <span class="n">natom</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)]</span>
+    <span class="n">znucl</span> <span class="o">=</span> <span class="p">[</span><span class="n">_integer</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="s2">"znucl"</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">_get</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">"znucl"</span><span class="p">,</span> <span class="n">ntypat</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="ow">not</span> <span class="mi">1</span> <span class="o">&lt;=</span> <span class="n">kind</span> <span class="o">&lt;=</span> <span class="n">ntypat</span> <span class="k">for</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">typat</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT typat values must lie in 1..ntypat=</span><span class="si">{</span><span class="n">ntypat</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">typat</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">acell_tokens</span> <span class="o">=</span> <span class="n">_get</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">"acell"</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="s2">"1"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">])</span>
+    <span class="n">acell</span> <span class="o">=</span> <span class="p">[</span><span class="n">_value</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="s2">"acell"</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">acell_tokens</span><span class="p">]</span>
+    <span class="n">scalecart_tokens</span> <span class="o">=</span> <span class="n">_get</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">"scalecart"</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="s2">"1"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">])</span>
+    <span class="n">scalecart</span> <span class="o">=</span> <span class="p">[</span><span class="n">_value</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="s2">"scalecart"</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">scalecart_tokens</span><span class="p">]</span>
+    <span class="n">given</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"xred"</span><span class="p">,</span> <span class="s2">"xcart"</span><span class="p">,</span> <span class="s2">"xangst"</span><span class="p">)</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">values</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">given</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ABINIT positions are given more than once (</span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">given</span><span class="p">)</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+    <span class="n">payload</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"cell_unit"</span><span class="p">:</span> <span class="n">_LENGTH_UNITS</span><span class="p">[</span><span class="n">units</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"acell"</span><span class="p">,</span> <span class="s2">"bohr"</span><span class="p">)],</span> <span class="s2">"bohr_angstrom"</span><span class="p">:</span> <span class="n">BOHR_ANGSTROM</span><span class="p">}</span>
+
+    <span class="k">if</span> <span class="s2">"rprim"</span> <span class="ow">in</span> <span class="n">values</span> <span class="ow">and</span> <span class="s2">"angdeg"</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"ABINIT rprim and angdeg are mutually exclusive"</span><span class="p">)</span>
+    <span class="n">rprim</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">angdeg</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">rprim_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"0"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">9</span>  <span class="c1"># angdeg rows are exact</span>
+    <span class="k">if</span> <span class="s2">"angdeg"</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+        <span class="n">angdeg</span> <span class="o">=</span> <span class="n">_get</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">"angdeg"</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">rprim</span> <span class="o">=</span> <span class="n">_angdeg_rprim</span><span class="p">(</span><span class="n">angdeg</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rprim_tokens</span> <span class="o">=</span> <span class="n">_get</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">"rprim"</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="p">[</span><span class="s2">"1"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">])</span>
+        <span class="n">flat</span> <span class="o">=</span> <span class="p">[</span><span class="n">_value</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="s2">"rprim"</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">rprim_tokens</span><span class="p">]</span>
+        <span class="n">rprim</span> <span class="o">=</span> <span class="p">[</span><span class="n">flat</span><span class="p">[</span><span class="mi">3</span> <span class="o">*</span> <span class="n">row</span> <span class="p">:</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">row</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">rprim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># rprimd(i, j) = scalecart(i) * rprim(i, j) * acell(j): vector j's Cartesian component i.</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"cell"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">[</span><span class="n">acell</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="o">*</span> <span class="n">rprim</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">column</span><span class="p">]</span> <span class="o">*</span> <span class="n">scalecart</span><span class="p">[</span><span class="n">column</span><span class="p">]</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="c1"># The products are exact numbers, so their digit claim is propagated explicitly:</span>
+        <span class="c1"># |d(a r s)| &lt;= p(a)|r||s| + |a|p(r)|s| + |a||r|p(s), maximized over the entries.</span>
+        <span class="n">bound</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+            <span class="n">_precision</span><span class="p">(</span><span class="n">acell_tokens</span><span class="p">[</span><span class="n">row</span><span class="p">])</span> <span class="o">*</span> <span class="n">_size</span><span class="p">(</span><span class="n">rprim</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">column</span><span class="p">])</span> <span class="o">*</span> <span class="n">_size</span><span class="p">(</span><span class="n">scalecart</span><span class="p">[</span><span class="n">column</span><span class="p">])</span>
+            <span class="o">+</span> <span class="n">_size</span><span class="p">(</span><span class="n">acell</span><span class="p">[</span><span class="n">row</span><span class="p">])</span>
+            <span class="o">*</span> <span class="n">_precision</span><span class="p">(</span><span class="n">rprim_tokens</span><span class="p">[</span><span class="mi">3</span> <span class="o">*</span> <span class="n">row</span> <span class="o">+</span> <span class="n">column</span><span class="p">],</span> <span class="n">coefficient</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">_size</span><span class="p">(</span><span class="n">scalecart</span><span class="p">[</span><span class="n">column</span><span class="p">])</span>
+            <span class="o">+</span> <span class="n">_size</span><span class="p">(</span><span class="n">acell</span><span class="p">[</span><span class="n">row</span><span class="p">])</span> <span class="o">*</span> <span class="n">_size</span><span class="p">(</span><span class="n">rprim</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">column</span><span class="p">])</span> <span class="o">*</span> <span class="n">_precision</span><span class="p">(</span><span class="n">scalecart_tokens</span><span class="p">[</span><span class="n">column</span><span class="p">],</span> <span class="n">coefficient</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"cell_precision"</span><span class="p">]</span> <span class="o">=</span> <span class="n">bound</span> <span class="ow">or</span> <span class="kc">None</span>
+    <span class="k">elif</span> <span class="n">given</span> <span class="ow">and</span> <span class="n">given</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">"xred"</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"ABINIT </span><span class="si">{</span><span class="n">given</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> with angdeg </span><span class="si">{</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">angdeg</span><span class="p">)</span><span class="si">}</span><span class="s2"> needs an explicit rprim: these angles have no "</span>
+            <span class="s2">"exact ABINIT frame, and Cartesian coordinates depend on that frame"</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">value</span> <span class="o">!=</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">scalecart</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"ABINIT scalecart with angdeg </span><span class="si">{</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">angdeg</span><span class="p">)</span><span class="si">}</span><span class="s2"> needs an explicit rprim: these angles have no "</span>
+            <span class="s2">"exact ABINIT frame, and scalecart scales its Cartesian components"</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Same lengths and angles as ABINIT's cell, in the CellParams frame; fractional sites do not see the frame.</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"cell_parameters"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">_entry</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="s2">"acell"</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">acell_tokens</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
+            <span class="n">_entry</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="s2">"angdeg"</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">angdeg</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">_approximate_root</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">acell_tokens</span><span class="p">):</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s2">"cell_precision"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">_precision</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">acell_tokens</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">given</span><span class="p">:</span>
+        <span class="n">coordinates</span> <span class="o">=</span> <span class="n">given</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">position_tokens</span> <span class="o">=</span> <span class="n">_get</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">coordinates</span><span class="p">,</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">natom</span><span class="p">)</span>
+        <span class="n">flat_positions</span> <span class="o">=</span> <span class="p">[</span><span class="n">_entry</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">coordinates</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">position_tokens</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">_approximate_root</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">position_tokens</span><span class="p">):</span>
+            <span class="c1"># Approximate entries carry no digits, so their claim replaces the digit-derived one.</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s2">"positions_precision"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+                <span class="n">_precision</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">coefficient</span><span class="o">=</span><span class="n">coordinates</span> <span class="o">==</span> <span class="s2">"xred"</span><span class="p">)</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">position_tokens</span>
+            <span class="p">)</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"positions"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">flat_positions</span><span class="p">[</span><span class="mi">3</span> <span class="o">*</span> <span class="n">site</span> <span class="p">:</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">site</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">natom</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">coordinates</span> <span class="o">==</span> <span class="s2">"xred"</span><span class="p">:</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s2">"positions_kind"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"fractional"</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s2">"positions_kind"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"cartesian"</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s2">"positions_unit"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">"angstrom"</span> <span class="k">if</span> <span class="n">coordinates</span> <span class="o">==</span> <span class="s2">"xangst"</span> <span class="k">else</span> <span class="n">_LENGTH_UNITS</span><span class="p">[</span><span class="n">units</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"xcart"</span><span class="p">,</span> <span class="s2">"bohr"</span><span class="p">)]</span>
+            <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"positions"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">natom</span><span class="p">)]</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"positions_kind"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"fractional"</span>
+
+    <span class="n">used</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">typat</span><span class="p">))</span>
+    <span class="n">elements</span> <span class="o">=</span> <span class="p">{</span><span class="n">kind</span><span class="p">:</span> <span class="n">symbol_of</span><span class="p">(</span><span class="n">znucl</span><span class="p">[</span><span class="n">kind</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">used</span><span class="p">}</span>
+    <span class="n">totals</span> <span class="o">=</span> <span class="p">{</span><span class="n">element</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">elements</span><span class="o">.</span><span class="n">values</span><span class="p">())</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">element</span><span class="p">)</span> <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">elements</span><span class="o">.</span><span class="n">values</span><span class="p">()}</span>
+    <span class="n">seen</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">used</span><span class="p">:</span>
+        <span class="n">element</span> <span class="o">=</span> <span class="n">elements</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span>
+        <span class="n">seen</span><span class="p">[</span><span class="n">element</span><span class="p">]</span> <span class="o">=</span> <span class="n">seen</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">names</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span> <span class="o">=</span> <span class="n">element</span> <span class="k">if</span> <span class="n">totals</span><span class="p">[</span><span class="n">element</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">element</span><span class="si">}{</span><span class="n">seen</span><span class="p">[</span><span class="n">element</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
+    <span class="n">payload</span><span class="p">[</span><span class="s2">"species"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">"name"</span><span class="p">:</span> <span class="n">names</span><span class="p">[</span><span class="n">kind</span><span class="p">],</span> <span class="s2">"element"</span><span class="p">:</span> <span class="n">elements</span><span class="p">[</span><span class="n">kind</span><span class="p">],</span> <span class="s2">"mass"</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span> <span class="k">for</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">used</span><span class="p">]</span>
+    <span class="n">payload</span><span class="p">[</span><span class="s2">"species_at_sites"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">names</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span> <span class="k">for</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">typat</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">payload</span>
+
+
+<div class="viewcode-block" id="read_abinit_input">
+<a class="viewcode-back" href="../../../../../../reference/autoapi/httk/atomistic/integrations/abinit/io/inputs/index.html#httk.atomistic.integrations.abinit.io.read_abinit_input">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_abinit_input</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">precision</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Read the structure of an ABINIT input file into a neutral geometry payload.</span>
+
+<span class="sd">    The structure variables ``acell`` (with a ``Bohr``/``Angstrom`` unit), ``rprim`` or</span>
+<span class="sd">    ``angdeg``, ``scalecart``, ``natom``, ``ntypat``, ``typat``, ``znucl`` and one of</span>
+<span class="sd">    ``xred``, ``xcart`` or ``xangst`` are read exactly, with ABINIT's defaults; every other</span>
+<span class="sd">    variable is ignored. An ``angdeg`` cell whose ABINIT construction is not exact is given</span>
+<span class="sd">    as ``cell_parameters`` (lengths ``acell``, angles ``angdeg``) when the positions are</span>
+<span class="sd">    fractional and ``scalecart`` is unity. Species are named by element (``Fe1``, ``Fe2`` when two types share</span>
+<span class="sd">    an element).</span>
+
+<span class="sd">    :param source: A file path (compressed files are decompressed), a text stream, or an</span>
+<span class="sd">        iterable of lines.</span>
+<span class="sd">    :param precision: Optional Cartesian precision in Å for the structure built from it.</span>
+<span class="sd">    :return: The ``abinit-input`` geometry payload, with the original text in ``raw``.</span>
+<span class="sd">    :raises ValueError: If the text is not a supported ABINIT input: malformed values,</span>
+<span class="sd">        missing ``znucl``, inconsistent counts, multi-dataset or image structure variables,</span>
+<span class="sd">        symmetry-generated atoms, the ``structure`` variable, or ``xcart``/``xangst`` or a</span>
+<span class="sd">        non-unit ``scalecart`` with ``angdeg`` angles that have no exact ABINIT frame.</span>
+<span class="sd">    """</span>
+    <span class="n">_check_load_precision</span><span class="p">(</span><span class="n">precision</span><span class="p">,</span> <span class="s2">"read_abinit_input"</span><span class="p">)</span>
+    <span class="n">text</span><span class="p">,</span> <span class="n">raw</span> <span class="o">=</span> <span class="n">_source_text</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+    <span class="n">values</span><span class="p">,</span> <span class="n">units</span> <span class="o">=</span> <span class="n">_variables</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="n">_check_supported</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">units</span><span class="p">)</span>
+    <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"format"</span><span class="p">:</span> <span class="n">FORMAT</span><span class="p">,</span> <span class="o">**</span><span class="n">_geometry</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">units</span><span class="p">),</span> <span class="s2">"raw"</span><span class="p">:</span> <span class="n">raw</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">precision</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"precision_override"</span><span class="p">]</span> <span class="o">=</span> <span class="n">precision</span>
+    <span class="k">return</span> <span class="n">payload</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_abinit_input_payload_from_structure</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Serialize a structure to an ``abinit-input`` geometry payload.</span>
+
+<span class="sd">    :param obj: Anything :class:`~httk.atomistic.UnitcellStructureView` accepts.</span>
+<span class="sd">    :return: The geometry payload.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">_geometry_from_structure</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">FORMAT</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_render_abinit_input</span><span class="p">(</span><span class="n">payload</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Render a geometry payload as the structure variables of an ABINIT input."""</span>
+    <span class="n">geometry</span> <span class="o">=</span> <span class="n">_geometry_from_structure</span><span class="p">(</span><span class="n">_structure_from_geometry</span><span class="p">({</span><span class="o">**</span><span class="n">payload</span><span class="p">,</span> <span class="s2">"format"</span><span class="p">:</span> <span class="n">FORMAT</span><span class="p">}),</span> <span class="n">FORMAT</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">geometry</span><span class="p">[</span><span class="s2">"periodicity"</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"ABINIT cells are periodic along all three cell vectors; this structure is not"</span><span class="p">)</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">geometry</span><span class="p">[</span><span class="s2">"species"</span><span class="p">]]</span>
+    <span class="n">typat</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">geometry</span><span class="p">[</span><span class="s2">"species_at_sites"</span><span class="p">]]</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">"acell 1 1 1 Angstrom"</span><span class="p">,</span>
+        <span class="s2">"rprim"</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">(</span><span class="s2">" "</span> <span class="o">+</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">geometry</span><span class="p">[</span><span class="s2">"cell"</span><span class="p">]),</span>
+        <span class="sa">f</span><span class="s2">"natom </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">typat</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"ntypat </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="s2">"typat"</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">(</span><span class="s2">" "</span> <span class="o">+</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">typat</span><span class="p">[</span><span class="n">start</span> <span class="p">:</span> <span class="n">start</span> <span class="o">+</span> <span class="mi">20</span><span class="p">])</span> <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">typat</span><span class="p">),</span> <span class="mi">20</span><span class="p">)),</span>
+        <span class="s2">"znucl "</span> <span class="o">+</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">atomic_number</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"element"</span><span class="p">]))</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">geometry</span><span class="p">[</span><span class="s2">"species"</span><span class="p">]),</span>
+        <span class="s2">"xred"</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">(</span><span class="s2">" "</span> <span class="o">+</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">geometry</span><span class="p">[</span><span class="s2">"positions"</span><span class="p">]),</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_write_abinit_input_payload</span><span class="p">(</span>
+    <span class="n">destination</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOBase</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Write an ``abinit-input`` payload: its ``raw`` text verbatim, or else its structure variables.</span>
+
+<span class="sd">    :param destination: A filesystem path or an open text stream.</span>
+<span class="sd">    :param payload: The geometry payload.</span>
+<span class="sd">    :param \\*\\*kwargs: Writer options; none are accepted.</span>
+<span class="sd">    :raises ValueError: If options are given with ``raw`` text, or the structure is not periodic.</span>
+<span class="sd">    :raises TypeError: If options are given for a payload without ``raw`` text.</span>
+<span class="sd">    """</span>
+    <span class="n">_write_text</span><span class="p">(</span><span class="n">destination</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">,</span> <span class="n">_render_abinit_input</span><span class="p">)</span>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"read_abinit_input"</span><span class="p">]</span>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, The httk-atomistic AUTHORS
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../../../../_static/documentation_options.js?v=952df46a"></script>
+    <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../../../_static/copybutton.js?v=fd10adb8"></script>
+    <script src="../../../../../../_static/selector.js?v=d8e9b3ce"></script>
+    <script>window.HTTK_DOCS_VERSIONING = {"channel":"dev","version":"dev:develop","versionPathDepth":2};</script>
+    </body>
+</html>

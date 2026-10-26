@@ -1,0 +1,11 @@
+httk.atomistic.integrations.vasp.io.poscar_writer
+=================================================
+
+.. py:module:: httk.atomistic.integrations.vasp.io.poscar_writer
+
+.. autoapi-nested-parse::
+
+   Writer for the neutral, string-preserving VASP POSCAR payload.
+
+
+

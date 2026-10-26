@@ -1,0 +1,78 @@
+httk.atomistic.models.sites.cartesian
+=====================================
+
+.. py:module:: httk.atomistic.models.sites.cartesian
+
+.. autoapi-nested-parse::
+
+   Backend holding Cartesian site coordinates exactly as given.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.cartesian.CartesianSites
+
+
+Module Contents
+---------------
+
+.. py:class:: CartesianSites(cartesian_coords, basis, cartesian_precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.backend.SitesBackend`
+
+
+   Sites backend holding Cartesian coordinates (in ångström) exactly as given.
+
+   The canonical ``reduced_coords`` are derived exactly as ``cartesian_coords * basis^-1``
+   (row-vector convention) on first access, so the original Cartesian numbers stay available
+   unchanged, e.g. for writing a Cartesian POSCAR back as it was read.
+
+   :param cartesian_coords: The Nx3 Cartesian coordinates, one site per row.
+   :param basis: The exact 3x3 lattice vectors (rows) that define the frame.
+   :param cartesian_precision: How precisely the coordinates were stated, as a length in
+       ångström, or ``None`` when unknown.
+   :raises ValueError: If the coordinates are not Nx3 or the basis is not a non-degenerate 3x3.
+
+
+   .. py:property:: cartesian_coords
+      :type: httk.core.SurdVector
+
+
+      The Nx3 Cartesian coordinates exactly as given.
+
+
+   .. py:property:: basis
+      :type: httk.core.SurdVector
+
+
+      The 3x3 lattice vectors defining the Cartesian frame.
+
+
+   .. py:property:: cartesian_precision
+      :type: fractions.Fraction | None
+
+
+      How precisely the coordinates were stated, as a length in ångström, or ``None``.
+
+
+   .. py:property:: reduced_coords
+      :type: httk.core.FracVector
+
+
+      The exact reduced coordinates ``cartesian_coords * basis^-1``.
+
+      :return: The reduced coordinates as an exact ``FracVector``.
+      :raises ValueError: If the reduced coordinates are irrational (no exact ``FracVector``).
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      The fractional precision bounding ``cartesian_precision`` in this basis, or ``None``.
+
+

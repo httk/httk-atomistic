@@ -1,0 +1,21 @@
+httk.atomistic.io
+=================
+
+.. py:module:: httk.atomistic.io
+
+.. autoapi-nested-parse::
+
+   Atomistic file-format readers and writers.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/io/cif/index
+   /reference/autoapi/httk/atomistic/io/optimade_jsonl/index
+
+
