@@ -262,7 +262,8 @@ def test_reader_rejects_malformed_documents(tmp_path, mutate, message):
         ("not json", "not valid JSON"),
         ('{"format": "httk-structure", "format": "httk-structure"}', "repeats"),
         ('{"charge": NaN}', "non-JSON constant"),
-        ("[" * 100_000 + "]" * 100_000, "nested too deeply|not valid JSON"),
+        # Python 3.14's json parses this depth, leaving a list that is not a document.
+        ("[" * 100_000 + "]" * 100_000, "nested too deeply|not valid JSON|JSON object"),
     ],
 )
 def test_reader_rejects_non_documents(tmp_path, text, message):
