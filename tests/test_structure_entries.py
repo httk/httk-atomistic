@@ -42,11 +42,9 @@ def test_entry_types_describe_structures() -> None:
     assert isinstance(definition, EntryTypeDefinition)
     properties = definition.properties
     # The provider serves all 30 standard v1.3 properties, plus the six symmetry,
-    # two precision, one charge, and one moment property under the _httk_ prefix.
-    # 30 standard OPTIMADE properties, plus the six symmetry properties, two precision
-    # properties httk serves under the _httk_ prefix, each described by a vendored
-    # schemas.httk.org definition.
-    assert len(properties) == 40
+    # two precision, one charge, one moment and two count properties under the
+    # _httk_ prefix, each described by a vendored schemas.httk.org definition.
+    assert len(properties) == 42
     for name in ("id", "type", "elements", "nelements", "nsites", "species", "structure_features"):
         assert name in properties
     # These formerly omitted v1.3-native properties are now served:

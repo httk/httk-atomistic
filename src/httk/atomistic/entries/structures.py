@@ -18,6 +18,7 @@ from httk.core.optimade import IncompleteOptimadeResourceError
 
 from httk.atomistic.entries._payloads import assemblies_payload, species_payload
 from httk.atomistic.entries.charge import CHARGE_PROPERTY_KEYS, charge_definitions, charge_properties
+from httk.atomistic.entries.counts import COUNT_PROPERTY_KEYS, count_definitions, count_properties
 from httk.atomistic.entries.moments import MOMENT_PROPERTY_KEYS, moment_definitions, moment_properties
 from httk.atomistic.entries.precision import PRECISION_PROPERTY_KEYS, precision_definitions, precision_properties
 from httk.atomistic.entries.symmetry import (
@@ -97,6 +98,7 @@ class StructureEntry:
             .extended(setting_definitions())
             .extended(precision_definitions())
             .extended(charge_definitions())
+            .extended(count_definitions())
             .extended(moment_definitions())
         )
 
@@ -313,6 +315,7 @@ class StructureEntryProvider(EntryProvider):
         property_keys.update({name: name for name in SETTING_PROPERTY_KEYS})
         property_keys.update({name: name for name in PRECISION_PROPERTY_KEYS})
         property_keys.update({name: name for name in CHARGE_PROPERTY_KEYS})
+        property_keys.update({name: name for name in COUNT_PROPERTY_KEYS})
         property_keys.update({name: name for name in MOMENT_PROPERTY_KEYS})
         property_keys.update({name: name for name in self._property_names})
         return property_keys
@@ -346,6 +349,7 @@ class StructureEntryProvider(EntryProvider):
                 record.update(symmetry_properties(None))
                 record.update(precision_properties(None))
                 record.update(charge_properties(None))
+                record.update(count_properties(None))
                 record.update(moment_properties(None))
             else:
                 record.update(_structure_projection(structure))
@@ -362,6 +366,10 @@ class StructureEntryProvider(EntryProvider):
                     record.update(charge_properties(structure))
                 except IncompleteOptimadeResourceError:
                     record.update({name: None for name in CHARGE_PROPERTY_KEYS})
+                try:
+                    record.update(count_properties(structure))
+                except IncompleteOptimadeResourceError:
+                    record.update({name: None for name in COUNT_PROPERTY_KEYS})
                 try:
                     record.update(moment_properties(structure))
                 except IncompleteOptimadeResourceError:

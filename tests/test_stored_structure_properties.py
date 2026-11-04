@@ -27,6 +27,7 @@ from httk.atomistic import (
     UnitcellStructure,
     UnitcellStructureRecord,
 )
+from httk.atomistic.entries.counts import COUNT_PROPERTY_KEYS
 from httk.atomistic.entries.precision import PRECISION_PROPERTY_KEYS
 from httk.atomistic.entries.symmetry import SETTING_PROPERTY_KEYS
 from httk.atomistic.models.moments import CartesianSiteMoments, CollinearSiteMoments, CrystalAxisSiteMoments
@@ -62,7 +63,7 @@ _STANDARD = {
     "_httk_charge",
     "optimization_type",
 }
-_EXPECTED = _STANDARD | set(SETTING_PROPERTY_KEYS) | set(PRECISION_PROPERTY_KEYS)
+_EXPECTED = _STANDARD | set(SETTING_PROPERTY_KEYS) | set(PRECISION_PROPERTY_KEYS) | set(COUNT_PROPERTY_KEYS)
 
 
 @dataclass(frozen=True)

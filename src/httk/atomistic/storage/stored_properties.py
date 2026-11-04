@@ -14,7 +14,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping
 from fractions import Fraction
 from itertools import combinations
-from typing import Any
+from typing import Any, cast
 
 from httk.core.storage import (
     QueryContext,
@@ -29,6 +29,7 @@ from httk.core.storage import (
 
 from httk.atomistic.elements import SYMBOLS
 from httk.atomistic.entries._payloads import assemblies_payload, species_payload
+from httk.atomistic.entries.counts import COUNT_PROPERTY_KEYS, formula_unit_counts, is_ordered
 from httk.atomistic.entries.precision import PRECISION_PROPERTY_KEYS
 from httk.atomistic.entries.symmetry import SETTING_PROPERTY_KEYS
 from httk.atomistic.models.formula.notation import anonymous_symbol
@@ -136,6 +137,23 @@ def _structure_features_value(record: Any, backing: str) -> list[str]:
     ):
         features.add("_httk_magnetism")
     return sorted(features)
+
+
+def _natoms_value(record: Any, backing: str) -> int | None:
+    """Count full-cell atoms of an ordered record without expanding a domain."""
+    if not is_ordered(_structure_features_value(record, backing), record.species):
+        return None
+    if backing == "unitcell":
+        return len(record.species_at_sites)
+    # A domain's normalized amounts were derived from its exact expansion at ingest, so for an
+    # ordered domain they sum to the full-cell count.
+    # ponytail: a declared chemical_composition replaces those amounts and an "X" site leaves
+    # them incomplete; both serve null rather than expanding at serve time.
+    composition = record.normalized_composition
+    if record.chemical_composition is not None or not composition.complete:
+        return None
+    total = sum((value.amount for value in composition.amounts), Fraction())
+    return total.numerator if total.denominator == 1 else None
 
 
 def _coordinate_span(record: Any, backing: str) -> str:
@@ -328,6 +346,10 @@ def _response_value(record: Any, name: str, backing: str) -> object:
         return None if record.cell.precision is None else float(record.cell.precision)
     if name == "_httk_charge":
         return None if record.charge is None else float(record.charge)
+    if name in COUNT_PROPERTY_KEYS:
+        natoms = _natoms_value(record, backing)
+        formula = None if natoms is None else _normalized_composition_value(record, "chemical_formula_reduced")
+        return formula_unit_counts(natoms, cast(str | None, formula))[name]
     raise AssertionError(f"unknown stored structure property: {name}")
 
 
@@ -1126,7 +1148,7 @@ def _common_queries(
         response=_response("_httk_charge", backing),
         query=_fraction_query(("charge",), "_httk_charge"),
     )
-    for name in (*SETTING_PROPERTY_KEYS, *PRECISION_PROPERTY_KEYS):
+    for name in (*SETTING_PROPERTY_KEYS, *PRECISION_PROPERTY_KEYS, *COUNT_PROPERTY_KEYS):
         projections.setdefault(name, StoredPropertyProjection(response=_response(name, backing)))
 
 

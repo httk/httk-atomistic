@@ -456,6 +456,20 @@ assert records["known-but-empty"]["lattice_vectors"] is None
 assert records["known-but-empty"]["chemical_formula_reduced"] is None
 ```
 
+Every served structure, stored or not, also carries two reference counts that
+`x-httk-normalization` declarations can name (neither is filterable):
+
+- `_httk_natoms`: the number of atoms in the full cell spanned by
+  `lattice_vectors`, also for an asymmetric-unit or fundamental-domain backing;
+  null unless the structure is ordered (every site fully occupied by exactly one
+  chemical species: no disorder, vacancies, implicit or attached atoms, or
+  assemblies). A stored asymmetric-unit or fundamental-domain backing reads the
+  count from its stored composition instead of expanding, so one with a
+  declared `chemical_composition` or an unknown (`X`) species serves null.
+- `_httk_nformula_units`: `_httk_natoms` divided by the atom count of one formula
+  unit of `chemical_formula_reduced` (8 atoms of NaCl give 4); this is not the
+  crystallographic Z, and it is null whenever `_httk_natoms` is.
+
 Structures served from a store also filter on the OPTIMADE nested names of
 `species`, each member flattened over every species as the specification
 defines: `species.name`, `species.original_name`, `species.chemical_symbols`,
