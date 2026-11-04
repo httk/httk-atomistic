@@ -259,7 +259,9 @@ included: that property is the complete operation set fitting what was stated, s
 `["x,y,z"]` would be a false P1 claim. OPTIMADE allows the `null` — the property is nullable,
 and a `unit_cell` span is reconstructed by lattice translations alone. Inferring a space group
 there would mean running a symmetry search behind the caller's back, with a tolerance nobody
-chose, on every record. Operations the structure does state are served as given.
+chose, on every record. Operations the structure does state are served as given; a
+structure that states only a space-group number or symbol serves `null` operations, since the
+operations of that group in the structure's own cell cannot be derived from the number alone.
 
 The symbols and Wyckoff letters describe **the setting the structure is written in**, as
 OPTIMADE requires. Setting `224:1` therefore stores and serves its own letter `i`, not the

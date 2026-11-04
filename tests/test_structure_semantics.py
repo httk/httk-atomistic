@@ -191,7 +191,7 @@ def test_semantic_input_validation() -> None:
             space_group_symbol_hall="P 1",
             space_group_symmetry_operations_xyz=("x,y,z",),
         )
-    with pytest.raises(ValueError, match="disagree"):
+    with pytest.raises(ValueError, match="different type"):
         StructureSymmetry(
             space_group_it_number=3,
             space_group_symmetry_operations_xyz=("x,y,z", "-x,y+1/2,-z"),
@@ -221,9 +221,9 @@ def test_semantic_input_validation() -> None:
         space_group_symbol_hall=setting.hall_symbol,
         space_group_symbol_hermann_mauguin=setting.hermann_mauguin,
     )
-    assert metadata.space_group_symmetry_operations_xyz == tuple(
-        operation.wrapped().to_xyz() for operation in setting.symmetry_operations
-    )
+    # Operations are basis-relative: a cell-free number or symbol never invents them.
+    assert metadata.space_group_symmetry_operations_xyz is None
+    assert [record["hall"] for record in metadata.matched_settings] == [setting.hall_symbol]
 
     centered = Spacegroup.standard(5)
     origin_shift = AffineOperation.identity()

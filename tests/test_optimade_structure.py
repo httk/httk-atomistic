@@ -593,6 +593,7 @@ def test_source_symmetry_settings_are_resolved_once(monkeypatch: pytest.MonkeyPa
         return resolver(**kwargs)
 
     monkeypatch.setattr(structure_semantics, "declared_spacegroup_settings", counted)
+    structure_semantics._validated_symmetry.cache_clear()
     backend = OptimadeStructure(_semantic_resource(_complete_attributes()))
 
     assert backend.space_group_it_number == 1
@@ -641,7 +642,7 @@ def test_remote_symmetry_uses_dimension_types_and_allows_arbitrary_settings() ->
 
     attributes["space_group_symmetry_operations_xyz"] = ["x,y,z", "-x,y+1/2,-z"]
     backend = OptimadeStructure(_semantic_resource(attributes))
-    with pytest.raises(IncompleteOptimadeResourceError, match="disagree"):
+    with pytest.raises(IncompleteOptimadeResourceError, match="different type"):
         _ = backend.space_group_symmetry_operations_xyz
 
 

@@ -266,12 +266,15 @@ def test_timestamp_filtering_and_sorting_use_utc_instants(structure_plan):
 
 def test_invalid_formula_and_nonintegral_count_literals_are_filter_value_errors(structure_plan):
     plan, _sources = structure_plan
-    for filter_string in ('chemical_formula_reduced = "NaCl"', "nelements = 1.5"):
+    for filter_string, category in (
+        ('chemical_formula_reduced = "NaCl"', "invalid-value"),
+        ("nelements = 1.5", "type-mismatch"),
+    ):
         with pytest.raises(FilterTranslationError) as caught:
             plan.filter_searchers(filter_string)
-        # ``type-mismatch`` is the neutral filter translator's established
-        # caller/filter-value category (rather than a storage error).
-        assert caught.value.category == "type-mismatch"
+        # A projection-rejected literal is an invalid filter value (HTTP 400); a
+        # non-integral Number for an integer property is a type mismatch (501).
+        assert caught.value.category == category
 
 
 def test_unused_disordered_species_does_not_create_a_structure_feature(structure_plan):
@@ -312,7 +315,7 @@ def test_coordinate_span_filters_are_safe_across_heterogeneous_backings(span_pla
 def test_invalid_coordinate_span_literal_is_a_filter_value_error(span_plan):
     with pytest.raises(FilterTranslationError) as caught:
         span_plan.filter_searchers('site_coordinate_span = "not_a_coordinate_span"')
-    assert caught.value.category == "type-mismatch"
+    assert caught.value.category == "invalid-value"
 
 
 def test_optional_reference_scalars_are_correlated_and_preserve_unknown(scoped_scalar_plan):

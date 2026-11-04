@@ -59,7 +59,6 @@ from httk.atomistic.models.structure.semantics import (
     validate_descriptive_formula,
     validate_hill_formula,
 )
-from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 _STRUCTURES_DEFINITION_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 _COORDINATE_SPANS = frozenset(
@@ -1185,6 +1184,8 @@ class OptimadeStructure(StructureBackend):
                 message = "OPTIMADE supplied space-group number and symbols are mutually inconsistent"
             elif message == "supplied space-group operations disagree with its number or symbols":
                 message = "OPTIMADE supplied space-group operations disagree with its number or symbols"
+            elif message.startswith("supplied space-group operations are not compatible with space group "):
+                message = f"OPTIMADE {message}"
             elif message == "supplied Wyckoff positions disagree with the space-group setting":
                 message = "OPTIMADE semantic property 'wyckoff_positions' disagrees with the supplied space group"
             elif message.startswith("space-group symmetry operations "):
@@ -1249,11 +1250,6 @@ class OptimadeStructure(StructureBackend):
                 "OPTIMADE semantic property 'assemblies' is present without its structure_features flag"
             )
         return result
-
-    @cached_property
-    def _declared_spacegroup_candidates(self) -> tuple[Spacegroup, ...]:
-        symmetry = self.symmetry
-        return () if symmetry is None else tuple(Spacegroup(record) for record in symmetry.matched_settings)
 
     def _declared_periodic_dimensions(self) -> int | None:
         periodic = self._portable_value("nperiodic_dimensions")

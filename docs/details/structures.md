@@ -166,8 +166,17 @@ interpretation; class instances are selected by their type.
   reaches a storage record: a structure read over OPTIMADE therefore has the same content ID as
   its POSCAR twin. Partial metadata (only a Hall symbol, say) is a real claim and is kept, and a
   stated P1 (`space_group_symmetry_operations_xyz=("x,y,z",)`) stays distinct from nothing
-  stated. `space_group_symmetry_operations_xyz` is `None` unless operations are stated or
-  implied by a stated space group; httk never invents the identity list. *Identity note,
+  stated. `space_group_symmetry_operations_xyz` is only ever the declared operations: a
+  space-group number or symbol alone yields `None` (operations are relative to the cell, which a
+  number does not fix), and httk never invents the identity list. Declared operations must be
+  compatible with a stated number or symbol: an exact tabulated setting, or any other basis or
+  origin of the same group (the 48 operations of a primitive face-centred cell for No. 225),
+  checked by a basis-independent group invariant that does not separate enantiomorphic pairs.
+  Operations written in a supercell describe only the subgroup integral in that cell and are
+  rejected for the parent type. On a fully periodic structure every declared rotation must also
+  preserve the cell metric within a small relative tolerance (so float-written hexagonal cells
+  pass). *Identity note, November 2026:* structures that stated only a space-group number or
+  symbol no longer carry filled-in conventional operations, so their content IDs changed once. *Identity note,
   September 27 2026:* records built from an OPTIMADE source that stated no symmetry used to
   carry an all-empty symmetry record and now carry none, so their content IDs changed once;
   POSCAR- and CIF-derived content IDs are unchanged. A legacy stored row carrying an all-empty

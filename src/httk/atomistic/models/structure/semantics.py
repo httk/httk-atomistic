@@ -6,11 +6,12 @@ import ast
 import datetime
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, fields
 from fractions import Fraction
-from functools import cached_property
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
+from functools import cache, cached_property, lru_cache
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast
 
 from httk.core import MISSING as _METADATA_UNSET
 
@@ -39,8 +40,11 @@ _SYMOP_COORDINATE = re.compile(r"[xyzXYZ0-9+\-*/(). ]+")
 _ELEMENTS = frozenset(SYMBOLS)
 _DESCRIPTIVE_NUMBER = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 _DESCRIPTIVE_GROUPS = frozenset({"Me", "Et", "Bu", "Ph", "Bn"})
+# Relative metric tolerance: float lattices (hexagonal, ~5-digit POSCARs) pass; wrong rotations distort it by O(1).
+_METRIC_TOLERANCE = 1e-4
 
 
+@lru_cache(maxsize=4096)
 def _linear_xyz_expression(text: str) -> tuple[Fraction, Fraction, Fraction, Fraction]:
     """Parse one exact affine ``xyz`` expression without evaluating source text."""
 
@@ -85,71 +89,263 @@ def _linear_xyz_expression(text: str) -> tuple[Fraction, Fraction, Fraction, Fra
         raise ValueError(f"invalid symmetry coordinate {text!r}") from exc
 
 
-def _symmetry_operation_group(operations: tuple[str, ...]) -> frozenset[Any]:
+type _Triple = tuple[Fraction, Fraction, Fraction]
+type _Rotation = tuple[int, int, int, int, int, int, int, int, int]
+# A wrapped operation: row-major integral rotation part and translation in [0, 1).
+type _Operation = tuple[_Rotation, _Triple]
+type _Vector = tuple[int, int, int]
+type _CosetClass = tuple[int, int, int, int, int]
+type _GroupInvariant = tuple[
+    int,
+    tuple[_CosetClass, ...],
+    tuple[tuple[int, ...], ...],
+    tuple[tuple[_CosetClass, _CosetClass, bool], ...],
+]
+
+_IDENTITY_ROTATION: _Rotation = (1, 0, 0, 0, 1, 0, 0, 0, 1)
+_ZERO: _Triple = (Fraction(0), Fraction(0), Fraction(0))
+
+
+def _rotation_product(a: _Rotation, b: _Rotation) -> _Rotation:
+    """Return the product ``a b`` of row-major 3x3 integer matrices."""
+    a0, a1, a2, a3, a4, a5, a6, a7, a8 = a
+    b0, b1, b2, b3, b4, b5, b6, b7, b8 = b
+    return (
+        a0 * b0 + a1 * b3 + a2 * b6,
+        a0 * b1 + a1 * b4 + a2 * b7,
+        a0 * b2 + a1 * b5 + a2 * b8,
+        a3 * b0 + a4 * b3 + a5 * b6,
+        a3 * b1 + a4 * b4 + a5 * b7,
+        a3 * b2 + a4 * b5 + a5 * b8,
+        a6 * b0 + a7 * b3 + a8 * b6,
+        a6 * b1 + a7 * b4 + a8 * b7,
+        a6 * b2 + a7 * b5 + a8 * b8,
+    )
+
+
+def _apply(matrix: tuple[Any, ...], vector: tuple[Any, Any, Any]) -> tuple[Any, Any, Any]:
+    """Return ``matrix * vector`` for a row-major 3x3 matrix and a column vector."""
+    x, y, z = vector
+    return (
+        matrix[0] * x + matrix[1] * y + matrix[2] * z,
+        matrix[3] * x + matrix[4] * y + matrix[5] * z,
+        matrix[6] * x + matrix[7] * y + matrix[8] * z,
+    )
+
+
+def _determinant(m: _Rotation) -> int:
+    return m[0] * (m[4] * m[8] - m[5] * m[7]) - m[1] * (m[3] * m[8] - m[5] * m[6]) + m[2] * (m[3] * m[7] - m[4] * m[6])
+
+
+def _wrap(vector: Iterable[Fraction]) -> _Triple:
+    x, y, z = (value % 1 for value in vector)
+    return (x, y, z)
+
+
+def _plain_operation(operation: Any) -> _Operation:
+    """Return an :class:`~httk.atomistic.symmetry.affine_operation.AffineOperation` in wrapped plain form."""
+    rotation = cast(_Rotation, tuple(int(value) for row in operation.matrix.to_fractions() for value in row))
+    return rotation, _wrap(operation.vector.to_fractions())
+
+
+@cache
+def _tabulated_group(hall_entry: str) -> frozenset[_Operation]:
+    """Return the wrapped plain operations of one tabulated setting."""
+    from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+    return frozenset(_plain_operation(value) for value in Spacegroup.from_hall_entry(hall_entry).symmetry_operations)
+
+
+def _symmetry_operation_group(operations: tuple[str, ...]) -> frozenset[_Operation]:
     """Return parsed wrapped operations after exact finite-group validation."""
-
-    from httk.atomistic.symmetry.affine_operation import AffineOperation
-
     parsed = []
     for operation in operations:
         components = [_linear_xyz_expression(part) for part in operation.split(",")]
-        parsed.append(AffineOperation([part[:3] for part in components], [part[3] for part in components]).wrapped())
+        entries = [value for component in components for value in component[:3]]
+        if any(value.denominator != 1 for value in entries):
+            raise ValueError("space-group symmetry operations must have unimodular rotation parts")
+        rotation = cast(_Rotation, tuple(int(value) for value in entries))
+        parsed.append((rotation, _wrap(component[3] for component in components)))
     group = frozenset(parsed)
     if len(group) != len(operations):
         raise ValueError("space-group symmetry operations must be unique modulo lattice translations")
-    identity = AffineOperation.identity()
-    if identity not in group:
+    if (_IDENTITY_ROTATION, _ZERO) not in group:
         raise ValueError("space-group symmetry operations must contain identity")
-    if any(abs(operation.determinant()) != 1 for operation in group):
+    if any(abs(_determinant(rotation)) != 1 for rotation, _ in group):
         raise ValueError("space-group symmetry operations must have unimodular rotation parts")
-    if any((left * right).wrapped() not in group for left in group for right in group):
-        raise ValueError("space-group symmetry operations are not closed under composition")
-    if any(operation.inverse().wrapped() not in group for operation in group):
-        raise ValueError("space-group symmetry operations are not closed under inverses")
+    # Closure in integer arithmetic over the common translation denominator: grow the
+    # subgroup generated by elements of the set and fail as soon as a product leaves it.
+    # A finite set of invertible maps closed under composition is a group, so inverses
+    # need no separate check.
+    denominator = math.lcm(*(value.denominator for _, translation in group for value in translation))
+    encoded = {
+        (rotation, cast(_Vector, tuple(int(value * denominator) for value in translation)))
+        for rotation, translation in group
+    }
+    generated = {(_IDENTITY_ROTATION, (0, 0, 0))}
+    generators: list[tuple[_Rotation, _Vector]] = []
+    for element in encoded:
+        if element in generated:
+            continue
+        generators.append(element)
+        frontier = list(generated)
+        while frontier:
+            found = []
+            for rotation, translation in frontier:
+                for left_rotation, left_translation in generators:
+                    x, y, z = _apply(left_rotation, translation)
+                    product = (
+                        _rotation_product(left_rotation, rotation),
+                        (
+                            (x + left_translation[0]) % denominator,
+                            (y + left_translation[1]) % denominator,
+                            (z + left_translation[2]) % denominator,
+                        ),
+                    )
+                    if product not in generated:
+                        if product not in encoded:
+                            raise ValueError("space-group symmetry operations are not closed under composition")
+                        generated.add(product)
+                        found.append(product)
+            frontier = found
     return group
 
 
-def _operation_group_signature(group: frozenset[Any]) -> tuple[tuple[Fraction, Fraction, int, int, int], ...]:
-    """Integral-affine invariants used to cross-check an untabulated setting.
+def _operation_group_invariant(group: Iterable[_Operation]) -> _GroupInvariant:
+    """Return a basis-independent invariant of a space group given by wrapped operations.
 
-    The final value records the content of the lattice translation produced when
-    the rotation part returns to identity.  It distinguishes, for example, a
-    twofold rotation from a two-one screw even though their wrapped elements
-    have the same order, trace, and determinant.
+    The operations may be expressed in any lattice basis and origin (a primitive cell of
+    a centred group, a rotated or permuted setting), so the invariant only uses quantities
+    that survive an affine change of basis.  ``T`` is the translation subgroup: ``Z^3``
+    plus the translations of the operations whose rotation part is the identity.  For
+    every distinct rotation part ``R`` (of order ``n``, with any translation ``t`` from
+    its coset) the intrinsic translations ``w(t') = (1/n) sum_k R^k t'`` over
+    ``t' in t + T`` form the coset ``w(t) + H`` modulo ``T``, where ``H`` is the image of
+    ``T`` under ``(1/n) sum_k R^k``.  The invariant is the point-group order, the sorted
+    ``(det R, trace R, n, m, |H|)`` over the distinct ``R``, where ``m`` is the smallest
+    order modulo ``T`` of an intrinsic translation in that coset (``1`` when the coset
+    holds a pure rotation or reflection, ``> 1`` for screw and glide classes), the sorted
+    orbit sizes of the point group acting on ``(1/k)T / T`` for ``k = 2, 3, 4``, and, for
+    every screw or glide coset paired with every coset ``b``, whether an intrinsic
+    translation of the former is fixed modulo ``T`` by the projector ``(1/n_b) sum_k R_b^k``
+    onto the axis or plane of ``b``.
+
+    Every tabulated setting of a space-group type yields the same invariant, and the
+    orbit sizes separate all arithmetic crystal classes.  Equal invariants are still
+    necessary, not sufficient.  The 230 types give 213 invariants: the eleven enantiomorphic
+    pairs (76/78, 91/95, 92/96, 144/145, 151/153, 152/154, 169/170, 171/172, 178/179,
+    180/181, 212/213) are never separated, and neither are 23/24, 32/34, 117/118, 185/186,
+    193/194 and 197/199.
+
+    :param group: Operations wrapped modulo lattice translations, forming a finite group.
+    :return: The invariant.
     """
 
-    from httk.atomistic.symmetry.affine_operation import AffineOperation
+    # Integer arithmetic over a common denominator: translations have denominators dividing
+    # ``base``, and each division below is by a rotation order or by k (each dividing 12),
+    # applied at most twice in succession, so 144 * base keeps every quotient integral.
+    group = tuple(group)
+    base = math.lcm(*(value.denominator for _, translation in group for value in translation))
+    scale = 144 * base
 
-    identity = AffineOperation.identity()
-    values: list[tuple[Fraction, Fraction, int, int, int]] = []
-    for operation in group:
-        power = identity
-        order = 0
-        for order in range(1, len(group) + 1):
-            power = (operation * power).wrapped()
-            if power == identity:
-                break
-        else:  # pragma: no cover - closure validation makes this unreachable
-            raise ValueError("space-group symmetry operation has no finite order")
-        matrix = operation.matrix.to_fractions()
-        trace = sum((matrix[index][index] for index in range(3)), start=Fraction(0))
-        rotation_power = operation.matrix
-        rotation_order = 1
-        identity_matrix = identity.matrix
-        while rotation_power != identity_matrix and rotation_order <= len(group):
-            rotation_power = rotation_power * operation.matrix
-            rotation_order += 1
-        if rotation_power != identity_matrix:
-            raise ValueError("space-group rotation part has no finite order")
-        unwrapped_power = identity
-        for _ in range(order):
-            unwrapped_power = operation * unwrapped_power
-        translation = unwrapped_power.vector.to_fractions()
-        if any(value.denominator != 1 for value in translation):
-            raise ValueError("space-group operation power is not a lattice translation")
-        translation_content = math.gcd(*(abs(value.numerator) for value in translation))
-        values.append((operation.determinant(), trace, order, rotation_order, translation_content))
-    return tuple(sorted(values))
+    def add(left: _Vector, right: _Vector) -> _Vector:
+        return ((left[0] + right[0]) % scale, (left[1] + right[1]) % scale, (left[2] + right[2]) % scale)
+
+    cosets: dict[_Rotation, _Vector] = {}
+    centring: set[_Vector] = set()
+    for rotation, translation in group:
+        x, y, z = (int(value * scale) for value in translation)
+        cosets.setdefault(rotation, (x, y, z))
+        if rotation == _IDENTITY_ROTATION:
+            centring.add((x, y, z))
+
+    def canonical(vector: _Vector) -> _Vector:
+        return min(add(vector, translation) for translation in centring)
+
+    def span(steps: set[_Vector]) -> set[_Vector]:
+        """Close ``{0}`` under adding ``steps`` modulo ``T``."""
+        found = frontier = {canonical((0, 0, 0))}
+        while frontier:
+            frontier = {canonical(add(value, step)) for value in frontier for step in steps} - found
+            found = found | frontier
+        return found
+
+    def scaled(vector: _Vector, divisor: int) -> _Vector:
+        return (vector[0] // divisor, vector[1] // divisor, vector[2] // divisor)
+
+    generators = ((scale, 0, 0), (0, scale, 0), (0, 0, scale), *centring)
+    values = []
+    classes: dict[_Rotation, _CosetClass] = {}
+    projections: dict[_Rotation, tuple[_Rotation, int, _Vector, list[_Vector]]] = {}
+    for rotation, representative in cosets.items():
+        power, total, order = rotation, _IDENTITY_ROTATION, 1
+        while power != _IDENTITY_ROTATION:
+            power, total, order = (
+                _rotation_product(rotation, power),
+                cast(_Rotation, tuple(a + b for a, b in zip(total, power))),
+                order + 1,
+            )
+        intrinsic = scaled(_apply(total, representative), order)
+        steps = [scaled(_apply(total, generator), order) for generator in generators]
+        offsets = span({canonical(step) for step in steps})
+        screw = min(
+            next(
+                multiple
+                for multiple in range(1, order + 1)
+                if tuple(multiple * value % scale for value in add(intrinsic, offset)) in centring
+            )
+            for offset in offsets
+        )
+        classes[rotation] = (
+            _determinant(rotation),
+            rotation[0] + rotation[4] + rotation[8],
+            order,
+            screw,
+            len(offsets),
+        )
+        projections[rotation] = (total, order, intrinsic, steps)
+        values.append(classes[rotation])
+
+    # How screw and glide translations lie relative to the other symmetry elements (Pbam,
+    # Pbcm and Pnnm agree on all values above): for a screw or glide coset ``a`` and any
+    # coset ``b``, whether some intrinsic translation ``w`` of ``a`` (in ``w(t) + (1/n_a) N_a T``)
+    # satisfies ``P_b w = w`` modulo ``T``, where ``P_b = (1/n_b) N_b`` projects onto the axis
+    # or plane of ``b``.
+    def displacement(total: _Rotation, order: int, vector: _Vector) -> _Vector:
+        x, y, z = scaled(_apply(total, vector), order)
+        return (x - vector[0], y - vector[1], z - vector[2])
+
+    relations = []
+    for first, (_, _, intrinsic, steps) in projections.items():
+        if classes[first][3] == 1:
+            continue
+        for second, (total, order, _, _) in projections.items():
+            moved = displacement(total, order, intrinsic)
+            reachable = span({canonical(displacement(total, order, step)) for step in steps})
+            relations.append(
+                (classes[first], classes[second], any(add(moved, value) in centring for value in reachable))
+            )
+    # Orbit sizes of the point group on (1/k)T/T separate the arithmetic crystal classes
+    # (for example Fm-3m from Im-3m), which the per-coset values above cannot.
+    lattice_orbits = []
+    for divisor in (2, 3, 4):
+        points = span({canonical(scaled(generator, divisor)) for generator in generators})
+        sizes = []
+        while points:
+            point = next(iter(points))
+            orbit = {canonical(_apply(rotation, point)) for rotation in cosets}
+            points -= orbit
+            sizes.append(len(orbit))
+        lattice_orbits.append(tuple(sorted(sizes)))
+    return len(cosets), tuple(sorted(values)), tuple(lattice_orbits), tuple(sorted(relations))
+
+
+@cache
+def _standard_group_invariant(it_number: int) -> _GroupInvariant:
+    """Return the invariant of space-group type ``it_number`` (any tabulated setting)."""
+    from httk.atomistic import data
+
+    return _operation_group_invariant(_tabulated_group(data.standard_spacegroup_setting(it_number)["hall_entry"]))
 
 
 def declared_spacegroup_settings(
@@ -158,12 +354,18 @@ def declared_spacegroup_settings(
     hall: str | None,
     hermann_mauguin: str | None,
     hermann_mauguin_extended: str | None,
-    operation_group: frozenset[Any] | None,
+    operation_group: frozenset[_Operation] | None,
 ) -> tuple[Mapping[str, Any], ...]:
     """Return tabulated settings consistent with supplied symmetry metadata.
 
     Raw ``xyz`` operation strings are parsed only for validation and matching; callers
-    retain the declared strings at their API boundaries.
+    retain the declared strings at their API boundaries.  Operations equal to a tabulated
+    setting select that setting.  Operations in any other basis or origin (for example
+    the 48 operations of a primitive face-centred cell) are accepted when their
+    basis-independent group invariant equals that of the stated space-group type; the
+    matched settings are then all settings of the stated number and symbols.  Operations
+    stated without a number or symbol may be any valid group; its type is not identified
+    and no setting is matched.
 
     :param it_number: Optional International Tables space-group number.
     :param hall: Optional Hall symbol.
@@ -178,7 +380,6 @@ def declared_spacegroup_settings(
         return ()
 
     from httk.atomistic import data
-    from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     records = list(data.spacegroup_settings())
     if it_number is not None:
@@ -196,27 +397,24 @@ def declared_spacegroup_settings(
     if identifiers and not records:
         raise ValueError("supplied space-group number and symbols are inconsistent")
     if operation_group is not None:
-        matching = [
-            record
-            for record in records
-            if frozenset(value.wrapped() for value in Spacegroup(record).symmetry_operations) == operation_group
-        ]
-        if not matching:
-            standard_group = (
-                frozenset(value.wrapped() for value in Spacegroup.standard(it_number).symmetry_operations)
-                if it_number is not None
-                else None
-            )
-            has_setting_symbol = any(value is not None for value in (hall, hermann_mauguin, hermann_mauguin_extended))
-            if (
-                has_setting_symbol
-                or standard_group is None
-                or len(operation_group) != len(standard_group)
-                or _operation_group_signature(operation_group) != _operation_group_signature(standard_group)
+        matching = [record for record in records if _tabulated_group(record["hall_entry"]) == operation_group]
+        if matching:
+            records = matching
+        elif not identifiers:
+            # Operations alone may be any valid group in any basis; its type is not identified.
+            records = []
+        elif _operation_group_invariant(operation_group) not in {
+            _standard_group_invariant(number) for number in {record["it_number"] for record in records}
+        }:
+            if it_number is None or any(
+                value is not None for value in (hall, hermann_mauguin, hermann_mauguin_extended)
             ):
                 raise ValueError("supplied space-group operations disagree with its number or symbols")
-        else:
-            records = matching
+            raise ValueError(
+                f"supplied space-group operations are not compatible with space group {it_number}: they form a "
+                "group of a different type (operations expressed in a supercell describe only the subgroup "
+                "integral in that cell)"
+            )
     return tuple(records)
 
 
@@ -242,6 +440,16 @@ class StructureSymmetry:
     wyckoff_positions: tuple[str, ...] | None = None
     matched_settings: ClassVar[tuple[Mapping[str, Any], ...]]
 
+    def __reduce__(self) -> tuple[type[Self], tuple[Any, ...]]:
+        """Rebuild through the constructor from the declared fields only.
+
+        ``matched_settings`` holds read-only (unpicklable) setting copies; the memoised
+        validation recomputes it on unpickling.
+
+        :return: The constructor and its positional arguments.
+        """
+        return type(self), tuple(getattr(self, field.name) for field in fields(self))
+
     def __post_init__(self) -> None:
         number = self.space_group_it_number
         if number is not None and (not isinstance(number, int) or isinstance(number, bool) or not 1 <= number <= 230):
@@ -255,59 +463,98 @@ class StructureSymmetry:
             if value is not None and (not isinstance(value, str) or not value):
                 raise TypeError(f"{name} must be a non-empty string or None")
         operations = self.space_group_symmetry_operations_xyz
-        operation_group = None
         if operations is not None:
             operations = tuple(operations)
-            if (
-                not operations
-                or not all(
-                    isinstance(value, str)
-                    and len(value.split(",")) == 3
-                    and all(_SYMOP_COORDINATE.fullmatch(part) for part in value.split(","))
-                    for value in operations
-                )
-                or "x,y,z" not in {value.replace(" ", "") for value in operations}
-            ):
+            if not all(isinstance(value, str) for value in operations):
                 raise ValueError("space_group_symmetry_operations_xyz must contain valid operations and identity")
-            operation_group = _symmetry_operation_group(operations)
             object.__setattr__(self, "space_group_symmetry_operations_xyz", operations)
         positions = self.wyckoff_positions
         if positions is not None:
             positions = tuple(positions)
-            if not all(isinstance(value, str) and len(value) == 1 and "a" <= value <= "z" for value in positions):
+            if not all(isinstance(value, str) for value in positions):
                 raise ValueError("wyckoff_positions must contain lowercase Wyckoff letters")
             object.__setattr__(self, "wyckoff_positions", positions)
-
-        settings = declared_spacegroup_settings(
-            it_number=number,
-            hall=self.space_group_symbol_hall,
-            hermann_mauguin=self.space_group_symbol_hermann_mauguin,
-            hermann_mauguin_extended=self.space_group_symbol_hermann_mauguin_extended,
-            operation_group=operation_group,
+        settings = _validated_symmetry(
+            number,
+            self.space_group_symbol_hall,
+            self.space_group_symbol_hermann_mauguin,
+            self.space_group_symbol_hermann_mauguin_extended,
+            operations,
+            positions,
         )
-        if operations is None and settings:
-            from httk.atomistic.symmetry.spacegroup import Spacegroup
-
-            has_setting_symbol = any(
-                value is not None
-                for value in (
-                    self.space_group_symbol_hall,
-                    self.space_group_symbol_hermann_mauguin,
-                    self.space_group_symbol_hermann_mauguin_extended,
-                )
-            )
-            selected = Spacegroup(settings[0]) if has_setting_symbol or number is None else Spacegroup.standard(number)
-            operations = tuple(value.wrapped().to_xyz() for value in selected.symmetry_operations)
-            object.__setattr__(self, "space_group_symmetry_operations_xyz", operations)
         object.__setattr__(self, "matched_settings", settings)
-        if positions is not None and settings:
-            from httk.atomistic.symmetry.spacegroup import Spacegroup
 
-            if not any(
-                all(letter in {value.letter for value in Spacegroup(record).wyckoff} for letter in positions)
-                for record in settings
-            ):
-                raise ValueError("supplied Wyckoff positions disagree with the space-group setting")
+
+@lru_cache(maxsize=4096)
+def _validated_symmetry(
+    number: int | None,
+    hall: str | None,
+    hermann_mauguin: str | None,
+    hermann_mauguin_extended: str | None,
+    operations: tuple[str, ...] | None,
+    positions: tuple[str, ...] | None,
+) -> tuple[Mapping[str, Any], ...]:
+    """Validate cell-free symmetry metadata and return its matched settings.
+
+    Memoised so that the many structures sharing one operation set validate it once; the
+    returned tuple holds shared, read-only copies of the tabulated setting records.
+
+    :param number: Optional International Tables space-group number.
+    :param hall: Optional Hall symbol.
+    :param hermann_mauguin: Optional short Hermann–Mauguin symbol.
+    :param hermann_mauguin_extended: Optional extended Hermann–Mauguin symbol.
+    :param operations: Optional declared raw ``xyz`` operations.
+    :param positions: Optional Wyckoff letters.
+    :return: The tabulated settings consistent with the metadata.
+    :raises ValueError: If the metadata is invalid or mutually inconsistent.
+    """
+    operation_group = None
+    if operations is not None:
+        if (
+            not operations
+            or not all(
+                len(value.split(",")) == 3 and all(_SYMOP_COORDINATE.fullmatch(part) for part in value.split(","))
+                for value in operations
+            )
+            or "x,y,z" not in {value.replace(" ", "") for value in operations}
+        ):
+            raise ValueError("space_group_symmetry_operations_xyz must contain valid operations and identity")
+        operation_group = _symmetry_operation_group(operations)
+    if positions is not None and not all(len(value) == 1 and "a" <= value <= "z" for value in positions):
+        raise ValueError("wyckoff_positions must contain lowercase Wyckoff letters")
+    settings = declared_spacegroup_settings(
+        it_number=number,
+        hall=hall,
+        hermann_mauguin=hermann_mauguin,
+        hermann_mauguin_extended=hermann_mauguin_extended,
+        operation_group=operation_group,
+    )
+    if positions is not None and settings:
+        from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+        if not any(
+            all(letter in {value.letter for value in Spacegroup(record).wyckoff} for letter in positions)
+            for record in settings
+        ):
+            raise ValueError("supplied Wyckoff positions disagree with the space-group setting")
+    return tuple(_frozen_setting(record["hall_entry"]) for record in settings)
+
+
+def _frozen(value: Any) -> Any:
+    """Return a read-only deep copy of a JSON-like value (mappings and lists)."""
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _frozen(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return tuple(_frozen(item) for item in value)
+    return value
+
+
+@cache
+def _frozen_setting(hall_entry: str) -> Mapping[str, Any]:
+    """Return a read-only copy of one tabulated setting, shared by every matching symmetry."""
+    from httk.atomistic import data
+
+    return cast(Mapping[str, Any], _frozen(data.spacegroup_setting(hall_entry=hall_entry)))
 
 
 def _stated_symmetry(symmetry: StructureSymmetry | None) -> StructureSymmetry | None:
@@ -824,6 +1071,31 @@ def initialize_semantics(
         and symmetry.space_group_symmetry_operations_xyz is not None
     ):
         raise ValueError("space-group symmetry operations must be null for a nonperiodic structure")
+    if (
+        symmetry is not None
+        and symmetry.space_group_symmetry_operations_xyz is not None
+        and cast(Any, owner).cell.nperiodic_dimensions == 3
+    ):
+        metric = cast(Any, owner).cell.metric().to_floats()
+        # Per entry, relative to |a_i| |a_j|: a global bound would let an elongated axis hide
+        # a wrong rotation among the short ones.
+        bound = [[_METRIC_TOLERANCE * math.sqrt(metric[i][i] * metric[j][j]) for j in range(3)] for i in range(3)]
+        rotations = {
+            tuple(tuple(float(value) for value in _linear_xyz_expression(part)[:3]) for part in operation.split(","))
+            for operation in symmetry.space_group_symmetry_operations_xyz
+        }
+        for rotation in rotations:
+            # (R^T G R)_ij = sum_kl R_ki G_kl R_lj for the column-convention rotation R.
+            if any(
+                abs(
+                    sum(rotation[k][i] * metric[k][l] * rotation[l][j] for k in range(3) for l in range(3))
+                    - metric[i][j]
+                )
+                > bound[i][j]
+                for i in range(3)
+                for j in range(3)
+            ):
+                raise ValueError("space-group symmetry operations do not preserve the cell metric")
     owner._molecular = molecular
     owner._assemblies = normalized_assemblies
     owner._symmetry = symmetry

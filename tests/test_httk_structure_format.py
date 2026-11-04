@@ -20,6 +20,7 @@ from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.structure.semantics import StructureSymmetry
+from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 FIXTURES = Path(__file__).with_name("fixtures")
 
@@ -423,7 +424,13 @@ def test_space_group_with_192_operations_round_trips(tmp_path):
         [[Fraction(3567, 1000), 0, 0], [0, Fraction(3567, 1000), 0], [0, 0, Fraction(3567, 1000)]],
         [[0, 0, 0], [Fraction(1, 4), Fraction(1, 4), Fraction(1, 4)]],
         species_at_sites=["C", "C"],
-        symmetry=StructureSymmetry(space_group_it_number=227),
+        symmetry=StructureSymmetry(
+            space_group_it_number=227,
+            space_group_symmetry_operations_xyz=tuple(
+                operation.wrapped().to_xyz() for operation in Spacegroup.standard(227).symmetry_operations
+            ),
+        ),
     )
     assert len(structure.symmetry.space_group_symmetry_operations_xyz) == 192
+    assert StructureSymmetry(space_group_it_number=227).space_group_symmetry_operations_xyz is None
     _round_trip(structure, tmp_path)
