@@ -11,6 +11,7 @@ from httk.atomistic import (
     ASUStructure,
     ASUStructureRecord,
     FundamentalDomainStructureRecord,
+    NumericUnitcellStructureRecord,
     StructureEntryProvider,
     UnitcellStructure,
     UnitcellStructureRecord,
@@ -324,6 +325,7 @@ def test_registration_discovered_via_httk_core() -> None:
     assert resolve_entry_record("atomistic-unitcell-structure") is UnitcellStructureRecord
     assert resolve_entry_record("atomistic-fundamental-domain-structure") is FundamentalDomainStructureRecord
     assert resolve_entry_record("atomistic-asu-structure") is ASUStructureRecord
+    assert resolve_entry_record("atomistic-numeric-unitcell-structure") is NumericUnitcellStructureRecord
     factory = resolve_callable(entry_providers.require("atomistic-structures").handler)
     provider = factory({"s-1": _nacl_like()})
     assert isinstance(provider, StructureEntryProvider)

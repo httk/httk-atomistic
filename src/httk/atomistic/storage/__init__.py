@@ -11,6 +11,13 @@ from .records import (
     FundamentalDomainTemplateRecord,
     NormalizedCompositionAmountRecord,
     NormalizedCompositionRecord,
+    NumericCellRecord,
+    NumericCompositionAmountRecord,
+    NumericNormalizedCompositionRecord,
+    NumericSitesRecord,
+    NumericSpeciesConstituentRecord,
+    NumericSpeciesRecord,
+    NumericUnitcellStructureRecord,
     ObservableSummaryRecord,
     ProtostructureRecord,
     PrototypeRecord,
@@ -23,6 +30,7 @@ from .records import (
     UnitcellStructureRecord,
     WyckoffOccupationRecord,
     WyckoffSiteRecord,
+    numeric_structure_from_record,
 )
 
 __all__ = [
@@ -38,6 +46,13 @@ __all__ = [
     "FundamentalDomainTemplateRecord",
     "NormalizedCompositionAmountRecord",
     "NormalizedCompositionRecord",
+    "NumericCellRecord",
+    "NumericCompositionAmountRecord",
+    "NumericNormalizedCompositionRecord",
+    "NumericSitesRecord",
+    "NumericSpeciesConstituentRecord",
+    "NumericSpeciesRecord",
+    "NumericUnitcellStructureRecord",
     "ObservableSummaryRecord",
     "ProtostructureRecord",
     "PrototypeRecord",
@@ -50,4 +65,5 @@ __all__ = [
     "UnitcellStructureRecord",
     "WyckoffOccupationRecord",
     "WyckoffSiteRecord",
+    "numeric_structure_from_record",
 ]

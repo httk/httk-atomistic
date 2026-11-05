@@ -1,9 +1,13 @@
 """
-Tests for the numpy-backed numeric presentation layer: NumericCell/NumericSites,
-the numeric backend/view pair, and the ``.numeric()`` convenience methods.
+Tests for the numeric layer: the float-owning NumericCell/NumericSites/NumericUnitcellStructure
+values, their lossless numeric views, and the numeric structure backend adapter.
 """
 
+import datetime
 import fractions
+from fractions import Fraction
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -15,23 +19,29 @@ from httk.core import FracVector, unwrap
 from httk.atomistic import (
     Assembly,
     ASUStructure,
+    BareProtostructureView,
+    BarePrototypeView,
+    CartesianSiteMoments,
     Cell,
     CellParams,
+    NumericCell,
+    NumericSites,
+    NumericUnitcellStructure,
     NumericUnitcellStructureView,
     Sites,
     Species,
+    StructuretypeView,
     UnitcellStructure,
     UnitcellStructureView,
     WyckoffSite,
 )
-from httk.atomistic.models.cell.numeric import NumericCell
 from httk.atomistic.models.cell.numeric_view import CellNumericView
-from httk.atomistic.models.sites.numeric import NumericSites
 from httk.atomistic.models.sites.numeric_view import SitesNumericView
 from httk.atomistic.models.structure.backend import StructureBackend
-from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
+from httk.atomistic.models.structure.numeric import _NumericStructureBackend
 
 F = fractions.Fraction
+CUBE = [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
 
 
 def _hexagonal_structure() -> UnitcellStructure:
@@ -44,58 +54,254 @@ def _hexagonal_structure() -> UnitcellStructure:
     )
 
 
-# ------------------------------------------------------------------ end-to-end numeric values
+def _disordered_structure(**kwargs: Any) -> UnitcellStructure:
+    return UnitcellStructure(
+        [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
+        [[0, 0, 0], [F(1, 2), F(1, 2), F(1, 2)]],
+        species=[
+            Species("A", ("Fe", "Ni"), (F(1, 3), F(2, 3)), charges=(F(1, 3), None)),
+            Species("O", ("O",), (1,)),
+        ],
+        species_at_sites=["A", "O"],
+        charge=F(1, 3),
+        **kwargs,
+    )
 
 
-def test_numeric_unitcell_structure_values_are_plain_numpy() -> None:
+def _numeric() -> NumericUnitcellStructure:
+    return NumericUnitcellStructure(
+        NumericCell(CUBE, precision=1e-3, periodicity=(True, True, False)),
+        NumericSites([[0.0, 0.0, 0.0], [0.5, 0.5, 0.1]], precision=1e-4),
+        species_at_sites=[Species("Na", ("Na",), (1,), mass=(22.99,)), Species("Cl", ("Cl",), (1,))],
+        charge=-1.5,
+        molecular=False,
+        chemical_formula_descriptive="NaCl",
+        chemical_formula_hill="ClNa",
+        optimization_type="local",
+        immutable_id="abc",
+        last_modified=datetime.datetime(2026, 11, 5, tzinfo=datetime.UTC),
+    )
+
+
+# ------------------------------------------------------------------ values
+
+
+def test_values_round_trip_through_repr() -> None:
+    namespace = {
+        "NumericCell": NumericCell,
+        "NumericSites": NumericSites,
+        "NumericUnitcellStructure": NumericUnitcellStructure,
+        "Species": Species,
+        "Fraction": Fraction,
+        "datetime": datetime,
+    }
+    structure = _numeric()
+    for value in (structure, structure.cell, structure.sites, NumericUnitcellStructure(_disordered_structure())):
+        copy = eval(repr(value), namespace)
+        assert copy == value
+        assert hash(copy) == hash(value)
+    assert eval(repr(structure), namespace).last_modified == structure.last_modified
+
+
+def test_values_normalise_negative_zero_and_reject_non_finite() -> None:
+    cell = NumericCell([[4.0, -0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]])
+    assert cell == NumericCell(CUBE)
+    assert hash(cell) == hash(NumericCell(CUBE))
+    assert "-0.0" not in repr(cell)
+    assert NumericSites([[-0.0, 0.0, 0.0]]) == NumericSites([[0.0, 0.0, 0.0]])
+    zero_charge = NumericUnitcellStructure(CUBE, [[0, 0, 0]], species_at_sites=["Na"], charge=-0.0)
+    assert repr(zero_charge.charge) == "0.0"
+    for bad in (float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="finite"):
+            NumericCell([[bad, 0, 0], [0, 4, 0], [0, 0, 4]])
+        with pytest.raises(ValueError, match="finite"):
+            NumericSites([[0, bad, 0]])
+        with pytest.raises(ValueError, match="finite"):
+            NumericUnitcellStructure(CUBE, [[0, 0, 0]], species_at_sites=["Na"], charge=bad)
+    with pytest.raises(ValueError, match="non-degenerate"):
+        NumericCell([[1, 0, 0], [2, 0, 0], [0, 0, 1]])
+    with pytest.raises(ValueError, match="3x3"):
+        NumericCell([[1, 0, 0], [0, 1, 0]])
+    with pytest.raises(ValueError, match="strictly positive"):
+        NumericSites([[0, 0, 0]], precision=0)
+    assert len(NumericSites(numpy.zeros((0, 3)))) == 0
+    for wrong_width in (numpy.zeros((2, 0)), [[0, 0], [0, 0]]):
+        with pytest.raises(ValueError, match="Nx3"):
+            NumericSites(wrong_width)
+
+
+def test_value_arrays_are_read_only_float64() -> None:
+    structure = _numeric()
+    for array in (
+        structure.cell.basis,
+        structure.cell.lengths,
+        structure.cell.angles,
+        structure.cell.metric(),
+        structure.sites.reduced_coords,
+        structure.sites[0],
+        next(iter(structure.sites)),
+    ):
+        assert type(array) is numpy.ndarray
+        assert array.dtype == numpy.float64
+        assert not array.flags.writeable
+        with pytest.raises(ValueError):
+            array[0] = 1.0
+    assert NumericSites([]).reduced_coords.shape == (0, 3)
+
+
+def test_numeric_cell_geometry() -> None:
+    cell = NumericCell(Cell(CellParams((3, 3, 5, 90, 90, 120)).basis))
+    assert cell.lengths.tolist() == pytest.approx([3.0, 3.0, 5.0])
+    assert cell.angles.tolist() == pytest.approx([90.0, 90.0, 120.0])
+    assert cell.volume == pytest.approx(3 * 3 * 5 * 3**0.5 / 2)
+    assert numpy.allclose(cell.metric(), cell.basis @ cell.basis.T)
+    assert not hasattr(cell, "scale") and not hasattr(cell, "exact")
+    slab = NumericCell(CUBE, periodicity=(1, 1, 0))
+    assert slab.nperiodic_dimensions == 2
+    with pytest.raises(ValueError, match="fully 3D-periodic"):
+        _ = slab.volume
+
+
+def test_structure_value_fields_and_semantics() -> None:
+    structure = _numeric()
+    assert structure.cell.precision == 1e-3
+    assert structure.sites.precision == 1e-4
+    assert structure.species_at_sites == ("Na", "Cl")
+    assert structure.nsites == 2
+    assert structure.charge == -1.5
+    assert structure.elements == ("Cl", "Na")
+    assert structure.nelements == 2
+    assert structure.elements_ratios == (F(1, 2), F(1, 2))
+    assert structure.chemical_formula_reduced == "ClNa"
+    assert structure.chemical_formula_anonymous == "AB"
+    assert structure.structure_features == ()
+    assert structure.lattice_vectors == CUBE
+    assert structure.fractional_site_positions == [[0.0, 0.0, 0.0], [0.5, 0.5, 0.1]]
+    assert numpy.allclose(structure.cartesian_site_positions, [[0.0, 0.0, 0.0], [2.0, 2.0, 0.4]])
+    assert len(structure.id) == 64  # content identity; see test_numeric_structure_record.py
+    assert not isinstance(structure, StructureBackend)
+    # Identity metadata does not take part in equality.
+    other = NumericUnitcellStructure(
+        structure.cell,
+        structure.sites,
+        structure.species,
+        structure.species_at_sites,
+        charge=-1.5,
+        chemical_formula_descriptive="NaCl",
+        chemical_formula_hill="ClNa",
+        optimization_type="local",
+    )
+    assert other == structure
+    assert NumericUnitcellStructure(other, immutable_id="x").immutable_id == "x"
+    with pytest.raises(ValueError, match="unknown species"):
+        NumericUnitcellStructure(CUBE, [[0, 0, 0]], [Species("Na", ("Na",), (1,))], ["K"])
+    with pytest.raises(ValueError, match="same length"):
+        NumericUnitcellStructure(CUBE, [[0, 0, 0]], species_at_sites=["Na", "Na"])
+    with pytest.raises(ValueError, match="chemical_formula_hill"):
+        NumericUnitcellStructure(CUBE, [[0, 0, 0]], species_at_sites=["Na"], chemical_formula_hill="Cl")
+
+
+def test_lossy_conversion_quantises_species_through_float() -> None:
+    exact = _disordered_structure()
+    numeric = NumericUnitcellStructure(exact)
+    third = Fraction(3333333333333333, 10**16)
+    assert numeric.species[0].concentration == (third, Fraction(6666666666666666, 10**16))
+    assert numeric.species[0].charges == (third, None)
+    assert numeric.charge == 1 / 3
+    assert numeric.cell == NumericCell(exact.cell)
+    assert numeric.sites == NumericSites(exact.sites)
+    # Quantisation is idempotent, so a float round trip is the identity.
+    assert NumericUnitcellStructure(numeric) == numeric
+    assert NumericUnitcellStructure(UnitcellStructureView(numeric)) == numeric
+    assert NumericUnitcellStructure(exact.numeric()) == numeric
+    assert "disorder" in numeric.structure_features
+    assert NumericUnitcellStructure(_disordered_structure(immutable_id="src")).immutable_id is None
+    with pytest.raises(TypeError, match="takes its content from the source"):
+        NumericUnitcellStructure(exact, charge=1.0)
+
+
+def test_conversion_refuses_content_a_numeric_structure_cannot_carry() -> None:
+    moments = UnitcellStructure(
+        CUBE,
+        [[0, 0, 0]],
+        species_at_sites=[Species("Fe", ("Fe",), (1,))],
+        site_moments=CartesianSiteMoments([[0, 0, 1]]),
+    )
+    with pytest.raises(ValueError, match="site_moments"):
+        NumericUnitcellStructure(moments)
+    with pytest.raises(ValueError, match="assemblies"):
+        NumericUnitcellStructure(
+            UnitcellStructure(
+                CUBE,
+                [[0, 0, 0], [0, 0, F(1, 2)]],
+                species_at_sites=[Species("Fe", ("Fe",), (1,)), Species("Ni", ("Ni",), (1,))],
+                assemblies=(Assembly(((0,), (1,)), (F(1, 2), F(1, 2))),),
+            )
+        )
+
+
+# ------------------------------------------------------------------ exact interface via the adapter
+
+
+def test_unitcell_structure_view_presents_the_exact_interface() -> None:
+    numeric = _numeric()
+    exact = UnitcellStructureView(numeric)
+    assert isinstance(exact._backend, _NumericStructureBackend)
+    assert unwrap(exact) is numeric
+    # Floats embed exactly as written: 0.1 is 1/10, and the precisions likewise.
+    assert exact.sites.reduced_coords.to_fractions()[1] == [F(1, 2), F(1, 2), F(1, 10)]
+    assert exact.basis_precision == F(1, 1000)
+    assert exact.coordinate_precision == F(1, 10000)
+    assert exact.periodicity == (True, True, False)
+    assert exact.charge == F(-3, 2)
+    assert exact.chemical_formula_hill == "ClNa"
+    assert exact.optimization_type == "local"
+    assert exact.immutable_id == "abc"
+    assert isinstance(exact.unview(), UnitcellStructure)
+    assert NumericUnitcellStructure(exact) == numeric
+    with pytest.raises(TypeError):
+        StructureBackend._select_backend(numeric, kind="unitcell")
+    assert isinstance(StructureBackend._select_backend(numeric, kind="numeric"), _NumericStructureBackend)
+
+
+def test_adapter_quartet_precedence() -> None:
     structure = _hexagonal_structure()
-    numeric = structure.numeric()
-    assert isinstance(numeric, NumericUnitcellStructureView)
-    assert not isinstance(numeric, UnitcellStructure)
-
-    exact_cell = structure.cell
-    # Vectors are exactly-typed float64 ndarrays (not a subclass) matching the exact to_floats().
-    for got, want in [
-        (numeric.cell.basis, exact_cell.basis.to_floats()),
-        (numeric.cell.unscaled_basis, exact_cell.unscaled_basis.to_floats()),
-        (numeric.cell.metric(), exact_cell.metric().to_floats()),
-        (numeric.sites.reduced_coords, structure.sites.reduced_coords.to_floats()),
-    ]:
-        assert type(got) is numpy.ndarray
-        assert got.dtype == numpy.float64
-        assert got.tolist() == want
-
-    # cartesian_sites() now composes through the float pipeline (a float matmul), so it only
-    # agrees with the exact route to floating-point precision, not bit-for-bit.
-    cartesian_got = numeric.cartesian_sites()
-    cartesian_want = structure.cartesian_sites().to_floats()
-    assert type(cartesian_got) is numpy.ndarray
-    assert cartesian_got.dtype == numpy.float64
-    assert cartesian_got.tolist() == pytest.approx(numpy.array(cartesian_want), rel=1e-12, abs=1e-12)
-
-    # lengths are a (3,) float64 ndarray; angles a (3,) float64 ndarray in degrees.
-    assert type(numeric.cell.lengths) is numpy.ndarray
-    assert numeric.cell.lengths.tolist() == [length.to_float() for length in exact_cell.lengths]
-    assert type(numeric.cell.angles) is numpy.ndarray
-    assert numeric.cell.angles.tolist() == pytest.approx([90.0, 90.0, 120.0])
-
-    # volume/scale are plain floats.
-    assert type(numeric.cell.volume) is float
-    assert numeric.cell.volume == pytest.approx(exact_cell.volume.to_float())
-    assert type(numeric.cell.scale) is float
-
-    # species pass through as the identical objects.
-    assert numeric.species is structure.species
-    assert numeric.species_at_sites == structure.species_at_sites
+    # 1. an exact UnitcellStructure on the object wins.
+    view = NumericUnitcellStructureView(structure)
+    backend = StructureBackend._select_backend(view)
+    assert isinstance(backend, _NumericStructureBackend)
+    assert backend.cell is structure.cell
+    assert backend.unwrap() is view
+    # 2. else the numeric views' exact components.
+    cell = Cell(CellParams((3, 3, 5, 90, 90, 120)).basis)
+    sites = Sites([[F(1, 3), F(2, 3), 0]])
+    foreign = SimpleNamespace(cell=cell.numeric(), sites=sites.numeric(), species=(), species_at_sites=("Mg",))
+    foreign.species = structure.species
+    backend = StructureBackend._select_backend(foreign)
+    assert backend.cell is cell
+    assert backend.sites is sites
+    # 3. else the floats, embedded exactly as written.
+    plain = SimpleNamespace(
+        cell=NumericCell(CUBE), sites=NumericSites([[1 / 3, 0, 0]]), species=structure.species, species_at_sites=("Mg",)
+    )
+    backend = StructureBackend._select_backend(plain)
+    assert backend.sites.reduced_coords.to_fractions() == [[Fraction(3333333333333333, 10**16), 0, 0]]
 
 
-def test_numeric_sites_is_iterable_and_indexable() -> None:
-    numeric = _hexagonal_structure().numeric().sites
-    assert isinstance(numeric, NumericSites)
-    assert len(numeric) == 2
-    rows = list(numeric)
-    assert all(type(row) is numpy.ndarray and row.shape == (3,) for row in rows)
-    assert numeric[1].tolist() == rows[1].tolist()
+def test_recognition_probes_adopt_numeric_structures() -> None:
+    pytest.importorskip("spglib")
+    exact = UnitcellStructure(
+        CUBE,
+        [[0, 0, 0], [0.5, 0.5, 0.5]],
+        species_at_sites=[Species("Cs", ("Cs",), (1,)), Species("Cl", ("Cl",), (1,))],
+    )
+    numeric = NumericUnitcellStructure(exact)
+    assert BareProtostructureView(numeric) == BareProtostructureView(exact)
+    assert BarePrototypeView(numeric) == BarePrototypeView(exact)
+    assert StructuretypeView(numeric).species_at_sites == StructuretypeView(exact).species_at_sites
+    from httk.atomistic.entries.structures import _as_structure
+
+    assert NumericUnitcellStructure(_as_structure(numeric)) == numeric
 
 
 # ------------------------------------------------------------------ views
@@ -105,32 +311,67 @@ def test_numeric_unitcell_structure_view_of_structure_and_triple() -> None:
     structure = _hexagonal_structure()
     view = NumericUnitcellStructureView(structure)
     assert isinstance(view, NumericUnitcellStructureView)
+    assert not isinstance(view, UnitcellStructure)
     assert unwrap(view) is structure  # unwrap returns the raw original
     assert NumericUnitcellStructureView(view) is view  # rewrap idempotence
     assert view.exact == structure
     assert UnitcellStructureView(view) == structure
+    assert isinstance(view.cell, CellNumericView)
+    assert isinstance(view.sites, SitesNumericView)
+    assert view.species is structure.species
+    with pytest.raises(TypeError, match="interface-only"):
+        view.unview()
 
-    backend = StructureBackend._select_backend(view)
-    assert isinstance(backend, NumericUnitcellStructure)
-    assert backend.cell is structure.cell
-    assert backend.sites is structure.sites
-    assert StructureBackend._select_backend(view, kind="numeric") is not None
-    with pytest.raises(TypeError):
-        StructureBackend._select_backend(view, kind="unitcell")
-
-    triple = (
-        [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
-        [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
-        [11, 17],
-    )
+    triple = (CUBE, [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], [11, 17])
     from_triple = NumericUnitcellStructureView(triple)
-    assert isinstance(from_triple, NumericUnitcellStructureView)
     assert unwrap(from_triple) is triple
-    assert from_triple.cell.basis.tolist() == [
-        [4.0, 0.0, 0.0],
-        [0.0, 4.0, 0.0],
-        [0.0, 0.0, 4.0],
-    ]
+    assert from_triple.cell.basis.tolist() == CUBE
+
+
+def test_numeric_views_are_lossless_presentations() -> None:
+    structure = _hexagonal_structure()
+    numeric = structure.numeric()
+    exact_cell = structure.cell
+    for got, want in [
+        (numeric.cell.basis, exact_cell.basis.to_floats()),
+        (numeric.cell.metric(), exact_cell.metric().to_floats()),
+        (numeric.sites.reduced_coords, structure.sites.reduced_coords.to_floats()),
+    ]:
+        assert type(got) is numpy.ndarray
+        assert got.dtype == numpy.float64
+        assert numpy.allclose(got, want, rtol=1e-12, atol=1e-12)
+    assert numeric.cartesian_sites().tolist() == pytest.approx(
+        numpy.array(structure.cartesian_sites().to_floats()), rel=1e-12, abs=1e-12
+    )
+    assert numeric.cell.angles.tolist() == [90.0, 90.0, 120.0]  # rendered from the exact angles
+    assert type(numeric.cell.volume) is float
+
+    cell = Cell([[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 4.0]], precision="0.001")
+    view = cell.numeric()
+    assert isinstance(view, CellNumericView) and isinstance(view, NumericCell)
+    assert view.exact is cell
+    assert unwrap(view) is cell
+    assert CellNumericView(view) is view
+    assert view == NumericCell(cell)
+    assert hash(view) == hash(NumericCell(cell))
+    assert type(view.unview()) is NumericCell
+    assert view.unview() == view
+    assert repr(view) == repr(NumericCell(cell))
+
+    sites = Sites([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], precision="0.0001")
+    sites_view = sites.numeric()
+    assert isinstance(sites_view, SitesNumericView) and isinstance(sites_view, NumericSites)
+    assert sites_view.exact is sites
+    assert SitesNumericView(sites_view) is sites_view
+    assert type(sites_view.unview()) is NumericSites
+    assert sites_view.unview() == NumericSites(sites)
+    assert len(sites_view) == 2
+    assert sites_view[1].tolist() == [0.5, 0.5, 0.5]
+
+    params = (3.0, 3.0, 5.0, 90.0, 90.0, 120.0)
+    from_params = CellNumericView(params)
+    assert unwrap(from_params) is params
+    assert from_params.basis.shape == (3, 3)
 
 
 def test_numeric_asu_assemblies_use_expanded_indices() -> None:
@@ -158,43 +399,6 @@ def test_numeric_asu_assemblies_use_expanded_indices() -> None:
     assert numeric.assemblies[0].sites_in_groups == ((3,), (4,))
 
 
-def test_cell_numeric_view_of_params_and_cell() -> None:
-    params = (3.0, 3.0, 5.0, 90.0, 90.0, 120.0)
-    from_params = CellNumericView(params)
-    assert isinstance(from_params, NumericCell)
-    assert from_params.basis.shape == (3, 3)
-    assert unwrap(from_params) is params
-    assert CellNumericView(from_params) is from_params  # rewrap idempotence
-
-    cell = Cell([[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 4.0]])
-    from_cell = CellNumericView(cell)
-    assert unwrap(from_cell) is cell
-    assert from_cell.basis.tolist() == cell.basis.to_floats()
-
-
-def test_sites_numeric_view_rewrap_and_unwrap() -> None:
-    raw = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
-    view = SitesNumericView(raw)
-    assert isinstance(view, NumericSites)
-    assert unwrap(view) is raw
-    assert SitesNumericView(view) is view
-    assert len(view) == 2
-
-
-# ------------------------------------------------------------------ .numeric() round-trip
-
-
-def test_numeric_convenience_methods_roundtrip_exact() -> None:
-    cell = Cell([[2.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 4.0]])
-    assert cell.numeric().exact is cell
-
-    sites = Sites([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]])
-    assert sites.numeric().exact is sites
-
-    structure = _hexagonal_structure()
-    assert structure.numeric().exact == structure
-
-
 # ------------------------------------------------------------------ numpy requirement
 
 
@@ -208,5 +412,7 @@ def test_construction_requires_numpy(monkeypatch: pytest.MonkeyPatch) -> None:
         NumericCell(structure.cell)
     with pytest.raises(ImportError, match=r"numpy"):
         NumericSites(structure.sites)
+    with pytest.raises(ImportError, match=r"numpy"):
+        NumericUnitcellStructure(structure)
     with pytest.raises(ImportError, match=r"numpy"):
         structure.numeric()

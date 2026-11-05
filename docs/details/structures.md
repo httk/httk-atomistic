@@ -11,7 +11,7 @@ under `storage/`, and entry definitions and providers under `entries/`.
 
 A crystal structure is available through one family of backends and views:
 
-- backends: `UnitcellStructure` (the unit-cell representation), `FundamentalDomainStructure`, `PlainStructure` (an spglib-like triple), and the optional numeric and record backends
+- backends: `UnitcellStructure` (the unit-cell representation), `FundamentalDomainStructure`, `PlainStructure` (an spglib-like triple), the record backends, and an adapter that presents a float-owning `NumericUnitcellStructure` through the exact interface
 - views: `UnitcellStructureView` (presents any backend as a `UnitcellStructure`), `PlainStructureView` (presents any backend as a `(lattice, positions, numbers)` tuple)
 - accepted union: `StructureLike`
 
@@ -239,23 +239,30 @@ assert float(cell.volume) == cell.volume.to_float()    # scalars support float(.
 
 ## The numeric layer: plain floats and numpy
 
-There are two ways to leave the exact model for plain floats, and they serve different needs:
+There are three ways to leave the exact model for plain floats, and they serve different needs:
 
 - The **compositional rendering** — `cell.basis.to_floats()`, `structure.cartesian_sites().to_floats()`,
   `sites.reduced_coords.to_floats()`, `float(cell.volume)` — every exact vector object renders
   itself as nested plain-`float` lists (a family-level guarantee: `to_floats()`/`to_float()` are part
   of the vector contract). It needs **no numpy**, works everywhere, and (with the plain views
   and the OPTIMADE records) is the numpy-free JSON/presentation boundary.
-- The **numeric layer** — `Cell.numeric()`, `Sites.numeric()`, `UnitcellStructure.numeric()` — returns a
-  `NumericCell`, `NumericSites`, or `NumericUnitcellStructureView` that mirrors the exact interface but returns
-  true numpy: a `float64` `numpy.ndarray` for every vector, a plain `float` for every scalar
-  (`scale`, `volume`). Reach for it when you want numpy arrays — plotting, a numerical routine, quick
-  inspection. The exact object is always one hop back via `.exact`.
+- The **numeric presentations** — `Cell.numeric()`, `Sites.numeric()`, `UnitcellStructure.numeric()` —
+  return a `CellNumericView`, `SitesNumericView` or `NumericUnitcellStructureView` that mirrors the
+  exact interface but returns true numpy: a read-only `float64` `numpy.ndarray` for every vector
+  and a plain `float` for every scalar. They are lossless views: the exact object is always one
+  hop back via `.exact`. Reach for them when you want numpy arrays for plotting, a numerical
+  routine or quick inspection.
+- The **numeric values** — `NumericCell`, `NumericSites` and `NumericUnitcellStructure` — own their
+  numbers as floats. Constructing one from an exact object (`NumericCell(cell)`,
+  `NumericUnitcellStructure(structure)`) is the explicit lossy step; constructing one from
+  arrays (`NumericCell([[4.0, 0, 0], ...])`) needs no exact object at all. They are immutable,
+  compare and hash by value, and their `repr` evaluates back to an equal value. Construction
+  normalises `-0.0` to `0.0` and rejects NaN and infinities, so equal values have equal content.
 
 The numeric layer is numpy-backed, so it **requires the `httk-atomistic[numpy]` extra** and raises
 `ImportError` eagerly at construction when numpy is not installed. (The `.to_floats()` renderings,
 the plain views and the OPTIMADE records stay numpy-free, so numpy is optional for everything
-except this numpy presentation.)
+except the numeric layer.)
 
 ```python
 import numpy
@@ -275,9 +282,10 @@ structure = UnitcellStructure(
 
 numeric = structure.numeric()
 
-# Vectors are plain float64 ndarrays; the sqrt(3)/2 entry appears as a float:
+# Vectors are read-only float64 ndarrays; the sqrt(3)/2 entry appears as a float:
 basis = numeric.cell.basis
 assert isinstance(basis, numpy.ndarray) and basis.dtype == numpy.float64
+assert not basis.flags.writeable
 assert basis[1].tolist() == [-1.5, 3.0 * numpy.sqrt(3.0) / 2.0, 0.0]
 
 # Angles are a (3,) float64 ndarray in degrees; scalars are plain floats:
@@ -292,11 +300,81 @@ assert isinstance(cartesian, numpy.ndarray) and cartesian.shape == (2, 3)
 assert numeric.exact == structure
 ```
 
-The same presentation is also available as views over any backend — the whole-structure
-`NumericUnitcellStructureView` (re-exported from `httk.atomistic`), and the per-component
-`CellNumericView` / `SitesNumericView` (in `httk.atomistic.models.cell.numeric_view` /
-`httk.atomistic.models.sites.numeric_view`, or reached by class conversion) — mirroring the
-`*View` pattern (rewrap-idempotent, `unwrap` returns the raw original), and likewise requiring numpy.
+The presentations follow the `*View` pattern (rewrap-idempotent, `unwrap` returns the raw
+original) and work over any backend. `CellNumericView` and `SitesNumericView` (in
+`httk.atomistic.models.cell.numeric_view` / `httk.atomistic.models.sites.numeric_view`) are genuine
+`NumericCell`/`NumericSites` instances, compare equal to the corresponding value, and `unview()`
+returns that value. `NumericUnitcellStructureView` is interface-only: its `unview()` raises, and
+the float-owning structure is the explicit conversion `NumericUnitcellStructure(view)`.
+
+A `NumericUnitcellStructure` holds a `NumericCell`, a `NumericSites`, the species and
+`species_at_sites` (with the same inference rules as `UnitcellStructure`), a float `charge`, and
+the stated formulas and provenance. Its species are rounded through float at construction: each
+concentration, concentration precision, charge and spin becomes the shortest decimal of its
+float, so `1/3` becomes `0.3333333333333333` and a float round trip of the value is the identity.
+A numeric structure carries no site moments, assemblies, symmetry metadata or
+`chemical_composition`; converting a structure that has any of them raises `ValueError`, so keep
+such structures as `UnitcellStructure`.
+
+```python
+from httk.atomistic import NumericUnitcellStructure, Species, UnitcellStructureView
+
+alloy = UnitcellStructure(
+    [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
+    [[0, 0, 0]],
+    species=[Species("A", ("Fe", "Ni"), (F(1, 3), F(2, 3)))],
+    species_at_sites=["A"],
+)
+value = NumericUnitcellStructure(alloy)          # the explicit lossy step
+assert value.species[0].concentration[0] == F(3333333333333333, 10**16)
+assert NumericUnitcellStructure(value) == value  # already float: converting again changes nothing
+
+# The exact interface over a numeric value embeds each float exactly as written (0.5 is 1/2):
+exact = UnitcellStructureView(value)
+assert exact.sites.reduced_coords.to_fractions() == [[0, 0, 0]]
+assert exact.cell == Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]])
+```
+
+Composition properties (`elements`, `chemical_formula_reduced`, ...) of a numeric structure come
+from that exact interface. For a disordered structure the rounded concentrations carry into
+them, so its reduced and anonymous formulas may have very large coefficients and do not match
+those of the exact structure it was converted from.
+
+### Storing numeric structures
+
+A `NumericUnitcellStructure` is a storable `structures` entry. Its record,
+`NumericUnitcellStructureRecord` (registered as `atomistic-numeric-unitcell-structure`), stores
+every number as a plain float column (basis, coordinates, concentrations, charges, composition
+ratios and amounts) with no exact companion text. `NumericUnitcellStructureView` is not
+storable; store the exact structure, or convert it explicitly with `NumericUnitcellStructure(view)`.
+
+```python
+from httk.core.storage import content_id
+from httk.store import Backend, EntryIdScheme, SqlStore
+
+from httk.atomistic import NumericUnitcellStructureRecord, StructureEntry, UnitcellStructureRecord
+from httk.atomistic.storage.records import numeric_structure_from_record
+
+with Backend.sqlite() as database:
+    store = SqlStore(
+        database,
+        entry_ids=EntryIdScheme("example", "1"),
+        entry_records={StructureEntry: (UnitcellStructureRecord, NumericUnitcellStructureRecord)},
+    )
+    stored = store.fetch(NumericUnitcellStructureRecord, store.save(value))
+    assert numeric_structure_from_record(stored) == value    # fetches back to an equal value
+    assert UnitcellStructureView(stored).nsites == 1          # and presents the exact interface
+    store.save(alloy)                                         # the exact original is separate content
+    assert content_id(alloy) != value.id
+```
+
+A numeric copy and an exact copy of the same structure are different content with different
+ids, and a store declaring both records holds them side by side. Such a store serves both kinds
+through OPTIMADE `structures`, with standard filters matching numeric entries against
+`float(literal)` and symmetry fields unknown. The composition ratios and formulas of a
+disordered numeric entry follow the rounded concentrations described above, so they never match
+the exact entry's formula, and a served formula can differ in its last digits from the one a
+live provider computes from the exact interface.
 
 ## Loading a POSCAR
 
@@ -510,5 +588,7 @@ it already is exactly the presented value), the `Plain*View`s become plain tuple
 `UnitcellStructureView`/`ASUStructureView` become plain structures (view-level
 `immutable_id`/`last_modified` metadata is carried onto the materialized structure), and
 `ASEAtomsView` a base-class `ase.Atoms`. `NumericUnitcellStructureView` is interface-only and
-raises `TypeError` — use `.exact` or `UnitcellStructureView(...)` instead. Non-view inputs pass
+raises `TypeError` — use `.exact` or `UnitcellStructureView(...)` for the exact structure, or
+`NumericUnitcellStructure(...)` for a float-owning value. `CellNumericView`/`SitesNumericView`
+become plain `NumericCell`/`NumericSites` values. Non-view inputs pass
 through unchanged. See the four-verb table in the *httk-core* backend/view guide.

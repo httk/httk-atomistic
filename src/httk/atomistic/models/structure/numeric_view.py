@@ -7,8 +7,8 @@ from httk.core import NumericVector, to_numeric, unwrap
 
 from httk.atomistic.composition import Assembly
 from httk.atomistic.models._vector_guards import require_numpy
-from httk.atomistic.models.cell.numeric import NumericCell
-from httk.atomistic.models.sites.numeric import NumericSites
+from httk.atomistic.models.cell.numeric_view import CellNumericView
+from httk.atomistic.models.sites.numeric_view import SitesNumericView
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.like import StructureLike
@@ -22,17 +22,19 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
 
     Where a ``UnitcellStructure`` holds its geometry exactly (a surd ``cell`` basis, rational reduced
     coordinates, and an exact Cartesian frame), this view mirrors that interface but returns
-    plain numpy numbers: its :attr:`cell` is a :class:`~httk.atomistic.models.cell.numeric.NumericCell`, its
-    :attr:`sites` a :class:`~httk.atomistic.models.sites.numeric.NumericSites`, and :meth:`cartesian_sites` a
-    ``float64`` numpy array. The ``species``/``species_at_sites`` are passed through unchanged.
-    It is for callers who do not need exact arithmetic and just want numpy arrays.
+    plain numpy numbers: its :attr:`cell` is a :class:`~httk.atomistic.models.cell.numeric_view.CellNumericView`,
+    its :attr:`sites` a :class:`~httk.atomistic.models.sites.numeric_view.SitesNumericView`, and
+    :meth:`cartesian_sites` a ``float64`` numpy array. The ``species``/``species_at_sites`` are passed
+    through unchanged. It is for callers who do not need exact arithmetic and just want numpy arrays.
 
     The presentation is numpy-backed, so constructing it **requires numpy** (the
     ``httk-atomistic[numpy]`` extra) and raises :class:`ImportError` eagerly when it is unavailable.
     The exact object is always one hop away via :attr:`exact`.
 
-    This is a view, not a ``UnitcellStructure`` subclass. Its exact ``UnitcellStructure`` is built lazily on
-    first access to exact geometry.
+    This is an interface-only view, not a ``UnitcellStructure`` subclass, and :meth:`unview` raises.
+    Its exact ``UnitcellStructure`` is built lazily on first access to exact geometry. The float-owning
+    value is the explicit lossy conversion
+    :class:`NumericUnitcellStructure(view) <httk.atomistic.models.structure.numeric.NumericUnitcellStructure>`.
 
     :param obj: The structure backend or source to present.
     :param \\*\\*hints: Backend-selection hints passed to structure coercion.
@@ -59,14 +61,14 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
         return UnitcellStructureView(self._backend)
 
     @property
-    def cell(self) -> NumericCell:
-        """The cell as a :class:`~httk.atomistic.models.cell.numeric.NumericCell`."""
-        return NumericCell(self._exact.cell)
+    def cell(self) -> CellNumericView:
+        """The cell as a lossless :class:`~httk.atomistic.models.cell.numeric_view.CellNumericView`."""
+        return CellNumericView(self._exact.cell)
 
     @property
-    def sites(self) -> NumericSites:
-        """The sites as a :class:`~httk.atomistic.models.sites.numeric.NumericSites`."""
-        return NumericSites(self._exact.sites)
+    def sites(self) -> SitesNumericView:
+        """The sites as a lossless :class:`~httk.atomistic.models.sites.numeric_view.SitesNumericView`."""
+        return SitesNumericView(self._exact.sites)
 
     @property
     def species(self) -> tuple[Species, ...]:
@@ -160,5 +162,6 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
         # value it could faithfully become.
         raise TypeError(
             "NumericUnitcellStructureView is an interface-only view with no standalone plain value; "
-            "use .exact (or UnitcellStructureView(...)) for the exact structure"
+            "use .exact (or UnitcellStructureView(...)) for the exact structure, or "
+            "NumericUnitcellStructure(...) for a float-owning value"
         )

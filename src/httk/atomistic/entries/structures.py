@@ -106,10 +106,12 @@ class StructureEntry:
 def _as_structure(obj: StructureLike) -> Any:
     """Normalize accepted convenience inputs to the common structure property layer."""
     from httk.atomistic.models.structure.backend import StructureBackend
+    from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
     from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
     from httk.atomistic.storage.records import (
         ASUStructureRecord,
         FundamentalDomainStructureRecord,
+        NumericUnitcellStructureRecord,
         UnitcellStructureRecord,
         _domain_structure_from_record,
     )
@@ -135,7 +137,7 @@ def _as_structure(obj: StructureLike) -> Any:
         resolver = getattr(backend, "resolve", None)
         return resolver() if callable(resolver) else backend
 
-    if isinstance(obj, UnitcellStructureRecord):
+    if isinstance(obj, (UnitcellStructureRecord, NumericUnitcellStructure, NumericUnitcellStructureRecord)):
         return UnitcellStructureView(obj)
     if isinstance(obj, (FundamentalDomainStructureRecord, ASUStructureRecord)):
         obj = _domain_structure_from_record(obj)

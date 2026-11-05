@@ -17,6 +17,7 @@ from httk.core import (
     SurdScalar,
     SurdVector,
 )
+from httk.core.exactmath import any_to_fraction
 from httk.core.files import FileRecord
 from httk.core.storage import (
     IdentitySkip,
@@ -25,6 +26,7 @@ from httk.core.storage import (
     StorageInfo,
     Unique,
     WeakLink,
+    float_matrix,
     stored_property,
 )
 
@@ -34,6 +36,7 @@ from httk.atomistic.models._vector_guards import to_periodicity, to_precision
 from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
 from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.cell.numeric import NumericCell, finite_float, float_precision
 from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
@@ -42,9 +45,11 @@ from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.models.prototype.prototype import Prototype
+from httk.atomistic.models.sites.numeric import NumericSites
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
+from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
 from httk.atomistic.models.structure.semantics import StructureSymmetry, _stated_symmetry
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
@@ -67,6 +72,13 @@ __all__ = [
     "FundamentalDomainTemplateRecord",
     "NormalizedCompositionAmountRecord",
     "NormalizedCompositionRecord",
+    "NumericCellRecord",
+    "NumericCompositionAmountRecord",
+    "NumericNormalizedCompositionRecord",
+    "NumericSitesRecord",
+    "NumericSpeciesConstituentRecord",
+    "NumericSpeciesRecord",
+    "NumericUnitcellStructureRecord",
     "ObservableSummaryRecord",
     "ProtostructureRecord",
     "PrototypeRecord",
@@ -79,6 +91,7 @@ __all__ = [
     "UnitcellStructureRecord",
     "WyckoffOccupationRecord",
     "WyckoffSiteRecord",
+    "numeric_structure_from_record",
 ]
 
 
@@ -1586,6 +1599,443 @@ def _unitcell_record_from_structure(structure: UnitcellStructure) -> UnitcellStr
     return UnitcellStructureRecord(**values)
 
 
+# Numeric (all-float) records: the storage form of NumericUnitcellStructure. Every number is a
+# plain float column; nothing carries exact text.
+
+
+def _optional_float(value: Any, what: str) -> float | None:
+    return None if value is None else finite_float(value, what)
+
+
+@dataclass(frozen=True)
+class NumericCellRecord:
+    """Represent a float cell basis, precision and periodicity.
+
+    :param basis: The 3x3 basis, one lattice vector per row.
+    :param precision: The absolute basis precision, if stated.
+    :param periodicity: The flags identifying periodic basis rows.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_numeric_cell",
+        identity_name="atomistic_numeric_cell",
+    )
+    __httk_canonical_source__: ClassVar = NumericCell
+
+    basis: Annotated[tuple[tuple[float, ...], ...], httk.core.storage.markers.Shape(3, 3)]
+    precision: float | None
+    periodicity: tuple[bool, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "basis", float_matrix(self.basis, 3, 3))
+        object.__setattr__(self, "precision", float_precision(self.precision))
+        object.__setattr__(self, "periodicity", to_periodicity(self.periodicity))
+
+    @classmethod
+    def __httk_project__(cls, cell: NumericCell) -> Mapping[str, object]:
+        """Project a numeric cell into durable fields.
+
+        :param cell: The cell to project.
+        :return: The projected cell fields.
+        """
+        return {
+            "basis": float_matrix(cast(Any, cell.basis), 3, 3),
+            "precision": cell.precision,
+            "periodicity": cell.periodicity,
+        }
+
+
+@dataclass(frozen=True)
+class NumericSitesRecord:
+    """Represent float reduced coordinates and their stated precision.
+
+    :param reduced_coords: The reduced coordinates, one site per row.
+    :param precision: The fractional coordinate precision, if stated.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_numeric_sites",
+        identity_name="atomistic_numeric_sites",
+    )
+    __httk_canonical_source__: ClassVar = NumericSites
+
+    reduced_coords: Annotated[tuple[tuple[float, ...], ...], httk.core.storage.markers.Shape(0, 3)]
+    precision: float | None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "reduced_coords", float_matrix(self.reduced_coords, 3))
+        object.__setattr__(self, "precision", float_precision(self.precision))
+
+    @classmethod
+    def __httk_project__(cls, sites: NumericSites) -> Mapping[str, object]:
+        """Project numeric sites into durable fields.
+
+        :param sites: The sites to project.
+        :return: The projected sites fields.
+        """
+        return {"reduced_coords": float_matrix(cast(Any, sites.reduced_coords), 3), "precision": sites.precision}
+
+
+@dataclass(frozen=True)
+class NumericSpeciesConstituentRecord:
+    """Represent one species constituent with float numbers.
+
+    :param chemical_symbol: The constituent's chemical symbol.
+    :param concentration: The constituent occupancy.
+    :param mass: The constituent mass, if stated.
+    :param charge: The constituent charge, if stated.
+    :param spin: The constituent spin, if stated.
+    :param concentration_precision: The occupancy precision, if stated.
+    :param label: The constituent label, if stated.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_numeric_species_constituent",
+        identity_name="atomistic_numeric_species_constituent",
+    )
+
+    chemical_symbol: str
+    concentration: float
+    mass: float | None = None
+    charge: float | None = None
+    spin: float | None = None
+    concentration_precision: float | None = None
+    label: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.chemical_symbol, str):
+            raise TypeError("NumericSpeciesConstituentRecord chemical_symbol must be a string")
+        if self.label is not None and not isinstance(self.label, str):
+            raise TypeError("NumericSpeciesConstituentRecord label must be a string or None")
+        object.__setattr__(self, "concentration", finite_float(self.concentration, "concentration"))
+        for name in ("mass", "charge", "spin", "concentration_precision"):
+            object.__setattr__(self, name, _optional_float(getattr(self, name), name))
+
+
+@dataclass(frozen=True)
+class NumericSpeciesRecord:
+    """Represent a species whose numbers are stored as floats.
+
+    :param name: The species name.
+    :param constituents: The aligned constituent records.
+    :param original_name: The source species name, if stated.
+    :param attached: The attached constituent symbols, if stated.
+    :param nattached: The counts corresponding to ``attached``, if stated.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_numeric_species",
+        identity_name="atomistic_numeric_species",
+    )
+    __httk_canonical_source__: ClassVar = Species
+
+    name: str
+    constituents: tuple[NumericSpeciesConstituentRecord, ...]
+    original_name: str | None = None
+    attached: tuple[str, ...] | None = None
+    nattached: tuple[int, ...] | None = None
+
+    def __post_init__(self) -> None:
+        constituents = tuple(self.constituents)
+        if not constituents or not all(isinstance(value, NumericSpeciesConstituentRecord) for value in constituents):
+            raise TypeError("NumericSpeciesRecord constituents must contain NumericSpeciesConstituentRecord values")
+        object.__setattr__(self, "constituents", constituents)
+        for name in ("attached", "nattached"):
+            value = getattr(self, name)
+            object.__setattr__(self, name, None if value is None else tuple(value))
+
+    @classmethod
+    def __httk_project__(cls, species: Species) -> Mapping[str, object]:
+        """Project a species into float fields.
+
+        :param species: The species to project.
+        :return: The projected species fields.
+        """
+
+        def at(values: tuple[Any, ...] | None, index: int) -> Any:
+            return None if values is None else values[index]
+
+        return {
+            "name": species.name,
+            "constituents": tuple(
+                NumericSpeciesConstituentRecord(
+                    chemical_symbol=symbol,
+                    concentration=float(concentration),
+                    mass=at(species.mass, index),
+                    charge=at(species.charges, index),
+                    spin=at(species.spins, index),
+                    concentration_precision=at(species.concentration_precision, index),
+                    label=at(species.labels, index),
+                )
+                for index, (symbol, concentration) in enumerate(zip(species.chemical_symbols, species.concentration))
+            ),
+            "original_name": species.original_name,
+            "attached": species.attached,
+            "nattached": species.nattached,
+        }
+
+
+@dataclass(frozen=True)
+class NumericCompositionAmountRecord:
+    """Represent one normalized composition ratio as floats.
+
+    :param element: The element symbol.
+    :param ratio: The normalized element ratio.
+    :param amount: The element amount.
+    :param precision: The amount precision, if stated.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_numeric_composition_amount",
+        identity_name="atomistic_numeric_composition_amount",
+    )
+
+    element: str
+    ratio: float
+    amount: float
+    precision: float | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.element, str) or not self.element:
+            raise TypeError("NumericCompositionAmountRecord element must be a non-empty string")
+        object.__setattr__(self, "ratio", finite_float(self.ratio, "ratio"))
+        object.__setattr__(self, "amount", finite_float(self.amount, "amount"))
+        object.__setattr__(self, "precision", float_precision(self.precision))
+
+
+@dataclass(frozen=True)
+class NumericNormalizedCompositionRecord:
+    """Represent the elemental composition of a numeric structure as floats.
+
+    Each ratio and amount is ``float()`` of the exact value computed from the structure's
+    float-quantised species, so the ratios need not sum to exactly one.
+
+    :param amounts: The element amounts, ordered by element.
+    :param complete: Whether the composition accounts for all structure content.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_numeric_normalized_composition",
+        identity_name="atomistic_numeric_normalized_composition",
+    )
+    __httk_canonical_source__: ClassVar = Composition
+
+    amounts: tuple[NumericCompositionAmountRecord, ...]
+    complete: bool
+
+    def __post_init__(self) -> None:
+        amounts = tuple(self.amounts)
+        if not all(isinstance(value, NumericCompositionAmountRecord) for value in amounts):
+            raise TypeError(
+                "NumericNormalizedCompositionRecord amounts must contain NumericCompositionAmountRecord values"
+            )
+        if not isinstance(self.complete, bool):
+            raise TypeError("NumericNormalizedCompositionRecord complete must be a bool")
+        object.__setattr__(self, "amounts", amounts)
+
+    @classmethod
+    def __httk_project__(cls, result: Composition) -> Mapping[str, object]:
+        """Project an exact composition into float fields.
+
+        :param result: The composition to project.
+        :return: The projected composition fields.
+        """
+        exact = cast(dict[str, Any], NormalizedCompositionRecord.__httk_project__(result))
+        return {
+            "amounts": tuple(
+                NumericCompositionAmountRecord(
+                    element, float(ratio), float(amount), _optional_float(precision, "precision")
+                )
+                for element, ratio, amount, precision in exact["amounts"]
+            ),
+            "complete": exact["complete"],
+        }
+
+
+def _numeric_composition_record(structure: NumericUnitcellStructure) -> NumericNormalizedCompositionRecord:
+    projected = NumericNormalizedCompositionRecord.__httk_project__(structure._exact.composition)
+    return NumericNormalizedCompositionRecord(**cast(dict[str, Any], projected))
+
+
+@dataclass(frozen=True)
+class NumericUnitcellStructureRecord:
+    """Represent the all-float durable backing for a numeric unit-cell structure.
+
+    The storage form of :class:`~httk.atomistic.NumericUnitcellStructure`: every number is a
+    plain float, with no exact companion text. Hand-built records are shape-checked on
+    construction and semantically validated at the storage boundary.
+
+    :param cell: The float cell record.
+    :param sites: The float site-coordinate record.
+    :param species: The distinct species records.
+    :param species_at_sites: The species name occupying each site.
+    :param normalized_composition: The float normalized composition.
+    :param charge: The explicitly assigned cell charge, if stated.
+    :param molecular: Whether the structure describes molecular entities.
+    :param chemical_formula_descriptive: The descriptive formula, if stated.
+    :param chemical_formula_hill: The Hill formula, if stated.
+    :param optimization_type: The optimization provenance, if stated.
+    :param source_file: The verbatim file this structure was read from, when the entry records an input file exactly
+        as given; outside content identity while ``None``.
+    :param id: The human-readable entry id shared by all revisions; minted by the store when None.
+    :param immutable_id: The per-revision immutable id; minted by the store when None.
+    :param last_modified: The source modification timestamp, if stated.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_numeric_unitcell_structure",
+        identity_name="atomistic_numeric_unitcell_structure",
+        indexes=(("last_modified",), ("optimization_type",)),
+        links=(WeakLink("references", ReferenceRecord, exposed_relationship=True),),
+    )
+    __httk_canonical_source__: ClassVar = NumericUnitcellStructure
+
+    cell: NumericCellRecord
+    sites: NumericSitesRecord
+    species: tuple[NumericSpeciesRecord, ...]
+    species_at_sites: tuple[str, ...]
+    normalized_composition: NumericNormalizedCompositionRecord
+    charge: float | None = None
+    molecular: bool = False
+    chemical_formula_descriptive: str | None = None
+    chemical_formula_hill: str | None = None
+    optimization_type: str | None = None
+    source_file: Annotated[FileRecord | None, IdentitySkipWhenNone()] = None
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+    last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
+
+    @classmethod
+    def __httk_validate__(cls, record: "NumericUnitcellStructureRecord") -> None:
+        """Validate the record by rebuilding its value, and check its stored composition.
+
+        :param record: The record to validate.
+        :return: ``None`` after successful validation.
+        :raises ValueError: If the record does not describe a valid structure or its
+            composition contradicts its species.
+        """
+        value = numeric_structure_from_record(record)
+        if record.normalized_composition != _numeric_composition_record(value):
+            raise ValueError("NumericUnitcellStructureRecord normalized_composition contradicts its species")
+
+    @classmethod
+    def from_structure(cls, structure: NumericUnitcellStructure) -> "NumericUnitcellStructureRecord":
+        """Build the complete record of a numeric structure, with ``source_file`` unset.
+
+        Use :func:`dataclasses.replace` on the result to set the record-only ``source_file``.
+
+        :param structure: The numeric structure to record.
+        :return: The record, with every nested child record built.
+        """
+        return cls(**cast(dict[str, Any], cls.__httk_project__(structure)))
+
+    @property
+    def type(self) -> str:
+        """Expose the OPTIMADE entry type.
+
+        :return: ``structures``.
+        """
+        return "structures"
+
+    def __post_init__(self) -> None:
+        name = type(self).__name__
+        for field_name, record_type in (
+            ("cell", NumericCellRecord),
+            ("sites", NumericSitesRecord),
+            ("normalized_composition", NumericNormalizedCompositionRecord),
+        ):
+            if not isinstance(getattr(self, field_name), record_type):
+                raise TypeError(f"{name} {field_name} must be a {record_type.__name__}")
+        species = tuple(self.species)
+        if not all(isinstance(value, NumericSpeciesRecord) for value in species):
+            raise TypeError(f"{name} species must contain NumericSpeciesRecord values")
+        species_at_sites = tuple(self.species_at_sites)
+        if not all(isinstance(value, str) for value in species_at_sites):
+            raise TypeError(f"{name} species_at_sites must contain strings")
+        if not isinstance(self.molecular, bool):
+            raise TypeError(f"{name} molecular must be a bool")
+        if self.source_file is not None and not isinstance(self.source_file, FileRecord):
+            raise TypeError(f"{name} source_file must be a FileRecord or None")
+        object.__setattr__(self, "species", species)
+        object.__setattr__(self, "species_at_sites", species_at_sites)
+        object.__setattr__(self, "charge", _optional_float(self.charge, "charge"))
+
+    @classmethod
+    def __httk_project__(cls, structure: NumericUnitcellStructure) -> Mapping[str, object]:
+        """Project a numeric structure into durable fields, child records included.
+
+        :param structure: The numeric structure to project.
+        :return: The projected structure fields.
+        """
+        return {
+            "cell": NumericCellRecord(**cast(dict[str, Any], NumericCellRecord.__httk_project__(structure.cell))),
+            "sites": NumericSitesRecord(**cast(dict[str, Any], NumericSitesRecord.__httk_project__(structure.sites))),
+            "species": tuple(
+                NumericSpeciesRecord(**cast(dict[str, Any], NumericSpeciesRecord.__httk_project__(species)))
+                for species in structure.species
+            ),
+            "species_at_sites": structure.species_at_sites,
+            "normalized_composition": _numeric_composition_record(structure),
+            "charge": structure.charge,
+            "molecular": structure.molecular,
+            "chemical_formula_descriptive": structure.chemical_formula_descriptive,
+            "chemical_formula_hill": structure.chemical_formula_hill,
+            "optimization_type": structure.optimization_type,
+            "source_file": None,
+            "id": None,
+            "immutable_id": None,
+            "last_modified": structure.last_modified,
+        }
+
+
+def _numeric_species_from_record(record: NumericSpeciesRecord) -> Species:
+    def column(name: str) -> tuple[Any, ...] | None:
+        values = tuple(getattr(value, name) for value in record.constituents)
+        return None if all(value is None for value in values) else values
+
+    def exact(values: tuple[float | None, ...] | None) -> tuple[fractions.Fraction | None, ...] | None:
+        return None if values is None else tuple(None if value is None else any_to_fraction(value) for value in values)
+
+    return Species(
+        record.name,
+        tuple(value.chemical_symbol for value in record.constituents),
+        tuple(any_to_fraction(value.concentration) for value in record.constituents),
+        mass=column("mass"),
+        original_name=record.original_name,
+        attached=record.attached,
+        nattached=record.nattached,
+        concentration_precision=exact(column("concentration_precision")),
+        charges=exact(column("charge")),
+        spins=exact(column("spin")),
+        labels=column("label"),
+    )
+
+
+def numeric_structure_from_record(record: NumericUnitcellStructureRecord) -> NumericUnitcellStructure:
+    """Rebuild the numeric structure a record stores.
+
+    The rebuild is exact: ``numeric_structure_from_record(NumericUnitcellStructureRecord.from_structure(value))``
+    equals ``value`` and has its content identity.
+
+    :param record: The numeric structure record, possibly fetched from a store.
+    :return: The numeric structure.
+    :raises ValueError: If the record does not describe a valid numeric structure.
+    """
+    return NumericUnitcellStructure(
+        NumericCell(record.cell.basis, precision=record.cell.precision, periodicity=record.cell.periodicity),
+        NumericSites(record.sites.reduced_coords, precision=record.sites.precision),
+        tuple(_numeric_species_from_record(value) for value in record.species),
+        record.species_at_sites,
+        charge=record.charge,
+        molecular=record.molecular,
+        chemical_formula_descriptive=record.chemical_formula_descriptive,
+        chemical_formula_hill=record.chemical_formula_hill,
+        optimization_type=record.optimization_type,
+        immutable_id=record.immutable_id,
+        last_modified=record.last_modified,
+    )
+
+
 def _observable_summary(name: str, values: tuple[Any, ...]) -> "ObservableSummaryRecord":
     try:
         if any(isinstance(value, bool) or not isinstance(value, numbers.Number | Decimal) for value in values):
@@ -2518,4 +2968,5 @@ attach_structure_property_projections(
     UnitcellStructureRecord,
     FundamentalDomainStructureRecord,
     ASUStructureRecord,
+    NumericUnitcellStructureRecord,
 )

@@ -80,6 +80,12 @@ register_entry_record(
 )
 
 register_entry_record(
+    name="atomistic-numeric-unitcell-structure",
+    family="structures",
+    record="httk.atomistic.storage.records:NumericUnitcellStructureRecord",
+)
+
+register_entry_record(
     name="atomistic-fundamental-domain-structure",
     family="structures",
     record="httk.atomistic.storage.records:FundamentalDomainStructureRecord",

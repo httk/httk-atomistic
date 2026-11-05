@@ -15,12 +15,14 @@ import httk.atomistic.integrations.ase.models
 import httk.atomistic.integrations.pymatgen.models
 import httk.atomistic.models.structure.asu
 import httk.atomistic.models.structure.backend
+import httk.atomistic.models.structure.numeric
 import httk.atomistic.models.structure.unitcell
 import httk.atomistic.models.structure.view
 import httk.atomistic.storage.records
 
-# A structure is any structure backend/view, a UnitcellStructure, an ASUStructure (a structure
-# held as its asymmetric unit, expanded on demand), or an spglib-like
+# A structure is any structure backend/view, a UnitcellStructure or NumericUnitcellStructure
+# (and their storage records), an ASUStructure (a structure held as its asymmetric unit,
+# expanded on demand), or an spglib-like
 # (lattice, positions, numbers) triple whose lattice and positions are vector-like.
 type StructureLike = (
     httk.atomistic.models.structure.backend.StructureBackend
@@ -29,6 +31,8 @@ type StructureLike = (
     | httk.atomistic.storage.records.UnitcellStructureRecord
     | httk.atomistic.storage.records.FundamentalDomainStructureRecord
     | httk.atomistic.storage.records.ASUStructureRecord
+    | httk.atomistic.models.structure.numeric.NumericUnitcellStructure
+    | httk.atomistic.storage.records.NumericUnitcellStructureRecord
     | httk.atomistic.models.structure.asu.FundamentalDomainStructure
     | httk.core.optimade.OptimadeResource
     | str

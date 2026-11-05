@@ -4,8 +4,11 @@ The declarations in this module deliberately name the durable record graph,
 not a storage implementation.  In particular, composition predicates use the
 authoritative normalized-composition relation and exact cross multiplication;
 they never compare presentation floats or persist rendered formula strings.
+The all-float ``numeric`` backing is the exception: its records hold floats, so
+its queries compare each rational literal as ``float(literal)``.
 """
 
+import dataclasses
 import datetime
 import functools
 import math
@@ -16,6 +19,7 @@ from fractions import Fraction
 from itertools import combinations
 from typing import Any, cast
 
+from httk.core.exactmath import any_to_fraction
 from httk.core.storage import (
     QueryContext,
     QueryExpression,
@@ -32,6 +36,7 @@ from httk.atomistic.entries._payloads import assemblies_payload, species_payload
 from httk.atomistic.entries.counts import COUNT_PROPERTY_KEYS, formula_unit_counts, is_ordered
 from httk.atomistic.entries.precision import PRECISION_PROPERTY_KEYS
 from httk.atomistic.entries.symmetry import SETTING_PROPERTY_KEYS
+from httk.atomistic.models._vector_guards import matmul_floats
 from httk.atomistic.models.formula.notation import anonymous_symbol
 
 _ELEMENTS = frozenset(SYMBOLS)
@@ -74,6 +79,10 @@ _STANDARD_PROPERTIES: tuple[str, ...] = (
 )
 
 _FEATURES = ("_httk_magnetism", "assemblies", "disorder", "implicit_atoms", "site_attachments")
+# Backings whose sites are a full unit cell listed in ``species_at_sites``; ``numeric`` is the
+# all-float NumericUnitcellStructureRecord, which carries no moments, assemblies, symmetry or
+# declared chemical composition.
+_CELL_BACKINGS = frozenset({"unitcell", "numeric"})
 _COORDINATE_SPANS = frozenset(
     {
         "unit_cell",
@@ -88,7 +97,7 @@ _COORDINATE_SPANS = frozenset(
 )
 
 
-def _normalized_composition_value(record: Any, name: str) -> object:
+def _normalized_composition_value(record: Any, name: str, backing: str) -> object:
     """Serve composition directly from its canonical durable relation."""
     composition = record.normalized_composition
     if not composition.complete:
@@ -99,9 +108,7 @@ def _normalized_composition_value(record: Any, name: str) -> object:
         return len(composition.amounts)
     if name == "elements_ratios":
         return [float(value.ratio) for value in composition.amounts]
-    from httk.atomistic.storage.records import _composition_from_record
-
-    result = _composition_from_record(composition)
+    result = _numeric_composition(composition) if backing == "numeric" else _exact_composition(composition)
     if name == "chemical_formula_reduced":
         return result.chemical_formula_reduced
     if name == "chemical_formula_anonymous":
@@ -109,9 +116,41 @@ def _normalized_composition_value(record: Any, name: str) -> object:
     raise AssertionError(f"unknown normalized composition property: {name}")
 
 
+def _exact_composition(composition: Any) -> Any:
+    from httk.atomistic.storage.records import _composition_from_record
+
+    return _composition_from_record(composition)
+
+
+def _numeric_composition(composition: Any) -> Any:
+    """Build formulas of a float composition from each float's shortest decimal (the documented ceiling)."""
+    from httk.atomistic.models.formula.composition import Composition
+
+    amounts = tuple((value.element, any_to_fraction(value.amount)) for value in composition.amounts)
+    uncertainties = tuple(
+        (value.element, None if value.precision is None else any_to_fraction(value.precision))
+        for value in composition.amounts
+    )
+    exact = all(value.precision is None for value in composition.amounts)
+    return Composition(
+        amounts, uncertainties, composition.complete, exact, True, "exact" if exact else "within_precision"
+    )
+
+
+def _species(record: Any, backing: str) -> tuple[Any, ...]:
+    """Return the record's species as objects exposing the species-payload fields."""
+    if backing != "numeric":
+        return tuple(record.species)
+    from httk.atomistic.storage.records import _numeric_species_from_record
+
+    return tuple(_numeric_species_from_record(value) for value in record.species)
+
+
 def _used_species(record: Any, backing: str) -> tuple[Any, ...]:
-    names = record.species_at_sites if backing == "unitcell" else tuple(site.species for site in record.domain_sites)
-    by_name = {species.name: species for species in record.species}
+    names = (
+        record.species_at_sites if backing in _CELL_BACKINGS else tuple(site.species for site in record.domain_sites)
+    )
+    by_name = {species.name: species for species in _species(record, backing)}
     return tuple(by_name[name] for name in names)
 
 
@@ -119,15 +158,18 @@ def _structure_features_value(record: Any, backing: str) -> list[str]:
     """Derive the public flags from represented, not merely stored, species."""
     features: set[str] = set()
     used = _used_species(record, backing)
-    if record.assemblies is not None:
-        features.add("assemblies")
-    if any(len(value.constituents) > 1 or value.concentration != (Fraction(1),) for value in used):
+    # One constituent at full occupancy is the only ordered species.
+    if any(tuple(value.concentration) != (Fraction(1),) for value in used):
         features.add("disorder")
     if any(value.attached for value in used):
         features.add("site_attachments")
     used_names = {value.name for value in used}
     if any(value.name not in used_names for value in record.species):
         features.add("implicit_atoms")
+    if backing == "numeric":
+        return sorted(features)
+    if record.assemblies is not None:
+        features.add("assemblies")
     if record.chemical_composition is not None and record.chemical_composition.mode == "implicit":
         features.add("implicit_atoms")
     if (
@@ -141,9 +183,9 @@ def _structure_features_value(record: Any, backing: str) -> list[str]:
 
 def _natoms_value(record: Any, backing: str) -> int | None:
     """Count full-cell atoms of an ordered record without expanding a domain."""
-    if not is_ordered(_structure_features_value(record, backing), record.species):
+    if not is_ordered(_structure_features_value(record, backing), _species(record, backing)):
         return None
-    if backing == "unitcell":
+    if backing in _CELL_BACKINGS:
         return len(record.species_at_sites)
     # A domain's normalized amounts were derived from its exact expansion at ingest, so for an
     # ordered domain they sum to the full-cell count.
@@ -159,6 +201,7 @@ def _natoms_value(record: Any, backing: str) -> int | None:
 def _coordinate_span(record: Any, backing: str) -> str:
     name = {
         "unitcell": "unit_cell",
+        "numeric": "unit_cell",
         "fundamental_domain": "fundamental_domain",
         "asymmetric_unit": "asymmetric_unit",
     }[backing]
@@ -267,8 +310,42 @@ def _domain_symmetry_value(record: Any, name: str) -> object:
     raise AssertionError(f"unknown domain symmetry property: {name}")
 
 
+def _numeric_response_value(record: Any, name: str) -> object:
+    """Serve the geometry and exact-only properties of an all-float record from its floats."""
+    if name == "lattice_vectors":
+        return [list(row) for row in record.cell.basis]
+    if name == "fractional_site_positions":
+        return [list(row) for row in record.sites.reduced_coords]
+    if name == "cartesian_site_positions":
+        return matmul_floats(
+            [list(row) for row in record.sites.reduced_coords], [list(row) for row in record.cell.basis]
+        )
+    # A numeric structure carries no moments, assemblies or symmetry metadata.
+    return None
+
+
+_NUMERIC_OWN = frozenset(
+    {
+        "lattice_vectors",
+        "fractional_site_positions",
+        "cartesian_site_positions",
+        "_httk_site_moments",
+        "assemblies",
+        "space_group_it_number",
+        "space_group_symbol_hall",
+        "space_group_symbol_hermann_mauguin",
+        "space_group_symbol_hermann_mauguin_extended",
+        "space_group_symmetry_operations_xyz",
+        "wyckoff_positions",
+        *SETTING_PROPERTY_KEYS,
+    }
+)
+
+
 def _response_value(record: Any, name: str, backing: str) -> object:
     """Serve exactly one property; never materialize unrelated response fields."""
+    if backing == "numeric" and name in _NUMERIC_OWN:
+        return _numeric_response_value(record, name)
     if name == "last_modified":
         return None if record.last_modified is None else record.last_modified.isoformat()
     if name in {
@@ -278,7 +355,7 @@ def _response_value(record: Any, name: str, backing: str) -> object:
         "chemical_formula_reduced",
         "chemical_formula_anonymous",
     }:
-        return _normalized_composition_value(record, name)
+        return _normalized_composition_value(record, name, backing)
     if name in {"chemical_formula_descriptive", "chemical_formula_hill", "optimization_type"}:
         return getattr(record, name)
     if name == "dimension_types":
@@ -310,13 +387,15 @@ def _response_value(record: Any, name: str, backing: str) -> object:
     if name == "site_coordinate_span_description":
         return None
     if name == "nsites":
-        return len(record.species_at_sites) if backing == "unitcell" else len(record.domain_sites)
+        return len(record.species_at_sites) if backing in _CELL_BACKINGS else len(record.domain_sites)
     if name == "species_at_sites":
         return (
-            list(record.species_at_sites) if backing == "unitcell" else [site.species for site in record.domain_sites]
+            list(record.species_at_sites)
+            if backing in _CELL_BACKINGS
+            else [site.species for site in record.domain_sites]
         )
     if name == "species":
-        return [species_payload(value) for value in record.species]
+        return [species_payload(value) for value in _species(record, backing)]
     if name == "assemblies":
         return assemblies_payload(record.assemblies)
     if name == "structure_features":
@@ -340,7 +419,7 @@ def _response_value(record: Any, name: str, backing: str) -> object:
     }:
         return _unitcell_symmetry_value(record, name) if backing == "unitcell" else _domain_symmetry_value(record, name)
     if name == "_httk_coordinate_precision":
-        value = record.sites.precision if backing == "unitcell" else record.coordinate_precision
+        value = record.sites.precision if backing in _CELL_BACKINGS else record.coordinate_precision
         return None if value is None else float(value)
     if name == "_httk_basis_precision":
         return None if record.cell.precision is None else float(record.cell.precision)
@@ -348,7 +427,7 @@ def _response_value(record: Any, name: str, backing: str) -> object:
         return None if record.charge is None else float(record.charge)
     if name in COUNT_PROPERTY_KEYS:
         natoms = _natoms_value(record, backing)
-        formula = None if natoms is None else _normalized_composition_value(record, "chemical_formula_reduced")
+        formula = None if natoms is None else _normalized_composition_value(record, "chemical_formula_reduced", backing)
         return formula_unit_counts(natoms, cast(str | None, formula))[name]
     raise AssertionError(f"unknown stored structure property: {name}")
 
@@ -815,14 +894,19 @@ def _used_species_scope(context: QueryContext, site_scope: QueryScope, site_name
 
 
 def _feature_predicate(
-    context: QueryContext, name: str, species: QueryScope, moment_kind_path: tuple[str, ...]
+    context: QueryContext, name: str, species: QueryScope, moment_kind_path: tuple[str, ...] | None
 ) -> QueryExpression:
+    # A ``None`` moment path marks the numeric backing: no moments, assemblies or declared composition.
+    if moment_kind_path is None and name in {"assemblies", "_httk_magnetism"}:
+        return context.always_false()
     if name == "assemblies":
         return context.equal(context.field("assemblies_present"), context.constant(True))
     if name == "implicit_atoms":
+        unused = context.compare(context.count(context.scope("species")), ">", context.count(species))
+        if moment_kind_path is None:
+            return unused
         composition = context.scope("chemical_composition")
         declared = context.exists(composition, context.equal(composition.field("mode"), context.constant("implicit")))
-        unused = context.compare(context.count(context.scope("species")), ">", context.count(species))
         return context.or_(declared, unused)
     if name == "site_attachments":
         return context.exists(species, context.equal(species.field("attached_present"), context.constant(True)))
@@ -836,7 +920,7 @@ def _feature_predicate(
             species,
             context.or_(context.compare(context.count(constituents), ">", context.constant(1)), partial),
         )
-    if name == "_httk_magnetism":
+    if name == "_httk_magnetism" and moment_kind_path is not None:
         scope: QueryScope = context
         for path_part in moment_kind_path[:-1]:
             scope = scope.scope(path_part)
@@ -858,7 +942,7 @@ def _feature_literals(literal: object) -> tuple[str, ...]:
 
 def _structure_features_query(
     used_species: Callable[[QueryContext], QueryScope],
-    moment_kind_path: tuple[str, ...],
+    moment_kind_path: tuple[str, ...] | None,
 ) -> Callable[[QueryContext, str, object], QueryExpression]:
     def query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
         if operator == "IS_KNOWN":
@@ -1094,7 +1178,7 @@ def _common_queries(
     backing: str,
     coordinate_path: tuple[str, ...],
     used_species: Callable[[QueryContext], QueryScope],
-    moment_kind_path: tuple[str, ...],
+    moment_kind_path: tuple[str, ...] | None,
 ) -> None:
     for name in ("chemical_formula_descriptive", "chemical_formula_hill", "optimization_type"):
         projections[name] = StoredPropertyProjection(
@@ -1223,16 +1307,99 @@ def asymmetric_unit_structure_properties() -> Mapping[str, StoredPropertyProject
     return _domain_structure_properties(asymmetric_unit=True)
 
 
+class _FloatConstantContext:
+    """Present a query context whose rational constants are floats, for an all-float backing.
+
+    Every rational field of the numeric backing is a float column, so each ``Fraction``
+    constant becomes ``float(constant)`` and equality is plain float equality.
+    """
+
+    def __init__(self, context: QueryContext) -> None:
+        self._context = context
+
+    def constant(self, value: object) -> QueryValue:
+        return self._context.constant(float(value) if isinstance(value, Fraction) else value)
+
+    def exact_equal(self, left: QueryValue, right: QueryValue) -> QueryExpression:
+        return self._context.equal(left, right)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._context, name)
+
+
+def _float_constants(projection: StoredPropertyProjection) -> StoredPropertyProjection:
+    """Route a projection's queries, zip query and member queries through float constants."""
+
+    def wrap(callback: Any) -> Any:
+        if callback is None:
+            return None
+        return lambda context, *arguments: callback(cast(QueryContext, _FloatConstantContext(context)), *arguments)
+
+    return dataclasses.replace(
+        projection,
+        query=wrap(projection.query),
+        zip_query=wrap(projection.zip_query),
+        members={name: _float_constants(member) for name, member in projection.members.items()},
+    )
+
+
+def _unknown_integer_query(property_name: str) -> Callable[[QueryContext, str, object], QueryExpression]:
+    """Answer a property the backing never stores: unknown under every comparison and its negation."""
+
+    def query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
+        if operator == "IS_KNOWN":
+            return context.always_false()
+        if operator == "IS_UNKNOWN":
+            return context.always_true()
+        if not isinstance(literal, int) or isinstance(literal, bool):
+            raise QueryLiteralError(f"{property_name} requires an integer literal")
+        return context.when_known(context.always_false(), context.always_true())
+
+    return query
+
+
+def numeric_unitcell_structure_properties() -> Mapping[str, StoredPropertyProjection]:
+    """Build the stored-property declarations for all-float numeric unit-cell records.
+
+    Responses come from the record's floats. Queries mirror the unit-cell backing, comparing each
+    rational literal as ``float(literal)``; symmetry and moment queries evaluate as unknown or
+    absent, since a numeric structure carries neither.
+
+    :return: The property declaration map for numeric unit-cell structure records.
+    """
+    projections = _base_projections("numeric")
+    _common_queries(
+        projections,
+        backing="numeric",
+        coordinate_path=("sites", "precision"),
+        used_species=lambda context: _used_species_scope(context, context.scope("species_at_sites"), "value"),
+        moment_kind_path=None,
+    )
+    projections["site_coordinate_span"] = StoredPropertyProjection(
+        response=_response("site_coordinate_span", "numeric"),
+        query=_span_query({"molecular_unit_cell": True, "unit_cell": False}),
+    )
+    projections["nsites"] = StoredPropertyProjection(
+        response=_response("nsites", "numeric"), query=_count_query(("sites", "reduced_coords"), "nsites")
+    )
+    projections["space_group_it_number"] = StoredPropertyProjection(
+        response=_response("space_group_it_number", "numeric"), query=_unknown_integer_query("space_group_it_number")
+    )
+    return {name: _float_constants(projection) for name, projection in projections.items()}
+
+
 def attach_structure_property_projections(
-    unitcell: type[Any], fundamental_domain: type[Any], asymmetric_unit: type[Any]
+    unitcell: type[Any], fundamental_domain: type[Any], asymmetric_unit: type[Any], numeric: type[Any]
 ) -> None:
     """Attach exact-class property declarations to structure record classes.
 
     :param unitcell: The unit-cell record class to receive its declarations.
     :param fundamental_domain: The fundamental-domain record class to receive its declarations.
     :param asymmetric_unit: The asymmetric-unit record class to receive its declarations.
+    :param numeric: The all-float numeric unit-cell record class to receive its declarations.
     :return: ``None`` after attaching the declaration maps.
     """
     unitcell.__httk_stored_properties__ = unitcell_structure_properties()
     fundamental_domain.__httk_stored_properties__ = fundamental_domain_structure_properties()
     asymmetric_unit.__httk_stored_properties__ = asymmetric_unit_structure_properties()
+    numeric.__httk_stored_properties__ = numeric_unitcell_structure_properties()

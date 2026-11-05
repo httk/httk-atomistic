@@ -22,6 +22,8 @@ from httk.atomistic import (
     ASUStructureRecord,
     FundamentalDomainStructure,
     FundamentalDomainStructureRecord,
+    NumericUnitcellStructure,
+    NumericUnitcellStructureRecord,
     Species,
     StructureEntryProvider,
     UnitcellStructure,
@@ -155,6 +157,19 @@ class _ProbeContext(_Scope):
         return _Expression("when_known", (known, predicate))
 
 
+def _numeric_record(structure: UnitcellStructure) -> NumericUnitcellStructureRecord:
+    return NumericUnitcellStructureRecord.from_structure(NumericUnitcellStructure(structure))
+
+
+def _disordered() -> UnitcellStructure:
+    return UnitcellStructure(
+        [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
+        [[0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]],
+        (Species("A", ("Fe", "Ni"), (Fraction(1, 3), Fraction(2, 3))), Species("O", ("O",), (1,))),
+        ("A", "O"),
+    )
+
+
 def _walk(value: object) -> tuple[object, ...]:
     values = [value]
     if isinstance(value, _Expression):
@@ -172,7 +187,7 @@ def _walk(value: object) -> tuple[object, ...]:
 
 @pytest.mark.parametrize(
     "record_type",
-    (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord),
+    (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord, NumericUnitcellStructureRecord),
 )
 def test_every_backing_declares_the_complete_structure_property_surface(record_type: type[object]) -> None:
     projections = stored_property_projections(record_type)
@@ -187,6 +202,8 @@ def test_every_backing_declares_the_complete_structure_property_surface(record_t
         _unitcell_record(_unitcell()),
         _domain_record(_domain(FundamentalDomainStructure)),
         _domain_record(_domain(ASUStructure)),
+        _numeric_record(_unitcell()),
+        _numeric_record(_disordered()),
     ),
 )
 def test_stored_property_responses_match_the_natural_structure_provider(record: object) -> None:
@@ -203,6 +220,7 @@ def test_stored_property_responses_match_the_natural_structure_provider(record: 
         _unitcell_record(_unitcell()),
         _domain_record(_domain(FundamentalDomainStructure)),
         _domain_record(_domain(ASUStructure)),
+        _numeric_record(_unitcell()),
     ),
 )
 def test_response_callbacks_do_not_rebuild_an_all_property_projection(

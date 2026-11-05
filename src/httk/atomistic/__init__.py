@@ -59,7 +59,9 @@ from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.models.structure.datastream import DatastreamStructure
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.modulated import ModulatedStructure
-from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
+from httk.atomistic.models.cell.numeric import NumericCell
+from httk.atomistic.models.sites.numeric import NumericSites
+from httk.atomistic.models.structure.numeric import NumericUnitcellStructure, _NumericStructureBackend
 from httk.atomistic.models.structure.numeric_view import NumericUnitcellStructureView
 from httk.atomistic.models.structure.optimade import OptimadeStructure
 from httk.atomistic.models.structure.plain import PlainStructure
@@ -85,6 +87,7 @@ from httk.atomistic.storage.records import (
     BareProtostructureRecord,
     FundamentalDomainTemplateRecord,
     FundamentalDomainStructureRecord,
+    NumericUnitcellStructureRecord,
     ProtostructureRecord,
     PrototypeRecord,
     UnitcellStructureRecord,
@@ -269,7 +272,7 @@ StructureBackend.backend_classes = [
     RecordStructure,
     OptimadeStructure,
     PlainStructure,
-    NumericUnitcellStructure,
+    _NumericStructureBackend,
     ASEAtoms,
     PymatgenStructure,
     DatastreamStructure,
@@ -286,6 +289,8 @@ TrajectoryBackend.backend_classes = [RecordTrajectory, PlainTrajectory]
 # attribute through vars(type(source)), never by inheritance.
 UnitcellStructure.__httk_storage_record__ = UnitcellStructureRecord
 UnitcellStructureView.__httk_storage_record__ = UnitcellStructureRecord
+# The numeric view stays unstorable: storing it would silently pick the lossy float form.
+NumericUnitcellStructure.__httk_storage_record__ = NumericUnitcellStructureRecord
 FundamentalDomainStructure.__httk_storage_record__ = FundamentalDomainStructureRecord
 ASUStructure.__httk_storage_record__ = ASUStructureRecord
 ASUStructureView.__httk_storage_record__ = ASUStructureRecord
@@ -361,6 +366,10 @@ __all__ = [
     "ModulatedStructure",
     "NiggliReducedStructureResult",
     "NiggliReductionResult",
+    "NumericCell",
+    "NumericSites",
+    "NumericUnitcellStructure",
+    "NumericUnitcellStructureRecord",
     "NumericUnitcellStructureView",
     "ObservableSummaryRecord",
     "OptimadeStructure",

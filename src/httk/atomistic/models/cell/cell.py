@@ -20,7 +20,7 @@ from httk.atomistic.models.cell.api import CellAPI, _scalar_length
 from httk.atomistic.models.cell.backend import CellBackend
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.cell.numeric import NumericCell
+    from httk.atomistic.models.cell.numeric_view import CellNumericView
 
 
 class Cell(CellBackend):
@@ -198,15 +198,15 @@ class Cell(CellBackend):
         """
         return sum(self._periodicity)
 
-    def numeric(self) -> "NumericCell":
+    def numeric(self) -> "CellNumericView":
         """Return a plain-numpy presentation of this cell.
 
         :return: The numpy-backed presentation.
         :raises ImportError: If numpy is unavailable.
         """
-        from httk.atomistic.models.cell.numeric import NumericCell
+        from httk.atomistic.models.cell.numeric_view import CellNumericView
 
-        return NumericCell(self)
+        return CellNumericView(self)
 
     def metric(self) -> SurdVector:
         """Return the exact, potentially surd-valued Gram matrix ``matrix * matrix^T``.

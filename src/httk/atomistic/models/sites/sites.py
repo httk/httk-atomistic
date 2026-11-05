@@ -12,7 +12,7 @@ from httk.atomistic.models._vector_guards import exact_literal, to_fracvector, t
 from httk.atomistic.models.sites.backend import SitesBackend
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.sites.numeric import NumericSites
+    from httk.atomistic.models.sites.numeric_view import SitesNumericView
 
 
 class Sites(SitesBackend):
@@ -88,15 +88,15 @@ class Sites(SitesBackend):
         """
         return self._precision
 
-    def numeric(self) -> "NumericSites":
+    def numeric(self) -> "SitesNumericView":
         """Return a plain-numpy presentation of these sites.
 
         :return: The numpy-backed presentation.
         :raises ImportError: If numpy is unavailable.
         """
-        from httk.atomistic.models.sites.numeric import NumericSites
+        from httk.atomistic.models.sites.numeric_view import SitesNumericView
 
-        return NumericSites(self)
+        return SitesNumericView(self)
 
     def __eq__(self, other: object) -> bool:
         """Equality of the coordinates, and of nothing else.

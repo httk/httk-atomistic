@@ -108,7 +108,7 @@ def test_numeric_views_defer_their_exact_presentation() -> None:
 
     cell_probe = ProbePlainCell(CUBE)
     cell_view = CellNumericView(cell_probe)
-    assert "_cell" not in cell_view.__dict__
+    assert "_basis" not in cell_view.__dict__
     assert cell_probe.unscaled_basis_calls == 0
     _ = cell_view.basis
     _ = cell_view.basis
@@ -116,7 +116,7 @@ def test_numeric_views_defer_their_exact_presentation() -> None:
 
     sites_probe = ProbePlainSites(COORDS)
     sites_view = SitesNumericView(sites_probe)
-    assert "_sites" not in sites_view.__dict__
+    assert "_reduced_coords" not in sites_view.__dict__
     assert sites_probe.reduced_coords_calls == 0
     _ = sites_view.reduced_coords
     _ = sites_view.reduced_coords
