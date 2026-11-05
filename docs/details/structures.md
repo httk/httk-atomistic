@@ -312,9 +312,12 @@ A `NumericUnitcellStructure` holds a `NumericCell`, a `NumericSites`, the specie
 the stated formulas and provenance. Its species are rounded through float at construction: each
 concentration, concentration precision, charge and spin becomes the shortest decimal of its
 float, so `1/3` becomes `0.3333333333333333` and a float round trip of the value is the identity.
-A numeric structure carries no site moments, assemblies, symmetry metadata or
-`chemical_composition`; converting a structure that has any of them raises `ValueError`, so keep
-such structures as `UnitcellStructure`.
+Optional `site_moments` are a `NumericSiteMoments`: collinear scalars (a 1-D input) or Cartesian
+vectors (an N x 3 input), in Bohr magnetons. Converting a structure keeps collinear moments
+collinear and turns Cartesian and crystal-axis moments into Cartesian floats; the exact interface
+presents them as `CollinearSiteMoments` or `CartesianSiteMoments`. A numeric structure carries no
+assemblies, symmetry metadata or `chemical_composition`; converting a structure that has any of
+them raises `ValueError`, so keep such structures as `UnitcellStructure`.
 
 ```python
 from httk.atomistic import NumericUnitcellStructure, Species, UnitcellStructureView
@@ -345,7 +348,9 @@ those of the exact structure it was converted from.
 A `NumericUnitcellStructure` is a storable `structures` entry. Its record,
 `NumericUnitcellStructureRecord` (registered as `atomistic-numeric-unitcell-structure`), stores
 every number as a plain float column (basis, coordinates, concentrations, charges, composition
-ratios and amounts) with no exact companion text. `NumericUnitcellStructureView` is not
+ratios and amounts) with no exact companion text. Site moments go in `collinear_site_moments` or
+`cartesian_site_moments` (at most one is set), with `site_moments_precision`; an existing store
+declaring this record must be rebuilt or reopened with `upgrade=True` to gain these columns. `NumericUnitcellStructureView` is not
 storable; store the exact structure, or convert it explicitly with `NumericUnitcellStructure(view)`.
 
 ```python

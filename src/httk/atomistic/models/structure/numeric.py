@@ -12,6 +12,10 @@ from httk.atomistic.composition import project_composition
 from httk.atomistic.models._vector_guards import matmul_floats
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.numeric import NumericCell, finite_float
+from httk.atomistic.models.moments.backend import SiteMomentsBackend
+from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
+from httk.atomistic.models.moments.collinear import CollinearSiteMoments
+from httk.atomistic.models.moments.numeric import NumericSiteMoments
 from httk.atomistic.models.sites.numeric import NumericSites
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.like import SpeciesLike
@@ -34,7 +38,7 @@ from httk.atomistic.models.structure.unitcell import (
 
 # Exact-interface content a float structure does not carry; converting a structure that has
 # any of it is refused rather than silently dropped.
-_UNSUPPORTED = ("site_moments", "assemblies", "symmetry", "chemical_composition")
+_UNSUPPORTED = ("assemblies", "symmetry", "chemical_composition")
 
 
 def _quantized(value: Fraction | None) -> Fraction | None:
@@ -62,6 +66,15 @@ def _quantized_species(species: Species) -> Species:
     )
 
 
+def _exact_site_moments(moments: NumericSiteMoments) -> SiteMomentsBackend:
+    """Return float moments as the exact moments of the same kind, each float as written."""
+    precision = None if moments.precision is None else any_to_fraction(moments.precision)
+    values: Any = moments._moments
+    if moments.kind == "collinear":
+        return CollinearSiteMoments([any_to_fraction(value) for value in values], precision)
+    return CartesianSiteMoments([[any_to_fraction(value) for value in row] for row in values], precision)
+
+
 class NumericUnitcellStructure:
     """A unit-cell crystal structure that owns its geometry as plain floats, an immutable value.
 
@@ -76,9 +89,11 @@ class NumericUnitcellStructure:
 
     Construction from a single structure-like argument (anything
     :class:`~httk.atomistic.UnitcellStructureView` accepts) is the explicit lossy conversion. A
-    numeric structure carries no site moments, assemblies, symmetry metadata or chemical
-    composition, so converting a structure that has any of them raises :class:`ValueError`. The
-    source's ``immutable_id`` and ``last_modified`` describe the source and are not carried.
+    source's site moments become :class:`~httk.atomistic.models.moments.numeric.NumericSiteMoments`
+    (crystal-axis moments become Cartesian). A numeric structure carries no assemblies, symmetry
+    metadata or chemical composition, so converting a structure that has any of them raises
+    :class:`ValueError`. The source's ``immutable_id`` and ``last_modified`` describe the source
+    and are not carried.
 
     ``UnitcellStructureView(numeric)`` presents the exact interface, with the floats embedded
     exactly as written. The composition properties come from that view, built lazily.
@@ -90,6 +105,8 @@ class NumericUnitcellStructure:
     :param species: The distinct species definitions. Omit this to infer them from
         ``species_at_sites``.
     :param species_at_sites: The species name occupying each site; required unless converting.
+    :param site_moments: Optional per-site magnetic moments in site order (anything
+        ``NumericSiteMoments`` accepts).
     :param charge: An explicitly assigned charge for the cell content.
     :param molecular: Whether the structure describes a molecular unit cell.
     :param chemical_formula_descriptive: Optional descriptive chemical formula.
@@ -108,6 +125,7 @@ class NumericUnitcellStructure:
     _sites: NumericSites
     _species: tuple[Species, ...]
     _species_at_sites: tuple[str, ...]
+    _site_moments: NumericSiteMoments | None
     _charge: float | None
     _molecular: bool
     _chemical_formula_descriptive: str | None
@@ -123,6 +141,7 @@ class NumericUnitcellStructure:
         species: Sequence[SpeciesLike] | None = None,
         species_at_sites: Sequence[SpeciesLike] | None = None,
         *,
+        site_moments: Any = None,
         charge: float | None = None,
         molecular: bool = False,
         chemical_formula_descriptive: str | None = None,
@@ -134,13 +153,14 @@ class NumericUnitcellStructure:
         if sites is None and species is None and species_at_sites is None:
             from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
-            if (charge, molecular, chemical_formula_descriptive, chemical_formula_hill, optimization_type) != (
-                None,
-                False,
-                None,
-                None,
-                None,
-            ):
+            if (
+                site_moments,
+                charge,
+                molecular,
+                chemical_formula_descriptive,
+                chemical_formula_hill,
+                optimization_type,
+            ) != (None, None, False, None, None, None):
                 raise TypeError(
                     "converting a structure takes its content from the source; only immutable_id "
                     "and last_modified may be given"
@@ -148,13 +168,14 @@ class NumericUnitcellStructure:
             exact = UnitcellStructureView(cell)
             present = [name for name in _UNSUPPORTED if getattr(exact, name, None) is not None]
             if present:
-                # ponytail: numeric structures carry no moments/assemblies/symmetry/composition;
+                # ponytail: numeric structures carry no assemblies/symmetry/composition;
                 # use UnitcellStructure for those until a numeric form is needed.
                 raise ValueError(
                     f"NumericUnitcellStructure cannot carry {', '.join(present)}; use UnitcellStructure instead"
                 )
             cell, sites = exact.cell, exact.sites
             species, species_at_sites = exact.species, exact.species_at_sites
+            site_moments = exact.site_moments
             charge = None if exact.charge is None else float(exact.charge)
             molecular = exact.molecular
             chemical_formula_descriptive = exact.chemical_formula_descriptive
@@ -172,6 +193,12 @@ class NumericUnitcellStructure:
         self._sites = NumericSites(sites)
         if len(norm_species_at_sites) != len(self._sites):
             raise ValueError("NumericUnitcellStructure species_at_sites must have the same length as sites")
+        norm_site_moments = None if site_moments is None else NumericSiteMoments(site_moments)
+        if norm_site_moments is not None and len(norm_site_moments) != len(self._sites):
+            raise ValueError("NumericUnitcellStructure site_moments must have the same length as sites")
+        if norm_site_moments is not None and not len(norm_site_moments):
+            # The exact moment classes hold at least one site, so the exact interface could not present these.
+            raise ValueError("NumericUnitcellStructure site_moments of a structure without sites must be None")
         _check_species_names(norm_species)
         _check_species_at_sites(norm_species_at_sites, norm_species)
         _check_referenced_species_concentrations(norm_species_at_sites, norm_species)
@@ -186,6 +213,7 @@ class NumericUnitcellStructure:
                 raise ValueError("last_modified must include a timezone")
         self._species = norm_species
         self._species_at_sites = norm_species_at_sites
+        self._site_moments = norm_site_moments
         self._charge = None if charge is None else finite_float(charge, "charge")
         self._molecular = molecular
         self._chemical_formula_descriptive = validate_descriptive_formula(chemical_formula_descriptive)
@@ -225,6 +253,14 @@ class NumericUnitcellStructure:
         :return: Site species names in site order.
         """
         return self._species_at_sites
+
+    @property
+    def site_moments(self) -> NumericSiteMoments | None:
+        """The per-site magnetic moments as floats.
+
+        :return: The moments, or ``None`` when they are unstated.
+        """
+        return self._site_moments
 
     @property
     def charge(self) -> float | None:
@@ -281,6 +317,14 @@ class NumericUnitcellStructure:
         :return: The timestamp, or ``None`` when it is unstated.
         """
         return self._last_modified
+
+    @property
+    def type(self) -> str:
+        """Expose the logical OPTIMADE entry family.
+
+        :return: ``"structures"``.
+        """
+        return "structures"
 
     @property
     def id(self) -> str:
@@ -386,6 +430,7 @@ class NumericUnitcellStructure:
             self._sites,
             self._species,
             self._species_at_sites,
+            self._site_moments,
             self._charge,
             self._molecular,
             self._chemical_formula_descriptive,
@@ -414,6 +459,7 @@ class NumericUnitcellStructure:
             f"species_at_sites={self._species_at_sites!r}",
         ]
         for name, default in (
+            ("site_moments", None),
             ("charge", None),
             ("molecular", False),
             ("chemical_formula_descriptive", None),
@@ -491,11 +537,15 @@ class _NumericStructureBackend(StructureBackend):
             sites = Sites(obj.sites.reduced_coords, precision=obj.sites.precision)
 
         raw_charge = getattr(obj, "charge", None)
+        site_moments = getattr(obj, "site_moments", None)
+        if isinstance(site_moments, NumericSiteMoments):
+            site_moments = _exact_site_moments(site_moments)
         self._structure = UnitcellStructure(
             cell,
             sites,
             obj.species,
             obj.species_at_sites,
+            site_moments=site_moments,
             molecular=getattr(obj, "molecular", False),
             assemblies=getattr(obj, "assemblies", None),
             symmetry=getattr(obj, "symmetry", None),

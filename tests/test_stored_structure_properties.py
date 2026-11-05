@@ -204,6 +204,8 @@ def test_every_backing_declares_the_complete_structure_property_surface(record_t
         _domain_record(_domain(ASUStructure)),
         _numeric_record(_unitcell()),
         _numeric_record(_disordered()),
+        _numeric_record(_unitcell(site_moments=CartesianSiteMoments([[1, 2, 3], [-1, 0, 1]]))),
+        _numeric_record(_unitcell(site_moments=CollinearSiteMoments([1, -1]))),
     ),
 )
 def test_stored_property_responses_match_the_natural_structure_provider(record: object) -> None:
@@ -270,6 +272,20 @@ def test_site_moment_response_is_cartesian_float_rows_or_null(
     assert "_httk_magnetism" in stored_property_projections(UnitcellStructureRecord)["structure_features"].response(
         record
     )
+
+
+def test_numeric_magnetism_queries_the_moment_presence_columns() -> None:
+    features = stored_property_projections(NumericUnitcellStructureRecord)["structure_features"].query
+    assert features is not None
+    context = cast(QueryContext, _ProbeContext())
+    magnetism = _walk(features(context, "HAS_ANY", ["_httk_magnetism"]))
+    assert _Value("field", ("collinear_site_moments_present",)) in magnetism
+    assert _Value("field", ("cartesian_site_moments_present",)) in magnetism
+    assert _Expression("false", ()) not in magnetism
+    # Numeric records still carry no assemblies or declared composition.
+    assert features(context, "HAS_ANY", ["assemblies"]) == _Expression("or", (_Expression("false", ()),))
+    implicit = _walk(features(context, "HAS_ANY", ["implicit_atoms"]))
+    assert not any(isinstance(value, _Scope) and value.path == ("chemical_composition",) for value in implicit)
 
 
 def test_formula_and_precision_queries_construct_exact_normalized_predicates() -> None:

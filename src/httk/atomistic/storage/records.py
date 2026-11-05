@@ -41,6 +41,7 @@ from httk.atomistic.models.formula.composition import Composition
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
+from httk.atomistic.models.moments.numeric import NumericSiteMoments
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.prototype.occupation import PrototypeOccupation
@@ -1875,11 +1876,18 @@ class NumericUnitcellStructureRecord:
     :param chemical_formula_descriptive: The descriptive formula, if stated.
     :param chemical_formula_hill: The Hill formula, if stated.
     :param optimization_type: The optimization provenance, if stated.
+    :param collinear_site_moments: The signed collinear moment of each site, if the structure
+        states collinear moments.
+    :param cartesian_site_moments: The Cartesian moment of each site, one row per site, if the
+        structure states Cartesian moments.
+    :param site_moments_precision: How precisely the stated moments were given, if known.
     :param source_file: The verbatim file this structure was read from, when the entry records an input file exactly
         as given; outside content identity while ``None``.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
     :param immutable_id: The per-revision immutable id; minted by the store when None.
     :param last_modified: The source modification timestamp, if stated.
+    :raises ValueError: If both moment fields are set, the moments do not match the sites, a
+        moment precision is given without moments, or a moment is non-finite.
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
@@ -1900,6 +1908,11 @@ class NumericUnitcellStructureRecord:
     chemical_formula_descriptive: str | None = None
     chemical_formula_hill: str | None = None
     optimization_type: str | None = None
+    collinear_site_moments: tuple[float, ...] | None = None
+    cartesian_site_moments: Annotated[tuple[tuple[float, ...], ...], httk.core.storage.markers.Shape(0, 3)] | None = (
+        None
+    )
+    site_moments_precision: float | None = None
     source_file: Annotated[FileRecord | None, IdentitySkipWhenNone()] = None
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
@@ -1956,9 +1969,27 @@ class NumericUnitcellStructureRecord:
             raise TypeError(f"{name} molecular must be a bool")
         if self.source_file is not None and not isinstance(self.source_file, FileRecord):
             raise TypeError(f"{name} source_file must be a FileRecord or None")
+        collinear = self.collinear_site_moments
+        if collinear is not None:
+            collinear = tuple(finite_float(value, "collinear_site_moments") for value in collinear)
+        cartesian = self.cartesian_site_moments
+        if cartesian is not None:
+            cartesian = float_matrix(cartesian, 3)
+        if collinear is not None and cartesian is not None:
+            raise ValueError(f"{name} sets both collinear_site_moments and cartesian_site_moments; at most one")
+        moments = collinear if collinear is not None else cartesian
+        if moments is None and self.site_moments_precision is not None:
+            raise ValueError(f"{name} site_moments_precision requires site moments")
+        if moments is not None and len(moments) != len(species_at_sites):
+            raise ValueError(f"{name} site moments must have one entry per site")
+        if moments is not None and not moments:  # mirrors NumericUnitcellStructure
+            raise ValueError(f"{name} site moments of a structure without sites must be None")
         object.__setattr__(self, "species", species)
         object.__setattr__(self, "species_at_sites", species_at_sites)
         object.__setattr__(self, "charge", _optional_float(self.charge, "charge"))
+        object.__setattr__(self, "collinear_site_moments", collinear)
+        object.__setattr__(self, "cartesian_site_moments", cartesian)
+        object.__setattr__(self, "site_moments_precision", float_precision(self.site_moments_precision))
 
     @classmethod
     def __httk_project__(cls, structure: NumericUnitcellStructure) -> Mapping[str, object]:
@@ -1967,6 +1998,8 @@ class NumericUnitcellStructureRecord:
         :param structure: The numeric structure to project.
         :return: The projected structure fields.
         """
+        moments = structure.site_moments
+        kind, values = (None, None) if moments is None else (moments.kind, moments._moments)
         return {
             "cell": NumericCellRecord(**cast(dict[str, Any], NumericCellRecord.__httk_project__(structure.cell))),
             "sites": NumericSitesRecord(**cast(dict[str, Any], NumericSitesRecord.__httk_project__(structure.sites))),
@@ -1981,6 +2014,9 @@ class NumericUnitcellStructureRecord:
             "chemical_formula_descriptive": structure.chemical_formula_descriptive,
             "chemical_formula_hill": structure.chemical_formula_hill,
             "optimization_type": structure.optimization_type,
+            "collinear_site_moments": values if kind == "collinear" else None,
+            "cartesian_site_moments": values if kind == "cartesian" else None,
+            "site_moments_precision": None if moments is None else moments.precision,
             "source_file": None,
             "id": None,
             "immutable_id": None,
@@ -2021,11 +2057,15 @@ def numeric_structure_from_record(record: NumericUnitcellStructureRecord) -> Num
     :return: The numeric structure.
     :raises ValueError: If the record does not describe a valid numeric structure.
     """
+    moments = (
+        record.collinear_site_moments if record.collinear_site_moments is not None else record.cartesian_site_moments
+    )
     return NumericUnitcellStructure(
         NumericCell(record.cell.basis, precision=record.cell.precision, periodicity=record.cell.periodicity),
         NumericSites(record.sites.reduced_coords, precision=record.sites.precision),
         tuple(_numeric_species_from_record(value) for value in record.species),
         record.species_at_sites,
+        site_moments=None if moments is None else NumericSiteMoments(moments, precision=record.site_moments_precision),
         charge=record.charge,
         molecular=record.molecular,
         chemical_formula_descriptive=record.chemical_formula_descriptive,

@@ -4,6 +4,7 @@ from .collinear import CollinearSiteMoments
 from .crystalaxis import CrystalAxisSiteMoments
 from .crystalaxis_view import CrystalAxisSiteMomentsView
 from .like import SiteMomentsLike
+from .numeric import NumericSiteMoments
 
 __all__ = [
     "CartesianSiteMoments",
@@ -11,5 +12,6 @@ __all__ = [
     "CollinearSiteMoments",
     "CrystalAxisSiteMoments",
     "CrystalAxisSiteMomentsView",
+    "NumericSiteMoments",
     "SiteMomentsLike",
 ]

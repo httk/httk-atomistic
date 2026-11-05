@@ -13,6 +13,8 @@ numpy = pytest.importorskip("numpy")
 from httk.core.storage import content_id
 
 from httk.atomistic import (
+    CartesianSiteMoments,
+    NumericSiteMoments,
     NumericUnitcellStructure,
     NumericUnitcellStructureRecord,
     NumericUnitcellStructureView,
@@ -65,7 +67,24 @@ def _disordered() -> NumericUnitcellStructure:
     return NumericUnitcellStructure(exact)
 
 
-@pytest.mark.parametrize("make", (_nacl, _disordered))
+def _magnetic(moments: Any, precision: float | None = None) -> NumericUnitcellStructure:
+    return NumericUnitcellStructure(
+        [[2.87, 0.0, 0.0], [0.0, 2.87, 0.0], [0.0, 0.0, 2.87]],
+        [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+        species_at_sites=["Fe", "Fe"],
+        site_moments=NumericSiteMoments(moments, precision=precision),
+    )
+
+
+def _cartesian() -> NumericUnitcellStructure:
+    return _magnetic([[0.0, 0.0, 2.2], [0.1, -0.0, -2.2]], precision=0.05)
+
+
+def _collinear() -> NumericUnitcellStructure:
+    return _magnetic([2.2, -2.2])
+
+
+@pytest.mark.parametrize("make", (_nacl, _disordered, _cartesian, _collinear))
 def test_record_round_trips_value_and_content_id(make: Any) -> None:
     value = make()
     record = NumericUnitcellStructureRecord.from_structure(value)
@@ -76,6 +95,52 @@ def test_record_round_trips_value_and_content_id(make: Any) -> None:
     assert viewed.unwrap() is record
     assert viewed.species == value.species
     assert NumericUnitcellStructure(viewed) == value
+
+
+def test_record_stores_moments_in_the_field_of_their_kind() -> None:
+    cartesian = NumericUnitcellStructureRecord.from_structure(_cartesian())
+    assert cartesian.cartesian_site_moments == ((0.0, 0.0, 2.2), (0.1, 0.0, -2.2))
+    assert cartesian.collinear_site_moments is None
+    assert cartesian.site_moments_precision == 0.05
+    collinear = NumericUnitcellStructureRecord.from_structure(_collinear())
+    assert collinear.collinear_site_moments == (2.2, -2.2)
+    assert collinear.cartesian_site_moments is None
+    assert collinear.site_moments_precision is None
+    plain = NumericUnitcellStructureRecord.from_structure(_magnetic([0.0, 0.0]))
+    assert len({content_id(record) for record in (cartesian, collinear, plain)}) == 3
+    unstated = replace(plain, collinear_site_moments=None)
+    assert content_id(unstated) != content_id(plain)
+    assert numeric_structure_from_record(unstated).site_moments is None
+
+
+def test_record_moment_validation() -> None:
+    record = NumericUnitcellStructureRecord.from_structure(_collinear())
+    folded = replace(record, collinear_site_moments=numpy.array([-0.0, 1.0]))
+    assert folded.collinear_site_moments == (0.0, 1.0)
+    assert math.copysign(1.0, folded.collinear_site_moments[0]) == 1.0
+    with pytest.raises(ValueError, match="at most one"):
+        replace(record, cartesian_site_moments=((0, 0, 1), (0, 0, -1)))
+    with pytest.raises(ValueError, match="one entry per site"):
+        replace(record, collinear_site_moments=(1.0,))
+    with pytest.raises(ValueError, match="one entry per site"):
+        replace(record, collinear_site_moments=None, cartesian_site_moments=((0, 0, 1),))
+    with pytest.raises(ValueError, match="requires site moments"):
+        replace(record, collinear_site_moments=None, site_moments_precision=0.1)
+    with pytest.raises(ValueError, match="3"):
+        replace(record, collinear_site_moments=None, cartesian_site_moments=((0, 1), (0, 1)))
+    with pytest.raises(ValueError, match="strictly positive"):
+        replace(record, site_moments_precision=0.0)
+    empty = NumericUnitcellStructureRecord.from_structure(
+        NumericUnitcellStructure([[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]], [], species_at_sites=[])
+    )
+    for field_name in ("collinear_site_moments", "cartesian_site_moments"):
+        with pytest.raises(ValueError, match="without sites must be None"):
+            replace(empty, **{field_name: ()})
+    for bad in (math.nan, math.inf):
+        with pytest.raises(ValueError):
+            replace(record, collinear_site_moments=(bad, 1.0))
+        with pytest.raises(ValueError):
+            replace(record, collinear_site_moments=None, cartesian_site_moments=((0, 0, bad), (0, 0, 1)))
 
 
 def test_numeric_and_exact_copies_are_different_content() -> None:
@@ -162,7 +227,7 @@ def _backend(dialect: str, path: Path | None = None) -> Any:
 def test_store_round_trip_has_no_exact_columns(dialect: str) -> None:
     with _backend(dialect) as database:
         store = _store(database, NumericUnitcellStructureRecord)
-        for value in (_nacl(), _disordered()):
+        for value in (_nacl(), _disordered(), _cartesian(), _collinear()):
             sid = store.save(value)
             assert store.save(value) == sid
             fetched = store.fetch(NumericUnitcellStructureRecord, sid)
@@ -175,14 +240,54 @@ def test_store_round_trip_has_no_exact_columns(dialect: str) -> None:
 
 def test_duckdb_file_store_keeps_content_id_across_reopen(tmp_path: Path) -> None:
     path = tmp_path / "numeric.duckdb"
-    value = _disordered()
+    values = (_disordered(), _cartesian())
     database = _backend("duckdb", path)
-    sid = _store(database, NumericUnitcellStructureRecord).save(value)
+    sids = [_store(database, NumericUnitcellStructureRecord).save(value) for value in values]
     database.dispose()
     with _backend("duckdb", path) as reopened:
-        fetched = _store(reopened, NumericUnitcellStructureRecord).fetch(NumericUnitcellStructureRecord, sid)
-        assert content_id(fetched) == content_id(value)
-        assert numeric_structure_from_record(fetched) == value
+        for sid, value in zip(sids, values, strict=True):
+            fetched = _store(reopened, NumericUnitcellStructureRecord).fetch(NumericUnitcellStructureRecord, sid)
+            assert content_id(fetched) == content_id(value)
+            assert numeric_structure_from_record(fetched) == value
+            assert numeric_structure_from_record(fetched).site_moments == value.site_moments
+
+
+@pytest.mark.parametrize("dialect", ("sqlite", "duckdb"))
+def test_magnetism_feature_selects_exactly_the_numeric_rows_with_moments(dialect: str) -> None:
+    from httk.store.backend.sql import stored_property_sql_plan
+
+    exact = UnitcellStructure(
+        [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
+        [[0, 0, 0]],
+        species_at_sites=["Fe"],
+        site_moments=CartesianSiteMoments([[0, 0, 1]]),
+    )
+    with _backend(dialect) as database:
+        store = _store(database, (UnitcellStructureRecord, NumericUnitcellStructureRecord))
+        for value in (exact, _nacl(), _disordered(), _cartesian(), _collinear()):
+            store.save(value)
+        plan = stored_property_sql_plan(store, StructureEntry)
+
+        def counts(filter_string: str) -> list[int]:
+            return [searcher.count() for searcher in plan.filter_searchers(filter_string)]
+
+        assert counts('structure_features HAS "_httk_magnetism"') == [1, 2]
+        assert counts('NOT structure_features HAS "_httk_magnetism"') == [0, 2]
+        assert counts('structure_features HAS ONLY "_httk_magnetism"') == [1, 2]
+        assert counts("structure_features LENGTH 0") == [0, 1]
+        assert counts('structure_features HAS "assemblies"') == [0, 0]
+        served = {row["nsites"]: row for row in plan.records() if row["_httk_site_moments"] is not None}
+        assert served[2]["_httk_site_moments"] == [[0.0, 0.0, 2.2], [0.1, 0.0, -2.2]]
+        moments_by_features = sorted(
+            (row["structure_features"], row["_httk_site_moments"] is None) for row in plan.records()
+        )
+        assert moments_by_features == [
+            ([], True),
+            (["_httk_magnetism"], False),
+            (["_httk_magnetism"], False),
+            (["_httk_magnetism"], True),
+            (["disorder"], True),
+        ]
 
 
 def test_mixed_store_dispatches_to_the_right_record() -> None:

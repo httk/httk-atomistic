@@ -61,6 +61,7 @@ from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.modulated import ModulatedStructure
 from httk.atomistic.models.cell.numeric import NumericCell
 from httk.atomistic.models.sites.numeric import NumericSites
+from httk.atomistic.models.moments.numeric import NumericSiteMoments
 from httk.atomistic.models.structure.numeric import NumericUnitcellStructure, _NumericStructureBackend
 from httk.atomistic.models.structure.numeric_view import NumericUnitcellStructureView
 from httk.atomistic.models.structure.optimade import OptimadeStructure
@@ -367,6 +368,7 @@ __all__ = [
     "NiggliReducedStructureResult",
     "NiggliReductionResult",
     "NumericCell",
+    "NumericSiteMoments",
     "NumericSites",
     "NumericUnitcellStructure",
     "NumericUnitcellStructureRecord",

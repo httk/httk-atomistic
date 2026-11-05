@@ -80,8 +80,8 @@ _STANDARD_PROPERTIES: tuple[str, ...] = (
 
 _FEATURES = ("_httk_magnetism", "assemblies", "disorder", "implicit_atoms", "site_attachments")
 # Backings whose sites are a full unit cell listed in ``species_at_sites``; ``numeric`` is the
-# all-float NumericUnitcellStructureRecord, which carries no moments, assemblies, symmetry or
-# declared chemical composition.
+# all-float NumericUnitcellStructureRecord, which carries float site moments but no assemblies,
+# symmetry or declared chemical composition.
 _CELL_BACKINGS = frozenset({"unitcell", "numeric"})
 _COORDINATE_SPANS = frozenset(
     {
@@ -167,6 +167,8 @@ def _structure_features_value(record: Any, backing: str) -> list[str]:
     if any(value.name not in used_names for value in record.species):
         features.add("implicit_atoms")
     if backing == "numeric":
+        if record.collinear_site_moments is not None or record.cartesian_site_moments is not None:
+            features.add("_httk_magnetism")
         return sorted(features)
     if record.assemblies is not None:
         features.add("assemblies")
@@ -320,7 +322,10 @@ def _numeric_response_value(record: Any, name: str) -> object:
         return matmul_floats(
             [list(row) for row in record.sites.reduced_coords], [list(row) for row in record.cell.basis]
         )
-    # A numeric structure carries no moments, assemblies or symmetry metadata.
+    if name == "_httk_site_moments":  # collinear scalars have no Cartesian frame to present
+        moments = record.cartesian_site_moments
+        return None if moments is None else [list(row) for row in moments]
+    # A numeric structure carries no assemblies or symmetry metadata.
     return None
 
 
@@ -893,17 +898,16 @@ def _used_species_scope(context: QueryContext, site_scope: QueryScope, site_name
     )
 
 
-def _feature_predicate(
-    context: QueryContext, name: str, species: QueryScope, moment_kind_path: tuple[str, ...] | None
-) -> QueryExpression:
-    # A ``None`` moment path marks the numeric backing: no moments, assemblies or declared composition.
-    if moment_kind_path is None and name in {"assemblies", "_httk_magnetism"}:
-        return context.always_false()
+def _feature_predicate(context: QueryContext, name: str, species: QueryScope, backing: str) -> QueryExpression:
+    # The numeric backing has float moment columns but no assemblies or declared composition.
+    numeric = backing == "numeric"
     if name == "assemblies":
+        if numeric:
+            return context.always_false()
         return context.equal(context.field("assemblies_present"), context.constant(True))
     if name == "implicit_atoms":
         unused = context.compare(context.count(context.scope("species")), ">", context.count(species))
-        if moment_kind_path is None:
+        if numeric:
             return unused
         composition = context.scope("chemical_composition")
         declared = context.exists(composition, context.equal(composition.field("mode"), context.constant("implicit")))
@@ -920,7 +924,15 @@ def _feature_predicate(
             species,
             context.or_(context.compare(context.count(constituents), ">", context.constant(1)), partial),
         )
-    if name == "_httk_magnetism" and moment_kind_path is not None:
+    if name == "_httk_magnetism":
+        if numeric:
+            return context.or_(
+                *(
+                    context.equal(context.field(f"{moments}_present"), context.constant(True))
+                    for moments in ("collinear_site_moments", "cartesian_site_moments")
+                )
+            )
+        moment_kind_path = ("site_moments_kind",) if backing == "unitcell" else ("domain_sites", "moment_kind")
         scope: QueryScope = context
         for path_part in moment_kind_path[:-1]:
             scope = scope.scope(path_part)
@@ -942,7 +954,7 @@ def _feature_literals(literal: object) -> tuple[str, ...]:
 
 def _structure_features_query(
     used_species: Callable[[QueryContext], QueryScope],
-    moment_kind_path: tuple[str, ...] | None,
+    backing: str,
 ) -> Callable[[QueryContext, str, object], QueryExpression]:
     def query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
         if operator == "IS_KNOWN":
@@ -959,16 +971,16 @@ def _structure_features_query(
                 alternatives.append(
                     context.and_(
                         *[
-                            _feature_predicate(context, name, species, moment_kind_path)
+                            _feature_predicate(context, name, species, backing)
                             if name in selected_set
-                            else context.not_(_feature_predicate(context, name, species, moment_kind_path))
+                            else context.not_(_feature_predicate(context, name, species, backing))
                             for name in _FEATURES
                         ]
                     )
                 )
             return context.or_(*alternatives)
         values = _feature_literals(literal)
-        matches = [_feature_predicate(context, value, species, moment_kind_path) for value in values]
+        matches = [_feature_predicate(context, value, species, backing) for value in values]
         if operator == "HAS_ANY":
             return context.or_(*matches)
         if operator == "HAS_ALL":
@@ -977,9 +989,9 @@ def _structure_features_query(
             allowed = frozenset(values)
             return context.and_(
                 *[
-                    _feature_predicate(context, name, species, moment_kind_path)
+                    _feature_predicate(context, name, species, backing)
                     if name in allowed
-                    else context.not_(_feature_predicate(context, name, species, moment_kind_path))
+                    else context.not_(_feature_predicate(context, name, species, backing))
                     for name in _FEATURES
                 ]
             )
@@ -987,9 +999,9 @@ def _structure_features_query(
             allowed = frozenset(values)
             result = context.and_(
                 *[
-                    _feature_predicate(context, name, species, moment_kind_path)
+                    _feature_predicate(context, name, species, backing)
                     if name in allowed
-                    else context.not_(_feature_predicate(context, name, species, moment_kind_path))
+                    else context.not_(_feature_predicate(context, name, species, backing))
                     for name in _FEATURES
                 ]
             )
@@ -1178,7 +1190,6 @@ def _common_queries(
     backing: str,
     coordinate_path: tuple[str, ...],
     used_species: Callable[[QueryContext], QueryScope],
-    moment_kind_path: tuple[str, ...] | None,
 ) -> None:
     for name in ("chemical_formula_descriptive", "chemical_formula_hill", "optimization_type"):
         projections[name] = StoredPropertyProjection(
@@ -1205,7 +1216,7 @@ def _common_queries(
     )
     projections["structure_features"] = StoredPropertyProjection(
         response=_response("structure_features", backing),
-        query=_structure_features_query(used_species, moment_kind_path),
+        query=_structure_features_query(used_species, backing),
     )
     projections["nperiodic_dimensions"] = StoredPropertyProjection(
         response=_response("nperiodic_dimensions", backing), query=_nperiodic_dimensions_query
@@ -1247,7 +1258,6 @@ def unitcell_structure_properties() -> Mapping[str, StoredPropertyProjection]:
         backing="unitcell",
         coordinate_path=("sites", "precision"),
         used_species=lambda context: _used_species_scope(context, context.scope("species_at_sites"), "value"),
-        moment_kind_path=("site_moments_kind",),
     )
     projections["site_coordinate_span"] = StoredPropertyProjection(
         response=_response("site_coordinate_span", "unitcell"),
@@ -1272,7 +1282,6 @@ def _domain_structure_properties(*, asymmetric_unit: bool) -> Mapping[str, Store
         backing=backing,
         coordinate_path=("coordinate_precision",),
         used_species=lambda context: _used_species_scope(context, context.scope("domain_sites"), "species"),
-        moment_kind_path=("domain_sites", "moment_kind"),
     )
     projections["site_coordinate_span"] = StoredPropertyProjection(
         response=_response("site_coordinate_span", backing),
@@ -1362,8 +1371,8 @@ def numeric_unitcell_structure_properties() -> Mapping[str, StoredPropertyProjec
     """Build the stored-property declarations for all-float numeric unit-cell records.
 
     Responses come from the record's floats. Queries mirror the unit-cell backing, comparing each
-    rational literal as ``float(literal)``; symmetry and moment queries evaluate as unknown or
-    absent, since a numeric structure carries neither.
+    rational literal as ``float(literal)``; symmetry queries evaluate as unknown, since a numeric
+    structure carries no symmetry metadata.
 
     :return: The property declaration map for numeric unit-cell structure records.
     """
@@ -1373,7 +1382,6 @@ def numeric_unitcell_structure_properties() -> Mapping[str, StoredPropertyProjec
         backing="numeric",
         coordinate_path=("sites", "precision"),
         used_species=lambda context: _used_species_scope(context, context.scope("species_at_sites"), "value"),
-        moment_kind_path=None,
     )
     projections["site_coordinate_span"] = StoredPropertyProjection(
         response=_response("site_coordinate_span", "numeric"),

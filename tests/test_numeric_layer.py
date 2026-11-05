@@ -5,6 +5,7 @@ values, their lossless numeric views, and the numeric structure backend adapter.
 
 import datetime
 import fractions
+import math
 from fractions import Fraction
 from types import SimpleNamespace
 from typing import Any
@@ -24,7 +25,10 @@ from httk.atomistic import (
     CartesianSiteMoments,
     Cell,
     CellParams,
+    CollinearSiteMoments,
+    CrystalAxisSiteMoments,
     NumericCell,
+    NumericSiteMoments,
     NumericSites,
     NumericUnitcellStructure,
     NumericUnitcellStructureView,
@@ -90,13 +94,27 @@ def test_values_round_trip_through_repr() -> None:
     namespace = {
         "NumericCell": NumericCell,
         "NumericSites": NumericSites,
+        "NumericSiteMoments": NumericSiteMoments,
         "NumericUnitcellStructure": NumericUnitcellStructure,
         "Species": Species,
         "Fraction": Fraction,
         "datetime": datetime,
+        "numpy": numpy,
     }
     structure = _numeric()
-    for value in (structure, structure.cell, structure.sites, NumericUnitcellStructure(_disordered_structure())):
+    magnetic = NumericUnitcellStructure(
+        CUBE, [[0, 0, 0], [0.5, 0.5, 0.5]], species_at_sites=["Fe", "Fe"], site_moments=[1.5, -1.5]
+    )
+    for value in (
+        structure,
+        structure.cell,
+        structure.sites,
+        NumericUnitcellStructure(_disordered_structure()),
+        magnetic,
+        NumericSiteMoments([[0.1, 0, -2]], precision=0.01),
+        NumericSiteMoments(()),
+        NumericSiteMoments(numpy.empty((0, 3))),
+    ):
         copy = eval(repr(value), namespace)
         assert copy == value
         assert hash(copy) == hash(value)
@@ -179,6 +197,7 @@ def test_structure_value_fields_and_semantics() -> None:
     assert structure.fractional_site_positions == [[0.0, 0.0, 0.0], [0.5, 0.5, 0.1]]
     assert numpy.allclose(structure.cartesian_site_positions, [[0.0, 0.0, 0.0], [2.0, 2.0, 0.4]])
     assert len(structure.id) == 64  # content identity; see test_numeric_structure_record.py
+    assert structure.type == "structures"
     assert not isinstance(structure, StructureBackend)
     # Identity metadata does not take part in equality.
     other = NumericUnitcellStructure(
@@ -227,8 +246,7 @@ def test_conversion_refuses_content_a_numeric_structure_cannot_carry() -> None:
         species_at_sites=[Species("Fe", ("Fe",), (1,))],
         site_moments=CartesianSiteMoments([[0, 0, 1]]),
     )
-    with pytest.raises(ValueError, match="site_moments"):
-        NumericUnitcellStructure(moments)
+    assert NumericUnitcellStructure(moments).site_moments == NumericSiteMoments([[0.0, 0.0, 1.0]])
     with pytest.raises(ValueError, match="assemblies"):
         NumericUnitcellStructure(
             UnitcellStructure(
@@ -238,6 +256,107 @@ def test_conversion_refuses_content_a_numeric_structure_cannot_carry() -> None:
                 assemblies=(Assembly(((0,), (1,)), (F(1, 2), F(1, 2))),),
             )
         )
+
+
+# ------------------------------------------------------------------ site moments
+
+
+def test_numeric_site_moments_values() -> None:
+    collinear = NumericSiteMoments([1, -0.0, 2.5])
+    assert collinear.kind == "collinear"
+    assert collinear.moments.tolist() == [1.0, 0.0, 2.5]
+    assert math.copysign(1.0, collinear.moments[1]) == 1.0
+    assert not collinear.moments.flags.writeable
+    assert len(collinear) == 3
+    with pytest.raises(ValueError, match="no axis"):
+        collinear.cartesian_moments  # noqa: B018 - the access itself raises
+    cartesian = NumericSiteMoments(numpy.array([[0.0, -0.0, 1.0]]), precision=numpy.float64(0.01))
+    assert cartesian.kind == "cartesian"
+    assert cartesian.cartesian_moments.shape == (1, 3)
+    assert not cartesian.cartesian_moments.flags.writeable
+    assert type(cartesian.precision) is float
+    assert NumericSiteMoments(()).kind == "collinear"
+    empty = NumericSiteMoments(numpy.zeros((0, 3)))
+    assert empty.kind == "cartesian"
+    assert empty.moments.shape == (0, 3)
+    assert len(empty) == 0
+    # Precision is provenance, not content; the kind is content.
+    assert cartesian == NumericSiteMoments([[0, 0, 1]])
+    assert hash(cartesian) == hash(NumericSiteMoments([[0, 0, 1]]))
+    assert NumericSiteMoments([1.0]) != NumericSiteMoments([[1.0, 0.0, 0.0]])
+    assert NumericSiteMoments(cartesian).precision == 0.01
+    for bad in (math.nan, math.inf):
+        with pytest.raises(ValueError, match="finite"):
+            NumericSiteMoments([bad])
+        with pytest.raises(ValueError, match="finite"):
+            NumericSiteMoments([[0, bad, 0]])
+    for shape in ([[1.0, 2.0]], [[[1.0, 2.0, 3.0]]], 1.0):
+        with pytest.raises(ValueError, match="1-D or Nx3"):
+            NumericSiteMoments(shape)
+    with pytest.raises(ValueError, match="strictly positive"):
+        NumericSiteMoments([1.0], precision=0)
+
+
+def _magnetic_hexagonal(moments: Any) -> UnitcellStructure:
+    structure = _hexagonal_structure()
+    return UnitcellStructure(
+        structure.cell, structure.sites, structure.species, structure.species_at_sites, site_moments=moments
+    )
+
+
+@pytest.mark.parametrize("kind", ("collinear", "cartesian", "crystalaxis"))
+def test_conversion_carries_exact_moments_as_floats(kind: str) -> None:
+    cell = _hexagonal_structure().cell
+    rows = [[1, 2, 3], [-1, 0, F(1, 3)]]
+    moments = {
+        "collinear": CollinearSiteMoments([F(1, 3), -1], precision=F(1, 10)),
+        "cartesian": CartesianSiteMoments(rows, precision=F(1, 10)),
+        "crystalaxis": CrystalAxisSiteMoments(rows, cell, precision=F(1, 10)),
+    }[kind]
+    numeric = NumericUnitcellStructure(_magnetic_hexagonal(moments))
+    converted = numeric.site_moments
+    assert converted is not None
+    assert converted == NumericSiteMoments(moments)
+    assert converted.precision == 0.1
+    assert NumericSiteMoments(moments, precision=0.5).precision == 0.5
+    assert "_httk_magnetism" in numeric.structure_features
+    exact = UnitcellStructureView(numeric)
+    assert exact.site_moments is not None
+    if kind == "collinear":
+        assert converted.kind == "collinear"
+        assert converted.moments.tolist() == [1 / 3, -1.0]
+        assert exact.site_moments.kind == "collinear"
+        assert exact.cartesian_site_moments_floats() is None
+    else:
+        # Crystal-axis moments land Cartesian: the hexagonal frame is not the Cartesian one.
+        expected = moments.cartesian_moments.to_floats()
+        assert converted.kind == "cartesian"
+        assert converted.cartesian_moments.tolist() == expected
+        assert (expected == [[1.0, 2.0, 3.0], [-1.0, 0.0, 1 / 3]]) is (kind == "cartesian")
+        assert exact.site_moments.kind == "cartesian"
+        assert exact.cartesian_site_moments_floats() == expected
+    assert exact.site_moments.precision == F(1, 10)
+    assert NumericUnitcellStructure(exact) == numeric
+    assert NumericUnitcellStructure(numeric) == numeric
+
+
+def test_structure_site_moments_keyword() -> None:
+    sites = [[0, 0, 0], [0.5, 0.5, 0.5]]
+    structure = NumericUnitcellStructure(
+        CUBE, sites, species_at_sites=["Fe", "Fe"], site_moments=[[0, 0, 1], [0, 0, -1]]
+    )
+    assert structure.site_moments == NumericSiteMoments([[0, 0, 1], [0, 0, -1]])
+    plain = NumericUnitcellStructure(CUBE, sites, species_at_sites=["Fe", "Fe"])
+    assert plain.site_moments is None
+    assert structure != plain
+    assert structure.id != plain.id
+    assert "_httk_magnetism" not in plain.structure_features
+    with pytest.raises(ValueError, match="same length"):
+        NumericUnitcellStructure(CUBE, sites, species_at_sites=["Fe", "Fe"], site_moments=[1.0])
+    with pytest.raises(ValueError, match="without sites must be None"):
+        NumericUnitcellStructure(CUBE, [], species_at_sites=[], site_moments=())
+    with pytest.raises(TypeError, match="takes its content from the source"):
+        NumericUnitcellStructure(_hexagonal_structure(), site_moments=[1.0, 1.0])
 
 
 # ------------------------------------------------------------------ exact interface via the adapter
