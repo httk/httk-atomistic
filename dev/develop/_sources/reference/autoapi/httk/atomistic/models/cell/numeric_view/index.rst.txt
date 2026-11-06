@@ -1,0 +1,100 @@
+httk.atomistic.models.cell.numeric_view
+=======================================
+
+.. py:module:: httk.atomistic.models.cell.numeric_view
+
+.. autoapi-nested-parse::
+
+   A view presenting any cell backend as a NumericCell (the plain-numpy presentation).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.numeric_view.CellNumericView
+
+
+Module Contents
+---------------
+
+.. py:class:: CellNumericView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.cell.view_base.CellViewBase`, :py:obj:`httk.atomistic.models.cell.numeric.NumericCell`
+
+
+   A view presenting an underlying cell backend as a ``NumericCell``.
+
+   This view is a genuine ``NumericCell``, so it can be passed anywhere one is accepted, but it is
+   a lossless presentation: the exact cell stays one hop away via :attr:`exact`, and the float
+   basis, precision and periodicity are computed lazily from the backend on first access.
+   :meth:`unview` returns the standalone ``NumericCell`` value. Like a ``NumericCell`` it requires
+   numpy (raising :class:`ImportError` otherwise).
+
+   :param obj: The cell-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: exact
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      The exact cell this view presents.
+
+      :return: The backend itself when it is a ``Cell``, else a lazy ``CellView`` of it.
+
+
+   .. py:property:: lengths
+      :type: httk.core.NumericVector
+
+
+      The three cell-vector lengths, rendered from the exact cell.
+
+      :return: The lengths as a read-only float array.
+
+
+   .. py:property:: angles
+      :type: httk.core.NumericVector
+
+
+      The cell angles ``(alpha, beta, gamma)`` in degrees, rendered from the exact cell.
+
+      :return: The angles as a read-only float array.
+
+
+   .. py:property:: volume
+      :type: float
+
+
+      The cell volume, rendered from the exact cell.
+
+      :return: The volume as a floating-point value.
+      :raises ValueError: If the cell is not periodic in all three directions.
+
+
+   .. py:method:: metric()
+
+      The Gram matrix ``basis * basis^T``, rendered from the exact cell.
+
+      :return: The Gram matrix as a read-only float array.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return this presentation as a standalone numeric cell value.
+
+      :return: The float-owning cell.
+
+
+

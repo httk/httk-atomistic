@@ -1,0 +1,64 @@
+httk.atomistic.models.sites.numeric_view
+========================================
+
+.. py:module:: httk.atomistic.models.sites.numeric_view
+
+.. autoapi-nested-parse::
+
+   A view presenting any sites backend as a NumericSites object (the plain-numpy presentation).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.numeric_view.SitesNumericView
+
+
+Module Contents
+---------------
+
+.. py:class:: SitesNumericView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.view_base.SitesViewBase`, :py:obj:`httk.atomistic.models.sites.numeric.NumericSites`
+
+
+   A view presenting an underlying sites backend as a ``NumericSites`` object.
+
+   This view is a genuine ``NumericSites``, so it can be passed anywhere one is accepted, but it
+   is a lossless presentation: the exact sites stay one hop away via :attr:`exact`, and the float
+   coordinates and precision are computed lazily from the backend on first access.
+   :meth:`unview` returns the standalone ``NumericSites`` value. Like a ``NumericSites`` it
+   requires numpy (raising :class:`ImportError` otherwise).
+
+   :param obj: The sites-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:property:: exact
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      The exact sites this view presents.
+
+      :return: The backend itself when it is a ``Sites``, else a lazy ``SitesView`` of it.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return this presentation as a standalone numeric sites value.
+
+      :return: The float-owning sites.
+
+
+

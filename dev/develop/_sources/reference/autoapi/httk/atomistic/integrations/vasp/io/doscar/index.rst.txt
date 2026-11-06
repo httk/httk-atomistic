@@ -1,0 +1,92 @@
+httk.atomistic.integrations.vasp.io.doscar
+==========================================
+
+.. py:module:: httk.atomistic.integrations.vasp.io.doscar
+
+.. autoapi-nested-parse::
+
+   Read the total DOS block from a VASP DOSCAR file.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.vasp.io.doscar.DOSChannel
+   httk.atomistic.integrations.vasp.io.doscar.DOSCAR
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.vasp.io.doscar.read_doscar
+
+
+Module Contents
+---------------
+
+.. py:class:: DOSChannel
+
+   Store exact density and integrated density for one spin channel.
+
+   :param name: Channel name, such as ``total``, ``up`` or ``down``.
+   :param density: Density samples in states/eV.
+   :param integrated_density: Integrated density samples in states.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: density
+      :type:  tuple[fractions.Fraction, ...]
+
+
+   .. py:attribute:: integrated_density
+      :type:  tuple[fractions.Fraction, ...]
+
+
+.. py:class:: DOSCAR
+
+   Store the exact total-DOS grid and channels from a DOSCAR file.
+
+   :param energies: Strictly increasing energy grid in eV.
+   :param fermi_energy: Fermi energy in eV.
+   :param spin_mode: Explicit VASP spin mode, ``nonmagnetic`` or ``collinear``.
+   :param channels: Total density and integrated density grouped by spin channel.
+
+
+   .. py:attribute:: energies
+      :type:  tuple[fractions.Fraction, ...]
+
+
+   .. py:attribute:: fermi_energy
+      :type:  fractions.Fraction
+
+
+   .. py:attribute:: spin_mode
+      :type:  str
+
+
+   .. py:attribute:: channels
+      :type:  tuple[DOSChannel, ...]
+
+
+.. py:function:: read_doscar(source, *, spin_mode)
+
+   Read only the NEDOS-row total-DOS block and retain decimal values exactly.
+
+   Six standard header lines precede the total DOS block. Any atom-projected
+   blocks after it are left unread and unparsed. Paths are opened and closed
+   by the reader; caller-owned text streams remain open.
+
+   :param source: DOSCAR path or caller-owned text stream.
+   :param spin_mode: Required interpretation, ``nonmagnetic`` or ``collinear``.
+   :return: Immutable total-DOS data with exact rational values.
+   :raises ValueError: If the mode, header, row count, columns, or values are invalid.
+
+

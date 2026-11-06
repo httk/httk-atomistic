@@ -1,0 +1,88 @@
+httk.atomistic.models.formula.record
+====================================
+
+.. py:module:: httk.atomistic.models.formula.record
+
+.. autoapi-nested-parse::
+
+   Backend projecting a normalized composition storage record.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.record.RecordComposition
+
+
+Module Contents
+---------------
+
+.. py:class:: RecordComposition(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Read a composition from a :class:`NormalizedCompositionRecord`.
+
+   :param obj: The normalized-composition record to wrap.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], ...]
+
+
+      Return the stored elemental amounts.
+
+
+   .. py:property:: uncertainties
+      :type: tuple[tuple[str, fractions.Fraction | None], ...]
+
+
+      Return the stored amount precisions.
+
+
+   .. py:property:: complete
+      :type: bool
+
+
+      Return whether the stored composition is complete.
+
+
+   .. py:property:: exact
+      :type: bool
+
+
+      Return whether the stored amounts are exact.
+
+
+   .. py:property:: normalized
+      :type: bool
+
+
+      Return whether the stored composition is normalized.
+
+
+   .. py:property:: normalization_status
+      :type: str
+
+
+      Return the stored composition's normalization status.
+
+
+   .. py:property:: diagnostics
+      :type: tuple[httk.atomistic.models.formula.diagnostics.CompositionDiagnostic, ...]
+
+
+      Return diagnostics stored with the composition.
+
+
+   .. py:method:: unwrap()
+
+      Return the original normalized-composition record.
+
+
+

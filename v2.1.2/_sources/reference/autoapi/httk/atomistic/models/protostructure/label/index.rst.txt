@@ -1,0 +1,73 @@
+httk.atomistic.models.protostructure.label
+==========================================
+
+.. py:module:: httk.atomistic.models.protostructure.label
+
+.. autoapi-nested-parse::
+
+   Eager protostructure-label presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protostructure.label.ProtostructureLabel
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtostructureLabel(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.protostructure.view_base.ProtostructureViewBase`, :py:obj:`str`
+
+
+   Present a protostructure as its eager httk label string.
+
+   Any faithful render is the protostructure label; the *canonical* protostructure label
+   is the one obtained from a normalizer-canonical protostructure (for example one derived
+   via ``canonical_asu``). This view renders the label with no affine-normalizer pass.
+
+   The unsuffixed part is the httk prototype label of the erased anonymous prototype (classes
+   ordered by Wyckoff letters, not by element as AFLOW does), followed by ``:`` and the
+   class species names in group order.
+
+   :param obj: The protostructure-like object to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: spacegroup
+
+      Return the standard-setting space group of the presented protostructure.
+
+
+   .. py:property:: occupations
+
+      Return the occupied Wyckoff positions of the presented protostructure.
+
+
+   .. py:property:: representative
+
+
+   .. py:property:: discriminator
+
+
+   .. py:method:: unview()
+
+      Return the presented protostructure as a standalone value.
+
+      :return: The protostructure value.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+

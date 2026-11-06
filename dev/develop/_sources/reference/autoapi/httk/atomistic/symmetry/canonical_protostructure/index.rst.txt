@@ -1,0 +1,58 @@
+httk.atomistic.symmetry.canonical_protostructure
+================================================
+
+.. py:module:: httk.atomistic.symmetry.canonical_protostructure
+
+.. autoapi-nested-parse::
+
+   Anonymous protostructure-first canonicalization of measured crystal structures.
+
+   This convention chooses the anonymous Wyckoff occupation pattern, then its species assignment,
+   and only then the exact geometry. Its finite affine search uses the same tabulated normalizer scope
+   as the legacy canonicalizer and does not enumerate an infinite affine normalizer. Public measured
+   structure entry points optionally perform the established upward pseudosymmetry search first.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.canonical_protostructure.canonical_asu_protostructure_assignments
+   httk.atomistic.symmetry.canonical_protostructure.canonical_asu_protostructure
+
+
+Module Contents
+---------------
+
+.. py:function:: canonical_asu_protostructure_assignments(structure, *, tolerance = None, factors = (Fraction(1, 5), 1, 5), lift = False, preserve_chirality = True)
+
+   Recognize and return every tied assignment of the anonymous canonical geometry.
+
+   Recognition uses the established tolerance sweep and deterministic P1 frames. The accepted ASU
+   is then handled exactly. When ``lift`` is true, the anonymous winner is first searched for
+   upward pseudosymmetry.
+
+   :param structure: The measured structure to recognize.
+   :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
+   :param factors: Multipliers for the recognition tolerance sweep.
+   :param lift: Whether to search upward for pseudosymmetry after recognition.
+   :param preserve_chirality: Whether to keep the recognized enantiomorphic group.
+   :return: The tied protostructure-first canonical asymmetric units.
+   :raises ValueError: If the structure is unsupported or no tolerance member fits.
+
+
+.. py:function:: canonical_asu_protostructure(structure, *, tolerance = None, factors = (Fraction(1, 5), 1, 5), lift = False, preserve_chirality = True)
+
+   Return one chemically ordered member of the anonymous canonical assignment family.
+
+   :param structure: The measured structure to recognize.
+   :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
+   :param factors: Multipliers for the recognition tolerance sweep.
+   :param lift: Whether to search upward for pseudosymmetry after recognition.
+   :param preserve_chirality: Whether to keep the recognized enantiomorphic group.
+   :return: One protostructure-first canonical asymmetric unit.
+   :raises ValueError: If the structure is unsupported or no tolerance member fits.
+
+

@@ -1,0 +1,37 @@
+httk.atomistic.models.formula.backend
+=====================================
+
+.. py:module:: httk.atomistic.models.formula.backend
+
+.. autoapi-nested-parse::
+
+   The abstract base class for all chemical-formula backends in httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.backend.ChemicalFormulaBackend
+
+
+Module Contents
+---------------
+
+.. py:class:: ChemicalFormulaBackend(backend, **hints)
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`ChemicalFormulaBackend`\ ], :py:obj:`httk.atomistic.models.formula.api.ChemicalFormulaAPI`
+
+
+   Abstract base class for all backends of chemical-formula data.
+
+   Concrete backends carry a native representation and produce the canonical
+   chemical-formula accessors declared by ``ChemicalFormulaAPI`` from it.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+

@@ -1,0 +1,89 @@
+httk.atomistic.models.formula.formula_view
+==========================================
+
+.. py:module:: httk.atomistic.models.formula.formula_view
+
+.. autoapi-nested-parse::
+
+   Eager reduced-formula presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.formula_view.ChemicalFormulaView
+
+
+Module Contents
+---------------
+
+.. py:class:: ChemicalFormulaView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.view_base.ChemicalFormulaViewBase`, :py:obj:`httk.atomistic.models.formula.formula.ChemicalFormula`
+
+
+   Present a complete composition as an eager canonical reduced formula.
+
+   :param obj: The chemical-formula-like object to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: amounts
+
+      Return the presented elemental amounts.
+
+
+   .. py:property:: uncertainties
+
+      Return the presented amount precisions.
+
+
+   .. py:property:: complete
+
+      Return whether the presented composition is complete.
+
+
+   .. py:property:: exact
+
+      Return whether the presented amounts are exact.
+
+
+   .. py:property:: normalized
+
+      Return whether the presented composition is normalized.
+
+
+   .. py:property:: normalization_status
+
+      Return the presented composition's normalization status.
+
+
+   .. py:property:: diagnostics
+
+      Return diagnostics associated with the presented composition.
+
+
+   .. py:property:: is_anonymous
+
+      Return whether this formula uses anonymous labels.
+
+
+   .. py:method:: unview()
+
+      Return the presented formula as a standalone value.
+
+      :return: The canonical reduced formula value.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+

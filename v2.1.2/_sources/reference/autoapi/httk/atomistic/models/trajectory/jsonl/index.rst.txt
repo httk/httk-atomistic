@@ -1,0 +1,124 @@
+httk.atomistic.models.trajectory.jsonl
+======================================
+
+.. py:module:: httk.atomistic.models.trajectory.jsonl
+
+.. autoapi-nested-parse::
+
+   Stream the neutral trajectory JSONL payload lazily.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.trajectory.jsonl.JsonlTrajectory
+
+
+Module Contents
+---------------
+
+.. py:class:: JsonlTrajectory(source, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.trajectory.backend.TrajectoryBackend`
+
+
+   Stream a neutral ``httk-trajectory-jsonl`` payload or path lazily.
+
+   Frame data remains in the JSONL container and is read as requested.
+
+   :param source: A JSONL payload or path to one.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'jsonl'
+
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Return the number of frames in the container.
+
+
+   .. py:property:: header
+      :type: collections.abc.Mapping[str, Any]
+
+
+      Return the neutral JSONL header mapping.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Return the constant distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the constant species name at each site.
+
+
+   .. py:property:: reference_frames
+      :type: tuple[int, ...] | None
+
+
+      Return stored reference-frame indexes, or ``None``.
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, ...]
+
+
+      Return the names of available per-frame observables.
+
+
+   .. py:method:: observable(name)
+
+      Read one observable's values in frame order.
+
+      :param name: Observable name.
+      :return: The observable values.
+      :raises KeyError: If the observable is unavailable.
+
+
+
+   .. py:method:: frame(i)
+
+      Read one frame from the JSONL container.
+
+      :param i: Frame index.
+      :return: The requested unit-cell structure.
+      :raises IndexError: If the frame index is out of range.
+
+
+
+   .. py:method:: frames()
+
+      Stream all frames from the JSONL container.
+
+      :yields: Unit-cell structures in container order.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the original JSONL source payload or path.
+
+
+
+   .. py:property:: source_locator
+      :type: str | None
+
+
+      Return the JSONL path, if the source has one.
+
+

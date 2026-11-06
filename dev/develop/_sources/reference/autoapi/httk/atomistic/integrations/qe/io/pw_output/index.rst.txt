@@ -1,0 +1,58 @@
+httk.atomistic.integrations.qe.io.pw_output
+===========================================
+
+.. py:module:: httk.atomistic.integrations.qe.io.pw_output
+
+.. autoapi-nested-parse::
+
+   Read the geometries a Quantum ESPRESSO ``pw.x`` run prints, as trajectory frames.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.qe.io.pw_output.FORMAT
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.qe.io.pw_output.read_pw_output
+
+
+Module Contents
+---------------
+
+.. py:data:: FORMAT
+   :value: 'qe-pw-output'
+
+
+.. py:function:: read_pw_output(source, *, precision = None)
+
+   Parse the geometries of a Quantum ESPRESSO ``pw.x`` output into a frames payload.
+
+   Frame 0 is the header geometry (``lattice parameter (alat)``, ``crystal axes`` and the
+   ``site n. ... positions (alat units)`` table); it is printed with only 4 to 7 decimals and
+   is therefore lossy: the ``pw.x`` input holds the exact initial geometry. Values printed in
+   alat units claim the precision of their digits and of the printed alat. Its site count
+   must match ``number of atoms/cell``. Every later
+   ``ATOMIC_POSITIONS`` block is one more frame, on the most recent ``CELL_PARAMETERS``
+   block's cell (``vc-relax``) or else the header cell. The ``Begin/End final coordinates``
+   block is a frame only when it differs from the last one. Species names and masses come from
+   the header's atomic species table, elements from QE's label rule.
+
+   :param source: A filename (compressed files are decompressed), open text stream, or
+       iterable of lines.
+   :param precision: Cartesian coordinate precision as a length in Å for every frame, or
+       ``None`` to derive it from the written digits. Must be a finite number greater than
+       zero when given.
+   :return: A ``qe-pw-output`` frames payload.
+   :raises ValueError: If the text is not UTF-8 or not a ``pw.x`` output with a header
+       geometry, or a geometry block is malformed or truncated.
+
+
