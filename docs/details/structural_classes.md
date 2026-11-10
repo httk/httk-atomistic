@@ -62,7 +62,7 @@ To cover a couple of other related names and explain how they differ:
 
 * **Isopointal structures**: account for the spacegroup (with or without distinguishing enantiomorphic groups) and the same complete Wyckoff sequence, including repeated independent occupations but excluding the chemical identity of the occupying atoms.
 * **Isoconfigurational structures**: isopointal structures further distinguished by geometrical classification (i.e., similarities in atomic coordinates and cell parameters, but sometimes with further requirements), however still described by colorless occupation.
-* **AFLOW labels**: very similar to httk bare prototypes, except occupations are ordered by occupying element symbol, making the AFLOW labels different for, e.g., ZrO₂ (A2B_oP12_29_2a_a) and FeS₂ (AB2_oP12_29_a_2a).
+* **AFLOW labels**: very similar to httk bare prototypes, except occupations are ordered by occupying element symbol, making the AFLOW labels different for, e.g., ZrO₂ (A2B_oP12_29_2a_a) and FeS₂ (AB2_oP12_29_a_2a). httk orders classes by site count, then Wyckoff letters, so both share the prefix `A2B_oP12_29_2a_a` and differ only in the suffixes `:O-Zr` and `:S-Fe`.
 * **Extended AFLOW labels**: an extension of three digits is added to describe geometrical similarity (-001, -002, …), bringing them closer to discriminator-carrying prototypes.
 * **Decorated AFLOW labels**: AFLOW labels are sometimes used with a “decoration” to indicate chemical species, although there does not seem to be one universal endorsed format. These decorations take AFLOW labels closer to httk bare protostructures.
 

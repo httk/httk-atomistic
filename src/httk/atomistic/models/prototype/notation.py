@@ -9,16 +9,21 @@ occupations into species classes. The grammar is::
 
 A ``GROUP`` is the concatenation of one species class's Wyckoff letters, sorted
 alphabetically, a letter occupied ``k >= 2`` times prefixed by the integer ``k``
-(``2e``); count ``1`` is omitted. ``ANON`` is the anonymous formula built from
+(``2e``); count ``1`` is omitted. Groups appear in the order of :func:`class_order_key`:
+largest summed conventional multiplicity first, then sorted Wyckoff letters. ``ANON`` is
+the anonymous formula built from
 :func:`~httk.atomistic.models.formula.notation.anonymous_symbol` in group order with
-per-group summed conventional multiplicities reduced by their overall gcd.
+per-group summed conventional multiplicities reduced by their overall gcd, so it equals
+the :class:`~httk.atomistic.Formulatype` of the site counts.
 
 httk labels are deliberately NOT AFLOW labels. AFLOW orders classes by element symbol
 (alphabetically) so its unsuffixed prefix still depends on the chemistry; httk orders
-classes by their Wyckoff letters, so the unsuffixed prefix is element-agnostic and a
-protostructure label is exactly the prototype label of the erased template followed
-by ``:`` and the class species names. :func:`render_aflow_label` renders the AFLOW-style
-variant for interoperability; it has no parser here.
+classes by site count and then by Wyckoff letters, so the unsuffixed prefix is
+element-agnostic and a protostructure label is exactly the prototype label of the erased
+template followed by ``:`` and the class species names. Calcite renders as
+``A3BC_hR10_167_e_a_b:O-Ca-C`` here and as ``ABC3_hR10_167_b_a_e:C-Ca-O`` in AFLOW
+style. :func:`render_aflow_label` renders the AFLOW-style variant for interoperability;
+it has no parser here.
 
 "Canonicality" terminology: any faithful render of an object is *the* prototype or
 protostructure label; the *canonical* prototype or protostructure label is the one
@@ -157,18 +162,40 @@ def _reduce_counts(counts: Sequence[int]) -> tuple[int, ...]:
     return tuple(count // common for count in counts)
 
 
-def canonical_label_map(class_letters: Mapping[str, tuple[str, ...]]) -> dict[str, str]:
+def class_order_key(letters: tuple[str, ...], multiplicity: int, tie: str = "") -> tuple[int, tuple[str, ...], str]:
+    """Return the sort key of one species class: Formulatype order, then Wyckoff letters.
+
+    The class with the largest summed conventional multiplicity comes first, as in
+    :class:`~httk.atomistic.Formulatype`; equal counts are ordered by the sorted Wyckoff
+    letters, and ``tie`` (a species name or input key) breaks what remains. Label
+    rendering, anonymous relabelling and the canonicalisers' choice among equivalent
+    descriptions all sort by this key.
+
+    :param letters: The class's sorted Wyckoff letters, repetitions included.
+    :param multiplicity: The class's summed conventional Wyckoff multiplicity.
+    :param tie: The final tie-break, a species name or input class key.
+    :return: The key; smaller keys come first.
+    """
+    return (-multiplicity, letters, tie)
+
+
+def canonical_label_map(spacegroup: Spacegroup, class_letters: Mapping[str, tuple[str, ...]]) -> dict[str, str]:
     """Map input class keys to consecutive anonymous class labels in group order.
 
-    Classes are ordered lexicographically by their sorted Wyckoff-letter sequence
-    (including repetitions); the input key breaks ties deterministically. Two classes
-    with identical letter sequences are interchangeable, so either tie order renders the
-    identical label.
+    Classes are ordered by :func:`class_order_key`: largest summed conventional
+    multiplicity first, then their sorted Wyckoff-letter sequence (including
+    repetitions); the input key breaks ties deterministically. Two classes with identical
+    letter sequences are interchangeable, so either tie order renders the identical label.
 
+    :param spacegroup: The standard-setting space group the letters belong to.
     :param class_letters: For each input class key its sorted Wyckoff letters.
     :return: A mapping from each input class key to its canonical anonymous label.
     """
-    ordered = sorted(class_letters, key=lambda key: (class_letters[key], key))
+    counts = {
+        key: sum(spacegroup.wyckoff_position(letter).multiplicity for letter in letters)
+        for key, letters in class_letters.items()
+    }
+    ordered = sorted(class_letters, key=lambda key: class_order_key(class_letters[key], counts[key], key))
     return {key: anonymous_symbol(index) for index, key in enumerate(ordered)}
 
 
@@ -182,7 +209,7 @@ def render_prototype_label(spacegroup: Spacegroup, occupations: Sequence[tuple[s
     :raises ValueError: If any Wyckoff letter is absent from the setting.
     """
     classes = _classes(spacegroup, occupations)
-    ordered_keys = sorted(classes, key=lambda key: (classes[key][0], key))
+    ordered_keys = sorted(classes, key=lambda key: class_order_key(classes[key][0], classes[key][1], key))
     return _assemble(
         spacegroup,
         [classes[key][0] for key in ordered_keys],
@@ -193,7 +220,8 @@ def render_prototype_label(spacegroup: Spacegroup, occupations: Sequence[tuple[s
 def render_protostructure_label(spacegroup: Spacegroup, occupations: Sequence[tuple[str, str]]) -> str:
     """Render the httk protostructure label of a space group and its named occupations.
 
-    Classes are ordered by their sorted Wyckoff letters, ties broken by species name. The
+    Classes are ordered by :func:`class_order_key`: largest summed conventional
+    multiplicity first, then sorted Wyckoff letters, ties broken by species name. The
     unsuffixed prefix equals the prototype label of the erased template; the suffix lists
     the class species names in group order.
 
@@ -203,7 +231,7 @@ def render_protostructure_label(spacegroup: Spacegroup, occupations: Sequence[tu
     :raises ValueError: If any Wyckoff letter is absent from the setting.
     """
     classes = _classes(spacegroup, occupations)
-    ordered_keys = sorted(classes, key=lambda key: (classes[key][0], key))
+    ordered_keys = sorted(classes, key=lambda key: class_order_key(classes[key][0], classes[key][1], key))
     prefix = _assemble(
         spacegroup,
         [classes[key][0] for key in ordered_keys],

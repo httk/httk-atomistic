@@ -14,6 +14,7 @@ from httk.core import FracVector, SurdVector
 
 from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.prototype.notation import class_order_key
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.models.structure.comparison import same_crystal
@@ -252,15 +253,19 @@ def _with_basis(structure: ASUStructure, basis: SurdVector) -> ASUStructure:
 
 def _discrete_key(
     structure: ASUStructure, operation: AffineOperation
-) -> tuple[tuple[tuple[str, ...], ...], tuple[Any, ...]]:
+) -> tuple[tuple[tuple[int, tuple[str, ...]], ...], tuple[Any, ...]]:
     letters: dict[str, list[str]] = {}
     for site in structure.wyckoff_sites:
         _checkpoint()
         target = compile_wyckoff_action(structure.spacegroup, operation, site.wyckoff).target_letter
         letters.setdefault(site.species, []).append(target)
     classes = {species: tuple(sorted(values)) for species, values in letters.items()}
-    anonymous = tuple(sorted(classes.values()))
-    assignment = tuple(sorted((values, species) for species, values in classes.items()))
+    counts = {
+        species: sum(structure.spacegroup.wyckoff_position(letter).multiplicity for letter in values)
+        for species, values in classes.items()
+    }
+    anonymous = tuple(sorted(class_order_key(values, counts[species])[:2] for species, values in classes.items()))
+    assignment = tuple(sorted(class_order_key(values, counts[species], species) for species, values in classes.items()))
     return anonymous, assignment
 
 
@@ -291,7 +296,7 @@ def _discrete_candidates(structure: ASUStructure) -> tuple[_Candidate, ...]:
     candidates: list[tuple[tuple[Any, ...], _Candidate]] = []
     best_key: tuple[Any, ...] | None = None
     point_operations = tuple((operation, operation.matrix.T().inv()) for operation in _point_operations(structure))
-    discrete_keys: dict[AffineOperation, tuple[tuple[tuple[str, ...], ...], tuple[Any, ...]]] = {}
+    discrete_keys: dict[AffineOperation, tuple[tuple[tuple[int, tuple[str, ...]], ...], tuple[Any, ...]]] = {}
     metric_keys: dict[FracVector, tuple[Any, ...]] = {}
     source_metric = structure.cell.metric()
     source_handedness = structure.cell.basis.det().sign()

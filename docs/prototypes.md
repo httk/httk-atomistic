@@ -250,7 +250,16 @@ A `GROUP` is the concatenation of one class's Wyckoff letters, sorted
 alphabetically, a letter occupied `k >= 2` times prefixed by the integer `k`
 (`2e`); count `1` is omitted. `ANON` is the anonymous formula (`A`, `B`, `C`,
 ...) built in group order with per-group summed conventional multiplicities
-reduced by their overall GCD.
+reduced by their overall GCD, so it is the {py:class}`~httk.atomistic.Formulatype`
+of the class site counts.
+
+For disordered or mixed-species occupations this prefix can differ from an
+assigned value's `anonymous_formula`, which is composition-based: a
+`BareProtostructure` with an equal Fe/Ni mixture on `225` `a` and O on `b`
+labels as `AB_cF8_225_a_b:FeNi-O`, but its `anonymous_formula` is `A2BC`.
+Erasing such a bare value still gives a `BarePrototype` (`AB_cF8_225_a_b`), but
+a `BarePrototype` cannot be derived from a structure carrying such species;
+structure anonymization requires single-element species.
 
 A structure's canonicalization preserves chirality by default. Pass
 `preserve_chirality=False` to the corresponding classification canonicalizer
@@ -264,12 +273,17 @@ recognize and canonicalize the structure, then canonicalize its bare projection.
 
 ### httk labels are not AFLOW labels
 
-The **httk group-ordering convention** orders the occupation groups
-lexicographically by their sorted Wyckoff-letter sequences. This ordering is
-*element-agnostic*, so a protostructure label is exactly its erased prototype
-label plus the `:` species suffix. AFLOW, by contrast, orders the classes by
-element symbol **alphabetically**, so its unsuffixed prefix depends on the
-chemistry. The two are therefore genuinely different strings, and an httk label
+The **httk group-ordering convention** follows `Formulatype`: the class with
+the largest summed conventional Wyckoff multiplicity (its site count, not an
+occupancy-weighted amount) comes first; classes with equal counts are ordered
+lexicographically by their sorted Wyckoff-letter sequences; a remaining tie is
+broken by the species name in a protostructure label. The anonymous symbols
+`A`, `B`, ... are assigned in the same order, and the canonicalizers use the
+same key to choose among equivalent descriptions, so a canonical value and its
+label agree. This ordering is *element-agnostic*, so a protostructure label is
+exactly its erased prototype label plus the `:` species suffix. AFLOW, by
+contrast, orders the classes by element symbol **alphabetically**, so its
+unsuffixed prefix depends on the chemistry. The two are therefore genuinely different strings, and an httk label
 is **not** an AFLOW label.
 
 The assigned-species classes expose both, as distinct properties: `label` (the
@@ -282,13 +296,13 @@ from httk.atomistic import BareProtostructure, Species
 
 Ca, C, O = Species("Ca", ("Ca",), (1,)), Species("C", ("C",), (1,)), Species("O", ("O",), (1,))
 calcite = BareProtostructure(167, [("a", Ca), ("b", C), ("e", O)])
-assert calcite.label == "ABC3_hR10_167_a_b_e:Ca-C-O"
+assert calcite.label == "A3BC_hR10_167_e_a_b:O-Ca-C"
 assert calcite.aflow_label == "ABC3_hR10_167_b_a_e:C-Ca-O"
 ```
 
-The httk label orders the groups `a`, `b`, `e` by Wyckoff letter; the AFLOW
-label orders them `b`, `a`, `e` to follow the alphabetical elements
-`C`, `Ca`, `O`.
+The httk label puts O on `e` (18 sites) first; Ca on `a` and C on `b` tie
+with 6 sites each and follow by Wyckoff letter. The AFLOW label orders the
+groups `b`, `a`, `e` to follow the alphabetical elements `C`, `Ca`, `O`.
 
 ### Pearson symbol
 

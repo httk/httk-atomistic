@@ -160,8 +160,10 @@ class ProtostructureAPI(ABC):
     def label(self) -> "ProtostructureLabel":
         """Return the httk protostructure label of this protostructure.
 
-        The label's unsuffixed part orders classes by their Wyckoff letters, so it is the
-        prototype label of the erased anonymous prototype; the suffix lists the class species names.
+        The label's unsuffixed part orders classes by
+        :func:`~httk.atomistic.models.prototype.notation.class_order_key` (largest summed
+        conventional multiplicity first, then sorted Wyckoff letters), so it is the prototype
+        label of the erased anonymous prototype; the suffix lists the class species names.
         This is NOT an AFLOW label: AFLOW orders classes alphabetically by element (see
         :attr:`aflow_label`). Any faithful render is *the* protostructure label; the
         *canonical* protostructure label comes from a normalizer-canonical protostructure.

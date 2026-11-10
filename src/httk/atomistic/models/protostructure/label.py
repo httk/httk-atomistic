@@ -21,8 +21,9 @@ class ProtostructureLabel(ProtostructureViewBase, str):
     via ``canonical_asu``). This view renders the label with no affine-normalizer pass.
 
     The unsuffixed part is the httk prototype label of the erased anonymous prototype (classes
-    ordered by Wyckoff letters, not by element as AFLOW does), followed by ``:`` and the
-    class species names in group order.
+    ordered by largest summed conventional multiplicity first, then sorted Wyckoff letters,
+    not by element as AFLOW does), followed by ``:`` and the class species names in group
+    order.
 
     :param obj: The protostructure-like object to present.
     :param \*\*hints: Backend-selection hints.

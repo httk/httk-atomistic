@@ -20,7 +20,8 @@ def test_rocksalt_prototype_label() -> None:
 
 def test_calcite_prototype_label() -> None:
     template = BarePrototype(167, [("a", "A"), ("b", "B"), ("e", "C")])
-    assert str(template.label) == "ABC3_hR10_167_a_b_e"
+    # Pure reorder: O on e (18 sites) leads; a and b (6 each) tie and sort by letter.
+    assert str(template.label) == "A3BC_hR10_167_e_a_b"
 
 
 def test_rhombohedral_divides_conventional_count_by_three() -> None:
@@ -56,7 +57,8 @@ def test_repeated_special_letter_group_pins() -> None:
     [
         # Trigonal-P and hexagonal-P: the count is NOT divided by three (that is R-only).
         (156, [("a", "A"), ("b", "B")], "AB_hP2_156_a_b"),
-        (194, [("a", "A"), ("b", "A"), ("f", "B"), ("f", "B")], "AB2_hP12_194_ab_2f"),
+        # Pure reorder: 2f (8 sites) precedes ab (4 sites).
+        (194, [("a", "A"), ("b", "A"), ("f", "B"), ("f", "B")], "A2B_hP12_194_2f_ab"),
     ],
 )
 def test_non_rhombohedral_pearson_is_not_divided(it_number: int, occupations: list, expected: str) -> None:
@@ -68,7 +70,8 @@ def test_non_rhombohedral_pearson_is_not_divided(it_number: int, occupations: li
 def test_protostructure_label_and_aflow_divergence() -> None:
     sg = Spacegroup.standard(167)
     occupations = [("a", "Ca"), ("b", "C"), ("e", "O")]
-    assert render_protostructure_label(sg, occupations) == "ABC3_hR10_167_a_b_e:Ca-C-O"
+    # Pure reorder of the old ``ABC3_hR10_167_a_b_e:Ca-C-O``: O (18 sites) first.
+    assert render_protostructure_label(sg, occupations) == "A3BC_hR10_167_e_a_b:O-Ca-C"
     # AFLOW orders classes by element symbol, so the unsuffixed prefix reorders too.
     assert render_aflow_label(sg, occupations) == "ABC3_hR10_167_b_a_e:C-Ca-O"
 

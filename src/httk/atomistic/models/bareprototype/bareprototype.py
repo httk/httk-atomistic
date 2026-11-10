@@ -40,7 +40,9 @@ class BarePrototype(BarePrototypeBackend):
         expected = {anonymous_symbol(index) for index in range(len(letters_by_label))}
         if set(letters_by_label) != expected:
             raise ValueError("BarePrototype class labels must be consecutive anonymous symbols from 'A'")
-        relabel = canonical_label_map({label: tuple(sorted(letters)) for label, letters in letters_by_label.items()})
+        relabel = canonical_label_map(
+            self._spacegroup, {label: tuple(sorted(letters)) for label, letters in letters_by_label.items()}
+        )
         self._occupations = tuple(
             sorted(
                 (PrototypeOccupation(value.wyckoff, relabel[value.label]) for value in raw),

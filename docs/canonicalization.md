@@ -307,10 +307,12 @@ recognition and no upward symmetry search.
     Derive the parameter map by the chart equations below and accept the first
     chart whose *complete orbit family* matches exactly coefficient by coefficient
     modulo lattice translations. Failure to prove any action raises.
-20. **Make the discrete key.** For each class, sort its mapped Wyckoff letters.
-    The anonymous half is the sorted tuple of those class tuples. The assignment
-    half is the sorted tuple `(letter tuple, synthetic class name)`. Compare the
-    pair `(anonymous, assignment)`, and retain the complete minimum tier.
+20. **Make the discrete key.** For each class, sort its mapped Wyckoff letters
+    and sum their conventional multiplicities. The anonymous half is the sorted
+    tuple of `(-multiplicity, letter tuple)` class keys. The assignment half is
+    the sorted tuple `(-multiplicity, letter tuple, synthetic class name)`. This
+    is the label's class order (`class_order_key`). Compare the pair
+    `(anonymous, assignment)`, and retain the complete minimum tier.
 21. **Choose basis signs.** The candidate basis change is the group point-map
     inverse transpose multiplied by the normalizer operation's inverse
     transpose. If it reverses the source handedness and `-I` preserves the exact
@@ -511,8 +513,13 @@ partner and enumerates only finite exact letter-changing actions: identity,
 vendored affine-normalizer cosets, exact discrete normalizer translations, and
 group-preserving inversion. It uses only the materialized group and occupations;
 the bare value carries no cell or coordinates.
-The assigned key is `(sorted anonymous letter tuples, sorted(letter tuple,
-species name))`; the anonymous key is the sorted tuple of letter tuples.
+Each class is keyed by the label's class order, `class_order_key`:
+`(-summed conventional multiplicity, sorted letter tuple)`. The assigned key is
+`(sorted anonymous class keys, sorted(class key + species name))`; the anonymous
+key is the sorted tuple of class keys. Because the label renders classes in the
+same order, the chosen description is the one whose label is least in that
+order; for spinel (227, Mg `a`, Al `d`, O `e`) this selects the origin-shifted
+description Mg `b`, Al `c`, labelled `A4B2C_cF56_227_e_c_b:O-Al-Mg`.
 
 The finite action order is identity followed by affine-normalizer cosets in
 stored order; each is crossed, as the outer loop, with sorted discrete
@@ -530,10 +537,12 @@ stored free parameters. Otherwise canonicalization raises rather than treating
 an imprecise annotation as exact data.
 
 An anonymous refined representative is relabelled after geometry is canonical.
-Occupied classes are ordered by
-`(sorted Wyckoff-letter tuple, sorted (letter, exact-parameter-tuple) rows)` and
-receive `A`, `B`, ... in that order. Unused dummy species retain their count and
-receive the trailing canonical labels in their existing order. Input dummy
+Occupied classes are ordered by the label's class order
+`(-summed conventional multiplicity, sorted Wyckoff-letter tuple)`, then by
+their sorted `(letter, exact-parameter-tuple)` rows, and receive `A`, `B`, ...
+in that order, so the representative's class names match its label. Unused
+dummy species retain their count and receive the trailing canonical labels in
+their existing order. Input dummy
 names therefore do not break geometry ties.
 
 A refined geometry terminal can demote a site onto a special position or

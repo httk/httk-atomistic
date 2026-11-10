@@ -41,7 +41,9 @@ class DerivedBarePrototype(BarePrototypeBackend):
 
     @cached_property
     def _derived(self) -> BarePrototype:
-        return BarePrototype(self._source.spacegroup, _anonymous_occupations(self._source.occupations))
+        return BarePrototype(
+            self._source.spacegroup, _anonymous_occupations(self._source.spacegroup, self._source.occupations)
+        )
 
     def resolve(self) -> BarePrototype:
         """Return the standalone anonymous classification."""

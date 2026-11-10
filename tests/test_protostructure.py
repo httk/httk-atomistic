@@ -506,7 +506,8 @@ def test_protostructure_view_accepts_custom_backend_and_native_identity() -> Non
 
 def test_protostructure_label_golden_and_aflow_divergence() -> None:
     calcite = BareProtostructure(167, [("a", "Ca"), ("b", "C"), ("e", "O")])
-    assert str(calcite.label) == "ABC3_hR10_167_a_b_e:Ca-C-O"
+    # Pure reorder of the old ``ABC3_hR10_167_a_b_e:Ca-C-O``: O (18 sites) first.
+    assert str(calcite.label) == "A3BC_hR10_167_e_a_b:O-Ca-C"
     # AFLOW orders classes alphabetically by element, so both prefix and suffix reorder.
     assert calcite.aflow_label == "ABC3_hR10_167_b_a_e:C-Ca-O"
 

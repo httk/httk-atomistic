@@ -23,6 +23,7 @@ from httk.atomistic.models.protostructure.like import ProtostructureLike
 from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.protostructure.view import ProtostructureView
 from httk.atomistic.models.prototype.like import PrototypeLike
+from httk.atomistic.models.prototype.notation import class_order_key
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.prototype.view import PrototypeView
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
@@ -75,23 +76,37 @@ def _mapped_occupations(value: Any, operation: AffineOperation, target: Spacegro
     ]
 
 
-def _assigned_key(occupations: Iterable[tuple[str, Any]]) -> tuple[Any, ...]:
+def _class_counts(spacegroup: Spacegroup, groups: dict[Any, tuple[str, ...]]) -> dict[Any, int]:
+    """Return each class's summed conventional multiplicity."""
+    return {
+        key: sum(spacegroup.wyckoff_position(letter).multiplicity for letter in letters)
+        for key, letters in groups.items()
+    }
+
+
+def _assigned_key(occupations: Iterable[tuple[str, Any]], spacegroup: Spacegroup) -> tuple[Any, ...]:
     """Order an assigned bare key without inspecting hidden geometry."""
     classes: dict[str, list[str]] = {}
     for letter, species in occupations:
         _checkpoint()
         classes.setdefault(species.name, []).append(letter)
     groups = {name: tuple(sorted(letters)) for name, letters in classes.items()}
-    return tuple(sorted(groups.values())), tuple(sorted((letters, name) for name, letters in groups.items()))
+    counts = _class_counts(spacegroup, groups)
+    return (
+        tuple(sorted(class_order_key(letters, counts[name])[:2] for name, letters in groups.items())),
+        tuple(sorted(class_order_key(letters, counts[name], name) for name, letters in groups.items())),
+    )
 
 
-def _prototype_key(occupations: Iterable[tuple[str, str]]) -> tuple[tuple[str, ...], ...]:
+def _prototype_key(occupations: Iterable[tuple[str, str]], spacegroup: Spacegroup) -> tuple[Any, ...]:
     """Order an anonymous bare key without using class labels as a tie-break."""
     classes: dict[str, list[str]] = {}
     for letter, label in occupations:
         _checkpoint()
         classes.setdefault(label, []).append(letter)
-    return tuple(sorted(tuple(sorted(letters)) for letters in classes.values()))
+    groups = {label: tuple(sorted(letters)) for label, letters in classes.items()}
+    counts = _class_counts(spacegroup, groups)
+    return tuple(sorted(class_order_key(letters, counts[label])[:2] for label, letters in groups.items()))
 
 
 def _chirality_target(spacegroup: Spacegroup, preserve_chirality: bool) -> Spacegroup:
@@ -114,7 +129,7 @@ def _canonical_bare(value: Any, *, prototype: bool, preserve_chirality: bool) ->
         operation = action * chirality
         mapped = _mapped_occupations(value, operation, target)
         candidate = BarePrototype(target, mapped) if prototype else BareProtostructure(target, mapped)
-        key = _prototype_key(mapped) if prototype else _assigned_key(mapped)
+        key = _prototype_key(mapped, target) if prototype else _assigned_key(mapped, target)
         candidates.append((key, candidate))
     return min(candidates, key=lambda item: item[0])[1]
 
@@ -208,11 +223,12 @@ def _template_representative(result: ASUStructure) -> FundamentalDomainTemplate:
     for site in result.wyckoff_sites:
         _checkpoint()
         by_name.setdefault(site.species, []).append(site)
-    occupied = [name for name, sites in by_name.items() if sites]
+    groups = {name: tuple(sorted(site.wyckoff for site in sites)) for name, sites in by_name.items() if sites}
+    counts = _class_counts(result.spacegroup, groups)
     names = sorted(
-        occupied,
+        groups,
         key=lambda name: (
-            tuple(sorted(site.wyckoff for site in by_name[name])),
+            class_order_key(groups[name], counts[name])[:2],
             tuple(sorted((site.wyckoff, tuple(site.free_params.to_fractions())) for site in by_name[name])),
         ),
     )

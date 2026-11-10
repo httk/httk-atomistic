@@ -37,7 +37,9 @@ def _anonymous_template_from_structure(structure: FundamentalDomainStructure) ->
     by_name: dict[str, list[str]] = {}
     for site in structure.wyckoff_sites:
         by_name.setdefault(site.species, []).append(site.wyckoff)
-    labels = canonical_label_map({name: tuple(sorted(letters)) for name, letters in by_name.items()})
+    labels = canonical_label_map(
+        structure.spacegroup, {name: tuple(sorted(letters)) for name, letters in by_name.items()}
+    )
     species = tuple(Species(label, ("X",), (1,), labels=(label,)) for label in labels.values())
     sites = tuple(
         WyckoffSite(site.wyckoff, site.free_params, labels[site.species], representative=site.representative)
@@ -48,11 +50,11 @@ def _anonymous_template_from_structure(structure: FundamentalDomainStructure) ->
     )
 
 
-def _anonymous_occupations(occupations: Sequence[WyckoffOccupation]) -> list[PrototypeOccupation]:
+def _anonymous_occupations(spacegroup: Any, occupations: Sequence[WyckoffOccupation]) -> list[PrototypeOccupation]:
     by_name: dict[str, list[str]] = {}
     for occupation in occupations:
         by_name.setdefault(occupation.species.name, []).append(occupation.wyckoff)
-    relabel = canonical_label_map({name: tuple(sorted(letters)) for name, letters in by_name.items()})
+    relabel = canonical_label_map(spacegroup, {name: tuple(sorted(letters)) for name, letters in by_name.items()})
     return [PrototypeOccupation(o.wyckoff, relabel[o.species.name]) for o in occupations]
 
 
@@ -83,7 +85,7 @@ class DerivedPrototype(PrototypeBackend):
     def _derived(self) -> Prototype:
         source = self._source
         value = source._backend if isinstance(source, ProtostructureViewBase) else source
-        occupations = _anonymous_occupations(value.occupations)
+        occupations = _anonymous_occupations(value.spacegroup, value.occupations)
         representative = value.representative
         anon_rep = None if representative is None else _anonymous_template_from_structure(representative)
         return Prototype(value.spacegroup, occupations, representative=anon_rep, discriminator=value.discriminator)
