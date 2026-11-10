@@ -1,6 +1,7 @@
 """Projection of refined protostructure values onto their bare classification."""
 
-from typing import Any, Self
+from functools import cached_property
+from typing import Any, Self, cast
 
 from httk.core import unwrap
 
@@ -14,7 +15,11 @@ from httk.atomistic.models.protostructure.view_base import ProtostructureViewBas
 class ProjectedBareProtostructure(BareProtostructureBackend):
     """Retain a refined or protonetstructure source while exposing its discrete classification.
 
-    :param obj: Refined classification source.
+    A refined source exposes its own occupations. A protonetstructure source exposes the
+    canonical bare protostructure of its occupations: its class order follows the net, so its
+    bare part is not always the canonical bare label.
+
+    :param obj: Refined or protonetstructure classification source.
     """
 
     kind = "bare_protostructure"
@@ -36,15 +41,29 @@ class ProjectedBareProtostructure(BareProtostructureBackend):
     def __init__(self, obj: Any) -> None:
         self._source = obj
 
+    @cached_property
+    def _projected(self) -> Any:
+        """Return the source, or for a protonetstructure its canonical bare protostructure."""
+        source = self._source
+        if not isinstance(source, (ProtonetstructureBackend, ProtonetstructureViewBase)):
+            return source
+        from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
+        from httk.atomistic.symmetry.canonical_classification import _canonical_bare
+
+        value = cast(ProtonetstructureBackend, source)  # the view base declares no fields
+        return _canonical_bare(
+            BareProtostructure(value.spacegroup, value.occupations), prototype=False, preserve_chirality=True
+        )
+
     @property
     def spacegroup(self):
         """Return the standard-setting space group."""
-        return self._source.spacegroup
+        return self._projected.spacegroup
 
     @property
     def occupations(self):
         """Return the canonical discrete occupations."""
-        return self._source.occupations
+        return self._projected.occupations
 
     def unwrap(self) -> Any:
         """Return the retained refined source."""

@@ -80,10 +80,14 @@ class ProtonetstructureAPI(ABC):
 
     @property
     def bare_protostructure(self) -> "BareProtostructure":
-        """Return the bare protostructure of these occupations, without the net."""
-        from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
+        """Return the canonical bare protostructure of these occupations, without the net.
 
-        return BareProtostructure(self.spacegroup, self.occupations)
+        This is not a string cut of :attr:`label`: classes there follow the net, so its bare
+        part can differ from the canonical bare protostructure label when classes tie.
+        """
+        from httk.atomistic.models.bareprotostructure.view import BareProtostructureView
+
+        return BareProtostructureView(self).unview()
 
     @property
     def protonettype(self) -> "Protonettype":

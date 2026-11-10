@@ -162,14 +162,24 @@ def test_k2agsbs4_levels_nest_as_in_the_brief() -> None:
     assert str(ps.label) == "A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.10@3:S-K-Ag-Sb"
 
 
+# Species exchanges that keep the prototype label: NaCl (a and b swapped by an origin shift) and
+# wurtzite (two classes on b). There the net orders the species (D3), so the cut label is not
+# promised to be the canonical bare protostructure label; elsewhere it is.
+TIED = frozenset({"nacl", "nacl-exchanged", "wurtzite"})
+
+
 @pytest.mark.parametrize("name", list(CASES))
 def test_levels_nest_as_prefixes(name: str) -> None:
     ps = _canonical(name)
     nt = canonical_protonettype(ps)
     formulatype, bare, label = str(nt.anonymous_formula), str(canonical_bare_prototype(nt).label), str(nt.label)
     assert bare.startswith(formulatype + "_") and label.startswith(bare + "__")
-    bare_part, _, rest = str(ps.label).partition("__")
-    assert bare_part == bare and f"{bare_part}:{rest.rpartition(':')[2]}" == str(ps.bare_protostructure.label)
+    assert str(ps.label).rpartition(":")[0] == label
+    assert label.partition("__")[0] == bare
+    assert ps.bare_protostructure == canonical_bare_protostructure(_value(name))
+    if name not in TIED:
+        bare_part, _, rest = str(ps.label).partition("__")
+        assert f"{bare_part}:{rest.rpartition(':')[2]}" == str(ps.bare_protostructure.label)
 
 
 def test_k2agsbs4_with_k_s_contacts() -> None:

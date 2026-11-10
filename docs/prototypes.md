@@ -368,7 +368,10 @@ target     = site [ "@" op [ "@" klm ] ]
 klm        = digit digit digit                    (each digit = translation + 5)
 ```
 
-The levels nest as string prefixes. For K₂AgSbS₄ (COD 1509425):
+The anonymous levels and the protonetstructure nest as string prefixes; the
+canonical bare protostructure label is not always one (see
+[the species-order rule](#species-order-of-protonetstructure-labels)).
+For K₂AgSbS₄ (COD 1509425), where no classes tie:
 
 ```
 A4B2CD                                                                   Formulatype
@@ -519,6 +522,48 @@ groups the canonical net is canonical only relative to the cell that httk's
 standardisation chooses (the tabulated descriptions of P-1 are not closed, and
 no monoclinic set contains shears between equivalent cell choices). See
 {doc}`canonicalization` for the algorithm and its limits.
+
+### Species order of protonetstructure labels
+
+A canonical `Protonetstructure` label is the canonical `Protonettype` label,
+`:`, and the species names, which fill the classes in the class order of the
+canonical net. Where several descriptions give the same net, the smallest tuple
+of names is taken. The bare protostructure label instead orders tied classes by
+name alone. So `BarePrototype` → `Protonettype` → `Protonetstructure` nest as
+string prefixes, but `BarePrototype` → `BareProtostructure` →
+`Protonetstructure` do not always: cutting `__net` from a protonetstructure
+label gives a correct description of its bare protostructure, but not always
+the canonical bare protostructure label. The two orders differ when exchanging
+two species leaves the anonymous prototype label unchanged and the net tells
+them apart against alphabetical order. That happens when
+
+- two classes tie in site count and Wyckoff letters, or
+- an equivalent description exchanges their positions, e.g. two inversion
+  centres of one Wyckoff set.
+
+Examples in P2₁/c (no. 14), where operation 2 is the inversion `-x,-y,-z`:
+
+| Structure | Protonetstructure label | Canonical bare protostructure label |
+| --------- | ----------------------- | ----------------------------------- |
+| N on `e` bonded to its own inversion image and to H on `e` | `AB_mP8_14_e_e__1~1@2.2:N-H` | `AB_mP8_14_e_e:H-N` |
+| C on `e`, the same net | `AB_mP8_14_e_e__1~1@2.2:C-H` | `AB_mP8_14_e_e:C-H` |
+| N and H on `e` joined by two bonds, neither self-bonded | `AB_mP8_14_e_e__1~2.2@2:H-N` | `AB_mP8_14_e_e:H-N` |
+| O on `e`, Cu on `a`, Zn on `b`, O bonded to Cu | `A2BC_mP8_14_e_a_b__1~2:O-Cu-Zn` | `A2BC_mP8_14_e_a_b:O-Cu-Zn` |
+| The same sites, O bonded to Zn | `A2BC_mP8_14_e_a_b__1~2:O-Zn-Cu` | `A2BC_mP8_14_e_a_b:O-Cu-Zn` |
+
+The first two rows share the protonettype `AB_mP8_14_e_e__1~1@2.2`: the net puts
+the self-bonded class first, whichever name it has. In the last row the two
+inversion centres `a` and `b` are exchanged by an origin shift, and the net puts
+the centre bonded to O on `a`.
+
+Which projections are string operations:
+
+- protonetstructure → protonettype: cut the `:` suffix;
+- protonettype → bare prototype: cut `__net`;
+- protonetstructure → bare protostructure: **not** a string operation.
+  `BareProtostructureView` of a `Protonetstructure`, and its
+  `bare_protostructure` property, re-canonicalize its occupations, so both equal {py:func}`~httk.atomistic.canonical_bare_protostructure`
+  of the same value.
 
 ## Similarity and atom travel
 

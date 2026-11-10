@@ -24,7 +24,7 @@ The minimum over all reference-atom choices is found exactly (integer lattice ar
 range).  An earlier version searched a +-1 / +-2 lattice box and could miss the minimum.
 
 Test copy: this is the oracle for tests/test_protonet_canonical.py, copied from the workspace
-docs/protonet/protonet_reference_v2.py with only ruff formatting and this note added.
+docs/protonet_followup/protonet_reference.py with only ruff formatting and this note added.
 """
 
 import math
@@ -679,6 +679,12 @@ def canonical_net(it_number, sites, rows, class_order="formula"):
     """sites: [(class_id, wyckoff_letter)] in any order; rows: [(i, j, (k, n1, n2, n3))] with 0-based
     site indices and elements relative to the sites' reference atoms.
 
+    The net is always the anonymous one (Protonettype).  For an assigned structure pass the species
+    names as class ids: 'classes' is then the species order of the Protonetstructure label, i.e. the
+    class order of the canonical net, and where several realisations give the same net, the
+    smallest tuple of names among them.  That order can differ from the order in the bare
+    protostructure label, which is decided by names alone.
+
     class_order="formula" (the specification) orders the classes as Formulatype does: largest site
     count first, then sorted Wyckoff letters.  class_order="letters" is the order httk-atomistic
     used before the reorder (letters only) and is kept only to reproduce old strings.
@@ -744,7 +750,7 @@ def canonical_net(it_number, sites, rows, class_order="formula"):
         net=render(best["slots"], best["codes"]),
         slots=best["slots"],
         codes=best["codes"],
-        classes=best["realisations"][0]["classes"],
+        classes=min((r["classes"] for r in best["realisations"]), key=lambda names: [str(n) for n in names]),
         realisations=best["realisations"],
     )
 

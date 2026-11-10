@@ -26,6 +26,13 @@ caller; *httk₂* does not decide which atom pairs are bonded. See
 {doc}`../prototypes` for the notation and {doc}`../canonicalization` for the
 canonical form.
 
+A protonetstructure label orders species by the canonical net, so cutting its
+`__net` part does not always give the canonical bare protostructure label;
+`BareProtostructureView` of a protonetstructure and its `bare_protostructure`
+property re-canonicalize instead. The
+anonymous levels do nest as string prefixes. See
+[the species-order rule](../prototypes.md#species-order-of-protonetstructure-labels).
+
 ## Details
 
 The naming of the structural classes in *httk* starts from:
