@@ -1,12 +1,13 @@
 from typing import TYPE_CHECKING
 
+from .anonymous_formula import AnonymousFormula
+from .anonymous_formula_view import AnonymousFormulaView
 from .formulatype import Formulatype
 from .formulatype_string import FormulatypeString
 from .formulatype_view import FormulatypeView
 
-# Alias for discoverability; canonical name is Formulatype (see docs/prototypes.md).
-AnonymousFormula = Formulatype
-AnonymousFormulaView = FormulatypeView
+# Raw anonymous text carries neither site-count nor composition meaning, so one string
+# backend serves both families; the views decide how their source is counted.
 AnonymousFormulaString = FormulatypeString
 from .api import ChemicalFormulaAPI
 from .backend import ChemicalFormulaBackend

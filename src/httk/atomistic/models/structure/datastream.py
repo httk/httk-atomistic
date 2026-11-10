@@ -3,8 +3,9 @@
 import io
 import os
 import urllib.request
+from functools import cached_property
 from pathlib import Path
-from typing import Any, ClassVar, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 from urllib.parse import urlsplit
 
 import httk.core
@@ -19,6 +20,9 @@ from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.backend import StructureBackend
+
+if TYPE_CHECKING:
+    from httk.atomistic.models.formula.composition import Composition
 
 
 class DatastreamStructure(StructureBackend):
@@ -245,6 +249,47 @@ class DatastreamStructure(StructureBackend):
         :return: The assigned charge, or ``None`` when it is unstated.
         """
         return self.resolve().charge
+
+    # StructureAPI defaults that a resolved backend may override (an ASU's orbit counts, an
+    # OPTIMADE entry's stored values) must delegate explicitly: __getattr__ never sees them.
+    def multiplicities(self) -> tuple[int, ...]:
+        """Expose how many unit-cell sites each resolved represented site contributes.
+
+        :return: One multiplicity per represented site.
+        """
+        return self.resolve().multiplicities()
+
+    @property
+    def nsites(self) -> int | None:
+        """Expose the resolved structure's number of represented sites."""
+        return self.resolve().nsites
+
+    @cached_property
+    def composition(self) -> "Composition":
+        """Expose the resolved structure's elemental composition."""
+        return self.resolve().composition
+
+    @property
+    def chemical_formula_descriptive(self) -> str | None:
+        """Expose the resolved structure's descriptive formula, when available."""
+        return self.resolve().chemical_formula_descriptive
+
+    @property
+    def chemical_formula_hill(self) -> str | None:
+        """Expose the resolved structure's Hill formula, when available."""
+        return self.resolve().chemical_formula_hill
+
+    @property
+    def structure_features(self) -> tuple[str, ...] | None:
+        """Expose the resolved structure's composition-related features."""
+        return self.resolve().structure_features
+
+    def cartesian_site_moments_floats(self) -> list[list[float]] | None:
+        """Return the resolved structure's per-site Cartesian moments as float rows, or ``None``.
+
+        :return: The Cartesian moments as float rows, or ``None``.
+        """
+        return self.resolve().cartesian_site_moments_floats()
 
     def __getattr__(self, name: str) -> Any:
         if name.startswith("_"):

@@ -4,7 +4,7 @@
 
 | Geometrical information | Anonymous occupation | Assigned species |
 | ----------------------- | -------------------- | ----------------- |
-| None                    | `Formulatype`        | `ChemicalFormula` |
+| None                    | `Formulatype`        |                   |
 | Wyckoff only            | `BarePrototype`     | `BareProtostructure` |
 | Wyckoff + covalent bonding net | `Protonettype` | `Protonetstructure` |
 | Geometrical class       | `Prototype`         | `Protostructure` |
@@ -56,7 +56,8 @@ partners. The same policy is available through
 
 We can take the weaker geometrical representation one step further, down to:
 
-* A **chemical formula**, `ChemicalFormula`, represents the structure only in terms of composition of the elements. The “Normalized Formula” gives the composition only in relative terms; any other unit cell representation can be condensed into a formula.
+* A **formulatype**, `Formulatype`, keeps only how many sites each species class occupies (reduced, largest first, as `A3B`); disorder and partial occupancy do not affect it, and it is the prefix of every prototype and protostructure label. Its assigned cell in the overview is deliberately empty.
+* A **chemical formula**, `ChemicalFormula`, sits outside the matrix as the occupation-based composition: it represents the structure only in terms of composition of the elements, each site weighted by its occupancy (`AnonymousFormula` is its anonymous rendering). The “Normalized Formula” gives the composition only in relative terms; any other unit cell representation can be condensed into a formula.
 
 Going in another direction, one can strip the absolute meaning of the chemical species and classify occupation only in terms of equivalent and non-equivalent species (the sites carry placeholder/equivalence assignments — a template into which real species may later be filled in). We mark this anonymous-occupation direction with the suffix “-type”. Hence:
 

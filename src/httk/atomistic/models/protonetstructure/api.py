@@ -63,7 +63,7 @@ class ProtonetstructureAPI(ABC):
 
     @property
     def anonymous_formula(self) -> FormulatypeView:
-        """Return a reduced anonymous formula at the standard conventional-cell scale."""
+        """Return the Formulatype of the species-class site counts, the label prefix."""
         return FormulatypeView(cast("ProtonetstructureBackend", self))
 
     @property

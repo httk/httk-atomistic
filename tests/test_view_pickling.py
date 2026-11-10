@@ -15,6 +15,7 @@ from httk.core import View
 
 import httk.atomistic
 from httk.atomistic import (
+    AnonymousFormulaView,
     ASUStructure,
     ASUStructureView,
     BareProtostructureLabel,
@@ -102,6 +103,7 @@ BUILDERS: dict[type[View[Any]], Callable[[], Any]] = {
     ChemicalFormulaView: lambda: ChemicalFormulaView(_asu()),
     CompositionView: lambda: CompositionView(_asu()),
     FormulatypeView: lambda: FormulatypeView(_asu()),
+    AnonymousFormulaView: lambda: AnonymousFormulaView(_asu()),
     BarePrototypeView: lambda: BarePrototypeView(_asu()),
     BarePrototypeLabel: lambda: BarePrototypeLabel(_asu()),
     BareProtostructureView: lambda: BareProtostructureView(_asu()),

@@ -10,9 +10,10 @@ from httk.atomistic.models.formula.notation import try_parse_anonymous
 class FormulatypeString(ChemicalFormulaBackend):
     r"""Wrap a canonical anonymous formula held as a plain string.
 
-    The canonical class name is ``FormulatypeString``; the legacy
-    ``AnonymousFormulaString`` name remains available as a package-internal
-    alias.
+    Raw anonymous text has no site-count or composition meaning of its own, so this one
+    backend serves both :class:`~httk.atomistic.FormulatypeView` and
+    :class:`~httk.atomistic.AnonymousFormulaView`; ``AnonymousFormulaString`` is its
+    package-internal alias.
 
     :param obj: The canonical anonymous formula text.
     :param \*\*hints: Backend-selection hints.

@@ -1,17 +1,17 @@
-"""Eager anonymous-formula presentation view."""
+"""Eager site-count anonymous-formula presentation view."""
 
-from typing import TYPE_CHECKING, Any, Self, cast
+from typing import TYPE_CHECKING, Any, Self
 
 from httk.core import unwrap
 
+from httk.atomistic.models.formula.anonymous_formula_view import (
+    anonymous_amounts,
+    anonymous_text,
+    anonymous_uncertainties,
+)
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.formulatype import Formulatype
-from httk.atomistic.models.formula.notation import (
-    anonymous_symbol,
-    parse_anonymous_formula,
-    reduced_coefficients,
-    render_anonymous,
-)
+from httk.atomistic.models.formula.notation import parse_anonymous_formula
 from httk.atomistic.models.formula.view_base import ChemicalFormulaViewBase
 
 if TYPE_CHECKING:
@@ -19,13 +19,22 @@ if TYPE_CHECKING:
 
 
 class FormulatypeView(ChemicalFormulaViewBase, Formulatype):
-    r"""Present a complete composition as an eager canonical anonymous formula.
+    r"""Present how many sites each species class occupies as an eager Formulatype.
 
-    The canonical class name is ``FormulatypeView``; the legacy
-    ``AnonymousFormulaView`` name remains available as an alias.
+    Structures, structuretypes, prototypes and protostructures are counted per species
+    class: a structure's classes are its species names, a Wyckoff-family object's are its
+    label classes, so the gcd-reduced text equals the object's label prefix, while
+    :attr:`amounts` keeps the per-cell class counts. A sibling
+    :class:`~httk.atomistic.AnonymousFormulaView` of a structural object is re-counted
+    from that object. Disorder and partial
+    occupancy do not affect the counts. A bare formula or composition is accepted only
+    when every amount is an integer, read as one species per site at full occupancy.
 
-    :param obj: The chemical-formula-like object to present.
+    :param obj: The structural or chemical-formula-like object to present.
     :param \*\*hints: Backend-selection hints.
+    :raises ValueError: If a formula or composition has a non-integer amount, or is
+        empty or incomplete, or if a ``kind`` hint other than ``"sites"`` is given for a
+        structural source.
     """
 
     _backend: ChemicalFormulaBackend
@@ -33,40 +42,28 @@ class FormulatypeView(ChemicalFormulaViewBase, Formulatype):
     def __new__(cls, obj: "ChemicalFormulaLike", **hints: Any) -> Self:
         if isinstance(obj, cls):
             return obj
-        backend = cls._prepare_backend(obj, hints)
-        if backend.is_anonymous:
-            if type(backend) is Formulatype:
-                text = str(backend)
-                coefficients = backend._coefficients
-            else:
-                amounts = backend.amounts
-                if not amounts:
-                    raise ValueError("an empty composition cannot yield an anonymous formula")
-                reduced = cast(
-                    tuple[int, ...],
-                    reduced_coefficients(tuple(value for _, value in amounts)),
-                )
-                coefficients = tuple((label, count) for (label, _), count in zip(amounts, reduced))
-                text = "".join(label + (str(count) if count != 1 else "") for label, count in coefficients)
-                coefficients = parse_anonymous_formula(text)
-        else:
-            if not backend.complete:
-                raise ValueError(
-                    'composition is incomplete — species with unknown chemical symbol "X" cannot yield a formula'
-                )
-            amounts = backend.amounts
-            if not amounts:
-                raise ValueError("an empty composition cannot yield a formula")
-            reduced = cast(tuple[int, ...], reduced_coefficients(tuple(value for _, value in amounts)))
-            reduced_by_element = dict(zip((element for element, _ in amounts), reduced))
-            ordered = sorted(amounts, key=lambda item: (-item[1], item[0]))
-            coefficients = tuple(
-                (anonymous_symbol(index), reduced_by_element[element]) for index, (element, _) in enumerate(ordered)
+        from httk.atomistic.models.formula.sites import SiteCountFormula, composition_source
+
+        backend: ChemicalFormulaBackend | None = SiteCountFormula._backend_adopt(obj)
+        if backend is None:
+            # A composition backend of a structural object (from a sibling view) is
+            # re-counted from that object, never read as one species per site.
+            composition = cls._prepare_backend(obj, hints)
+            source = composition_source(composition)
+            backend = composition if source is None else SiteCountFormula(source)
+        if isinstance(backend, SiteCountFormula) and hints.get("kind", "sites") != "sites":
+            raise ValueError(
+                "a Formulatype of a structural source always counts sites; "
+                "use AnonymousFormulaView for the composition-based anonymous formula"
             )
-            text = render_anonymous(tuple(count for _, count in coefficients))
-            coefficients = parse_anonymous_formula(text)
+        if any(amount.denominator != 1 for _, amount in backend.amounts):
+            raise ValueError(
+                "a Formulatype needs integer amounts (one species per site, full occupancy); "
+                "use AnonymousFormulaView for the composition-based anonymous formula"
+            )
+        text = anonymous_text(backend)
         instance = str.__new__(cls, text)
-        instance._coefficients = coefficients
+        instance._coefficients = parse_anonymous_formula(text)
         instance._backend = backend
         return instance
 
@@ -75,22 +72,13 @@ class FormulatypeView(ChemicalFormulaViewBase, Formulatype):
 
     @property
     def amounts(self):
-        """Return the presented amounts using anonymous labels."""
-        backend = self._backend
-        if backend.is_anonymous:
-            return backend.amounts
-        ordered = sorted(backend.amounts, key=lambda item: (-item[1], item[0]))
-        return tuple((anonymous_symbol(index), amount) for index, (_, amount) in enumerate(ordered))
+        """Return the per-cell class counts under anonymous labels, not gcd-reduced; the text is reduced."""
+        return anonymous_amounts(self._backend)
 
     @property
     def uncertainties(self):
         """Return the presented amount precisions using anonymous labels."""
-        backend = self._backend
-        if backend.is_anonymous:
-            return backend.uncertainties
-        uncertainties = dict(backend.uncertainties)
-        ordered = sorted(backend.amounts, key=lambda item: (-item[1], item[0]))
-        return tuple((anonymous_symbol(index), uncertainties[element]) for index, (element, _) in enumerate(ordered))
+        return anonymous_uncertainties(self._backend)
 
     @property
     def complete(self):
@@ -125,7 +113,7 @@ class FormulatypeView(ChemicalFormulaViewBase, Formulatype):
     def unview(self) -> Formulatype:
         """Return the presented formula as a standalone value.
 
-        :return: The canonical anonymous formula value.
+        :return: The canonical Formulatype value.
         """
         backend = self._backend
         if type(backend) is Formulatype:

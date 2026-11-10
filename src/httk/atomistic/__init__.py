@@ -107,6 +107,8 @@ from httk.atomistic.models.structure.record import RecordStructure
 
 # Formula imports must follow the structure imports: formula record/like modules pull in
 # the storage stack, whose integration bridges depend on a fully initialized structure family.
+from httk.atomistic.models.formula.anonymous_formula import AnonymousFormula
+from httk.atomistic.models.formula.anonymous_formula_view import AnonymousFormulaView
 from httk.atomistic.models.formula.formulatype import Formulatype
 from httk.atomistic.models.formula.formulatype_string import FormulatypeString
 from httk.atomistic.models.formula.formulatype_view import FormulatypeView
@@ -120,10 +122,6 @@ from httk.atomistic.models.formula.like import ChemicalFormulaLike
 from httk.atomistic.models.formula.plain import PlainComposition
 from httk.atomistic.models.formula.record import RecordComposition
 from httk.atomistic.models.formula.structure import StructureComposition
-
-# Alias for discoverability; canonical name is Formulatype (see docs/prototypes.md).
-AnonymousFormula = Formulatype
-AnonymousFormulaView = FormulatypeView
 
 # Structuretype imports follow both structure and formula imports: the structuretype-to-formula
 # bridge and adapter deliberately depend on the completed lower-level family registrations.
@@ -295,7 +293,7 @@ ProtostructureBackend.backend_classes = []
 ProtonettypeBackend.backend_classes = [DerivedProtonettype, ProtonettypeLabelString]
 ProtonetstructureBackend.backend_classes = [ProtonetstructureLabelString]
 PrototypeBackend.backend_classes = [DerivedPrototype]
-register_coercer(view_class_coercer([ChemicalFormulaView, FormulatypeView, CompositionView]), Any)
+register_coercer(view_class_coercer([ChemicalFormulaView, FormulatypeView, AnonymousFormulaView, CompositionView]), Any)
 StructureBackend.backend_classes = [
     RecordStructure,
     OptimadeStructure,

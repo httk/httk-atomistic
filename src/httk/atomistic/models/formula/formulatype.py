@@ -8,10 +8,12 @@ from httk.atomistic.models.formula.notation import parse_anonymous_formula
 
 
 class Formulatype(ChemicalFormulaBackend, str):
-    """Store a strictly canonical OPTIMADE anonymous chemical formula.
+    """Store a strictly canonical anonymous formula of site counts per species class.
 
-    The canonical class name is ``Formulatype``; the legacy
-    ``AnonymousFormula`` name remains available as an alias.
+    The text uses the OPTIMADE anonymous grammar: class site counts reduced by their gcd,
+    largest first, labelled ``A``, ``B``, .... Disorder and partial occupancy do not
+    affect it. :class:`~httk.atomistic.AnonymousFormula` holds the composition-based
+    anonymous formula instead.
 
     :param formula: The canonical anonymous formula text.
     """

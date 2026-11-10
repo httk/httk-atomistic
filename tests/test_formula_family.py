@@ -156,7 +156,9 @@ def test_formula_directionality_and_validation() -> None:
     with pytest.raises(ValueError, match="incomplete"):
         ChemicalFormulaView(incomplete_view)
     with pytest.raises(ValueError, match="incomplete"):
-        FormulatypeView(incomplete_view)
+        AnonymousFormulaView(incomplete_view)
+    # Site counts need no element identity: the structure behind the view is recounted.
+    assert FormulatypeView(incomplete_view) == FormulatypeView(incomplete) == "A"
     assert incomplete_view.complete is False
     with pytest.raises(ValueError, match="empty"):
         ChemicalFormulaView(Composition({}))
@@ -199,9 +201,16 @@ def test_synthesized_formula_text_is_parser_validated() -> None:
         FormulatypeView(_MalformedAnonymousBackend())
 
 
-def test_legacy_formula_aliases_are_canonical_identities() -> None:
-    assert AnonymousFormula is Formulatype
-    assert AnonymousFormulaView is FormulatypeView
+def test_anonymous_formula_is_a_separate_composition_based_family() -> None:
+    assert not issubclass(AnonymousFormula, Formulatype) and not issubclass(Formulatype, AnonymousFormula)
+    assert not issubclass(AnonymousFormulaView, FormulatypeView)
+    # Both are plain str subclasses without custom equality: equal text compares equal.
+    assert AnonymousFormula("A2B") == Formulatype("A2B")
+    half = {"Fe": Fraction(1, 2), "O": 1}
+    assert AnonymousFormulaView(half) == "A2B"
+    assert type(AnonymousFormulaView(half).unview()) is AnonymousFormula
+    with pytest.raises(ValueError, match="integer amounts"):
+        FormulatypeView(half)
 
 
 def test_formulatemplate_name_is_fully_retired() -> None:

@@ -150,9 +150,12 @@ class ProtostructureAPI(ABC):
 
     @property
     def anonymous_formula(self) -> FormulatypeView:
-        """Return a reduced anonymous formula at the standard conventional-cell scale.
+        """Return the Formulatype of the species-class site counts, the label prefix.
 
-        :return: The conventional-cell anonymous formula view.
+        Each species class counts its summed conventional multiplicity, whatever its
+        occupancy; ``AnonymousFormulaView(self)`` gives the composition-based formula.
+
+        :return: The site-count anonymous formula view.
         """
         return FormulatypeView(cast("ProtostructureBackend", self))
 

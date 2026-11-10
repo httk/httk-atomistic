@@ -8,13 +8,17 @@ anonymous placeholders or real chemical species. Each cell is a value family
 
 | Level of geometrical information | Anonymous occupation | Assigned species |
 | --- | --- | --- |
-| None (composition only) | {py:class}`~httk.atomistic.Formulatype` | {py:class}`~httk.atomistic.ChemicalFormula` |
+| None (site counts per class) | {py:class}`~httk.atomistic.Formulatype` | |
 | Wyckoff positions only | {py:class}`~httk.atomistic.BarePrototype` | {py:class}`~httk.atomistic.BareProtostructure` |
 | Wyckoff positions + covalent bonding net | {py:class}`~httk.atomistic.Protonettype` | {py:class}`~httk.atomistic.Protonetstructure` |
 | Geometrical class | {py:class}`~httk.atomistic.Prototype` | {py:class}`~httk.atomistic.Protostructure` |
 | Exact geometry | {py:class}`~httk.atomistic.Structuretype` | {doc}`Structure <structures>` |
 
-The top row keeps only composition. The bare row keeps a standard-setting
+The top row keeps only how many sites each species class occupies; its
+assigned cell is deliberately empty. {py:class}`~httk.atomistic.ChemicalFormula`
+(with the composition-based {py:class}`~httk.atomistic.AnonymousFormula`) sits
+outside the matrix as the occupation-based composition: unlike `Formulatype`, it
+weights each site by its occupancy (see {doc}`composition`). The bare row keeps a standard-setting
 space group and its occupied Wyckoff positions. The geometrical-class row adds
 an exact fundamental-domain *representative*, an externally assigned nonempty
 *discriminator* string, or both. The bottom row fixes the exact continuous
@@ -62,7 +66,8 @@ information-content relationships, not class inheritance:
 - BareProtostructure + representative/discriminator → Protostructure
 - Prototype + species assignment → Protostructure
 - Structuretype + species assignment → Structure
-- Projection onto composition only → Formulatype or ChemicalFormula
+- Projection onto class site counts → Formulatype
+- Projection onto composition → ChemicalFormula or AnonymousFormula
 
 A bare view of a refined value retains its source, so rewrapping can recover
 existing refinement. Calling `unview()` explicitly materializes a standalone
@@ -76,9 +81,9 @@ choose an exact class anchor explicitly.
 The canonical taxonomy terms are single-capital compound words: `Formulatype`,
 `Prototype`, `Protostructure`, and `Structuretype`; the broader Wyckoff-only
 families are `BarePrototype` and `BareProtostructure`. The suffix `-type` marks the
-anonymous-occupation column (`Formulatype`, `Structuretype`, and `Prototype` are
-the anonymous counterparts of `ChemicalFormula`, `Structure`, and
-`Protostructure`); the `Bare` prefix distinguishes cutoff-free Wyckoff classification from a
+anonymous-occupation column (`Structuretype` and `Prototype` are the anonymous
+counterparts of `Structure` and `Protostructure`; `Formulatype` has no assigned
+counterpart); the `Bare` prefix distinguishes cutoff-free Wyckoff classification from a
 refined geometrical class.
 
 The word "Template" no longer names the exact anonymous family — that family is
@@ -92,12 +97,13 @@ call a "templatetype"; there is no code alias for the latter (see
 {doc}`details/structural_classes`).
 
 The older names survive as aliases for discoverability only; documentation and
-new code use the canonical names.
+new code use the canonical names. `AnonymousFormula` and `AnonymousFormulaView`
+are no longer aliases: they name the composition-based anonymous formula, while
+`Formulatype` counts sites.
 
 | Alias | Canonical |
 | --- | --- |
 | `AnonymousStructure`, `AnonymousStructureView`, `AnonymousStructureLike` | `Structuretype` family |
-| `AnonymousFormula`, `AnonymousFormulaView` | `Formulatype` family |
 
 ## Dummy species
 
@@ -169,14 +175,14 @@ structure resolves the standard setting.
 
 ## Formula conveniences
 
-The anonymous families (`Structuretype`, `BarePrototype`, and `Prototype`,
-through their views) expose `anonymous_formula`; the assigned cells expose both
-`formula` (real species) and `anonymous_formula` (site amounts anonymized). A
+Every structural family below the top row exposes `anonymous_formula`, the
+`Formulatype` of its class site counts, which is also the prefix of its label;
+the assigned families additionally expose `formula`, their composition. A
 `Formulatype` has no `anonymous_formula` attribute — it *is* the anonymous
 formula, rendered as its string value (`str(FormulatypeView(...))`, e.g.
-`"A3B2"`). Formula projections use Wyckoff multiplicities, and reduced rendering
-removes a
-common GCD:
+`"A3B2"`). Wyckoff-family counts use conventional Wyckoff multiplicities, and
+rendering removes a common GCD. The composition-based anonymous formula is
+`AnonymousFormulaView(value)`:
 
 ```python
 from httk.atomistic import Structuretype, StructuretypeView
@@ -254,13 +260,24 @@ alphabetically, a letter occupied `k >= 2` times prefixed by the integer `k`
 reduced by their overall GCD, so it is the {py:class}`~httk.atomistic.Formulatype`
 of the class site counts.
 
-For disordered or mixed-species occupations this prefix can differ from an
-assigned value's `anonymous_formula`, which is composition-based: a
-`BareProtostructure` with an equal Fe/Ni mixture on `225` `a` and O on `b`
-labels as `AB_cF8_225_a_b:FeNi-O`, but its `anonymous_formula` is `A2BC`.
-Erasing such a bare value still gives a `BarePrototype` (`AB_cF8_225_a_b`), but
-a `BarePrototype` cannot be derived from a structure carrying such species;
-structure anonymization requires single-element species.
+The prefix is also every level's `anonymous_formula`, including for disordered or
+mixed-species occupations: a `BareProtostructure` with an equal Fe/Ni mixture on
+`225` `a` and O on `b` labels as `AB_cF8_225_a_b:FeNi-O` and its
+`anonymous_formula` is `AB`; only its composition-based `AnonymousFormulaView` is
+`A2BC`. Erasing such a bare value still gives a `BarePrototype`
+(`AB_cF8_225_a_b`), but a `BarePrototype` cannot be derived from a structure
+carrying such species; structure anonymization requires single-element species.
+
+Known limit: a structure's classes are its species names, as are those of its
+`BareProtostructureView` and that view's `BarePrototype` erasure, but
+`Structuretype` and direct `BarePrototype` recognition (structure →
+`Structuretype` template → `BarePrototype`) merge species by element. Where
+distinct species names share one element-pure chemistry, those two therefore give
+a different `Formulatype` from the structure's own and from its
+`BareProtostructure` erasure. COD 1001844 has two oxygen species, `O1` and `O2`:
+`BarePrototypeView(structure)` labels as `A12B3C_aP32_1_24a_6a_2a`, while the
+structure's `Formulatype` and `BarePrototypeView(BareProtostructureView(structure))`
+give `A24B6CD` (`A24B6CD_aP32_1_24a_6a_a_a`).
 
 A structure's canonicalization preserves chirality by default. Pass
 `preserve_chirality=False` to the corresponding classification canonicalizer
