@@ -1,0 +1,73 @@
+#------------------------------------------------------------------------------
+#$Date: 2016-02-14 16:26:36 +0200 (Sun, 14 Feb 2016) $
+#$Revision: 176435 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/50/94/1509425.cif $
+#------------------------------------------------------------------------------
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/
+#
+# All data on this site have been placed in the public domain by the
+# contributors.
+#
+data_1509425
+loop_
+_publ_author_name
+'Schimek, G.L.'
+'Wood, P.T.'
+'Pennington, W.T.'
+'Kolis, J.W.'
+_publ_section_title
+;
+ Supercritical ammonia synthesis and characterization of four new alkali
+ metal silver antimony sulfides: M Ag2 Sb S4 and M2 Ag Sb S4 (M=K, Rb)
+;
+_journal_name_full               'Journal of Solid State Chemistry'
+_journal_page_first              277
+_journal_page_last               284
+_journal_paper_doi               10.1006/jssc.1996.0179
+_journal_volume                  123
+_journal_year                    1996
+_chemical_formula_sum            'Ag K2 S4 Sb'
+_chemical_name_systematic        'K2 (Ag Sb S4)'
+_space_group_IT_number           34
+_symmetry_space_group_name_Hall  'P 2 -2n'
+_symmetry_space_group_name_H-M   'P n n 2'
+_cell_angle_alpha                90
+_cell_angle_beta                 90
+_cell_angle_gamma                90
+_cell_formula_units_Z            4
+_cell_length_a                   10.348
+_cell_length_b                   10.522
+_cell_length_c                   7.946
+_cell_volume                     865.174
+_citation_journal_id_ASTM        JSSCBI
+_cod_data_source_file            silver1-2_373.cif
+_cod_data_source_block           Ag1K2S4Sb1
+_cod_original_cell_volume        865.1736
+_cod_original_formula_sum        'Ag1 K2 S4 Sb1'
+_cod_database_code               1509425
+loop_
+_symmetry_equiv_pos_as_xyz
+x,y,z
+-x,-y,z
+-x+1/2,y+1/2,z+1/2
+x+1/2,-y+1/2,z+1/2
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+_atom_site_U_iso_or_equiv
+S2 S-2 0.7104 0.5518 0.6322 1 0.0
+S4 S-2 0.7201 0.9228 0.5872 1 0.0
+S3 S-2 0.9238 0.7208 0.3037 1 0.0
+Ag1 Ag+1 0 0 0.9519 1 0.0
+K3 K+1 0.2468 0.2349 0.948 1 0.0
+S1 S-2 0.55 0.7051 0.2672 1 0.0
+K2 K+1 0 0 0.448 1 0.0
+Ag2 Ag+1 0 0.5 0.2249 1 0.0
+K1 K+1 0 0.5 0.758 1 0.0
+Sb1 Sb+5 0.7272 0.7254 0.4485 1 0.0

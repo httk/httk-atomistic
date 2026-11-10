@@ -8,6 +8,8 @@ import httk.atomistic.models.bareprotostructure.view_base
 
 if TYPE_CHECKING:
     import httk.atomistic.models.bareprototype.view_base
+    import httk.atomistic.models.protonetstructure.backend
+    import httk.atomistic.models.protonetstructure.view_base
     import httk.atomistic.models.protostructure.backend
     import httk.atomistic.models.protostructure.view_base
     import httk.atomistic.models.prototype.view_base
@@ -25,4 +27,6 @@ type BareProtostructureLike = (
     | httk.atomistic.models.prototype.view_base.PrototypeViewBase
     | httk.atomistic.models.structure.backend.StructureBackend
     | httk.atomistic.models.structure.view.StructureView
+    | httk.atomistic.models.protonetstructure.backend.ProtonetstructureBackend
+    | httk.atomistic.models.protonetstructure.view_base.ProtonetstructureViewBase
 )

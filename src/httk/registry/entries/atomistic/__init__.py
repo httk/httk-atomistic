@@ -142,3 +142,23 @@ register_entry_record(
     family="bare_protostructures",
     record="httk.atomistic.storage.records:BareProtostructureRecord",
 )
+
+register_entry_family(
+    name="protonettypes",
+    family="httk.atomistic.entries.prototypes:ProtonettypeEntry",
+)
+register_entry_record(
+    name="atomistic-protonettype",
+    family="protonettypes",
+    record="httk.atomistic.storage.records:ProtonettypeRecord",
+)
+
+register_entry_family(
+    name="protonetstructures",
+    family="httk.atomistic.entries.prototypes:ProtonetstructureEntry",
+)
+register_entry_record(
+    name="atomistic-protonetstructure",
+    family="protonetstructures",
+    record="httk.atomistic.storage.records:ProtonetstructureRecord",
+)

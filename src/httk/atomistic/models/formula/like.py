@@ -17,6 +17,12 @@ import httk.atomistic.models.formula.composition
 import httk.atomistic.models.formula.formula
 import httk.atomistic.models.formula.formulatype
 import httk.atomistic.models.formula.view_base
+import httk.atomistic.models.protonetstructure.backend
+import httk.atomistic.models.protonetstructure.protonetstructure
+import httk.atomistic.models.protonetstructure.view_base
+import httk.atomistic.models.protonettype.backend
+import httk.atomistic.models.protonettype.protonettype
+import httk.atomistic.models.protonettype.view_base
 import httk.atomistic.models.protostructure.backend
 import httk.atomistic.models.protostructure.protostructure
 import httk.atomistic.models.protostructure.view_base
@@ -53,6 +59,12 @@ type ChemicalFormulaLike = (
     | httk.atomistic.models.bareprotostructure.view_base.BareProtostructureViewBase
     | httk.atomistic.models.protostructure.protostructure.Protostructure
     | httk.atomistic.models.bareprotostructure.bareprotostructure.BareProtostructure
+    | httk.atomistic.models.protonettype.backend.ProtonettypeBackend
+    | httk.atomistic.models.protonettype.view_base.ProtonettypeViewBase
+    | httk.atomistic.models.protonettype.protonettype.Protonettype
+    | httk.atomistic.models.protonetstructure.backend.ProtonetstructureBackend
+    | httk.atomistic.models.protonetstructure.view_base.ProtonetstructureViewBase
+    | httk.atomistic.models.protonetstructure.protonetstructure.Protonetstructure
     | httk.atomistic.storage.records.NormalizedCompositionRecord
     | httk.atomistic.models.structure.backend.StructureBackend
     | httk.atomistic.models.structure.view.StructureView

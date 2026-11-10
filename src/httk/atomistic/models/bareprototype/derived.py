@@ -9,6 +9,8 @@ from httk.atomistic.models.bareprotostructure.backend import BareProtostructureB
 from httk.atomistic.models.bareprotostructure.view_base import BareProtostructureViewBase
 from httk.atomistic.models.bareprototype.backend import BarePrototypeBackend
 from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
+from httk.atomistic.models.protonetstructure.backend import ProtonetstructureBackend
+from httk.atomistic.models.protonetstructure.view_base import ProtonetstructureViewBase
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.view_base import ProtostructureViewBase
 from httk.atomistic.models.prototype.derived import _anonymous_occupations
@@ -24,14 +26,21 @@ class DerivedBarePrototype(BarePrototypeBackend):
 
     @classmethod
     def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
-        """Adopt an assigned bare or refined classification."""
+        """Adopt an assigned bare, refined or protonet classification."""
         if hints and hints.get("kind", cls.kind) != cls.kind:
             return None
         return (
             cls(obj)
             if isinstance(
                 obj,
-                (BareProtostructureBackend, BareProtostructureViewBase, ProtostructureBackend, ProtostructureViewBase),
+                (
+                    BareProtostructureBackend,
+                    BareProtostructureViewBase,
+                    ProtostructureBackend,
+                    ProtostructureViewBase,
+                    ProtonetstructureBackend,
+                    ProtonetstructureViewBase,
+                ),
             )
             else None
         )

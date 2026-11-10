@@ -551,6 +551,150 @@ are unavailable to the bare routine, so canonicalization and projection do not
 generally commute. Canonicalize the projected value whenever a canonical bare
 result is required.
 
+## Bonding-net canonicalization
+
+`canonical_protonettype` and `canonical_protonetstructure` canonicalize a bare
+prototype or bare protostructure together with a symmetric covalent bonding net
+(see {doc}`prototypes` for the notation). Like the bare routines they work from
+the materialized value alone and use no coordinates. The functions take
+`preserve_chirality` and `timeout`; with `preserve_chirality=False` the net is
+first transferred into the lower enantiomorphic group by the same inversion the
+bare routines use, and canonicalized with that group's own tables.
+
+### Definitions
+
+- **Element.** `(k, n1, n2, n3)`: apply operation `k`, then add the lattice
+  translation `n` (conventional cell), so `x -> W_k x + w_k + n`. Operation `n`
+  (1-based in labels) is the `n`-th branch of the general Wyckoff position of the
+  standard setting, with the identity first.
+- **Reference atom.** The reference atom of a site is its first-listed Wyckoff
+  coordinate evaluated at the site's free parameters, not reduced modulo one and
+  not moved into any asymmetric unit.
+- **Row.** `(i, j, g)`: the reference atom of site `i` is bonded to `g` applied to
+  the reference atom of site `j`. A row stands for the whole symmetry orbit of
+  that bond, and a net is a set of rows. Rows are oriented `i <= j`; reversing a
+  row replaces `g` by its inverse.
+- **Code of a row.** Let `H_i` and `H_j` be the site-symmetry groups of the two
+  reference atoms. Every element of the double coset `H_i g H_j` names the same
+  orbit, and for a bond inside one orbit (`i == j`) the inverse double coset does
+  too. The code is the member with the smallest key
+  `(n1² + n2² + n3², k, n1, n2, n3)`.
+- **Gauge.** Replacing the reference atom of site `s` by `a_s` times the old one
+  turns every row `(i, j, g)` into `(i, j, a_i g a_j⁻¹)`. The new atom must stay on
+  the first-listed coordinate, so `a_s` normalizes `H_s`: any element for a
+  general position, none beyond the site symmetry for a parameter-free one.
+- **Equivalent descriptions.** The finite same-group action domain of the bare
+  canonicalizers, reduced to one representative per coset of the space group and
+  per continuous origin shift. An action moves a row to
+  `(i, j, b_i (ν g ν⁻¹) b_j⁻¹)`, where `b_i` is a group element that puts the
+  moved reference atom back on the first-listed coordinate of its (possibly
+  different) Wyckoff letter.
+- **Site numbers.** Sites are numbered 1 to N in label order: classes in
+  `class_order_key` order and, within a class, by Wyckoff letter. Sites sharing
+  class and letter are interchangeable, and so are classes tied in count and
+  letters.
+
+### Canonical net
+
+Over every equivalent description that yields the canonical bare key, every
+allowed numbering and every gauge, the canonical net minimizes, in this order:
+
+1. the sorted list of site pairs `(i, j)`, one per row, in ascending tuple
+   order;
+2. the list of row code keys, compared row by row in pair order.
+
+The net is therefore independent of coordinates, which is the point: choosing
+reference atoms by position (unit cell, asymmetric unit, reduced parameters)
+would change the string when an atom crosses a boundary in another compound of
+the same prototype. For the assigned level the anonymous canonical net is found
+first; only if several realisations give the identical net string is the tie
+broken by the species-name tuple in class order, smallest first. The assigned
+value's bare part can then differ from `canonical_bare_protostructure`, which
+breaks ties between tied classes by name alone.
+
+### Algorithm
+
+All arithmetic is exact: integers in the search, `Fraction` only while the
+per-space-group tables are built.
+
+1. **Tables.** Per space group, cached: integer multiplication and inverse tables
+   for elements; per Wyckoff letter the site-symmetry group `H`, the lattice of
+   translations along its flat and the classes of gauge moves; and the cosets of equivalent descriptions, each compiled to an
+   operation relabelling, an integer matrix acting on translations, and the
+   target letter and `b` for every letter. Everything is computed at one generic
+   exact rational probe point, so it does not depend on the structure.
+2. **Cosets.** Each coset transforms the rows and the sites; cosets whose bare
+   key is not the minimal one are skipped.
+3. **Class order.** The classes follow `class_order_key`; every permutation of
+   classes tied in count and letters is tried.
+4. **Numbering.** A branch and bound over the numbers 1, 2, ... When a site gets
+   its number, its still unnumbered neighbours must take the next free numbers of
+   their own blocks, since anything else lengthens the pair list; only their order
+   among themselves is branched. The search returns the minimal pair list and
+   every numbering that realises it.
+5. **Reference atoms, exactly.** A reference atom is written as a fixed
+   operation, a fixed lattice translation and a part linear in a vector `v` of
+   integer unknowns: `a_s = (k_s, c_s + M_s v)`. A general position has three
+   unknowns (any lattice translation) and one start per operation. A special
+   position has one unknown per independent lattice translation along its flat
+   and one start per remaining class of gauge moves, a finite list. A general
+   position bonded to an atom already placed takes no unknowns: it is one of the
+   atoms actually bonded, `a_j = h a_i g` with `h` in `H_i`. Rows are visited in
+   pair order while a set of states is kept. For a row the element
+   `a_i g a_j⁻¹` has a fixed operation and the translation `b + M v`. For each
+   member `h1 h2` of the double coset the translation becomes a coset of a lattice
+   in Z³, whose smallest vector under `(m·m, m1, m2, m3)` is found exactly: the
+   lattice is brought to column echelon form and every vector no longer than the
+   best so far is enumerated pivot row by pivot row. The row's code is the
+   smallest key over all members. Fixing it is a linear condition on `v`; it is
+   solved, substituted into every reference atom of the state, and the state is
+   normalised to a unique form so that equal states merge. Every state that
+   reaches the row minimum survives, and unknowns that are never constrained do
+   not affect any code. No search range is used anywhere in this step; the only
+   finite lookup is the classes of gauge moves of a special position, collected
+   from a ±2 cell neighbourhood.
+6. **Components and ties.** Connected components of the site graph are searched
+   separately, since a row's code depends only on the reference atoms of its own
+   component; the merged result is the same as one joint search, and the state
+   sets never multiply. Within a group of tied classes, the classes that appear in
+   no row are interchangeable, so they are placed in sorted order among the
+   positions the bonded classes leave free. Neither change alters the result.
+7. **Result.** The smallest `(bare key, pair list, code keys)` is kept together
+   with all realisations `(coset, numbering, gauge)` of it. Results are memoised
+   on the oriented rows reduced to their codes.
+
+The per-group tables are the one-off cost; a net search on a typical structure
+takes a fraction of the corresponding bare or protostructure canonicalization,
+and its time does not depend on how far the input reference atoms are from the
+best ones.
+
+### Limits and accepted failure modes
+
+- **Exactness is argued, not machine-checked.** The minimum over reference
+  atoms and the numbering search are both exact, so for a given set of equivalent
+  descriptions the result is the true minimum by construction. This is an
+  argument; it is supported by scrambling tests (random coset, random gauge
+  elements, shuffled sites and rows, reversed rows) but not verified by machine.
+  A net for which two descriptions give different strings is a defect to report.
+- **Low symmetry.** The canonical net is description-independent only as far as
+  the tabulated set of equivalent descriptions is a group containing every change
+  between two valid descriptions. In P-1 (group 2) the tabulated set is not
+  closed under composition, so equivalent descriptions can give different
+  strings. P1 tabulates only the identity and the inversion; cell changes there
+  go through geometry-dependent metric automorphisms. The monoclinic sets are
+  closed but contain no shears between equivalent cell choices. In triclinic and
+  monoclinic groups the net string is therefore canonical only relative to the
+  cell that httk's standardisation chooses.
+- **Numbering blow-up.** The numbering search is exact but exponential in the
+  worst case, with many interchangeable, similarly connected sites. The whole
+  search runs under the cooperative `timeout` (default 120 seconds) and raises
+  `CanonicalizationLimitError` instead of returning a partial answer.
+- **Translation range.** A label can write a translation only in -5..+4 per axis.
+  A longer translation raises `ValueError`; a canonical net should never need one.
+- **Reference atoms are not geometry.** The canonical string does not store the
+  reference atoms. Laying a net back onto coordinates requires the realisation's
+  gauge, which the label does not carry.
+
 ## Limits and accepted failure modes
 
 - Exact algorithms require rational fractional data and supported exact surds.
@@ -674,6 +818,19 @@ build as well as Python's conversion policy:
 
 The 2.7.0 pin characterizes the tested recognition environment; it does not turn
 float tolerance boundaries into a platform-independent exact contract.
+
+Bonding-net canonical strings additionally depend on these conventions:
+
+- operation `n` is the `n`-th branch of the general Wyckoff position of the
+  standard setting, identity first, not the International Tables order and not
+  `Spacegroup.symmetry_operations` order (group 34 lists the identity last there);
+- a row's code is the smallest element of its double coset under the key
+  `(n1² + n2² + n3², k, n1, n2, n3)`, with `k` the operation index;
+- the per-group tables are computed at one exact rational probe point
+  (`(13/97, 29/101, 41/103)`), never a float or a structure's own parameters;
+- the set of equivalent descriptions is closed under composition modulo the
+  group for every space group except 2 (P-1), pinned by
+  `test_tabulated_actions_close_under_composition`.
 
 ## Identity and migration convention
 

@@ -5,12 +5,14 @@ from typing import Any, Self
 from httk.core import unwrap
 
 from httk.atomistic.models.bareprototype.backend import BarePrototypeBackend
+from httk.atomistic.models.protonettype.backend import ProtonettypeBackend
+from httk.atomistic.models.protonettype.view_base import ProtonettypeViewBase
 from httk.atomistic.models.prototype.backend import PrototypeBackend
 from httk.atomistic.models.prototype.view_base import PrototypeViewBase
 
 
 class ProjectedBarePrototype(BarePrototypeBackend):
-    """Retain a refined source while exposing its discrete classification.
+    """Retain a refined or protonettype source while exposing its discrete classification.
 
     :param obj: Refined classification source.
     """
@@ -19,10 +21,14 @@ class ProjectedBarePrototype(BarePrototypeBackend):
 
     @classmethod
     def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
-        """Adopt a refined value without materializing its geometry."""
+        """Adopt a refined value or protonettype without materializing its geometry or net."""
         if hints and hints.get("kind", cls.kind) != cls.kind:
             return None
-        return cls(obj) if isinstance(obj, (PrototypeBackend, PrototypeViewBase)) else None
+        return (
+            cls(obj)
+            if isinstance(obj, (PrototypeBackend, PrototypeViewBase, ProtonettypeBackend, ProtonettypeViewBase))
+            else None
+        )
 
     def __init__(self, obj: Any) -> None:
         self._source = obj

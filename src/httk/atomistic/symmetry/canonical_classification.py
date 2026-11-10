@@ -6,8 +6,8 @@ uses its exact geometric terminal, so projecting it to a bare value can require 
 separate bare canonicalization pass.
 """
 
-from collections.abc import Iterable
-from typing import Any
+from collections.abc import Callable, Hashable, Iterable, Sequence
+from typing import TYPE_CHECKING, Any
 
 from httk.core import FracVector
 
@@ -19,6 +19,12 @@ from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 from httk.atomistic.models.bareprototype.like import BarePrototypeLike
 from httk.atomistic.models.bareprototype.view import BarePrototypeView
 from httk.atomistic.models.formula.notation import anonymous_symbol
+from httk.atomistic.models.protonetstructure.like import ProtonetstructureLike
+from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
+from httk.atomistic.models.protonetstructure.view import ProtonetstructureView
+from httk.atomistic.models.protonettype.like import ProtonettypeLike
+from httk.atomistic.models.protonettype.protonettype import Protonettype
+from httk.atomistic.models.protonettype.view import ProtonettypeView
 from httk.atomistic.models.protostructure.like import ProtostructureLike
 from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.protostructure.view import ProtostructureView
@@ -33,13 +39,20 @@ from httk.atomistic.symmetry._wyckoff_actions import compile_wyckoff_action
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.canonical_protostructure import _canonical_protostructure_asu
 from httk.atomistic.symmetry.lift import _discrete_normalizer_translations, _resetting_preserves_group
-from httk.atomistic.symmetry.limits import _checkpoint
+from httk.atomistic.symmetry.limits import _budget_scope, _checkpoint
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+if TYPE_CHECKING:
+    from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
+    from httk.atomistic.models.prototype.occupation import PrototypeOccupation
+    from httk.atomistic.symmetry.protonet import _Realisation
 
 __all__ = [
     "canonical_bare_protostructure",
     "canonical_bare_prototype",
+    "canonical_protonetstructure",
+    "canonical_protonettype",
     "canonical_protostructure",
     "canonical_prototype",
 ]
@@ -162,6 +175,122 @@ def canonical_bare_prototype(obj: BarePrototypeLike, *, preserve_chirality: bool
     return _canonical_bare(
         BarePrototype(value.spacegroup, value.occupations), prototype=True, preserve_chirality=preserve_chirality
     )
+
+
+def _canonical_protonet[V](
+    value: Protonettype | Protonetstructure,
+    class_of: Sequence[Hashable],
+    build: Callable[[int, "_Realisation", list[int], list[tuple[int, int, int, int, int, int]]], V],
+    *,
+    assigned: bool,
+    preserve_chirality: bool,
+) -> V:
+    """Search the canonical net of one value and build the result with ``build``.
+
+    ``build`` receives the target group, the realisation, the input sites in new site order and
+    the 1-based rows; a translation the notation cannot write is reported as such (D4).
+
+    The anonymous level takes the first realisation (all give the same value); the assigned level
+    takes the one with the smallest species-name tuple in label order (D3).
+    """
+    from httk.atomistic.symmetry.protonet import _canonical_net
+
+    occupations: Sequence[PrototypeOccupation | WyckoffOccupation] = value.occupations
+    sites = [(cls, o.wyckoff) for cls, o in zip(class_of, occupations, strict=True)]
+    rows = [(i - 1, j - 1, (k - 1, n1, n2, n3)) for i, j, k, n1, n2, n3 in value.net]
+    result = _canonical_net(value.spacegroup.it_number, sites, rows, preserve_chirality=preserve_chirality)
+    real = (
+        min(result.realisations, key=lambda r: tuple(str(c) for c in r.classes)) if assigned else result.realisations[0]
+    )
+    order = sorted(range(len(sites)), key=real.number.__getitem__)
+    net = [(i, j, g[0] + 1, g[1], g[2], g[3]) for (i, j), g in zip(result.slots, result.codes, strict=True)]
+    try:
+        return build(result.it_number, real, order, net)
+    except ValueError as exc:
+        if all(-5 <= n <= 4 for g in result.codes for n in g[1:]):
+            raise
+        raise ValueError(
+            "the protonet notation cannot write this canonical net: a translation is outside -5..+4 (D4)"
+        ) from exc
+
+
+def canonical_protonettype(
+    obj: ProtonettypeLike, *, preserve_chirality: bool = True, timeout: float | None = 120.0
+) -> Protonettype:
+    """Return the exact canonical anonymous bare prototype with its canonical bonding net.
+
+    The net is minimised over every equivalent description, site numbering and choice of
+    reference atoms; classes that tie in count and letters are ordered by the net.
+    In triclinic and monoclinic groups the net string is canonical only relative to the cell
+    that httk's standardisation chooses; in P-1 the tabulated equivalent descriptions are not
+    closed, so two descriptions can give different strings (D7).
+
+    :param obj: A protonettype-like value, converted through its View.
+    :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+    :param timeout: Cooperative seconds for the search; ``None`` disables the deadline.
+    :return: A standalone canonical protonettype.
+    :raises ValueError: If the input is invalid, the canonical net needs a translation outside
+        -5..+4 that the notation cannot write, or the net search and the bare canonicalization
+        disagree on the bare prototype.
+    :raises CanonicalizationLimitError: If the search exceeds its limit; no partial result is returned.
+    """
+    value = ProtonettypeView(obj).unview()
+    labels = [o.label for o in value.occupations]
+    position = {label: index for index, label in enumerate(dict.fromkeys(labels))}
+    class_of = [position[label] for label in labels]
+
+    def build(it_number: int, real: "_Realisation", order: list[int], net: list[Any]) -> Protonettype:
+        labels = [(real.letters[s], anonymous_symbol(real.classes.index(class_of[s]))) for s in order]
+        return Protonettype(it_number, labels, net)
+
+    with _budget_scope(timeout):
+        result = _canonical_protonet(value, class_of, build, assigned=False, preserve_chirality=preserve_chirality)
+        expected = canonical_bare_prototype(value.bare_prototype, preserve_chirality=preserve_chirality)
+    if result.bare_prototype != expected:
+        raise ValueError(
+            f"protonet search reached bare prototype {result.bare_prototype.label} "
+            f"but the canonical bare prototype is {expected.label}"
+        )
+    return result
+
+
+def canonical_protonetstructure(
+    obj: ProtonetstructureLike, *, preserve_chirality: bool = True, timeout: float | None = 120.0
+) -> Protonetstructure:
+    """Return the exact canonical assigned bare protostructure with its canonical bonding net.
+
+    The net is chosen before the species (D3): it is canonicalized anonymously, and only
+    descriptions giving the identical net are told apart by the species-name tuple in class
+    order, smallest first. With tied classes the result's bare part can therefore differ from
+    :func:`canonical_bare_protostructure`.
+    In triclinic and monoclinic groups the net string is canonical only relative to the cell
+    that httk's standardisation chooses; in P-1 the tabulated equivalent descriptions are not
+    closed, so two descriptions can give different strings (D7).
+
+    :param obj: A protonetstructure-like value, converted through its View.
+    :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+    :param timeout: Cooperative seconds for the search; ``None`` disables the deadline.
+    :return: A standalone canonical protonetstructure.
+    :raises ValueError: If the input is invalid, the canonical net needs a translation outside
+        -5..+4 that the notation cannot write, or the net search and the bare canonicalization
+        disagree on the anonymous bare prototype.
+    :raises CanonicalizationLimitError: If the search exceeds its limit; no partial result is returned.
+    """
+    value = ProtonetstructureView(obj).unview()
+
+    def build(it_number: int, real: "_Realisation", order: list[int], net: list[Any]) -> Protonetstructure:
+        return Protonetstructure(it_number, [(real.letters[s], value.occupations[s].species) for s in order], net)
+
+    with _budget_scope(timeout):
+        names = [o.species.name for o in value.occupations]
+        result = _canonical_protonet(value, names, build, assigned=True, preserve_chirality=preserve_chirality)
+        expected = canonical_bare_prototype(value.bare_protostructure, preserve_chirality=preserve_chirality)
+    reached = canonical_bare_prototype(result.bare_protostructure, preserve_chirality=preserve_chirality)
+    if reached != expected:
+        raise ValueError(
+            f"protonet search reached bare prototype {reached.label} but the canonical bare prototype is {expected.label}"
+        )
+    return result
 
 
 def _exact_representative(representative: FundamentalDomainStructure) -> ASUStructure:

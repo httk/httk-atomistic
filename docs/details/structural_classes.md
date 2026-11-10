@@ -6,6 +6,7 @@
 | ----------------------- | -------------------- | ----------------- |
 | None                    | `Formulatype`        | `ChemicalFormula` |
 | Wyckoff only            | `BarePrototype`     | `BareProtostructure` |
+| Wyckoff + covalent bonding net | `Protonettype` | `Protonetstructure` |
 | Geometrical class       | `Prototype`         | `Protostructure` |
 | Exact geometry          | `Structuretype`      | `Structure`       |
 
@@ -15,6 +16,15 @@ stores anonymous `PrototypeOccupation` values; `BareProtostructure` stores assig
 its occupied Wyckoff positions. `Prototype` and `Protostructure` additionally
 require an exact fundamental-domain representative, an assigned discriminator,
 or both, identifying a particular geometrical class within the bare class.
+
+`Protonettype` and `Protonetstructure` sit between the bare and refined levels.
+Each is a bare prototype or bare protostructure plus a canonical descriptor of
+its symmetric covalent bonding net. The net records covalent bonds only, written
+`~`: bond order is unspecified and dative bonds count as covalent. A missing row
+means "no covalent bond", not "no contact", and the bond list is supplied by the
+caller; *httk₂* does not decide which atom pairs are bonded. See
+{doc}`../prototypes` for the notation and {doc}`../canonicalization` for the
+canonical form.
 
 ## Details
 
@@ -94,6 +104,8 @@ Each intermediate family has its own storage identity and registry family:
 | --- | --- | --- |
 | `BarePrototype` | `atomistic_bare_prototype` | `bare_prototypes` |
 | `BareProtostructure` | `atomistic_bare_protostructure` | `bare_protostructures` |
+| `Protonettype` | `atomistic_protonettype` | `protonettypes` |
+| `Protonetstructure` | `atomistic_protonetstructure` | `protonetstructures` |
 | `Prototype` | `atomistic_prototype` | `prototypes` |
 | `Protostructure` | `atomistic_protostructure` | `protostructures` |
 

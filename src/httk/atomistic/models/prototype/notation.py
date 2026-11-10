@@ -51,6 +51,8 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 if TYPE_CHECKING:
     from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
     from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
+    from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
+    from httk.atomistic.models.protonettype.protonettype import Protonettype
 
 # The 27th Wyckoff letter used by a handful of high-multiplicity settings (group 47's
 # eightfold orbit). It renders as 'A' and parses back from it; positionally a group token
@@ -69,6 +71,8 @@ _CRYSTAL_SYSTEM_LETTER = {
 }
 
 _GROUP_TOKEN = re.compile(r"(\d*)([a-zA-Z])")
+_NET_TARGET = re.compile(r"([0-9]+)(?:@([0-9]+)(?:@([0-9]{3}))?)?")
+_NET_RESERVED = frozenset("-=#$:/\\")
 _ELEMENTS = frozenset(SYMBOLS)
 
 
@@ -389,5 +393,186 @@ def try_parse_bare_protostructure(text: str) -> "BareProtostructure | None":
         return None
     try:
         return parse_bare_protostructure_label(text)
+    except ValueError:
+        return None
+
+
+def _net_row_key(row: Sequence[int]) -> tuple[int, ...]:
+    """Return the label order key of a row: site pair, then ``(n1²+n2²+n3², k, n1, n2, n3)``."""
+    i, j, k, n1, n2, n3 = row
+    return (i, j, n1 * n1 + n2 * n2 + n3 * n3, k, n1, n2, n3)
+
+
+def _render_target(row: Sequence[int]) -> str:
+    """Render the destination of one row: ``j``, ``j@k`` or ``j@k@klm``."""
+    _, j, k, *shift = row
+    if any(not -5 <= value <= 4 for value in shift):
+        raise ValueError(f"protonet translation {tuple(shift)} is outside the writable range -5..+4")
+    if any(shift):
+        return f"{j}@{k}@" + "".join(str(value + 5) for value in shift)
+    return f"{j}@{k}" if k != 1 else str(j)
+
+
+def _render_net(net: Sequence[Sequence[int]]) -> str:
+    """Render the net part of a protonet label from its rows."""
+    groups: list[tuple[int, list[str]]] = []
+    for row in sorted(net, key=_net_row_key):
+        if not groups or groups[-1][0] != row[0]:
+            groups.append((row[0], []))
+        groups[-1][1].append(_render_target(row))
+    return "_".join(f"{site}~" + ".".join(targets) for site, targets in groups)
+
+
+def render_protonet(
+    spacegroup: Spacegroup,
+    class_letters: Sequence[tuple[str, ...]],
+    net: Sequence[Sequence[int]],
+    names: Sequence[str] | None = None,
+) -> str:
+    """Render a protonettype or protonetstructure label.
+
+    The bare part lists the classes in the given order, which is the value's class order
+    and is not re-sorted, because it fixes the site numbering of the net. ``__`` and the
+    net follow; an empty net leaves a trailing ``__``. With ``names`` the ``:`` species
+    suffix closes the label.
+
+    :param spacegroup: The standard-setting space group.
+    :param class_letters: Each class's sorted Wyckoff letters, in class order.
+    :param net: The rows ``(i, j, k, n1, n2, n3)`` of the bonding net.
+    :param names: The class species names in class order, or ``None`` for the anonymous
+        level.
+    :return: The label text.
+    :raises ValueError: If a letter is absent from the setting or a translation cannot be
+        written.
+    """
+    try:
+        multiplicities = [
+            sum(spacegroup.wyckoff_position(letter).multiplicity for letter in letters) for letters in class_letters
+        ]
+    except KeyError as exc:
+        raise ValueError(str(exc)) from exc
+    text = _assemble(spacegroup, class_letters, multiplicities) + "__" + _render_net(net)
+    return text if names is None else text + ":" + "-".join(names)
+
+
+def _parse_net(text: str) -> list[tuple[int, int, int, int, int, int]]:
+    """Parse the net part of a protonet label into rows, without canonicality checks."""
+    if "__" in text:
+        raise ValueError("a protonet label has exactly one '__' net segment")
+    if _NET_RESERVED.intersection(text):
+        raise ValueError(f"protonet net {text!r} uses a reserved character")
+    rows: list[tuple[int, int, int, int, int, int]] = []
+    for group in text.split("_") if text else ():
+        site, tilde, targets = group.partition("~")
+        if not tilde or not site.isascii() or not site.isdigit():
+            raise ValueError(f"invalid protonet group {group!r}")
+        for target in targets.split("."):
+            match = _NET_TARGET.fullmatch(target)
+            if match is None:
+                raise ValueError(f"invalid protonet destination {target!r} in group {group!r}")
+            j, k, klm = match.groups()
+            n1, n2, n3 = (int(digit) - 5 for digit in klm) if klm else (0, 0, 0)
+            rows.append((int(site), int(j), int(k) if k else 1, n1, n2, n3))
+    return rows
+
+
+def _parse_protonet(
+    text: str,
+) -> tuple[int, list[tuple[str, ...]], list[str] | None, list[tuple[int, int, int, int, int, int]]]:
+    """Split a protonet label into IT number, per-class letters, names and net rows."""
+    if not isinstance(text, str):
+        raise ValueError("label must be a string")
+    bare, sep, rest = text.partition("__")
+    if not sep:
+        raise ValueError("a protonet label needs a '__' net segment")
+    net_text, colon, suffix = rest.rpartition(":")
+    if not colon:
+        net_text, suffix = rest, ""
+    _, fields, bare_names = _split_label(bare)
+    if bare_names is not None:
+        raise ValueError("the ':' species suffix of a protonet label follows the net")
+    letters = [tuple(_parse_group(token)) for token in fields[3:]]
+    return _parse_it_number(fields[2]), letters, suffix.split("-") if colon else None, _parse_net(net_text)
+
+
+def parse_protonettype_label(text: str) -> "Protonettype":
+    """Parse a strictly canonical protonettype label.
+
+    Class ``c`` of the bare part gets the anonymous label ``anonymous_symbol(c)``; the
+    value is constructed (which validates the net) and the whole label is re-rendered and
+    compared with ``text``, which rejects leading zeros, unsorted or repeated groups and
+    non-canonical ``@`` spellings. The reserved characters ``- = # $ : / \\`` inside the
+    net and a second ``__`` are rejected.
+
+    :param text: The protonettype label to parse.
+    :return: The parsed :class:`~httk.atomistic.Protonettype`.
+    :raises ValueError: If ``text`` is not a canonical protonettype label.
+    """
+    from httk.atomistic.models.protonettype.protonettype import Protonettype
+
+    it_number, letters, names, net = _parse_protonet(text)
+    if names is not None:
+        raise ValueError("a protonettype label carries no ':' species suffix")
+    occupations = [(letter, anonymous_symbol(index)) for index, group in enumerate(letters) for letter in group]
+    value = Protonettype(it_number, occupations, net)
+    if str(value.label) != text:
+        raise ValueError(f"{text!r} is not a canonical protonettype label")
+    return value
+
+
+def parse_protonetstructure_label(text: str) -> "Protonetstructure":
+    """Parse a strictly canonical protonetstructure label.
+
+    As :func:`parse_protonettype_label`, but the ``:`` species suffix is required; name
+    ``c`` assigns class ``c`` and must be a known element symbol, which becomes
+    ``Species(name, (name,), (1,))``.
+
+    :param text: The protonetstructure label to parse.
+    :return: The parsed :class:`~httk.atomistic.Protonetstructure`.
+    :raises ValueError: If ``text`` is not a canonical protonetstructure label.
+    """
+    from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
+    from httk.atomistic.models.species.species import Species
+
+    it_number, letters, names, net = _parse_protonet(text)
+    if names is None:
+        raise ValueError("a protonetstructure label needs a ':' species suffix")
+    if len(names) != len(letters):
+        raise ValueError(f"label has {len(letters)} class(es) but {len(names)} species name(s)")
+    occupations: list[tuple[str, Species]] = []
+    for name, group in zip(names, letters):
+        if name not in _ELEMENTS:
+            raise ValueError(f"protonetstructure label name {name!r} is not a known element symbol")
+        occupations.extend((letter, Species(name, (name,), (1,))) for letter in group)
+    value = Protonetstructure(it_number, occupations, net)
+    if str(value.label) != text:
+        raise ValueError(f"{text!r} is not a canonical protonetstructure label")
+    return value
+
+
+def try_parse_protonettype(text: str) -> "Protonettype | None":
+    """Return the parsed protonettype, or ``None`` when *text* is not a canonical one.
+
+    :param text: The label text to test.
+    :return: The parsed protonettype, or ``None`` for any other string.
+    """
+    if not isinstance(text, str) or "__" not in text:
+        return None
+    try:
+        return parse_protonettype_label(text)
+    except ValueError:
+        return None
+
+
+def try_parse_protonetstructure(text: str) -> "Protonetstructure | None":
+    """Return the parsed protonetstructure, or ``None`` when *text* is not a canonical one.
+
+    :param text: The label text to test.
+    :return: The parsed protonetstructure, or ``None`` for any other string.
+    """
+    if not isinstance(text, str) or "__" not in text:
+        return None
+    try:
+        return parse_protonetstructure_label(text)
     except ValueError:
         return None

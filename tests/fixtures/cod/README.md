@@ -13,3 +13,4 @@ Do not edit or trim them; the tests depend on the exact original content.
 | 4002853 | occupancy needing `repair=True` |
 | 4002910 | occupancy needing `repair=True` |
 | 1001844 | bare scalar symmetry operation |
+| 1509425 | K2AgSbS4 (Pnn2): bonding-net (protonet) canonicalisation |

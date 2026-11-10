@@ -10,6 +10,7 @@ anonymous placeholders or real chemical species. Each cell is a value family
 | --- | --- | --- |
 | None (composition only) | {py:class}`~httk.atomistic.Formulatype` | {py:class}`~httk.atomistic.ChemicalFormula` |
 | Wyckoff positions only | {py:class}`~httk.atomistic.BarePrototype` | {py:class}`~httk.atomistic.BareProtostructure` |
+| Wyckoff positions + covalent bonding net | {py:class}`~httk.atomistic.Protonettype` | {py:class}`~httk.atomistic.Protonetstructure` |
 | Geometrical class | {py:class}`~httk.atomistic.Prototype` | {py:class}`~httk.atomistic.Protostructure` |
 | Exact geometry | {py:class}`~httk.atomistic.Structuretype` | {doc}`Structure <structures>` |
 
@@ -350,6 +351,174 @@ normalizer-canonical source.
 The AFLOW-style `-001` discriminators belong to a `Prototype` or a
 `Protostructure` (their `discriminator` field), which name a species-independent
 geometrical class. They are **never** part of the label.
+
+### Bonding-net labels
+
+{py:class}`~httk.atomistic.Protonettype` and
+{py:class}`~httk.atomistic.Protonetstructure` extend a bare prototype or bare
+protostructure with a canonical descriptor of its symmetric covalent bonding
+net. The label is the bare label, `__`, the net, and for the assigned level the
+usual species suffix:
+
+```
+label      = bare_label "__" net [ ":" name { "-" name } ]
+net        = group { "_" group }                  (may be empty)
+group      = site "~" target { "." target }
+target     = site [ "@" op [ "@" klm ] ]
+klm        = digit digit digit                    (each digit = translation + 5)
+```
+
+The levels nest as string prefixes. For K₂AgSbS₄ (COD 1509425):
+
+```
+A4B2CD                                                                   Formulatype
+A4B2CD_oP32_34_4c_abc_ab_c                                               BarePrototype
+A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.10@3                Protonettype
+A4B2CD_oP32_34_4c_abc_ab_c:S-K-Ag-Sb                                     BareProtostructure
+A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.10@3:S-K-Ag-Sb      Protonetstructure
+```
+
+**What the parts are.** Everything after `__` describes which atoms are
+covalently bonded. The numbers are the symmetry-distinct sites of the
+prototype, counted in the order the label lists them: here 1-4 are the four S
+sites on `4c`, 5-7 are K on `2a`, `2b` and `4c`, 8-9 are Ag on `2a` and `2b`,
+and 10 is Sb on `4c`. Each number stands for one reference atom of that site.
+Groups are separated by `_`, and each group lists the bonds that start at its
+first site. `~` means "is covalently bonded to" (bond order unspecified, dative
+bonds counted as covalent), and `.` separates the destinations. So `1~8.10`
+says that site 1 is bonded to site 8 and to site 10; it is a list, not a
+chain. A destination may carry `@n`, meaning the bond goes to the copy of that
+site's reference atom produced by symmetry operation number `n` of the space
+group, not to the reference atom itself. A second `@` adds a lattice
+translation as three digits, each being the shift along a, b, c plus 5, so
+`10@3@545` is operation 3 followed by one cell back along b. No `@` means the
+reference atom itself, and a zero translation is never written. A reference
+atom is the first-listed Wyckoff coordinate at the site's free parameters, not
+reduced modulo one.
+
+**How to read it.** Each entry is one symmetry-distinct bond, and all its
+symmetry copies are implied. The example therefore reads: S1 bonds to Ag8 and
+Sb10; S2 likewise; S3 bonds to Ag9 and Sb10; S4 bonds to Ag9 and to the image
+of Sb10 under operation 3 (`-x+1/2,y+1/2,z+1/2`). Those eight entries generate
+all 32 Ag-S and Sb-S bonds in the unit cell. Sites that appear nowhere, here the
+three K sites, have no covalent bonds. The net records covalent bonds only: a
+missing row means "no covalent bond", not "no contact". Which atom pairs are
+bonded is decided by the caller, who supplies the bond list; *httk₂* does not
+infer it. The string is canonical: which symmetry copy serves as each site's
+reference atom, and how interchangeable sites such as the four S are numbered,
+is chosen so that the string comes out smallest. The intent is that two
+crystals with the same prototype and the same bonding network get the same
+string, whatever their coordinates or choice of origin.
+
+**Relation to CIF.** This is the CIF bond list in compressed form. CIF records
+a bond as two atom labels plus a symmetry code for each
+(`_geom_bond_site_symmetry_1` and `_2`), written `n_klm`: operation number `n`,
+then the three translation digits offset by 5, with `.` for "no operation". The
+`10@3@545` above is CIF's `3_545` applied to the second atom, and the first
+atom's code is always `.`. There are four differences. CIF's operation number
+refers to the symmetry list inside that particular file, whereas here it refers
+to a fixed list for the space group's standard setting, with the identity as
+number 1. CIF's atoms are whichever ones the file happens to list, with
+coordinates, whereas here they are the reference atoms fixed by the canonical
+rule. CIF may list every bond around every atom, with distances, whereas here
+each symmetry-distinct bond appears exactly once and no geometry is stored.
+Finally, the redundant `_555` is dropped.
+
+**Strictness.** As for the other labels the parser is canonical-only
+(`parse_protonettype_label` and `parse_protonetstructure_label` in the
+notation module): it builds the value, re-renders it and rejects any string that
+differs, so `1~8@1`, `1~8@3@555`, `1~8.`, `1~8@3@55` and unsorted or repeated
+groups all fail. The following also hold.
+
+- `__` splits the bare label from the net at its first occurrence; neither part
+  can contain `__`, since no field or group is empty, and a second `__` is
+  rejected. The species suffix is split off at the last `:`.
+- The characters `-`, `=`, `#`, `$`, `:`, `/` and `\` are reserved inside the net
+  for future bond types and are rejected.
+- A translation must lie in -5..+4 per axis, the range one digit can write. A
+  value outside it raises `ValueError` at construction or rendering; a canonical
+  net should never need one.
+- An operation is written whenever a translation is, also operation 1
+  (`10@1@655`); operation 1 with zero translation is not written at all.
+- Operation `n` (1-based) is the `n`-th branch of the general Wyckoff position of
+  the standard setting, with the identity as 1. This is not always the order of
+  the International Tables: for group 34 the numbering is 1 `x,y,z`, 2 `-x,-y,z`,
+  3 `-x+1/2,y+1/2,z+1/2`, 4 `x+1/2,-y+1/2,z+1/2`, so 3 and 4 are exchanged. It
+  is also not the order of `Spacegroup.symmetry_operations`, which for group 34
+  lists the identity last.
+- A pair of sites may repeat (`1~7.7@4`, two different bond orbits between the
+  same two sites), and `i~i@...` is a bond between symmetry copies of one site
+  (diamond: `1~1@14@654`).
+- An empty net is written with a trailing `__`: `AB_cF8_225_a_b__`. Sites
+  without bonds do not appear in the net but keep their number.
+
+The example below builds K₂AgSbS₄ from an exact asymmetric unit and an explicit
+bond list: the eight Ag-S and Sb-S bonds that a 3.0 angstrom cutoff finds,
+written `(i, j, k, n1, n2, n3)` against the input site order. The caller
+supplies the bonds; `from_asu` only renumbers them and reduces each to its
+orbit representative. The asymmetric unit is the vendored COD entry; the label
+is pinned by `tests/test_protonet_canonical_api.py`.
+
+```python
+from fractions import Fraction as F
+
+from httk.atomistic import (
+    ASUStructure,
+    Cell,
+    Protonetstructure,
+    Species,
+    WyckoffSite,
+    canonical_protonetstructure,
+)
+from httk.core import FracVector
+
+# K2AgSbS4 (COD 1509425, Pnn2, no. 34) as an exact asymmetric unit, sites in input order
+rows = [
+    ("S", "c", (F(444, 625), F(2759, 5000), F(3161, 5000))),
+    ("S", "c", (F(7201, 10000), F(2307, 2500), F(367, 625))),
+    ("S", "c", (F(4619, 5000), F(901, 1250), F(3037, 10000))),
+    ("Ag", "a", (F(9519, 10000),)),
+    ("K", "c", (F(617, 2500), F(2349, 10000), F(237, 250))),
+    ("S", "c", (F(11, 20), F(7051, 10000), F(167, 625))),
+    ("K", "a", (F(56, 125),)),
+    ("Ag", "b", (F(2249, 10000),)),
+    ("K", "b", (F(379, 500),)),
+    ("Sb", "c", (F(909, 1250), F(3627, 5000), F(897, 2000))),
+]
+species = [Species(name, (name,), (1,)) for name in ("S", "Ag", "K", "Sb")]
+cell = Cell([[F(10348, 1000), 0, 0], [0, F(10522, 1000), 0], [0, 0, F(7946, 1000)]])
+asu = ASUStructure(
+    cell, 34, [WyckoffSite(letter, FracVector(params), name) for name, letter, params in rows], species
+)
+
+# Ag-S and Sb-S bonds, found by the caller: (i, j, operation, n1, n2, n3)
+bonds = [
+    (1, 4, 3, 0, 0, -1), (1, 10, 1, 0, 0, 0), (2, 8, 3, 0, 0, 0), (2, 10, 1, 0, 0, 0),
+    (3, 8, 1, 1, 0, 0), (3, 10, 1, 0, 0, 0), (4, 6, 3, 0, -1, 0), (6, 10, 1, 0, 0, 0),
+]
+value = Protonetstructure.from_asu(asu, bonds)
+canonical = canonical_protonetstructure(value)
+assert canonical.label == "A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.10@3:S-K-Ag-Sb"
+```
+
+### Canonical protonet labels
+
+`canonical_protonettype` and `canonical_protonetstructure` return the canonical
+value for any protonet-like input. Both take `preserve_chirality` (as the bare
+canonicalizers do) and `timeout`, the cooperative seconds allowed for the search
+(default 120, `None` disables it); a search that exceeds it raises
+`CanonicalizationLimitError`. The net is chosen before the species. A canonical
+`Protonetstructure` is therefore canonicalized anonymously first, and species
+names only break ties between descriptions that give the identical net. When
+classes tie in site count and letters, its species-to-letter assignment, and so
+its label without the `__net` part, can differ from that of
+{py:func}`~httk.atomistic.canonical_bare_protostructure`; no equality between the
+two is promised. Erasing a `Protonetstructure` to a `Protonettype` keeps class
+positions: class `c` becomes `anonymous_symbol(c)`. In triclinic and monoclinic
+groups the canonical net is canonical only relative to the cell that httk's
+standardisation chooses (the tabulated descriptions of P-1 are not closed, and
+no monoclinic set contains shears between equivalent cell choices). See
+{doc}`canonicalization` for the algorithm and its limits.
 
 ## Similarity and atom travel
 

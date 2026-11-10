@@ -12,6 +12,10 @@ import httk.atomistic.models.bareprotostructure.backend
 import httk.atomistic.models.bareprotostructure.view_base
 import httk.atomistic.models.bareprototype.backend
 import httk.atomistic.models.bareprototype.view_base
+import httk.atomistic.models.protonetstructure.backend
+import httk.atomistic.models.protonetstructure.view_base
+import httk.atomistic.models.protonettype.backend
+import httk.atomistic.models.protonettype.view_base
 import httk.atomistic.models.protostructure.backend
 import httk.atomistic.models.protostructure.view_base
 import httk.atomistic.models.prototype.backend
@@ -60,6 +64,10 @@ class WyckoffComposition(ChemicalFormulaBackend):
                 httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend,
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
                 httk.atomistic.models.bareprotostructure.view_base.BareProtostructureViewBase,
+                httk.atomistic.models.protonettype.backend.ProtonettypeBackend,
+                httk.atomistic.models.protonettype.view_base.ProtonettypeViewBase,
+                httk.atomistic.models.protonetstructure.backend.ProtonetstructureBackend,
+                httk.atomistic.models.protonetstructure.view_base.ProtonetstructureViewBase,
             ),
         ):
             return cls(obj, **hints)
@@ -74,6 +82,8 @@ class WyckoffComposition(ChemicalFormulaBackend):
                 httk.atomistic.models.bareprototype.view_base.BarePrototypeViewBase,
                 httk.atomistic.models.protostructure.view_base.ProtostructureViewBase,
                 httk.atomistic.models.bareprotostructure.view_base.BareProtostructureViewBase,
+                httk.atomistic.models.protonettype.view_base.ProtonettypeViewBase,
+                httk.atomistic.models.protonetstructure.view_base.ProtonetstructureViewBase,
             ),
         ):
             self._prototype = obj._backend
@@ -87,6 +97,7 @@ class WyckoffComposition(ChemicalFormulaBackend):
             (
                 httk.atomistic.models.protostructure.backend.ProtostructureBackend,
                 httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend,
+                httk.atomistic.models.protonetstructure.backend.ProtonetstructureBackend,
             ),
         )
 
@@ -97,6 +108,7 @@ class WyckoffComposition(ChemicalFormulaBackend):
             (
                 httk.atomistic.models.prototype.backend.PrototypeBackend,
                 httk.atomistic.models.bareprototype.backend.BarePrototypeBackend,
+                httk.atomistic.models.protonettype.backend.ProtonettypeBackend,
             ),
         )
 

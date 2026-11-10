@@ -89,6 +89,9 @@ from httk.atomistic.storage.records import (
     FundamentalDomainTemplateRecord,
     FundamentalDomainStructureRecord,
     NumericUnitcellStructureRecord,
+    ProtonetBondRecord,
+    ProtonetstructureRecord,
+    ProtonettypeRecord,
     ProtostructureRecord,
     PrototypeRecord,
     UnitcellStructureRecord,
@@ -174,6 +177,26 @@ from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.prototype.view import PrototypeView
 
+# Protonet imports follow the prototype block: the bonding-net levels extend the bare
+# families, whose adapters and formula bridge accept them.
+from httk.atomistic.models.protonetstructure.api import ProtonetstructureAPI
+from httk.atomistic.models.protonetstructure.backend import ProtonetstructureBackend
+from httk.atomistic.models.protonetstructure.label import ProtonetstructureLabel
+from httk.atomistic.models.protonetstructure.label_string import ProtonetstructureLabelString
+from httk.atomistic.models.protonetstructure.like import ProtonetstructureLike
+from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
+from httk.atomistic.models.protonetstructure.view import ProtonetstructureView
+from httk.atomistic.models.protonetstructure.view_base import ProtonetstructureViewBase
+from httk.atomistic.models.protonettype.api import ProtonettypeAPI
+from httk.atomistic.models.protonettype.backend import ProtonettypeBackend
+from httk.atomistic.models.protonettype.derived import DerivedProtonettype
+from httk.atomistic.models.protonettype.label import ProtonettypeLabel
+from httk.atomistic.models.protonettype.label_string import ProtonettypeLabelString
+from httk.atomistic.models.protonettype.like import ProtonettypeLike
+from httk.atomistic.models.protonettype.protonettype import Protonettype
+from httk.atomistic.models.protonettype.view import ProtonettypeView
+from httk.atomistic.models.protonettype.view_base import ProtonettypeViewBase
+
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.magnetic import find_magnetic_symmetry
 from httk.atomistic.symmetry.recognition import DEFAULT_TOLERANCE, recognize_asu, structure_tolerance
@@ -195,6 +218,8 @@ from httk.atomistic.symmetry.limits import CanonicalizationLimitError
 from httk.atomistic.symmetry.canonical_classification import (
     canonical_bare_prototype,
     canonical_bare_protostructure,
+    canonical_protonetstructure,
+    canonical_protonettype,
     canonical_prototype,
     canonical_protostructure,
 )
@@ -267,6 +292,8 @@ BarePrototypeBackend.backend_classes = [
     RecognizedBarePrototype,
 ]
 ProtostructureBackend.backend_classes = []
+ProtonettypeBackend.backend_classes = [DerivedProtonettype, ProtonettypeLabelString]
+ProtonetstructureBackend.backend_classes = [ProtonetstructureLabelString]
 PrototypeBackend.backend_classes = [DerivedPrototype]
 register_coercer(view_class_coercer([ChemicalFormulaView, FormulatypeView, CompositionView]), Any)
 StructureBackend.backend_classes = [
@@ -301,6 +328,10 @@ BarePrototype.__httk_storage_record__ = BarePrototypeRecord
 BarePrototypeView.__httk_storage_record__ = BarePrototypeRecord
 BareProtostructure.__httk_storage_record__ = BareProtostructureRecord
 BareProtostructureView.__httk_storage_record__ = BareProtostructureRecord
+Protonettype.__httk_storage_record__ = ProtonettypeRecord
+ProtonettypeView.__httk_storage_record__ = ProtonettypeRecord
+Protonetstructure.__httk_storage_record__ = ProtonetstructureRecord
+ProtonetstructureView.__httk_storage_record__ = ProtonetstructureRecord
 Protostructure.__httk_storage_record__ = ProtostructureRecord
 ProtostructureView.__httk_storage_record__ = ProtostructureRecord
 # ASUTemplate is deliberately not storable (matches the phase-2 decision for ASUStructure).
@@ -355,6 +386,7 @@ __all__ = [
     "CrystalAxisSiteMoments",
     "CrystalAxisSiteMomentsView",
     "DatastreamStructure",
+    "DerivedProtonettype",
     "Formulatype",
     "FormulatypeView",
     "FundamentalDomainStructure",
@@ -380,6 +412,25 @@ __all__ = [
     "PlainTrajectory",
     "PlaneWaveFunctions",
     "PrimitiveCellResult",
+    "ProtonetBondRecord",
+    "Protonetstructure",
+    "ProtonetstructureAPI",
+    "ProtonetstructureBackend",
+    "ProtonetstructureLabel",
+    "ProtonetstructureLabelString",
+    "ProtonetstructureLike",
+    "ProtonetstructureRecord",
+    "ProtonetstructureView",
+    "ProtonetstructureViewBase",
+    "Protonettype",
+    "ProtonettypeAPI",
+    "ProtonettypeBackend",
+    "ProtonettypeLabel",
+    "ProtonettypeLabelString",
+    "ProtonettypeLike",
+    "ProtonettypeRecord",
+    "ProtonettypeView",
+    "ProtonettypeViewBase",
     "Protostructure",
     "ProtostructureLabel",
     "ProtostructureLike",
@@ -442,6 +493,8 @@ __all__ = [
     "canonical_asu_protostructure_assignments",
     "canonical_bare_protostructure",
     "canonical_bare_prototype",
+    "canonical_protonetstructure",
+    "canonical_protonettype",
     "canonical_protostructure",
     "canonical_prototype",
     "canonicalize",

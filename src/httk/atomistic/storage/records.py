@@ -42,6 +42,8 @@ from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.moments.numeric import NumericSiteMoments
+from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
+from httk.atomistic.models.protonettype.protonettype import Protonettype
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.prototype.occupation import PrototypeOccupation
@@ -59,6 +61,7 @@ from httk.atomistic.symmetry.setting_transform import SettingTransform
 
 if TYPE_CHECKING:  # a runtime import is circular (records load during package import)
     from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+    from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 __all__ = [
     "ASUStructureRecord",
@@ -81,6 +84,9 @@ __all__ = [
     "NumericSpeciesRecord",
     "NumericUnitcellStructureRecord",
     "ObservableSummaryRecord",
+    "ProtonetBondRecord",
+    "ProtonetstructureRecord",
+    "ProtonettypeRecord",
     "ProtostructureRecord",
     "PrototypeRecord",
     "SettingTransformRecord",
@@ -2999,6 +3005,280 @@ def _bare_prototype_record_from_value(value: BarePrototype) -> BarePrototypeReco
         spacegroup_it_number=value.spacegroup.it_number,
         spacegroup_hall_entry=value.spacegroup.hall_entry,
         occupations=tuple(value.occupations),
+    )
+
+
+@dataclass(frozen=True)
+class ProtonetBondRecord:
+    """Represent one bonding-net row of a protonettype or protonetstructure.
+
+    The durable analogue of a net row ``(i, j, k, n1, n2, n3)``.
+
+    :param site: The 1-based site ``i`` of the reference atom.
+    :param target: The 1-based site ``j`` of the bonded atom.
+    :param operation: The 1-based general-position operation ``k`` (identity = 1).
+    :param translation_a: The lattice translation ``n1``.
+    :param translation_b: The lattice translation ``n2``.
+    :param translation_c: The lattice translation ``n3``.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_protonet_bond",
+        identity_name="atomistic_protonet_bond",
+    )
+
+    site: int
+    target: int
+    operation: int
+    translation_a: int
+    translation_b: int
+    translation_c: int
+
+    def __post_init__(self) -> None:
+        if any(not isinstance(value, int) or isinstance(value, bool) for value in self.row):
+            raise TypeError("ProtonetBondRecord fields must be integers")
+
+    @property
+    def row(self) -> tuple[int, int, int, int, int, int]:
+        """Return the net row ``(i, j, k, n1, n2, n3)``."""
+        return (self.site, self.target, self.operation, self.translation_a, self.translation_b, self.translation_c)
+
+
+@dataclass(frozen=True)
+class ProtonettypeRecord:
+    """Store an anonymous protonettype: a bare prototype with a bonding net.
+
+    Occupations keep the value's site order, which the net's site numbers refer to.
+    Labels are query conveniences, not unique identities.
+
+    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_hall_entry: The standard-setting Hall entry.
+    :param occupations: The anonymous occupied Wyckoff positions in site order.
+    :param net: The bonding-net rows in label order.
+    :param id: The public lineage id, if assigned.
+    :param immutable_id: The revision id, if assigned.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_protonettype",
+        identity_name="atomistic_protonettype",
+        indexes=(("spacegroup_it_number",), ("label",)),
+    )
+    __httk_canonical_source__: ClassVar = Protonettype
+
+    spacegroup_it_number: int
+    spacegroup_hall_entry: str
+    occupations: tuple[PrototypeOccupation, ...]
+    net: tuple[ProtonetBondRecord, ...]
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+    @stored_property
+    def label(self) -> str:
+        """Expose the protonettype label for querying."""
+        return _protonet_record_label(self, [(o.label, o.wyckoff) for o in self.occupations], named=False)
+
+    def __post_init__(self) -> None:
+        _validate_prototype_fields(type(self).__name__, self)
+        _validate_net_field(type(self).__name__, self)
+
+    @classmethod
+    def __httk_validate__(cls, record: "ProtonettypeRecord") -> None:
+        """Validate that the record is the one its own value stores.
+
+        :param record: The record to validate.
+        """
+        canonical = _protonettype_record_from_value(_protonettype_from_record(record))
+        _require_canonical("ProtonettypeRecord", "occupations", record.occupations, canonical.occupations)
+        _require_canonical("ProtonettypeRecord", "net rows", _net_rows(record), _net_rows(canonical))
+
+    @classmethod
+    def __httk_project__(cls, value: Protonettype) -> Mapping[str, object]:
+        """Project a protonettype into durable fields.
+
+        :param value: The protonettype to project.
+        :return: The projected record fields.
+        """
+        return {
+            "spacegroup_it_number": value.spacegroup.it_number,
+            "spacegroup_hall_entry": value.spacegroup.hall_entry,
+            "occupations": value.occupations,
+            "net": _bond_records(value.net),
+            "id": None,
+            "immutable_id": None,
+        }
+
+
+@dataclass(frozen=True)
+class ProtonetstructureRecord:
+    """Store an assigned-species protonetstructure: a bare protostructure with a bonding net.
+
+    Occupations keep the value's site order, which the net's site numbers refer to.
+    Labels are query conveniences, not unique identities.
+
+    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_hall_entry: The standard-setting Hall entry.
+    :param occupations: The occupied Wyckoff positions in site order.
+    :param net: The bonding-net rows in label order.
+    :param id: The public lineage id, if assigned.
+    :param immutable_id: The revision id, if assigned.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_protonetstructure",
+        identity_name="atomistic_protonetstructure",
+        indexes=(("spacegroup_it_number",), ("label",)),
+    )
+    __httk_canonical_source__: ClassVar = Protonetstructure
+
+    spacegroup_it_number: int
+    spacegroup_hall_entry: str
+    occupations: tuple[WyckoffOccupationRecord, ...]
+    net: tuple[ProtonetBondRecord, ...]
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+    @stored_property
+    def label(self) -> str:
+        """Expose the protonetstructure label for querying."""
+        return _protonet_record_label(self, [(o.species.name, o.wyckoff) for o in self.occupations], named=True)
+
+    def __post_init__(self) -> None:
+        _validate_protostructure_fields(type(self).__name__, self)
+        _validate_net_field(type(self).__name__, self)
+
+    @classmethod
+    def __httk_validate__(cls, record: "ProtonetstructureRecord") -> None:
+        """Validate that the record is the one its own value stores.
+
+        :param record: The record to validate.
+        """
+        canonical = _protonetstructure_record_from_value(_protonetstructure_from_record(record))
+        _require_canonical("ProtonetstructureRecord", "occupations", record.occupations, canonical.occupations)
+        _require_canonical("ProtonetstructureRecord", "net rows", _net_rows(record), _net_rows(canonical))
+
+    @classmethod
+    def __httk_project__(cls, value: Protonetstructure) -> Mapping[str, object]:
+        """Project a protonetstructure into durable fields.
+
+        :param value: The protonetstructure to project.
+        :return: The projected record fields.
+        """
+        return {
+            "spacegroup_it_number": value.spacegroup.it_number,
+            "spacegroup_hall_entry": value.spacegroup.hall_entry,
+            "occupations": value.occupations,
+            "net": _bond_records(value.net),
+            "id": None,
+            "immutable_id": None,
+        }
+
+
+def _validate_net_field(record_name: str, record: Any) -> None:
+    """Require a tuple of bond records in a protonet record's ``net`` field."""
+    net = tuple(record.net)
+    if not all(_effective_record_type(value) is ProtonetBondRecord for value in net):
+        raise TypeError(f"{record_name} net must contain ProtonetBondRecord values")
+    object.__setattr__(record, "net", net)
+
+
+def _net_rows(record: ProtonettypeRecord | ProtonetstructureRecord) -> tuple[tuple[int, int, int, int, int, int], ...]:
+    """Return a protonet record's net as plain rows, in stored order."""
+    return tuple(bond.row for bond in record.net)
+
+
+def _bond_records(net: tuple[tuple[int, int, int, int, int, int], ...]) -> tuple[ProtonetBondRecord, ...]:
+    """Return durable bond records for value net rows."""
+    return tuple(ProtonetBondRecord(*row) for row in net)
+
+
+def _protonet_record_label(
+    record: ProtonettypeRecord | ProtonetstructureRecord, sites: list[tuple[str, str]], *, named: bool
+) -> str:
+    """Render the protonet label from stored fields, keeping the stored class order.
+
+    :param record: The durable protonet record.
+    :param sites: The ``(class key, Wyckoff letter)`` of each occupation, in site order.
+    :param named: Whether to close the label with the ``:`` species suffix.
+    :return: The protonet label text.
+    """
+    from httk.atomistic.models.prototype.notation import render_protonet
+    from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+    runs = [
+        (key, tuple(letter for _, letter in run)) for key, run in itertools.groupby(sites, key=lambda pair: pair[0])
+    ]
+    return render_protonet(
+        Spacegroup.from_hall_entry(record.spacegroup_hall_entry),
+        [letters for _, letters in runs],
+        _net_rows(record),
+        [key for key, _ in runs] if named else None,
+    )
+
+
+def _protonet_record_spacegroup(record: ProtonettypeRecord | ProtonetstructureRecord) -> "Spacegroup":
+    """Return a protonet record's space group, checking the Hall entry against the IT number."""
+    from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
+    if spacegroup.it_number != record.spacegroup_it_number:
+        raise ValueError("stored space-group Hall entry contradicts its International Tables number")
+    return spacegroup
+
+
+def _protonettype_from_record(record: ProtonettypeRecord) -> Protonettype:
+    """Reconstruct a protonettype value from its durable record.
+
+    :param record: The durable protonettype record.
+    :return: The reconstructed protonettype value.
+    """
+    return Protonettype(_protonet_record_spacegroup(record), tuple(record.occupations), _net_rows(record))
+
+
+def _protonettype_record_from_value(value: Protonettype) -> ProtonettypeRecord:
+    """Build a durable protonettype record from a protonettype value.
+
+    :param value: The protonettype value to store.
+    :return: The durable protonettype record.
+    """
+    return ProtonettypeRecord(
+        spacegroup_it_number=value.spacegroup.it_number,
+        spacegroup_hall_entry=value.spacegroup.hall_entry,
+        occupations=tuple(value.occupations),
+        net=_bond_records(value.net),
+    )
+
+
+def _protonetstructure_from_record(record: ProtonetstructureRecord) -> Protonetstructure:
+    """Reconstruct a protonetstructure value from its durable record.
+
+    :param record: The durable protonetstructure record.
+    :return: The reconstructed protonetstructure value.
+    """
+    return Protonetstructure(
+        _protonet_record_spacegroup(record),
+        tuple(WyckoffOccupation(value.wyckoff, _species_from_record(value.species)) for value in record.occupations),
+        _net_rows(record),
+    )
+
+
+def _protonetstructure_record_from_value(value: Protonetstructure) -> ProtonetstructureRecord:
+    """Build a durable protonetstructure record from a protonetstructure value.
+
+    :param value: The protonetstructure value to store.
+    :return: The durable protonetstructure record.
+    """
+    return ProtonetstructureRecord(
+        spacegroup_it_number=value.spacegroup.it_number,
+        spacegroup_hall_entry=value.spacegroup.hall_entry,
+        occupations=tuple(
+            WyckoffOccupationRecord(
+                wyckoff=occupation.wyckoff,
+                species=SpeciesRecord(**cast(dict[str, Any], SpeciesRecord.__httk_project__(occupation.species))),
+            )
+            for occupation in value.occupations
+        ),
+        net=_bond_records(value.net),
     )
 
 
