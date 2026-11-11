@@ -37,7 +37,7 @@ from httk.atomistic.storage.records import (
     _prototype_from_record,
     _prototype_record_from_value,
 )
-from httk.atomistic.symmetry._canonical_form import _CANONICAL_FORM_VERSION
+from httk.atomistic.symmetry._canonical_form import _LABEL_FORM_VERSION, _NET_FORM_VERSION, _REFINED_FORM_VERSION
 
 ROWS = [(i, j, 1, 0, 0, 0) for i, j in ((1, 8), (1, 10), (2, 8), (2, 10), (3, 9), (3, 10), (4, 9))] + [
     (4, 10, 3, 0, 0, 0)
@@ -112,35 +112,40 @@ def test_validate_rejects_a_non_canonical_net() -> None:
             type(record).__httk_validate__(record)
 
 
-# every record with a canonical label, and how it converts back to a value
+# every record with a canonical label, how it converts back to a value, and its version family
 CANONICAL_LABEL_RECORDS = [
-    (lambda: _bare_prototype_record_from_value(_rocksalt_prototype()), _bare_prototype_from_record),
-    (lambda: _bare_protostructure_record_from_value(_rocksalt()), _bare_protostructure_from_record),
+    (lambda: _bare_prototype_record_from_value(_rocksalt_prototype()), _bare_prototype_from_record, "label"),
+    (lambda: _bare_protostructure_record_from_value(_rocksalt()), _bare_protostructure_from_record, "label"),
     (
         lambda: _prototype_record_from_value(Prototype(prototype=_rocksalt_prototype(), discriminator="001")),
         _prototype_from_record,
+        "refined",
     ),
     (
         lambda: _protostructure_record_from_value(Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="001")),
         _protostructure_from_record,
+        "refined",
     ),
-    (lambda: _protonettype_record_from_value(_anon()), _protonettype_from_record),
-    (lambda: _protonetstructure_record_from_value(_assigned()), _protonetstructure_from_record),
+    (lambda: _protonettype_record_from_value(_anon()), _protonettype_from_record, "net"),
+    (lambda: _protonetstructure_record_from_value(_assigned()), _protonetstructure_from_record, "net"),
 ]
+FORM_VERSIONS = {"label": _LABEL_FORM_VERSION, "refined": _REFINED_FORM_VERSION, "net": _NET_FORM_VERSION}
 
 
-@pytest.mark.parametrize(("build", "from_record"), CANONICAL_LABEL_RECORDS)
-def test_records_carry_the_canonical_form_version(build, from_record) -> None:
+@pytest.mark.parametrize(("build", "from_record", "family"), CANONICAL_LABEL_RECORDS)
+def test_records_carry_their_family_canonical_form_version(build, from_record, family) -> None:
+    version = FORM_VERSIONS[family]
     record = build()
-    assert record.canonical_form == _CANONICAL_FORM_VERSION == 2
-    assert type(record).__httk_project__(from_record(record))["canonical_form"] == _CANONICAL_FORM_VERSION
+    assert record.canonical_form == version == 2
+    assert type(record).__httk_project__(from_record(record))["canonical_form"] == version
     type(record).__httk_validate__(record)
     with pytest.raises(TypeError, match="canonical_form must be an integer"):
         dataclasses.replace(record, canonical_form=True)
-    for stale in (1, 3):
+    for stale in (version - 1, version + 1):
         old = dataclasses.replace(record, canonical_form=stale)
         assert content_id(old) != content_id(record)
-        with pytest.raises(ValueError, match=r"canonical form .* changed; rebuild the database"):
+        message = rf"canonical {family} form {stale}, but this httk-atomistic uses {version}: .* changed; rebuild"
+        with pytest.raises(ValueError, match=message):
             from_record(old)
         with pytest.raises(ValueError, match="rebuild the database"):
             type(record).__httk_validate__(old)

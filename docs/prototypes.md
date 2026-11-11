@@ -702,12 +702,21 @@ registry aliases or upgrade machinery are provided.
 The six records with a canonical label (`BarePrototypeRecord`,
 `BareProtostructureRecord`, `PrototypeRecord`, `ProtostructureRecord`,
 `ProtonettypeRecord` and `ProtonetstructureRecord`) store a `canonical_form`
-integer, the version of the canonical-label rules they were built with. It is
-part of their content identity. Saving requires the current version, and turning
-a record of another version back into a value raises `ValueError`: the canonical
-form changed, so rebuild the database. The version is bumped whenever any
-canonical label rule changes; it is now 2, since the monoclinic and P-1 labels
-became independent of the cell. Saving a protonet record also checks that its net
+integer, the version of the canonical rules they were built with. It is part of
+their content identity. There are three versions, one per family:
+
+| Family | Records | Bumped when |
+|---|---|---|
+| label | `BarePrototypeRecord`, `BareProtostructureRecord` | the label rules change, `Formulatype` order included |
+| refined | `PrototypeRecord`, `ProtostructureRecord` | the label version is bumped, or the representative rule changes |
+| net | `ProtonettypeRecord`, `ProtonetstructureRecord` | the label version is bumped, or the net rule changes |
+
+A label-rule change therefore bumps all three, while a change to the
+representative or to the net leaves the other families' records untouched. Each
+version is now 2, since the monoclinic and P-1 labels became independent of the
+cell. Saving requires the family's current version, and turning a record of
+another version back into a value raises `ValueError` naming the family: its
+canonical form changed, so rebuild the database. Saving a protonet record also checks that its net
 is the canonical one for its bare description; a non-canonical net is rejected,
 never rewritten. Constructing a protonet value, parsing its label and saving its
 record (`__httk_validate__`) each run the net search; loading a value from a
