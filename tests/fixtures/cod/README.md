@@ -17,3 +17,13 @@ Do not edit or trim them; the tests depend on the exact original content.
 | 1539945 | CuCl2 (C2/m): chains along b, a monoclinic net chosen cell-independently |
 | 1535669 | AlCl3 (C2/m): layers containing b, a monoclinic net chosen cell-independently |
 | 1509688 | AgO (P2₁/c): a 3-periodic Ag(I)/Ag(III) oxide net whose E-only (form 2) label depended on the cell |
+| 7217521 | tricyclic tetrazine C8H16N4O2 (P2₁/c): molecule on an inversion centre (`test_protonet_molecular.py`) |
+| 7217843 | fluorophenyl naphthalimide C20H14FNO3 (P2₁/c): a larger molecule on a general position |
+| 7218683 | Cu(C9H9BrNO)2 (P2₁/c): Cu on 2b, which the canonical protonetstructure moves to 2a |
+| 7219855 | C12H10N4 with adipic acid (P2₁/c): two molecules on two inversion centres |
+| 4134228 | C9H17N3O (P2₁/c): a flexible molecule, a protonet search performance regression |
+| 7219077 | C18H18N2S2 (C2/c): molecule on a 2-fold axis, two of its atoms on the axis |
+| 4326344 | 2-[(N,N-dimethylamino)methyl]aniline (P2₁): a protonet search performance regression |
+| 4131686 | C20H16N2O2 (P-1, Z = 1): molecule on an inversion centre |
+| 7217003 | triazolo-benzothiadiazine dioxide C16H14N4O2S (P-1): a protonet search performance regression |
+| 7219102 | sarcosine C3H7NO2 (P2₁2₁2₁): a small chiral-group molecular crystal |
