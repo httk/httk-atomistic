@@ -40,6 +40,7 @@ type _IntMatrix = tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, i
 type _Row = tuple[int, int, _Element]
 type _Sym = tuple[int, tuple[int, ...], tuple[tuple[int, ...], ...]]  # (k, c, M): translation c + M v
 type _Assign = tuple[_Sym | None, ...]
+type _State = tuple[_Assign, int, frozenset[int]]  # reference atoms, unknown count, rows used
 type _Constraint = tuple[list[list[int]], int, tuple[int, ...]]  # (U, rank, z): v = U[:, :rank] z + kernel
 type _Rank = tuple[int, tuple[str, ...]]
 type _Candidate = tuple[tuple[_Rank, ...], tuple[tuple[int, int], ...], tuple[tuple[int, int, int, int, int], ...]]
@@ -53,6 +54,8 @@ _FLAT_BOX = 2
 _B_BOX = sorted(product(range(-2, 3), repeat=3), key=lambda d: d[0] * d[0] + d[1] * d[1] + d[2] * d[2])
 _ZERO: _Point = (Fraction(0), Fraction(0), Fraction(0))
 _INVERSION = AffineOperation(((-1, 0, 0), (0, -1, 0), (0, 0, -1)), (0, 0, 0))
+# the numbering search sorts a node's children (order only, never the result) up to this many
+_SORTED_CHILDREN = 720
 
 
 def _key(e: _Element) -> tuple[int, int, int, int, int]:
@@ -632,6 +635,15 @@ def _minimal_numberings(
         if a != b:
             neighbours[b][a] += 1
     isolated = {s for s, c in neighbours.items() if not c}
+    # twins (one block, equal neighbours) are swapped by an automorphism of the pairs, which keeps
+    # every pattern: search only numberings that number each twin class in block order, then permute
+    # (isolated sites keep their one fixed order)
+    twins: dict[tuple[int, frozenset[tuple[int, int]]], list[int]] = {}
+    for index, block in enumerate(blocks):
+        for site in block:
+            if site not in isolated:
+                twins.setdefault((index, frozenset(neighbours[site].items())), []).append(site)
+    before = {s: c[x - 1] for c in twins.values() for x, s in enumerate(c) if x}  # site -> previous twin
     total = len(rows)
     best_pattern: tuple[tuple[int, int], ...] | None = None
     best_numberings: list[dict[int, int]] = []
@@ -650,8 +662,9 @@ def _minimal_numberings(
             candidates = [holder]
         else:
             pool = [s for s in blocks[owner[m]] if s not in number]
-            connected = [s for s in pool if s not in isolated]
+            connected = [s for s in pool if s not in isolated and (s not in before or before[s] in number)]
             candidates = connected if connected else pool[:1]  # isolated sites: any fixed order
+        starts, count = [], 0
         for site in candidates:
             number2, free2 = dict(number), list(free)
             if site not in number2:
@@ -661,13 +674,28 @@ def _minimal_numberings(
             for other in neighbours[site]:
                 if other not in number2:
                     pending.setdefault(block_of[other], []).append(other)
-            options = [permutations(group) for group in pending.values()]
-            for choice in product(*options):
+            twinned = [(before[o], o) for group in pending.values() for o in group if o in before] if before else ()
+            starts.append((site, number2, free2, pending.values(), twinned))
+            choices = 1
+            for group in pending.values():
+                if len(group) > 1:
+                    choices *= math.factorial(len(group))
+            count += choices
+        # a few children: collect and visit smallest first, so an early small best prunes the rest;
+        # many (a factorial of pending neighbours): visit lazily, in memory linear in the depth
+        ordered, lazy = 1 < count <= _SORTED_CHILDREN, count > _SORTED_CHILDREN
+        children = []
+        for site, number2, free2, groups, twinned in starts:
+            for choice in product(*(permutations(group) for group in groups)):
+                if lazy:
+                    _checkpoint()
                 number3, free3 = dict(number2), list(free2)
-                for group in choice:
-                    for other in group:  # next free numbers of that block
+                for chosen in choice:
+                    for other in chosen:  # next free numbers of that block
                         number3[other] = free3[block_of[other]]
                         free3[block_of[other]] += 1
+                if twinned and any(number3[u] > number3[o] for u, o in twinned):
+                    continue
                 group_rows = sorted(
                     (m, number3[other])
                     for other, mult in neighbours[site].items()
@@ -675,13 +703,28 @@ def _minimal_numberings(
                     for _ in range(mult)
                 )
                 pattern3 = pattern + tuple(group_rows)
-                if best_pattern is not None and len(best_pattern) == total and pattern3 > best_pattern[: len(pattern3)]:
-                    continue
-                descend(m + 1, number3, free3, pattern3)
+                if ordered:
+                    children.append((pattern3, number3, free3))
+                elif best_pattern is None or len(best_pattern) < total or pattern3 <= best_pattern[: len(pattern3)]:
+                    descend(m + 1, number3, free3, pattern3)
+        children.sort(key=lambda child: child[0])
+        for pattern3, number3, free3 in children:
+            if best_pattern is not None and len(best_pattern) == total and pattern3 > best_pattern[: len(pattern3)]:
+                break  # sorted: every later child is larger too
+            descend(m + 1, number3, free3, pattern3)
 
     descend(0, {}, list(first), ())
     assert best_pattern is not None
-    return best_pattern, [{s: n + 1 for s, n in numbering.items()} for numbering in best_numberings]
+    classes = [c for c in twins.values() if len(c) > 1]
+    numberings = []
+    for numbering in best_numberings:
+        for choice in product(*(permutations(sorted(numbering[s] for s in c)) for c in classes)):
+            _checkpoint()
+            moved = dict(numbering)
+            for c, values in zip(classes, choice, strict=True):
+                moved.update(zip(c, values, strict=True))
+            numberings.append({s: n + 1 for s, n in moved.items()})
+    return best_pattern, numberings
 
 
 # ---------------------------------------------------------------------------------------------
@@ -861,7 +904,10 @@ def _component_codes(
     """Run the exact state search over one connected component, in slot order (memoised).
 
     The component is in local form: site ``s`` has number ``s + 1`` and every row has ``a <= b``, so
-    equal components met under other numberings or in other components share one search.
+    equal components met under other numberings or in other components share one search.  Sites
+    joined by the rows seen so far form fragments whose state sets are independent (a row's code
+    depends on its own fragment only), so they are kept per fragment and multiplied only when a
+    row joins two fragments, instead of as one product over every fragment.
 
     :param tables: The group tables.
     :param letters: The Wyckoff letter per local site.
@@ -870,11 +916,18 @@ def _component_codes(
     """
     info = {s: tables.letter(letter) for s, letter in enumerate(letters)}
     slots = sorted((a + 1, b + 1) for a, b, _ in rows)
-    states: set[tuple[_Assign, int, frozenset[int]]] = {((None,) * len(letters), 0, frozenset())}
+    empty: _State = ((None,) * len(letters), 0, frozenset())
+    fragment = list(range(len(letters)))  # site -> fragment root
+    found: dict[int, set[_State]] = {}  # fragment root -> its state set
     codes: list[_Element] = []
     for i, j in slots:
         si, sj = i - 1, j - 1
         Hi, Hj = info[si].H, info[sj].H
+        fi, fj = found.pop(fragment[si], None), found.pop(fragment[sj], None)
+        if fi is None or fj is None:  # a new site, or both ends in one fragment
+            states = fi or fj or {empty}
+        else:
+            states = {_join(x, y) for x in fi for y in fj}
         best: tuple[int, ...] | None = None
         keep: list[tuple[_Element, _Assign, int, _Constraint | None, frozenset[int]]] = []
         for assign, D, used in states:
@@ -892,11 +945,29 @@ def _component_codes(
                         if key == best:
                             keep.append((code, assign2, D2, constraint, used | {r}))
         codes.append(keep[0][0])
-        states = set()
+        root, other = fragment[si], fragment[sj]
+        fragment = [root if f == other else f for f in fragment]
+        found[root] = set()
         for _, assign2, D2, constraint, used2 in keep:
-            states.add((*_normalise(*_substitute(assign2, D2, constraint)), used2))
-    assign = next(iter(states))[0]
+            _checkpoint()
+            found[root].add((*_normalise(*_substitute(assign2, D2, constraint)), used2))
+    assign = next(iter(found.pop(fragment[0])))[0]
+    assert not found, "a component's rows connect all its sites"
     return tuple(codes), tuple(None if e is None else (e[0], e[1][0], e[1][1], e[1][2]) for e in assign)
+
+
+def _join(x: _State, y: _State) -> _State:
+    """Combine the states of two fragments: disjoint sites, unknowns stacked."""
+    (ax, dx, ux), (ay, dy, uy) = x, y
+    joined: list[_Sym | None] = []
+    for ex, ey in zip(ax, ay, strict=True):
+        if ex is not None:
+            joined.append((ex[0], ex[1], tuple(row + (0,) * dy for row in ex[2])))
+        elif ey is not None:
+            joined.append((ey[0], ey[1], tuple((0,) * dx + row for row in ey[2])))
+        else:
+            joined.append(None)
+    return tuple(joined), dx + dy, ux | uy
 
 
 def _exact_codes(
@@ -984,7 +1055,9 @@ class _CanonicalNet:
     :param realisations: The descriptions giving this net, de-duplicated by ``(classes, letters,
         number)``; a coset repeating an earlier coset's letters and bond orbits is skipped.  Other
         ``(cell, coset, gauge)`` triples of an equal realisation are therefore not kept, which
-        matters only for a future geometric round trip (D9).
+        matters only for a future geometric round trip (D9).  Their order, and so which one is
+        first, is a search detail that may change between versions: a caller may take the first
+        only for what every realisation shares, and otherwise picks by an order-free rule (D3).
     """
 
     it_number: int
@@ -1102,15 +1175,10 @@ def _search(
         if bare_key != least:
             continue
         coset = tables.cosets[index]
-        moved = [_moved(tables, coset, cell_sites, row) for row in cell_rows]
+        # in one gauge, cosets and interchangeable sites that differ only by reference atoms collide below
+        pre, moved = _pregauge(tables, letters, [_moved(tables, coset, cell_sites, row) for row in cell_rows])
         # a coset that yields the same letters and bond orbits as an earlier one adds no realisation
-        seen_key = (
-            tuple(letters.values()),
-            frozenset(
-                (a, b, tables.canon(tables.letter(letters[a]).H, tables.letter(letters[b]).H, g, a == b))
-                for a, b, g in moved
-            ),
-        )
+        seen_key = (tuple(letters.values()), frozenset(moved))
         if seen_key in seen:
             continue
         seen.add(seen_key)
@@ -1146,6 +1214,7 @@ def _search(
             if best is not None and (bare_key, pattern) > (best[0], best[1]):
                 continue
             for number in numberings:
+                _checkpoint()  # memo hits in _exact_codes reach no other checkpoint
                 ordered_classes = [
                     cls
                     for part in arrangement
@@ -1161,13 +1230,57 @@ def _search(
                         tuple(ordered_classes),
                         tuple(letters[s] for s in range(len(sites))),
                         tuple(number[s] for s in range(len(sites))),
-                        tuple(gauge[s] or _IDENTITY for s in range(len(sites))),
+                        tuple(tables.mul(gauge[s] or _IDENTITY, pre[s]) for s in range(len(sites))),
                         X,
                     )
                     realisations.setdefault((real.classes, real.letters, real.number), real)
     assert result is not None
     slots, codes, groups = result
     return _CanonicalNet(target, tuple(groups), tuple(slots), tuple(codes), tuple(realisations.values()))
+
+
+def _pregauge(
+    tables: _GroupTables, letters: Mapping[int, str], rows: Sequence[_Row]
+) -> tuple[list[_Element], list[_Row]]:
+    """Move general-position reference atoms along a spanning forest so its rows become the identity.
+
+    The state search minimises over every reference atom of a general position, so no code changes;
+    descriptions that differ only by such a gauge (other cosets, interchangeable sites) then give
+    equal rows, which the coset de-duplication and the component memo merge.  Special positions
+    keep their reference atoms.
+
+    :param tables: The group tables.
+    :param letters: Site -> Wyckoff letter, sites ``0..n-1``.
+    :param rows: The rows ``(a, b, g)``.
+    :return: ``(change per site, rows in the new reference atoms, each its double-coset minimum)``.
+    """
+    pre: dict[int, _Element] = {}
+    adjacent: dict[int, list[_Row]] = {}
+    for row in sorted(rows):
+        adjacent.setdefault(row[0], []).append(row)
+        adjacent.setdefault(row[1], []).append(row)
+    for root in range(len(letters)):
+        if root in pre:
+            continue
+        pre[root] = _IDENTITY
+        queue = [root]
+        for s in queue:
+            for a, b, g in adjacent.get(s, ()):
+                if b not in pre:  # e_a g e_b^-1 = 1
+                    pre[b], other = tables.mul(pre[a], g), b
+                elif a not in pre:
+                    pre[a], other = tables.mul(pre[b], tables.inv(g)), a
+                else:
+                    continue
+                if not tables.letter(letters[other]).general:
+                    pre[other] = _IDENTITY
+                queue.append(other)
+    gauge = [pre[s] for s in range(len(letters))]
+    H = [tables.letter(letters[s]).H for s in range(len(letters))]
+    return gauge, [
+        (a, b, tables.canon(H[a], H[b], tables.mul(tables.mul(gauge[a], g), tables.inv(gauge[b])), a == b))
+        for a, b, g in rows
+    ]
 
 
 def _arrangements(group: Sequence[Hashable], connected: set[Hashable]) -> list[tuple[Hashable, ...]]:
