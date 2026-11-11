@@ -10,6 +10,7 @@ from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProt
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
 from httk.atomistic.models.formula.view_base import ChemicalFormulaViewBase
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
+from httk.atomistic.models.species.classes import _class_structure, _merges_classes
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.view import StructureView
@@ -21,11 +22,17 @@ from httk.atomistic.symmetry.recognition import recognize_asu
 class RecognizedBareProtostructure(BareProtostructureBackend):
     r"""Project an ordinary structure lazily to a protostructure.
 
+    The structure of species classes is classified. A declared ASU keeps its declared symmetry
+    unless two of its species share a class; then, as for a structure without an ASU, the
+    symmetry of the class structure is recognized.
+
     :param obj: The ordinary structure to recognize.
     :param \*\*hints: Backend-selection hints.
     """
 
     kind = "structure"
+    _molecular_ok: bool = False  # the anonymous erasure drops molecular metadata, as Structuretype does
+    _view_name: str = "BareProtostructureView"
     _structure: StructureBackend | None
     _setting: Any
     _standard: Any
@@ -68,7 +75,7 @@ class RecognizedBareProtostructure(BareProtostructureBackend):
             hints.get(name) is not None
             for name in ("setting", "standard", "transform", "tolerance", "limit_denominator")
         ):
-            raise ValueError("BareProtostructureView recognition arguments cannot be used with an existing ASU")
+            raise ValueError(f"{cls._view_name} recognition arguments cannot be used with an existing ASU")
         if setting is not None and (standard is not None or transform is not None):
             raise TypeError("recognize_asu() takes either 'setting' or 'standard'/'transform', not both")
         if setting is None and (standard is not None or transform is not None):
@@ -109,8 +116,7 @@ class RecognizedBareProtostructure(BareProtostructureBackend):
         resolver = getattr(self._structure, "resolve", None)
         return resolver() if resolver is not None else self._structure
 
-    @staticmethod
-    def _validate_structure(structure: Any) -> None:
+    def _validate_structure(self, structure: Any) -> None:
         for species in structure.species:
             if "X" in species.chemical_symbols or "X" in (species.attached or ()):
                 raise ValueError(
@@ -118,7 +124,7 @@ class RecognizedBareProtostructure(BareProtostructureBackend):
                 )
         if getattr(structure, "assemblies", None) is not None:
             raise ValueError("BareProtostructure cannot represent assemblies")
-        if getattr(structure, "molecular", False):
+        if getattr(structure, "molecular", False) and not self._molecular_ok:
             raise ValueError("BareProtostructure cannot represent molecular structures")
         if getattr(structure, "chemical_composition", None) is not None:
             raise ValueError("BareProtostructure cannot represent chemical_composition")
@@ -140,11 +146,15 @@ class RecognizedBareProtostructure(BareProtostructureBackend):
         structure = self._effective_structure()
         asu = structure if isinstance(structure, FundamentalDomainStructure) else getattr(structure, "asu", None)
         if asu is not None and self._has_recognition_options():
-            raise ValueError("BareProtostructureView recognition arguments cannot be used with an existing ASU")
+            raise ValueError(f"{self._view_name} recognition arguments cannot be used with an existing ASU")
         self._validate_structure(structure)
+        source = structure
+        if asu is not None and _merges_classes(asu):
+            # the declared symmetry describes the named species; their classes can have more
+            source, asu = asu, None
         if asu is None:
             asu = recognize_asu(
-                structure,
+                _class_structure(source, drop_molecular=self._molecular_ok),
                 setting=self._setting,
                 standard=self._standard,
                 transform=self._transform,

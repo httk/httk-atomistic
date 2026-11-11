@@ -42,7 +42,7 @@ FULL_NET = (
 )
 CUBIC = (5.64, 5.64, 5.64, 90, 90, 90)
 NACL = {frozenset(("Na", "Cl")): 3.0}
-ELEMENT = {"A": "C", "B": "N"}  # the made-up P2_1 classes, named A and B in the label suffix
+ELEMENT = {"A": "C", "B": "N"}  # the made-up P2_1 classes A and B; the label suffix names their classes C, N
 
 # name -> (it number, spec or None for the CIF, cell, cutoffs)
 CASES: dict[str, tuple[Any, ...]] = {
@@ -82,7 +82,7 @@ LABELS = {
     "diamond": "A_cF8_227_a__1~1@14@654:C",
     "wurtzite": "AB_hP4_186_b_b__1~2.2@2:S-Zn",
     "pdse2": "A2B_oP12_61_c_a__1~1@2@455.2.2@4@455:Se-Pd",
-    "p21-chain": "A2B_mP6_4_2a_a__1~1@2.2.2@2.3_2~3:B-A",
+    "p21-chain": "A2B_mP6_4_2a_a__1~1@2.2.2@2.3_2~3:N-C",  # renamed: species B and A are classes N and C
 }
 
 
@@ -229,8 +229,7 @@ def test_canonicalisation_is_idempotent_and_parses_back(name: str) -> None:
     nt = canonical_protonettype(ps)
     assert canonical_protonetstructure(ps) == ps and canonical_protonettype(nt) == nt
     assert canonical_protonettype(_value(name).protonettype) == nt
-    if name != "p21-chain":  # the parser accepts element names only; the made-up chain is named A, B
-        assert parse_protonetstructure_label(str(ps.label)) == ps
+    assert parse_protonetstructure_label(str(ps.label)) == ps
     assert parse_protonettype_label(str(nt.label)) == nt
 
 

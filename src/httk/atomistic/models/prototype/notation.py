@@ -9,9 +9,11 @@ occupations into species classes. The grammar is::
 
 A ``GROUP`` is the concatenation of one species class's Wyckoff letters, sorted
 alphabetically, a letter occupied ``k >= 2`` times prefixed by the integer ``k``
-(``2e``); count ``1`` is omitted. Groups appear in the order of :func:`class_order_key`:
-largest summed conventional multiplicity first, then sorted Wyckoff letters. ``ANON`` is
-the anonymous formula built from
+(``2e``); count ``1`` is omitted. A ``NAME`` is a species class name (``Ti``,
+``Bi0.5Na0.5``, ``Li1/3``, ``OH2``; see :mod:`httk.atomistic.models.species.classes`), which
+determines the class species and never contains ``-``, ``:`` or ``_``. Groups appear in
+the order of :func:`class_order_key`: largest summed conventional multiplicity first, then
+sorted Wyckoff letters. ``ANON`` is the anonymous formula built from
 :func:`~httk.atomistic.models.formula.notation.anonymous_symbol` in group order with
 per-group summed conventional multiplicities reduced by their overall gcd, so it equals
 the :class:`~httk.atomistic.Formulatype` of the site counts.
@@ -44,8 +46,9 @@ from functools import reduce
 from math import gcd
 from typing import TYPE_CHECKING
 
-from httk.atomistic.elements import SYMBOLS
 from httk.atomistic.models.formula.notation import anonymous_symbol
+from httk.atomistic.models.species.classes import _species_from_class_name
+from httk.atomistic.models.species.species import Species
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 if TYPE_CHECKING:
@@ -73,7 +76,6 @@ _CRYSTAL_SYSTEM_LETTER = {
 _GROUP_TOKEN = re.compile(r"(\d*)([a-zA-Z])")
 _NET_TARGET = re.compile(r"([0-9]+)(?:@([0-9]+)(?:@([0-9]{3}))?)?")
 _NET_RESERVED = frozenset("-=#$:/\\")
-_ELEMENTS = frozenset(SYMBOLS)
 
 
 def pearson_symbol(spacegroup: Spacegroup, nsites_conventional: int) -> str:
@@ -171,13 +173,13 @@ def class_order_key(letters: tuple[str, ...], multiplicity: int, tie: str = "") 
 
     The class with the largest summed conventional multiplicity comes first, as in
     :class:`~httk.atomistic.Formulatype`; equal counts are ordered by the sorted Wyckoff
-    letters, and ``tie`` (a species name or input key) breaks what remains. Label
+    letters, and ``tie`` (a species class name or input key) breaks what remains. Label
     rendering, anonymous relabelling and the canonicalisers' choice among equivalent
     descriptions all sort by this key.
 
     :param letters: The class's sorted Wyckoff letters, repetitions included.
     :param multiplicity: The class's summed conventional Wyckoff multiplicity.
-    :param tie: The final tie-break, a species name or input class key.
+    :param tie: The final tie-break, a species class name or input class key.
     :return: The key; smaller keys come first.
     """
     return (-multiplicity, letters, tie)
@@ -225,9 +227,9 @@ def render_protostructure_label(spacegroup: Spacegroup, occupations: Sequence[tu
     """Render the httk protostructure label of a space group and its named occupations.
 
     Classes are ordered by :func:`class_order_key`: largest summed conventional
-    multiplicity first, then sorted Wyckoff letters, ties broken by species name. The
+    multiplicity first, then sorted Wyckoff letters, ties broken by species class name. The
     unsuffixed prefix equals the prototype label of the erased template; the suffix lists
-    the class species names in group order.
+    the species class names in group order.
 
     :param spacegroup: The standard-setting space group.
     :param occupations: The occupied ``(wyckoff, species-name)`` pairs.
@@ -339,15 +341,14 @@ def parse_bare_protostructure_label(text: str) -> "BareProtostructure":
     """Parse a strictly canonical httk protostructure label into a protostructure.
 
     The unsuffixed part is validated as for a prototype label; each ``:`` name must be a
-    known element symbol and becomes ``Species(name, (name,), (1,))``. Non-canonical labels
-    are rejected.
+    canonical species class name (see :mod:`httk.atomistic.models.species.classes`) and
+    becomes its class species. Non-canonical labels are rejected.
 
     :param text: The protostructure label to parse.
     :return: The parsed :class:`~httk.atomistic.models.bareprotostructure.bareprotostructure.BareProtostructure`.
     :raises ValueError: If ``text`` is not a canonical protostructure label.
     """
     from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
-    from httk.atomistic.models.species.species import Species
 
     _, fields, names = _split_label(text)
     if names is None:
@@ -358,9 +359,7 @@ def parse_bare_protostructure_label(text: str) -> "BareProtostructure":
         raise ValueError(f"label has {len(groups)} class(es) but {len(names)} species name(s)")
     occupations: list[tuple[str, object]] = []
     for name, token in zip(names, groups):
-        if name not in _ELEMENTS:
-            raise ValueError(f"protostructure label name {name!r} is not a known element symbol")
-        species = Species(name, (name,), (1,))
+        species = _species_from_class_name(name)
         for letter in _parse_group(token):
             occupations.append((letter, species))
     value = BareProtostructure(it_number, occupations)
@@ -524,15 +523,14 @@ def parse_protonetstructure_label(text: str) -> "Protonetstructure":
     """Parse a strictly canonical protonetstructure label.
 
     As :func:`parse_protonettype_label`, but the ``:`` species suffix is required; name
-    ``c`` assigns class ``c`` and must be a known element symbol, which becomes
-    ``Species(name, (name,), (1,))``.
+    ``c`` assigns class ``c`` and must be a canonical species class name, which becomes its
+    class species.
 
     :param text: The protonetstructure label to parse.
     :return: The parsed :class:`~httk.atomistic.Protonetstructure`.
     :raises ValueError: If ``text`` is not a canonical protonetstructure label.
     """
     from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
-    from httk.atomistic.models.species.species import Species
 
     it_number, letters, names, net = _parse_protonet(text)
     if names is None:
@@ -541,9 +539,7 @@ def parse_protonetstructure_label(text: str) -> "Protonetstructure":
         raise ValueError(f"label has {len(letters)} class(es) but {len(names)} species name(s)")
     occupations: list[tuple[str, Species]] = []
     for name, group in zip(names, letters):
-        if name not in _ELEMENTS:
-            raise ValueError(f"protonetstructure label name {name!r} is not a known element symbol")
-        occupations.extend((letter, Species(name, (name,), (1,))) for letter in group)
+        occupations.extend((letter, _species_from_class_name(name)) for letter in group)
     value = Protonetstructure(it_number, occupations, net)
     if str(value.label) != text:
         raise ValueError(f"{text!r} is not a canonical protonetstructure label")

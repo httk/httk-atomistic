@@ -95,11 +95,17 @@ input global rotation, as detailed in {doc}`canonicalization`. Use
 that exploration can take minutes or longer on low-symmetry, many-atom cells.
 
 The species assignment is chosen by the same assigned key as
-`canonical_bare_protostructure`, species names included, before any geometry, so
+`canonical_bare_protostructure`, species class names included, before any geometry, so
 the canonical ASU's label equals the canonical bare label of its recognized ASU as
 a string (for an exact declared ASU, when its sites are declared on their own
 Wyckoff letters; the terminal demotes a site declared on a more general letter,
 the bare canonicalizer does not).
+`canonical_asu` keeps the structure's own species and recognizes the symmetry
+they have. The classification labels, `canonical_asu_protostructure` and
+`canonical_asu_protostructure_assignments` instead classify the structure of
+species classes, whose symmetry can be higher where two names or charges share
+one chemistry, also when they are given the output of `canonical_asu`; see
+{doc}`prototypes`.
 `canonical_asu_protostructure_assignments` keeps the anonymous convention: it
 fixes the anonymous geometry first and returns every tied assignment of the
 original species to it. The canonical ASU need not be a member of that family.

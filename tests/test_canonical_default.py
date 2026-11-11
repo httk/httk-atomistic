@@ -10,6 +10,7 @@ from httk.core import FracVector, load
 import httk.atomistic.symmetry.lift as lift_module
 from httk import atomistic
 from httk.atomistic import ASUStructure, Cell, ChemicalComposition, Species, WyckoffSite, symmetry
+from httk.atomistic.models.species.classes import _class_structure
 from httk.atomistic.symmetry.canonical import canonicalize
 from httk.atomistic.symmetry.canonical_protostructure import (
     _canonical_protostructure_assignments_asu,
@@ -120,7 +121,8 @@ def test_measured_default_matches_explicit_anonymous_api_and_differs_from_legacy
 def test_sg157_fixed_points_preserve_cell_and_coordinate_precision() -> None:
     pytest.importorskip("spglib")
     fixture = Path(__file__).with_name("fixtures") / "structreading" / "157.cif"
-    source = load(str(fixture), repair=True)
+    # dropped original names: the assignment family carries species classes, so start from them
+    source = _class_structure(load(str(fixture), repair=True))
     reference = atomistic.canonical_asu(atomistic.UnitcellStructureView(source))
     expected_precision = (reference.cell.precision, reference.coordinate_precision)
 

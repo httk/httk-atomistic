@@ -29,7 +29,8 @@ from httk.atomistic import (
 from httk.atomistic.composition import project_composition
 
 FIXTURES = Path(__file__).parent / "fixtures"
-# cod/1001844 and the first six disorder fixtures carry distinct species names for one chemistry.
+# cod/1001844 and the first five disorder fixtures carry distinct species names for one chemistry,
+# which form one species class; disorder/217 and disorder/52 only rename their species.
 NORMAL = (
     "disorder/16.cif",
     "disorder/66.cif",
@@ -99,28 +100,32 @@ def test_formulatype_equals_every_level_anonymous_formula_and_label_prefix(name:
     assert structure.chemical_formula_anonymous == _composition_anonymous(structure)
     assert str(AnonymousFormulaView(structure)) == structure.chemical_formula_anonymous
 
-    try:
-        merged = str(StructuretypeView(structure).anonymous_formula)
-    except ValueError as exc:  # mixed, vacancy or partially occupied species are not anonymizable
-        assert "anonymize" in str(exc)
-        return
+    # Direct recognition is the erasure of the species classes, disorder included.
     recognized = BarePrototypeView(structure)
-    assert merged == str(recognized.anonymous_formula) == _prefix(recognized.label)
-    by_name = {species.name: species.chemical_symbols for species in structure.species}
-    used = set(_site_names(structure))
-    if len({by_name[n] for n in used}) == len(used):
-        assert merged == formulatype
-    else:  # the documented limit: recognition merges same-element names, the structure does not
-        # 1001844: two oxygen names; 1509688 (AgO): Ag1 (Ag+1) and Ag2 (Ag+3).
-        assert name in {"cod/1001844.cif", "cod/1509688.cif"}
+    assert str(recognized.label) == str(erased.label)
+    assert str(recognized.anonymous_formula) == formulatype
+    # Structuretype merges by element and refuses disorder; on every ordered fixture it agrees.
+    by_name = {species.name: species for species in structure.species}
+    used = [by_name[n] for n in set(_site_names(structure))]
+    if any(len(species.chemical_symbols) != 1 or species.concentration != (Fraction(1),) for species in used):
+        with pytest.raises(ValueError, match="anonymize"):
+            str(StructuretypeView(structure).anonymous_formula)
+    else:
+        assert str(StructuretypeView(structure).anonymous_formula) == formulatype
 
 
-def test_recognition_merges_same_element_names_unlike_the_structure() -> None:
+def test_equal_chemistry_is_one_class_on_every_path() -> None:
+    # merged: O1 and O2 (both O with two attached H, charge -2) are one class, OH2, so the
+    # structure, its assigned and erased classifications and Structuretype all agree. Because two
+    # declared species merge, the class structure is recognized instead of the declared P1 ASU;
+    # recognition finds C m, as canonical_asu's detect mode does with the named species too.
     structure = load(FIXTURES / "cod/1001844.cif", repair=True)
-    assert str(FormulatypeView(structure)) == "A24B6CD"
-    assert str(BarePrototypeView(BareProtostructureView(structure)).label) == "A24B6CD_aP32_1_24a_6a_a_a"
+    assert structure.spacegroup.it_number == 1
+    assert str(FormulatypeView(structure)) == "A12B3C"
+    assert str(BareProtostructureView(structure).label) == "A12B3C_mC64_8_4a10b_2a2b_2a:F-Np-OH2"
+    assert str(BarePrototypeView(BareProtostructureView(structure)).label) == "A12B3C_mC64_8_4a10b_2a2b_2a"
     assert str(StructuretypeView(structure).anonymous_formula) == "A12B3C"
-    assert str(BarePrototypeView(structure).label) == "A12B3C_aP32_1_24a_6a_2a"
+    assert str(BarePrototypeView(structure).label) == "A12B3C_mC64_8_4a10b_2a2b_2a"
 
 
 MIXED = Species("FeNi", ("Fe", "Ni"), (Fraction(1, 2), Fraction(1, 2)))
@@ -154,13 +159,19 @@ def test_mixed_and_partial_sites_count_fully_as_one_class(
     assert structure.chemical_formula_anonymous == anonymous
 
 
-def test_distinct_species_names_are_distinct_classes() -> None:
+def test_species_names_do_not_make_classes() -> None:
     other = Species("Fe2", ("Fe",), (1,))
     structure = UnitcellStructure(
         [[3, 0, 0], [0, 3, 0], [0, 0, 3]], [[0, 0, 0], [Fraction(1, 2)] * 3], [FE, other], ["Fe", "Fe2"]
     )
-    assert str(FormulatypeView(structure)) == _prefix(BareProtostructureView(structure).label) == "AB"
+    # merged: Fe and Fe2 have one chemistry, so one class (recognition then finds the bcc cell)
+    assert str(FormulatypeView(structure)) == _prefix(BareProtostructureView(structure).label) == "A"
     assert str(AnonymousFormulaView(structure)) == str(StructuretypeView(structure).anonymous_formula) == "A"
+    half = Species("Fe2", ("Fe", "vacancy"), (Fraction(1, 2), Fraction(1, 2)))
+    split = UnitcellStructure(
+        [[3, 0, 0], [0, 3, 0], [0, 0, 3]], [[0, 0, 0], [Fraction(1, 2)] * 3], [FE, half], ["Fe", "Fe2"]
+    )
+    assert str(BareProtostructureView(split).label) == "AB_cP2_221_a_b:Fe-Fe0.5"
 
 
 def test_formulatype_from_a_bare_formula_needs_integer_amounts() -> None:
@@ -207,7 +218,7 @@ def test_sibling_views_keep_their_own_meaning() -> None:
     bare = BareProtostructure(221, [("a", HALF), ("c", O)])
     assert str(AnonymousFormulaView(FormulatypeView(half))) == "A6B"
     assert str(AnonymousFormulaView(FormulatypeView(bare))) == "A6B"
-    assert str(FormulatypeView(AnonymousFormulaView(fe_fe2))) == "AB"
+    assert str(FormulatypeView(AnonymousFormulaView(fe_fe2))) == "A"  # merged: Fe and Fe2 are one class
     assert str(FormulatypeView(AnonymousFormulaView(half))) == "A3B"
     assert str(FormulatypeView(AnonymousFormulaView(bare))) == "A3B"
     view = FormulatypeView(half)

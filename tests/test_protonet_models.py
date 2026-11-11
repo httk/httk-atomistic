@@ -216,8 +216,9 @@ def test_construction_rejects_duplicate_rows_and_bad_occupations() -> None:
     split = [("a", _sp("Zn")), ("b", _sp("S")), ("c", _sp("Zn"))]  # Zn split into two runs
     with pytest.raises(ValueError, match="contiguous"):
         Protonetstructure(34, split)
-    with pytest.raises(ValueError, match="equal Species"):
-        Protonetstructure(34, [("c", _sp("S")), ("c", Species("S", ("S",), (1,), mass=(32,)))])
+    # dropped mass (S1): species of equal chemistry are one class, so this is no longer a conflict
+    heavy = Species("S", ("S",), (1,), mass=(32,))
+    assert Protonetstructure(34, [("c", _sp("S")), ("c", heavy)]) == Protonetstructure(34, [("c", _sp("S"))] * 2)
     with pytest.raises(ValueError):
         Protonettype(34, [("q", "A")])  # letter absent from the group
 

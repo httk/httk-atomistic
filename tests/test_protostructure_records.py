@@ -34,6 +34,7 @@ from httk.atomistic.entries.prototypes import (
 )
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.storage.records import (
+    SpeciesRecord,
     _bare_protostructure_from_record,
     _bare_protostructure_record_from_value,
     _bare_prototype_record_from_value,
@@ -130,9 +131,13 @@ def test_protostructure_record_optional_forms_have_distinct_pinned_identities() 
         Protostructure(representative=_rocksalt_asu(), discriminator="001"),
     )
     expected_ids = (
-        "1cf99131b9b6f041919488134078c1ef48c41a87289daa69564f74c41cc57409",
-        "bb457536333570158fb8c590f6dcf8b57bca2b7f7c436700e6c2889b05575ce1",
-        "b2266505b5c7041b2551f88225808daf977bdbc129c8ddda26d01b0377b31e6d",
+        # representative species sorted: the stored representative lists its classes by name (Cl, Na)
+        "e18c876a1626b5f42d3520e826b0698acc48a4efcdf28d07262599cf95d64829",
+        # dropped precision: the "Na"/"Cl" shorthand reads concentration 1.0 (precision 1/10), and
+        # the occupations now store the species classes, which carry no precision
+        "7826b14198f9cd5a0fff351142b1af74a97c28040965cad25500d2bd03792ba9",
+        # representative species sorted, as the first pin
+        "e37f88ff0eb841b4ef0bd3565a3930c951d06fc271fe7d4b2fa23b060f9d47c2",
     )
 
     records = tuple(_protostructure_record_from_value(value) for value in values)
@@ -142,6 +147,10 @@ def test_protostructure_record_optional_forms_have_distinct_pinned_identities() 
     identified = dataclasses.replace(records[0], id="logical", immutable_id="immutable")
     assert content_id(identified) == content_id(records[0])
     assert records[0].label == "AB_cF8_225_a_b:Na-Cl"
+    # the first pin is that of the representative written with its species already sorted
+    rocksalt = _rocksalt_asu()
+    written_sorted = ASUStructure(CELL, 225, rocksalt.wyckoff_sites, tuple(reversed(rocksalt.species)))
+    assert content_id(Protostructure(representative=written_sorted)) == expected_ids[0]
     for value, record in zip(values, records, strict=True):
         assert _protostructure_from_record(record) == value
 
@@ -309,13 +318,39 @@ def test_bare_and_refined_records_remain_separate_after_reopen(tmp_path, engine,
             assert searcher.count() == count
 
 
-def test_bare_records_preserve_decorated_species_and_validate_spacegroup() -> None:
+def test_bare_records_store_species_classes_and_validate_spacegroup() -> None:
     charged = BareProtostructure(225, [("a", Species("Na", ("Na",), (1,), charges=(1,))), ("b", "Cl")])
     plain = _bare_protostructure_record_from_value(_rocksalt())
     decorated = _bare_protostructure_record_from_value(charged)
-    assert decorated.label == plain.label
-    assert content_id(decorated) != content_id(plain)
-    assert _bare_protostructure_from_record(decorated) == charged
+    # dropped charges: the charged and the plain value store the same species classes
+    assert decorated == plain
+    assert content_id(decorated) == content_id(plain)
+    assert all(occupation.species.charges is None for occupation in decorated.occupations)
+    assert _bare_protostructure_from_record(decorated) == charged == _rocksalt()
+    # a stored species that is not its class (an older row) does not round-trip and is rejected
+    sodium = SpeciesRecord(**SpeciesRecord.__httk_project__(Species("Na", ("Na",), (1,), charges=(1,))))
+    stale = dataclasses.replace(
+        plain, occupations=(dataclasses.replace(plain.occupations[0], species=sodium), *plain.occupations[1:])
+    )
+    with pytest.raises(ValueError, match="not a reduced species class"):
+        BareProtostructureRecord.__httk_validate__(stale)
+    # the same for the representative of a refined record, and a representative whose classes are
+    # not in name order (both as an older row could hold them)
+    refined = _protostructure_record_from_value(Protostructure(representative=_rocksalt_asu()))
+    assert refined.representative is not None
+    decorated = tuple(sodium if species.name == "Na" else species for species in refined.representative.species)
+    for representative, message in (
+        (
+            dataclasses.replace(refined.representative, species=decorated),
+            "representative species 'Na' is not a reduced",
+        ),
+        (
+            dataclasses.replace(refined.representative, species=tuple(reversed(refined.representative.species))),
+            "representative are not in canonical order",
+        ),
+    ):
+        with pytest.raises(ValueError, match=message):
+            ProtostructureRecord.__httk_validate__(dataclasses.replace(refined, representative=representative))
     for record in (plain, _bare_prototype_record_from_value(_rocksalt_prototype())):
         conflicting = dataclasses.replace(record, spacegroup_it_number=224)
         with pytest.raises(ValueError, match="contradicts"):
@@ -334,7 +369,11 @@ def test_bare_record_identity_pins_match_models() -> None:
         (
             _rocksalt(),
             _bare_protostructure_record_from_value,
-            "5fe9c17665cb433c5e7f8ab681d76eeec7f13de31dc19acab1afb6cfca4e3316",
+            # dropped precision: the "Na"/"Cl" shorthand's 1/10 concentration precision is not stored
+            "41a5afd34d37e5991919e81071f0fd157b5c803a54c160d9028982860716de85",
         ),
     ):
         assert content_id(value) == content_id(project(value)) == expected
+    # the shorthand's precision is gone: the pin is that of the exact integer-concentration species
+    exact = BareProtostructure(225, [("a", Species("Na", ("Na",), (1,))), ("b", Species("Cl", ("Cl",), (1,)))])
+    assert content_id(exact) == content_id(_rocksalt())

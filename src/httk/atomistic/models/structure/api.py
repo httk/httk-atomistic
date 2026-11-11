@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
     from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
     from httk.atomistic.models.formula.composition import Composition
-    from httk.atomistic.models.structure.like import StructureLike
 
 
 class StructureAPI(ABC):
@@ -121,30 +120,35 @@ class StructureAPI(ABC):
         """Return the canonical assigned-species classification of this structure.
 
         Enantiomorphic structures are deliberately collapsed to the lower-numbered
-        member of their space-group pair, so the result is independent of chirality.
+        member of their space-group pair, so the result is independent of chirality. As for
+        every label, the structure of species classes is classified.
 
         :return: A standalone canonical protostructure value.
         """
         from httk.atomistic.models.bareprotostructure.view import BareProtostructureView
+        from httk.atomistic.models.species.classes import _class_structure
         from httk.atomistic.symmetry.canonical import canonical_asu
         from httk.atomistic.symmetry.canonical_classification import canonical_bare_protostructure
 
-        canonical = canonical_asu(cast("StructureLike", self), preserve_chirality=False)
+        canonical = canonical_asu(_class_structure(self), preserve_chirality=False)
         return canonical_bare_protostructure(BareProtostructureView(canonical).unview(), preserve_chirality=False)
 
     def canonical_bare_prototype(self) -> "BarePrototype":
         """Return the canonical anonymous geometrical classification of this structure.
 
         Enantiomorphic structures are deliberately collapsed to the lower-numbered
-        member of their space-group pair, so the result is independent of chirality.
+        member of their space-group pair, so the result is independent of chirality. As for
+        every label, the structure of species classes is classified.
 
         :return: A standalone canonical prototype value.
         """
         from httk.atomistic.models.bareprototype.view import BarePrototypeView
+        from httk.atomistic.models.species.classes import _class_structure
         from httk.atomistic.symmetry.canonical import canonical_asu
         from httk.atomistic.symmetry.canonical_classification import canonical_bare_prototype
 
-        canonical = canonical_asu(cast("StructureLike", self), preserve_chirality=False)
+        # the anonymous levels drop molecular metadata, as BarePrototypeView does
+        canonical = canonical_asu(_class_structure(self, drop_molecular=True), preserve_chirality=False)
         return canonical_bare_prototype(BarePrototypeView(canonical).unview(), preserve_chirality=False)
 
     @cached_property

@@ -138,11 +138,12 @@ conversion is otherwise valid.
 | Conversion boundary | Rejected | Deliberately erased |
 | --- | --- | --- |
 | Structure → `Structuretype`/`FundamentalDomainTemplate` | disorder or partial occupancy; duplicate- or multi-element species; a species whose symbol is `"X"` or `"vacancy"`; assemblies; `chemical_composition`; site moments | species identities become dummy labels; charge, spin, mass, formula metadata, `optimization_type`, `immutable_id`, `last_modified`, and molecular metadata |
-| Structure → `BareProtostructure` | assemblies; molecular structures; `chemical_composition`; site moments; a species containing `"X"` (including attached `"X"`) | charge/formula metadata, `optimization_type`, `immutable_id`, `last_modified`, and molecular metadata |
+| Structure → `BareProtostructure` | assemblies; molecular structures; `chemical_composition`; site moments; a species containing `"X"` (including attached `"X"`); a site occupied only by `"vacancy"` | species become their [species classes](#species-classes): names, original names, labels, charges, spins, masses and concentration precision; formula metadata, `optimization_type`, `immutable_id`, `last_modified`, and molecular metadata |
+| Structure → `Formulatype` | a site occupied only by `"vacancy"` (it has no species class) | species identities beyond their [classes](#species-classes); disorder and partial occupancy (each site counts once) |
 
-`BareProtostructure` is different here: its `Species` objects retain disorder and
-partial occupancy, including their real chemical symbols, concentrations, and
-decorations. Those are not rejected merely because they are non-singleton.
+`BareProtostructure` is different here: its species classes retain disorder and
+partial occupancy, with their real chemical symbols, exact concentrations and
+attached atoms. Those are not rejected merely because they are non-singleton.
 
 The useful conversion matrix is below. Views either present an existing value
 (exact, pass-through), extract a coarser level from a finer one (exact), or
@@ -156,7 +157,7 @@ symmetry-recognition path, spglib).
 | `BarePrototypeView(FundamentalDomainTemplate)` | bare prototype | exact extraction/discretization |
 | `BarePrototypeView(Structuretype)` | bare prototype recognized from the exact anonymous geometry | tolerant recognition (spglib) |
 | `BarePrototypeView(ASUStructureView(s, setting=...))` | standard-setting bare prototype | exact ASU path after the requested setting is chosen |
-| `BarePrototypeView(unitcell or ordinary structure)` | recognized bare prototype | tolerant recognition (spglib) |
+| `BarePrototypeView(unitcell or ordinary structure)` | recognized bare prototype: the erasure of the recognized `BareProtostructure`, so disorder is accepted and molecular metadata is dropped | tolerant recognition (spglib) |
 | `StructuretypeView(Structuretype)` | structuretype view | exact/pass-through |
 | `StructuretypeView(FundamentalDomainTemplate)` | expanded unit cell | exact |
 | `StructuretypeView(structure)` | anonymized projection | exact; validates the rejection rules above |
@@ -272,23 +273,76 @@ of the class site counts.
 
 The prefix is also every level's `anonymous_formula`, including for disordered or
 mixed-species occupations: a `BareProtostructure` with an equal Fe/Ni mixture on
-`225` `a` and O on `b` labels as `AB_cF8_225_a_b:FeNi-O` and its
+`225` `a` and O on `b` labels as `AB_cF8_225_a_b:Fe0.5Ni0.5-O` and its
 `anonymous_formula` is `AB`; only its composition-based `AnonymousFormulaView` is
-`A2BC`. Erasing such a bare value still gives a `BarePrototype`
-(`AB_cF8_225_a_b`), but a `BarePrototype` cannot be derived from a structure
-carrying such species; structure anonymization requires single-element species.
+`A2BC`. Erasing it gives the `BarePrototype` `AB_cF8_225_a_b`, and so does
+`BarePrototypeView(structure)` for a structure carrying such species.
 
-Known limit: a structure's classes are its species names, as are those of its
-`BareProtostructureView` and that view's `BarePrototype` erasure, but
-`Structuretype` and direct `BarePrototype` recognition (structure →
-`Structuretype` template → `BarePrototype`) merge species by element. Where
-distinct species names share one element, those two therefore give a different
-`Formulatype` from the structure's own and from its `BareProtostructure`
-erasure, also when the species differ in charge (AgO, COD 1509688, has `Ag1` as
-Ag⁺¹ and `Ag2` as Ag⁺³). COD 1001844 has two oxygen species, `O1` and `O2`:
-`BarePrototypeView(structure)` labels as `A12B3C_aP32_1_24a_6a_2a`, while the
-structure's `Formulatype` and `BarePrototypeView(BareProtostructureView(structure))`
-give `A24B6CD` (`A24B6CD_aP32_1_24a_6a_a_a`).
+### Species classes
+
+Every level from `Formulatype` to `Protonetstructure` partitions the sites into
+the same species classes. Two species are in one class when they have the same
+key: the exact concentration of each chemical symbol other than `vacancy` (the
+vacancy is the remainder, stated or not), and the count of each attached symbol.
+The name, original name, labels, charges, spins, mass and concentration precision
+are not part of the key, so CIF site labels never split a class, an isotope is
+its element, and AgO (COD 1509688), whose CIF types `Ag1` as Ag⁺¹ and `Ag2` as
+Ag⁺³, has one silver class: `AB_mP8_14_ab_e:Ag-O`. The assigned levels store each
+species as its class species, which carries only the key; the loaded structure
+keeps its own species, names, labels and charges.
+
+A class name is derived from the key alone, and the label parsers rebuild the key
+from it:
+
+- one constituent at concentration 1: its symbol (`Ti`);
+- otherwise the constituents in alphabetical order, each followed by its
+  concentration, the vacancy omitted (`Bi0.5Na0.5`, `Li0.76`,
+  `Ag0.317Ga0.561`); a concentration is its shortest exact decimal, or `p/q`
+  when it has none (`Li1/3`), so it always contains `.` or `/`;
+- attached atoms follow as symbol and count, the count always written and the
+  symbols in alphabetical order (`OH2`, `NH4`, `OH1`, `K0.5Na0.5C1H3`).
+
+A class name uses only letters, digits, `.` and `/`, so it never contains the
+`-` that separates names, the `:` that starts the suffix, or the `_`, `~` and `@`
+of the net. A species with the unknown symbol `X` (a dummy template species) is
+its own class, by name; assigned levels reject it.
+
+Classes are compared exactly. Partially occupied sites therefore merge only when
+their occupancies are exactly equal: two half-occupied carbon sites form one
+class `C0.5`, but the same sites refined as 0.49 and 0.51 form two. Split
+positions of one atom with equal occupancies merge into one class (for example two
+half-occupied lithium positions 0.67 Å apart), and different Wyckoff orbits of one
+class are counted together, as for fully occupied sites.
+
+`Structuretype` and templates are anonymized differently and keep their
+documented rules: they merge species by element, ignoring charges *and* attached
+atoms, and refuse disorder and partial occupancy. They can therefore differ from
+the structure's own classes only where one element occurs with different attached
+atoms (`O` and `OH2`, or `OH1` and `OH2`). Their element merge can then also
+change the recognized space group, since the merged sites may become equivalent.
+
+The labels classify the structure of species classes, not the named species.
+Every label entry point (`BareProtostructureView`, `BarePrototypeView`,
+`canonical_bare_protostructure`, `canonical_bare_prototype`, the structure
+methods `canonical_bare_protostructure()` and `canonical_bare_prototype()`,
+`canonical_asu_protostructure`, `canonical_asu_protostructure_assignments`,
+`Protostructure(representative=...)` and `Protonetstructure.from_asu`) works on
+the structure in which every used species is replaced by its class. Two sites of
+one chemistry that differ only in name or charge are one class, and the class
+structure can have higher symmetry than the named one: Fe²⁺ at the origin and
+Fe³⁺ at the body centre of a cubic cell is `A_cI2_229_a:Fe`. A structure without
+an ASU is recognized as its class structure. A declared ASU keeps its declared
+symmetry while each of its species is its own class; when two of its species
+share a class, the class structure is recognized instead, and a declared
+representative becomes the canonical ASU of the class structure. So
+`Protostructure(representative=canonical_asu(s))` gives the canonical label too.
+`Protonetstructure.from_asu` refuses such an ASU when the class structure has
+another space group or conventional cell, since its bonds name the declared
+sites; build the net on `canonical_asu_protostructure(s)` instead.
+`canonical_asu` and `canonicalize` are structure canonicalizers: they keep the
+source species and the symmetry those have (`P m -3 m` here).
+A structure with a site occupied only by `vacancy` has no classes, so its
+`Formulatype` and labels raise.
 
 A structure's canonicalization preserves chirality by default. Pass
 `preserve_chirality=False` to the corresponding classification canonicalizer
@@ -306,7 +360,7 @@ The **httk group-ordering convention** follows `Formulatype`: the class with
 the largest summed conventional Wyckoff multiplicity (its site count, not an
 occupancy-weighted amount) comes first; classes with equal counts are ordered
 lexicographically by their sorted Wyckoff-letter sequences; a remaining tie is
-broken by the species name in a protostructure label. The anonymous symbols
+broken by the species class name in a protostructure label. The anonymous symbols
 `A`, `B`, ... are assigned in the same order, and the canonicalizers use the
 same key to choose among equivalent descriptions, so a canonical value and its
 label agree. This ordering is *element-agnostic*, so a protostructure label is
@@ -353,9 +407,10 @@ positionally a group token never collides with the leading anonymous formula.
 The parser is strict and canonical-only: it resolves the standard setting,
 validates every Wyckoff letter, recomputes the Pearson symbol, the reduced
 anonymous counts, and the group ordering, and rejects any string that deviates
-from the recomputed canonical form. Suffix names must be known element symbols
-and become `Species(name, (name,), (1,))`. Round trips are pinned in both
-directions: `parse(render(x)) == x` for element-pure bare values and
+from the recomputed canonical form. Suffix names must be canonical
+[species class names](#species-classes) and become their class species, so an
+element symbol becomes `Species(name, (name,), (1,))`. Round trips are pinned in
+both directions: `parse(render(x)) == x` for bare values and
 `render(parse(s)) == s` for canonical strings. This mirrors
 `parse_anonymous_formula` for `Formulatype`. Use
 `parse_bare_prototype_label` and `parse_bare_protostructure_label` from the
@@ -576,7 +631,7 @@ See {doc}`canonicalization` for the algorithm and its limits.
 ### Species order of protonetstructure labels
 
 A canonical `Protonetstructure` label is the canonical `Protonettype` label,
-`:`, and the species names, which fill the classes in the class order of the
+`:`, and the species class names, which fill the classes in the class order of the
 canonical net. Where several descriptions give the same net, the smallest tuple
 of names is taken. The bare protostructure label instead orders tied classes by
 name alone. So `BarePrototype` → `Protonettype` → `Protonetstructure` nest as

@@ -93,7 +93,7 @@ def test_strict_parser_rejects_non_canonical(text: str) -> None:
 
 
 def test_protostructure_parser_rejects_unknown_element() -> None:
-    with pytest.raises(ValueError, match="element symbol"):
+    with pytest.raises(ValueError, match="not an element"):
         parse_bare_protostructure_label("AB_cF8_225_a_b:Xx-Cl")
 
 

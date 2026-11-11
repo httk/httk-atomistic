@@ -5,6 +5,7 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
+from httk.atomistic.models.bareprotostructure.recognized import RecognizedBareProtostructure
 from httk.atomistic.models.bareprototype.backend import BarePrototypeBackend
 from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
@@ -15,12 +16,21 @@ from httk.atomistic.models.structuretype.backend import StructuretypeBackend
 from httk.atomistic.models.structuretype.view_base import StructuretypeViewBase
 
 
+class _AnonymousRecognition(RecognizedBareProtostructure):
+    """Recognize a structure's species classes for their anonymous erasure, molecular metadata dropped."""
+
+    _molecular_ok = True
+    _view_name = "BarePrototypeView"
+
+
 class RecognizedBarePrototype(BarePrototypeBackend):
     r"""Recognize an ordinary structure or template lazily as a prototype.
 
-    Recognition resolves an exact fundamental-domain template, then retains only
-    its standard-setting Wyckoff occupations and anonymous class partition.
-    The original source remains available through ``unwrap()``.
+    A structure is recognized as a bare protostructure and erased: the prototype is the
+    partition of its occupied Wyckoff positions into species classes, so mixed and partially
+    occupied sites are accepted. A structuretype resolves its exact fundamental-domain template
+    and keeps its standard-setting Wyckoff occupations and anonymous class partition. The
+    original source remains available through ``unwrap()``.
 
     :param obj: The structure-like source to recognize.
     :param \*\*hints: Backend-selection and recognition hints.
@@ -70,9 +80,18 @@ class RecognizedBarePrototype(BarePrototypeBackend):
 
     @cached_property
     def _derived(self) -> BarePrototype:
+        source = self._source
+        if not isinstance(source, (StructuretypeBackend, StructuretypeViewBase)):
+            # a structure: erase its recognized species classes, so disorder is accepted
+            from httk.atomistic.models.prototype.derived import _anonymous_occupations
+
+            hints = {"tolerance": self._tolerance, "limit_denominator": self._limit_denominator}
+            assigned = _AnonymousRecognition._backend_adopt(source, **{k: v for k, v in hints.items() if v is not None})
+            if assigned is None:
+                raise TypeError(f"cannot recognize a bare prototype of {type(source).__name__}")
+            return BarePrototype(assigned.spacegroup, _anonymous_occupations(assigned.spacegroup, assigned.occupations))
         from httk.atomistic.models.structuretype.fundamental_view import FundamentalDomainTemplateView
 
-        source = self._source
         template = FundamentalDomainTemplateView(
             source, tolerance=self._tolerance, limit_denominator=self._limit_denominator
         ).unview()

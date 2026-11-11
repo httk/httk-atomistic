@@ -12,7 +12,9 @@ class BareProtostructure(BareProtostructureBackend):
     """Store only standard-setting Wyckoff occupations, without geometrical refinement.
 
     :param spacegroup: The standard-setting space group or its IT number.
-    :param occupations: Occupied Wyckoff positions and their assigned species.
+    :param occupations: Occupied Wyckoff positions and their assigned species, each stored as
+        its species class (see
+        :class:`~httk.atomistic.models.protostructure.occupation.WyckoffOccupation`).
     """
 
     kind: ClassVar[str] = "bare_protostructure"
@@ -33,18 +35,11 @@ class BareProtostructure(BareProtostructureBackend):
         )
         if not raw:
             raise ValueError("BareProtostructure occupations must be non-empty")
-        species_by_name: dict[str, Any] = {}
         for occupation in raw:
             try:
                 self._spacegroup.wyckoff_position(occupation.wyckoff)
             except KeyError as exc:
                 raise ValueError(str(exc)) from exc
-            previous = species_by_name.get(occupation.species.name)
-            if previous is not None and previous != occupation.species:
-                raise ValueError(
-                    f"BareProtostructure occupations naming species {occupation.species.name!r} must carry equal Species"
-                )
-            species_by_name[occupation.species.name] = occupation.species
         self._occupations = tuple(sorted(raw, key=lambda value: (value.species.name, value.wyckoff)))
 
     @property

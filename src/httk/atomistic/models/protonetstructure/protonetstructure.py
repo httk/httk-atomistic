@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, ClassVar, Self
 from httk.atomistic.models.protonetstructure.backend import ProtonetstructureBackend
 from httk.atomistic.models.protonettype.protonettype import _checked_net, _class_runs, _standard
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
+from httk.atomistic.models.species.classes import _merges_classes, _species_class
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -17,7 +18,8 @@ class Protonetstructure(ProtonetstructureBackend):
     """Store a bare protostructure together with a symmetric covalent bonding net.
 
     Site ``n`` is ``occupations[n-1]``. Each class is one contiguous run of a single
-    species name (occupations naming one species carry equal ``Species``), the runs
+    species class (species of equal chemistry are one class, see
+    :class:`~httk.atomistic.models.protostructure.occupation.WyckoffOccupation`), the runs
     ordered as for :class:`~httk.atomistic.Protonettype`. Net translations may be any integer
     vectors. The net is canonicalized as for :class:`~httk.atomistic.Protonettype`, over the
     equivalent descriptions with the same anonymous bare key; where several give the canonical
@@ -77,12 +79,6 @@ class Protonetstructure(ProtonetstructureBackend):
             value if isinstance(value, WyckoffOccupation) else WyckoffOccupation(value[0], value[1])
             for value in occupations
         )
-        species_by_name: dict[str, Species] = {}
-        for occupation in self._occupations:
-            if species_by_name.setdefault(occupation.species.name, occupation.species) != occupation.species:
-                raise ValueError(
-                    f"Protonetstructure occupations naming species {occupation.species.name!r} must carry equal Species"
-                )
         _class_runs(self._spacegroup, [(o.wyckoff, o.species.name) for o in self._occupations], "Protonetstructure")
         nops = len(self._spacegroup.symmetry_operations)
         self._net = _checked_net(net, len(self._occupations), nops, "Protonetstructure", writable=writable)
@@ -106,8 +102,9 @@ class Protonetstructure(ProtonetstructureBackend):
         :param bonds: The bonds ``(i, j, k, n1, n2, n3)``.
         :return: The protonetstructure value.
         :raises ValueError: If the setting is not standard, a site retains a representative, a
-            bond is malformed, out of range or bonds an atom to itself, or the canonical net needs
-            a translation outside -5..+4 (D4).
+            bond is malformed, out of range or bonds an atom to itself, the canonical net needs
+            a translation outside -5..+4 (D4), or two species share a class whose structure has
+            another space group or conventional cell than the declared one.
         """
         from httk.atomistic.models.prototype.notation import class_order_key
         from httk.atomistic.symmetry.protonet import _tables
@@ -120,16 +117,36 @@ class Protonetstructure(ProtonetstructureBackend):
             raise ValueError(
                 "Protonetstructure.from_asu cannot use a retained WyckoffSite representative; drop it first"
             )
+        if _merges_classes(asu):
+            from httk.atomistic.models.bareprotostructure.view import BareProtostructureView
+
+            recognized = BareProtostructureView(asu).unview()
+            counts = [
+                sum(group.wyckoff_position(letter).multiplicity for letter in letters)
+                for group, letters in (
+                    (recognized.spacegroup, [o.wyckoff for o in recognized.occupations]),
+                    (spacegroup, [site.wyckoff for site in sites]),
+                )
+            ]
+            if recognized.spacegroup.it_number != spacegroup.it_number or counts[0] != counts[1]:
+                raise ValueError(
+                    "Protonetstructure.from_asu: the ASU's species split a species class whose structure has "
+                    f"higher symmetry (IT {recognized.spacegroup.it_number}, not {spacegroup.it_number}), so the "
+                    "bonds of its sites do not describe the class structure; use "
+                    "canonical_asu_protostructure(structure) and bonds on that"
+                )
+        species = {value.name: value for value in asu.species}
+        class_of = {site.species: _species_class(species[site.species]).name for site in sites}
         letters: dict[str, list[str]] = {}
         for site in sites:
-            letters.setdefault(site.species, []).append(site.wyckoff)
+            letters.setdefault(class_of[site.species], []).append(site.wyckoff)
 
         def class_key(name: str) -> tuple[int, tuple[str, ...], str]:
             group = tuple(sorted(letters[name]))
             return class_order_key(group, sum(spacegroup.wyckoff_position(x).multiplicity for x in group), name)
 
         rank = {name: index for index, name in enumerate(sorted(letters, key=class_key))}
-        order = sorted(range(len(sites)), key=lambda s: (rank[sites[s].species], sites[s].wyckoff))
+        order = sorted(range(len(sites)), key=lambda s: (rank[class_of[sites[s].species]], sites[s].wyckoff))
         number = {old: new for new, old in enumerate(order)}
         tables = _tables(spacegroup.it_number)
         rows = set()
@@ -150,7 +167,6 @@ class Protonetstructure(ProtonetstructureBackend):
             if a == b and g == (0, 0, 0, 0):
                 raise ValueError(f"bond {values!r} bonds an atom to itself")
             rows.add((a + 1, b + 1, g[0] + 1, g[1], g[2], g[3]))
-        species = {value.name: value for value in asu.species}
         return Protonetstructure(
             spacegroup, [(sites[s].wyckoff, species[sites[s].species]) for s in order], sorted(rows)
         )

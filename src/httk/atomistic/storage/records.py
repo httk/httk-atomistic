@@ -5,7 +5,7 @@ import fractions
 import itertools
 import math
 import numbers
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, TypedDict, cast
@@ -50,6 +50,7 @@ from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.sites.numeric import NumericSites
 from httk.atomistic.models.sites.sites import Sites
+from httk.atomistic.models.species.classes import _species_class
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
@@ -2273,9 +2274,9 @@ class TrajectoryRecord:
 
 @dataclass(frozen=True)
 class WyckoffOccupationRecord:
-    """Represent one occupied standard-setting Wyckoff orbit and its real species.
+    """Represent one occupied standard-setting Wyckoff orbit and its real species class.
 
-    The occupation carries a real (possibly disordered) ``SpeciesRecord``; it is
+    The occupation carries the real (possibly disordered) species class as a ``SpeciesRecord``; it is
     the durable analogue of :class:`~httk.atomistic.models.protostructure.occupation.WyckoffOccupation`.
 
     :param wyckoff: The Wyckoff letter in the standard setting.
@@ -2349,6 +2350,7 @@ class BareProtostructureRecord:
 
         :param record: The record to validate.
         """
+        _require_species_classes("BareProtostructureRecord", "occupation", (o.species for o in record.occupations))
         canonical = _bare_protostructure_record_from_value(_bare_protostructure_from_record(record))
         _require_canonical("BareProtostructureRecord", "occupations", record.occupations, canonical.occupations)
 
@@ -2412,13 +2414,13 @@ class ProtostructureRecord:
 
         The label is the httk protostructure label
         (``"AB_cF8_225_a_b:Na-Cl"`` for rocksalt): the prototype label of the erased
-        template followed by ``:`` and the class species names. It is a convenience and
-        query column only; it is not the record's identity (the content id is), and it
-        is NOT unique across distinct protostructures: species that share a name but
-        differ in any other :class:`~httk.atomistic.Species` field (concentration, charges, spins,
-        mass, precision, ...) collide on the same label, so a ``GROUP BY label`` may
-        under-count distinct protostructures — count and deduplicate by row (content
-        id), never by label.
+        template followed by ``:`` and the species class names. It is a convenience and
+        query column only; it is not the record's identity (the content id is). The class
+        names determine the stored species (a class name is derived from the species'
+        constituents, concentrations and attached atoms alone), but the label omits the
+        representative and the discriminator, so it is NOT unique across distinct refined
+        protostructures and a ``GROUP BY label`` may under-count them — count and deduplicate
+        by row (content id), never by label.
 
         :return: The httk protostructure label.
         """
@@ -2439,8 +2441,12 @@ class ProtostructureRecord:
         :param record: The record to validate.
         :return: ``None`` after successful validation.
         """
+        _require_species_classes("ProtostructureRecord", "occupation", (o.species for o in record.occupations))
+        if record.representative is not None:
+            _require_species_classes("ProtostructureRecord", "representative", record.representative.species)
         canonical = _protostructure_record_from_value(_protostructure_from_record(record))
         _require_canonical("ProtostructureRecord", "occupations", record.occupations, canonical.occupations)
+        _require_canonical("ProtostructureRecord", "representative", record.representative, canonical.representative)
 
     @classmethod
     def __httk_project__(cls, protostructure: Protostructure) -> Mapping[str, object]:
@@ -2736,6 +2742,23 @@ def _validate_discriminator(record_name: str, discriminator: str | None) -> None
     """Validate an optional externally assigned geometrical-class discriminator."""
     if discriminator is not None and (not isinstance(discriminator, str) or not discriminator):
         raise ValueError(f"{record_name} discriminator must be a non-empty string when given")
+
+
+def _require_species_classes(record_name: str, field: str, records: Iterable[SpeciesRecord]) -> None:
+    """Reject stored species that are not species classes (rows from before the classes).
+
+    :param record_name: The record class name, for the error message.
+    :param field: The field holding the species, for the error message.
+    :param records: The stored species.
+    :raises ValueError: If a stored species is not its own species class.
+    """
+    for record in records:
+        species = _species_from_record(record)
+        if _species_class(species) != species:
+            raise ValueError(
+                f"{record_name} {field} species {species.name!r} is not a reduced species class; "
+                f"store a {record_name} built from its value, or rebuild the database"
+            )
 
 
 def _require_canonical(record_name: str, field: str, stored: Any, canonical: Any) -> None:
@@ -3195,6 +3218,7 @@ class ProtonetstructureRecord:
 
         :param record: The record to validate.
         """
+        _require_species_classes("ProtonetstructureRecord", "occupation", (o.species for o in record.occupations))
         value = _protonetstructure_from_record(record)
         canonical = _protonetstructure_record_from_value(
             Protonetstructure(value.spacegroup, value.occupations, value.net)

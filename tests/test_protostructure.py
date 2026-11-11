@@ -106,7 +106,11 @@ def test_base_only_and_representative_only_are_valid() -> None:
     assert derived.occupations == explicit.occupations
     assert not derived.similar(explicit, 0.0)
     assert derived.similar(derived, 0.0)
-    assert derived.representative == representative
+    # dropped charges, spins and labels: the representative is stored in species classes
+    assert derived.representative is not None
+    assert derived.representative.wyckoff_sites == representative.wyckoff_sites
+    assert derived.representative.species == (Species("Cl", ("Cl",), (1,)), Species("Na", ("Na",), (1,)))
+    assert Protostructure(representative=derived.representative).representative is derived.representative
     assert derived.discriminator is None
     assert Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="001").discriminator == "001"
 
@@ -172,7 +176,9 @@ def test_similar_passes_fundamental_domain_representatives_directly(monkeypatch:
     monkeypatch.setattr(paths, "structure_delta", fake_structure_delta)
 
     assert one.similar(two, 0.0)
-    assert received == [representative, representative]
+    # dropped charges: the representatives are stored in species classes, of the same kind
+    assert received == [one.representative, two.representative]
+    assert type(one.representative) is FundamentalDomainStructure
 
 
 class CountingStructureResolver(StructureBackend):
@@ -242,35 +248,38 @@ def test_construction_promotes_inputs_and_canonicalizes() -> None:
         BareProtostructure(225, [("zz", "Na")])
 
 
-def test_same_name_requires_equal_species_and_unknown_symbols_are_rejected() -> None:
-    with pytest.raises(ValueError, match="equal Species"):
-        BareProtostructure(
-            225,
-            [
-                ("a", Species("Na", ("Na",), (1,))),
-                ("b", Species("Na", ("Na",), (1,), charges=(1,))),
-            ],
-        )
+def test_equal_chemistry_is_one_class_and_unknown_symbols_are_rejected() -> None:
+    # dropped charges: plain and charged Na are one species class, no longer a conflict
+    value = BareProtostructure(
+        225, [("a", Species("Na", ("Na",), (1,))), ("b", Species("Na", ("Na",), (1,), charges=(1,)))]
+    )
+    assert {occupation.species for occupation in value.occupations} == {Species("Na", ("Na",), (1,))}
+    assert str(value.label) == "A_cF8_225_ab:Na"
     with pytest.raises(ValueError, match="unknown.*X"):
         WyckoffOccupation("a", Species("unknown", ("X",), (1,)))
     with pytest.raises(ValueError, match="unknown.*X"):
         WyckoffOccupation("a", Species("attached", ("Na",), (1,), attached=("X",), nattached=(1,)))
 
 
-def test_disorder_and_vacancy_project_with_tabulated_multiplicity() -> None:
+def test_disorder_projects_with_tabulated_multiplicity_and_vacancy_only_is_rejected() -> None:
     mixed = Species("mixed", ("Fe", "Ni"), (Fraction(1, 2), Fraction(1, 2)))
-    vacancy = Species("vacancy", ("vacancy",), (1,))
-    value = BareProtostructure(221, [("a", mixed), ("b", vacancy)])
+    value = BareProtostructure(221, [("a", mixed)])
     assert CompositionView(value).amounts == (("Fe", Fraction(1, 2)), ("Ni", Fraction(1, 2)))
     assert ChemicalFormulaView(value) == "FeNi"
-    assert FormulatypeView(value) == "AB"
+    assert FormulatypeView(value) == "A"
+    assert str(value.label) == "A_cP1_221_a:Fe0.5Ni0.5"
+    # vacancy-only: an orbit occupied only by vacancy has no species class
+    with pytest.raises(ValueError, match="no constituent other than vacancy"):
+        BareProtostructure(221, [("a", mixed), ("b", Species("vacancy", ("vacancy",), (1,)))])
 
 
 def test_exact_paths_preserve_species_and_match_structure_formula() -> None:
     asu = _rocksalt_asu()
     value = BareProtostructureView(asu)
     assert value.unwrap() is asu
-    assert value.occupations[0].species in asu.species
+    # dropped charges: the occupation carries the species class of the decorated source species
+    assert value.occupations[0].species.name in {species.name for species in asu.species}
+    assert value.occupations[0].species.charges is None
     assert value.formula == UnitcellStructureView(asu).formula
     assert value.anonymous_formula == UnitcellStructureView(asu).chemical_formula_anonymous
     other = BareProtostructureView(FundamentalDomainStructure(CELL, 225, asu.wyckoff_sites, asu.species))

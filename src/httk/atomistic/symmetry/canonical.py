@@ -428,6 +428,9 @@ def canonicalize(
     their available group/occupation information and transform carried examples.
     Their result has the corresponding classification type. No return value is
     selected from a time-truncated candidate set. ``canonical_asu`` is an alias.
+    A structure keeps its own species and the symmetry they have; the classification labels
+    instead classify the structure of species classes (see
+    :func:`~httk.atomistic.symmetry.canonical_protostructure.canonical_asu_protostructure`).
 
     :param structure: A structure-like source or one of the four classification families.
     :param symmetry: ``"detect"`` for structure recognition, or ``"declared"`` for an exact ASU.
@@ -453,7 +456,7 @@ def canonicalize(
     )
     from httk.atomistic.symmetry.canonical_protostructure import (
         _canonical_protostructure_asu,
-        canonical_asu_protostructure,
+        _recognized_canonical_asus,
     )
 
     if symmetry not in ("detect", "declared"):
@@ -478,9 +481,15 @@ def canonicalize(
             elif symmetry == "declared":
                 result = _canonical_protostructure_asu(_declared_asu(structure), preserve_chirality=preserve_chirality)
             else:
-                result = canonical_asu_protostructure(
-                    structure, tolerance=tolerance, factors=factors, preserve_chirality=preserve_chirality
-                )
+                # the structure canonicalizer keeps the source species and their own symmetry
+                result = _recognized_canonical_asus(
+                    structure,
+                    tolerance=tolerance,
+                    factors=factors,
+                    lift=False,
+                    preserve_chirality=preserve_chirality,
+                    named=True,
+                )[0]
         except _SolverLimitError as error:
             raise CanonicalizationLimitError(str(error)) from error
         _checkpoint()

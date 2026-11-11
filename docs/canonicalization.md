@@ -64,7 +64,7 @@ otherwise. Fractional coordinates are reduced componentwise modulo one into
    higher-group Wyckoff model; for P1 use the entire anonymous frame.
 5. Apply the shared exact core below to every tied assignment. This includes
    exact translation/same-group cell reduction, not general upward exploration.
-6. Choose by the bare assigned key (species names included) first, then the
+6. Choose by the bare assigned key (species class names included) first, then the
    anonymous geometry, restore the compatible chemical assignments, then choose
    the scalar chemical minimum. Restore metadata and source precision under the
    exact unchanged-crystal gate described below.
@@ -206,7 +206,7 @@ tolerant boundary. Everything after recognition is exact.
     anonymous geometry has been fixed.
 13. For the scalar `canonical_asu` and `canonicalize`, restore the original species
     onto the recognized ASU and run the declared path (steps 1–7 above): the
-    discrete key carries the species names, as in `canonical_bare_protostructure`,
+    discrete key carries the species class names, as in `canonical_bare_protostructure`,
     so the result's label is the canonical bare label as a string (for sites
     declared on their own Wyckoff letter; a site declared on a more general letter
     than its point is demoted by step 14 and not by the bare canonicalizer). It
@@ -265,7 +265,7 @@ recognition and no upward symmetry search.
    according to each tied frame assignment. Run steps 10–30 for each such input;
    steps 31–35 choose and restore the tied results. The terminal is told which
    original species each synthetic name stands for, so its discrete key (step 20)
-   can carry the species names.
+   can carry their species class names.
 10. **Standardize.** Convert the recognized group to its IT standard setting.
     The stored transform maps standard coordinates to the input setting as
     `f_own = f_std M^T + v`; hence
@@ -325,8 +325,8 @@ recognition and no upward symmetry search.
 20. **Make the discrete key.** For each class, sort its mapped Wyckoff letters
     and sum their conventional multiplicities. The anonymous half is the sorted
     tuple of `(-multiplicity, letter tuple)` class keys. The assignment half is
-    the sorted tuple `(-multiplicity, letter tuple, species name)`: the original
-    species name for `canonical_asu`, `canonicalize` and the refined
+    the sorted tuple `(-multiplicity, letter tuple, class name)`: the species
+    class name of the original species for `canonical_asu`, `canonicalize` and the refined
     protostructure, so the pair is exactly the bare canonicalizer's assigned key;
     the synthetic class name for `canonical_asu_protostructure_assignments` and
     the anonymous refined prototype. This is the label's class order
@@ -421,7 +421,7 @@ recognition and no upward symmetry search.
     internal, cancelling transforms from inflating precision bounds on an unchanged result. A genuinely changed
     basis or occupied-site multiset retains the propagated conservative bounds.
 35. **Return.** `canonical_asu` and `canonicalize` restore the original species
-    onto the recognized ASU and run steps 10–34 with species names in the
+    onto the recognized ASU and run steps 10–34 with species class names in the
     discrete key, returning the one result; its label equals the canonical bare
     label as a string for sites declared on their own Wyckoff letter (step 14
     demotes a site declared on a more general letter; the bare canonicalizer does
@@ -551,7 +551,7 @@ group-preserving inversion. It uses only the materialized group and occupations;
 the bare value carries no cell or coordinates.
 Each class is keyed by the label's class order, `class_order_key`:
 `(-summed conventional multiplicity, sorted letter tuple)`. The assigned key is
-`(sorted anonymous class keys, sorted(class key + species name))`; the anonymous
+`(sorted anonymous class keys, sorted(class key + species class name))`; the anonymous
 key is the sorted tuple of class keys. Because the label renders classes in the
 same order, the chosen description is the one whose label is least in that
 order; for spinel (227, Mg `a`, Al `d`, O `e`) this selects the origin-shifted
@@ -703,9 +703,9 @@ reference atoms by position (unit cell, asymmetric unit, reduced parameters)
 would change the string when an atom crosses a boundary in another compound of
 the same prototype. For the assigned level the anonymous canonical net is found
 first; only if several realisations give the identical net string is the tie
-broken by the species-name tuple in class order, smallest first. The assigned
+broken by the species class name tuple in class order, smallest first. The assigned
 value's bare part can then differ from `canonical_bare_protostructure`, which
-breaks ties between tied classes by name alone.
+breaks ties between tied classes by class name alone.
 
 ### Algorithm
 

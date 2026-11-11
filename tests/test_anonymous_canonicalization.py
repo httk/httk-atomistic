@@ -18,6 +18,7 @@ from httk.atomistic import (
     canonical_asu_protostructure,
     canonical_asu_protostructure_assignments,
 )
+from httk.atomistic.models.species.classes import _species_class
 from httk.atomistic.symmetry._anonymous import _anonymous_p1_frame
 from httk.atomistic.symmetry.canonical_protostructure import _canonical_protostructure_assignments_asu
 
@@ -93,7 +94,12 @@ def _substitution(source: ASUStructure) -> tuple[ASUStructure, dict[str, str]]:
 
 
 def _restore(source: ASUStructure, result: ASUStructure, names: dict[str, str]) -> ASUStructure:
-    return _remap(result, {changed: original for original, changed in names.items()}, source.species)
+    # the results carry species classes: K and Br stand for the source's first and second species;
+    # a source already in classes keeps its species order, any other lists its classes by name
+    classes = [_species_class(species) for species in source.species]
+    back = {"K": classes[0].name, "Br": classes[1].name}
+    order = classes if classes == list(source.species) else sorted(classes, key=lambda species: species.name)
+    return _remap(result, back, tuple(order))
 
 
 @pytest.mark.parametrize("build", (_low_symmetry, _polar_equal_population), ids=("low-symmetry", "polar-equal"))

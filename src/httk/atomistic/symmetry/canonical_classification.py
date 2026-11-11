@@ -35,6 +35,7 @@ from httk.atomistic.models.prototype.like import PrototypeLike
 from httk.atomistic.models.prototype.notation import class_order_key
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.prototype.view import PrototypeView
+from httk.atomistic.models.species.classes import _class_sites
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structuretype.anonymize import dummy_species
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
@@ -426,9 +427,20 @@ def canonical_protonetstructure(
 
 
 def _exact_representative(representative: FundamentalDomainStructure) -> ASUStructure:
-    """Rebuild a representative as an exact ASU after rejecting imprecise retained points."""
+    """Rebuild a representative as an exact ASU of species classes after rejecting imprecise retained points.
+
+    Each used species becomes its class (sites renamed alike, see
+    :func:`~httk.atomistic.models.species.classes._class_sites`), so a canonical
+    representative canonicalizes to itself. Unused dummy (``X``) species of a template are kept.
+    """
+    renamed, classes = _class_sites(representative)
+    used = {site.species for site in representative.wyckoff_sites}
+    species = (
+        *classes,
+        *(value for value in representative.species if value.name not in used and "X" in value.chemical_symbols),
+    )
     sites = []
-    for site in representative.wyckoff_sites:
+    for site in renamed:
         _checkpoint()
         if site.representative is not None:
             orbit = representative.spacegroup.wyckoff_position(site.wyckoff).coordinates(site.free_params)
@@ -442,7 +454,7 @@ def _exact_representative(representative: FundamentalDomainStructure) -> ASUStru
         representative.cell,
         representative.spacegroup,
         sites,
-        representative.species,
+        species,
         transform=representative.transform,
         coordinate_precision=representative.coordinate_precision,
         molecular=representative.molecular,

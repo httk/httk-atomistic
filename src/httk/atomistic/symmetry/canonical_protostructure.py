@@ -21,6 +21,7 @@ from httk.core import FracVector, SurdVector
 from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.prototype.notation import class_order_key
+from httk.atomistic.models.species.classes import _class_structure, _species_class
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
 from httk.atomistic.models.structure.comparison import same_crystal
@@ -276,8 +277,8 @@ def _letters_key(
 ) -> _DiscreteKey:
     """Return the (anonymous, assigned) discrete key of the sites moved onto ``targets``.
 
-    ``names`` renames the species of anonymized sites back to their species names, so the
-    assigned part is the bare canonicalizer's key.
+    ``names`` renames the species of anonymized sites to the class names of their species, so
+    the assigned part is the bare canonicalizer's key.
     """
     letters: dict[str, list[str]] = {}
     for site, target in zip(structure.wyckoff_sites, targets, strict=True):
@@ -681,7 +682,7 @@ def _canonical_protostructure_geometry(
 ) -> ASUStructure:
     """Canonicalize one anonymously labelled ASU by discrete occupation before geometry.
 
-    With ``names`` the discrete occupation includes the species names (:func:`_letters_key`).
+    With ``names`` the discrete occupation includes the species class names (:func:`_letters_key`).
     The representative can be left-handed only in a Sohncke group, where the discrete key may need
     an improper description. Without ``preserve_chirality`` an enantiomorphic pair maps to its lower
     member here; the two hands of a group that is its own partner are identified by the caller,
@@ -717,7 +718,7 @@ def _canonical_protostructure_assignments_asu(
 ) -> tuple[ASUStructure, ...]:
     """Return all tied chemical assignments of one recognized exact ASU.
 
-    With ``named`` the species names enter the discrete key, before any geometry, as in the bare
+    With ``named`` the species class names enter the discrete key, before any geometry, as in the bare
     canonicalizer; otherwise chemistry is chosen only after the anonymous geometry. Without
     ``preserve_chirality``, in a Sohncke group that is its own enantiomorphic partner, the
     enantiomer is canonicalized too, with its own frame (whose proper-only automorphisms cannot
@@ -743,6 +744,14 @@ def _canonical_protostructure_assignments_asu(
     return _deduplicate_results(restored)
 
 
+def _class_name_or_own(species: Species) -> str:
+    """Return a species' class name, or its own name when it has no class (only ``vacancy``)."""
+    try:
+        return _species_class(species).name
+    except ValueError:
+        return species.name
+
+
 def _frame_candidates(
     structure: ASUStructure, *, preserve_chirality: bool, named: bool
 ) -> list[tuple[ASUStructure, tuple[Species, ...], tuple[Any, ...]]]:
@@ -762,8 +771,12 @@ def _frame_candidates(
             if structure.spacegroup.it_number == 1
             else _anonymize_asu(structure, anonymous_species, assignment)
         )
+        # the discrete key names species classes, so it is the bare canonicalizer's assigned key
         names = (
-            {species.name: original.name for species, original in zip(anonymous_species, assignment, strict=True)}
+            {
+                species.name: _class_name_or_own(original)
+                for species, original in zip(anonymous_species, assignment, strict=True)
+            }
             if named
             else None
         )
@@ -779,7 +792,7 @@ def _canonical_protostructure_asu(
     preserve_chirality: bool = True,
     named: bool = True,
 ) -> ASUStructure:
-    """Canonicalize one recognized ASU by its bare assigned key, species names included, then geometry.
+    """Canonicalize one recognized ASU by its bare assigned key, species class names included, then geometry.
 
     The discrete tier is then the bare canonicalizer's, so the refined and bare labels agree as
     strings. Without ``named`` (template class names) chemistry is chosen only after geometry.
@@ -804,7 +817,9 @@ def canonical_asu_protostructure_assignments(
     is then handled exactly. When ``lift`` is true, the anonymous winner is first searched for
     upward pseudosymmetry. The family keeps the anonymous convention: the geometry is fixed with
     synthetic class names and the species are assigned after it. :func:`canonical_asu_protostructure`
-    chooses the species by the bare assigned key instead, so it need not be a member.
+    chooses the species by the bare assigned key instead, so it need not be a member. As for the
+    labels, the structure of species classes is recognized: every used species is replaced by its
+    class first, and the results carry the class species.
 
     :param structure: The measured structure to recognize.
     :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
@@ -815,7 +830,7 @@ def canonical_asu_protostructure_assignments(
     :raises ValueError: If the structure is unsupported or no tolerance member fits.
     """
     return _recognized_canonical_asus(
-        structure,
+        _class_structure(structure),
         tolerance=tolerance,
         factors=factors,
         lift=lift,
@@ -891,9 +906,13 @@ def canonical_asu_protostructure(
 ) -> ASUStructure:
     """Return the canonical ASU whose species assignment minimises the bare assigned key.
 
-    The species names enter the discrete key before any geometry, as in
+    The species class names enter the discrete key before any geometry, as in
     :func:`~httk.atomistic.symmetry.canonical_classification.canonical_bare_protostructure`,
-    so the result need not be a member of :func:`canonical_asu_protostructure_assignments`.
+    so the result need not be a member of :func:`canonical_asu_protostructure_assignments`. As for
+    the labels, the structure of species classes is recognized: every used species is replaced by
+    its class first, so the result carries the class species and its bare label is the canonical
+    bare protostructure label. :func:`~httk.atomistic.symmetry.canonical.canonicalize` instead
+    keeps the source species and recognizes their own symmetry.
 
     :param structure: The measured structure to recognize.
     :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
@@ -904,7 +923,7 @@ def canonical_asu_protostructure(
     :raises ValueError: If the structure is unsupported or no tolerance member fits.
     """
     return _recognized_canonical_asus(
-        structure,
+        _class_structure(structure),
         tolerance=tolerance,
         factors=factors,
         lift=lift,

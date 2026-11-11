@@ -70,7 +70,7 @@ def _template(swapped: bool = False, *, unused: bool = False) -> FundamentalDoma
     )
 
 
-def test_bare_values_are_idempotent_and_preserve_full_species() -> None:
+def test_bare_values_are_idempotent_and_carry_species_classes() -> None:
     decorated = Species("Na", ("Na",), (1,), charges=(F(1),), labels=("sodium",))
     assigned = BareProtostructure(47, [("a", decorated), ("c", _species("O"))])
     prototype = BarePrototype(47, [("a", "A"), ("c", "B")])
@@ -80,7 +80,10 @@ def test_bare_values_are_idempotent_and_preserve_full_species() -> None:
 
     assert classification.canonical_bare_protostructure(assigned_result) == assigned_result
     assert classification.canonical_bare_prototype(prototype_result) == prototype_result
-    assert decorated in tuple(occupation.species for occupation in assigned_result.occupations)
+    # dropped charges: an occupation carries the species class, without charges and labels
+    species = tuple(occupation.species for occupation in assigned_result.occupations)
+    assert _species("Na") in species
+    assert decorated not in species
 
 
 def test_all_vendored_normalizer_actions_share_the_same_bare_minimum() -> None:

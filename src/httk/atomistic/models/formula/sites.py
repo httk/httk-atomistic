@@ -25,6 +25,7 @@ from httk.atomistic.models.formula.structure import StructureComposition
 from httk.atomistic.models.formula.wyckoff import WyckoffComposition
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.prototype.notation import _classes
+from httk.atomistic.models.species.classes import _species_class
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.view import StructureView
 from httk.atomistic.models.structuretype.backend import StructuretypeBackend
@@ -54,9 +55,10 @@ class SiteCountFormula(ChemicalFormulaBackend):
     r"""Count the sites each species class of a structural object occupies.
 
     A Wyckoff-family object's classes are its label classes (occupation labels, or
-    species names once assigned), counted by summed conventional Wyckoff multiplicity
+    species class names once assigned), counted by summed conventional Wyckoff multiplicity
     exactly as its label prefix counts them. A structure's or structuretype's classes are
-    its species names, counted over the sites of the represented cell. Disorder and
+    its species classes (equal chemistry, whatever the names; a species with ``X`` is its own
+    class), counted over the sites of the represented cell. Disorder and
     partial occupancy do not affect the counts. This backend is not part of formula
     dispatch; :class:`~httk.atomistic.FormulatypeView` selects it for structural sources.
 
@@ -94,11 +96,14 @@ class SiteCountFormula(ChemicalFormulaBackend):
             ]
             counts = [Fraction(multiplicity) for _, multiplicity in _classes(source.spacegroup, occupations).values()]
         else:
-            names, factors, _ = _site_data(source)
-            by_name: dict[str, Fraction] = {}
+            names, factors, species = _site_data(source)
+            by_name = {value.name: value for value in species}
+            classes = {name: _species_class(by_name[name]) for name in set(names) if name in by_name}
+            by_class: dict[Any, Fraction] = {}
             for name, factor in zip(names, factors):
-                by_name[name] = by_name.get(name, Fraction()) + factor
-            counts = list(by_name.values())
+                key = classes.get(name, name)
+                by_class[key] = by_class.get(key, Fraction()) + factor
+            counts = list(by_class.values())
         return tuple((anonymous_symbol(index), count) for index, count in enumerate(sorted(counts, reverse=True)))
 
     @property
