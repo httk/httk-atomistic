@@ -235,7 +235,17 @@ canonicalize the bare base and retain that discriminator. A refined geometry
 terminal can demote special positions or collapse an exact supercell, operations
 for which a bare value has no geometry. Canonicalize the projected value when a
 canonical bare result is required; projection and canonicalization do not
-generally commute.
+generally commute. For sites declared on their own Wyckoff letter, a canonical
+refined value's label equals the canonical bare label as a string, species order
+included (a site declared on a more general letter than its point, e.g. on the
+general position at a special point, is demoted by the refined terminal only, so
+the labels then differ). Its representative (cell and
+sites) does not depend on the cell the input was given in. In a Sohncke group
+the representative can be left-handed: the label is chosen before the handedness,
+and inversion can exchange the letters (P4₂32 `b` and `c`), so one hand of a
+crystal reaches the bare label only in a left-handed cell. A P-1 representative
+keeps a fixed cell change of the Niggli cell, intrinsic but not reduced within
+its class.
 `FundamentalDomainTemplate.bare_prototype` extracts the discrete anonymous key.
 The full procedure and retained-coordinate policy are specified in
 {doc}`canonicalization`.
@@ -714,9 +724,10 @@ their content identity. There are three versions, one per family:
 
 A label-rule change therefore bumps all three, while a change to the
 representative or to the net leaves the other families' records untouched. The
-label and refined versions are 2, since the monoclinic and P-1 labels became
-independent of the cell; the net version is 3, since the monoclinic nets with
-periodic components did too. Saving requires the family's current version, and turning a record of
+label version is 2, since the monoclinic and P-1 labels became independent of the
+cell. The refined version is 3, since the representative's cell and sites did
+too and its label now equals the bare label as a string. The net version is 3,
+since the monoclinic nets with periodic components became cell-independent as well. Saving requires the family's current version, and turning a record of
 another version back into a value raises `ValueError` naming the family: its
 canonical form changed, so rebuild the database. Saving a protonet record also checks that its net
 is the canonical one for its bare description; a non-canonical net is rejected,

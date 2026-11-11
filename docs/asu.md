@@ -51,7 +51,12 @@ crystal retains its handedness and the two partners stay distinct. Pass
 member to its lower-numbered partner through an exact improper transformation
 (fractional coordinates `f → (−f) mod 1` with the cell basis unchanged — the
 Cartesian inversion), so the pair maps to one canonical representative and the two
-partners' canonical labels coincide. (One edge case of that normalize path: a
+partners' canonical labels coincide. In a Sohncke group that is its own
+partner (P1, P2₁, I4₁, P4₂32, I4₁32, ...) the flag instead canonicalizes the mirror
+image too and lets both hands compete, with every species assignment, so a crystal
+and its mirror image give one representative. With chirality preserved,
+such a group's canonical cell can be left-handed: the label is chosen first, and
+inversion can exchange its letters (P4₂32 `b` and `c`). (One edge case of that normalize path: a
 *hand-built exact* ASU already described in a left-handed cell of an enantiomorphic
 group hits the pre-existing chirality-preserving orientation ceiling — its
 left-handed cell is kept — so it still yields a distinct mirror representative;
@@ -89,10 +94,17 @@ input global rotation, as detailed in {doc}`canonicalization`. Use
 `search_supergroups` explicitly for higher symmetry that recognition might have missed;
 that exploration can take minutes or longer on low-symmetry, many-atom cells.
 
-The anonymous geometry is fixed before a final chemical tie is resolved. Use
-`canonical_asu_protostructure_assignments` to retain every tied assignment of the
-original species to that geometry. The explicit
-`canonical_asu_protostructure` name retains its experimental call contract and the same scalar convention.
+The species assignment is chosen by the same assigned key as
+`canonical_bare_protostructure`, species names included, before any geometry, so
+the canonical ASU's label equals the canonical bare label of its recognized ASU as
+a string (for an exact declared ASU, when its sites are declared on their own
+Wyckoff letters; the terminal demotes a site declared on a more general letter,
+the bare canonicalizer does not).
+`canonical_asu_protostructure_assignments` keeps the anonymous convention: it
+fixes the anonymous geometry first and returns every tied assignment of the
+original species to it. The canonical ASU need not be a member of that family.
+The explicit `canonical_asu_protostructure` name retains its experimental call
+contract and the same scalar convention as `canonical_asu`.
 `canonical_asu_legacy` selects the earlier metric-first convention.
 
 Only recognition and its fit test use floating point. Free Wyckoff parameters

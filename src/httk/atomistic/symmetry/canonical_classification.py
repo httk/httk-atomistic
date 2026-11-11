@@ -529,6 +529,6 @@ def canonical_prototype(obj: PrototypeLike, *, preserve_chirality: bool = True) 
         bare = canonical_bare_prototype(value, preserve_chirality=preserve_chirality)
         return Prototype(bare.spacegroup, bare.occupations, discriminator=value.discriminator)
     result = _canonical_protostructure_asu(
-        _exact_representative(value.representative._domain), preserve_chirality=preserve_chirality
+        _exact_representative(value.representative._domain), preserve_chirality=preserve_chirality, named=False
     )
     return Prototype(representative=_template_representative(result), discriminator=value.discriminator)

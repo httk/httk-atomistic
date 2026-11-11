@@ -130,9 +130,9 @@ def test_protostructure_record_optional_forms_have_distinct_pinned_identities() 
         Protostructure(representative=_rocksalt_asu(), discriminator="001"),
     )
     expected_ids = (
-        "85c4c9fb94a5045e6600c9f57aeb1f75cf6005c1527f243cdfd52aa67bc78525",
-        "bca5f75b0fa6c5166c52064d2ba6258a0945542efcca4f8dc6f5d96751b5a8f8",
-        "20e109409265f99c5f44b90a90b0fae6dbd56e53f3c629f01caa865860672b11",
+        "1cf99131b9b6f041919488134078c1ef48c41a87289daa69564f74c41cc57409",
+        "bb457536333570158fb8c590f6dcf8b57bca2b7f7c436700e6c2889b05575ce1",
+        "b2266505b5c7041b2551f88225808daf977bdbc129c8ddda26d01b0377b31e6d",
     )
 
     records = tuple(_protostructure_record_from_value(value) for value in values)
@@ -161,9 +161,9 @@ def test_prototype_record_optional_forms_have_distinct_pinned_identities() -> No
         Prototype(representative=representative, discriminator="001"),
     )
     expected_ids = (
-        "843cc4f8995f4bfe69a7b6b3d2bebeefa05df5b3057407a0d59535375b33f297",
-        "7d9def986fe49e305211cd2c8f9baf50d132ffec1839f52acdc4177ca2e200c4",
-        "424ad8ed8cbef1e69bdc9fc19bf88b4a03b6c1b157192c008d2406825ff88a95",
+        "7eb177b7b5f712ab92a648719a7dc5d17f1d302190f37be6d783c32da855f994",
+        "90549089e24a826d2b82522835029f603b52ec014dca2753de924e07f612d64e",
+        "42e93384d36f738953dd69f34ad6c87cde8eaf82dde0556ed82d0a5bd2f8d460",
     )
 
     records = tuple(_prototype_record_from_value(value) for value in values)

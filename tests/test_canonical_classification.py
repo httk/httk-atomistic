@@ -5,6 +5,7 @@ from fractions import Fraction as F
 from functools import cache
 from itertools import product
 from pathlib import Path
+from typing import Any
 
 import httk.core
 import pytest
@@ -12,16 +13,32 @@ from httk.core import FracVector
 
 from httk.atomistic import Cell, Spacegroup, Species, WyckoffSite
 from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
+from httk.atomistic.models.bareprotostructure.view import BareProtostructureView
 from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 from httk.atomistic.models.bareprototype.view import BarePrototypeView
 from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.prototype.prototype import Prototype
+from httk.atomistic.models.prototype.view import PrototypeView
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure
+from httk.atomistic.models.structure.comparison import same_crystal
+from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.models.structuretype.anonymize import dummy_species
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.symmetry import canonical_classification as classification
 from httk.atomistic.symmetry.affine_operation import AffineOperation
-from httk.atomistic.symmetry.canonical_protostructure import _apply_action
+from httk.atomistic.symmetry.canonical import canonical_asu
+from httk.atomistic.symmetry.canonical_protostructure import (
+    _ac_reduced,
+    _apply_action,
+    _discrete_candidates,
+    _kernel_residues,
+    _mirrored,
+    _own_enantiomorph_sohncke,
+    _with_basis,
+    canonical_asu_protostructure_assignments,
+)
+from httk.atomistic.symmetry.lift import _canonical_sites, _site_key, _translation_normal_form
+from httk.atomistic.symmetry.subgroups import _standard_input
 
 CELL = Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7)))
 
@@ -189,15 +206,17 @@ def _invariant_case(name: str) -> ASUStructure:
 
 
 SYNTHETIC: dict[str, tuple[int, list[tuple[str, str]]]] = {
-    "p21c-a-d": (14, [("Na", "a"), ("Cl", "d")]),
+    "p21c-a-e": (14, [("Na", "a"), ("O", "e")]),  # design note §7, probe 1
+    "p21c-a-d": (14, [("Na", "a"), ("Cl", "d")]),  # design note §7, probe 2
     "p21c-b-c-e": (14, [("Na", "b"), ("Cl", "c"), ("O", "e")]),
     "p-1-a-d": (2, [("Na", "a"), ("Cl", "d")]),
     "p-1-b-g-i": (2, [("Na", "b"), ("Cl", "g"), ("O", "i")]),
     "p2m-a-d": (10, [("Na", "a"), ("Cl", "d")]),
     "c2m-a-c": (12, [("Na", "a"), ("Cl", "c")]),
-    # only the anonymous labels agree: the refined path picks the species order by geometry
-    # (refined :Cl-O-Na, bare :Cl-Na-O)
+    # the species order differed before the refined key carried species names (refined :Cl-O-Na)
     "c2m-f-b-d": (12, [("Cl", "f"), ("Na", "b"), ("O", "d")]),
+    "p-1-a-d-i": (2, [("Na", "a"), ("Cl", "d"), ("O", "i")]),
+    "p2-b-d-e": (3, [("Na", "b"), ("Cl", "d"), ("O", "e")]),
 }
 INVARIANT_CASES = (
     *(f"structreading/{n}.cif" for n in LOW_SYMMETRY),
@@ -206,21 +225,23 @@ INVARIANT_CASES = (
 )
 
 
-def _anonymous_labels(asu: ASUStructure) -> tuple[str, str, str]:
-    """Return the anonymous refined and bare canonical labels, and the assigned refined label."""
+def _labels(asu: ASUStructure) -> tuple[str, str, str, str]:
+    """Return the anonymous refined and bare canonical labels, then the assigned ones."""
     value = Protostructure(representative=asu)
     refined = classification.canonical_protostructure(value)
     bare = classification.canonical_bare_prototype(BarePrototypeView(value).unview())
-    return str(BarePrototypeView(refined).unview().label), str(bare.label), str(refined.label)
+    assigned = classification.canonical_bare_protostructure(value)
+    return str(BarePrototypeView(refined).unview().label), str(bare.label), str(refined.label), str(assigned.label)
 
 
 @pytest.mark.parametrize("name", INVARIANT_CASES)
-def test_refined_anonymous_label_is_the_canonical_bare_one(name: str) -> None:
+def test_refined_label_is_the_canonical_bare_one(name: str) -> None:
     # task 4.1b: the refined terminal reaches the bare canonicalizers' cell changes; this failed
     # for structreading/3.cif (a3e_e_d), p21c-a-d and p21c-b-c-e after 4.1a alone. The assigned
-    # labels can list species in another order (c2m-f-b-d), so only the anonymous ones are compared.
-    refined, bare, _ = _anonymous_labels(_invariant_case(name))
+    # labels agree as strings since the refined discrete key carries the species names.
+    refined, bare, refined_assigned, bare_assigned = _labels(_invariant_case(name))
     assert refined == bare
+    assert refined_assigned == bare_assigned
 
 
 def test_refined_result_is_unchanged_when_no_cell_change_is_needed() -> None:
@@ -266,12 +287,22 @@ def _cell_change_generators(it: int) -> list[AffineOperation]:
     ]
 
 
+def _representative(asu: ASUStructure) -> tuple[Any, ...]:
+    """Return the refined representative's exact Gram matrix and sites."""
+    representative = classification.canonical_protostructure(Protostructure(representative=asu)).representative
+    assert representative is not None
+    metric = representative.cell.metric()
+    return (
+        tuple(metric._element((row, column)) for row in range(3) for column in range(3)),
+        tuple((s.species, s.wyckoff, tuple(s.free_params.to_fractions())) for s in representative.wyckoff_sites),
+    )
+
+
 @pytest.mark.extended
 @pytest.mark.parametrize("it", LOW_SYMMETRY)
 def test_refined_label_is_the_canonical_bare_label_in_every_cell(it: int) -> None:
-    # random occupations, each also described in two random other cells. The anonymous labels agree;
-    # the species assignment of the refined value is chosen by geometry after the anonymous
-    # description (also before task 4.1), so only the refined assigned label is compared across cells
+    # random occupations, each also described in two random other cells: the refined label is the
+    # bare one as a string, and the refined value (cell and sites included) does not depend on the cell
     rng = random.Random(f"refined-bare-{it}")
     group = Spacegroup.standard(it)
     generators = _cell_change_generators(it)
@@ -295,10 +326,277 @@ def test_refined_label_is_the_canonical_bare_label_in_every_cell(it: int) -> Non
             ],
             [_species(name) for name in dict.fromkeys(name for name, _ in sites)],
         )
-        labels = _anonymous_labels(asu)
-        assert labels[0] == labels[1]
+        labels = _labels(asu)
+        assert labels[0] == labels[1] and labels[2] == labels[3]
+        representative = _representative(asu)
         for _ in range(2):
             action = AffineOperation.identity()
             for _ in range(rng.randint(1, 3)):
                 action = rng.choice(generators) * action
-            assert _anonymous_labels(_apply_action(asu, action)) == labels
+            assert _labels(_apply_action(asu, action)) == labels
+            assert _representative(_apply_action(asu, action)) == representative
+
+
+def _refined_value(asu: ASUStructure) -> tuple[Any, ...]:
+    """Return the refined label, the bare label and the representative's Gram matrix, basis and sites."""
+    value = Protostructure(representative=asu)
+    refined = classification.canonical_protostructure(value)
+    representative = refined.representative
+    assert representative is not None
+    metric, basis = representative.cell.metric(), representative.cell.basis
+    return (
+        str(refined.label),
+        str(classification.canonical_bare_protostructure(value).label),
+        tuple(metric._element((row, column)) for row in range(3) for column in range(3)),
+        tuple(basis._element((row, column)) for row in range(3) for column in range(3)),
+        tuple((s.species, s.wyckoff, tuple(s.free_params.to_fractions())) for s in representative.wyckoff_sites),
+    )
+
+
+@cache
+def _redescriptions(it: int) -> tuple[AffineOperation, ...]:
+    """Same-group re-descriptions: cell changes in groups 2 to 15, and the tabulated normalizer actions."""
+    changes = tuple(_cell_change_generators(it)) if 2 <= it <= 15 else ()
+    return changes + classification._tabulated_actions(Spacegroup.standard(it))
+
+
+def _assert_cell_independent(asu: ASUStructure, rng: random.Random, cells: int) -> None:
+    first = _refined_value(asu)
+    assert first[0] == first[1]
+    for _ in range(cells):
+        action = AffineOperation.identity()
+        for _ in range(rng.randint(1, 3)):
+            action = rng.choice(_redescriptions(asu.spacegroup.it_number)) * action
+        assert _refined_value(_apply_action(asu, action)) == first
+
+
+@pytest.mark.parametrize("name", SYNTHETIC)
+def test_named_synthetic_cases_give_one_refined_value_in_every_cell(name: str) -> None:
+    # the refined label is the bare one as a string, and label, cell and sites do not depend on
+    # the input cell (design note §7 probes; the P-1, P2 and C2/m cases also differed in species order)
+    _assert_cell_independent(_invariant_case(name), random.Random(name), 6)
+
+
+def _fixture_names() -> list[str]:
+    numbered = sorted((FIXTURES / "structreading").glob("*.cif"), key=lambda path: int(path.stem))
+    return [f"structreading/{path.name}" for path in numbered] + [
+        f"cod/{path.name}" for path in sorted((FIXTURES / "cod").glob("*.cif"))
+    ]
+
+
+def _fixture(name: str) -> ASUStructure:
+    try:
+        loaded = httk.core.load(str(FIXTURES / name))
+    except ValueError:  # an unrecognised declared setting or occupancies needing repair
+        loaded = httk.core.load(str(FIXTURES / name), repair=True)
+    assert isinstance(loaded, ASUStructure)
+    standard = _standard_input(loaded)
+    sites = [WyckoffSite(site.wyckoff, site.free_params, site.species) for site in standard.wyckoff_sites]
+    return ASUStructure(standard.cell, standard.spacegroup, sites, standard.species)
+
+
+@pytest.mark.extended
+@pytest.mark.parametrize("name", _fixture_names())
+def test_fixture_refined_label_is_bare_label_in_random_cells(name: str) -> None:
+    _assert_cell_independent(_fixture(name), random.Random(name), 2)
+
+
+def _enantiomer(asu: ASUStructure) -> ASUStructure:
+    """Return the mirror image: the coordinates negated in the same basis."""
+    inversion = AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
+    return _with_basis(_apply_action(asu, inversion), asu.cell.basis)
+
+
+@pytest.mark.parametrize("number", (208, 214))
+def test_both_hands_of_an_own_enantiomorph_sohncke_structure(number: int) -> None:
+    # P4_2 32 (b <-> c) and I4_1 32 (a <-> b): inversion exchanges letters, so one hand reaches the
+    # bare label only through a left-handed representative
+    hands = (_fixture(f"structreading/{number}.cif"), _enantiomer(_fixture(f"structreading/{number}.cif")))
+    values = [Protostructure(representative=hand) for hand in hands]
+    refined = [classification.canonical_protostructure(value) for value in values]
+    bare = classification.canonical_bare_protostructure(values[0])
+    assert {str(result.label) for result in refined} == {str(bare.label)}
+    assert str(classification.canonical_bare_protostructure(values[1]).label) == str(bare.label)
+    for value in values:
+        assert str(classification.canonical_prototype(PrototypeView(value).unview()).label) == str(
+            classification.canonical_bare_prototype(BarePrototypeView(value).unview()).label
+        )
+    first, second = (result.representative for result in refined)
+    assert first is not None and second is not None
+    # mirror images: equal Gram matrix and fractional sites in bases of opposite handedness
+    assert first.cell.metric() == second.cell.metric()
+    assert first.wyckoff_sites == second.wyckoff_sites
+    assert first.cell.basis.det().sign() == -second.cell.basis.det().sign()
+    assert not same_crystal(first, second)
+    flipped = [classification.canonical_protostructure(value, preserve_chirality=False) for value in values]
+    assert flipped[0] == flipped[1]
+
+
+def test_detect_mode_chooses_species_by_the_bare_key() -> None:
+    # structreading/82: the anonymous family orders O-P-Al by geometry; the canonical ASU follows the
+    # bare key (O-Al-P) in detect mode as in declared mode, so it is not a member of the family
+    source = UnitcellStructureView(httk.core.load(str(FIXTURES / "structreading/82.cif")))
+    result = canonical_asu(source)
+    family = canonical_asu_protostructure_assignments(source)
+    declared = classification.canonical_bare_protostructure(
+        Protostructure(representative=_fixture("structreading/82.cif"))
+    )
+    assert str(BareProtostructureView(result).unview().label) == str(declared.label) == "A4BC_tI12_82_g_a_c:O-Al-P"
+    assert [str(BareProtostructureView(member).unview().label) for member in family] == ["A4BC_tI12_82_g_a_c:O-P-Al"]
+    assert result not in family
+
+
+def test_lattice_translated_descriptions_give_the_same_terminal_result() -> None:
+    # the terminal evaluates one candidate per (basis change, wrapped operation)
+    structure = _invariant_case("p21c-b-c-e")
+    for candidate in _discrete_candidates(structure)[:12]:
+        shifted = AffineOperation(FracVector.eye((3, 3)), (1, -2, 3)) * candidate.operation
+        assert shifted.wrapped() == candidate.operation.wrapped()
+        results = [
+            _canonical_sites(_translation_normal_form(_apply_action(structure, operation)))
+            for operation in (candidate.operation, shifted)
+        ]
+        assert _site_key(results[0]) == _site_key(results[1])
+
+
+def _hand_value(asu: ASUStructure) -> tuple[Any, ...]:
+    """Return the refined value with ``preserve_chirality=False``: label, Gram, handedness and sites."""
+    result = classification.canonical_protostructure(Protostructure(representative=asu), preserve_chirality=False)
+    representative = result.representative
+    assert representative is not None
+    metric = representative.cell.metric()
+    return (
+        str(result.label),
+        tuple(metric._element((row, column)) for row in range(3) for column in range(3)),
+        representative.cell.basis.det().sign(),
+        tuple((s.species, s.wyckoff, tuple(s.free_params.to_fractions())) for s in representative.wyckoff_sites),
+    )
+
+
+HAND_CASES: dict[str, tuple[Cell, int, list[tuple[str, tuple[F, ...], str]]]] = {
+    # the mirror image is anonymously equal to the crystal with the two species classes exchanged, so
+    # the hands are related only by an improper map, which the anonymous P1 frame does not enumerate
+    "p1-two-species": (
+        TRICLINIC_CELL,
+        1,
+        [("a", (F(1, 7), F(2, 9), F(3, 11)), "Na"), ("a", (F(4, 7), F(5, 9), F(1, 11)), "Cl")],
+    ),
+    "p2-swap": (
+        MONOCLINIC_CELL,
+        3,
+        [("e", (F(1, 7), F(2, 9), F(3, 11)), "Na"), ("e", (F(1, 7), F(5, 9), F(3, 11)), "Cl")],
+    ),
+    "p222-swap": (CELL, 16, [("u", (F(1, 7), F(2, 9), F(3, 11)), "Na"), ("u", (F(-1, 7), F(-2, 9), F(-3, 11)), "Cl")]),
+}
+
+
+@pytest.mark.parametrize("name", HAND_CASES)
+def test_preserve_chirality_false_identifies_the_hands(name: str) -> None:
+    cell, it, sites = HAND_CASES[name]
+    asu = ASUStructure(
+        cell, it, [WyckoffSite(*site) for site in sites], [_species(n) for n in dict.fromkeys(s[2] for s in sites)]
+    )
+    assert _hand_value(asu) == _hand_value(_enantiomer(asu))
+
+
+def _sohncke_fixtures() -> list[str]:
+    names = []
+    for name in _fixture_names():
+        number = int(name.split("/")[1].split(".")[0]) if name.startswith("structreading") else None
+        if number is not None and _own_enantiomorph_sohncke(Spacegroup.standard(number)):
+            names.append(name)
+    return names
+
+
+@pytest.mark.extended
+@pytest.mark.parametrize("name", _sohncke_fixtures())
+def test_preserve_chirality_false_identifies_the_hands_of_every_sohncke_fixture(name: str) -> None:
+    # every own-enantiomorph Sohncke group among the structreading fixtures (numbered by group),
+    # including I4_1, I4_122 and F4_132, where the normalizing inversion needs an origin shift; the
+    # mirror image is the same fractions in the negated basis (inverting the coordinates through the
+    # origin would leave the group there)
+    asu = _fixture(name)
+    assert _hand_value(asu) == _hand_value(_mirrored(asu))
+
+
+def test_declared_letter_more_general_than_its_point_is_the_documented_exception() -> None:
+    # Na declared on the general position i of F-43m at a point of h: the refined terminal demotes
+    # the site, the bare canonicalizer keeps the declared letter, so the labels differ
+    asu = ASUStructure(
+        Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5))),
+        216,
+        [WyckoffSite("i", (F(1, 101), F(27, 101), F(100, 101)), "Na"), WyckoffSite("f", (F(28, 97),), "Cl")],
+        [_species("Na"), _species("Cl")],
+    )
+    value = Protostructure(representative=asu)
+    assert str(classification.canonical_protostructure(value).label) == "A2B_cF72_216_h_f:Na-Cl"
+    assert str(classification.canonical_bare_protostructure(value).label) == "A4B_cF120_216_i_f:Na-Cl"
+
+
+def _brute_reduced(
+    form: tuple[int, int, int], residues: frozenset[Any], matrices: list[tuple[int, ...]]
+) -> tuple[tuple[int, ...], set[Any]]:
+    aa, ac, cc = form
+
+    def q(u: tuple[int, int], v: tuple[int, int]) -> int:
+        return aa * u[0] * v[0] + ac * (u[0] * v[1] + u[1] * v[0]) + cc * u[1] * v[1]
+
+    best: tuple[int, ...] | None = None
+    minimisers: set[Any] = set()
+    for a, b, c, d in matrices:
+        if ((a % 4, b % 4), (c % 4, d % 4)) not in residues:
+            continue
+        key = (q((a, b), (a, b)), q((c, d), (c, d)), q((a, b), (c, d)))
+        if best is None or key < best:
+            best, minimisers = key, {((a, b), (c, d))}
+        elif key == best:
+            minimisers.add(((a, b), (c, d)))
+    assert best is not None
+    return best, minimisers
+
+
+def _unimodular(bound: int) -> list[tuple[int, ...]]:
+    return [m for m in product(range(-bound, bound + 1), repeat=4) if m[0] * m[3] - m[1] * m[2] in (1, -1)]
+
+
+def _check_ac_reduced(forms: list[tuple[int, int, int]], shear: int, bound: int, seed: str) -> None:
+    rng = random.Random(seed)
+    matrices = _unimodular(bound)
+    shears = _unimodular(shear)
+    for it in range(3, 16):
+        residues = _kernel_residues(Spacegroup.standard(it))
+        for a, b, c in forms:
+            # the reduced form moved by a random unimodular P: P G P^T
+            p00, p01, p10, p11 = rng.choice(shears)
+            moved = (
+                a * p00 * p00 + 2 * b * p00 * p01 + c * p01 * p01,
+                a * p00 * p10 + b * (p00 * p11 + p01 * p10) + c * p01 * p11,
+                a * p10 * p10 + 2 * b * p10 * p11 + c * p11 * p11,
+            )
+            key, changes = _ac_reduced(moved, residues)
+            assert (key, set(changes)) == _brute_reduced((moved[0], moved[1], moved[2]), residues, matrices), (
+                it,
+                moved,
+            )
+
+
+def test_kernel_residues_lift_within_three() -> None:
+    # every unimodular residue class modulo 4 has a lift with entries in -3..3, so _kernel_residues
+    # decides every class
+    assert len({tuple(v % 4 for v in m) for m in _unimodular(3)}) == 96
+
+
+def test_ac_reduced_matches_brute_force() -> None:
+    # random, hexagonal, square and C >> A forms in every group 3 to 15
+    forms = [(6, -3, 6), (5, 0, 5), (2, -1, 30), (8, 3, 11), (10, -4, 13)]
+    _check_ac_reduced(forms, 1, 7, "ac-reduced")
+
+
+@pytest.mark.extended
+def test_ac_reduced_matches_brute_force_extended() -> None:
+    rng = random.Random("ac-reduced-extended")
+    forms = [(6, 3, 6), (4, -2, 4), (3, 0, 3), (5, 0, 9), (18, 9, 40), (1, 0, 60)]
+    for _ in range(20):
+        a = 2 * rng.randint(1, 20)
+        forms.append((a, rng.randint(-a // 2, a // 2), a + 2 * rng.randint(0, 20)))
+    _check_ac_reduced(forms, 2, 12, "ac-reduced-extended")

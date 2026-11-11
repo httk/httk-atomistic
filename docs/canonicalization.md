@@ -64,9 +64,10 @@ otherwise. Fractional coordinates are reduced componentwise modulo one into
    higher-group Wyckoff model; for P1 use the entire anonymous frame.
 5. Apply the shared exact core below to every tied assignment. This includes
    exact translation/same-group cell reduction, not general upward exploration.
-6. Choose the anonymous geometry first, restore the compatible chemical
-   assignments, then choose the scalar chemical minimum. Restore metadata and
-   source precision under the exact unchanged-crystal gate described below.
+6. Choose by the bare assigned key (species names included) first, then the
+   anonymous geometry, restore the compatible chemical assignments, then choose
+   the scalar chemical minimum. Restore metadata and source precision under the
+   exact unchanged-crystal gate described below.
 7. Check the deadline and any reported bounded-work skips before returning the
    ASU. On a limit, raise `CanonicalizationLimitError` without a partial answer.
 
@@ -198,12 +199,18 @@ tolerant boundary. Everything after recognition is exact.
 11. Reframe the recognized ASU anonymously again. P1 uses the complete frame;
     higher groups retain their recognized Wyckoff representation and use the P1
     expansion only to establish anonymous class identities.
-12. Run the exact core for every tied assignment. Retain every member tied by
-    the anonymous geometry key; restore all compatible outer assignments and
-    exact-deduplicate the family.
-13. The scalar result is the minimum family member by
-    `(site_key, tuple(repr(species)))`. Chemistry is therefore consulted only
-    after the anonymous geometry has been fixed.
+12. For `canonical_asu_protostructure_assignments`, run the exact core for every
+    tied assignment with synthetic names in the discrete key. Retain every member
+    tied by the anonymous geometry key; restore all compatible outer assignments
+    and exact-deduplicate the family. Chemistry is consulted only after the
+    anonymous geometry has been fixed.
+13. For the scalar `canonical_asu` and `canonicalize`, restore the original species
+    onto the recognized ASU and run the declared path (steps 1–7 above): the
+    discrete key carries the species names, as in `canonical_bare_protostructure`,
+    so the result's label is the canonical bare label as a string (for sites
+    declared on their own Wyckoff letter; a site declared on a more general letter
+    than its point is demoted by step 14 and not by the bare canonicalizer). It
+    need not be a member of the step 12 family.
 14. Restore metadata as described below. No recognition or upward-search pass is
     run after the exact terminal. Check the deadline and bounded-work status
     before returning; an incomplete minimum raises rather than returning a value.
@@ -256,7 +263,9 @@ recognition and no upward symmetry search.
    that frame as the terminal input. For every higher group, retain the original
    recognized cell, setting and Wyckoff sites, replacing only species names
    according to each tied frame assignment. Run steps 10–30 for each such input;
-   steps 31–35 choose and restore the tied results.
+   steps 31–35 choose and restore the tied results. The terminal is told which
+   original species each synthetic name stands for, so its discrete key (step 20)
+   can carry the species names.
 10. **Standardize.** Convert the recognized group to its IT standard setting.
     The stored transform maps standard coordinates to the input setting as
     `f_own = f_std M^T + v`; hence
@@ -285,8 +294,14 @@ recognition and no upward symmetry search.
 15. **Apply chirality policy.** With `preserve_chirality=False`, if the group is
     the higher member of an enantiomorphic pair, map every point as
     `f -> -f mod 1`, keep the basis, re-identify complete orbits in the lower
-    partner, and continue there. Groups without a lower partner remain. Moments
-    are already excluded.
+    partner, and continue there. In a Sohncke group that is its own
+    enantiomorphic partner (only proper operations, e.g. P1, P2₁, I4₁, P4₂32,
+    I4₁32), the enantiomer (the same fractional coordinates and group in the
+    negated basis) is canonicalized as well, with its own anonymous frame, and
+    the candidates of both hands compete in steps 31–33. The enantiomer keeps the
+    group whether or not the inversion through the origin does (I4₁, I4₁22 and
+    F4₁32 need an origin shift for it). Other groups remain. Moments are already
+    excluded.
 16. **Build representative operations.** Start with identity. For P1, append all
     exact integral automorphisms of the full rational Gram. For other groups, append every affine
     normalizer coset in vendored order. Do not filter by the lift search's
@@ -310,16 +325,29 @@ recognition and no upward symmetry search.
 20. **Make the discrete key.** For each class, sort its mapped Wyckoff letters
     and sum their conventional multiplicities. The anonymous half is the sorted
     tuple of `(-multiplicity, letter tuple)` class keys. The assignment half is
-    the sorted tuple `(-multiplicity, letter tuple, synthetic class name)`. This
-    is the label's class order (`class_order_key`). Compare the pair
-    `(anonymous, assignment)`, and retain the complete minimum tier.
-21. **Choose basis signs.** The candidate basis change is the group point-map
+    the sorted tuple `(-multiplicity, letter tuple, species name)`: the original
+    species name for `canonical_asu`, `canonicalize` and the refined
+    protostructure, so the pair is exactly the bare canonicalizer's assigned key;
+    the synthetic class name for `canonical_asu_protostructure_assignments` and
+    the anonymous refined prototype. This is the label's class order
+    (`class_order_key`). In groups 2 to 15 the candidates are also taken after
+    every kept cell change `σ` (see the classification section). Compare the pair
+    `(anonymous, assignment)`, and retain the complete minimum tier. In groups 3
+    to 15 every `σ` reaching it contributes; in P-1 only the earliest.
+21. **Take both hands.** The candidate basis change is the group point-map
     inverse transpose multiplied by the normalizer operation's inverse
-    transpose. If it reverses the source handedness and `-I` preserves the exact
-    group operation set, negate the basis change and prepend inversion to the
-    site operation.
-22. **Choose the metric.** Compute the exact transformed full Gram for every
-    surviving basis change, flatten it row-major, and retain the least metric.
+    transpose. If `-I` preserves the exact group operation set, every candidate
+    also appears with the basis change negated and inversion prepended to the
+    site operation; the discrete key of step 20 decides between the two.
+22. **Reduce the cell and choose the metric.** In groups 3 to 15 move every
+    surviving candidate by each cell change of `K` (the cell changes that keep
+    every letter and operation) to its least `(a·a, c·c, a·c)`, the reduction
+    key (see the classification section). Then compare
+    `(reduction key, full Gram row-major, left-handed flag)` and retain the
+    least. A left-handed basis survives only when no right-handed candidate ties
+    it on the discrete, reduction and metric tiers: every group with an improper
+    operation, or whose letters `-I` keeps, offers such a right-handed twin. Candidates that differ by a
+    lattice translation give the same result and are evaluated once.
 23. **Apply each distinct site action.** Apply `p' = p A + q mod 1`, transform
     the basis, and canonicalize translations and orbit representatives once per
     distinct site operation. For the action's basis change
@@ -340,9 +368,8 @@ recognition and no upward symmetry search.
     position instead. Sort sites by `(species name, Wyckoff letter, exact
     parameters)`.
 26. **Make the geometry key.** Compare
-    `(full metric row-major, site key, right-handed-first flag,
-    basis row-major, identity-provenance-first flag)` and keep the least exact
-    candidate. Materializing its selected basis uses the rational change
+    `(full metric row-major, right-handed-first flag, site key,
+    basis row-major)` and keep the least exact candidate. Materializing its selected basis uses the rational change
     `R = B_new B_current^-1`; multiply cell precision by the maximum absolute
     row sum of `R` and leave coordinate precision unchanged.
 27. **Choose exact Cartesian orientation.** Construct the lower-triangular
@@ -354,17 +381,21 @@ recognition and no upward symmetry search.
     Otherwise retain the input global Cartesian rotation. This fallback is
     idempotent but cannot give a universal rotation-invariance guarantee for
     unsupported nested-radical metrics.
-29. **Preserve handedness.** A left-handed cell is first jointly inverted when
-    inversion preserves the group. In an enantiomorphic group where that map is
-    invalid, use a fixed left-handed Cartesian factor. Never silently change the
+29. **Preserve handedness.** The protostructure terminal keeps a left-handed
+    cell and uses a fixed left-handed Cartesian factor: inverting it would change
+    the letters its discrete key chose. (The legacy terminal first inverts a
+    left-handed cell jointly when inversion preserves the group, and uses the
+    fixed factor only where that map is invalid.) Never silently change the
     physical chirality.
-30. **Select among P-1 entries.** Compare
-    `(discrete key at identity, metric, site key, handedness, basis)` across the
-    tied entries from step 12.
+30. **Select among entries.** Compare
+    `(discrete key at identity, reduction key, metric, left-handed flag, site key,
+    basis)` across the tied P-1 entries from step 12 and the enantiomer entries
+    of step 15.
 31. **Select anonymous geometry.** Across tied source assignments compare
+    the named discrete key of step 20 (empty for the anonymous family), then
     `(IT number, Hall entry, metric, sorted(population,
-    sorted(Wyckoff letter, parameters)) by class, handedness, basis)`. This key
-    contains no original chemical name.
+    sorted(Wyckoff letter, parameters)) by class, handedness, basis)`. The second
+    key contains no original chemical name.
 32. **Restore assignments.** Map synthetic names back to complete original
     `Species` values. Deduplicate by
     `(spacegroup, basis, site key, species tuple, coordinate precision, charge)`.
@@ -389,9 +420,14 @@ recognition and no upward symmetry search.
     exact-family boundary and the outer measured-family boundary. This prevents
     internal, cancelling transforms from inflating precision bounds on an unchanged result. A genuinely changed
     basis or occupied-site multiset retains the propagated conservative bounds.
-35. **Return.** Return the scalar minimum for `canonical_asu` and
-    `canonicalize`; return the exact-deduplicated tied family for
-    `canonical_asu_protostructure_assignments`.
+35. **Return.** `canonical_asu` and `canonicalize` restore the original species
+    onto the recognized ASU and run steps 10–34 with species names in the
+    discrete key, returning the one result; its label equals the canonical bare
+    label as a string for sites declared on their own Wyckoff letter (step 14
+    demotes a site declared on a more general letter; the bare canonicalizer does
+    not). `canonical_asu_protostructure_assignments` runs them with
+    synthetic names and returns the exact-deduplicated tied family of the
+    anonymous convention, of which the canonical ASU need not be a member.
 
 Exact comparisons of `SurdScalar` and `SurdVector` values are comparisons of
 their real algebraic values. An implementation must use exact sign refinement;
@@ -547,13 +583,34 @@ the proven maps of the generators and the tabulated actions. For example, in
 P2₁/c the occupations `a, b`, `a, d` and `b, c` all give `AB_mP4_14_a_b`, while
 `a, c` gives `AB_mP4_14_a_c`.
 
-The refined terminal takes the same kept cell changes: in groups 2 to 15 its
-tabulated candidates are also taken after each `σ` of `S`, so its least discrete
-key, and hence its label, is the canonical bare one. Among the candidates reaching
-that key the earliest `σ` (identity first) wins before the metric tie-breaks, so
-the result is unchanged whenever no cell change is needed. When one is, the refined
-cell is `σ` applied to the usual cell and need not be reduced; reducing the cell
-within the winning signature class is pending.
+The refined terminal takes the same kept cell changes, so its least discrete key,
+and hence its label, is the canonical bare one; its discrete key carries the species
+names, so the refined and bare labels agree as strings, species order included, for sites
+declared on their own Wyckoff letter (a site declared on a more general letter than its point
+is demoted by the refined terminal only). In
+groups 3 to 15 every `σ` reaching that key contributes, and the cell of each
+description is reduced within its class: `K`, the cell changes whose signature is
+the identity, contains every cell change congruent to the identity modulo 4, so it
+is known by its 8 to 96 residues modulo 4. Each candidate's ac block is moved by
+every `X ∈ K` that minimises `(a·a, c·c, a·c)`, found exactly by a level-4
+enumeration in a Lagrange-reduced basis (first rows with `|y| ≤ 4`, second rows
+`±w + j·u` per admissible `j` modulo 4). That minimum over all classes is the
+reduction key; ties go on to the full metric, the handedness and the site key. No
+tier prefers a `σ` or the input's own description, so the representative's label,
+cell and sites do not depend on the input cell. The cell need not be the
+conventional reduced cell: keeping the letters can force a longer axis, e.g.
+P2₁/c with Cl on `a` and Na on `b` needs `a' = a + c`. In P-1 the earliest `σ` that
+reaches the key is kept: the entry set is the Niggli cell with every proper metric
+automorphism, so that choice is already intrinsic; the stored P-1 cell is `σ`
+times the Niggli cell, intrinsic but not reduced within its class.
+
+The discrete key is chosen before the handedness. In a Sohncke group whose letters
+inversion exchanges, one hand of a crystal reaches the bare label only through a
+left-handed description, and its refined representative is then left-handed. For
+example, P4₂32 with H on `i` and P on `c` (structreading/208) gives
+`A3B_cP16_208_i_b:H-P` with a left-handed cell, and its mirror image gives the same
+label with a right-handed cell. The two refined values differ, as the crystals do;
+with `preserve_chirality=False` they are identified.
 
 A refined value with no representative canonicalizes its bare base and retains
 its discriminator unchanged. A refined value with a representative rebuilds an
@@ -563,26 +620,20 @@ discarded only when it is exactly one member of the orbit generated by the
 stored free parameters. Otherwise canonicalization raises rather than treating
 an imprecise annotation as exact data.
 
-An anonymous refined representative is relabelled after geometry is canonical.
-Occupied classes are ordered by the label's class order
-`(-summed conventional multiplicity, sorted Wyckoff-letter tuple)`, then by
-their sorted `(letter, exact-parameter-tuple)` rows, and receive `A`, `B`, ...
-in that order, so the representative's class names match its label. Unused
-dummy species retain their count and receive the trailing canonical labels in
-their existing order. Input dummy
-names therefore do not break geometry ties.
+An anonymous refined representative (a `Prototype`) is canonicalized with
+synthetic class names in its discrete key, so input class names never matter, and
+relabelled after geometry is canonical. Occupied classes are ordered by the label's
+class order `(-summed conventional multiplicity, sorted Wyckoff-letter tuple)`, then
+by their sorted `(letter, exact-parameter-tuple)` rows, and receive `A`, `B`, ...
+in that order, so the representative's class names match its label. Unused dummy
+species retain their count and receive the trailing canonical labels in their
+existing order.
 
-A refined geometry terminal can demote a site onto a special position or
-collapse an exact P1 or same-group supercell. It also decides a species tie by
-geometry: it fixes the anonymous description and the geometry before the
-chemistry, while the bare routine minimizes the name-bearing assigned key. A
-monoclinic or P-1 cell change is the usual trigger; the assigned refined and
-bare labels can then list the species in different orders, while the anonymous
-labels agree. For example, C2/m with Cl on `f`, Na on `b` and O on `d` gives
-`A2BC_mC8_12_e_a_c:Cl-O-Na` refined but `A2BC_mC8_12_e_a_c:Cl-Na-O` bare.
-Those geometry-dependent choices are unavailable to the bare routine, so
-canonicalization and projection do not generally commute. Canonicalize the
-projected value whenever a canonical bare result is required.
+A refined geometry terminal can demote a site onto a special position or collapse
+an exact P1 or same-group supercell. Those geometry-dependent changes are
+unavailable to the bare routine, so canonicalization and projection do not
+generally commute. Canonicalize the projected value whenever a canonical bare
+result is required.
 
 ## Bonding-net canonicalization
 
