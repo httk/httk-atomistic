@@ -13,7 +13,9 @@ class FormulatypeString(ChemicalFormulaBackend):
     Raw anonymous text has no site-count or composition meaning of its own, so this one
     backend serves both :class:`~httk.atomistic.FormulatypeView` and
     :class:`~httk.atomistic.AnonymousFormulaView`; ``AnonymousFormulaString`` is its
-    package-internal alias.
+    package-internal alias. The two formulas share this grammar but mean different
+    things: ``A3B2`` as a formulatype counts the sites each species class occupies, while
+    as an anonymous formula it is the composition, which weights each site by its occupancy.
 
     :param obj: The canonical anonymous formula text.
     :param \*\*hints: Backend-selection hints.

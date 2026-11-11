@@ -9,6 +9,12 @@ from .formulatype_view import FormulatypeView
 # Raw anonymous text carries neither site-count nor composition meaning, so one string
 # backend serves both families; the views decide how their source is counted.
 AnonymousFormulaString = FormulatypeString
+"""The string backend of :class:`~httk.atomistic.AnonymousFormulaView`, an alias of :class:`FormulatypeString`.
+
+The two formulas share one grammar but mean different things: ``A3B2`` as a formulatype counts
+the sites each species class occupies, while as an anonymous formula it is the composition,
+which weights each site by its occupancy.
+"""
 from .api import ChemicalFormulaAPI
 from .backend import ChemicalFormulaBackend
 from .composition import Composition
