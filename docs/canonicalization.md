@@ -553,7 +553,7 @@ key, and hence its label, is the canonical bare one. Among the candidates reachi
 that key the earliest `σ` (identity first) wins before the metric tie-breaks, so
 the result is unchanged whenever no cell change is needed. When one is, the refined
 cell is `σ` applied to the usual cell and need not be reduced; reducing the cell
-within the winning signature class is pending (task 4.2).
+within the winning signature class is pending.
 
 A refined value with no representative canonicalizes its bare base and retains
 its discriminator unchanged. A refined value with a representative rebuilds an
@@ -667,16 +667,30 @@ per-space-group tables are built.
    operation relabelling, an integer matrix acting on translations, and the
    target letter and `b` for every letter. Everything is computed at one generic
    exact rational probe point, so it does not depend on the structure.
-2. **Cosets.** Each coset transforms the rows and the sites; cosets whose bare
-   key is not the minimal one are skipped.
-3. **Class order.** The classes follow `class_order_key`; every permutation of
+2. **Cells from the net (groups 3 to 15).** The changes between valid ac cells
+   form an infinite group `Γ`, which no finite action set reaches, so the search
+   first chooses cells from the net. It places every atom at the average of its
+   bonded neighbours (exactly, over the free parameters, each row weighted by the
+   number of its bonds in the cell) and forms the Gram matrix `G` of the bond
+   vectors; a cell change `X` turns its ac block into `X G Xᵀ`. Its rank decides
+   the cells: rank 2, every cell of `Γ` reducing it in the order
+   `(G11, G22, G12)`, ties kept; rank 1, those cells modulo shears along the
+   periodic direction by a fixed per-group step `d` of 1, 2 or 4 (the
+   denominator of the points that 2-fold axes, 2₁ axes and inversion centres pin
+   a component to); only periodic along b, one cell per class of `Γ` modulo
+   `d`; finite molecules only, the identity. Each set is taken modulo `±I`, and
+   the b-periodic case runs only the tabulated cosets, since its cells already
+   cover the cell changes of `S`.
+3. **Cosets.** Each cell, then each coset, transforms the rows and the sites;
+   pairs whose bare key is not the minimal one are skipped.
+4. **Class order.** The classes follow `class_order_key`; every permutation of
    classes tied in count and letters is tried.
-4. **Numbering.** A branch and bound over the numbers 1, 2, ... When a site gets
+5. **Numbering.** A branch and bound over the numbers 1, 2, ... When a site gets
    its number, its still unnumbered neighbours must take the next free numbers of
    their own blocks, since anything else lengthens the pair list; only their order
    among themselves is branched. The search returns the minimal pair list and
    every numbering that realises it.
-5. **Reference atoms, exactly.** A reference atom is written as a fixed
+6. **Reference atoms, exactly.** A reference atom is written as a fixed
    operation, a fixed lattice translation and a part linear in a vector `v` of
    integer unknowns: `a_s = (k_s, c_s + M_s v)`. A general position has three
    unknowns (any lattice translation) and one start per operation. A special
@@ -697,14 +711,14 @@ per-space-group tables are built.
    not affect any code. No search range is used anywhere in this step; the only
    finite lookup is the classes of gauge moves of a special position, collected
    from a ±2 cell neighbourhood.
-6. **Components and ties.** Connected components of the site graph are searched
+7. **Components and ties.** Connected components of the site graph are searched
    separately, since a row's code depends only on the reference atoms of its own
    component; the merged result is the same as one joint search, and the state
    sets never multiply. Within a group of tied classes, the classes that appear in
    no row are interchangeable, so they are placed in sorted order among the
    positions the bonded classes leave free. Neither change alters the result.
-7. **Result.** The smallest `(bare key, pair list, code keys)` is kept together
-   with all realisations `(coset, numbering, gauge)` of it. Results are memoised
+8. **Result.** The smallest `(bare key, pair list, code keys)` is kept together
+   with all realisations `(cell, coset, numbering, gauge)` of it. Results are memoised
    on the oriented rows reduced to their codes.
 
 The per-group tables are the one-off cost; a net search on a typical structure
@@ -721,16 +735,15 @@ best ones.
   elements, shuffled sites and rows, reversed rows) but not verified by machine.
   A net for which two descriptions give different strings is a defect to report.
 - **Low symmetry.** The canonical net is description-independent only as far as
-  the set of equivalent descriptions reaches every change between two valid
-  descriptions. In the monoclinic groups and in P-1 the set is closed in
-  signature over the cell changes (see the classification family canonicalizers
-  above), so labels, and nets that are not periodic in any direction (molecular
-  crystals), do not depend on the cell. Monoclinic and P-1 nets with any periodic
-  component remain canonical only relative to the cell that httk's
+  the searched descriptions reach every change between two valid descriptions.
+  In the monoclinic groups the cells chosen from the net (step 2) do, so no
+  monoclinic net, molecular or periodic in any direction, depends on the cell.
+  In P-1 the action set is closed in signature (see the classification family
+  canonicalizers above), so labels and nets that are not periodic in any
+  direction (molecular crystals) do not depend on the cell, but nets with any
+  periodic component remain canonical only relative to the cell that httk's
   standardisation chooses: their codes contain lattice translations, which the
-  shears change (D7). This includes monoclinic nets periodic only along b, for
-  example a helix around a 2₁ axis next to a molecule on an inversion centre in
-  P2₁/c. P1 is excluded from the guarantee: it has no special
+  shears change (D7). P1 is excluded from the guarantee: it has no special
   positions, so its labels are unaffected, but its periodic nets stay canonical
   only relative to the cell.
 - **Numbering blow-up.** The numbering search is exact but exponential in the

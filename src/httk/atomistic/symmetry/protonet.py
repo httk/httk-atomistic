@@ -6,7 +6,8 @@ general Wyckoff position, identity ``0``) followed by the lattice translation ``
 site ``j``; the reference atom is the first-listed Wyckoff coordinate at the site's free
 parameters, not reduced modulo one.  ``_canonical_net`` returns the smallest pair list and
 code list over every equivalent description, numbering and gauge, together with every
-realisation of it.  Everything is exact: integers in the search, :class:`~fractions.Fraction`
+realisation of it; in groups 3 to 15 the descriptions follow the cells chosen from the net
+(``_protonet_cells``).  Everything is exact: integers in the search, :class:`~fractions.Fraction`
 only while the per-space-group tables are built.
 """
 
@@ -19,9 +20,15 @@ from functools import cache, cached_property, lru_cache
 from itertools import combinations, permutations, product
 
 from httk.atomistic.models.prototype.notation import class_order_key
+from httk.atomistic.symmetry._protonet_cells import _cell_candidates, _Matrix2
 from httk.atomistic.symmetry._wyckoff_actions import compile_wyckoff_action
 from httk.atomistic.symmetry.affine_operation import AffineOperation
-from httk.atomistic.symmetry.canonical_classification import _actions, _chirality_target, _target_letter
+from httk.atomistic.symmetry.canonical_classification import (
+    _actions,
+    _chirality_target,
+    _tabulated_actions,
+    _target_letter,
+)
 from httk.atomistic.symmetry.limits import _checkpoint
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -529,6 +536,12 @@ class _GroupTables:
             kept.setdefault(self._coset_form(P, _vector(action.vector.to_fractions())), action)
         return tuple(self._compile(action, self) for action in kept.values())
 
+    @cached_property
+    def tabulated(self) -> tuple[int, ...]:
+        """Indices of the cosets that are httk's tabulated actions, without the added cell changes."""
+        tabulated = set(_tabulated_actions(self.spacegroup))
+        return tuple(index for index, coset in enumerate(self.cosets) if coset.action in tabulated)
+
     def _compile(self, action: AffineOperation, target: "_GroupTables") -> _Coset:
         """Compile an action into ``target``: operation relabelling, translation matrix and ``b`` per letter."""
         P, Pinv = _int_matrix(action), _int_matrix(action.inverse())
@@ -574,6 +587,14 @@ def _tables(it_number: int) -> _GroupTables:
 def _transfer(source_it: int, target_it: int) -> _Coset:
     """Compile the inversion from one group's numbering and letters into its enantiomorphic partner's."""
     return _tables(source_it)._compile(_INVERSION, _tables(target_it))
+
+
+@lru_cache(maxsize=1024)
+def _cell(it_number: int, X: _Matrix2) -> _Coset:
+    """Compile the ac cell change ``X`` of a monoclinic group into its own tables."""
+    (a, b), (c, d) = X
+    tables = _tables(it_number)
+    return tables._compile(AffineOperation(((a, 0, b), (0, 1, 0), (c, 0, d))), tables)
 
 
 def _moved(tables: _GroupTables, coset: _Coset, sites: Sequence[tuple[Hashable, str]], row: _Row) -> _Row:
@@ -935,11 +956,13 @@ def _exact_codes(
 class _Realisation:
     """One description that produces the canonical net, in terms of the input sites.
 
-    :param coset: Index into the target group's ``_GroupTables.cosets``.
+    :param coset: Index into the target group's ``_GroupTables.cosets``, applied after ``cell``.
     :param classes: Input class ids in label order.
     :param letters: Canonical Wyckoff letter per input site.
     :param number: 1-based site number per input site.
     :param gauge: Accumulated reference-atom change per input site.
+    :param cell: The ac cell change chosen from the net (identity outside groups 3 to 15), applied
+        first; compiled by ``_cell``.
     """
 
     coset: int
@@ -947,6 +970,7 @@ class _Realisation:
     letters: tuple[str, ...]
     number: tuple[int, ...]
     gauge: tuple[_Element, ...]
+    cell: _Matrix2 = ((1, 0), (0, 1))
 
 
 @dataclass(frozen=True)
@@ -959,8 +983,8 @@ class _CanonicalNet:
     :param codes: One element (0-based operation) per slot.
     :param realisations: The descriptions giving this net, de-duplicated by ``(classes, letters,
         number)``; a coset repeating an earlier coset's letters and bond orbits is skipped.  Other
-        ``(coset, gauge)`` pairs of an equal realisation are therefore not kept, which matters only
-        for a future geometric round trip (D9).
+        ``(cell, coset, gauge)`` triples of an equal realisation are therefore not kept, which
+        matters only for a future geometric round trip (D9).
     """
 
     it_number: int
@@ -1030,7 +1054,7 @@ def _search(
     preserve_chirality: bool,
     own_bare: bool = False,
 ) -> _CanonicalNet:
-    """Search every coset, class order, numbering and gauge for the smallest net (memoised)."""
+    """Search every cell, coset, class order, numbering and gauge for the smallest net (memoised)."""
     tables = _tables(it_number)
     ordered = sorted(rows)
     target = _chirality_target(tables.spacegroup, preserve_chirality).it_number
@@ -1047,22 +1071,38 @@ def _search(
     result: tuple[list[tuple[int, int]], list[_Element], list[tuple[str, ...]]] | None = None
     realisations: dict[tuple[object, ...], _Realisation] = {}
     seen: set[tuple[object, ...]] = set()
+    # monoclinic: the cells chosen from the net come first (task 4.2); a net of rank 0 with a
+    # component periodic along b gets every linear class from its cells, so the tabulated set suffices
+    cells: tuple[_Matrix2, ...] = (((1, 0), (0, 1)),)
+    indices: Sequence[int] = range(len(tables.cosets))
+    if 3 <= target <= 15:
+        cells, rank0 = _cell_candidates(tables, sites, ordered)
+        if rank0:
+            indices = tables.tabulated
     # filter by the bare key first: only descriptions reaching the smallest (or the own) bare key compete
     described = []
-    for coset in tables.cosets:
-        _checkpoint()
-        letters = {s: coset.letter(letter)[0] for s, (_, letter) in enumerate(sites)}
-        group_of, rank = _class_groups(tables, sites, letters)
-        described.append((coset, letters, group_of, rank, tuple(sorted(rank.values()))))
+    for X in cells:
+        cell_sites, cell_rows = sites, ordered
+        if X != ((1, 0), (0, 1)):
+            cell = _cell(target, X)
+            cell_sites = tuple((cls, cell.letter(letter)[0]) for cls, letter in sites)
+            cell_rows = [_moved(tables, cell, sites, row) for row in ordered]
+        for index in indices:
+            _checkpoint()
+            coset = tables.cosets[index]
+            letters = {s: coset.letter(letter)[0] for s, (_, letter) in enumerate(cell_sites)}
+            group_of, rank = _class_groups(tables, sites, letters)
+            described.append((X, cell_sites, cell_rows, index, letters, group_of, rank, tuple(sorted(rank.values()))))
     if own_bare:
         least = tuple(sorted(_class_groups(tables, sites, dict(enumerate(letter for _, letter in sites)))[1].values()))
     else:
-        least = min(entry[4] for entry in described)
-    for index, (coset, letters, group_of, rank, bare_key) in enumerate(described):
+        least = min(entry[-1] for entry in described)
+    for X, cell_sites, cell_rows, index, letters, group_of, rank, bare_key in described:
         _checkpoint()
         if bare_key != least:
             continue
-        moved = [_moved(tables, coset, sites, row) for row in ordered]
+        coset = tables.cosets[index]
+        moved = [_moved(tables, coset, cell_sites, row) for row in cell_rows]
         # a coset that yields the same letters and bond orbits as an earlier one adds no realisation
         seen_key = (
             tuple(letters.values()),
@@ -1122,6 +1162,7 @@ def _search(
                         tuple(letters[s] for s in range(len(sites))),
                         tuple(number[s] for s in range(len(sites))),
                         tuple(gauge[s] or _IDENTITY for s in range(len(sites))),
+                        X,
                     )
                     realisations.setdefault((real.classes, real.letters, real.number), real)
     assert result is not None

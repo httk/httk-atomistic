@@ -272,9 +272,10 @@ Known limit: a structure's classes are its species names, as are those of its
 `BareProtostructureView` and that view's `BarePrototype` erasure, but
 `Structuretype` and direct `BarePrototype` recognition (structure →
 `Structuretype` template → `BarePrototype`) merge species by element. Where
-distinct species names share one element-pure chemistry, those two therefore give
-a different `Formulatype` from the structure's own and from its
-`BareProtostructure` erasure. COD 1001844 has two oxygen species, `O1` and `O2`:
+distinct species names share one element, those two therefore give a different
+`Formulatype` from the structure's own and from its `BareProtostructure`
+erasure, also when the species differ in charge (AgO, COD 1509688, has `Ag1` as
+Ag⁺¹ and `Ag2` as Ag⁺³). COD 1001844 has two oxygen species, `O1` and `O2`:
 `BarePrototypeView(structure)` labels as `A12B3C_aP32_1_24a_6a_2a`, while the
 structure's `Formulatype` and `BarePrototypeView(BareProtostructureView(structure))`
 give `A24B6CD` (`A24B6CD_aP32_1_24a_6a_a_a`).
@@ -553,14 +554,14 @@ classes tie in site count and letters, its species-to-letter assignment, and so
 its label without the `__net` part, can differ from that of
 {py:func}`~httk.atomistic.canonical_bare_protostructure`; no equality between the
 two is promised. Erasing a `Protonetstructure` to a `Protonettype` keeps class
-positions: class `c` becomes `anonymous_symbol(c)`. In the monoclinic groups and
-in P-1 the equivalent descriptions include the changes between valid cells, so
-labels, and nets that are not periodic in any direction (molecular crystals), do
-not depend on the cell. Monoclinic and P-1 nets with any periodic component,
-including monoclinic nets periodic only along b, are canonical only relative to the
-cell that httk's standardisation chooses. P1 is excluded from the guarantee: it has no special positions, so its
-labels are unaffected, but its periodic nets stay canonical only relative to the
-cell (D7). See {doc}`canonicalization` for the algorithm and its limits.
+positions: class `c` becomes `anonymous_symbol(c)`. In the monoclinic groups the
+search also chooses cells from the net, so no monoclinic net depends on the cell.
+In P-1 labels, and nets that are not periodic in any direction (molecular
+crystals), do not depend on the cell; P-1 nets with any periodic component are
+canonical only relative to the cell that httk's standardisation chooses. P1 is
+excluded from the guarantee: it has no special positions, so its labels are
+unaffected, but its periodic nets stay canonical only relative to the cell (D7).
+See {doc}`canonicalization` for the algorithm and its limits.
 
 ### Species order of protonetstructure labels
 
@@ -712,9 +713,10 @@ their content identity. There are three versions, one per family:
 | net | `ProtonettypeRecord`, `ProtonetstructureRecord` | the label version is bumped, or the net rule changes |
 
 A label-rule change therefore bumps all three, while a change to the
-representative or to the net leaves the other families' records untouched. Each
-version is now 2, since the monoclinic and P-1 labels became independent of the
-cell. Saving requires the family's current version, and turning a record of
+representative or to the net leaves the other families' records untouched. The
+label and refined versions are 2, since the monoclinic and P-1 labels became
+independent of the cell; the net version is 3, since the monoclinic nets with
+periodic components did too. Saving requires the family's current version, and turning a record of
 another version back into a value raises `ValueError` naming the family: its
 canonical form changed, so rebuild the database. Saving a protonet record also checks that its net
 is the canonical one for its bare description; a non-canonical net is rejected,

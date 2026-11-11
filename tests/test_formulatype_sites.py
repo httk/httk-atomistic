@@ -111,7 +111,8 @@ def test_formulatype_equals_every_level_anonymous_formula_and_label_prefix(name:
     if len({by_name[n] for n in used}) == len(used):
         assert merged == formulatype
     else:  # the documented limit: recognition merges same-element names, the structure does not
-        assert name == "cod/1001844.cif"
+        # 1001844: two oxygen names; 1509688 (AgO): Ag1 (Ag+1) and Ag2 (Ag+3).
+        assert name in {"cod/1001844.cif", "cod/1509688.cif"}
 
 
 def test_recognition_merges_same_element_names_unlike_the_structure() -> None:

@@ -65,9 +65,17 @@ def fapply(tables: Any, e: Element, p: Sequence[float]) -> tuple[float, float, f
 
 
 def raw_rows(
-    tables: Any, sites: Sequence[Site], refs: Sequence[Sequence[float]], lattice: Lattice, cutoffs: Mapping[Any, float]
+    tables: Any,
+    sites: Sequence[Site],
+    refs: Sequence[Sequence[float]],
+    lattice: Lattice,
+    cutoffs: Mapping[Any, float],
+    reach: int = 2,
 ) -> tuple[list[Row], dict[Row, float]]:
-    """Find rows by a distance cutoff keyed by ``frozenset`` of class ids; returns rows and distances."""
+    """Find rows by a distance cutoff keyed by ``frozenset`` of class ids; returns rows and distances.
+
+    Neighbours are looked for among the translations with entries up to ``reach``.
+    """
     rows: dict[Row, float] = {}
     for i, (si, li) in enumerate(sites):
         for j, (sj, lj) in enumerate(sites):
@@ -76,7 +84,7 @@ def raw_rows(
                 continue
             Hi, Hj = letter_field(tables, li, "H"), letter_field(tables, lj, "H")
             for k in range(tables.nops):
-                for n in itertools.product(range(-2, 3), repeat=3):
+                for n in itertools.product(range(-reach, reach + 1), repeat=3):
                     e = (k, n[0], n[1], n[2])
                     q = fapply(tables, e, refs[j])
                     d = cart_len(lattice, [a - b for a, b in zip(q, refs[i])])
@@ -103,11 +111,11 @@ def scramble(
     """Same net, other description: random coset, reference atoms, site/row order and row direction.
 
     ``change_description=False`` keeps the identity coset, and ``coset`` imposes one. In triclinic
-    and monoclinic groups the random coset keeps the cell (a signed permutation matrix): there nets periodic
-    in the cell-convention plane are canonical only relative to the cell (D7).
+    groups the random coset keeps the cell (a signed permutation matrix): there periodic nets are
+    canonical only relative to the cell (D7).
     """
     if coset is None:
-        cosets = tables.cosets if tables.spacegroup.it_number > 15 else [c for c in tables.cosets if keeps_cell(c)]
+        cosets = tables.cosets if tables.spacegroup.it_number > 2 else [c for c in tables.cosets if keeps_cell(c)]
         coset = rng.choice(cosets) if change_description else tables.cosets[0]
     letters = [coset_letter(coset, letter)[0] for _, letter in sites]
     rows = [
@@ -249,10 +257,14 @@ def geometric_round_trip(
     coset: Any,
     number: Mapping[int, int],
     gauge: Mapping[int, Element | None],
+    cell: Any = None,
 ) -> bool:
-    """Lay the canonical net back onto the input geometry through one realisation and compare bonds."""
+    """Lay the canonical net back onto the input geometry through one realisation and compare bonds.
+
+    ``cell`` is the realisation's compiled cell chosen from the net, applied before ``coset``.
+    """
     act = coset_action(coset)
-    inv = act.inverse()
+    inv = (act if cell is None else act * coset_action(cell)).inverse()
 
     def f(op: Any, p: Sequence[float]) -> list[float]:
         return [float(x) for x in op.apply([Fraction(x).limit_denominator(10**9) for x in p]).to_fractions()]
@@ -260,7 +272,11 @@ def geometric_round_trip(
     site_of = {n: s for s, n in number.items()}
     canon_ref = {}
     for s, (_, letter) in enumerate(sites):
-        moved = fapply(tables, coset_letter(coset, letter)[1], f(act, refs[s]))
+        ref = refs[s]
+        if cell is not None:
+            letter, b = coset_letter(cell, letter)
+            ref = fapply(tables, b, f(coset_action(cell), ref))
+        moved = fapply(tables, coset_letter(coset, letter)[1], f(act, ref))
         g = gauge.get(s)
         canon_ref[s] = fapply(tables, g, moved) if g is not None else moved
     got: Counter[tuple[frozenset[Hashable], float]] = Counter()

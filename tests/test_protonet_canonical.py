@@ -31,7 +31,11 @@ from httk.atomistic.symmetry.protonet import (
     _apply,
     _canonical_net,
     _CanonicalNet,
+    _cell,
+    _cell_candidates,
+    _key,
     _mat_mul,
+    _moved,
     _search,
     _tables,
 )
@@ -115,10 +119,39 @@ def _case(name: str) -> tuple[int, list[Any], list[Any], list[list[float]], list
     return it, sites, refs, lattice, rows, dist
 
 
+def _oracle_net(it: int, sites: Any, rows: Any) -> dict[str, Any]:
+    """The oracle's net; in groups 3 to 15 its least key over the cells chosen from the net (task 4.2).
+
+    The oracle searches the equivalent descriptions alone; the cells come from production's
+    ``_cell_candidates``, which ``test_protonet_cells.py`` tests on its own.
+    """
+    if not 3 <= it <= 15:
+        return oracle.canonical_net(it, sites, rows)
+    tables, reference = _tables(it), oracle.tables(it)
+    best: tuple[Any, ...] | None = None
+    result: dict[str, Any] = {}
+    for X in _cell_candidates(tables, sites, rows)[0]:
+        cell = _cell(it, X)
+        moved = [(cls, cell.letter(letter)[0]) for cls, letter in sites]
+        expected = oracle.canonical_net(it, moved, [_moved(tables, cell, sites, row) for row in rows])
+        ranks = tuple((-sum(reference.letter(x)["multiplicity"] for x in g), tuple(g)) for g in expected["groups"])
+        key = (ranks, list(expected["slots"]), [_key(c) for c in expected["codes"]])
+        if best is None or key < best:
+            best, result = key, {**expected, "realisations": list(expected["realisations"])}
+        elif key == best:
+            result["realisations"].extend(expected["realisations"])
+    return result
+
+
+def _real_cell(it: int, real: Any) -> Any:
+    """The compiled cell of a realisation, ``None`` for the identity, which the search does not apply."""
+    return None if real.cell == ((1, 0), (0, 1)) else _cell(it, real.cell)
+
+
 @cache
 def _oracle(name: str) -> dict[str, Any]:
     it, sites, _, _, rows, _ = _case(name)
-    return oracle.canonical_net(it, sites, rows)
+    return _oracle_net(it, sites, rows)
 
 
 def _assert_matches_oracle(result: _CanonicalNet, expected: dict[str, Any]) -> None:
@@ -297,8 +330,8 @@ def test_labels_do_not_depend_on_the_cell(it: int, draws: int) -> None:
 )
 def test_molecular_nets_do_not_depend_on_the_cell(it: int, nets: int, changes: int) -> None:
     # task 4.1: a three-atom molecule, alone and bonded to its image through an inversion centre,
-    # each described in random other cells (the brief's 5 x 4 per kind); nets periodic in the cell
-    # plane are task 4.2
+    # each described in random other cells (the brief's 5 x 4 per kind); periodic monoclinic nets
+    # are in test_protonet_cells.py, and periodic P-1 nets stay cell-relative (D7)
     tables, rng = _tables(it), random.Random(f"cell-nets-{it}")
     generators = _cell_changes(tables)
     general = max(tables.spacegroup.wyckoff, key=lambda w: (w.free_count, w.multiplicity)).letter
@@ -392,6 +425,7 @@ def test_case_net_and_round_trip(name: str) -> None:
             tables.cosets[real.coset],
             dict(enumerate(real.number)),
             dict(enumerate(real.gauge)),
+            _real_cell(it, real),
         )
 
 
@@ -460,7 +494,7 @@ def test_fixture_matches_oracle_and_is_invariant(path: str) -> None:
     tables = _tables(it)
     rows, dist = raw_rows(tables, sites, refs, lattice, generic_cutoffs(tables, sites, refs, lattice))
     result = _canonical_net(it, sites, rows)
-    _assert_matches_oracle(result, oracle.canonical_net(it, sites, rows))
+    _assert_matches_oracle(result, _oracle_net(it, sites, rows))
     real = result.realisations[0]
     assert geometric_round_trip(
         tables,
@@ -473,6 +507,7 @@ def test_fixture_matches_oracle_and_is_invariant(path: str) -> None:
         tables.cosets[real.coset],
         dict(enumerate(real.number)),
         dict(enumerate(real.gauge)),
+        _real_cell(it, real),
     )
     rng = random.Random(path)
     for _ in range(FIXTURE_DRAWS.get(path, 2)):
@@ -506,7 +541,7 @@ def test_random_nets_match_oracle(it: int) -> None:
     rng = random.Random(f"oracle-{it}")
     for _ in range(3):
         sites, rows = random_net(_tables(it), rng)
-        _assert_matches_oracle(_canonical_net(it, sites, rows), oracle.canonical_net(it, sites, rows))
+        _assert_matches_oracle(_canonical_net(it, sites, rows), _oracle_net(it, sites, rows))
 
 
 # several components and tied classes, small enough for the oracle (P2, P3)
@@ -544,7 +579,7 @@ SMALL_NETS: dict[str, tuple[Any, ...]] = {
 @pytest.mark.parametrize("name", list(SMALL_NETS))
 def test_components_and_tied_classes_match_oracle(name: str) -> None:
     it, sites, rows = SMALL_NETS[name]
-    _assert_matches_oracle(_canonical_net(it, sites, rows), oracle.canonical_net(it, sites, rows))
+    _assert_matches_oracle(_canonical_net(it, sites, rows), _oracle_net(it, sites, rows))
 
 
 def test_disconnected_tied_components_keep_every_numbering_and_one_sorted_empty_realisation() -> None:
