@@ -724,11 +724,13 @@ best ones.
   the set of equivalent descriptions reaches every change between two valid
   descriptions. In the monoclinic groups and in P-1 the set is closed in
   signature over the cell changes (see the classification family canonicalizers
-  above), so labels, and nets that are not periodic (molecular crystals), do not depend
-  on the cell. Monoclinic nets periodic in the ac plane, and P-1 nets periodic in
-  any direction, remain canonical only relative to the cell that httk's
+  above), so labels, and nets that are not periodic in any direction (molecular
+  crystals), do not depend on the cell. Monoclinic and P-1 nets with any periodic
+  component remain canonical only relative to the cell that httk's
   standardisation chooses: their codes contain lattice translations, which the
-  shears change (D7). P1 is excluded from the guarantee: it has no special
+  shears change (D7). This includes monoclinic nets periodic only along b, for
+  example a helix around a 2₁ axis next to a molecule on an inversion centre in
+  P2₁/c. P1 is excluded from the guarantee: it has no special
   positions, so its labels are unaffected, but its periodic nets stay canonical
   only relative to the cell.
 - **Numbering blow-up.** The numbering search is exact but exponential in the

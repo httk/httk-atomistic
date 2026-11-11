@@ -364,8 +364,8 @@ def canonical_protonettype(
     The net is minimised over every equivalent description, site numbering and choice of
     reference atoms; classes that tie in count and letters are ordered by the net.
     In monoclinic groups and P-1 the descriptions include the changes between valid cells, so
-    nets that are not periodic do not depend on the cell; nets periodic in the cell-convention
-    plane (any direction in P-1 and P1) are canonical only relative to the cell httk's
+    nets that are not periodic in any direction do not depend on the cell; nets with any
+    periodic component (in P1 too) are canonical only relative to the cell httk's
     standardisation chooses (D7).
 
     :param obj: A protonettype-like value, converted through its View.
@@ -399,8 +399,8 @@ def canonical_protonetstructure(
     order, smallest first. With tied classes the result's bare part can therefore differ from
     :func:`canonical_bare_protostructure`.
     In monoclinic groups and P-1 the descriptions include the changes between valid cells, so
-    nets that are not periodic do not depend on the cell; nets periodic in the cell-convention
-    plane (any direction in P-1 and P1) are canonical only relative to the cell httk's
+    nets that are not periodic in any direction do not depend on the cell; nets with any
+    periodic component (in P1 too) are canonical only relative to the cell httk's
     standardisation chooses (D7).
 
     :param obj: A protonetstructure-like value, converted through its View.

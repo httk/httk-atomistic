@@ -459,3 +459,13 @@ def test_from_asu_orders_sites_and_keeps_the_input_unrelabelled() -> None:
     assert [o.species.name for o in value.occupations] == ["S"] * 4 + ["K"] * 3 + ["Ag"] * 2 + ["Sb"]
     assert [o.wyckoff for o in value.occupations] == list("ccccabcabc")
     assert isinstance(value.protonettype, Protonettype)
+
+
+@pytest.mark.xfail(strict=True, reason="D7: monoclinic nets periodic only along b are cell-relative until Task 4.2")
+def test_b_only_periodic_net_does_not_depend_on_the_cell() -> None:
+    # P2_1/c: a helix on the 2_1 axis at (0,y,1/4) (op 3) and a dimer across the origin centre (op 2).
+    # In the cell x' = x + 2z the helix row becomes op 3 plus the translation (1,0,0); the net is the same.
+    occupations = [("e", "A"), ("e", "B")]
+    base = Protonettype(14, occupations, [(1, 1, 3, 0, 0, 0), (2, 2, 2, 0, 0, 0)])
+    moved = Protonettype(14, occupations, [(1, 1, 3, 1, 0, 0), (2, 2, 2, 0, 0, 0)])
+    assert base == moved

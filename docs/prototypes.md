@@ -555,10 +555,10 @@ its label without the `__net` part, can differ from that of
 two is promised. Erasing a `Protonetstructure` to a `Protonettype` keeps class
 positions: class `c` becomes `anonymous_symbol(c)`. In the monoclinic groups and
 in P-1 the equivalent descriptions include the changes between valid cells, so
-labels, and nets that are not periodic (molecular crystals), do not depend on the
-cell. Monoclinic nets periodic in the ac plane, and P-1 nets periodic in any
-direction, are canonical only relative to the cell that httk's standardisation
-chooses. P1 is excluded from the guarantee: it has no special positions, so its
+labels, and nets that are not periodic in any direction (molecular crystals), do
+not depend on the cell. Monoclinic and P-1 nets with any periodic component,
+including monoclinic nets periodic only along b, are canonical only relative to the
+cell that httk's standardisation chooses. P1 is excluded from the guarantee: it has no special positions, so its
 labels are unaffected, but its periodic nets stay canonical only relative to the
 cell (D7). See {doc}`canonicalization` for the algorithm and its limits.
 
