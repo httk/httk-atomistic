@@ -528,6 +528,33 @@ each member of that complete list and append those images. Deduplicate by first
 occurrence. When normalizing chirality, compose each target-group action after
 the source-to-lower-partner inversion. Python's first minimum wins an equal key.
 
+In the monoclinic groups (3 to 15) the cell in the plane perpendicular to `b` is
+a convention, and changes between its valid cells can exchange special positions;
+the tabulated set contains no such shears. There the action set is extended to be
+closed in *signature*, the Wyckoff letter map together with the relabelling of the
+operations (shears have infinite order, so no finite set of actions is closed under
+composition). The generators are the cell changes `[[a,0,b],[0,1,0],[c,0,d]]`
+with entries in -2..2 and determinant ±1 that map the group onto itself. A
+breadth-first search over their products keeps one cell change `σ` per signature
+not yet reached, giving a set `S` that starts with the identity; the action set is
+`S · Tab`, every kept `σ` composed with one tabulated action per coset of the
+group, in that order. In P-1 the tabulated set is not closed and is replaced:
+`S` is built the same way from the elementary integer matrices (identity plus one
+off-diagonal unit), and `Tab` is the eight half translations, giving one action
+for each of the 1344 signatures (the affine maps of the eight inversion centres).
+The sets are built once per group and cached; their letter maps are composed from
+the proven maps of the generators and the tabulated actions. For example, in
+P2₁/c the occupations `a, b`, `a, d` and `b, c` all give `AB_mP4_14_a_b`, while
+`a, c` gives `AB_mP4_14_a_c`.
+
+The refined terminal takes the same kept cell changes: in groups 2 to 15 its
+tabulated candidates are also taken after each `σ` of `S`, so its least discrete
+key, and hence its label, is the canonical bare one. Among the candidates reaching
+that key the earliest `σ` (identity first) wins before the metric tie-breaks, so
+the result is unchanged whenever no cell change is needed. When one is, the refined
+cell is `σ` applied to the usual cell and need not be reduced; reducing the cell
+within the winning signature class is pending (task 4.2).
+
 A refined value with no representative canonicalizes its bare base and retains
 its discriminator unchanged. A refined value with a representative rebuilds an
 exact ASU, runs the shared terminal, rebuilds the representative, and retains
@@ -546,10 +573,16 @@ their existing order. Input dummy
 names therefore do not break geometry ties.
 
 A refined geometry terminal can demote a site onto a special position or
-collapse an exact P1 or same-group supercell. Those geometry-dependent changes
-are unavailable to the bare routine, so canonicalization and projection do not
-generally commute. Canonicalize the projected value whenever a canonical bare
-result is required.
+collapse an exact P1 or same-group supercell. It also decides a species tie by
+geometry: it fixes the anonymous description and the geometry before the
+chemistry, while the bare routine minimizes the name-bearing assigned key. A
+monoclinic or P-1 cell change is the usual trigger; the assigned refined and
+bare labels can then list the species in different orders, while the anonymous
+labels agree. For example, C2/m with Cl on `f`, Na on `b` and O on `d` gives
+`A2BC_mC8_12_e_a_c:Cl-O-Na` refined but `A2BC_mC8_12_e_a_c:Cl-Na-O` bare.
+Those geometry-dependent choices are unavailable to the bare routine, so
+canonicalization and projection do not generally commute. Canonicalize the
+projected value whenever a canonical bare result is required.
 
 ## Bonding-net canonicalization
 
@@ -688,17 +721,16 @@ best ones.
   elements, shuffled sites and rows, reversed rows) but not verified by machine.
   A net for which two descriptions give different strings is a defect to report.
 - **Low symmetry.** The canonical net is description-independent only as far as
-  the tabulated set of equivalent descriptions is a group containing every change
-  between two valid descriptions. In P-1 (group 2) the tabulated set is not
-  closed under composition, so equivalent descriptions can give different
-  strings. P1 tabulates only the identity and the inversion; cell changes there
-  go through geometry-dependent metric automorphisms. The monoclinic sets are
-  closed but contain no shears between equivalent cell choices. In triclinic and
-  monoclinic groups the net string is therefore canonical only relative to the
-  cell that httk's standardisation chooses. For the same reason the constructors
-  are not always idempotent in P-1: a constructed value's own label can be
-  rejected by the parser, and its record by the store, until the action set is
-  closed.
+  the set of equivalent descriptions reaches every change between two valid
+  descriptions. In the monoclinic groups and in P-1 the set is closed in
+  signature over the cell changes (see the classification family canonicalizers
+  above), so labels, and nets that are not periodic (molecular crystals), do not depend
+  on the cell. Monoclinic nets periodic in the ac plane, and P-1 nets periodic in
+  any direction, remain canonical only relative to the cell that httk's
+  standardisation chooses: their codes contain lattice translations, which the
+  shears change (D7). P1 is excluded from the guarantee: it has no special
+  positions, so its labels are unaffected, but its periodic nets stay canonical
+  only relative to the cell.
 - **Numbering blow-up.** The numbering search is exact but exponential in the
   worst case, with many interchangeable, similarly connected sites. The whole
   search runs under the cooperative `timeout` (default 120 seconds) and raises
@@ -844,9 +876,10 @@ Bonding-net canonical strings additionally depend on these conventions:
   `(n1² + n2² + n3², k, n1, n2, n3)`, with `k` the operation index;
 - the per-group tables are computed at one exact rational probe point
   (`(13/97, 29/101, 41/103)`), never a float or a structure's own parameters;
-- the set of equivalent descriptions is closed under composition modulo the
-  group for every space group except 2 (P-1), pinned by
-  `test_tabulated_actions_close_under_composition`.
+- the set of equivalent descriptions is closed in signature (Wyckoff letter map
+  and operation relabelling) modulo the group for every space group, and closed
+  as actions modulo the group outside groups 2 to 15, pinned by
+  `test_actions_close_in_signature`.
 
 ## Identity and migration convention
 

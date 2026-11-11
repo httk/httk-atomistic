@@ -12,7 +12,7 @@ import protonet_reference as oracle
 import pytest
 from _protonet_support import handmade, lattice_from_parameters, load_structure, raw_rows, scramble
 from httk.core import FracVector
-from test_protonet_canonical import NON_CLOSED, QUARTZ, QUARTZ_CELL, SI_O, _enantiomorph
+from test_protonet_canonical import QUARTZ, QUARTZ_CELL, SI_O, _enantiomorph
 
 import httk.atomistic.symmetry.protonet as protonet_module
 from httk.atomistic import ASUStructure, Cell, Species, WyckoffSite
@@ -315,7 +315,7 @@ def _variants(name: str, rng: random.Random, count: int) -> list[Protonetstructu
     out.append(Protonetstructure(value.spacegroup, value.occupations, _translated(value, rng)))
     assert all(v == value for v in out)
     for _ in range(count):
-        sites2, rows2 = scramble(tables, sites, rows, rng, change_description=it not in NON_CLOSED)
+        sites2, rows2 = scramble(tables, sites, rows, rng)
         spec = [
             (
                 cls,

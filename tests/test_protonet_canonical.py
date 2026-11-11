@@ -3,6 +3,7 @@
 import random
 from fractions import Fraction as F
 from functools import cache
+from itertools import product
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,10 @@ from _protonet_support import (
     synthetic_sweep,
 )
 
+from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 from httk.atomistic.symmetry._wyckoff_actions import compile_wyckoff_action
+from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.canonical_classification import canonical_bare_prototype
 from httk.atomistic.symmetry.limits import CanonicalizationLimitError, _budget_scope
 from httk.atomistic.symmetry.protonet import (
     _INVERSION,
@@ -38,9 +42,6 @@ K2AGSBS4 = str(FIXTURES / "cod" / "1509425.cif")
 FRAME = {frozenset(("Sb", "S")): 3.0, frozenset(("Ag", "S")): 3.0}
 CUBIC = (5.64, 5.64, 5.64, 90, 90, 90)
 NACL = {frozenset(("Na", "Cl")): 3.0}
-# groups whose tabulated equivalent descriptions are not closed under composition (D7): scramble
-# there without a change of description; pinned by test_tabulated_actions_close_under_composition
-NON_CLOSED = frozenset({2})
 
 # name -> (it number, spec or None for the CIF, cell, cutoffs, expected net or None)
 CASES: dict[str, tuple[Any, ...]] = {
@@ -178,12 +179,143 @@ def _closes(it: int) -> bool:
     )
 
 
-CLOSURE_GROUPS = (1, 2, 14, 34, 62)
+def _signature(tables: Any, coset: Any) -> tuple[tuple[str, ...], tuple[int, ...]]:
+    """The Wyckoff letter map and operation relabelling of one compiled coset."""
+    return tuple(coset.letter(w.letter)[0] for w in tables.spacegroup.wyckoff), tuple(k for k, _ in coset.relabel)
+
+
+CLOSURE_GROUPS = (1, 2, 10, 12, 14, 34, 62)
 
 
 @pytest.mark.parametrize("it", _profile(CLOSURE_GROUPS, tuple(n for n in range(1, 231) if n not in CLOSURE_GROUPS)))
-def test_tabulated_actions_close_under_composition(it: int) -> None:
-    assert _closes(it) == (it not in NON_CLOSED)
+def test_actions_close_in_signature(it: int) -> None:
+    # every product of two equivalent descriptions has the signature of one of them modulo the group
+    # (whose elements relabel the operations by conjugation); shears have infinite order, so in
+    # groups 2 to 15 the set closes in signature only, elsewhere as actions
+    tables = _tables(it)
+    position = {w.letter: i for i, w in enumerate(tables.spacegroup.wyckoff)}
+    signatures = {_signature(tables, coset) for coset in tables.cosets}
+    inner = {
+        tuple(
+            tables.mul(tables.mul((g, 0, 0, 0), (k, 0, 0, 0)), tables.inv((g, 0, 0, 0)))[0] for k in range(tables.nops)
+        )
+        for g in range(tables.nops)
+    }
+    modulo = {(letters, tuple(c[k] for k in relabel)) for letters, relabel in signatures for c in inner}
+    as_maps = [(tuple(position[x] for x in letters), relabel) for letters, relabel in signatures]
+    letters_of = tuple(position)
+    for (l1, r1), (l2, r2) in product(as_maps, repeat=2):
+        composed = (tuple(letters_of[l1[i]] for i in l2), tuple(r1[k] for k in r2))
+        assert composed in modulo
+    rng = random.Random(f"closure-{it}")
+    for _ in range(5):  # composing signatures is composing the actions
+        first, second = rng.choice(tables.cosets), rng.choice(tables.cosets)
+        product_coset = tables._compile(first.action * second.action, tables)
+        letters1, relabel1 = _signature(tables, first)
+        letters2, relabel2 = _signature(tables, second)
+        assert _signature(tables, product_coset) == (
+            tuple(letters1[position[x]] for x in letters2),
+            tuple(relabel1[k] for k in relabel2),
+        )
+    for coset in rng.sample(tables.cosets, min(5, len(tables.cosets))):  # composed letter maps are the proven ones
+        for w in tables.spacegroup.wyckoff:
+            assert (
+                coset.letter(w.letter)[0]
+                == compile_wyckoff_action(tables.spacegroup, coset.action, w.letter).target_letter
+            )
+    if not 2 <= it <= 15:
+        assert _closes(it)
+
+
+LOW_SYMMETRY = tuple(range(2, 16))
+
+
+def _cell_changes(tables: Any) -> list[Any]:
+    """Compiled cell changes that map the group onto itself: elementary matrices (P-1), else ac-plane ones."""
+    if tables.spacegroup.it_number == 2:
+        matrices = [
+            tuple(tuple(int(r == c) + sign * int((r, c) == (i, j)) for c in range(3)) for r in range(3))
+            for i in range(3)
+            for j in range(3)
+            if i != j
+            for sign in (1, -1)
+        ]
+    else:
+        matrices = [
+            ((a, 0, b), (0, 1, 0), (c, 0, d))
+            for a, b, c, d in product(range(-2, 3), repeat=4)
+            if a * d - b * c in (1, -1)
+        ]
+    changes = []
+    for matrix in matrices:
+        try:
+            changes.append(tables._compile(AffineOperation(matrix), tables))
+        except ValueError:  # does not map the group onto itself
+            pass
+    return changes
+
+
+def _random_cell_change(tables: Any, changes: list[Any], rng: random.Random) -> Any:
+    """A random product of one to three cell changes, compiled."""
+    action = AffineOperation.identity()
+    for _ in range(rng.randint(1, 3)):
+        action = rng.choice(changes).action * action
+    return tables._compile(action, tables)
+
+
+@pytest.mark.parametrize(
+    "it,draws",
+    [*((it, 3) for it in LOW_SYMMETRY), *(pytest.param(it, 25, marks=pytest.mark.extended) for it in LOW_SYMMETRY)],
+)
+def test_labels_do_not_depend_on_the_cell(it: int, draws: int) -> None:
+    # task 4.1: random occupations, each described in three random other cells (the brief's 25 x 3)
+    tables, rng = _tables(it), random.Random(f"cell-labels-{it}")
+    changes = _cell_changes(tables)
+    wyckoff = tables.spacegroup.wyckoff
+    fixed = {w.letter for w in wyckoff if w.free_count == 0}
+    for _ in range(draws):
+        occupations: list[tuple[str, str]] = []
+        for _ in range(rng.randint(2, 5)):
+            letter = rng.choice(wyckoff).letter
+            if not (letter in fixed and any(letter == x for x, _ in occupations)):
+                occupations.append((letter, rng.choice("ABC")))
+        names = {label: "ABC"[k] for k, label in enumerate(dict.fromkeys(label for _, label in occupations))}
+        occupations = [(letter, names[label]) for letter, label in occupations]
+        expected = canonical_bare_prototype(BarePrototype(it, occupations))
+        for _ in range(3):
+            coset = _random_cell_change(tables, changes, rng)
+            moved = [(coset.letter(letter)[0], label) for letter, label in occupations]
+            assert canonical_bare_prototype(BarePrototype(it, moved)) == expected
+
+
+@pytest.mark.parametrize(
+    "it,nets,changes",
+    [
+        *((it, 1, 2) for it in LOW_SYMMETRY),
+        *(pytest.param(it, 5, 4, marks=pytest.mark.extended) for it in LOW_SYMMETRY),
+    ],
+)
+def test_molecular_nets_do_not_depend_on_the_cell(it: int, nets: int, changes: int) -> None:
+    # task 4.1: a three-atom molecule, alone and bonded to its image through an inversion centre,
+    # each described in random other cells (the brief's 5 x 4 per kind); nets periodic in the cell
+    # plane are task 4.2
+    tables, rng = _tables(it), random.Random(f"cell-nets-{it}")
+    generators = _cell_changes(tables)
+    general = max(tables.spacegroup.wyckoff, key=lambda w: (w.free_count, w.multiplicity)).letter
+    sites = [("X", general), ("Y", general), ("Z", general)]
+    molecule = [(0, 1, (0, 0, 0, 0)), (1, 2, (0, 0, 0, 0))]
+    centres = [k for k in range(tables.nops) if tables.Wi[k] == (-1, 0, 0, 0, -1, 0, 0, 0, -1)]
+    kinds: list[Any] = [lambda: molecule]
+    if centres:
+        kinds.append(lambda: [*molecule, (0, 0, (rng.choice(centres), *(rng.randint(-1, 1) for _ in range(3))))])
+    for make in kinds:
+        for _ in range(nets):
+            sites0, rows0 = scramble(tables, sites, make(), rng)
+            expected = _canonical_net(it, sites0, rows0)
+            for _ in range(changes):
+                coset = _random_cell_change(tables, generators, rng)
+                result = _canonical_net(it, *scramble(tables, sites0, rows0, rng, coset=coset))
+                assert (result.slots, result.codes, result.groups) == (expected.slots, expected.codes, expected.groups)
 
 
 REPS_GROUPS = (2, 34, 62, 139, 227)
@@ -285,7 +417,7 @@ def test_scrambled_descriptions_give_the_same_net(name: str, trials: int) -> Non
     reference = _canonical_net(it, sites, rows)
     tables, rng = _tables(it), random.Random(f"{name}-{trials}")
     for _ in range(trials):
-        sites2, rows2 = scramble(tables, sites, rows, rng, it not in NON_CLOSED)
+        sites2, rows2 = scramble(tables, sites, rows, rng)
         result = _canonical_net(it, sites2, rows2)
         assert (result.slots, result.codes, result.groups) == (reference.slots, reference.codes, reference.groups)
 
@@ -344,7 +476,7 @@ def test_fixture_matches_oracle_and_is_invariant(path: str) -> None:
     )
     rng = random.Random(path)
     for _ in range(FIXTURE_DRAWS.get(path, 2)):
-        sites2, rows2 = scramble(tables, sites, rows, rng, it not in NON_CLOSED)
+        sites2, rows2 = scramble(tables, sites, rows, rng)
         again = _canonical_net(it, sites2, rows2)
         assert (again.slots, again.codes, again.groups) == (result.slots, result.codes, result.groups)
 
@@ -366,7 +498,7 @@ def test_random_nets_are_description_invariant(it: int, nets: int, scrambles: in
         return result.slots, result.codes, result.groups
 
     rng = random.Random(f"sweep-{it}-{nets}")
-    assert synthetic_sweep(_tables(it), net, rng, nets, scrambles, it not in NON_CLOSED) == 0
+    assert synthetic_sweep(_tables(it), net, rng, nets, scrambles) == 0
 
 
 @pytest.mark.parametrize("it", _profile((4, 33, 34, 62, 186), (14, 19, 61, 136)))

@@ -6,7 +6,10 @@ uses its exact geometric terminal, so projecting it to a bare value can require 
 separate bare canonicalization pass.
 """
 
+from collections import deque
 from collections.abc import Callable, Hashable, Iterable, Sequence
+from functools import cache
+from itertools import product
 from typing import TYPE_CHECKING, Any
 
 from httk.core import FracVector
@@ -58,8 +61,8 @@ __all__ = [
 ]
 
 
-def _actions(spacegroup: Spacegroup) -> tuple[AffineOperation, ...]:
-    """Return the finite letter-changing same-group action domain."""
+def _tabulated_actions(spacegroup: Spacegroup) -> tuple[AffineOperation, ...]:
+    """Return httk's tabulated letter-changing same-group actions."""
     identity = AffineOperation.identity()
     operations = [identity]
     if spacegroup.it_number != 1:
@@ -76,11 +79,119 @@ def _actions(spacegroup: Spacegroup) -> tuple[AffineOperation, ...]:
     return tuple(dict.fromkeys(operations))
 
 
+type _Signature = tuple[tuple[str, ...], tuple[int, ...]]
+
+
+def _signature(spacegroup: Spacegroup, action: AffineOperation) -> _Signature | None:
+    """Return an action's Wyckoff letter map and operation relabelling, or ``None`` if it leaves the group."""
+    operations = spacegroup.symmetry_operations
+    index = {operation.wrapped(): k for k, operation in enumerate(operations)}
+    relabel = tuple(index.get(operation.conjugated_by(action).wrapped(), -1) for operation in operations)
+    if -1 in relabel:
+        return None
+    letters = tuple(compile_wyckoff_action(spacegroup, action, w.letter).target_letter for w in spacegroup.wyckoff)
+    return letters, relabel
+
+
+def _closed_actions(
+    spacegroup: Spacegroup, generators: Iterable[AffineOperation], tabulated: Iterable[AffineOperation]
+) -> tuple[dict[AffineOperation, dict[str, str]], tuple[AffineOperation, ...]]:
+    """Return ``S . Tab`` with each action's letter map, and ``S``: one product of generators per new signature.
+
+    ``Tab`` keeps one tabulated action per coset of the group. Cell changes act on the signatures
+    through a finite group, so the breadth-first search ends; the result is closed in signature,
+    not as a set of actions (shears have infinite order). Signatures of products are composed,
+    which is exact because every generator has an integer matrix.
+    """
+    position = {w.letter: i for i, w in enumerate(spacegroup.wyckoff)}
+
+    def compose(left: _Signature, right: _Signature) -> _Signature:
+        return tuple(left[0][position[x]] for x in right[0]), tuple(left[1][k] for k in right[1])
+
+    signed = [(g, sig) for g in generators if (sig := _signature(spacegroup, g)) is not None]
+    cosets: dict[frozenset[AffineOperation], AffineOperation] = {}
+    for tau in tabulated:
+        cosets.setdefault(frozenset((g * tau).wrapped() for g in spacegroup.symmetry_operations), tau)
+    table = [(tau, sig) for tau in cosets.values() if (sig := _signature(spacegroup, tau)) is not None]
+    identity = (tuple(position), tuple(range(len(spacegroup.symmetry_operations))))
+    covered: set[_Signature] = set()
+    actions: dict[AffineOperation, dict[str, str]] = {}
+    kept: list[AffineOperation] = []
+    queue = deque([(AffineOperation.identity(), identity)])
+    while queue:
+        _checkpoint()
+        sigma, sigma_sig = queue.popleft()
+        if sigma_sig in covered:
+            continue
+        kept.append(sigma)
+        for tau, tau_sig in table:
+            image = compose(sigma_sig, tau_sig)
+            covered.add(image)
+            actions.setdefault(sigma * tau, dict(zip(position, image[0], strict=True)))
+        queue.extend((g * sigma, compose(g_sig, sigma_sig)) for g, g_sig in signed)
+    return actions, tuple(kept)
+
+
+def _actions(spacegroup: Spacegroup) -> tuple[AffineOperation, ...]:
+    """Return the finite same-group action domain, closed in signature for groups 2 to 15."""
+    return tuple(_letter_maps(spacegroup))
+
+
+def _letter_maps(spacegroup: Spacegroup) -> dict[AffineOperation, dict[str, str]]:
+    """Return each action of the domain with its letter map, empty where it is compiled on demand."""
+    return _domain(spacegroup)[0]
+
+
+def _cell_changes(spacegroup: Spacegroup) -> tuple[AffineOperation, ...]:
+    """Return the kept cell changes ``S`` (identity first), one per signature class; only the identity above 15."""
+    return _domain(spacegroup)[1]
+
+
+def _target_letter(spacegroup: Spacegroup, action: AffineOperation, letter: str) -> str:
+    """Return the Wyckoff letter an action of the domain maps ``letter`` to, compiling it if not known."""
+    known = _letter_maps(spacegroup).get(action)
+    return known[letter] if known else compile_wyckoff_action(spacegroup, action, letter).target_letter
+
+
+@cache
+def _domain(
+    spacegroup: Spacegroup,
+) -> tuple[dict[AffineOperation, dict[str, str]], tuple[AffineOperation, ...]]:
+    """Return the action domain with its letter maps, and the kept cell changes ``S``.
+
+    Monoclinic groups add the ac-plane cell changes with entries in -2..2 to the tabulated set.
+    P-1 replaces its tabulated set, which is not closed, by one action per signature: the
+    integer cell changes generated by elementary matrices, times the half translations.
+    """
+    it_number = spacegroup.it_number
+    if it_number == 2:
+        unit = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
+        elementary = (
+            AffineOperation(tuple(tuple(unit[r][c] + (r == i and c == j) for c in range(3)) for r in range(3)))
+            for i in range(3)
+            for j in range(3)
+            if i != j
+        )
+        translations = [AffineOperation(unit, t) for t in _discrete_normalizer_translations(spacegroup)]
+        return _closed_actions(spacegroup, elementary, translations)
+    if 3 <= it_number <= 15:
+        # smallest entries first, so each kept cell change is as small as the search allows
+        cell_changes = (
+            AffineOperation(((a, 0, b), (0, 1, 0), (c, 0, d)))
+            for a, b, c, d in sorted(product(range(-2, 3), repeat=4), key=lambda m: (sum(map(abs, m)), m))
+            if a * d - b * c in (1, -1)
+        )
+        return _closed_actions(spacegroup, cell_changes, _tabulated_actions(spacegroup))
+    return {action: {} for action in _tabulated_actions(spacegroup)}, (AffineOperation.identity(),)
+
+
 def _mapped_occupations(value: Any, operation: AffineOperation, target: Spacegroup) -> list[tuple[str, Any]]:
     """Map materialized occupation letters through one proven action."""
     return [
         (
-            compile_wyckoff_action(
+            _target_letter(target, operation, occupation.wyckoff)
+            if target == value.spacegroup
+            else compile_wyckoff_action(
                 value.spacegroup, operation, occupation.wyckoff, target_spacegroup=target
             ).target_letter,
             occupation.species if hasattr(occupation, "species") else occupation.label,
@@ -252,9 +363,10 @@ def canonical_protonettype(
 
     The net is minimised over every equivalent description, site numbering and choice of
     reference atoms; classes that tie in count and letters are ordered by the net.
-    In triclinic and monoclinic groups the net string is canonical only relative to the cell
-    that httk's standardisation chooses; in P-1 the tabulated equivalent descriptions are not
-    closed, so two descriptions can give different strings (D7).
+    In monoclinic groups and P-1 the descriptions include the changes between valid cells, so
+    nets that are not periodic do not depend on the cell; nets periodic in the cell-convention
+    plane (any direction in P-1 and P1) are canonical only relative to the cell httk's
+    standardisation chooses (D7).
 
     :param obj: A protonettype-like value, converted through its View.
     :param preserve_chirality: Whether to retain the higher enantiomorphic group.
@@ -286,9 +398,10 @@ def canonical_protonetstructure(
     descriptions giving the identical net are told apart by the species-name tuple in class
     order, smallest first. With tied classes the result's bare part can therefore differ from
     :func:`canonical_bare_protostructure`.
-    In triclinic and monoclinic groups the net string is canonical only relative to the cell
-    that httk's standardisation chooses; in P-1 the tabulated equivalent descriptions are not
-    closed, so two descriptions can give different strings (D7).
+    In monoclinic groups and P-1 the descriptions include the changes between valid cells, so
+    nets that are not periodic do not depend on the cell; nets periodic in the cell-convention
+    plane (any direction in P-1 and P1) are canonical only relative to the cell httk's
+    standardisation chooses (D7).
 
     :param obj: A protonetstructure-like value, converted through its View.
     :param preserve_chirality: Whether to retain the higher enantiomorphic group.

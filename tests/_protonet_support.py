@@ -85,15 +85,30 @@ def raw_rows(
     return sorted(rows), rows
 
 
+def keeps_cell(coset: Any) -> bool:
+    """Whether a coset's matrix is a signed permutation, so its action keeps the cell as a lattice."""
+    P = coset["P"] if isinstance(coset, dict) else coset.P
+    rows = [P[3 * r : 3 * r + 3] for r in range(3)]
+    return all(sorted(map(abs, line)) == [0, 0, 1] for line in (*rows, *zip(*rows, strict=True)))
+
+
 def scramble(
-    tables: Any, sites: Sequence[Site], rows: Sequence[Row], rng: random.Random, change_description: bool = True
+    tables: Any,
+    sites: Sequence[Site],
+    rows: Sequence[Row],
+    rng: random.Random,
+    change_description: bool = True,
+    coset: Any = None,
 ) -> tuple[list[Site], list[Row]]:
     """Same net, other description: random coset, reference atoms, site/row order and row direction.
 
-    ``change_description=False`` keeps the identity coset (D7: groups whose tabulated actions are not
-    closed under composition, such as P-1).
+    ``change_description=False`` keeps the identity coset, and ``coset`` imposes one. In triclinic
+    and monoclinic groups the random coset keeps the cell (a signed permutation matrix): there nets periodic
+    in the cell-convention plane are canonical only relative to the cell (D7).
     """
-    coset = rng.choice(tables.cosets) if change_description else tables.cosets[0]
+    if coset is None:
+        cosets = tables.cosets if tables.spacegroup.it_number > 15 else [c for c in tables.cosets if keeps_cell(c)]
+        coset = rng.choice(cosets) if change_description else tables.cosets[0]
     letters = [coset_letter(coset, letter)[0] for _, letter in sites]
     rows = [
         (

@@ -553,13 +553,14 @@ classes tie in site count and letters, its species-to-letter assignment, and so
 its label without the `__net` part, can differ from that of
 {py:func}`~httk.atomistic.canonical_bare_protostructure`; no equality between the
 two is promised. Erasing a `Protonetstructure` to a `Protonettype` keeps class
-positions: class `c` becomes `anonymous_symbol(c)`. In triclinic and monoclinic
-groups the canonical net is canonical only relative to the cell that httk's
-standardisation chooses (the tabulated descriptions of P-1 are not closed, and
-no monoclinic set contains shears between equivalent cell choices). In P-1 the
-constructor is therefore not always idempotent: a constructed value's own label
-can be rejected by the parser, and its record by the store, until the action set
-is closed (D7). See {doc}`canonicalization` for the algorithm and its limits.
+positions: class `c` becomes `anonymous_symbol(c)`. In the monoclinic groups and
+in P-1 the equivalent descriptions include the changes between valid cells, so
+labels, and nets that are not periodic (molecular crystals), do not depend on the
+cell. Monoclinic nets periodic in the ac plane, and P-1 nets periodic in any
+direction, are canonical only relative to the cell that httk's standardisation
+chooses. P1 is excluded from the guarantee: it has no special positions, so its
+labels are unaffected, but its periodic nets stay canonical only relative to the
+cell (D7). See {doc}`canonicalization` for the algorithm and its limits.
 
 ### Species order of protonetstructure labels
 
@@ -705,7 +706,8 @@ integer, the version of the canonical-label rules they were built with. It is
 part of their content identity. Saving requires the current version, and turning
 a record of another version back into a value raises `ValueError`: the canonical
 form changed, so rebuild the database. The version is bumped whenever any
-canonical label rule changes. Saving a protonet record also checks that its net
+canonical label rule changes; it is now 2, since the monoclinic and P-1 labels
+became independent of the cell. Saving a protonet record also checks that its net
 is the canonical one for its bare description; a non-canonical net is rejected,
 never rewritten. Constructing a protonet value, parsing its label and saving its
 record (`__httk_validate__`) each run the net search; loading a value from a

@@ -21,7 +21,7 @@ from itertools import combinations, permutations, product
 from httk.atomistic.models.prototype.notation import class_order_key
 from httk.atomistic.symmetry._wyckoff_actions import compile_wyckoff_action
 from httk.atomistic.symmetry.affine_operation import AffineOperation
-from httk.atomistic.symmetry.canonical_classification import _actions, _chirality_target
+from httk.atomistic.symmetry.canonical_classification import _actions, _chirality_target, _target_letter
 from httk.atomistic.symmetry.limits import _checkpoint
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -259,12 +259,13 @@ class _Coset:
         hit = self._letters.get(letter)
         if hit is None:
             source, target = self._source, self._target
-            name = compile_wyckoff_action(
-                source.spacegroup,
-                self.action,
-                letter,
-                target_spacegroup=None if target is source else target.spacegroup,
-            ).target_letter
+            name = (
+                _target_letter(source.spacegroup, self.action, letter)
+                if target is source
+                else compile_wyckoff_action(
+                    source.spacegroup, self.action, letter, target_spacegroup=target.spacegroup
+                ).target_letter
+            )
             q = _apply(self._matrix, self._vector, source.letter(letter).ref)
             hit = self._letters[letter] = (name, target._onto_chart(target.letter(name), q))
         return hit
@@ -1046,12 +1047,21 @@ def _search(
     result: tuple[list[tuple[int, int]], list[_Element], list[tuple[str, ...]]] | None = None
     realisations: dict[tuple[object, ...], _Realisation] = {}
     seen: set[tuple[object, ...]] = set()
-    own = None
-    if own_bare:
-        own = tuple(sorted(_class_groups(tables, sites, dict(enumerate(letter for _, letter in sites)))[1].values()))
-    for index, coset in enumerate(tables.cosets):
+    # filter by the bare key first: only descriptions reaching the smallest (or the own) bare key compete
+    described = []
+    for coset in tables.cosets:
         _checkpoint()
         letters = {s: coset.letter(letter)[0] for s, (_, letter) in enumerate(sites)}
+        group_of, rank = _class_groups(tables, sites, letters)
+        described.append((coset, letters, group_of, rank, tuple(sorted(rank.values()))))
+    if own_bare:
+        least = tuple(sorted(_class_groups(tables, sites, dict(enumerate(letter for _, letter in sites)))[1].values()))
+    else:
+        least = min(entry[4] for entry in described)
+    for index, (coset, letters, group_of, rank, bare_key) in enumerate(described):
+        _checkpoint()
+        if bare_key != least:
+            continue
         moved = [_moved(tables, coset, sites, row) for row in ordered]
         # a coset that yields the same letters and bond orbits as an earlier one adds no realisation
         seen_key = (
@@ -1064,10 +1074,6 @@ def _search(
         if seen_key in seen:
             continue
         seen.add(seen_key)
-        group_of, rank = _class_groups(tables, sites, letters)
-        bare_key = tuple(sorted(rank.values()))
-        if (own is not None and bare_key != own) or (best is not None and bare_key > best[0]):
-            continue
         # classes with identical letter groups are interchangeable in the anonymous label
         tied: dict[_Rank, list[Hashable]] = {}
         for cls in group_of:

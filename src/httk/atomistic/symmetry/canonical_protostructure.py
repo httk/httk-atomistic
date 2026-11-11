@@ -2,7 +2,8 @@
 
 This convention chooses the anonymous Wyckoff occupation pattern, then its species assignment,
 and only then the exact geometry. Its finite affine search uses the same tabulated normalizer scope
-as the legacy canonicalizer and does not enumerate an infinite affine normalizer. Public measured
+as the legacy canonicalizer, taken in groups 2 to 15 also after the bare canonicalizers' kept cell
+changes, and does not enumerate an infinite affine normalizer. Public measured
 structure entry points optionally perform the established upward pseudosymmetry search first.
 """
 
@@ -251,13 +252,22 @@ def _with_basis(structure: ASUStructure, basis: SurdVector) -> ASUStructure:
     )
 
 
-def _discrete_key(
-    structure: ASUStructure, operation: AffineOperation
-) -> tuple[tuple[tuple[int, tuple[str, ...]], ...], tuple[Any, ...]]:
+type _DiscreteKey = tuple[tuple[tuple[int, tuple[str, ...]], ...], tuple[Any, ...]]
+
+
+def _site_letters(structure: ASUStructure, operation: AffineOperation) -> tuple[str, ...]:
+    """Return the target Wyckoff letter of every site under one proven action."""
+    return tuple(
+        compile_wyckoff_action(structure.spacegroup, operation, site.wyckoff).target_letter
+        for site in structure.wyckoff_sites
+    )
+
+
+def _letters_key(structure: ASUStructure, targets: tuple[str, ...]) -> _DiscreteKey:
+    """Return the (anonymous, assigned) discrete key of the sites moved onto ``targets``."""
     letters: dict[str, list[str]] = {}
-    for site in structure.wyckoff_sites:
+    for site, target in zip(structure.wyckoff_sites, targets, strict=True):
         _checkpoint()
-        target = compile_wyckoff_action(structure.spacegroup, operation, site.wyckoff).target_letter
         letters.setdefault(site.species, []).append(target)
     classes = {species: tuple(sorted(values)) for species, values in letters.items()}
     counts = {
@@ -267,6 +277,10 @@ def _discrete_key(
     anonymous = tuple(sorted(class_order_key(values, counts[species])[:2] for species, values in classes.items()))
     assignment = tuple(sorted(class_order_key(values, counts[species], species) for species, values in classes.items()))
     return anonymous, assignment
+
+
+def _discrete_key(structure: ASUStructure, operation: AffineOperation) -> _DiscreteKey:
+    return _letters_key(structure, _site_letters(structure, operation))
 
 
 def _representatives(structure: ASUStructure) -> tuple[AffineOperation, ...]:
@@ -289,20 +303,30 @@ def _point_operations(structure: ASUStructure) -> tuple[AffineOperation, ...]:
 
 
 def _discrete_candidates(structure: ASUStructure) -> tuple[_Candidate, ...]:
+    """Return the candidates with the least discrete key, then the earliest kept cell change.
+
+    In groups 2 to 15 the tabulated descriptions are also taken after each kept cell change
+    ``sigma`` (identity first) of the bare canonicalizers, so the least discrete key is the
+    canonical bare one; among the descriptions reaching it, the earliest ``sigma`` wins before
+    any metric tie-break, and with the identity the result is the tabulated one.
+    """
+    from httk.atomistic.symmetry.canonical_classification import _cell_changes, _letter_maps  # imports this module
+
     identity_matrix = FracVector.eye((3, 3))
     inversion_matrix = FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1)))
     inversion = AffineOperation(inversion_matrix, (0, 0, 0))
     can_invert = _resetting_preserves_group(structure.spacegroup, inversion_matrix)
-    candidates: list[tuple[tuple[Any, ...], _Candidate]] = []
-    best_key: tuple[Any, ...] | None = None
     point_operations = tuple((operation, operation.matrix.T().inv()) for operation in _point_operations(structure))
-    discrete_keys: dict[AffineOperation, tuple[tuple[tuple[int, tuple[str, ...]], ...], tuple[Any, ...]]] = {}
     metric_keys: dict[FracVector, tuple[Any, ...]] = {}
     source_metric = structure.cell.metric()
     source_handedness = structure.cell.basis.det().sign()
+    group = structure.spacegroup
+    sigmas = _cell_changes(group) if group.is_standard_setting else (AffineOperation.identity(),)
+    letter_maps = _letter_maps(group) if group.is_standard_setting else {}
+    bases: list[tuple[AffineOperation, bool, AffineOperation, FracVector, AffineOperation, int]] = []
     for representative in _representatives(structure):
         _checkpoint()
-        for translation in _discrete_normalizer_translations(structure.spacegroup):
+        for translation in _discrete_normalizer_translations(group):
             _checkpoint()
             operation = (
                 representative
@@ -312,37 +336,70 @@ def _discrete_candidates(structure: ASUStructure) -> tuple[_Candidate, ...]:
             operation_basis_change = operation.matrix.T().inv()
             for point_operation, point_basis_change in point_operations:
                 _checkpoint()
-                basis_change = point_basis_change * operation_basis_change
-                site_operation = operation
-                if basis_change.det().sign() * source_handedness < 0 and can_invert:
-                    basis_change = -basis_change
-                    site_operation = inversion * operation
-                key = discrete_keys.get(site_operation)
-                if key is None:
-                    key = _discrete_key(structure, site_operation)
-                    discrete_keys[site_operation] = key
-                if best_key is not None and key > best_key:
-                    continue
-                metric_key = metric_keys.get(basis_change)
-                if metric_key is None:
-                    basis_map = SurdVector(basis_change)
-                    metric = basis_map * source_metric * basis_map.T()
-                    metric_key = tuple(metric._element((row, column)) for row in range(3) for column in range(3))
-                    metric_keys[basis_change] = metric_key
-                candidate = _Candidate(
-                    site_operation,
-                    basis_change,
-                    metric_key,
-                    representative.is_identity() and point_operation.is_identity() and not any(translation),
+                sign = (point_basis_change * operation_basis_change).det().sign() * source_handedness
+                bases.append(
+                    (representative, not any(translation), point_operation, point_basis_change, operation, sign)
                 )
-                if best_key is None or key < best_key:
-                    best_key = key
-                    candidates = [(key, candidate)]
-                elif key == best_key:
-                    candidates.append((key, candidate))
-    if not candidates:
-        raise ValueError(f"no exact affine-normalizer action applies in {structure.spacegroup.setting}")
-    return tuple(candidate for _key, candidate in candidates)
+    site_letters: dict[tuple[AffineOperation, bool], tuple[str, ...]] = {}
+    keys: dict[tuple[str, ...], _DiscreteKey] = {}
+
+    def flipped(sign: int, sigma: AffineOperation) -> bool:
+        return can_invert and sign * sigma.determinant() < 0
+
+    def targets(operation: AffineOperation, flip: bool, sigma_map: dict[str, str]) -> tuple[str, ...]:
+        # a linear sigma commutes with the inversion: inversion * sigma * operation = sigma * (inversion * operation)
+        if (operation, flip) not in site_letters:
+            site_letters[operation, flip] = _site_letters(structure, inversion * operation if flip else operation)
+        return tuple(sigma_map.get(letter, letter) for letter in site_letters[operation, flip])
+
+    def key_of(letters: tuple[str, ...]) -> _DiscreteKey:
+        if letters not in keys:
+            keys[letters] = _letters_key(structure, letters)
+        return keys[letters]
+
+    best: tuple[_DiscreteKey, int] | None = None
+    distinct: dict[bool, set[tuple[str, ...]]] = {}  # site letters before sigma, per sigma orientation
+    for rank, sigma in enumerate(sigmas):
+        _checkpoint()
+        proper = sigma.determinant() > 0
+        if proper not in distinct:
+            distinct[proper] = {targets(operation, flipped(sign, sigma), {}) for *_, operation, sign in bases}
+        sigma_map = letter_maps.get(sigma, {})
+        for letters in distinct[proper]:
+            key = key_of(tuple(sigma_map.get(letter, letter) for letter in letters))
+            if best is None or (key, rank) < best:
+                best = (key, rank)
+    if best is None:
+        raise ValueError(f"no exact affine-normalizer action applies in {group.setting}")
+    best_key, rank = best
+    sigma, sigma_map = sigmas[rank], letter_maps.get(sigmas[rank], {})
+    candidates: list[_Candidate] = []
+    for representative, untranslated, point_operation, point_basis_change, base, sign in bases:
+        _checkpoint()
+        flip = flipped(sign, sigma)
+        if key_of(targets(base, flip, sigma_map)) != best_key:
+            continue
+        operation = sigma * base
+        basis_change = point_basis_change * operation.matrix.T().inv()
+        site_operation = operation
+        if flip:
+            basis_change = -basis_change
+            site_operation = inversion * operation
+        metric_key = metric_keys.get(basis_change)
+        if metric_key is None:
+            basis_map = SurdVector(basis_change)
+            metric = basis_map * source_metric * basis_map.T()
+            metric_key = tuple(metric._element((row, column)) for row in range(3) for column in range(3))
+            metric_keys[basis_change] = metric_key
+        candidates.append(
+            _Candidate(
+                site_operation,
+                basis_change,
+                metric_key,
+                rank == 0 and representative.is_identity() and point_operation.is_identity() and untranslated,
+            )
+        )
+    return tuple(candidates)
 
 
 def _geometric_choice(

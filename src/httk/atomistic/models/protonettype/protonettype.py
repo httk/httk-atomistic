@@ -90,8 +90,7 @@ class Protonettype(ProtonettypeBackend):
     ``n``, any integer vector. The anonymous bare description is kept (no affine-normaliser
     pass, as for :class:`~httk.atomistic.BarePrototype`); the net is canonicalized over site
     numbering, reference atoms and the equivalent descriptions with the same anonymous bare
-    key, keeping orientation, so one net is one value whatever its spelling (in P-1 not always
-    idempotently, D7).
+    key, keeping orientation, so one net is one value whatever its spelling.
     :func:`~httk.atomistic.canonical_protonettype` also minimises the bare prototype;
     for a canonical bare prototype the two agree.
 

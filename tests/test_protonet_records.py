@@ -132,12 +132,12 @@ CANONICAL_LABEL_RECORDS = [
 @pytest.mark.parametrize(("build", "from_record"), CANONICAL_LABEL_RECORDS)
 def test_records_carry_the_canonical_form_version(build, from_record) -> None:
     record = build()
-    assert record.canonical_form == _CANONICAL_FORM_VERSION == 1
+    assert record.canonical_form == _CANONICAL_FORM_VERSION == 2
     assert type(record).__httk_project__(from_record(record))["canonical_form"] == _CANONICAL_FORM_VERSION
     type(record).__httk_validate__(record)
     with pytest.raises(TypeError, match="canonical_form must be an integer"):
         dataclasses.replace(record, canonical_form=True)
-    for stale in (0, 2):
+    for stale in (1, 3):
         old = dataclasses.replace(record, canonical_form=stale)
         assert content_id(old) != content_id(record)
         with pytest.raises(ValueError, match=r"canonical form .* changed; rebuild the database"):
@@ -149,7 +149,6 @@ def test_records_carry_the_canonical_form_version(build, from_record) -> None:
 P1BAR_NET = [(1, 1, 2, 0, -1, 0), (1, 2, 1, 0, 0, 1), (1, 3, 2, 0, -1, 1), (1, 3, 2, 0, 0, 1), (2, 3, 2, -1, -1, 0)]
 
 
-@pytest.mark.xfail(strict=True, reason="D7: P-1 action set not closed; fixed by Task 4.1")
 @pytest.mark.parametrize("assigned", [False, True], ids=["protonettype", "protonetstructure"])
 def test_p1bar_constructor_is_idempotent(assigned: bool) -> None:
     if assigned:

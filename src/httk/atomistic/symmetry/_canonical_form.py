@@ -5,4 +5,4 @@ A separate module so that storage records can import it without the canonicalise
 
 # The version of every canonical-label rule (bare and refined prototypes and protostructures,
 # protonettypes, protonetstructures). Stored on their records; bump it whenever any rule changes.
-_CANONICAL_FORM_VERSION = 1
+_CANONICAL_FORM_VERSION = 2
