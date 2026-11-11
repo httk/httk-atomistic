@@ -57,6 +57,7 @@ from httk.atomistic.models.structure.semantics import StructureSymmetry, _stated
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.models.trajectory.api import TrajectoryAPI
+from httk.atomistic.symmetry._canonical_form import _CANONICAL_FORM_VERSION
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 
 if TYPE_CHECKING:  # a runtime import is circular (records load during package import)
@@ -2315,6 +2316,7 @@ class BareProtostructureRecord:
     :param spacegroup_it_number: The International Tables space-group number.
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param occupations: The canonical occupied Wyckoff positions.
+    :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The public lineage id, if assigned.
     :param immutable_id: The revision id, if assigned.
     """
@@ -2329,6 +2331,7 @@ class BareProtostructureRecord:
     spacegroup_it_number: int
     spacegroup_hall_entry: str
     occupations: tuple[WyckoffOccupationRecord, ...]
+    canonical_form: int = _CANONICAL_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
 
@@ -2360,6 +2363,7 @@ class BareProtostructureRecord:
             "spacegroup_it_number": value.spacegroup.it_number,
             "spacegroup_hall_entry": value.spacegroup.hall_entry,
             "occupations": value.occupations,
+            "canonical_form": _CANONICAL_FORM_VERSION,
             "id": None,
             "immutable_id": None,
         }
@@ -2381,6 +2385,7 @@ class ProtostructureRecord:
     :param occupations: The occupied Wyckoff positions and their real species.
     :param representative: The optional durable exact class anchor.
     :param discriminator: The optional external class discriminator.
+    :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
     :param immutable_id: The per-revision immutable id; minted by the store when None.
     """
@@ -2397,6 +2402,7 @@ class ProtostructureRecord:
     occupations: tuple[WyckoffOccupationRecord, ...]
     representative: FundamentalDomainStructureRecord | None = None
     discriminator: str | None = None
+    canonical_form: int = _CANONICAL_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
 
@@ -2449,6 +2455,7 @@ class ProtostructureRecord:
             "occupations": protostructure.occupations,
             "representative": protostructure.representative,
             "discriminator": protostructure.discriminator,
+            "canonical_form": _CANONICAL_FORM_VERSION,
             "id": None,
             "immutable_id": None,
         }
@@ -2554,6 +2561,7 @@ class BarePrototypeRecord:
     :param spacegroup_it_number: The International Tables space-group number.
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param occupations: The canonical occupied Wyckoff positions.
+    :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The public lineage id, if assigned.
     :param immutable_id: The revision id, if assigned.
     """
@@ -2568,6 +2576,7 @@ class BarePrototypeRecord:
     spacegroup_it_number: int
     spacegroup_hall_entry: str
     occupations: tuple[PrototypeOccupation, ...]
+    canonical_form: int = _CANONICAL_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
 
@@ -2599,6 +2608,7 @@ class BarePrototypeRecord:
             "spacegroup_it_number": value.spacegroup.it_number,
             "spacegroup_hall_entry": value.spacegroup.hall_entry,
             "occupations": value.occupations,
+            "canonical_form": _CANONICAL_FORM_VERSION,
             "id": None,
             "immutable_id": None,
         }
@@ -2617,6 +2627,7 @@ class PrototypeRecord:
     :param occupations: The occupied Wyckoff positions and anonymous class labels.
     :param representative: The durable class representative, if one is held.
     :param discriminator: The externally assigned class discriminator, if one is held.
+    :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
     :param immutable_id: The per-revision immutable id; minted by the store when None.
     """
@@ -2633,6 +2644,7 @@ class PrototypeRecord:
     occupations: tuple[PrototypeOccupation, ...]
     representative: FundamentalDomainTemplateRecord | None = None
     discriminator: str | None = None
+    canonical_form: int = _CANONICAL_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
 
@@ -2682,6 +2694,7 @@ class PrototypeRecord:
             "occupations": tuple(template.occupations),
             "representative": prototype.representative,
             "discriminator": prototype.discriminator,
+            "canonical_form": _CANONICAL_FORM_VERSION,
             "id": None,
             "immutable_id": None,
         }
@@ -2695,6 +2708,8 @@ def _validate_protostructure_fields(record_name: str, record: Any) -> None:
         raise ValueError(f"{record_name} spacegroup_it_number must be in [1, 230]")
     if not isinstance(record.spacegroup_hall_entry, str) or not record.spacegroup_hall_entry:
         raise TypeError(f"{record_name} spacegroup_hall_entry must be a non-empty string")
+    if not isinstance(record.canonical_form, int) or isinstance(record.canonical_form, bool):
+        raise TypeError(f"{record_name} canonical_form must be an integer")
     occupations = tuple(record.occupations)
     if not occupations or not all(_effective_record_type(value) is WyckoffOccupationRecord for value in occupations):
         raise TypeError(f"{record_name} occupations must contain WyckoffOccupationRecord values")
@@ -2709,6 +2724,8 @@ def _validate_prototype_fields(record_name: str, record: Any) -> None:
         raise ValueError(f"{record_name} spacegroup_it_number must be in [1, 230]")
     if not isinstance(record.spacegroup_hall_entry, str) or not record.spacegroup_hall_entry:
         raise TypeError(f"{record_name} spacegroup_hall_entry must be a non-empty string")
+    if not isinstance(record.canonical_form, int) or isinstance(record.canonical_form, bool):
+        raise TypeError(f"{record_name} canonical_form must be an integer")
     occupations = tuple(record.occupations)
     if not occupations or not all(isinstance(value, PrototypeOccupation) for value in occupations):
         raise ValueError(f"{record_name} occupations must be a non-empty tuple of PrototypeOccupation values")
@@ -2739,6 +2756,19 @@ def _require_canonical(record_name: str, field: str, stored: Any, canonical: Any
         )
 
 
+def _require_canonical_form(record: Any) -> None:
+    """Reject a canonical-label record built under another canonical-form version.
+
+    :param record: The durable record.
+    :raises ValueError: If ``record.canonical_form`` is not the current version.
+    """
+    if record.canonical_form != _CANONICAL_FORM_VERSION:
+        raise ValueError(
+            f"{type(record).__name__} was built with canonical form {record.canonical_form}, but this httk-atomistic uses "
+            f"canonical form {_CANONICAL_FORM_VERSION}: the canonical form changed; rebuild the database"
+        )
+
+
 def _protostructure_record_label(record: BareProtostructureRecord | ProtostructureRecord) -> str:
     """Render the httk protostructure label for a durable protostructure record.
 
@@ -2762,6 +2792,7 @@ def _protostructure_from_record(record: ProtostructureRecord) -> Protostructure:
     """
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
+    _require_canonical_form(record)
     spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
@@ -2910,6 +2941,7 @@ def _prototype_from_record(record: PrototypeRecord) -> Prototype:
     """
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
+    _require_canonical_form(record)
     spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
@@ -2950,6 +2982,7 @@ def _bare_protostructure_from_record(record: BareProtostructureRecord) -> BarePr
     """
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
+    _require_canonical_form(record)
     spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
@@ -2986,6 +3019,7 @@ def _bare_prototype_from_record(record: BarePrototypeRecord) -> BarePrototype:
     """
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
+    _require_canonical_form(record)
     spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
@@ -3055,6 +3089,7 @@ class ProtonettypeRecord:
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param occupations: The anonymous occupied Wyckoff positions in site order.
     :param net: The bonding-net rows in label order.
+    :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The public lineage id, if assigned.
     :param immutable_id: The revision id, if assigned.
     """
@@ -3070,6 +3105,7 @@ class ProtonettypeRecord:
     spacegroup_hall_entry: str
     occupations: tuple[PrototypeOccupation, ...]
     net: tuple[ProtonetBondRecord, ...]
+    canonical_form: int = _CANONICAL_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
 
@@ -3084,11 +3120,12 @@ class ProtonettypeRecord:
 
     @classmethod
     def __httk_validate__(cls, record: "ProtonettypeRecord") -> None:
-        """Validate that the record is the one its own value stores.
+        """Validate that the record stores the canonical net of its bare prototype.
 
         :param record: The record to validate.
         """
-        canonical = _protonettype_record_from_value(_protonettype_from_record(record))
+        value = _protonettype_from_record(record)
+        canonical = _protonettype_record_from_value(Protonettype(value.spacegroup, value.occupations, value.net))
         _require_canonical("ProtonettypeRecord", "occupations", record.occupations, canonical.occupations)
         _require_canonical("ProtonettypeRecord", "net rows", _net_rows(record), _net_rows(canonical))
 
@@ -3104,6 +3141,7 @@ class ProtonettypeRecord:
             "spacegroup_hall_entry": value.spacegroup.hall_entry,
             "occupations": value.occupations,
             "net": _bond_records(value.net),
+            "canonical_form": _CANONICAL_FORM_VERSION,
             "id": None,
             "immutable_id": None,
         }
@@ -3120,6 +3158,7 @@ class ProtonetstructureRecord:
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param occupations: The occupied Wyckoff positions in site order.
     :param net: The bonding-net rows in label order.
+    :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The public lineage id, if assigned.
     :param immutable_id: The revision id, if assigned.
     """
@@ -3135,6 +3174,7 @@ class ProtonetstructureRecord:
     spacegroup_hall_entry: str
     occupations: tuple[WyckoffOccupationRecord, ...]
     net: tuple[ProtonetBondRecord, ...]
+    canonical_form: int = _CANONICAL_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
 
@@ -3149,11 +3189,14 @@ class ProtonetstructureRecord:
 
     @classmethod
     def __httk_validate__(cls, record: "ProtonetstructureRecord") -> None:
-        """Validate that the record is the one its own value stores.
+        """Validate that the record stores the canonical net of its bare protostructure.
 
         :param record: The record to validate.
         """
-        canonical = _protonetstructure_record_from_value(_protonetstructure_from_record(record))
+        value = _protonetstructure_from_record(record)
+        canonical = _protonetstructure_record_from_value(
+            Protonetstructure(value.spacegroup, value.occupations, value.net)
+        )
         _require_canonical("ProtonetstructureRecord", "occupations", record.occupations, canonical.occupations)
         _require_canonical("ProtonetstructureRecord", "net rows", _net_rows(record), _net_rows(canonical))
 
@@ -3169,6 +3212,7 @@ class ProtonetstructureRecord:
             "spacegroup_hall_entry": value.spacegroup.hall_entry,
             "occupations": value.occupations,
             "net": _bond_records(value.net),
+            "canonical_form": _CANONICAL_FORM_VERSION,
             "id": None,
             "immutable_id": None,
         }
@@ -3232,7 +3276,8 @@ def _protonettype_from_record(record: ProtonettypeRecord) -> Protonettype:
     :param record: The durable protonettype record.
     :return: The reconstructed protonettype value.
     """
-    return Protonettype(_protonet_record_spacegroup(record), tuple(record.occupations), _net_rows(record))
+    _require_canonical_form(record)
+    return Protonettype._of(_protonet_record_spacegroup(record), tuple(record.occupations), _net_rows(record))
 
 
 def _protonettype_record_from_value(value: Protonettype) -> ProtonettypeRecord:
@@ -3255,7 +3300,8 @@ def _protonetstructure_from_record(record: ProtonetstructureRecord) -> Protonets
     :param record: The durable protonetstructure record.
     :return: The reconstructed protonetstructure value.
     """
-    return Protonetstructure(
+    _require_canonical_form(record)
+    return Protonetstructure._of(
         _protonet_record_spacegroup(record),
         tuple(WyckoffOccupation(value.wyckoff, _species_from_record(value.species)) for value in record.occupations),
         _net_rows(record),

@@ -187,7 +187,8 @@ def test_k2agsbs4_with_k_s_contacts() -> None:
 
 
 def test_nacl_species_assignments_agree() -> None:
-    assert _value("nacl") != _value("nacl-exchanged")
+    # one net, one value: the constructor already exchanges the species to the D3 minimum
+    assert _value("nacl") == _value("nacl-exchanged") == _canonical("nacl")
     assert _canonical("nacl") == _canonical("nacl-exchanged")
     assert str(_canonical("nacl").label) == "AB_cF8_225_a_b__1~2:Cl-Na"
 
@@ -212,6 +213,17 @@ def test_label_is_the_canonical_render(name: str) -> None:
 
 
 @pytest.mark.parametrize("name", list(CASES))
+def test_constructor_equals_the_canonicaliser_on_a_canonical_bare_part(name: str) -> None:
+    value = _value(name)
+    assert value.protonettype.bare_prototype == canonical_bare_prototype(value)
+    assert value == _canonical(name) and value.protonettype == canonical_protonettype(value)
+    anonymous = value.protonettype
+    rows = _translated(anonymous, random.Random(name))
+    assert Protonettype(anonymous.spacegroup, anonymous.occupations, rows) == anonymous
+    assert eval(repr(value), {"Protonetstructure": Protonetstructure, "Species": Species, "Fraction": F}) == value
+
+
+@pytest.mark.parametrize("name", list(CASES))
 def test_canonicalisation_is_idempotent_and_parses_back(name: str) -> None:
     ps = _canonical(name)
     nt = canonical_protonettype(ps)
@@ -222,11 +234,69 @@ def test_canonicalisation_is_idempotent_and_parses_back(name: str) -> None:
     assert parse_protonettype_label(str(nt.label)) == nt
 
 
+# a block of tied classes (equal site count and letters) in P2_1/c, some bonded and some not
+TIED_BLOCKS: dict[str, tuple[list[str], list[Bond]]] = {
+    "one-site-classes": (["e"] * 4, [(3, 3, 2, 0, 0, 0), (3, 4, 1, 0, 1, 0)]),
+    "two-site-classes": (["a", "e"] * 3, [(5, 6, 1, 0, 0, 0), (6, 6, 2, 1, 0, 0)]),
+}
+
+
+@pytest.mark.parametrize("name", list(TIED_BLOCKS))
+def test_bonded_tied_classes_take_the_lowest_site_numbers(name: str) -> None:
+    letters, net = TIED_BLOCKS[name]
+    occupations = [(letter, "ABCD"[s // len(set(letters))]) for s, letter in enumerate(letters)]
+    value = Protonettype(14, occupations, net)
+    bonded = {s for row in value.net for s in row[:2]}
+    assert bonded == set(range(1, len(bonded) + 1)) and max(bonded) < len(letters)
+    assert value == canonical_protonettype(value)
+    sites = [(label, letter) for letter, label in occupations]
+    expected = oracle.canonical_net(14, sites, [(i - 1, j - 1, (k - 1, *n)) for i, j, k, *n in net])
+    assert [((i, j), (k - 1, *n)) for i, j, k, *n in value.net] == [
+        (tuple(slot), tuple(code)) for slot, code in zip(expected["slots"], expected["codes"], strict=True)
+    ]
+
+
 # ---------------------------------------------------------------------------------------------
 # invariance over equivalent input values
 # ---------------------------------------------------------------------------------------------
+def _translated(value: Protonetstructure | Protonettype, rng: random.Random) -> list[Bond]:
+    """The value's rows with the general-position reference atoms moved by large lattice translations."""
+    tables = _tables(value.spacegroup.it_number)
+    shift = {
+        s + 1: (rng.randint(-40, 40), rng.randint(-40, 40), rng.randint(-40, 40))
+        for s, o in enumerate(value.occupations)
+        if tables.letter(o.wyckoff).general
+    }
+    rows = []
+    for i, j, k, *n in value.net:
+        ti, tj, W = shift.get(i, (0, 0, 0)), shift.get(j, (0, 0, 0)), tables.W[k - 1]
+        rows.append((i, j, k, *(n[r] + ti[r] - sum(int(W[r][c]) * tj[c] for c in range(3)) for r in range(3))))
+    return rows
+
+
+def _unreduced(asu: ASUStructure, bonds: tuple[Bond, ...], rng: random.Random) -> tuple[ASUStructure, list[Bond]]:
+    """The structure with free parameters moved by large integers, and its bonds relative to the moved atoms."""
+    tables, sites, shifts = _tables(asu.spacegroup.it_number), [], []
+    for site in asu.wyckoff_sites:
+        position = asu.spacegroup.wyckoff_position(site.wyckoff)
+        params = site.free_params + FracVector(tuple(rng.randint(-30, 30) for _ in range(position.free_count)))
+        old, new = position.coordinates(site.free_params)[0], position.coordinates(params)[0]
+        shifts.append(tuple(int(b - a) for a, b in zip(old.to_fractions(), new.to_fractions(), strict=True)))
+        sites.append(WyckoffSite(site.wyckoff, params, site.species))
+    moved = []
+    for i, j, k, *n in bonds:
+        ti, tj, W = shifts[i - 1], shifts[j - 1], tables.W[k - 1]
+        moved.append((i, j, k, *(n[r] + ti[r] - sum(int(W[r][c]) * tj[c] for c in range(3)) for r in range(3))))
+    return ASUStructure(asu.cell, asu.spacegroup, sites, asu.species), moved
+
+
 def _variants(name: str, rng: random.Random, count: int) -> list[Protonetstructure]:
-    """Valid, non-canonical values of one structure: shuffled sites, reversed bonds, scrambled cosets."""
+    """Valid, non-canonical spellings of one structure through the public API.
+
+    Shuffled sites, reversed bonds, free parameters moved by large integers and reference atoms
+    moved by large lattice translations keep the description, so they give the constructor's value
+    itself; scrambled cosets and gauges also change the description.
+    """
     asu, bonds, sites, rows = _case(name)
     tables, it = _tables(asu.spacegroup.it_number), asu.spacegroup.it_number
     out = []
@@ -240,12 +310,11 @@ def _variants(name: str, rng: random.Random, count: int) -> list[Protonetstructu
         e = tables.inv((k - 1, n[0], n[1], n[2]))
         reversed_bonds.append((j, i, e[0] + 1, e[1], e[2], e[3]))
     out.append(Protonetstructure.from_asu(asu, reversed_bonds))
-    # scrambled gauges can need translations outside -5..+4, which no value holds (D4): those draws
-    # are skipped, and the skip rate is bounded
-    attempts = 0
-    while len(out) < count + 2:
-        attempts += 1
-        assert attempts <= 10 * count
+    out.append(Protonetstructure.from_asu(*_unreduced(asu, bonds, rng)))
+    value = _value(name)
+    out.append(Protonetstructure(value.spacegroup, value.occupations, _translated(value, rng)))
+    assert all(v == value for v in out)
+    for _ in range(count):
         sites2, rows2 = scramble(tables, sites, rows, rng, change_description=it not in NON_CLOSED)
         spec = [
             (
@@ -255,11 +324,7 @@ def _variants(name: str, rng: random.Random, count: int) -> list[Protonetstructu
             )
             for cls, letter in sites2
         ]
-        try:
-            out.append(Protonetstructure.from_asu(_asu(it, spec, asu.cell), _bonds(rows2)))
-        except ValueError as error:
-            assert "translation" in str(error)
-    assert attempts - count < 0.9 * attempts
+        out.append(Protonetstructure.from_asu(_asu(it, spec, asu.cell), _bonds(rows2)))
     return out
 
 
@@ -278,6 +343,8 @@ def test_equivalent_values_canonicalise_identically(name: str, trials: int) -> N
     for value in _variants(name, random.Random(f"{name}-{trials}"), trials):
         assert canonical_protonetstructure(value) == reference
         assert canonical_protonettype(value) == anonymous
+        if value.protonettype.bare_prototype == canonical_bare_prototype(value):
+            assert value == reference
 
 
 # ---------------------------------------------------------------------------------------------
@@ -298,7 +365,7 @@ def test_quartz_enantiomorphs_agree_only_without_preserved_chirality() -> None:
 
 
 def test_guard_rejects_a_net_search_on_another_bare_prototype(monkeypatch: pytest.MonkeyPatch) -> None:
-    real = protonet_module._canonical_net
+    value, real = _value("nacl"), protonet_module._canonical_net
 
     def wrong(*args: Any, **kwargs: Any) -> Any:
         result = real(*args, **kwargs)
@@ -307,13 +374,13 @@ def test_guard_rejects_a_net_search_on_another_bare_prototype(monkeypatch: pytes
 
     monkeypatch.setattr(protonet_module, "_canonical_net", wrong)
     with pytest.raises(ValueError, match="bare prototype"):
-        canonical_protonettype(_value("nacl"))
+        canonical_protonettype(value)
     with pytest.raises(ValueError, match="bare prototype"):
-        canonical_protonetstructure(_value("nacl"))
+        canonical_protonetstructure(value)
 
 
 def test_unwritable_canonical_translation_is_reported(monkeypatch: pytest.MonkeyPatch) -> None:
-    real = protonet_module._canonical_net
+    value, real = _value("nacl"), protonet_module._canonical_net
 
     def long(*args: Any, **kwargs: Any) -> Any:
         result = real(*args, **kwargs)
@@ -322,13 +389,16 @@ def test_unwritable_canonical_translation_is_reported(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr(protonet_module, "_canonical_net", long)
     with pytest.raises(ValueError, match=r"cannot write this canonical net.*-5\.\.\+4"):
-        canonical_protonettype(_value("nacl"))
+        canonical_protonettype(value)
     with pytest.raises(ValueError, match="cannot write this canonical net"):
-        canonical_protonetstructure(_value("nacl"))
+        canonical_protonetstructure(value)
 
 
 def test_tiny_timeout_raises_limit_error() -> None:
+    label = str(_value("k2agsbs4-frame").protonettype.label)
     _search.cache_clear()
+    with pytest.raises(CanonicalizationLimitError):  # the budget also covers parsing the label
+        canonical_protonettype(label, timeout=1e-9)
     with pytest.raises(CanonicalizationLimitError):
         canonical_protonetstructure(_value("k2agsbs4-frame"), timeout=1e-9)
     with pytest.raises(CanonicalizationLimitError):
@@ -364,7 +434,8 @@ def test_from_asu_rejects_invalid_inputs() -> None:
         Protonetstructure.from_asu(asu, [(1, 1, 1, 0, 0, 0)])
     with pytest.raises(ValueError, match="six integers"):
         Protonetstructure.from_asu(asu, [(1, 2, 1, 0, 0)])  # type: ignore[list-item]
-    with pytest.raises(ValueError, match="translation"):
+    # the input takes any translation, but this long Na-Cl bond keeps it in the canonical net (D4)
+    with pytest.raises(ValueError, match=r"\(D4\)"):
         Protonetstructure.from_asu(asu, [(1, 2, 1, 9, 0, 0)])
 
 

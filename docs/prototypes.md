@@ -455,9 +455,12 @@ groups all fail. The following also hold.
   rejected. The species suffix is split off at the last `:`.
 - The characters `-`, `=`, `#`, `$`, `:`, `/` and `\` are reserved inside the net
   for future bond types and are rejected.
-- A translation must lie in -5..+4 per axis, the range one digit can write. A
-  value outside it raises `ValueError` at construction or rendering; a canonical
-  net should never need one.
+- A translation must lie in -5..+4 per axis, the range one digit can write.
+  Input rows and bonds take any integer translation; only a canonical net that
+  still needs a longer one raises `ValueError` (D4).
+- A well-formed but non-canonical net, such as the same bonds against other
+  reference atoms or another numbering of interchangeable sites, is rejected:
+  the parser's value is canonical, so its label differs from the input.
 - An operation is written whenever a translation is, also operation 1
   (`10@1@655`); operation 1 with zero translation is not written at all.
 - Operation `n` (1-based) is the `n`-th branch of the general Wyckoff position of
@@ -475,9 +478,11 @@ groups all fail. The following also hold.
 The example below builds K₂AgSbS₄ from an exact asymmetric unit and an explicit
 bond list: the eight Ag-S and Sb-S bonds that a 3.0 angstrom cutoff finds,
 written `(i, j, k, n1, n2, n3)` against the input site order. The caller
-supplies the bonds; `from_asu` only renumbers them and reduces each to its
-orbit representative. The asymmetric unit is the vendored COD entry; the label
-is pinned by `tests/test_protonet_canonical_api.py`.
+supplies the bonds; `from_asu` renumbers them into site order and returns the
+constructor's value, with the net canonicalized. Bonds may carry any integer
+translation, so the free parameters need not be reduced into [0, 1). The
+asymmetric unit is the vendored COD entry; the label is pinned by
+`tests/test_protonet_canonical_api.py`.
 
 ```python
 from fractions import Fraction as F
@@ -523,6 +528,20 @@ assert canonical.label == "A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.
 
 ### Canonical protonet labels
 
+One net is one value. The constructors `Protonettype(...)` and
+`Protonetstructure(...)`, and `from_asu`, keep the *anonymous* bare description
+(no affine-normalizer pass, as for `BarePrototype(...)`) and canonicalize the
+net over site numbering, reference atoms and the equivalent descriptions with
+the same anonymous bare key, orientation-preserving, with the default timeout.
+Two spellings of one net therefore give one equal value, and for a canonical
+bare part the constructor's value is the canonical one.
+
+At the assigned level the D3 tie-break may move species between the Wyckoff
+letters of those equivalent descriptions:
+`Protonetstructure(225, [("a", Na), ("b", Cl)])` gives
+`AB_cF8_225_a_b__:Cl-Na`. This differs from `BareProtostructure(...)`, which
+keeps any assigned description as given.
+
 `canonical_protonettype` and `canonical_protonetstructure` return the canonical
 value for any protonet-like input. Both take `preserve_chirality` (as the bare
 canonicalizers do) and `timeout`, the cooperative seconds allowed for the search
@@ -537,8 +556,10 @@ two is promised. Erasing a `Protonetstructure` to a `Protonettype` keeps class
 positions: class `c` becomes `anonymous_symbol(c)`. In triclinic and monoclinic
 groups the canonical net is canonical only relative to the cell that httk's
 standardisation chooses (the tabulated descriptions of P-1 are not closed, and
-no monoclinic set contains shears between equivalent cell choices). See
-{doc}`canonicalization` for the algorithm and its limits.
+no monoclinic set contains shears between equivalent cell choices). In P-1 the
+constructor is therefore not always idempotent: a constructed value's own label
+can be rejected by the parser, and its record by the store, until the action set
+is closed (D7). See {doc}`canonicalization` for the algorithm and its limits.
 
 ### Species order of protonetstructure labels
 
@@ -676,6 +697,19 @@ definitions to be saved and queried through storage APIs.
 
 Development databases using the previous taxonomy must be rebuilt. No legacy
 registry aliases or upgrade machinery are provided.
+
+The six records with a canonical label (`BarePrototypeRecord`,
+`BareProtostructureRecord`, `PrototypeRecord`, `ProtostructureRecord`,
+`ProtonettypeRecord` and `ProtonetstructureRecord`) store a `canonical_form`
+integer, the version of the canonical-label rules they were built with. It is
+part of their content identity. Saving requires the current version, and turning
+a record of another version back into a value raises `ValueError`: the canonical
+form changed, so rebuild the database. The version is bumped whenever any
+canonical label rule changes. Saving a protonet record also checks that its net
+is the canonical one for its bare description; a non-canonical net is rejected,
+never rewritten. Constructing a protonet value, parsing its label and saving its
+record (`__httk_validate__`) each run the net search; loading a value from a
+record does not.
 
 ## Deferred features
 

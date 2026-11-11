@@ -561,6 +561,17 @@ the materialized value alone and use no coordinates. The functions take
 first transferred into the lower enantiomorphic group by the same inversion the
 bare routines use, and canonicalized with that group's own tables.
 
+The `Protonettype` and `Protonetstructure` constructors, and `from_asu`, run the
+same search restricted to the equivalent descriptions with the input's own bare
+key, with `preserve_chirality=True` and the default timeout: the *anonymous*
+bare description (the anonymous bare key) is kept and only the net is
+canonicalized. When the input's bare key is already the canonical one, the
+restricted search is the full search and the constructor's value equals the
+canonicalizer's. At the assigned level the D3 tie-break may move species between
+the Wyckoff letters of equivalent descriptions with that key:
+`Protonetstructure(225, [("a", Na), ("b", Cl)])` gives `AB_cF8_225_a_b__:Cl-Na`,
+whereas `BareProtostructure(...)` keeps any assigned description.
+
 ### Definitions
 
 - **Element.** `(k, n1, n2, n3)`: apply operation `k`, then add the lattice
@@ -684,13 +695,18 @@ best ones.
   go through geometry-dependent metric automorphisms. The monoclinic sets are
   closed but contain no shears between equivalent cell choices. In triclinic and
   monoclinic groups the net string is therefore canonical only relative to the
-  cell that httk's standardisation chooses.
+  cell that httk's standardisation chooses. For the same reason the constructors
+  are not always idempotent in P-1: a constructed value's own label can be
+  rejected by the parser, and its record by the store, until the action set is
+  closed.
 - **Numbering blow-up.** The numbering search is exact but exponential in the
   worst case, with many interchangeable, similarly connected sites. The whole
   search runs under the cooperative `timeout` (default 120 seconds) and raises
   `CanonicalizationLimitError` instead of returning a partial answer.
 - **Translation range.** A label can write a translation only in -5..+4 per axis.
-  A longer translation raises `ValueError`; a canonical net should never need one.
+  Input rows and bonds take any integer translation, and gauge moves absorb
+  unreduced free parameters; a canonical net that still needs a longer
+  translation (a genuinely long bond) raises `ValueError` (D4).
 - **Reference atoms are not geometry.** The canonical string does not store the
   reference atoms. Laying a net back onto coordinates requires the realisation's
   gauge, which the label does not carry.

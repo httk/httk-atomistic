@@ -12,7 +12,7 @@ only while the per-space-group tables are built.
 
 import math
 from collections import Counter
-from collections.abc import Hashable, Iterable, Iterator, Sequence
+from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import cache, cached_property, lru_cache
@@ -975,14 +975,17 @@ def _canonical_net(
     rows: Iterable[tuple[int, int, _Element]],
     *,
     preserve_chirality: bool = True,
+    own_bare: bool = False,
 ) -> _CanonicalNet:
     """Return the canonical bonding net of one standard-setting description.
 
     :param it_number: The International Tables number of the standard setting.
     :param sites: ``(class id, Wyckoff letter)`` per site, in any order.
     :param rows: ``(i, j, element)`` with 0-based site indices and elements relative to the
-        sites' reference atoms.
+        sites' reference atoms; any lattice translation.
     :param preserve_chirality: Whether to keep the higher enantiomorphic group.
+    :param own_bare: Search only the descriptions with the input's own bare key (its sorted class
+        letter groups) instead of the smallest one; the constructors' canonicalization.
     :return: The canonical net and its realisations.
     :raises ValueError: If a row index is out of range or a letter or operation is unknown.
     """
@@ -1001,12 +1004,30 @@ def _canonical_net(
         if i > j:
             i, j, g = j, i, tables.inv(g)
         normalised.add((i, j, tables.canon(tables.letter(sites[i][1]).H, tables.letter(sites[j][1]).H, g, i == j)))
-    return _search(it_number, sites, frozenset(normalised), preserve_chirality)
+    return _search(it_number, sites, frozenset(normalised), preserve_chirality, own_bare)
+
+
+def _class_groups(
+    tables: _GroupTables, sites: Sequence[tuple[Hashable, str]], letters: Mapping[int, str]
+) -> tuple[dict[Hashable, tuple[str, ...]], dict[Hashable, _Rank]]:
+    """Return each class's sorted letter group and its rank in the class order."""
+    by_class: dict[Hashable, list[str]] = {}
+    for s, (cls, _) in enumerate(sites):
+        by_class.setdefault(cls, []).append(letters[s])
+    group_of = {cls: tuple(sorted(ls)) for cls, ls in by_class.items()}
+    rank: dict[Hashable, _Rank] = {
+        cls: class_order_key(ls, sum(tables.letter(x).multiplicity for x in ls))[:2] for cls, ls in group_of.items()
+    }
+    return group_of, rank
 
 
 @lru_cache(maxsize=4096)
 def _search(
-    it_number: int, sites: tuple[tuple[Hashable, str], ...], rows: frozenset[_Row], preserve_chirality: bool
+    it_number: int,
+    sites: tuple[tuple[Hashable, str], ...],
+    rows: frozenset[_Row],
+    preserve_chirality: bool,
+    own_bare: bool = False,
 ) -> _CanonicalNet:
     """Search every coset, class order, numbering and gauge for the smallest net (memoised)."""
     tables = _tables(it_number)
@@ -1025,6 +1046,9 @@ def _search(
     result: tuple[list[tuple[int, int]], list[_Element], list[tuple[str, ...]]] | None = None
     realisations: dict[tuple[object, ...], _Realisation] = {}
     seen: set[tuple[object, ...]] = set()
+    own = None
+    if own_bare:
+        own = tuple(sorted(_class_groups(tables, sites, dict(enumerate(letter for _, letter in sites)))[1].values()))
     for index, coset in enumerate(tables.cosets):
         _checkpoint()
         letters = {s: coset.letter(letter)[0] for s, (_, letter) in enumerate(sites)}
@@ -1040,15 +1064,9 @@ def _search(
         if seen_key in seen:
             continue
         seen.add(seen_key)
-        by_class: dict[Hashable, list[str]] = {}
-        for s, (cls, _) in enumerate(sites):
-            by_class.setdefault(cls, []).append(letters[s])
-        group_of = {cls: tuple(sorted(ls)) for cls, ls in by_class.items()}
-        rank: dict[Hashable, _Rank] = {
-            cls: class_order_key(ls, sum(tables.letter(x).multiplicity for x in ls))[:2] for cls, ls in group_of.items()
-        }
+        group_of, rank = _class_groups(tables, sites, letters)
         bare_key = tuple(sorted(rank.values()))
-        if best is not None and bare_key > best[0]:
+        if (own is not None and bare_key != own) or (best is not None and bare_key > best[0]):
             continue
         # classes with identical letter groups are interchangeable in the anonymous label
         tied: dict[_Rank, list[Hashable]] = {}

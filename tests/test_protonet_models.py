@@ -25,6 +25,7 @@ from httk.atomistic.models.prototype.notation import (
     try_parse_bare_protostructure,
     try_parse_bare_prototype,
 )
+from httk.atomistic.symmetry.protonet import _tables
 
 BARE = "A4B2CD_oP32_34_4c_abc_ab_c"
 NET = "1~8.10_2~8.10_3~9.10_4~9.10@3"
@@ -69,9 +70,9 @@ def test_k2agsbs4_labels_and_prefix_nesting() -> None:
         "AB_cF8_225_a_b__1~2",
         "AB_cF8_225_a_b__1~2:Cl-Na",
         "A_cF8_227_a__1~1@14@654",
-        "AB_hP4_186_b_b__1~2.2@2:Zn-S",
+        "AB_hP4_186_b_b__1~2.2@2:S-Zn",
         "A_cP1_221_a__",
-        "AB_cF8_225_a_b__:Na-Cl",
+        "AB_cF8_225_a_b__:Cl-Na",
         "A_oP8_47_A__",
     ],
 )
@@ -82,10 +83,57 @@ def test_parse_render_round_trip(text: str) -> None:
     assert parse(str(type(value)(value.spacegroup, value.occupations, value.net).label)) == value
 
 
-def test_wurtzite_keeps_tied_class_order() -> None:
-    value = parse_protonetstructure_label("AB_hP4_186_b_b__1~2.2@2:Zn-S")
-    assert [o.species.name for o in value.occupations] == ["Zn", "S"]
-    assert value.net == ((1, 2, 1, 0, 0, 0), (1, 2, 2, 0, 0, 0))
+def test_tied_classes_take_the_d3_order() -> None:
+    # wurtzite's net is symmetric in its two classes on b, so the smallest name tuple orders them
+    value = Protonetstructure(186, [("b", _sp("Zn")), ("b", _sp("S"))], [(1, 2, 1, 0, 0, 0), (1, 2, 2, 0, 0, 0)])
+    assert [o.species.name for o in value.occupations] == ["S", "Zn"]
+    assert value == parse_protonetstructure_label("AB_hP4_186_b_b__1~2.2@2:S-Zn")
+    # the same for NaCl, whose a and b are exchanged by an origin shift
+    assert str(Protonetstructure(225, [("a", _sp("Na")), ("b", _sp("Cl"))]).label) == "AB_cF8_225_a_b__:Cl-Na"
+    for text in ("AB_hP4_186_b_b__1~2.2@2:Zn-S", "AB_cF8_225_a_b__:Na-Cl"):
+        with pytest.raises(ValueError, match="not a canonical"):
+            parse_protonetstructure_label(text)
+
+
+def _respelled(rows: list[tuple[int, ...]]) -> list[tuple[int, int, int, int, int, int]]:
+    """The K2AgSbS4 net spelled with S sites 1 and 3 exchanged and other reference atoms on 9 and 10."""
+    tables = _tables(34)
+    number = {1: 3, 3: 1}
+    gauge = {9: (1, 0, 1, 0), 10: (2, 1, 0, -1)}  # new reference atom = this element applied to the old
+    out = []
+    for i, j, k, *n in rows:
+        g = (k - 1, *n)
+        g = tables.mul(gauge.get(i, (0, 0, 0, 0)), tables.mul(g, tables.inv(gauge.get(j, (0, 0, 0, 0)))))
+        a, b = number.get(i, i), number.get(j, j)
+        if a > b:
+            a, b, g = b, a, tables.inv(g)
+        out.append((a, b, g[0] + 1, g[1], g[2], g[3]))
+    return out
+
+
+def test_one_net_is_one_value_whatever_its_spelling() -> None:
+    rows = _respelled(ROWS)
+    raw = Protonettype._of(34, list(zip(LETTERS, CLASSES)), rows)
+    assert raw.net != _anon().net  # a well-formed, non-canonical spelling
+    assert _anon(rows) == _anon() and hash(_anon(rows)) == hash(_anon())
+    assert str(_anon(rows).label) == f"{BARE}__{NET}"
+    occupations = [(letter, _sp(name)) for letter, name in zip(LETTERS, NAMES)]
+    assert Protonetstructure(34, occupations, rows) == _assigned()
+    assert hash(Protonetstructure(34, occupations, rows)) == hash(_assigned())
+    with pytest.raises(ValueError, match="not a canonical"):
+        parse_protonettype_label(str(raw.label))
+    with pytest.raises(ValueError, match="not a canonical"):
+        parse_protonetstructure_label(str(Protonetstructure._of(34, occupations, rows).label))
+
+
+def test_input_rows_take_any_lattice_translation() -> None:
+    shifted = [(i, j, k, n1 + 7, n2 - 9, n3 + 30) for i, j, k, n1, n2, n3 in ROWS]
+    assert _anon(shifted) == _anon()
+    with pytest.raises(ValueError, match="translation"):
+        Protonettype._of(34, list(zip(LETTERS, CLASSES)), shifted)
+    # a bond six cells along c next to the frame's own bonds needs a canonical -6 (D4)
+    with pytest.raises(ValueError, match=r"cannot write this canonical net.*\(D4\)"):
+        _anon([*ROWS, (1, 8, 1, 0, 0, -6)])
 
 
 @pytest.mark.parametrize(
@@ -133,8 +181,6 @@ def test_parser_rejects_other_forms() -> None:
 @pytest.mark.parametrize(
     "row",
     [
-        (1, 8, 1, 5, 0, 0),  # translation the notation cannot write
-        (1, 8, 1, 0, 0, -6),
         (8, 1, 1, 0, 0, 0),  # i > j
         (0, 1, 1, 0, 0, 0),
         (1, 11, 1, 0, 0, 0),

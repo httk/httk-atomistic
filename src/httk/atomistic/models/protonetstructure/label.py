@@ -15,8 +15,9 @@ if TYPE_CHECKING:
 class ProtonetstructureLabel(ProtonetstructureViewBase, str):
     r"""Present a protonetstructure as its eager httk label string.
 
-    Any faithful render is the protonetstructure label; the *canonical* one comes from
-    the canonicaliser. This view renders the given value without symmetry work.
+    Values already carry the canonical net of their bare description; the fully
+    canonical label, with a canonical bare part, comes from the canonicaliser. This view
+    renders the given value without further symmetry work.
 
     :param obj: The protonetstructure-like object to present.
     :param \*\*hints: Backend-selection hints.
@@ -55,6 +56,9 @@ class ProtonetstructureLabel(ProtonetstructureViewBase, str):
         backend = self._backend
         if type(backend) is Protonetstructure:
             return backend
+        resolve = getattr(backend, "resolve", None)
+        if resolve is not None:  # the label-string and derived backends hold a canonical value
+            return resolve()
         return Protonetstructure(backend.spacegroup, backend.occupations, backend.net)
 
     def unwrap(self) -> Any:

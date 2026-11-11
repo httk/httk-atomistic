@@ -499,9 +499,9 @@ def parse_protonettype_label(text: str) -> "Protonettype":
     """Parse a strictly canonical protonettype label.
 
     Class ``c`` of the bare part gets the anonymous label ``anonymous_symbol(c)``; the
-    value is constructed (which validates the net) and the whole label is re-rendered and
-    compared with ``text``, which rejects leading zeros, unsorted or repeated groups and
-    non-canonical ``@`` spellings. The reserved characters ``- = # $ : / \\`` inside the
+    value is constructed (which validates and canonicalizes the net) and the whole label is
+    re-rendered and compared with ``text``, which rejects leading zeros, unsorted or repeated
+    groups, non-canonical ``@`` spellings and nets that are not the canonical one. The reserved characters ``- = # $ : / \\`` inside the
     net and a second ``__`` are rejected.
 
     :param text: The protonettype label to parse.
@@ -560,7 +560,7 @@ def try_parse_protonettype(text: str) -> "Protonettype | None":
         return None
     try:
         return parse_protonettype_label(text)
-    except ValueError:
+    except ValueError:  # deliberately not CanonicalizationLimitError: an unchecked label reports the limit
         return None
 
 
@@ -574,5 +574,5 @@ def try_parse_protonetstructure(text: str) -> "Protonetstructure | None":
         return None
     try:
         return parse_protonetstructure_label(text)
-    except ValueError:
+    except ValueError:  # deliberately not CanonicalizationLimitError: an unchecked label reports the limit
         return None

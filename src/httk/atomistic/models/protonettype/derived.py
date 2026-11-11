@@ -38,7 +38,8 @@ class DerivedProtonettype(ProtonettypeBackend):
     def _derived(self) -> Protonettype:
         runs = groupby(self._source.occupations, key=lambda o: o.species.name)
         occupations = [(o.wyckoff, anonymous_symbol(index)) for index, (_, run) in enumerate(runs) for o in run]
-        return Protonettype(self._source.spacegroup, occupations, self._source.net)
+        # a protonetstructure's net is already canonical as an anonymous net (D3 only picks species)
+        return Protonettype._of(self._source.spacegroup, occupations, self._source.net)
 
     def resolve(self) -> Protonettype:
         """Return the standalone anonymous protonettype."""

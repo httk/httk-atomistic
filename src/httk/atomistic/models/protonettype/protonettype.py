@@ -1,7 +1,7 @@
 """The immutable anonymous protonettype value."""
 
 from collections.abc import Sequence
-from typing import ClassVar
+from typing import ClassVar, Self
 
 from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.protonettype.backend import ProtonettypeBackend
@@ -52,9 +52,12 @@ def _class_runs(spacegroup: Spacegroup, pairs: Sequence[tuple[str, str]], owner:
 
 
 def _checked_net(
-    net: Sequence[Sequence[int]], nsites: int, nops: int, owner: str
+    net: Sequence[Sequence[int]], nsites: int, nops: int, owner: str, *, writable: bool
 ) -> tuple[tuple[int, int, int, int, int, int], ...]:
-    """Validate net rows against the site and operation counts and return them in label order."""
+    """Validate net rows against the site and operation counts and return them in label order.
+
+    Input rows take any lattice translation; ``writable`` requires the label's range -5..+4.
+    """
     rows: list[tuple[int, int, int, int, int, int]] = []
     for row in net:
         values = tuple(row)
@@ -65,7 +68,7 @@ def _checked_net(
             raise ValueError(f"{owner} net row {values!r} needs 1 <= i <= j <= {nsites}")
         if not 1 <= k <= nops:
             raise ValueError(f"{owner} net row {values!r} needs an operation number in 1..{nops}")
-        if any(not -5 <= n <= 4 for n in (n1, n2, n3)):
+        if writable and any(not -5 <= n <= 4 for n in (n1, n2, n3)):
             raise ValueError(f"{owner} net row {values!r} has a translation outside -5..+4")
         if i == j and k == 1 and (n1, n2, n3) == (0, 0, 0):
             raise ValueError(f"{owner} net row {values!r} bonds an atom to itself")
@@ -81,15 +84,24 @@ class Protonettype(ProtonettypeBackend):
     Site ``n`` is ``occupations[n-1]``. The occupations form one contiguous run per class,
     the runs ordered largest site count first and then by sorted Wyckoff letters, each run
     sorted by letter; the run at position ``c`` carries the label ``anonymous_symbol(c)``.
-    Tied classes keep the given order, since it fixes the net's site numbering. A net row
+    Tied classes may come in any order; the canonical net orders them. A net row
     ``(i, j, k, n1, n2, n3)`` bonds the reference atom of site ``i`` to that of site ``j``
     moved by general-position operation ``k`` (identity = 1) and lattice translation
-    ``n``. No symmetry work is done: any faithful value renders *the* label; only the
-    canonicaliser produces the canonical one.
+    ``n``, any integer vector. The anonymous bare description is kept (no affine-normaliser
+    pass, as for :class:`~httk.atomistic.BarePrototype`); the net is canonicalized over site
+    numbering, reference atoms and the equivalent descriptions with the same anonymous bare
+    key, keeping orientation, so one net is one value whatever its spelling (in P-1 not always
+    idempotently, D7).
+    :func:`~httk.atomistic.canonical_protonettype` also minimises the bare prototype;
+    for a canonical bare prototype the two agree.
 
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: Occupied Wyckoff positions and their anonymous labels, in site order.
     :param net: The net rows ``(i, j, k, n1, n2, n3)``, with ``i <= j``.
+    :raises ValueError: If the input is malformed or the canonical net needs a translation
+        outside -5..+4, which the notation cannot write (D4).
+    :raises CanonicalizationLimitError: If the net search exceeds its 120 s deadline, or an
+        enclosing canonicalization budget.
     """
 
     kind: ClassVar[str] = "protonettype"
@@ -100,6 +112,34 @@ class Protonettype(ProtonettypeBackend):
         occupations: Sequence[PrototypeOccupation | tuple[str, str]],
         net: Sequence[Sequence[int]] = (),
     ) -> None:
+        from httk.atomistic.symmetry.canonical_classification import _protonettype_net
+        from httk.atomistic.symmetry.limits import _active, _budget_scope
+
+        self._assign(spacegroup, occupations, net, writable=False)
+        with _budget_scope(120.0 if _active.get() is None else None):  # an enclosing budget governs
+            canonical = _protonettype_net(self, preserve_chirality=True, own_bare=True)
+        self._spacegroup, self._occupations, self._net = canonical.spacegroup, canonical.occupations, canonical.net
+
+    @classmethod
+    def _of(
+        cls,
+        spacegroup: Spacegroup | int,
+        occupations: Sequence[PrototypeOccupation | tuple[str, str]],
+        net: Sequence[Sequence[int]],
+    ) -> Self:
+        """Build from a trusted canonical net: validate the structure only, no canonicalization."""
+        instance = object.__new__(cls)
+        instance._assign(spacegroup, occupations, net, writable=True)
+        return instance
+
+    def _assign(
+        self,
+        spacegroup: Spacegroup | int,
+        occupations: Sequence[PrototypeOccupation | tuple[str, str]],
+        net: Sequence[Sequence[int]],
+        *,
+        writable: bool,
+    ) -> None:
         self._spacegroup = _standard(spacegroup, "Protonettype")
         self._occupations = tuple(
             value if isinstance(value, PrototypeOccupation) else PrototypeOccupation(*value) for value in occupations
@@ -107,7 +147,8 @@ class Protonettype(ProtonettypeBackend):
         labels = _class_runs(self._spacegroup, [(o.wyckoff, o.label) for o in self._occupations], "Protonettype")
         if labels != [anonymous_symbol(index) for index in range(len(labels))]:
             raise ValueError("Protonettype class run c must carry the label anonymous_symbol(c)")
-        self._net = _checked_net(net, len(self._occupations), len(self._spacegroup.symmetry_operations), "Protonettype")
+        nops = len(self._spacegroup.symmetry_operations)
+        self._net = _checked_net(net, len(self._occupations), nops, "Protonettype", writable=writable)
 
     @property
     def spacegroup(self) -> Spacegroup:

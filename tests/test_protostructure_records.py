@@ -130,9 +130,9 @@ def test_protostructure_record_optional_forms_have_distinct_pinned_identities() 
         Protostructure(representative=_rocksalt_asu(), discriminator="001"),
     )
     expected_ids = (
-        "800a86d40ac957e5b799d62d605236caf3fe66ecc5294c0e66d95efe5ca67f2e",
-        "1a6fefdacc7afbceb08da454c14a57ee9930048909f4c8ae959ac9408d4b38d8",
-        "7049adcd791a86369c89223537bac45b5a5064c7f4054eda01b7ea5c4703fe1d",
+        "414cc3ec11ba7109d878fc01a2efce8e485330963423379208f4c087e5c0298d",
+        "ed220e5b2756e559c76299240ad47ee0e3e57eaf3f6662e6fc6fa8a792756e65",
+        "4714e36f0e0e921b1568cf4a82f46aa4c5bf1d625bb04a5aa45ceb18dbdbfff8",
     )
 
     records = tuple(_protostructure_record_from_value(value) for value in values)
@@ -161,9 +161,9 @@ def test_prototype_record_optional_forms_have_distinct_pinned_identities() -> No
         Prototype(representative=representative, discriminator="001"),
     )
     expected_ids = (
-        "459fb13715b8f4a66527dbd849ed40f154a2419a7ec7f1408b21d75b6d4fa6a1",
-        "79f060d34eea0e203ea2985c19677e1a8d7390cdcedaf0d329e708c5ca74c562",
-        "ae2ef2ecda278d7058bc620d0b6bfcf37ff4d05a4dedc0cc06621dfced74b746",
+        "6568eb23ec9378417ac5604988d3562bbb0a9017c91099fe070f23501a71b2b4",
+        "4491588bc6db6fee12e74ecedc4401d512f1deb71b25902faf9d77a0ca946447",
+        "0ee65b4664fb39ddd18f0372efe6988e05883d6a25604b29d37fa59e7d5759f6",
     )
 
     records = tuple(_prototype_record_from_value(value) for value in values)
@@ -329,12 +329,12 @@ def test_bare_record_identity_pins_match_models() -> None:
         (
             _rocksalt_prototype(),
             _bare_prototype_record_from_value,
-            "09a7654700d2e0f3a9cd8aaa18aa18c2942500676a42e8ff6eaca388db3743b4",
+            "5d92b0ba8636fa54c8f617190d1e2c4b5240494b0c36e985ead00e0b0f6cdd1c",
         ),
         (
             _rocksalt(),
             _bare_protostructure_record_from_value,
-            "184c75ddf286ebc3ca9dc3044681404c0b2b1a8fadcd587ca9fcb67506ad0250",
+            "93b594e79041e279cf8d1c34a3a606f3ba72f93e550e638aa634d1d0829bfff6",
         ),
     ):
         assert content_id(value) == content_id(project(value)) == expected

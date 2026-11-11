@@ -184,11 +184,13 @@ def _canonical_protonet[V](
     *,
     assigned: bool,
     preserve_chirality: bool,
+    own_bare: bool,
 ) -> V:
     """Search the canonical net of one value and build the result with ``build``.
 
     ``build`` receives the target group, the realisation, the input sites in new site order and
     the 1-based rows; a translation the notation cannot write is reported as such (D4).
+    ``own_bare`` searches only the descriptions with the value's own bare key (the constructors).
 
     The anonymous level takes the first realisation (all give the same value); the assigned level
     takes the one with the smallest species-name tuple in label order (D3).
@@ -198,7 +200,9 @@ def _canonical_protonet[V](
     occupations: Sequence[PrototypeOccupation | WyckoffOccupation] = value.occupations
     sites = [(cls, o.wyckoff) for cls, o in zip(class_of, occupations, strict=True)]
     rows = [(i - 1, j - 1, (k - 1, n1, n2, n3)) for i, j, k, n1, n2, n3 in value.net]
-    result = _canonical_net(value.spacegroup.it_number, sites, rows, preserve_chirality=preserve_chirality)
+    result = _canonical_net(
+        value.spacegroup.it_number, sites, rows, preserve_chirality=preserve_chirality, own_bare=own_bare
+    )
     real = (
         min(result.realisations, key=lambda r: tuple(str(c) for c in r.classes)) if assigned else result.realisations[0]
     )
@@ -212,6 +216,33 @@ def _canonical_protonet[V](
         raise ValueError(
             "the protonet notation cannot write this canonical net: a translation is outside -5..+4 (D4)"
         ) from exc
+
+
+def _protonettype_net(value: Protonettype, *, preserve_chirality: bool, own_bare: bool) -> Protonettype:
+    """Return the canonical protonettype of one value, without the bare-prototype guard."""
+    labels = [o.label for o in value.occupations]
+    position = {label: index for index, label in enumerate(dict.fromkeys(labels))}
+    class_of = [position[label] for label in labels]
+
+    def build(it_number: int, real: "_Realisation", order: list[int], net: list[Any]) -> Protonettype:
+        labels = [(real.letters[s], anonymous_symbol(real.classes.index(class_of[s]))) for s in order]
+        return Protonettype._of(it_number, labels, net)
+
+    return _canonical_protonet(
+        value, class_of, build, assigned=False, preserve_chirality=preserve_chirality, own_bare=own_bare
+    )
+
+
+def _protonetstructure_net(value: Protonetstructure, *, preserve_chirality: bool, own_bare: bool) -> Protonetstructure:
+    """Return the canonical protonetstructure of one value, without the bare-prototype guard."""
+
+    def build(it_number: int, real: "_Realisation", order: list[int], net: list[Any]) -> Protonetstructure:
+        return Protonetstructure._of(it_number, [(real.letters[s], value.occupations[s].species) for s in order], net)
+
+    names = [o.species.name for o in value.occupations]
+    return _canonical_protonet(
+        value, names, build, assigned=True, preserve_chirality=preserve_chirality, own_bare=own_bare
+    )
 
 
 def canonical_protonettype(
@@ -234,17 +265,9 @@ def canonical_protonettype(
         disagree on the bare prototype.
     :raises CanonicalizationLimitError: If the search exceeds its limit; no partial result is returned.
     """
-    value = ProtonettypeView(obj).unview()
-    labels = [o.label for o in value.occupations]
-    position = {label: index for index, label in enumerate(dict.fromkeys(labels))}
-    class_of = [position[label] for label in labels]
-
-    def build(it_number: int, real: "_Realisation", order: list[int], net: list[Any]) -> Protonettype:
-        labels = [(real.letters[s], anonymous_symbol(real.classes.index(class_of[s]))) for s in order]
-        return Protonettype(it_number, labels, net)
-
     with _budget_scope(timeout):
-        result = _canonical_protonet(value, class_of, build, assigned=False, preserve_chirality=preserve_chirality)
+        value = ProtonettypeView(obj).unview()  # inside: parsing a label string runs the net search
+        result = _protonettype_net(value, preserve_chirality=preserve_chirality, own_bare=False)
         expected = canonical_bare_prototype(value.bare_prototype, preserve_chirality=preserve_chirality)
     if result.bare_prototype != expected:
         raise ValueError(
@@ -276,16 +299,12 @@ def canonical_protonetstructure(
         disagree on the anonymous bare prototype.
     :raises CanonicalizationLimitError: If the search exceeds its limit; no partial result is returned.
     """
-    value = ProtonetstructureView(obj).unview()
-
-    def build(it_number: int, real: "_Realisation", order: list[int], net: list[Any]) -> Protonetstructure:
-        return Protonetstructure(it_number, [(real.letters[s], value.occupations[s].species) for s in order], net)
-
     with _budget_scope(timeout):
-        names = [o.species.name for o in value.occupations]
-        result = _canonical_protonet(value, names, build, assigned=True, preserve_chirality=preserve_chirality)
-        expected = canonical_bare_prototype(value.bare_protostructure, preserve_chirality=preserve_chirality)
-    reached = canonical_bare_prototype(result.bare_protostructure, preserve_chirality=preserve_chirality)
+        value = ProtonetstructureView(obj).unview()  # inside: parsing a label string runs the net search
+        result = _protonetstructure_net(value, preserve_chirality=preserve_chirality, own_bare=False)
+        # the values themselves, not their bare_protostructure projections, which canonicalize again
+        expected = canonical_bare_prototype(value, preserve_chirality=preserve_chirality)
+        reached = canonical_bare_prototype(result, preserve_chirality=preserve_chirality)
     if reached != expected:
         raise ValueError(
             f"protonet search reached bare prototype {reached.label} but the canonical bare prototype is {expected.label}"

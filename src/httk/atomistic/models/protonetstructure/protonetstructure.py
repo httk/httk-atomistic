@@ -1,7 +1,7 @@
 """The immutable assigned-species protonetstructure value."""
 
 from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Self
 
 from httk.atomistic.models.protonetstructure.backend import ProtonetstructureBackend
 from httk.atomistic.models.protonettype.protonettype import _checked_net, _class_runs, _standard
@@ -18,12 +18,22 @@ class Protonetstructure(ProtonetstructureBackend):
 
     Site ``n`` is ``occupations[n-1]``. Each class is one contiguous run of a single
     species name (occupations naming one species carry equal ``Species``), the runs
-    ordered as for :class:`~httk.atomistic.Protonettype`; tied classes keep the given
-    order, since it fixes the net's site numbering. No symmetry work is done.
+    ordered as for :class:`~httk.atomistic.Protonettype`. Net translations may be any integer
+    vectors. The net is canonicalized as for :class:`~httk.atomistic.Protonettype`, over the
+    equivalent descriptions with the same anonymous bare key; where several give the canonical
+    net, the smallest species-name tuple in class order wins (D3), so species can move between
+    the Wyckoff letters of those descriptions (``Protonetstructure(225, [("a", Na), ("b", Cl)])``
+    gives ``AB_cF8_225_a_b__:Cl-Na``), unlike in :class:`~httk.atomistic.BareProtostructure`.
+    :func:`~httk.atomistic.canonical_protonetstructure` also minimises the bare part; for a
+    canonical bare part the two agree.
 
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: Occupied Wyckoff positions and their species, in site order.
     :param net: The net rows ``(i, j, k, n1, n2, n3)``, with ``i <= j``.
+    :raises ValueError: If the input is malformed or the canonical net needs a translation
+        outside -5..+4, which the notation cannot write (D4).
+    :raises CanonicalizationLimitError: If the net search exceeds its 120 s deadline, or an
+        enclosing canonicalization budget.
     """
 
     kind: ClassVar[str] = "protonetstructure"
@@ -33,6 +43,34 @@ class Protonetstructure(ProtonetstructureBackend):
         spacegroup: Spacegroup | int,
         occupations: Sequence[WyckoffOccupation | tuple[str, Species]],
         net: Sequence[Sequence[int]] = (),
+    ) -> None:
+        from httk.atomistic.symmetry.canonical_classification import _protonetstructure_net
+        from httk.atomistic.symmetry.limits import _active, _budget_scope
+
+        self._assign(spacegroup, occupations, net, writable=False)
+        with _budget_scope(120.0 if _active.get() is None else None):  # an enclosing budget governs
+            canonical = _protonetstructure_net(self, preserve_chirality=True, own_bare=True)
+        self._spacegroup, self._occupations, self._net = canonical.spacegroup, canonical.occupations, canonical.net
+
+    @classmethod
+    def _of(
+        cls,
+        spacegroup: Spacegroup | int,
+        occupations: Sequence[WyckoffOccupation | tuple[str, Species]],
+        net: Sequence[Sequence[int]],
+    ) -> Self:
+        """Build from a trusted canonical net: validate the structure only, no canonicalization."""
+        instance = object.__new__(cls)
+        instance._assign(spacegroup, occupations, net, writable=True)
+        return instance
+
+    def _assign(
+        self,
+        spacegroup: Spacegroup | int,
+        occupations: Sequence[WyckoffOccupation | tuple[str, Species]],
+        net: Sequence[Sequence[int]],
+        *,
+        writable: bool,
     ) -> None:
         self._spacegroup = _standard(spacegroup, "Protonetstructure")
         self._occupations = tuple(
@@ -46,9 +84,8 @@ class Protonetstructure(ProtonetstructureBackend):
                     f"Protonetstructure occupations naming species {occupation.species.name!r} must carry equal Species"
                 )
         _class_runs(self._spacegroup, [(o.wyckoff, o.species.name) for o in self._occupations], "Protonetstructure")
-        self._net = _checked_net(
-            net, len(self._occupations), len(self._spacegroup.symmetry_operations), "Protonetstructure"
-        )
+        nops = len(self._spacegroup.symmetry_operations)
+        self._net = _checked_net(net, len(self._occupations), nops, "Protonetstructure", writable=writable)
 
     @classmethod
     def from_asu(cls, asu: "ASUStructure", bonds: Iterable[tuple[int, int, int, int, int, int]]) -> "Protonetstructure":
@@ -58,21 +95,19 @@ class Protonetstructure(ProtonetstructureBackend):
         to general-position operation ``k`` (identity = 1) plus lattice translation ``n``
         applied to the reference atom of ``asu.wyckoff_sites[j-1]``. A reference atom is the
         first-listed Wyckoff coordinate at the site's free parameters, not reduced modulo one; no
-        geometry is used. Each bond stands for its whole symmetry orbit, so listing any one member
-        of an orbit is enough and repeats collapse. Which pairs are bonded is the caller's
-        responsibility: ``~`` means a covalent bond of unspecified order, dative bonds counted as
-        covalent. Sites are renumbered into site order; the result is not canonicalized.
-
-        Bonds are relative to reference atoms computed from the ASU's free parameters as stored.
-        httk's loaders store them reduced into [0, 1); unreduced parameters can push a bond's
-        translation outside the writable range -5..+4, which raises ``ValueError``.
+        geometry is used. The translation ``n`` is any integer vector, so the free parameters need
+        not be reduced into [0, 1). Each bond stands for its whole symmetry orbit, so listing any
+        one member of an orbit is enough and repeats collapse. Which pairs are bonded is the
+        caller's responsibility: ``~`` means a covalent bond of unspecified order, dative bonds
+        counted as covalent. The result is the constructor's: the anonymous bare description is
+        kept and the net is canonicalized (see :class:`Protonetstructure`).
 
         :param asu: The structure, in its space group's standard setting.
         :param bonds: The bonds ``(i, j, k, n1, n2, n3)``.
         :return: The protonetstructure value.
         :raises ValueError: If the setting is not standard, a site retains a representative, a
-            bond is malformed, out of range or bonds an atom to itself, or a translation cannot
-            be written.
+            bond is malformed, out of range or bonds an atom to itself, or the canonical net needs
+            a translation outside -5..+4 (D4).
         """
         from httk.atomistic.models.prototype.notation import class_order_key
         from httk.atomistic.symmetry.protonet import _tables
