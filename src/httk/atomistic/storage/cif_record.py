@@ -196,8 +196,8 @@ def _cif_structure_from_record(record: "CIFStructureRecord") -> CIFStructure:
 class CIFStructureRecord:
     """Store a :class:`~httk.atomistic.CIFStructure` losslessly.
 
-    Two records are equal, and have equal content ids, exactly when their blocks are equal:
-    whitespace and quoting are not stored, comments and their placement are.
+    Two records are equal, and have equal content ids, exactly when their blocks are equal
+    under the content rule of :class:`~httk.atomistic.CIFStructure`.
 
     :param block_name: The block name as written.
     :param dialect: ``"cif"`` or ``"mcif"``.

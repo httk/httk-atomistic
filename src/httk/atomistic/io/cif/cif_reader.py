@@ -1084,11 +1084,10 @@ def read_cif(
     With ``lossless=True`` the result is one :class:`~httk.atomistic.io.cif.CIFBlock` per ``data_`` block, keeping
     data names, comments, numbers and every item in written order. Its syntax is CIF1, full
     CIF2 when line 1 is the CIF2 magic code, or the magnetic CIF syntax (CIF1 plus lists,
-    ``dialect="mcif"``) under ``allow_cif2``. What it normalises: whitespace, quote style, line
-    ends, a byte-order mark, comments inside CIF2 lists and tables (moved after the value), and,
-    under ``pragmatic``, a bare value followed by more words on its line (joined as the fast
-    reader joins it) and a quote left open at the line end (the rest of the line, opening quote
-    included). Broken syntax raises ``ValueError`` with a line number, including inputs the fast
+    ``dialect="mcif"``) under ``allow_cif2``. What it keeps follows the content rule of
+    :class:`~httk.atomistic.CIFStructure`; under ``pragmatic`` it also joins a bare value
+    followed by more words on its line (as the fast reader joins it) and reads a quote left open
+    at the line end as the rest of the line, opening quote included. Broken syntax raises ``ValueError`` with a line number, including inputs the fast
     reader tolerates: a value without a data name, a data name without a value, a malformed loop
     (also under ``repair``), an unterminated text field, and content before the first ``data_``.
 

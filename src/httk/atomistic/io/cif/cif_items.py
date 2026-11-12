@@ -19,8 +19,8 @@
 
 A :class:`CIFBlock` holds exactly what a CIF data block says, in written order: data items,
 loops, comments and save frames, with numbers kept as written
-(:class:`~httk.core.DecimalScalar`). It knows nothing about structures. Whitespace and quote
-style are not part of the model; whether a comment is inline or on its own line is.
+(:class:`~httk.core.DecimalScalar`). It knows nothing about structures. What is part of the
+model follows the content rule of :class:`~httk.atomistic.CIFStructure`.
 """
 
 from collections.abc import Iterable

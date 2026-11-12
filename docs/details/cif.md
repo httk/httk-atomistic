@@ -458,16 +458,29 @@ uncertainty and its spelling, so `0.50`, `0.5`, `1.2345(6)`, `12(1)`, `1.5e-3`, 
 occupancies, displacement parameters or bond distances as a
 {py:class}`~httk.core.DecimalVector`; `FracVector(...)` of it is exact.
 
-**Equivalence.** Two files are equivalent when they read to equal blocks: the same blocks in the
-same order, each with the same items in the same order, the same data names, values and
-comments in the same places. Whitespace and line breaks outside text fields and strings, quote
-style, line ends, the encoding, a byte-order mark, trailing comment whitespace and blank lines
-do not matter, with three exceptions that are content: quoting that changes a value's kind
-(`'1.5'` is a string, `1.5` a number), runs of spaces inside a joined value (D1 below), and a
-blank line before or among the file's leading comment lines, which ends the header (an empty
-header when the file starts with a blank line) and makes the later comments the first block's
-leading comments. Whether a comment shares its line with the token
-before it is content too. Writing, reading and writing again gives identical text.
+**The content rule.** This is the one definitive statement of what a block's content is; equal
+content means equal blocks and equal content ids. A block's content is its name, its dialect,
+the file's header, its leading comments, and its items in order: data names, values and
+comments in their places. Two files are equivalent when they read to the same blocks in the
+same order. Whitespace and quoting are not
+content: whitespace and line breaks outside text fields and strings, quote style, line ends,
+the encoding, a byte-order mark, trailing comment whitespace and blank lines do not matter,
+except that these four are content:
+
+1. **A comment's line placement:** a comment inline after a token (`_x 1 # c`) differs from
+   the same comment on its own line.
+2. **Quotes that change a value's kind:** `'1.5'` is a string and `1.5` a number; `'?'` and
+   `'.'` are strings and `?` and `.` gaps.
+3. **Where the file header ends:** a blank line before or among the file's leading comment
+   lines ends the header (an empty header when the file starts with a blank line) and makes the
+   later comments the first block's leading comments.
+4. **Runs of spaces inside a pragmatically joined value** (D1 below): `P  21/c` differs from
+   `P 21/c`.
+
+Inside a CIF2 list or table a comment's placement is not content: the comment moves to just
+after the value (D5 below).
+
+Writing, reading and writing again gives identical text.
 
 **Conversion.** {py:meth}`~httk.atomistic.CIFStructure.resolve`, or constructing a structure
 view such as `ASUStructureView(cs)` or `UnitcellStructureView(cs)`, gives what `load()` gives
@@ -496,9 +509,9 @@ same header and dialect, and a block other than the last cannot end with an own-
 {py:class}`~httk.atomistic.CIFStructureRecord` (registered as `atomistic-cif-structure`, entry
 family `structures`) stores a `CIFStructure`: its block name, dialect, a `canonical_form`
 version, and the header, leading comments and items as one canonical JSON text. Equal blocks
-have equal content ids: files that are equivalent in the sense above give the same id, and a
-different comment or comment placement, a quote that changes a value's kind, or a blank line
-inside the header gives a different one. The stored text cannot be queried by
+have equal content ids: files that are equivalent under the content rule above give the same
+id, and any difference that rule counts as content gives a different one. The stored text
+cannot be queried by
 data name. Each block of a file is an independent entry: keep the order and ids of a file's
 blocks yourself, and identical blocks deduplicate. MongoDB's 16 MB document limit bounds one
 block.
@@ -557,7 +570,7 @@ repository fixtures and the sampled COD and MAGNDATA files no loaded structure c
   data block name". Accepted limit: many items on one line still take time quadratic in the
   line's length, as each item copies the rest of the line (about half a second for 20 000
   items on one line).
-- **FP4.** In a loop, a data name, `data_` or `loop_` on the same line after a quoted value or a
+- **FP4.** In a loop, a data name on the same line after a quoted value or a
   closing `;` was read as a value. It now ends the loop, also in a loop that structure reading
   skips, so a structural item there (such as `_cell_length_a`) is kept.
 

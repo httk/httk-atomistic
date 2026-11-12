@@ -311,6 +311,10 @@ def _reads(text: str) -> CIFStructure:
 def test_identity_ignores_whitespace_and_quoting_but_not_comments() -> None:
     plain = "#h\ndata_a\n_x 'one two' # c\nloop_\n_y\n_z\n1 b\n2 'c'\n"
     respaced = "#h\ndata_a\n_x\n  \"one two\"   # c\nloop_ _y _z\n1 'b' 2\n c\n"
+    crlf = "\ufeff#h\r\n\r\ndata_a\r\n\r\n_x \"one two\" # c  \r\nloop_\r\n_y _z\r\n1 b 2 c\r\n\r\n"
+    assert _reads(plain) == _reads(crlf) and content_id(_reads(plain)) == content_id(_reads(crlf))
+    in_list, after = "#\\#CIF_2.0\ndata_a\n_x [1 # c\n2]\n", "#\\#CIF_2.0\ndata_a\n_x [1 2]\n# c\n"
+    assert _reads(in_list) == _reads(after) and content_id(_reads(in_list)) == content_id(_reads(after))  # D5
     moved = "#h\ndata_a\n_x 'one two'\n# c\nloop_\n_y\n_z\n1 b\n2 'c'\n"
     other = "#h\ndata_a\n_x 'one two' # d\nloop_\n_y\n_z\n1 b\n2 'c'\n"
     ids = [content_id(_reads(text)) for text in (plain, respaced, moved, other)]
@@ -319,6 +323,22 @@ def test_identity_ignores_whitespace_and_quoting_but_not_comments() -> None:
     assert _reads(plain) == _reads(respaced)
     assert content_id(_reads(plain.replace("data_a", "data_A"))) != ids[0]
     assert content_id(dataclasses.replace(_reads(plain), dialect="mcif")) != ids[0]
+
+
+@pytest.mark.parametrize(
+    ("left", "right"),
+    (
+        ("data_a\n_x 1 # c\n", "data_a\n_x 1\n# c\n"),  # 1: a comment's line placement
+        ("data_a\n_x '1.5'\n", "data_a\n_x 1.5\n"),  # 2: quotes that change a value's kind
+        ("data_a\n_x '?'\n", "data_a\n_x ?\n"),
+        ("#h\n#g\ndata_a\n_x 1\n", "#h\n\n#g\ndata_a\n_x 1\n"),  # 3: where the header ends
+        ("#h\ndata_a\n_x 1\n", "\n#h\ndata_a\n_x 1\n"),
+        ("data_a\n_x P  21/c\n", "data_a\n_x P 21/c\n"),  # 4: spaces inside a joined value
+    ),
+)
+def test_each_exception_of_the_content_rule_is_content(left: str, right: str) -> None:
+    assert _reads(left) != _reads(right)
+    assert content_id(_reads(left)) != content_id(_reads(right))
 
 
 def test_every_value_kind_round_trips_through_the_record() -> None:

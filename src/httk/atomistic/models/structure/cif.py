@@ -56,6 +56,23 @@ class CIFStructure(CIFBlock, StructureBackend):
     :class:`~httk.atomistic.CIFStructureRecord` becomes one with
     ``httk.core.coerce(record, CIFStructure)``.
 
+    The content rule, which decides equality and the content id: the content is the block name,
+    the dialect, the file's header, the leading comments, and the items in order (data names,
+    values and comments in their places). Whitespace and quoting are not content (whitespace
+    and line breaks outside text fields and strings, quote style, line ends, the encoding, a
+    byte-order mark, trailing comment whitespace and blank lines), except that these four are
+    content:
+
+    1. a comment's line placement, inline after a token or on its own line;
+    2. quotes that change a value's kind: ``'1.5'`` is a string and ``1.5`` a number, ``'?'``
+       a string and ``?`` a gap;
+    3. where the file header ends: a blank line before or among the leading comment lines ends
+       the header, and the later comments lead the first block;
+    4. runs of spaces inside a pragmatically joined value: ``P  21/c`` differs from ``P 21/c``.
+
+    Inside a CIF2 list or table a comment's placement is not content: it moves to just after
+    the value.
+
     :param name: The block name as written (after ``data_``).
     :param items: The block's items in written order.
     :param header: The file's header comment lines.
