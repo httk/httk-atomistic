@@ -938,10 +938,10 @@ their content identity. There are three versions, one per family:
 
 A label-rule change therefore bumps all three, while a change to the
 representative or to the net leaves the other families' records untouched. The
-label version is 2, since the monoclinic and P-1 labels became independent of the
-cell. The refined version is 3, since the representative's cell and sites did
-too and its label now equals the bare label as a string. The net version is 3,
-since the monoclinic nets with periodic components became cell-independent as well. Saving requires the family's current version, and turning a record of
+label version is 3, the refined version 4 and the net version 4, since species
+classes replaced species names in every label, the hand is kept in Sohncke
+groups at every level, and labels that could not be determined within the time
+budget are stored with an `X` marker. Saving requires the family's current version, and turning a record of
 another version back into a value raises `ValueError` naming the family: its
 canonical form changed, so rebuild the database. Saving a protonet record also checks that its net
 is the canonical one for its bare description; a non-canonical net is rejected,

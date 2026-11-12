@@ -13,6 +13,6 @@ representative bumps the refined version only; a change to the net rule bumps th
 version only.
 """
 
-_LABEL_FORM_VERSION = 2
-_REFINED_FORM_VERSION = 3
-_NET_FORM_VERSION = 3
+_LABEL_FORM_VERSION = 3
+_REFINED_FORM_VERSION = 4
+_NET_FORM_VERSION = 4

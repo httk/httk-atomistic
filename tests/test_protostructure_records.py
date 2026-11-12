@@ -132,12 +132,12 @@ def test_protostructure_record_optional_forms_have_distinct_pinned_identities() 
     )
     expected_ids = (
         # representative species sorted: the stored representative lists its classes by name (Cl, Na)
-        "e18c876a1626b5f42d3520e826b0698acc48a4efcdf28d07262599cf95d64829",
+        "6eb1e32a00e579479623dadb8dca7b5ff3aa8f8f74f62ae3f440fc2e697aab67",
         # dropped precision: the "Na"/"Cl" shorthand reads concentration 1.0 (precision 1/10), and
         # the occupations now store the species classes, which carry no precision
-        "7826b14198f9cd5a0fff351142b1af74a97c28040965cad25500d2bd03792ba9",
+        "15a74b87acb0180ce3bbe88e638c98d9565fd72dfa8836f59060c523de1e9be0",
         # representative species sorted, as the first pin
-        "e37f88ff0eb841b4ef0bd3565a3930c951d06fc271fe7d4b2fa23b060f9d47c2",
+        "68b7b88a2733e601030bc5a37096f2c3731a18f7d83a2d140b301ded8b97a772",
     )
 
     records = tuple(_protostructure_record_from_value(value) for value in values)
@@ -170,9 +170,9 @@ def test_prototype_record_optional_forms_have_distinct_pinned_identities() -> No
         Prototype(representative=representative, discriminator="001"),
     )
     expected_ids = (
-        "7eb177b7b5f712ab92a648719a7dc5d17f1d302190f37be6d783c32da855f994",
-        "90549089e24a826d2b82522835029f603b52ec014dca2753de924e07f612d64e",
-        "42e93384d36f738953dd69f34ad6c87cde8eaf82dde0556ed82d0a5bd2f8d460",
+        "76b2d569448f16bbf2ec526c873ac5bf1b10b03c25cb55ca06cbda69ff1ee58e",
+        "10faf3d755a6938ba2e8829b2949457bfc81a8f42d658b4d2aed4847c50d630b",
+        "2d237043c2618b574ec7505a23a5d4c8a8759dfab253650cdcd2083f6dce7bb4",
     )
 
     records = tuple(_prototype_record_from_value(value) for value in values)
@@ -364,13 +364,13 @@ def test_bare_record_identity_pins_match_models() -> None:
         (
             _rocksalt_prototype(),
             _bare_prototype_record_from_value,
-            "7a0ab0f11ac5dd2115c28b5a6e99d5a591ae3cdc23b4255438788302603124dc",
+            "a956ffd456fd01f2102719a17c5b928d694a58c4cf170843765e016d0acf6c55",
         ),
         (
             _rocksalt(),
             _bare_protostructure_record_from_value,
             # dropped precision: the "Na"/"Cl" shorthand's 1/10 concentration precision is not stored
-            "41a5afd34d37e5991919e81071f0fd157b5c803a54c160d9028982860716de85",
+            "4ea3b27c42b816d15560646a8bca3ae87014b04a3454104a134f0a3db94a1d6a",
         ),
     ):
         assert content_id(value) == content_id(project(value)) == expected
