@@ -126,9 +126,19 @@ def _cif_quote(text: str, mode: _Mode, *, key: bool = False) -> str:
     raise ValueError(f"the string {text[:60]!r} cannot be written in {syntax} syntax")
 
 
+def _check_utf8(text: str) -> str:
+    """Return ``text``, or raise for a string UTF-8 cannot encode (a lone surrogate)."""
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        raise ValueError(f"CIF text must be encodable as UTF-8: {text[:60]!r}") from None
+    return text
+
+
 def _check_name(name: object, what: str) -> str:
     if not isinstance(name, str):
         raise TypeError(f"a CIF {what} must be a str, not {type(name).__name__}")
+    _check_utf8(name)
     if not name or any(c.isspace() for c in name):
         raise ValueError(f"a CIF {what} must be non-empty without whitespace: {name!r}")
     return name
@@ -147,7 +157,9 @@ def _normalize_value(value: object, depth: int = 0) -> CIFValue:
         if isinstance(value.value, DecimalGap):
             raise ValueError("a CIF gap is a DecimalGap value, not a DecimalScalar")
         return value
-    if isinstance(value, (str, CIFTextField, DecimalGap)):
+    if isinstance(value, str):
+        return _check_utf8(value)
+    if isinstance(value, (CIFTextField, DecimalGap)):
         return value
     if isinstance(value, (tuple, CIFTable)):
         if depth >= _MAX_NESTING:
@@ -262,6 +274,7 @@ class CIFComment:
             raise TypeError("CIFComment takes a str text and a bool inline flag")
         if "\n" in self.text or "\r" in self.text or self.text != self.text.rstrip():
             raise ValueError(f"CIF comment text has a line break or trailing whitespace: {self.text[:60]!r}")
+        _check_utf8(self.text)
 
 
 @dataclass(frozen=True)
@@ -280,6 +293,7 @@ class CIFTextField:
             raise TypeError("CIFTextField takes a str")
         if "\n;" in self.text or "\r" in self.text:
             raise ValueError("a CIF text field cannot contain a line starting with ';' or a carriage return")
+        _check_utf8(self.text)
 
 
 @dataclass(frozen=True)
@@ -295,6 +309,8 @@ class CIFTable:
         entries = tuple((key, _normalize_value(value, 1)) for key, value in self.entries)
         if not all(isinstance(key, str) for key, _ in entries):
             raise TypeError("CIF table keys are str")
+        for key, _ in entries:
+            _check_utf8(key)
         if len({key for key, _ in entries}) != len(entries):
             raise ValueError("CIF table keys must be unique")
         object.__setattr__(self, "entries", entries)

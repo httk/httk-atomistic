@@ -47,11 +47,13 @@ def test_taxonomy_entry_families_and_records_are_registered() -> None:
         "atomistic-protostructure",
         "atomistic-bare-prototype",
         "atomistic-bare-protostructure",
+        "atomistic-cif-structure",
     } <= records
     assert resolve_entry_record("atomistic-bare-prototype").__name__ == "BarePrototypeRecord"
     assert resolve_entry_record("atomistic-bare-protostructure").__name__ == "BareProtostructureRecord"
     assert resolve_entry_record("atomistic-prototype").__name__ == "PrototypeRecord"
     assert resolve_entry_record("atomistic-protostructure").__name__ == "ProtostructureRecord"
+    assert resolve_entry_record("atomistic-cif-structure").__name__ == "CIFStructureRecord"
     assert not {"prototemplates", "structuretypes"} & families
     assert not {"atomistic-prototemplate", "atomistic-structuretype"} & records
 

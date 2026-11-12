@@ -96,6 +96,12 @@ register_entry_record(
     family="structures",
     record="httk.atomistic.storage.records:ASUStructureRecord",
 )
+
+register_entry_record(
+    name="atomistic-cif-structure",
+    family="structures",
+    record="httk.atomistic.storage.cif_record:CIFStructureRecord",
+)
 register_entry_record(
     name="atomistic-trajectory",
     record="httk.atomistic.storage.records:TrajectoryRecord",

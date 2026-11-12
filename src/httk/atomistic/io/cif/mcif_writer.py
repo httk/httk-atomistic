@@ -22,6 +22,7 @@ import os
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, cast
 
+from .cif_items import CIFBlock
 from .cif_writer import _neutral_cif_block, write_cif
 
 
@@ -80,7 +81,8 @@ def _write_mcif_payload(
     r"""Write the neutral mCIF payload returned by the magnetic-structure serializer.
 
     :param destination: Filename or open text stream receiving the mCIF text.
-    :param data: The neutral mCIF payload, either a single block or a ``blocks`` sequence.
+    :param data: The neutral mCIF payload, either a single block or a ``blocks`` sequence, or
+        lossless ``cif_blocks``, which are written as they are.
     :param approximate: Whether lossy rounding of a cell with no exact CIF form is allowed
         (default) rather than refused, mirroring :func:`_write_cif_payload`.
     :param exact_companions: Whether to emit the non-standard ``_httk_*_exact`` companion columns
@@ -89,6 +91,10 @@ def _write_mcif_payload(
     :param \**kwargs: Remaining low-level :func:`write_cif` options (``header``, ``max_line_length``).
     :raises ValueError: If a block requires approximation and ``approximate`` is ``False``.
     """
+    cif_blocks = data.get("cif_blocks")
+    if cif_blocks is not None:  # lossless blocks carry their own header and need no rounding
+        write_cif(destination, cast(Iterable[CIFBlock], cif_blocks), **cast(dict[str, Any], kwargs))
+        return
     blocks = data.get("blocks")
     if blocks is None:
         blocks = [data]

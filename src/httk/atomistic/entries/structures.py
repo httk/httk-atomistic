@@ -325,25 +325,32 @@ class StructureEntryProvider(EntryProvider):
     def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
         """Project the provider's structures into OPTIMADE records.
 
-        ``None`` entries produce rows with null structure properties.
+        ``None`` entries produce rows with null structure properties, and so do CIF blocks and
+        structures and their records, which are not converted while serving (with ``structure_features``
+        ``[]``).
 
         :param entry_type: The entry type to project.
         :return: The projected records.
         :raises KeyError: If ``entry_type`` is not ``structures``.
         """
+        from httk.atomistic.io.cif.cif_items import CIFBlock
+        from httk.atomistic.storage.cif_record import CIFStructureRecord
+
         if entry_type != "structures":
             raise KeyError("StructureEntryProvider serves only the 'structures' entry type.")
         records: list[dict[str, Any]] = []
         for entry_id, value in self._entries.items():
-            structure = None if value is None else _as_structure(value)
+            # A CIF block is served as stored, never converted: a null row without features.
+            cif = isinstance(value, (CIFBlock, CIFStructureRecord))
+            structure = None if value is None or cif else _as_structure(value)
+            # A bare CIFStructure has no entry metadata; its record does.
+            metadata: Any = value if isinstance(value, CIFStructureRecord) else None if cif else structure
             record: dict[str, Any] = {
                 "__id": entry_id,
                 "type": StructureEntry.type,
-                "immutable_id": None if structure is None else structure.immutable_id,
+                "immutable_id": None if metadata is None else metadata.immutable_id,
                 "last_modified": (
-                    None
-                    if structure is None or structure.last_modified is None
-                    else structure.last_modified.isoformat()
+                    None if metadata is None or metadata.last_modified is None else metadata.last_modified.isoformat()
                 ),
             }
             if structure is None:
@@ -353,6 +360,8 @@ class StructureEntryProvider(EntryProvider):
                 record.update(charge_properties(None))
                 record.update(count_properties(None))
                 record.update(moment_properties(None))
+                if cif:
+                    record["structure_features"] = []
             else:
                 record.update(_structure_projection(structure))
                 # Provider-specific setting/precision fields remain extensions to the

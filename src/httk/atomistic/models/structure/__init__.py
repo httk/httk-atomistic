@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from .api import StructureAPI
 from .asu import ASUStructure, FundamentalDomainStructure, SiteBond, WyckoffSite
 from .backend import StructureBackend
+from .cif import CIFStructure, read_cif_structures
 from .comparison import same_crystal
 from .datastream import DatastreamStructure
 from .like import StructureLike
@@ -28,6 +29,7 @@ from .view import StructureView
 __all__ = [
     "ASUStructure",
     "ASUStructureView",
+    "CIFStructure",
     "DatastreamStructure",
     "FundamentalDomainStructure",
     "NumericUnitcellStructure",
@@ -48,6 +50,7 @@ __all__ = [
     "UnitcellStructureView",
     "WyckoffSite",
     "initialize_semantics",
+    "read_cif_structures",
     "same_crystal",
     "validate_descriptive_formula",
     "validate_hill_formula",

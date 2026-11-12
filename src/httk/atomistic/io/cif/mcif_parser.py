@@ -645,6 +645,11 @@ def read_mcif_asus(
     """
     _check_load_precision(precision, "read_mcif_asus")
     cifblocks, header = read_cif(source, allow_cif2=True, repair=repair)
+    return _mcif_payload(cifblocks, header, repair=repair)
+
+
+def _mcif_payload(cifblocks: list[tuple[str, dict[str, Any]]], header: str, *, repair: bool = False) -> dict[str, Any]:
+    """Build the loaded-mCIF payload from the fast reader's blocks and header."""
     blocks = []
     unparsed = []
     for name, cifblock in cifblocks:

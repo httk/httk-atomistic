@@ -9,6 +9,7 @@ from httk.atomistic.models.protonetstructure.backend import ProtonetstructureBac
 from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
+from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
@@ -17,7 +18,9 @@ class BondedProtonetstructure(ProtonetstructureBackend):
 
     The value is :meth:`Protonetstructure.from_asu <httk.atomistic.Protonetstructure.from_asu>`
     of the structure and its own network. A view whose unwrapped source is such a structure
-    (``UnitcellStructureView(asu)``) is accepted too; a structure without a network is declined.
+    (``UnitcellStructureView(asu)``) is accepted too, and so is a lazy structure backend whose
+    ``resolve()`` gives one (a :class:`~httk.atomistic.CIFStructure`); a structure without a
+    network is declined.
 
     :param obj: The fundamental-domain structure with a bond network.
     """
@@ -35,6 +38,9 @@ class BondedProtonetstructure(ProtonetstructureBackend):
         if hints and hints.get("kind", cls.kind) != cls.kind:
             return None
         source = obj if isinstance(obj, FundamentalDomainStructure) else unwrap(obj)
+        if isinstance(source, StructureBackend) and not isinstance(source, FundamentalDomainStructure):
+            resolve = getattr(source, "resolve", None)  # a lazy source such as a CIFStructure
+            source = resolve() if callable(resolve) else source
         return cls(source) if isinstance(source, FundamentalDomainStructure) and source.bonds is not None else None
 
     def __init__(self, obj: FundamentalDomainStructure) -> None:

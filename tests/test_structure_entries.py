@@ -10,6 +10,7 @@ from httk.atomistic import (
     Assembly,
     ASUStructure,
     ASUStructureRecord,
+    CIFStructureRecord,
     FundamentalDomainStructureRecord,
     NumericUnitcellStructureRecord,
     StructureEntryProvider,
@@ -326,6 +327,7 @@ def test_registration_discovered_via_httk_core() -> None:
     assert resolve_entry_record("atomistic-fundamental-domain-structure") is FundamentalDomainStructureRecord
     assert resolve_entry_record("atomistic-asu-structure") is ASUStructureRecord
     assert resolve_entry_record("atomistic-numeric-unitcell-structure") is NumericUnitcellStructureRecord
+    assert resolve_entry_record("atomistic-cif-structure") is CIFStructureRecord
     factory = resolve_callable(entry_providers.require("atomistic-structures").handler)
     provider = factory({"s-1": _nacl_like()})
     assert isinstance(provider, StructureEntryProvider)

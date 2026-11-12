@@ -1984,12 +1984,23 @@ def _read_cif_for_atomistic(
     from httk.atomistic.io.cif import read_cif
 
     _check_load_precision(precision, "CIF reader")
-    from httk.atomistic.io.cif.cif_parser import cifblock_to_asu
-
     if repair:
         raw_blocks, header = read_cif(source, allow_cif2=False, repair=True, structural_only=True)
     else:
         raw_blocks, header = read_cif(source, allow_cif2=False, structural_only=True)
+    return _cif_payload(raw_blocks, header, allow_large_cif_uncertainty=allow_large_cif_uncertainty, repair=repair)
+
+
+def _cif_payload(
+    raw_blocks: list[tuple[str, dict[str, Any]]],
+    header: str,
+    *,
+    allow_large_cif_uncertainty: bool = False,
+    repair: bool = False,
+) -> Mapping[str, Any]:
+    """Build the loaded-CIF payload from the fast reader's structural blocks and header."""
+    from httk.atomistic.io.cif.cif_parser import cifblock_to_asu
+
     blocks = []
     unparsed = []
     for name, raw_block in raw_blocks:

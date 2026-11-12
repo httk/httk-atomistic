@@ -336,6 +336,28 @@ def _block(
     }
 
 
+def _cif_blocks_payload(obj: Any, dialect: str) -> Mapping[str, object] | None:
+    """Return the lossless payload of CIF structures (or their records), or ``None`` for other inputs.
+
+    One block or a list of them is written as it is; its dialect must be the file's.
+    """
+    from httk.atomistic.models.structure.cif import CIFStructure
+
+    entries = list(obj) if isinstance(obj, (list, tuple)) else [obj]
+    blocks = [CIFStructure._backend_adopt(entry) for entry in entries]
+    if None in blocks:
+        if isinstance(obj, list) and any(block is not None for block in blocks):
+            raise TypeError("a list saved as CIF blocks must hold only CIF structures, their records or CIF blocks")
+        return None
+    for block in blocks:
+        if block is not None and block.dialect != dialect:
+            raise ValueError(
+                f"CIF block {block.name!r} has dialect {block.dialect!r}; save it as .{block.dialect} "
+                f"(or format={block.dialect!r}), not as {dialect!r}"
+            )
+    return {"format": dialect, "cif_blocks": tuple(blocks)}
+
+
 def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
     """Serialize a structure to CIF's exact neutral channels.
 
@@ -355,7 +377,12 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
     values would rebuild a different oriented basis) is rounded and the block is flagged
     ``approximate``; the CIF writer renders such a block by default and refuses it only when the
     caller asks for the strict guarantee with ``approximate=False``.
+
+    A :class:`~httk.atomistic.CIFStructure`, its record, or a list of them is written
+    losslessly instead, block by block.
     """
+    if (blocks := _cif_blocks_payload(obj, "cif")) is not None:
+        return blocks
     if isinstance(obj, FundamentalDomainStructure):
         _require_cif_projection(obj)
         setting = obj.setting()
@@ -465,6 +492,9 @@ def _mcif_payload_from_structure(obj: Any) -> Mapping[str, object]:
     ``moment_component_esds``, and ``moment_symmforms``) are not written, so a round-trip through
     :func:`read_mcif_asus` preserves the moments themselves but drops that refinement metadata.
 
+    A :class:`~httk.atomistic.CIFStructure` of dialect ``"mcif"``, its record, or a list of
+    them is written losslessly instead, block by block.
+
     :param obj: The magnetic structure to serialize.
     :return: A neutral mCIF payload with one block.
     :raises TypeError: If ``obj`` is not a :class:`SymopsStructure` (a plain unit-cell or a
@@ -472,6 +502,8 @@ def _mcif_payload_from_structure(obj: Any) -> Mapping[str, object]:
     :raises ValueError: If a listed moment cannot be projected onto the crystal-axis frame, or a
         listed site expands to several atom rows so moments cannot be aligned by label.
     """
+    if (blocks := _cif_blocks_payload(obj, "mcif")) is not None:
+        return blocks
     structure = unwrap(obj) if isinstance(obj, StructureView) else obj
     if not isinstance(structure, SymopsStructure):
         raise TypeError(

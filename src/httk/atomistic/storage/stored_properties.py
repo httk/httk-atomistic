@@ -899,6 +899,8 @@ def _used_species_scope(context: QueryContext, site_scope: QueryScope, site_name
 
 
 def _feature_predicate(context: QueryContext, name: str, species: QueryScope, backing: str) -> QueryExpression:
+    if backing == "cif":  # a stored CIF block serves no features
+        return context.always_false()
     # The numeric backing has float moment columns but no assemblies or declared composition.
     numeric = backing == "numeric"
     if name == "assemblies":
@@ -1314,6 +1316,25 @@ def asymmetric_unit_structure_properties() -> Mapping[str, StoredPropertyProject
     :return: The property declaration map for asymmetric-unit records.
     """
     return _domain_structure_properties(asymmetric_unit=True)
+
+
+def cif_structure_properties() -> Mapping[str, StoredPropertyProjection]:
+    """Build the stored-property declarations for CIF structure records.
+
+    A stored CIF block is never converted while serving: ``last_modified`` is served and
+    queried, ``structure_features`` is ``[]`` and every other structure property is null.
+
+    :return: The property declaration map for CIF structure records.
+    """
+    return {
+        "last_modified": StoredPropertyProjection(
+            response=_response("last_modified", "cif"), query=_timestamp_query, sort=_string_sort(("last_modified",))
+        ),
+        "structure_features": StoredPropertyProjection(
+            response=lambda _record: [],
+            query=_structure_features_query(lambda _context: cast(QueryScope, None), "cif"),
+        ),
+    }
 
 
 class _FloatConstantContext:

@@ -1,3 +1,4 @@
+from .cif_record import CIFStructureRecord
 from .records import (
     AssemblyGroupRecord,
     AssemblyRecord,
@@ -43,6 +44,7 @@ __all__ = [
     "AssemblyRecord",
     "BareProtostructureRecord",
     "BarePrototypeRecord",
+    "CIFStructureRecord",
     "CellRecord",
     "ChemicalCompositionRecord",
     "CompositionAmountRecord",

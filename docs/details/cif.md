@@ -411,6 +411,141 @@ The current writer is an ordinary structural CIF writer, not a magnetic-CIF seri
 does not provide a magnetic-moment round-trip guarantee; do not use an ordinary `.cif` save
 as archival output for native mCIF moments.
 
+## Lossless reading and `CIFStructure`
+
+`load()` builds a structure and keeps only what the structure model has a channel for. To keep
+everything a CIF file says, read it losslessly instead. A {py:class}`~httk.atomistic.CIFStructure`
+holds one data block exactly as written: its data items, loops, comments and save frames in
+written order, its data names in their written case, its numbers as written, the file's header
+comment lines and the comments before the `data_` line. Every data block is one, also a block
+without atoms or a block that is not a valid structure. It is immutable, and two blocks with the
+same content are equal.
+
+```python
+import httk.core
+from httk.atomistic import ASUStructureView, CIFStructure, read_cif_structures
+
+cs = CIFStructure.from_cif("example.cif")      # a file with exactly one data block
+blocks = read_cif_structures("several.cif")    # one CIFStructure per data block, in order
+
+print(cs.value("_journal_name_full"))          # lookup ignores case
+print(cs.numbers("_cell_length_a", "_cell_length_b", "_cell_length_c"))
+asu = ASUStructureView(cs).resolve()           # equals httk.core.load("example.cif")
+httk.core.save(blocks, "copy.cif")             # an equivalent file
+```
+
+`load()` is unchanged: a lossless block is always asked for explicitly. The dialect is
+`"mcif"` for a `.mcif` path or stream name (also compressed) and `"cif"` otherwise, or set with
+`dialect=`.
+A `"cif"` block is CIF1, or full CIF2 (lists, tables, triple quotes) when line 1 is the CIF2
+magic code `#\#CIF_2.0`; an `"mcif"` block uses the magnetic CIF reader's syntax, CIF1 plus
+lists, whatever its header says. The lower-level form is `read_cif(source, lossless=True)`,
+which returns the syntax-only {py:class}`~httk.atomistic.io.cif.CIFBlock` objects that
+`write_cif` writes back.
+
+**Values.** A value is a string, a text field (its raw lines between the `;` delimiters), a
+number, a gap (`?` unknown or `.` inapplicable), or a CIF2 list or table. A quoted `'1.5'`, `'?'`
+or `'.'` is a string, and the writer quotes whatever would otherwise read as something else. A
+number is a {py:class}`~httk.core.DecimalScalar`: its exact decimal value, its standard
+uncertainty and its spelling, so `0.50`, `0.5`, `1.2345(6)`, `12(1)`, `1.5e-3`, `007` and
+`+1.0` all come back as written. `numbers(...)` gives cell parameters, coordinates,
+occupancies, displacement parameters or bond distances as a
+{py:class}`~httk.core.DecimalVector`; `FracVector(...)` of it is exact.
+
+**Equivalence.** Two files are equivalent when they read to equal blocks: the same blocks in the
+same order, each with the same items in the same order, the same data names, values and
+comments in the same places. Whitespace and line breaks outside text fields and strings, quote
+style, line ends, the encoding, a byte-order mark, trailing comment whitespace and blank lines
+do not matter, with three exceptions that are content: quoting that changes a value's kind
+(`'1.5'` is a string, `1.5` a number), runs of spaces inside a joined value (D1 below), and a
+blank line before or among the file's leading comment lines, which ends the header (an empty
+header when the file starts with a blank line) and makes the later comments the first block's
+leading comments. Whether a comment shares its line with the token
+before it is content too. Writing, reading and writing again gives identical text.
+
+**Conversion.** {py:meth}`~httk.atomistic.CIFStructure.resolve`, or constructing a structure
+view such as `ASUStructureView(cs)` or `UnitcellStructureView(cs)`, gives what `load()` gives
+for the block: an `ASUStructure` with its bond network for `"cif"`, a `SymopsStructure` or
+`ModulatedStructure` for `"mcif"`. `resolve(repair=True)` and
+`resolve(allow_large_cif_uncertainty=True)` correspond to the `load()` options. A block that
+is valid CIF but not a valid structure (no cell, an occupancy above one, operations that
+contradict the declared group, labels repeated at one position, an element that cannot be
+inferred, a coordinate that is not a number) reads and round-trips; converting it raises the
+error `load()` raises. Two deliberate differences: a data name the structure reader consumes
+(the cell, symmetry, atom-site and magnetic names; not the bond-loop names, so a bond loop never
+stops a conversion) may occur only once, also across save frames, where `load()` silently keeps
+the last occurrence; and in a `"cif"` block, a CIF2 list or table as the value of a name the
+structure reader reads (bond-loop names included) raises. Repeated names the structure reader
+does not consume are kept and ignored.
+
+**Saving.** `httk.core.save(cs, "x.cif")` and `save([cs, ...], "x.cif")` write the blocks
+losslessly, with the header once at the top; a `.mcif` destination needs `"mcif"` blocks and a
+`.cif` one `"cif"` blocks. `header=` is refused, `max_line_length=` wraps loop rows, and
+`approximate` and `exact_companions` have no effect. Blocks written together must carry the
+same header and dialect, and a block other than the last cannot end with an own-line comment
+(it would read back as the next block's leading comment).
+
+### Storing and serving CIF blocks
+
+{py:class}`~httk.atomistic.CIFStructureRecord` (registered as `atomistic-cif-structure`, entry
+family `structures`) stores a `CIFStructure`: its block name, dialect, a `canonical_form`
+version, and the header, leading comments and items as one canonical JSON text. Equal blocks
+have equal content ids: files that are equivalent in the sense above give the same id, and a
+different comment or comment placement, a quote that changes a value's kind, or a blank line
+inside the header gives a different one. The stored text cannot be queried by
+data name. Each block of a file is an independent entry: keep the order and ids of a file's
+blocks yourself, and identical blocks deduplicate. MongoDB's 16 MB document limit bounds one
+block.
+
+`store.save(cs)` stores a block. `httk.core.coerce(record, CIFStructure)` turns a fetched record
+back into the block; the record also converts like any structure source, so
+`ASUStructureView(record)` builds the structure, and `httk.core.save(records, "x.cif")` writes
+the blocks back. A record built under another `canonical_form` is refused with a request to
+rebuild the database. When serving over OPTIMADE, a CIF block is never converted: the in-memory
+provider and every store backend serve the same row, with the record's `id`, `immutable_id`
+and `last_modified`, `structure_features` `[]` and every other structure property null.
+`last_modified` filters and sorts; `structure_features` filters as an empty list.
+
+### What lossless reading normalises or rejects
+
+These are the deviations from a round trip, and the inputs where it differs from `load()`:
+
+- **D1, joined values** (under `pragmatic`, the default). A bare value followed on its line by
+  more words is joined into one string as the fast reader joins it, up to the next data name
+  or keyword and cut at `#` (the rest is an inline comment). It is written back quoted. A join
+  that cannot be quoted in the syntax raises.
+- **D2.** Lossless reading has no other `pragmatic` behaviour: a Unicode minus stays a string
+  and a blank first text-field line stays as written.
+- **D3.** `repair` does not drop a malformed loop; a loop whose values do not fill its rows
+  raises.
+- **D4.** Under `repair`, a file that is not UTF-8 is decoded as Latin-1 with the warning
+  `load()` gives. Output is UTF-8 with `\n` line ends; a byte-order mark is dropped.
+- **D5.** A comment inside a CIF2 list or table moves to just after the value.
+- **D6.** The header is written once per file.
+- **D7.** A number-shaped token whose exponent is outside `Decimal`'s range is a string; it is
+  written bare and reads back as the same string.
+- **D8.** Inputs `load()` accepts but lossless reading rejects or reads differently: a value
+  without a data name, a data name without a value (also before `loop_` or a block code), `stop_`
+  or `global_` as a value, an unterminated text field, content before the first `data_`, an
+  unwritable string such as a D9 value holding both `' ` and `" `, and a D1 cut inside a quote
+  raise; `ab#c` is one word (the fast reader cuts it at `#`), a quote directly before `]` in an
+  mCIF list, an upper-case keyword after a joined value, a multi-line mCIF list and comments in
+  a loop header are read correctly where the fast reader does not. For such inputs conversion
+  follows the correct reading, so it can differ from `load()`.
+- **D9, an unterminated quote** (under `pragmatic`, CIF1 and mCIF only). A quote left open at
+  the end of its line reads as the rest of the line, opening quote included, as the fast reader
+  reads it; the value round-trips, its quoting does not. Otherwise it raises.
+
+Known fast-reader issues, not fixed (they affect `load()`, not lossless reading):
+
+- **FP1.** A comment in a loop header corrupts the loop: `_atom_site_label # c` becomes a
+  column named `atom_site_label # c`, an own-line comment among the names ends the header, and
+  an inline comment on the `loop_` line empties it.
+- **FP2.** A loop name followed by a value on its line becomes part of the column name; only
+  loops that structure reading does not use have been seen with it.
+- **FP3.** Splitting a joined value is quadratic in the run of spaces that follows it (seconds
+  at tens of thousands of spaces).
+
 ## `httk symmetry info`
 
 The command loads through the general structure-reader registry, so CIF, mCIF, POSCAR, and
@@ -451,11 +586,13 @@ The current sampled COD instances are recorded in the workspace's `DATA/cod_issu
 | Function | Role |
 | --- | --- |
 | `read_cif()` | Parse text into normalized raw blocks and a header |
+| `read_cif(..., lossless=True)` | Parse text into lossless `CIFBlock` objects |
+| `CIFStructure.from_cif()` / `read_cif_structures()` | Read lossless, structure-like blocks |
 | `read_cif_asus()` | Produce the neutral ordinary-CIF payload |
 | `read_mcif_asus()` | Produce the neutral magnetic-CIF payload |
 | `asu_structure_from_cif()` | Convert one neutral ordinary block into an `ASUStructure` |
 | `symops_structures_from_mcif()` | Convert neutral mCIF blocks into native magnetic or modulated structures |
-| `write_cif()` | Write low-level CIF blocks |
+| `write_cif()` | Write low-level CIF blocks, or lossless `CIFBlock` objects |
 | `httk.core.load()` / `save()` | Registered high-level I/O |
 
 Use the neutral payload when building a format tool that should not take on atomistic

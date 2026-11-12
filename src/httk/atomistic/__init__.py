@@ -55,6 +55,7 @@ from httk.atomistic.integrations import (
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, SiteBond, WyckoffSite
 from httk.atomistic.models.structure.asu_view import ASUStructureView
 from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.cif import CIFStructure, _coerce_cif_structure, read_cif_structures
 from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.models.structure.datastream import DatastreamStructure
 from httk.atomistic.models.structure.like import StructureLike
@@ -82,6 +83,7 @@ from httk.atomistic.models.trajectory import (
 from httk.atomistic.wavefunction import PlaneWaveFunctions, save_vesta, wavefunction_overlap
 from httk.atomistic.entries.structures import StructureEntry, StructureEntryProvider
 from httk.atomistic.entries.trajectories import TrajectoryEntry, TrajectoryEntryProvider
+from httk.atomistic.storage.cif_record import CIFStructureRecord
 from httk.atomistic.storage.records import (
     ASUStructureRecord,
     BarePrototypeRecord,
@@ -295,6 +297,7 @@ ProtonettypeBackend.backend_classes = [DerivedProtonettype, ProtonettypeLabelStr
 ProtonetstructureBackend.backend_classes = [ProtonetstructureLabelString, BondedProtonetstructure]
 PrototypeBackend.backend_classes = [DerivedPrototype]
 register_coercer(view_class_coercer([ChemicalFormulaView, FormulatypeView, AnonymousFormulaView, CompositionView]), Any)
+register_coercer(_coerce_cif_structure, CIFStructure)
 StructureBackend.backend_classes = [
     RecordStructure,
     OptimadeStructure,
@@ -302,6 +305,7 @@ StructureBackend.backend_classes = [
     _NumericStructureBackend,
     ASEAtoms,
     PymatgenStructure,
+    CIFStructure,
     DatastreamStructure,
 ]
 CellBackend.backend_classes = [RecordCell, PlainCell, CellParams]
@@ -321,6 +325,7 @@ NumericUnitcellStructure.__httk_storage_record__ = NumericUnitcellStructureRecor
 FundamentalDomainStructure.__httk_storage_record__ = FundamentalDomainStructureRecord
 ASUStructure.__httk_storage_record__ = ASUStructureRecord
 ASUStructureView.__httk_storage_record__ = ASUStructureRecord
+CIFStructure.__httk_storage_record__ = CIFStructureRecord
 Trajectory.__httk_storage_record__ = TrajectoryRecord
 TrajectoryView.__httk_storage_record__ = TrajectoryRecord
 BarePrototype.__httk_storage_record__ = BarePrototypeRecord
@@ -366,6 +371,8 @@ __all__ = [
     "BarePrototypeRecord",
     "BarePrototypeView",
     "BondedProtonetstructure",
+    "CIFStructure",
+    "CIFStructureRecord",
     "CanonicalizationLimitError",
     "CartesianSiteMoments",
     "CartesianSiteMomentsView",
@@ -517,6 +524,7 @@ __all__ = [
     "normalize_chirality",
     "orthogonal_supercell",
     "primitive_cell",
+    "read_cif_structures",
     "recognize_asu",
     "represent_like",
     "rerepresent",

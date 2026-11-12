@@ -581,7 +581,8 @@ def _write_cif_payload(
     options (``header``, ``max_line_length``) here.
 
     :param destination: Filename or open text stream receiving the CIF text.
-    :param data: The neutral CIF payload, either a single block or a ``blocks`` sequence.
+    :param data: The neutral CIF payload, either a single block or a ``blocks`` sequence, or
+        lossless ``cif_blocks``, which are written as they are.
     :param approximate: Whether lossy rounding of a cell with no exact CIF form is allowed
         (default) rather than refused.
     :param exact_companions: Whether to emit the non-standard ``_httk_*_exact`` companion columns
@@ -590,6 +591,10 @@ def _write_cif_payload(
     :param \**kwargs: Remaining low-level :func:`write_cif` options.
     :raises ValueError: If a block requires approximation and ``approximate`` is ``False``.
     """
+    cif_blocks = data.get("cif_blocks")
+    if cif_blocks is not None:  # lossless blocks carry their own header and need no rounding
+        write_cif(destination, cast(Iterable[CIFBlock], cif_blocks), **cast(dict[str, Any], kwargs))
+        return
     blocks = data.get("blocks")
     if blocks is None:
         blocks = [data]
