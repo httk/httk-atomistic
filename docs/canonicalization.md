@@ -290,7 +290,12 @@ recognition and no upward symmetry search.
     cannot handle remains in its proxy-selected entry.
 14. **Demote sites.** Expand each orbit and identify the most specific exact
     Wyckoff position that contains it. Replace a site that lies on a special
-    position. Repeat after a chirality flip.
+    position. Repeat after a chirality flip. Then re-describe a left-handed cell
+    as the same crystal in a right-handed one: by an improper group operation,
+    else (a Sohncke group) an improper normalizer action, else (an
+    enantiomorphic group) the inversion `f -> -f` with the basis negated, into
+    the partner group. The same re-description reads a left-handed declared
+    representative, or ASU, as the crystal wherever its letters become a label.
 15. **Apply chirality policy.** With `preserve_chirality=False`, if the group is
     the higher member of an enantiomorphic pair, map every point as
     `f -> -f mod 1`, keep the basis, re-identify complete orbits in the lower
@@ -333,20 +338,21 @@ recognition and no upward symmetry search.
     (`class_order_key`). In groups 2 to 15 the candidates are also taken after
     every kept cell change `σ` (see the classification section). Compare the pair
     `(anonymous, assignment)`, and retain the complete minimum tier. In groups 3
-    to 15 every `σ` reaching it contributes; in P-1 only the earliest.
-21. **Take both hands.** The candidate basis change is the group point-map
-    inverse transpose multiplied by the normalizer operation's inverse
-    transpose. If `-I` preserves the exact group operation set, every candidate
-    also appears with the basis change negated and inversion prepended to the
-    site operation; the discrete key of step 20 decides between the two.
+    to 15 every `σ` reaching it contributes; in P-1 only the earliest. In a
+    Sohncke group only proper descriptions (`σ·action` with total determinant
+    +1) compete, whatever `preserve_chirality` is: the two hands of a group that
+    is its own partner are compared in step 15 instead.
+21. **Keep right-handed descriptions.** The candidate basis change is the group
+    point-map inverse transpose multiplied by the normalizer operation's inverse
+    transpose. Candidates with a left-handed basis change are dropped: outside the
+    Sohncke groups an improper group point map gives each a right-handed twin with
+    the same keys, and in a Sohncke group the descriptions are proper.
 22. **Reduce the cell and choose the metric.** In groups 3 to 15 move every
     surviving candidate by each cell change of `K` (the cell changes that keep
     every letter and operation) to its least `(a·a, c·c, a·c)`, the reduction
-    key (see the classification section). Then compare
-    `(reduction key, full Gram row-major, left-handed flag)` and retain the
-    least. A left-handed basis survives only when no right-handed candidate ties
-    it on the discrete, reduction and metric tiers: every group with an improper
-    operation, or whose letters `-I` keeps, offers such a right-handed twin. Candidates that differ by a
+    key (see the classification section); in a Sohncke group only the cell changes
+    of `K` with determinant +1. Then compare `(reduction key, full Gram
+    row-major)` and retain the least. Candidates that differ by a
     lattice translation give the same result and are evaluated once.
 23. **Apply each distinct site action.** Apply `p' = p A + q mod 1`, transform
     the basis, and canonicalize translations and orbit representatives once per
@@ -368,8 +374,8 @@ recognition and no upward symmetry search.
     position instead. Sort sites by `(species name, Wyckoff letter, exact
     parameters)`.
 26. **Make the geometry key.** Compare
-    `(full metric row-major, right-handed-first flag, site key,
-    basis row-major)` and keep the least exact candidate. Materializing its selected basis uses the rational change
+    `(full metric row-major, site key, basis row-major)` and keep the least exact
+    candidate. Materializing its selected basis uses the rational change
     `R = B_new B_current^-1`; multiply cell precision by the maximum absolute
     row sum of `R` and leave coordinate precision unchanged.
 27. **Choose exact Cartesian orientation.** Construct the lower-triangular
@@ -381,20 +387,18 @@ recognition and no upward symmetry search.
     Otherwise retain the input global Cartesian rotation. This fallback is
     idempotent but cannot give a universal rotation-invariance guarantee for
     unsupported nested-radical metrics.
-29. **Preserve handedness.** The protostructure terminal keeps a left-handed
-    cell and uses a fixed left-handed Cartesian factor: inverting it would change
-    the letters its discrete key chose. (The legacy terminal first inverts a
-    left-handed cell jointly when inversion preserves the group, and uses the
-    fixed factor only where that map is invalid.) Never silently change the
+29. **Preserve handedness.** The protostructure terminal's cell is right-handed
+    (steps 14 and 21). (The legacy terminal first inverts a left-handed cell
+    jointly when inversion preserves the group, and uses a fixed left-handed
+    Cartesian factor only where that map is invalid.) Never silently change the
     physical chirality.
 30. **Select among entries.** Compare
-    `(discrete key at identity, reduction key, metric, left-handed flag, site key,
-    basis)` across the tied P-1 entries from step 12 and the enantiomer entries
-    of step 15.
+    `(discrete key at identity, reduction key, metric, site key, basis)` across
+    the tied P-1 entries from step 12 and the enantiomer entries of step 15.
 31. **Select anonymous geometry.** Across tied source assignments compare
     the named discrete key of step 20 (empty for the anonymous family), then
     `(IT number, Hall entry, metric, sorted(population,
-    sorted(Wyckoff letter, parameters)) by class, handedness, basis)`. The second
+    sorted(Wyckoff letter, parameters)) by class, basis)`. The second
     key contains no original chemical name.
 32. **Restore assignments.** Map synthetic names back to complete original
     `Species` values. Deduplicate by
@@ -562,7 +566,12 @@ stored order; each is crossed, as the outer loop, with sorted discrete
 translations. If inversion preserves the target group, prepend inversion to
 each member of that complete list and append those images. Deduplicate by first
 occurrence. When normalizing chirality, compose each target-group action after
-the source-to-lower-partner inversion. Python's first minimum wins an equal key.
+the source-to-lower-partner inversion. With `preserve_chirality=True` (the
+default) a Sohncke group uses only its proper actions, so a crystal and its mirror
+image can get different labels: in P4₂32 H on `i` with P on `b` gives
+`A3B_cP16_208_i_b:H-P`, and with P on `c` `A3B_cP16_208_i_c:H-P`, each the mirror
+image of the other. With `preserve_chirality=False` the improper actions are used
+too, and both give `A3B_cP16_208_i_b:H-P`. Python's first minimum wins an equal key.
 
 In the monoclinic groups (3 to 15) the cell in the plane perpendicular to `b` is
 a convention, and changes between its valid cells can exchange special positions;
@@ -595,7 +604,7 @@ is known by its 8 to 96 residues modulo 4. Each candidate's ac block is moved by
 every `X ∈ K` that minimises `(a·a, c·c, a·c)`, found exactly by a level-4
 enumeration in a Lagrange-reduced basis (first rows with `|y| ≤ 4`, second rows
 `±w + j·u` per admissible `j` modulo 4). That minimum over all classes is the
-reduction key; ties go on to the full metric, the handedness and the site key. No
+reduction key; ties go on to the full metric and the site key. No
 tier prefers a `σ` or the input's own description, so the representative's label,
 cell and sites do not depend on the input cell. The cell need not be the
 conventional reduced cell: keeping the letters can force a longer axis, e.g.
@@ -604,13 +613,13 @@ reaches the key is kept: the entry set is the Niggli cell with every proper metr
 automorphism, so that choice is already intrinsic; the stored P-1 cell is `σ`
 times the Niggli cell, intrinsic but not reduced within its class.
 
-The discrete key is chosen before the handedness. In a Sohncke group whose letters
-inversion exchanges, one hand of a crystal reaches the bare label only through a
-left-handed description, and its refined representative is then left-handed. For
-example, P4₂32 with H on `i` and P on `c` (structreading/208) gives
-`A3B_cP16_208_i_b:H-P` with a left-handed cell, and its mirror image gives the same
-label with a right-handed cell. The two refined values differ, as the crystals do;
-with `preserve_chirality=False` they are identified.
+In a Sohncke group the refined terminal uses only proper descriptions of a
+right-handed entry, so its label keeps the hand as the bare one does and its
+representative is the crystal itself in a right-handed cell. For example, P4₂32
+with H on `i` and P on `c` (structreading/208) gives `A3B_cP16_208_i_c:H-P`, and
+its mirror image `A3B_cP16_208_i_b:H-P`; with `preserve_chirality=False` both give
+`A3B_cP16_208_i_b:H-P`, with the right-handed representative of the hand that
+reaches it (for a pair group, of the lower partner).
 
 A refined value with no representative canonicalizes its bare base and retains
 its discriminator unchanged. A refined value with a representative rebuilds an
@@ -643,7 +652,10 @@ prototype or bare protostructure together with a symmetric covalent bonding net
 the materialized value alone and use no coordinates. The functions take
 `preserve_chirality` and `timeout`; with `preserve_chirality=False` the net is
 first transferred into the lower enantiomorphic group by the same inversion the
-bare routines use, and canonicalized with that group's own tables.
+bare routines use, and canonicalized with that group's own tables. With
+`preserve_chirality=True` a Sohncke group compares only proper descriptions (a
+monoclinic cell change times a coset action of determinant +1), so the net keeps
+the hand as the bare label does.
 
 The `Protonettype` and `Protonetstructure` constructors, and `from_asu`, run the
 same search restricted to the equivalent descriptions with the input's own bare

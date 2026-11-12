@@ -107,15 +107,19 @@ def scramble(
     rng: random.Random,
     change_description: bool = True,
     coset: Any = None,
+    keep_hand: bool = True,
 ) -> tuple[list[Site], list[Row]]:
     """Same net, other description: random coset, reference atoms, site/row order and row direction.
 
     ``change_description=False`` keeps the identity coset, and ``coset`` imposes one. In triclinic
     groups the random coset keeps the cell (a signed permutation matrix): there periodic nets are
-    canonical only relative to the cell (D7).
+    canonical only relative to the cell (D7). With ``keep_hand`` the random coset of a Sohncke group
+    is proper: an improper one describes the mirror image, which the kept hand tells apart.
     """
     if coset is None:
         cosets = tables.cosets if tables.spacegroup.it_number > 2 else [c for c in tables.cosets if keeps_cell(c)]
+        if keep_hand and all(operation.determinant() > 0 for operation in tables.spacegroup.symmetry_operations):
+            cosets = [c for c in cosets if coset_action(c).determinant() > 0]
         coset = rng.choice(cosets) if change_description else tables.cosets[0]
     letters = [coset_letter(coset, letter)[0] for _, letter in sites]
     rows = [
@@ -179,11 +183,12 @@ def synthetic_sweep(
     nets: int = 12,
     scrambles: int = 3,
     change_description: bool = True,
+    keep_hand: bool = True,
 ) -> int:
     """Invariance on exactly ``nets`` random nets of one group; returns how many were not invariant.
 
     ``net`` maps ``(sites, rows)`` to a comparable canonical result.  A drawn net without rows is
-    drawn again, at most 100 times per net.
+    drawn again, at most 100 times per net. ``keep_hand`` is passed to :func:`scramble`.
     """
     bad = 0
     for _ in range(nets):
@@ -195,7 +200,7 @@ def synthetic_sweep(
             raise AssertionError("random_net drew 100 nets without rows")
         seen = {net(sites, rows)}
         for _ in range(scrambles):
-            seen.add(net(*scramble(tables, sites, rows, rng, change_description)))
+            seen.add(net(*scramble(tables, sites, rows, rng, change_description, keep_hand=keep_hand)))
         bad += len(seen) > 1
     return bad
 

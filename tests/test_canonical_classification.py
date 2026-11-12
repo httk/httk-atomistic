@@ -26,21 +26,23 @@ from httk.atomistic.models.structuretype.anonymize import dummy_species
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.symmetry import canonical_classification as classification
 from httk.atomistic.symmetry.affine_operation import AffineOperation
-from httk.atomistic.symmetry.canonical import canonical_asu
+from httk.atomistic.symmetry.canonical import canonical_asu, canonicalize
 from httk.atomistic.symmetry.canonical_protostructure import (
     _ac_reduced,
     _apply_action,
     _discrete_candidates,
     _kernel_residues,
     _mirrored,
-    _own_enantiomorph_sohncke,
+    _sohncke,
     _with_basis,
     canonical_asu_protostructure_assignments,
 )
 from httk.atomistic.symmetry.lift import _canonical_sites, _site_key, _translation_normal_form
+from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.subgroups import _standard_input
 
 CELL = Cell(((5, 0, 0), (0, 6, 0), (0, 0, 7)))
+CUBIC_CELL = Cell(((6, 0, 0), (0, 6, 0), (0, 0, 6)))
 
 
 def _species(name: str) -> Species:
@@ -345,7 +347,7 @@ def _refined_value(asu: ASUStructure) -> tuple[Any, ...]:
     value = Protostructure(representative=asu)
     refined = classification.canonical_protostructure(value)
     representative = refined.representative
-    assert representative is not None
+    assert representative is not None and representative.cell.basis.det().sign() > 0
     metric, basis = representative.cell.metric(), representative.cell.basis
     return (
         str(refined.label),
@@ -410,29 +412,145 @@ def _enantiomer(asu: ASUStructure) -> ASUStructure:
     return _with_basis(_apply_action(asu, inversion), asu.cell.basis)
 
 
-@pytest.mark.parametrize("number", (208, 214))
-def test_both_hands_of_an_own_enantiomorph_sohncke_structure(number: int) -> None:
-    # P4_2 32 (b <-> c) and I4_1 32 (a <-> b): inversion exchanges letters, so one hand reaches the
-    # bare label only through a left-handed representative
+@pytest.mark.parametrize(
+    "number,labels,identified",
+    (
+        (208, ("A3B_cP16_208_i_c:H-P", "A3B_cP16_208_i_b:H-P"), "A3B_cP16_208_i_b:H-P"),
+        (214, ("A3B2C_cI48_214_f_e_a:Ag-Te-Au", "A3B2C_cI48_214_f_e_b:Ag-Te-Au"), "A3B2C_cI48_214_f_e_a:Ag-Te-Au"),
+    ),
+)
+def test_both_hands_of_an_own_enantiomorph_sohncke_structure(
+    number: int, labels: tuple[str, str], identified: str
+) -> None:
+    # P4_2 32 (b <-> c) and I4_1 32 (a <-> b): the mirror image exchanges letters. The kept hand uses
+    # proper descriptions only, so the hands get different labels and right-handed representatives
+    # that are the crystals themselves; preserve_chirality=False identifies them
     hands = (_fixture(f"structreading/{number}.cif"), _enantiomer(_fixture(f"structreading/{number}.cif")))
     values = [Protostructure(representative=hand) for hand in hands]
     refined = [classification.canonical_protostructure(value) for value in values]
-    bare = classification.canonical_bare_protostructure(values[0])
-    assert {str(result.label) for result in refined} == {str(bare.label)}
-    assert str(classification.canonical_bare_protostructure(values[1]).label) == str(bare.label)
+    assert tuple(str(result.label) for result in refined) == labels
+    assert tuple(str(classification.canonical_bare_protostructure(value).label) for value in values) == labels
     for value in values:
         assert str(classification.canonical_prototype(PrototypeView(value).unview()).label) == str(
             classification.canonical_bare_prototype(BarePrototypeView(value).unview()).label
         )
-    first, second = (result.representative for result in refined)
-    assert first is not None and second is not None
-    # mirror images: equal Gram matrix and fractional sites in bases of opposite handedness
-    assert first.cell.metric() == second.cell.metric()
-    assert first.wyckoff_sites == second.wyckoff_sites
-    assert first.cell.basis.det().sign() == -second.cell.basis.det().sign()
-    assert not same_crystal(first, second)
+    for result, label in zip(refined, labels, strict=True):
+        representative = result.representative
+        assert representative is not None and representative.cell.basis.det().sign() > 0
+        # the representative read in its own right-handed basis is the hand it came from
+        assert (
+            str(classification.canonical_bare_protostructure(Protostructure(representative=representative)).label)
+            == label
+        )
     flipped = [classification.canonical_protostructure(value, preserve_chirality=False) for value in values]
     assert flipped[0] == flipped[1]
+    assert str(flipped[0].label) == identified
+    assert {
+        str(classification.canonical_bare_protostructure(value, preserve_chirality=False).label) for value in values
+    } == {identified}
+    representative = flipped[0].representative
+    assert representative is not None and representative.cell.basis.det().sign() > 0
+
+
+CHIRALITY_TABLE: dict[str, tuple[Cell, int, list[tuple[str, tuple[F, ...], str]], str, str]] = {
+    # follow-up 3 §1: the input, its default label and its preserve_chirality=False label
+    "154": (
+        Cell([5, 5, 6, 90, 90, 120]),
+        154,
+        [("a", (F(47, 100),), "Si"), ("c", (F(41, 100), F(27, 100), F(1, 5)), "O")],
+        "A2B_hP9_154_c_a:O-Si",
+        "A2B_hP9_152_c_a:O-Si",
+    ),
+    "78": (
+        Cell([5, 5, 7, 90, 90, 90]),
+        78,
+        [("a", (F(1, 7), F(2, 9), F(3, 11)), "Se")],
+        "A_tP4_78_a:Se",
+        "A_tP4_76_a:Se",
+    ),
+    "208-b": (
+        CUBIC_CELL,
+        208,
+        [("i", (F(1, 7),), "H"), ("b", (), "P")],
+        "A3B_cP16_208_i_b:H-P",
+        "A3B_cP16_208_i_b:H-P",
+    ),
+    "208-c": (
+        CUBIC_CELL,
+        208,
+        [("i", (F(1, 7),), "H"), ("c", (), "P")],
+        "A3B_cP16_208_i_c:H-P",
+        "A3B_cP16_208_i_b:H-P",
+    ),
+}
+
+
+def _labels_of(asu: ASUStructure, preserve_chirality: bool) -> set[str]:
+    """Return the bare, refined and (with names) prototype labels of one ASU."""
+    value = Protostructure(representative=asu)
+    refined = classification.canonical_protostructure(value, preserve_chirality=preserve_chirality)
+    bare = classification.canonical_bare_protostructure(value, preserve_chirality=preserve_chirality)
+    prototype = classification.canonical_prototype(PrototypeView(value).unview(), preserve_chirality=preserve_chirality)
+    names = ":" + str(bare.label).split(":")[1]
+    return {str(refined.label), str(bare.label), str(prototype.label) + names}
+
+
+@pytest.mark.parametrize("name", CHIRALITY_TABLE)
+def test_chirality_table(name: str) -> None:
+    cell, it, sites, kept, identified = CHIRALITY_TABLE[name]
+    asu = ASUStructure(
+        cell, it, [WyckoffSite(*site) for site in sites], [_species(n) for n in dict.fromkeys(s[2] for s in sites)]
+    )
+    assert _labels_of(asu, True) == {kept}
+    assert _labels_of(asu, False) == {identified}
+    # the mirror image: the other 208 input, or the enantiomorphic partner
+    mirrored = {"208-b": "A3B_cP16_208_i_c:H-P", "208-c": "A3B_cP16_208_i_b:H-P"}.get(name, identified)
+    assert _labels_of(_mirrored(asu), True) == {mirrored}
+    assert _labels_of(_mirrored(asu), False) == {identified}
+
+
+def _p4232(letter: str, basis: Any = ((6, 0, 0), (0, 6, 0), (0, 0, 6)), **kwargs: Any) -> ASUStructure:
+    """P4_2 32 with H on i and P on ``letter``, in ``basis``."""
+    sites = [WyckoffSite("i", (F(1, 7),), "H"), WyckoffSite(letter, (), "P")]
+    return ASUStructure(Cell(basis), 208, sites, [_species("H"), _species("P")], **kwargs)
+
+
+def test_handedness_is_that_of_the_standard_basis_after_the_setting_transform() -> None:
+    # an identity cell with a det -1 setting transform: the standard basis is left-handed, so P on b
+    # describes the mirror image, the P-on-c crystal, at every entry point
+    swapped = _p4232("b", transform=SettingTransform(((0, 1, 0), (1, 0, 0), (0, 0, 1))))
+    label = "A3B_cP16_208_i_c:H-P"
+    assert str(BareProtostructureView(canonicalize(swapped, symmetry="declared")).unview().label) == label
+    assert str(classification.canonical_bare_protostructure(swapped).label) == label
+    assert str(classification.canonical_bare_protostructure(BareProtostructureView(swapped).unview()).label) == label
+
+
+def test_left_handed_declared_values_are_read_as_the_crystal() -> None:
+    # the P-on-b crystal written in the negated basis is the P-on-c crystal: the recognized bare
+    # value, the representative of a refined value and a template all read it so
+    left = _p4232("b", ((-6, 0, 0), (0, -6, 0), (0, 0, -6)))
+    assert str(classification.canonical_bare_protostructure(BareProtostructureView(left).unview()).label) == (
+        "A3B_cP16_208_i_c:H-P"
+    )
+    representative = Protostructure(representative=left).representative
+    assert representative is not None and representative.cell.basis.det().sign() > 0
+    template = FundamentalDomainTemplate(
+        Cell(((-6, 0, 0), (0, -6, 0), (0, 0, -6))),
+        208,
+        (WyckoffSite("i", (F(1, 7),), "A"), WyckoffSite("b", (), "B")),
+        (dummy_species("A"), dummy_species("B")),
+    )
+    assert str(classification.canonical_bare_prototype(BarePrototypeView(template).unview()).label) == (
+        "A3B_cP16_208_i_c"
+    )
+    prototype = Prototype(representative=template)
+    assert prototype.representative is not None and prototype.representative.cell.basis.det().sign() > 0
+    assert str(classification.canonical_bare_prototype(prototype).label) == "A3B_cP16_208_i_c"
+    # a right-handed template keeps its own reading
+    right = FundamentalDomainTemplate(
+        Cell(((6, 0, 0), (0, 6, 0), (0, 0, 6))), 208, template.wyckoff_sites, template.species
+    )
+    assert str(classification.canonical_bare_prototype(BarePrototypeView(right).unview()).label) == "A3B_cP16_208_i_b"
 
 
 def test_detect_mode_chooses_species_by_the_bare_key() -> None:
@@ -506,20 +624,42 @@ def _sohncke_fixtures() -> list[str]:
     names = []
     for name in _fixture_names():
         number = int(name.split("/")[1].split(".")[0]) if name.startswith("structreading") else None
-        if number is not None and _own_enantiomorph_sohncke(Spacegroup.standard(number)):
+        if number is not None and _sohncke(Spacegroup.standard(number)):
             names.append(name)
-    return names
+    # the COD Sohncke fixtures: P1, P2_1, P2_1 2_1 2_1
+    return [*names, "cod/1001844.cif", "cod/4326344.cif", "cod/7219102.cif"]
 
 
 @pytest.mark.extended
 @pytest.mark.parametrize("name", _sohncke_fixtures())
 def test_preserve_chirality_false_identifies_the_hands_of_every_sohncke_fixture(name: str) -> None:
-    # every own-enantiomorph Sohncke group among the structreading fixtures (numbered by group),
-    # including I4_1, I4_122 and F4_132, where the normalizing inversion needs an origin shift; the
-    # mirror image is the same fractions in the negated basis (inverting the coordinates through the
-    # origin would leave the group there)
+    # every Sohncke group among the structreading fixtures (numbered by group), including I4_1,
+    # I4_122 and F4_132, where the normalizing inversion needs an origin shift; the mirror image is
+    # the same fractions in the negated basis (inverting the coordinates through the origin would
+    # leave the group there). Bare and refined labels agree, and both representatives are right-handed
     asu = _fixture(name)
-    assert _hand_value(asu) == _hand_value(_mirrored(asu))
+    hands = (asu, _mirrored(asu))
+    values = [_hand_value(hand) for hand in hands]
+    assert values[0] == values[1]
+    # the representatives themselves, site order included (sorted, also with tied species
+    # assignments: 169, C and N on 4a); the recorded cell precision follows the description path
+    first, second = (
+        classification.canonical_protostructure(
+            Protostructure(representative=hand), preserve_chirality=False
+        ).representative
+        for hand in hands
+    )
+    assert first is not None and second is not None
+    assert first.wyckoff_sites == second.wyckoff_sites and same_crystal(first, second)
+    assert values[0][2] > 0
+    assert {
+        str(
+            classification.canonical_bare_protostructure(
+                Protostructure(representative=hand), preserve_chirality=False
+            ).label
+        )
+        for hand in hands
+    } == {values[0][0]}
 
 
 def test_declared_letter_more_general_than_its_point_is_the_documented_exception() -> None:

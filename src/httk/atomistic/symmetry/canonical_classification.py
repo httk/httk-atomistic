@@ -41,7 +41,7 @@ from httk.atomistic.models.structuretype.anonymize import dummy_species
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.symmetry._wyckoff_actions import compile_wyckoff_action
 from httk.atomistic.symmetry.affine_operation import AffineOperation
-from httk.atomistic.symmetry.canonical_protostructure import _canonical_protostructure_asu
+from httk.atomistic.symmetry.canonical_protostructure import _canonical_protostructure_asu, _sohncke
 from httk.atomistic.symmetry.lift import _discrete_normalizer_translations, _resetting_preserves_group
 from httk.atomistic.symmetry.limits import _budget_scope, _checkpoint
 from httk.atomistic.symmetry.setting_transform import SettingTransform
@@ -234,6 +234,11 @@ def _prototype_key(occupations: Iterable[tuple[str, str]], spacegroup: Spacegrou
     return tuple(sorted(class_order_key(letters, counts[label])[:2] for label, letters in groups.items()))
 
 
+def _proper_only(spacegroup: Spacegroup, preserve_chirality: bool) -> bool:
+    """Return whether only proper descriptions may be used: a kept hand in a Sohncke group."""
+    return preserve_chirality and _sohncke(spacegroup)
+
+
 def _chirality_target(spacegroup: Spacegroup, preserve_chirality: bool) -> Spacegroup:
     """Return the lower enantiomorphic partner when the policy requests it."""
     partner = spacegroup.record["it_number_enantiomorphic"]
@@ -249,8 +254,11 @@ def _canonical_bare(value: Any, *, prototype: bool, preserve_chirality: bool) ->
     if target != value.spacegroup:
         chirality = AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
     candidates = []
+    proper = _proper_only(target, preserve_chirality)
     for action in _actions(target):
         _checkpoint()
+        if proper and action.determinant() < 0:
+            continue  # a mirror description: it would give the other hand's label
         operation = action * chirality
         mapped = _mapped_occupations(value, operation, target)
         candidate = BarePrototype(target, mapped) if prototype else BareProtostructure(target, mapped)
@@ -266,7 +274,10 @@ def canonical_bare_protostructure(
 
     :param obj: A bare-protostructure-like value, converted through its View;
         structure-like inputs may require symmetry recognition.
-    :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+    :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+        (improper) description is then used, so a crystal and its mirror image can get different
+        labels. With ``False`` mirror descriptions are allowed and the higher member of an
+        enantiomorphic pair maps to the lower one, so both hands get one label.
     :return: A standalone canonical bare protostructure.
     """
     value = BareProtostructureView(obj).unview()
@@ -280,7 +291,10 @@ def canonical_bare_prototype(obj: BarePrototypeLike, *, preserve_chirality: bool
 
     :param obj: A bare-prototype-like value, converted through its View;
         structure-like inputs may require symmetry recognition.
-    :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+    :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+        (improper) description is then used, so a crystal and its mirror image can get different
+        labels. With ``False`` mirror descriptions are allowed and the higher member of an
+        enantiomorphic pair maps to the lower one, so both hands get one label.
     :return: A standalone canonical bare prototype.
     """
     value = BarePrototypeView(obj).unview()
@@ -370,7 +384,10 @@ def canonical_protonettype(
     cell httk's standardisation chooses (D7).
 
     :param obj: A protonettype-like value, converted through its View.
-    :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+    :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+        (improper) description is then used, so a crystal and its mirror image can get different
+        labels. With ``False`` mirror descriptions are allowed and the higher member of an
+        enantiomorphic pair maps to the lower one, so both hands get one label.
     :param timeout: Cooperative seconds for the search; ``None`` disables the deadline.
     :return: A standalone canonical protonettype.
     :raises ValueError: If the input is invalid, the canonical net needs a translation outside
@@ -405,7 +422,10 @@ def canonical_protonetstructure(
     cell httk's standardisation chooses (D7).
 
     :param obj: A protonetstructure-like value, converted through its View.
-    :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+    :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+        (improper) description is then used, so a crystal and its mirror image can get different
+        labels. With ``False`` mirror descriptions are allowed and the higher member of an
+        enantiomorphic pair maps to the lower one, so both hands get one label.
     :param timeout: Cooperative seconds for the search; ``None`` disables the deadline.
     :return: A standalone canonical protonetstructure.
     :raises ValueError: If the input is invalid, the canonical net needs a translation outside
@@ -516,7 +536,12 @@ def canonical_protostructure(obj: ProtostructureLike, *, preserve_chirality: boo
     """Return the exact canonical assigned refined classification.
 
     :param obj: A protostructure-like value.
-    :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+    :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+        (improper) description is then used, so a crystal and its mirror image can get different
+        labels. With ``False`` mirror descriptions are allowed and the higher member of an
+        enantiomorphic pair maps to the lower one, so both hands get one label.
+        The representative is right-handed; with ``True`` it is the crystal itself, with ``False``
+        it can be its mirror image.
     :return: A standalone canonical protostructure.
     """
     value = ProtostructureView(obj).unview()
@@ -533,7 +558,12 @@ def canonical_prototype(obj: PrototypeLike, *, preserve_chirality: bool = True) 
     """Return the exact canonical anonymous refined classification.
 
     :param obj: A prototype-like value.
-    :param preserve_chirality: Whether to retain the higher enantiomorphic group.
+    :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+        (improper) description is then used, so a crystal and its mirror image can get different
+        labels. With ``False`` mirror descriptions are allowed and the higher member of an
+        enantiomorphic pair maps to the lower one, so both hands get one label.
+        The representative is right-handed; with ``True`` it is the crystal itself, with ``False``
+        it can be its mirror image.
     :return: A standalone canonical prototype.
     """
     value = PrototypeView(obj).unview()

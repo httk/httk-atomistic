@@ -675,7 +675,7 @@ def _exact_codes(T, letters, number, rows):
 # ---------------------------------------------------------------------------------------------
 # the canonical form
 # ---------------------------------------------------------------------------------------------
-def canonical_net(it_number, sites, rows, class_order="formula"):
+def canonical_net(it_number, sites, rows, class_order="formula", hand=1):
     """sites: [(class_id, wyckoff_letter)] in any order; rows: [(i, j, (k, n1, n2, n3))] with 0-based
     site indices and elements relative to the sites' reference atoms.
 
@@ -689,14 +689,21 @@ def canonical_net(it_number, sites, rows, class_order="formula"):
     count first, then sorted Wyckoff letters.  class_order="letters" is the order httk-atomistic
     used before the reorder (letters only) and is kept only to reproduce old strings.
 
+    The hand is kept (preserve_chirality=True): in a Sohncke group only the cosets whose
+    determinant has the sign of ``hand``, the handedness of the given description's cell, are
+    descriptions of the same crystal; the others describe its mirror image.
+
     Returns a dict: 'groups' (canonical Wyckoff-letter groups of the bare prototype), 'net' (the
     string after '/'), 'classes' (class ids in label order), and 'realisations': every
     (coset, numbering, gauge) that produces the canonical string, for the species tie-break, for
     transporting parameters into the canonical gauge, and for automorphisms.
     """
     T = tables(it_number)
+    sohncke = all(operation.determinant() > 0 for operation in T.spacegroup.symmetry_operations)
     best = None
     for coset in T.cosets:
+        if sohncke and hand * coset["action"].determinant() < 0:
+            continue
         letters = {s: coset["letters"][letter][0] for s, (_, letter) in enumerate(sites)}
         moved = []
         for a, b, g in rows:

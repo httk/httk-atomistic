@@ -2950,7 +2950,7 @@ def _exact_triangular_basis(metric: SurdVector, *, left_handed: bool) -> SurdVec
     return basis
 
 
-def _canonical_orientation(structure: ASUStructure, *, keep_handedness: bool = False) -> ASUStructure:
+def _canonical_orientation(structure: ASUStructure) -> ASUStructure:
     """Put the cell in the standard crystallographic orientation for its exact Gram matrix.
 
     Equal crystals reached through different lifts can carry the same metric in different rotated
@@ -2966,15 +2966,9 @@ def _canonical_orientation(structure: ASUStructure, *, keep_handedness: bool = F
     fractions, so it need not).  A non-rational Gram whose canonical triangular factor would require
     nested radicals outside :class:`SurdVector`'s multiquadratic field cannot be reoriented exactly;
     that uncommon fallback is idempotent but retains the input's global Cartesian rotation.
-
-    With ``keep_handedness`` (the refined terminal, whose discrete key can require an improper
-    description in a Sohncke group) a left-handed basis is never inverted: inversion would change
-    Wyckoff letters there. It keeps the fixed left-handed Cartesian orientation instead.
     """
     left_handed = False
-    if keep_handedness and structure.cell.basis.det().sign() < 0:
-        left_handed = True
-    elif structure.cell.basis.det().sign() < 0:
+    if structure.cell.basis.det().sign() < 0:
         # Inversion as a basis change: basis -> -B (right-handed), coords -> -x, Cartesian identical.
         inversion_matrix = FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1)))
         inverted = _apply_normalizer_operation(

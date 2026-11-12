@@ -19,7 +19,9 @@ class Prototype(PrototypeBackend):
 
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: The occupied Wyckoff positions and canonical anonymous labels.
-    :param representative: An optional exact anonymous class anchor.
+    :param representative: An optional exact anonymous class anchor. A left-handed one is stored
+        as the same crystal in a right-handed basis, so its Wyckoff letters, and in an
+        enantiomorphic pair its group, read the crystal's hand.
     :param discriminator: An optional external class discriminator.
     :param prototype: An optional existing prototype whose base and unspecified optional
         fields are copied.
@@ -42,8 +44,10 @@ class Prototype(PrototypeBackend):
         if representative is not None:
             if not isinstance(representative, FundamentalDomainTemplate):
                 raise TypeError("Prototype representative must be a FundamentalDomainTemplate")
+            from httk.atomistic.symmetry.canonical_protostructure import _right_handed_template
+
             unview = getattr(representative, "unview", None)
-            representative = unview() if unview is not None else representative
+            representative = _right_handed_template(unview() if unview is not None else representative)
         if prototype is not None:
             if not isinstance(prototype, (Prototype, BarePrototype)):
                 from httk.atomistic.models.prototype.view import PrototypeView

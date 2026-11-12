@@ -241,10 +241,10 @@ refined value's label equals the canonical bare label as a string, species order
 included (a site declared on a more general letter than its point, e.g. on the
 general position at a special point, is demoted by the refined terminal only, so
 the labels then differ). Its representative (cell and
-sites) does not depend on the cell the input was given in. In a Sohncke group
-the representative can be left-handed: the label is chosen before the handedness,
-and inversion can exchange the letters (P4₂32 `b` and `c`), so one hand of a
-crystal reaches the bare label only in a left-handed cell. A P-1 representative
+sites) does not depend on the cell the input was given in, and its cell is
+right-handed. By default it is the crystal itself: a Sohncke group uses no mirror
+description, so the two hands of a crystal can get different labels (P4₂32 `b`
+and `c`). A P-1 representative
 keeps a fixed cell change of the Niggli cell, intrinsic but not reduced within
 its class.
 `FundamentalDomainTemplate.bare_prototype` extracts the discrete anonymous key.
@@ -344,15 +344,31 @@ source species and the symmetry those have (`P m -3 m` here).
 A structure with a site occupied only by `vacancy` has no classes, so its
 `Formulatype` and labels raise.
 
-A structure's canonicalization preserves chirality by default. Pass
+A structure's canonicalization preserves chirality by default: the canonical
+functions, the constructors, `from_asu` and the command line all default to
+`preserve_chirality=True`, and in a Sohncke group no mirror description is then
+used, so a crystal and its mirror image can get different labels (`154` and
+`152`, or in P4₂32 `A3B_cP16_208_i_b:H-P` and `A3B_cP16_208_i_c:H-P`). Pass
 `preserve_chirality=False` to the corresponding classification canonicalizer
-when a canonical `BareProtostructure` or `BarePrototype` label should identify
-the two members of an enantiomorphic pair. The same policy is available through
-`canonical_asu(preserve_chirality=False)` and `normalize_chirality`; see
-{doc}`asu`.
+when a label should identify the two hands: mirror descriptions are then used and
+the higher member of an enantiomorphic pair moves to the lower one. The same
+policy is available through `canonical_asu(preserve_chirality=False)` and
+`normalize_chirality`; see {doc}`asu`. Occupations given without a cell
+(`BareProtostructure(...)`, `BarePrototype(...)` and the `Protonettype` and
+`Protonetstructure` constructors) are read in a right-handed basis of the standard
+setting. A declared ASU or representative in a left-handed cell is re-described as
+the same crystal in a right-handed one first; `Protonetstructure.from_asu`, whose
+bonds name the declared description, instead refuses a left-handed cell in a
+Sohncke group.
+
+```{important}
 The structure methods `canonical_bare_protostructure()` and
-`canonical_bare_prototype()` retain their chirality-normalized convention: they
-recognize and canonicalize the structure, then canonicalize its bare projection.
+`canonical_bare_prototype()` are the exception: they **identify the two hands**
+(they behave as `preserve_chirality=False`). They recognize and canonicalize the
+structure, then canonicalize its bare projection, so a crystal and its mirror
+image get the same label from them. Use the classification canonicalizers to
+keep the hand.
+```
 
 ### httk labels are not AFLOW labels
 

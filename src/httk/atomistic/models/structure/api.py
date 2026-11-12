@@ -119,9 +119,12 @@ class StructureAPI(ABC):
     def canonical_bare_protostructure(self) -> "BareProtostructure":
         """Return the canonical assigned-species classification of this structure.
 
-        Enantiomorphic structures are deliberately collapsed to the lower-numbered
-        member of their space-group pair, so the result is independent of chirality. As for
-        every label, the structure of species classes is classified.
+        **Unlike every other canonical classification, this method identifies the two hands**:
+        it behaves as ``preserve_chirality=False``, so a crystal and its mirror image get the
+        same label, mirror descriptions are used and an enantiomorphic pair collapses to its
+        lower-numbered member. Use the classification canonicalizers, whose default keeps the
+        hand, to tell the hands apart. As for every label, the structure of species classes is
+        classified.
 
         :return: A standalone canonical protostructure value.
         """
@@ -136,9 +139,12 @@ class StructureAPI(ABC):
     def canonical_bare_prototype(self) -> "BarePrototype":
         """Return the canonical anonymous geometrical classification of this structure.
 
-        Enantiomorphic structures are deliberately collapsed to the lower-numbered
-        member of their space-group pair, so the result is independent of chirality. As for
-        every label, the structure of species classes is classified.
+        **Unlike every other canonical classification, this method identifies the two hands**:
+        it behaves as ``preserve_chirality=False``, so a crystal and its mirror image get the
+        same label, mirror descriptions are used and an enantiomorphic pair collapses to its
+        lower-numbered member. Use the classification canonicalizers, whose default keeps the
+        hand, to tell the hands apart. As for every label, the structure of species classes is
+        classified.
 
         :return: A standalone canonical prototype value.
         """

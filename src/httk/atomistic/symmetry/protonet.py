@@ -26,6 +26,7 @@ from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.canonical_classification import (
     _actions,
     _chirality_target,
+    _proper_only,
     _tabulated_actions,
     _target_letter,
 )
@@ -1153,9 +1154,12 @@ def _search(
         if rank0:
             indices = tables.tabulated
     # filter by the bare key first: only descriptions reaching the smallest (or the own) bare key compete
+    # a kept hand in a Sohncke group: proper descriptions only (cell change times coset action)
+    proper = _proper_only(tables.spacegroup, preserve_chirality)
     described = []
     for X in cells:
         cell_sites, cell_rows = sites, ordered
+        hand = X[0][0] * X[1][1] - X[0][1] * X[1][0]
         if X != ((1, 0), (0, 1)):
             cell = _cell(target, X)
             cell_sites = tuple((cls, cell.letter(letter)[0]) for cls, letter in sites)
@@ -1163,6 +1167,8 @@ def _search(
         for index in indices:
             _checkpoint()
             coset = tables.cosets[index]
+            if proper and hand * coset.action.determinant() < 0:
+                continue
             letters = {s: coset.letter(letter)[0] for s, (_, letter) in enumerate(cell_sites)}
             group_of, rank = _class_groups(tables, sites, letters)
             described.append((X, cell_sites, cell_rows, index, letters, group_of, rank, tuple(sorted(rank.values()))))

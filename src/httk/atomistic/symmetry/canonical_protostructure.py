@@ -23,10 +23,11 @@ from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.prototype.notation import class_order_key
 from httk.atomistic.models.species.classes import _class_structure, _species_class
 from httk.atomistic.models.species.species import Species
-from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
+from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.symmetry._anonymous import (
     _anonymous_p1_frame,
     _proxy_niggli_transform,
@@ -58,7 +59,6 @@ from httk.atomistic.symmetry.lift import (
     _niggli_reduced_entry,
     _p1_metric_automorphism_operations,
     _primitive_reduced_entry,
-    _resetting_preserves_group,
     _site_key,
     _translation_normal_form,
 )
@@ -77,7 +77,6 @@ class _Candidate:
     basis_change: FracVector
     metric_key: tuple[Any, ...]
     reduction_key: tuple[Any, ...]
-    left_handed: bool
 
 
 def _restore_source_metadata(result: ASUStructure, source: Any) -> ASUStructure:
@@ -110,13 +109,21 @@ def _restore_source_metadata(result: ASUStructure, source: Any) -> ASUStructure:
 
 
 def _restore_assignment(result: ASUStructure, assignment: tuple[Species, ...], source: Any) -> ASUStructure:
+    """Name the sites by the assignment, sorted by (species name, letter, parameters).
+
+    The sort makes the site order a function of the crystal: the anonymous order follows the
+    input's anonymous frame where species assignments tie.
+    """
     by_anonymous = {anonymous.name: original for anonymous, original in zip(result.species, assignment, strict=True)}
     restored = ASUStructure(
         result.cell,
         result.spacegroup,
-        tuple(
-            WyckoffSite(site.wyckoff, site.free_params, by_anonymous[site.species].name)
-            for site in result.wyckoff_sites
+        sorted(
+            (
+                WyckoffSite(site.wyckoff, site.free_params, by_anonymous[site.species].name)
+                for site in result.wyckoff_sites
+            ),
+            key=lambda site: (site.species, site.wyckoff, site.free_params.to_fractions()),
         ),
         source.species,
         transform=result.transform,
@@ -187,7 +194,6 @@ def _anonymous_geometry_key(structure: ASUStructure) -> tuple[Any, ...]:
         structure.spacegroup.hall_entry,
         tuple(metric._element((row, column)) for row in range(3) for column in range(3)),
         tuple(sorted((populations[name], tuple(sorted(values))) for name, values in classes.items())),
-        0 if structure.cell.basis.det().sign() > 0 else 1,
         _basis_key(structure.cell.basis),
     )
 
@@ -412,8 +418,10 @@ def _ac_reduced(ac: tuple[Any, Any, Any], residues: frozenset[_AcChange]) -> tup
     return key, list(dict.fromkeys(pair for value, pair in found if value == key))
 
 
-def _discrete_candidates(structure: ASUStructure, names: dict[str, str] | None = None) -> tuple[_Candidate, ...]:
-    """Return every description with the least discrete key, its cell reduced within its class.
+def _discrete_candidates(
+    structure: ASUStructure, names: dict[str, str] | None = None, *, proper: bool = False
+) -> tuple[_Candidate, ...]:
+    """Return every right-handed description with the least discrete key, its cell reduced within its class.
 
     In groups 2 to 15 the tabulated descriptions are also taken after each kept cell change
     ``sigma`` of the bare canonicalizers, so the least discrete key is the canonical bare one.
@@ -421,23 +429,25 @@ def _discrete_candidates(structure: ASUStructure, names: dict[str, str] | None =
     the cell changes ``K`` that keep every letter (:func:`_kernel_residues`) to its least
     ``(a·a, c·c, a·c)`` (:func:`_ac_reduced`), the reduction key; the cell does not depend on
     the input cell. In P-1 the earliest ``sigma`` is kept: the entry set is the Niggli cell with
-    every proper metric automorphism, so that choice is already intrinsic. Where ``-I`` keeps the
-    group each description is also taken with the inverted basis; the handedness is a later tier.
+    every proper metric automorphism, so that choice is already intrinsic. The structure must be
+    right-handed (:func:`_right_handed`); left-handed descriptions are skipped, since an improper
+    group operation gives each a right-handed twin with the same keys. With ``proper`` (a Sohncke
+    group) only proper descriptions compete, so the key is the hand-preserving bare one.
     """
     from httk.atomistic.symmetry.canonical_classification import _cell_changes, _letter_maps  # imports this module
 
     identity_matrix = FracVector.eye((3, 3))
-    inversion_matrix = FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1)))
-    inversion = AffineOperation(inversion_matrix, (0, 0, 0))
-    can_invert = _resetting_preserves_group(structure.spacegroup, inversion_matrix)
     point_operations = tuple((operation, operation.matrix.T().inv()) for operation in _point_operations(structure))
     metric_keys: dict[FracVector, tuple[Any, ...]] = {}
     source_metric = structure.cell.metric()
-    source_handedness = structure.cell.basis.det().sign()
     group = structure.spacegroup
     sigmas = _cell_changes(group) if group.is_standard_setting else (AffineOperation.identity(),)
     letter_maps = _letter_maps(group) if group.is_standard_setting else {}
     residues = _kernel_residues(group) if group.is_standard_setting and 3 <= group.it_number <= 15 else None
+    if residues is not None and proper:
+        # only the K changes of determinant +1 keep a proper description proper; residues modulo 4
+        # tell the determinants +1 and -1 apart
+        residues = frozenset(r for r in residues if (r[0][0] * r[1][1] - r[0][1] * r[1][0] - 1) % 4 == 0)
     bases: list[tuple[FracVector, AffineOperation]] = []
     for representative in _representatives(structure):
         _checkpoint()
@@ -449,18 +459,13 @@ def _discrete_candidates(structure: ASUStructure, names: dict[str, str] | None =
                 else AffineOperation(identity_matrix, translation) * representative
             )
             bases.extend((point_basis_change, operation) for _point_operation, point_basis_change in point_operations)
-    site_letters: dict[tuple[AffineOperation, bool], tuple[str, ...]] = {}
+    site_letters: dict[AffineOperation, tuple[str, ...]] = {}
     keys: dict[tuple[str, ...], _DiscreteKey] = {}
-    # both hands of every description: the discrete key chooses, and the handedness tier prefers
-    # a right-handed basis only among descriptions that reach it (a Sohncke group whose letters
-    # inversion exchanges can need a left-handed one)
-    flips = (False, True) if can_invert else (False,)
 
-    def targets(operation: AffineOperation, flip: bool, sigma_map: dict[str, str]) -> tuple[str, ...]:
-        # a linear sigma commutes with the inversion: inversion * sigma * operation = sigma * (inversion * operation)
-        if (operation, flip) not in site_letters:
-            site_letters[operation, flip] = _site_letters(structure, inversion * operation if flip else operation)
-        return tuple(sigma_map.get(letter, letter) for letter in site_letters[operation, flip])
+    def targets(operation: AffineOperation, sigma_map: dict[str, str]) -> tuple[str, ...]:
+        if operation not in site_letters:
+            site_letters[operation] = _site_letters(structure, operation)
+        return tuple(sigma_map.get(letter, letter) for letter in site_letters[operation])
 
     def key_of(letters: tuple[str, ...]) -> _DiscreteKey:
         if letters not in keys:
@@ -474,12 +479,21 @@ def _discrete_candidates(structure: ASUStructure, names: dict[str, str] | None =
             metric_keys[basis_change] = tuple(metric._element((row, column)) for row in range(3) for column in range(3))
         return metric_keys[basis_change]
 
-    distinct = {targets(operation, flip, {}) for _point, operation in bases for flip in flips}
+    # per determinant of the base action, so that with ``proper`` sigma only meets bases of its own sign
+    distinct: dict[bool, set[tuple[str, ...]]] = {True: set(), False: set()}
+    for _point, operation in bases:
+        distinct[operation.determinant() > 0].add(targets(operation, {}))
     sigma_keys = [
-        min(key_of(tuple(letter_maps.get(sigma, {}).get(letter, letter) for letter in letters)) for letters in distinct)
+        min(
+            (
+                key_of(tuple(letter_maps.get(sigma, {}).get(letter, letter) for letter in letters))
+                for letters in (distinct[sigma.determinant() > 0] if proper else distinct[True] | distinct[False])
+            ),
+            default=None,
+        )
         for sigma in sigmas
     ]
-    best_key = min(sigma_keys)
+    best_key = min(key for key in sigma_keys if key is not None)
     if residues is None:
         # P-1: the entry set is the Niggli(-proxy) cell with every tied proper metric automorphism,
         # closed under the input cell, so the earliest sigma of the fixed table that reaches the key
@@ -490,38 +504,35 @@ def _discrete_candidates(structure: ASUStructure, names: dict[str, str] | None =
     candidates: list[_Candidate] = []
 
     def add(site_operation: AffineOperation, basis_change: FracVector, reduction_key: tuple[Any, ...]) -> None:
-        left = basis_change.det().sign() * source_handedness < 0
-        candidates.append(_Candidate(site_operation, basis_change, metric_key_of(basis_change), reduction_key, left))
+        if basis_change.det().sign() > 0:
+            candidates.append(_Candidate(site_operation, basis_change, metric_key_of(basis_change), reduction_key))
 
     for sigma in sigmas:
         _checkpoint()
         sigma_map = letter_maps.get(sigma, {})
         for point_basis_change, base in bases:
-            for flip in flips:
-                _checkpoint()
-                if key_of(targets(base, flip, sigma_map)) != best_key:
-                    continue
-                operation = sigma * base
-                basis_change = point_basis_change * operation.matrix.T().inv()
-                site_operation = operation
-                if flip:
-                    basis_change = -basis_change
-                    site_operation = inversion * operation
-                if residues is None:
-                    add(site_operation, basis_change, ())
-                    continue
-                metric_key = metric_key_of(basis_change)
-                ac = (metric_key[0], metric_key[2], metric_key[8])
-                if ac not in reductions:
-                    reductions[ac] = _ac_reduced(ac, residues)
-                reduction_key, changes = reductions[ac]
-                for (y00, y01), (y10, y11) in changes:
-                    change = FracVector(((y00, 0, y01), (0, 1, 0), (y10, 0, y11)))
-                    add(
-                        AffineOperation(change.T().inv(), (0, 0, 0)) * site_operation,
-                        change * basis_change,
-                        reduction_key,
-                    )
+            _checkpoint()
+            if proper and sigma.determinant() != base.determinant():
+                continue
+            if key_of(targets(base, sigma_map)) != best_key:
+                continue
+            operation = sigma * base
+            basis_change = point_basis_change * operation.matrix.T().inv()
+            if residues is None:
+                add(operation, basis_change, ())
+                continue
+            metric_key = metric_key_of(basis_change)
+            ac = (metric_key[0], metric_key[2], metric_key[8])
+            if ac not in reductions:
+                reductions[ac] = _ac_reduced(ac, residues)
+            reduction_key, changes = reductions[ac]
+            for (y00, y01), (y10, y11) in changes:
+                change = FracVector(((y00, 0, y01), (0, 1, 0), (y10, 0, y11)))
+                add(
+                    AffineOperation(change.T().inv(), (0, 0, 0)) * operation,
+                    change * basis_change,
+                    reduction_key,
+                )
     return tuple(candidates)
 
 
@@ -535,7 +546,6 @@ def _geometric_choice(
     metric_key = tuple(metric._element((row, column)) for row in range(3) for column in range(3))
     key = (
         metric_key,
-        candidate.left_handed,
         _site_key(represented),
         _basis_key(represented.cell.basis),
     )
@@ -591,6 +601,81 @@ def _triclinic_proxy_entries(structure: ASUStructure) -> tuple[ASUStructure, ...
     return tuple(winners)
 
 
+@cache
+def _sohncke(spacegroup: Spacegroup) -> bool:
+    """Return whether every operation of the group is proper (the 65 Sohncke groups)."""
+    return all(operation.determinant() > 0 for operation in spacegroup.symmetry_operations)
+
+
+def _left_handed(domain: FundamentalDomainStructure) -> bool:
+    """Return whether the standard-setting basis a structure stands for, after its setting transform, is left-handed."""
+    return domain.cell.basis.det().sign() * domain.transform_from_standard.determinant() < 0
+
+
+def _right_handed(domain: FundamentalDomainStructure) -> ASUStructure:
+    """Return the same crystal as an ASU in a right-handed basis of the standard setting, or of its partner group.
+
+    A left-handed basis is re-described improperly: by an improper group operation, else (a
+    Sohncke group) an improper normalizer action, or, where none keeps the group, the inversion
+    into the enantiomorphic partner. Its letters then read the crystal's own hand. A re-described
+    structure keeps only its cell, sites, species, coordinate precision and charge; sites lose
+    retained representatives.
+    """
+    if isinstance(domain, ASUStructure) and not _left_handed(domain):
+        return domain
+    structure = _standard_input(
+        ASUStructure(
+            domain.cell,
+            domain.spacegroup,
+            domain.wyckoff_sites,
+            domain.species,
+            transform=domain.transform,
+            coordinate_precision=domain.coordinate_precision,
+            charge=domain.charge,
+        )
+    )
+    if structure.cell.basis.det().sign() > 0:
+        return structure
+    group = structure.spacegroup
+    partner = group.record["it_number_enantiomorphic"]
+    if partner is not None:
+        inversion = AffineOperation(FracVector(((-1, 0, 0), (0, -1, 0), (0, 0, -1))), (0, 0, 0))
+        target = Spacegroup.standard(partner)
+        sites = []
+        for site in structure.wyckoff_sites:
+            _checkpoint()
+            action = compile_wyckoff_action(group, inversion, site.wyckoff, target_spacegroup=target)
+            sites.append(WyckoffSite(action.target_letter, action.apply(site.free_params), site.species))
+        return ASUStructure(
+            Cell(-structure.cell.basis, precision=structure.cell.precision, periodicity=structure.cell.periodicity),
+            target,
+            sites,
+            structure.species,
+            transform=SettingTransform.identity(),
+            coordinate_precision=structure.coordinate_precision,
+            charge=structure.charge,
+        )
+    from httk.atomistic.symmetry.canonical_classification import _actions  # imports this module
+
+    improper = next((op for op in group.symmetry_operations if op.determinant() < 0), None)
+    if improper is None:
+        # each of the 43 Sohncke groups without a partner has an improper normalizer action
+        improper = next((action for action in _actions(group) if action.determinant() < 0), None)
+    if improper is None:
+        raise ValueError(f"no improper same-group action re-describes a left-handed cell of {group.setting}")
+    return _apply_action(structure, improper)
+
+
+def _right_handed_template(template: FundamentalDomainTemplate) -> FundamentalDomainTemplate:
+    """Return a template in a right-handed basis, re-described as by :func:`_right_handed`."""
+    if template.cell.basis.det().sign() > 0:
+        return template
+    turned = _right_handed(template._domain)
+    return FundamentalDomainTemplate(
+        turned.cell, turned.spacegroup, turned.wyckoff_sites, turned.species, turned.coordinate_precision
+    )
+
+
 def _canonical_protostructure_geometry_entry(
     current: ASUStructure,
     *,
@@ -600,15 +685,15 @@ def _canonical_protostructure_geometry_entry(
     """Run the finite exact terminal from one already normalized lattice entry."""
     if current.spacegroup.it_number in (1, 2):
         current = _niggli_reduced_entry(current)
-    current = _demote_sites(current)
+    current = _right_handed(_demote_sites(current))
     if not preserve_chirality:
         current = _enantiomorph(current) or current
         current = _demote_sites(current)
 
-    candidates = _discrete_candidates(current, names)
+    candidates = _discrete_candidates(current, names, proper=_sohncke(current.spacegroup))
 
     def tiers(candidate: _Candidate) -> tuple[Any, ...]:
-        return candidate.reduction_key, candidate.metric_key, candidate.left_handed
+        return candidate.reduction_key, candidate.metric_key
 
     least = min(tiers(candidate) for candidate in candidates)
     # descriptions differing by a lattice translation give the same result: evaluate one of them
@@ -629,7 +714,7 @@ def _canonical_protostructure_geometry_entry(
         for candidate in candidates
     )
     _key, best = min(choices, key=lambda value: value[0])
-    return _canonical_orientation(best, keep_handedness=True)
+    return _canonical_orientation(best)
 
 
 def _terminal_result_key(structure: ASUStructure, names: dict[str, str] | None = None) -> tuple[Any, ...]:
@@ -644,7 +729,6 @@ def _terminal_result_key(structure: ASUStructure, names: dict[str, str] | None =
         _discrete_key(structure, AffineOperation.identity(), names),
         reduction,
         tuple(metric._element((row, column)) for row in range(3) for column in range(3)),
-        structure.cell.basis.det().sign() < 0,
         _site_key(structure),
         _basis_key(structure.cell.basis),
     )
@@ -656,9 +740,7 @@ def _own_enantiomorph_sohncke(spacegroup: Spacegroup) -> bool:
     The enantiomer of :func:`_mirrored` keeps the group, so it applies whether or not the
     inversion through the origin keeps the group (I4₁, I4₁22 and F4₁32 need an origin shift).
     """
-    return spacegroup.record["it_number_enantiomorphic"] is None and all(
-        operation.determinant() > 0 for operation in spacegroup.symmetry_operations
-    )
+    return spacegroup.record["it_number_enantiomorphic"] is None and _sohncke(spacegroup)
 
 
 def _mirrored(structure: ASUStructure) -> ASUStructure:
@@ -683,9 +765,10 @@ def _canonical_protostructure_geometry(
     """Canonicalize one anonymously labelled ASU by discrete occupation before geometry.
 
     With ``names`` the discrete occupation includes the species class names (:func:`_letters_key`).
-    The representative can be left-handed only in a Sohncke group, where the discrete key may need
-    an improper description. Without ``preserve_chirality`` an enantiomorphic pair maps to its lower
-    member here; the two hands of a group that is its own partner are identified by the caller,
+    The input is first re-described in a right-handed basis (:func:`_right_handed`), and the
+    representative is that crystal in a right-handed cell: in a Sohncke group only proper
+    descriptions are used, so the discrete key keeps the hand. Without ``preserve_chirality`` an
+    enantiomorphic pair maps to its lower member here; the two hands of a group that is its own partner are identified by the caller,
     which also runs the enantiomer (:func:`_canonical_protostructure_assignments_asu`).
     """
     if not isinstance(structure, ASUStructure):

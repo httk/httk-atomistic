@@ -256,10 +256,17 @@ def test_left_handed_chiral_input_respects_chirality_policy() -> None:
         (WyckoffSite("c", FracVector((F(1, 13),)), "Si"),),
         (_species("Si", "Si"),),
     )
+    # P4_3 32 written in a left-handed basis is a P4_1 32 crystal: it is read as the crystal
     preserved = _canonical_protostructure_assignments_asu(left_handed, preserve_chirality=True)
     normalized = _canonical_protostructure_assignments_asu(left_handed, preserve_chirality=False)
-    assert {value.spacegroup.it_number for value in preserved} == {213}
+    assert {value.spacegroup.it_number for value in preserved} == {212}
     assert {value.spacegroup.it_number for value in normalized} == {212}
+    assert all(value.cell.basis.det().sign() > 0 for value in (*preserved, *normalized))
+    # the right-handed description of the same group keeps 213 by default
+    right_handed = ASUStructure(
+        Cell(((7, 0, 0), (0, 7, 0), (0, 0, 7))), 213, left_handed.wyckoff_sites, left_handed.species
+    )
+    assert {value.spacegroup.it_number for value in _canonical_protostructure_assignments_asu(right_handed)} == {213}
 
 
 @pytest.mark.parametrize(

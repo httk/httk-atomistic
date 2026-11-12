@@ -26,6 +26,7 @@ from httk.atomistic.symmetry import _protonet_cells as cells
 from httk.atomistic.symmetry._wyckoff_actions import compile_wyckoff_action
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.canonical_classification import _signature, canonical_protonetstructure
+from httk.atomistic.symmetry.canonical_protostructure import _sohncke
 from httk.atomistic.symmetry.limits import _budget_scope
 from httk.atomistic.symmetry.protonet import _tables
 from httk.atomistic.symmetry.spacegroup import Spacegroup
@@ -142,12 +143,16 @@ def _action(X: Matrix) -> AffineOperation:
 
 @cache
 def _signature_trivial_cells(it: int) -> list[Matrix]:
-    """The monoclinic cell changes with entries up to 2 that keep every letter and operation."""
+    """The monoclinic cell changes with entries up to 2 that keep every letter and operation.
+
+    In a Sohncke group only the proper ones: a change of determinant -1 describes the mirror image there.
+    """
     group = Spacegroup.standard(it)
     identity = _signature(group, _action(UNIT))
+    dets = (1,) if _sohncke(group) else (1, -1)
     return [
         X
-        for X in (((a, b), (c, d)) for a, b, c, d in product(range(-2, 3), repeat=4) if a * d - b * c in (1, -1))
+        for X in (((a, b), (c, d)) for a, b, c, d in product(range(-2, 3), repeat=4) if a * d - b * c in dets)
         if X != UNIT and _signature(group, _action(X)) == identity
     ]
 

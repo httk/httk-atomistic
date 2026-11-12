@@ -91,10 +91,13 @@ class RecognizedBarePrototype(BarePrototypeBackend):
                 raise TypeError(f"cannot recognize a bare prototype of {type(source).__name__}")
             return BarePrototype(assigned.spacegroup, _anonymous_occupations(assigned.spacegroup, assigned.occupations))
         from httk.atomistic.models.structuretype.fundamental_view import FundamentalDomainTemplateView
+        from httk.atomistic.symmetry.canonical_protostructure import _right_handed_template
 
-        template = FundamentalDomainTemplateView(
-            source, tolerance=self._tolerance, limit_denominator=self._limit_denominator
-        ).unview()
+        template = _right_handed_template(
+            FundamentalDomainTemplateView(
+                source, tolerance=self._tolerance, limit_denominator=self._limit_denominator
+            ).unview()
+        )
         return BarePrototype(template.spacegroup, [(site.wyckoff, site.species) for site in template.wyckoff_sites])
 
     def resolve(self) -> BarePrototype:

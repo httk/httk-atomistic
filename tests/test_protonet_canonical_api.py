@@ -467,3 +467,29 @@ def test_b_only_periodic_net_does_not_depend_on_the_cell() -> None:
     base = Protonettype(14, occupations, [(1, 1, 3, 0, 0, 0), (2, 2, 2, 0, 0, 0)])
     moved = Protonettype(14, occupations, [(1, 1, 3, 1, 0, 0), (2, 2, 2, 0, 0, 0)])
     assert base == moved
+
+
+def test_from_asu_refuses_a_left_handed_cell_in_a_sohncke_group() -> None:
+    # P4_2 32, H on i and P on b, re-described by an improper normalizer action: the same crystal in a
+    # left-handed cell, whose letters and bonds read the mirror image
+    from httk.atomistic.symmetry.canonical_classification import _actions
+    from httk.atomistic.symmetry.canonical_protostructure import _apply_action
+
+    species = [Species("H", ("H",), (1,)), Species("P", ("P",), (1,))]
+    asu = ASUStructure(
+        Cell([6, 6, 6, 90, 90, 90]), 208, [WyckoffSite("i", (F(1, 7),), "H"), WyckoffSite("b", (), "P")], species
+    )
+    assert str(Protonetstructure.from_asu(asu, [(1, 2, 1, 0, 0, 0)]).label) == "A3B_cP16_208_i_b__1~2:H-P"
+    improper = next(action for action in _actions(asu.spacegroup) if action.determinant() < 0)
+    left = _apply_action(asu, improper)
+    assert left.cell.basis.det().sign() < 0
+    with pytest.raises(ValueError, match="left-handed in a Sohncke group"):
+        Protonetstructure.from_asu(left, [(1, 2, 1, 0, 0, 0)])
+    # outside the Sohncke groups a left-handed cell is accepted: an improper operation keeps the crystal
+    rocksalt = ASUStructure(
+        Cell(((-5, 0, 0), (0, 5, 0), (0, 0, 5))),
+        225,
+        [WyckoffSite("a", (), "Na"), WyckoffSite("b", (), "Cl")],
+        [Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))],
+    )
+    assert str(Protonetstructure.from_asu(rocksalt, [(1, 2, 1, 0, 0, 0)]).label).startswith("AB_cF8_225_")

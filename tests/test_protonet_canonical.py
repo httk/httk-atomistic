@@ -38,6 +38,7 @@ from httk.atomistic.symmetry.protonet import (
     _moved,
     _search,
     _tables,
+    _transfer,
 )
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -133,7 +134,8 @@ def _oracle_net(it: int, sites: Any, rows: Any) -> dict[str, Any]:
     for X in _cell_candidates(tables, sites, rows)[0]:
         cell = _cell(it, X)
         moved = [(cls, cell.letter(letter)[0]) for cls, letter in sites]
-        expected = oracle.canonical_net(it, moved, [_moved(tables, cell, sites, row) for row in rows])
+        hand = X[0][0] * X[1][1] - X[0][1] * X[1][0]
+        expected = oracle.canonical_net(it, moved, [_moved(tables, cell, sites, row) for row in rows], hand=hand)
         ranks = tuple((-sum(reference.letter(x)["multiplicity"] for x in g), tuple(g)) for g in expected["groups"])
         key = (ranks, list(expected["slots"]), [_key(c) for c in expected["codes"]])
         if best is None or key < best:
@@ -534,6 +536,70 @@ def test_random_nets_are_description_invariant(it: int, nets: int, scrambles: in
 
     rng = random.Random(f"sweep-{it}-{nets}")
     assert synthetic_sweep(_tables(it), net, rng, nets, scrambles) == 0
+
+
+SOHNCKE = tuple(
+    n for n in range(2, 231) if all(op.determinant() > 0 for op in Spacegroup.standard(n).symmetry_operations)
+)
+
+
+@pytest.mark.parametrize(
+    "it,nets,scrambles",
+    [
+        *((it, 2, 2) for it in (4, 19, 80, 208)),
+        *(pytest.param(it, 6, 3, marks=pytest.mark.extended) for it in SOHNCKE),
+    ],
+)
+def test_random_nets_identify_the_hands_without_preserve_chirality(it: int, nets: int, scrambles: int) -> None:
+    # improper descriptions (the mirror image) included: preserve_chirality=False gives them the same net
+    def net(sites: Any, rows: Any) -> Any:
+        result = _canonical_net(it, sites, rows, preserve_chirality=False)
+        return result.it_number, result.slots, result.codes, result.groups
+
+    rng = random.Random(f"hands-{it}-{nets}")
+    assert synthetic_sweep(_tables(it), net, rng, nets, scrambles, keep_hand=False) == 0
+
+
+def _mirror(it: int, sites: Any, rows: Any) -> tuple[int, Any, Any]:
+    """Describe the mirror image: an improper coset of the group, else the inversion into its partner."""
+    tables = _tables(it)
+    improper = [coset for coset in tables.cosets if coset.action.determinant() < 0]
+    if improper:
+        return it, *scramble(tables, sites, rows, random.Random(it), coset=improper[0])
+    partner = tables.spacegroup.record["it_number_enantiomorphic"]
+    transfer, target = _transfer(it, partner), _tables(partner)
+    return (
+        partner,
+        [(cls, transfer.letter(letter)[0]) for cls, letter in sites],
+        [_moved(target, transfer, sites, row) for row in rows],
+    )
+
+
+# every Sohncke fixture that load_structure reads, P1 left out (its nets are cell-relative, D7)
+SOHNCKE_NET_FIXTURES = (
+    *(f"structreading/{n}.cif" for n in SOHNCKE if n not in (151, 153, 180)),
+    "cod/4326344.cif",
+    "cod/7219102.cif",
+)
+
+
+@pytest.mark.parametrize(
+    "path",
+    _profile(("structreading/154.cif", "structreading/208.cif"), SOHNCKE_NET_FIXTURES),
+)
+def test_mirror_image_of_a_sohncke_fixture_has_the_same_net_without_preserve_chirality(path: str) -> None:
+    loaded = load_structure(str(FIXTURES / path))
+    assert loaded is not None
+    it, sites, refs, lattice = loaded
+    tables = _tables(it)
+    rows, _dist = raw_rows(tables, sites, refs, lattice, generic_cutoffs(tables, sites, refs, lattice))
+    mirrored = _mirror(it, sites, rows)
+    results = [_canonical_net(*net, preserve_chirality=False) for net in ((it, sites, rows), mirrored)]
+    assert len({(r.it_number, r.slots, r.codes, r.groups) for r in results}) == 1
+    if path == "structreading/208.cif":
+        # the kept hand tells the two apart: P4_2 32 b <-> c
+        kept = [_canonical_net(*net) for net in ((it, sites, rows), mirrored)]
+        assert [r.groups for r in kept] == [(("i",), ("c",)), (("i",), ("b",))]
 
 
 @pytest.mark.parametrize("it", _profile((4, 33, 34, 62, 186), (14, 19, 61, 136)))

@@ -94,6 +94,9 @@ class Protonettype(ProtonettypeBackend):
     :func:`~httk.atomistic.canonical_protonettype` also minimises the bare prototype;
     for a canonical bare prototype the two agree.
 
+    Occupations carry no cell: they are read in a right-handed basis of the standard setting,
+    so in a Sohncke group they name one hand of the crystal.
+
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: Occupied Wyckoff positions and their anonymous labels, in site order.
     :param net: The net rows ``(i, j, k, n1, n2, n3)``, with ``i <= j``.

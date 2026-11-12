@@ -29,6 +29,9 @@ class Protonetstructure(ProtonetstructureBackend):
     :func:`~httk.atomistic.canonical_protonetstructure` also minimises the bare part; for a
     canonical bare part the two agree.
 
+    Occupations carry no cell: they are read in a right-handed basis of the standard setting,
+    so in a Sohncke group they name one hand of the crystal.
+
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: Occupied Wyckoff positions and their species, in site order.
     :param net: The net rows ``(i, j, k, n1, n2, n3)``, with ``i <= j``.
@@ -101,8 +104,9 @@ class Protonetstructure(ProtonetstructureBackend):
         :param asu: The structure, in its space group's standard setting.
         :param bonds: The bonds ``(i, j, k, n1, n2, n3)``.
         :return: The protonetstructure value.
-        :raises ValueError: If the setting is not standard, a site retains a representative, a
-            bond is malformed, out of range or bonds an atom to itself, the canonical net needs
+        :raises ValueError: If the setting is not standard, the cell (after the setting
+            transform) is left-handed in a Sohncke group, whose letters and bonds would then
+            describe the mirror image, a site retains a representative, a bond is malformed, out of range or bonds an atom to itself, the canonical net needs
             a translation outside -5..+4 (D4), or two species share a class whose structure has
             another space group or conventional cell than the declared one.
         """
@@ -112,6 +116,14 @@ class Protonetstructure(ProtonetstructureBackend):
         spacegroup = asu.spacegroup
         if not spacegroup.is_standard_setting:
             raise ValueError("Protonetstructure.from_asu requires the space group's standard setting")
+        from httk.atomistic.symmetry.canonical_protostructure import _left_handed, _sohncke
+
+        if _sohncke(spacegroup) and _left_handed(asu):
+            raise ValueError(
+                "Protonetstructure.from_asu: the cell is left-handed in a Sohncke group, so the Wyckoff letters "
+                "and bonds would describe the mirror image; describe the crystal in a right-handed basis, or use "
+                "canonical_asu_protostructure(structure) and bonds on that"
+            )
         sites = asu.wyckoff_sites
         if any(site.representative is not None for site in sites):
             raise ValueError(

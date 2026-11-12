@@ -25,6 +25,10 @@ class Protostructure(ProtostructureBackend):
         class structure can have more symmetry than the declared one, and the representative
         becomes the canonical ASU of the class structure
         (:func:`~httk.atomistic.symmetry.canonical_protostructure.canonical_asu_protostructure`).
+        A left-handed representative is re-described and stored as the same crystal in a
+        right-handed basis, so its Wyckoff letters, and in an enantiomorphic pair its group, read
+        the crystal's hand. An explicit ``spacegroup`` and ``occupations`` must then match that
+        right-handed reading of the crystal, or the base disagrees with the representative.
     :param discriminator: An optional external class discriminator.
     """
 
@@ -116,30 +120,37 @@ class Protostructure(ProtostructureBackend):
 
 
 def _class_representative(representative: FundamentalDomainStructure) -> FundamentalDomainStructure:
-    """Return the representative in terms of species classes, of the same kind.
+    """Return the representative in terms of species classes in a right-handed basis, of the same kind.
 
     Sites are renamed to their class names and only the used classes are kept (see
-    :func:`~httk.atomistic.models.species.classes._class_sites`); a representative that already
-    is in that form is returned unchanged.
+    :func:`~httk.atomistic.models.species.classes._class_sites`). A left-handed representative is
+    first re-described as the same crystal in a right-handed basis
+    (:func:`~httk.atomistic.symmetry.canonical_protostructure._right_handed`), so its letters
+    read the crystal's own hand. A representative that already is in that form is returned unchanged.
     """
-    sites, species = _class_sites(representative)
-    if sites == representative.wyckoff_sites and species == representative.species:
+    source: FundamentalDomainStructure = representative
+    from httk.atomistic.symmetry.canonical_protostructure import _left_handed, _right_handed
+
+    if _left_handed(representative):
+        source = _right_handed(representative)
+    sites, species = _class_sites(source)
+    if source is representative and sites == representative.wyckoff_sites and species == representative.species:
         return representative
     kind = ASUStructure if isinstance(representative, ASUStructure) else FundamentalDomainStructure
     return kind(
-        representative.cell,
-        representative.spacegroup,
+        source.cell,
+        source.spacegroup,
         sites,
         species,
-        transform=representative.transform,
-        coordinate_precision=representative.coordinate_precision,
+        transform=source.transform,
+        coordinate_precision=source.coordinate_precision,
         chemical_composition=representative.chemical_composition,
         chemical_formula_descriptive=representative.chemical_formula_descriptive,
         chemical_formula_hill=representative.chemical_formula_hill,
         optimization_type=representative.optimization_type,
         immutable_id=representative.immutable_id,
         last_modified=representative.last_modified,
-        charge=representative.charge,
+        charge=source.charge,
     )
 
 

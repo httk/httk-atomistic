@@ -54,13 +54,14 @@ Cartesian inversion), so the pair maps to one canonical representative and the t
 partners' canonical labels coincide. In a Sohncke group that is its own
 partner (P1, P2₁, I4₁, P4₂32, I4₁32, ...) the flag instead canonicalizes the mirror
 image too and lets both hands compete, with every species assignment, so a crystal
-and its mirror image give one representative. With chirality preserved,
-such a group's canonical cell can be left-handed: the label is chosen first, and
-inversion can exchange its letters (P4₂32 `b` and `c`). (One edge case of that normalize path: a
-*hand-built exact* ASU already described in a left-handed cell of an enantiomorphic
-group hits the pre-existing chirality-preserving orientation ceiling — its
-left-handed cell is kept — so it still yields a distinct mirror representative;
-recognition-path inputs, whose spglib cells are right-handed, are unaffected.) The
+and its mirror image give one representative. With chirality preserved, no
+mirror (improper) description is used in a Sohncke group, so the hand shows
+wherever the group number or the Wyckoff letters can show it: in P4₂32 a crystal
+with P on `b` and its mirror image with P on `c` get different labels. The
+canonical cell is always right-handed and, with chirality preserved, describes the
+crystal itself. A hand-built ASU given in a left-handed cell is read as the
+crystal it describes: it is first re-described in a right-handed cell (in an
+enantiomorphic group that is the partner group). The
 standalone `normalize_chirality` applies that same exact map to an already-preserved
 result, so a caller need not re-canonicalize to get both forms. The four
 classification-family canonicalizers expose the same policy directly. The

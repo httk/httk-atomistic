@@ -162,6 +162,12 @@ class RecognizedBareProtostructure(BareProtostructureBackend):
                 limit_denominator=self._limit_denominator,
             )
             self._validate_structure(asu)
+        else:
+            from httk.atomistic.symmetry.canonical_protostructure import _left_handed, _right_handed
+
+            if _left_handed(asu):
+                # a declared left-handed ASU: its letters read the mirror image, so re-describe it
+                asu = _right_handed(asu)
         standard, sites = asu._standard_wyckoff_sites()
         species_by_name = {species.name: species for species in asu.species}
         occupations = tuple((site.wyckoff, species_by_name[site.species]) for site in sites)

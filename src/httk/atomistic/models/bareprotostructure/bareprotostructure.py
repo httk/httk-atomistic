@@ -11,6 +11,9 @@ from httk.atomistic.symmetry.spacegroup import Spacegroup
 class BareProtostructure(BareProtostructureBackend):
     """Store only standard-setting Wyckoff occupations, without geometrical refinement.
 
+    Occupations carry no cell: they are read in a right-handed basis of the standard setting,
+    so in a Sohncke group they name one hand of the crystal.
+
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: Occupied Wyckoff positions and their assigned species, each stored as
         its species class (see
