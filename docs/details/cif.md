@@ -296,7 +296,13 @@ read; the other columns are ignored.
 A CIF bond list is the refinement program's choice, not a chemical model: it typically
 lists bonds by distance between atoms the author asked about, often without the bonds to
 hydrogen. The bonds are taken as the file gives them and become the `~` bonds of the
-protonet labels ({doc}`../prototypes`):
+protonet labels ({doc}`../prototypes`). Missing bonds are not completed, but a network with at
+least one bond that leaves Wyckoff sites without a bond logs one warning naming the block and
+counting those sites per element, such as `17 H sites have no bond in the listed loop`. Sites
+are counted as Wyckoff sites (orbits), not atoms. A site is named by its elements other than
+vacancy, sorted and joined with `/` for a mixed-occupancy site (`Co/Fe`), or by its species
+name when no element remains. An empty loop, `()`, gives no warning, and the warning never stops
+a load.
 
 ```python
 from httk.core import load

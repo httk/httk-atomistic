@@ -16,6 +16,7 @@ import fractions
 import logging
 import math
 import re
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from decimal import Decimal, InvalidOperation
 from functools import cache
@@ -844,7 +845,7 @@ def asu_structure_from_cif(
     )
     canonical_species += tuple(species_by_name[name] for name in implicit_species_names)
     row_sites = dict(zip(site_rows, canonical_sites, strict=True))
-    return ASUStructure._from_validated_proof(
+    structure = ASUStructure._from_validated_proof(
         cell,
         standard,
         proof,
@@ -854,6 +855,8 @@ def asu_structure_from_cif(
         assemblies,
         _cif_bonds(standard, proof.wyckoff_sites, cell, data, row_sites),
     )
+    _warn_unbonded_sites(_block_name(data), structure)
+    return structure
 
 
 def _deduplicate_wyckoff_sites(
@@ -1092,6 +1095,28 @@ def _cif_bonds(
             return None
         bonds.append(bond)
     return bonds
+
+
+def _warn_unbonded_sites(block: str, structure: ASUStructure) -> None:
+    """If a network with bonds leaves Wyckoff sites without a bond, log one warning counting them per element.
+
+    Sites are counted as Wyckoff sites (orbits), not atoms. A site is named by its element
+    symbols other than ``vacancy``, sorted and joined with ``/`` for a mixed site (``Co/Fe``), or
+    by its species name when none remains. Missing bonds are not completed.
+    """
+    if not structure.bonds:
+        return
+    bonded = {end for bond in structure.bonds for end in (bond.site, bond.partner)}
+    by_name = {entry.name: entry for entry in structure.species}
+
+    def element(name: str) -> str:
+        return "/".join(sorted(set(by_name[name].chemical_symbols) - {"vacancy"})) or name
+
+    counts = Counter(element(site.species) for index, site in enumerate(structure.wyckoff_sites) if index not in bonded)
+    if counts:
+        listed = ", ".join(f"{count} {name} site{'s' if count != 1 else ''}" for name, count in counts.items())
+        verb = "has" if counts.total() == 1 else "have"
+        _cif_warning(f"CIF block {block!r}: {listed} {verb} no bond in the listed loop")
 
 
 def _row_element(group: Spacegroup, reference: _Point, point: Sequence[fractions.Fraction], metric: Any) -> _Op:

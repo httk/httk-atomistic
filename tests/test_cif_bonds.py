@@ -4,13 +4,15 @@ The COD fixtures are unmodified entries; the ``cif_bonds`` fixtures are small sy
 files written for these tests.
 """
 
+import io
 import logging
 import math
 from collections.abc import Sequence
 from decimal import Decimal
 from fractions import Fraction as F
 from pathlib import Path
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from httk.core import load
@@ -93,6 +95,56 @@ def test_a_cod_bond_loop_becomes_the_network(entry: str, caplog: pytest.LogCaptu
     assert not [record for record in caplog.records if "bond loop" in record.getMessage()]
     assert _rows(entry) == rows
     assert structure.bonds is not None and len(structure.bonds) == orbits
+
+
+# COD entry -> the warning for the Wyckoff sites its listed loop leaves without a bond.
+UNBONDED = {
+    "7219077": "9 H sites have no bond in the listed loop",
+    "4134228": "17 H sites have no bond in the listed loop",
+    "4002923": "1 O site has no bond in the listed loop",
+}
+
+
+@pytest.mark.parametrize("entry", list(NETWORK))
+def test_sites_a_bond_loop_leaves_unbonded_are_warned_about(entry: str, caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level("WARNING", logger=LOGGER):
+        _load(entry)
+    warned = [record.getMessage() for record in caplog.records if "no bond in the listed loop" in record.getMessage()]
+    assert warned == ([f"CIF block {entry!r}: {UNBONDED[entry]}"] if entry in UNBONDED else [])
+
+
+def test_unbonded_sites_are_counted_per_element(caplog: pytest.LogCaptureFixture) -> None:
+    structure = load(str(BONDS / "disordered.cif"))  # site 0 is Co1/Fe1, sites 1 and 2 are O
+
+    def warned(*bonds: tuple[int, int]) -> list[str]:
+        caplog.clear()
+        ends = tuple(SimpleNamespace(site=site, partner=partner) for site, partner in bonds)
+        stand_in = SimpleNamespace(wyckoff_sites=structure.wyckoff_sites, species=structure.species, bonds=ends)
+        with caplog.at_level("WARNING", logger=LOGGER):
+            cif_structures._warn_unbonded_sites("b", cast(Any, stand_in))
+        return [record.getMessage() for record in caplog.records]
+
+    assert warned((0, 1)) == ["CIF block 'b': 1 O site has no bond in the listed loop"]
+    assert warned((1, 2)) == ["CIF block 'b': 1 Co/Fe site has no bond in the listed loop"]
+    assert warned((0, 1), (0, 2)) == warned() == []
+
+
+@pytest.mark.parametrize("occupancy", ["0", "0.0004", "0.5"])
+def test_an_unbonded_site_of_low_occupancy_warns_and_loads(occupancy: str, caplog: pytest.LogCaptureFixture) -> None:
+    text = (BONDS / "ordered.cif").read_text()
+    row = "O2 O 0.12 0.1 0.75 1 d\n"
+    with caplog.at_level("WARNING", logger=LOGGER):
+        structure = load(io.StringIO(text.replace(row, f"{row}Li3 Li 0.4 0.4 0.1 {occupancy} d\n")), format="cif")
+    assert structure.bonds == _bonds("ordered.cif")
+    warned = [record.getMessage() for record in caplog.records if "no bond" in record.getMessage()]
+    assert warned == ["CIF block 'ordered': 1 Li site has no bond in the listed loop"]
+
+
+@pytest.mark.parametrize("name", ["ordered.cif", "disordered.cif", "empty_loop.cif", "no_loop.cif"])
+def test_a_fully_bonded_or_empty_loop_gives_no_unbonded_warning(name: str, caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level("WARNING", logger=LOGGER):
+        load(str(BONDS / name))
+    assert not [record for record in caplog.records if "no bond" in record.getMessage()]
 
 
 @pytest.mark.parametrize("entry", list(NETWORK))  # each under 5 s
