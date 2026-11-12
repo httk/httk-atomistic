@@ -1,0 +1,11 @@
+#\#CIF_2.0
+data_m
+_space_group_symop_magn_operation.xyz x,y,z,+1
+_word x[1]
+_q 'it's'
+_parent_propagation_vector.kxkykz [[0.125 0 1/3]]
+_inlist [a b' 'c d']
+loop_
+_atom_site_label
+_v
+Fe1 [1 2]

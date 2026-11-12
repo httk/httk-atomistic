@@ -15,16 +15,35 @@
 #    You should have received a copy of the GNU Affero General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import dataclasses
 import io
 import logging
 import os
 import re
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import IO, Any, Self, cast
+from typing import IO, Any, Literal, Self, cast, overload
 
-from httk.core import TextstreamFileView
+from httk.core import DecimalGap, DecimalScalar, TextstreamFileView
 
+from .cif_items import (
+    _MAX_NESTING,
+    CIFBlock,
+    CIFComment,
+    CIFDataItem,
+    CIFDialect,
+    CIFItem,
+    CIFLoop,
+    CIFSaveFrame,
+    CIFTable,
+    CIFTextField,
+    CIFValue,
+    _cif_number,
+    _cif_quote,
+    _cif_space,
+    _is_cif2_header,
+    _Mode,
+)
 from .cif_tags import CIF_TAGS
 
 logger = logging.getLogger(__name__)
@@ -534,6 +553,483 @@ def _read_cif(
     return datalist, header
 
 
+# The fast path's split is quadratic on long whitespace runs (FP3); this one matches the same
+# cuts in linear time.
+_LOSSLESS_VALUE_SPLIT_RE = re.compile(r"(?<!\s)\s+(?:_|data_|loop_)")
+
+
+# Lossless reading: read_cif(..., lossless=True) returns CIFBlocks. The fast path above is
+# untouched; _legacy_block renders a block as the dictionary that path returns.
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class _Token:
+    kind: str  # bare, quoted, text, comment, key (CIF2 table key), [, ], {, }
+    text: str
+    line: int  # the 1-based line the token ends on
+    first: int  # the 1-based line it starts on
+    start: int  # its column on the first line
+    end: int  # the column after it on the last line
+    inline: bool = False  # a comment sharing its line with a preceding token
+
+
+def _lossless_text(source: str | os.PathLike[str] | IO[bytes] | Iterable[str], repair: bool) -> str:
+    """Return the decoded source with LF line ends and no byte-order mark."""
+    if isinstance(source, (str, os.PathLike)):
+        path = Path(source)
+        try:
+            with TextstreamFileView(path) as stream:
+                text = stream.read()
+        except UnicodeDecodeError:
+            if not repair:
+                raise
+            logger.warning(
+                "CIF file %r is not valid UTF-8; decoded it as Latin-1 under repair=True",
+                str(path),
+                extra={"context": "cif"},
+            )
+            with TextstreamFileView(path, encoding="latin-1") as stream:
+                text = stream.read()
+    elif isinstance(source, (io.BufferedIOBase, io.RawIOBase)):
+        data = source.read()
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            if not repair:
+                raise
+            logger.warning(
+                "CIF stream is not valid UTF-8; decoded it as Latin-1 under repair=True", extra={"context": "cif"}
+            )
+            text = data.decode("latin-1")
+    else:
+        text = "".join(line if line.endswith("\n") else line + "\n" for line in cast(Iterable[str], source))
+    return text.removeprefix("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _lex(lines: list[str], mode: _Mode, pragmatic: bool) -> list[_Token]:
+    """Split CIF lines into tokens under the syntax of ``mode``."""
+    cif2 = mode == "cif2"
+    tokens: list[_Token] = []
+    depth = 0  # open mCIF lists: there ']' ends a word and may close a quote
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        pos = 0
+        seen = False
+        if line.startswith(";"):
+            close = index + 1
+            while close < len(lines) and not lines[close].startswith(";"):
+                close += 1
+            if close == len(lines):
+                raise ValueError(f"unterminated CIF text field starting at line {index + 1}")
+            text = "\n".join([line[1:], *lines[index + 1 : close]])
+            tokens.append(_Token("text", text, close + 1, index + 1, 0, 1))
+            index, line, pos, seen = close, lines[close], 1, True
+        while pos < len(line):
+            char = line[pos]
+            lineno = index + 1
+            if _cif_space(char):
+                pos += 1
+                continue
+            if char == "#":
+                tokens.append(_Token("comment", line[pos + 1 :].rstrip(), lineno, lineno, pos, len(line), seen))
+                break
+            seen = True
+            if cif2 and line.startswith(("'''", '"""'), pos):
+                delimiter = line[pos : pos + 3]
+                last, offset = index, pos + 3
+                while (stop := lines[last].find(delimiter, offset)) < 0:
+                    last, offset = last + 1, 0
+                    if last == len(lines):
+                        raise ValueError(f"unterminated CIF2 triple-quoted string starting at line {lineno}")
+                if last == index:
+                    text = line[pos + 3 : stop]
+                else:
+                    text = "\n".join([line[pos + 3 :], *lines[index + 1 : last], lines[last][:stop]])
+                kind = "key" if lines[last].startswith(":", stop + 3) else "quoted"
+                tokens.append(_Token(kind, text, last + 1, lineno, pos, stop + 3))
+                index, line, pos = last, lines[last], stop + 3 + (kind == "key")
+                continue
+            if char in "'\"":
+                if cif2:
+                    stop = line.find(char, pos + 1)
+                else:
+                    # A CIF1 quote closes only before whitespace, the line end or, in a list, ']'.
+                    stop = pos + 1
+                    while (stop := line.find(char, stop)) >= 0 and not (
+                        stop + 1 == len(line) or _cif_space(line[stop + 1]) or (depth and line[stop + 1] == "]")
+                    ):
+                        stop += 1
+                if stop < 0:
+                    if cif2 or not pragmatic:
+                        raise ValueError(f"unterminated CIF quoted string at line {lineno}")
+                    # D9: as the fast reader, the rest of the line, opening quote included.
+                    tokens.append(_Token("quoted", line[pos:].rstrip(), lineno, lineno, pos, len(line)))
+                    break
+                kind = "key" if cif2 and line.startswith(":", stop + 1) else "quoted"
+                tokens.append(_Token(kind, line[pos + 1 : stop], lineno, lineno, pos, stop + 1))
+                pos = stop + 1 + (kind == "key")
+                continue
+            if (char == "[" and mode != "cif1") or (char == "]" and (cif2 or depth)) or (cif2 and char in "{}"):
+                depth = depth + 1 if char == "[" else max(depth - (char == "]"), 0)
+                tokens.append(_Token(char, char, lineno, lineno, pos, pos + 1))
+                pos += 1
+                continue
+            # CIF2 data names and block/frame codes end only at whitespace; values also at brackets.
+            brackets = cif2 and not (char == "_" or line[pos : pos + 5].lower() in ("data_", "save_"))
+            stop = pos
+            while (
+                stop < len(line)
+                and not _cif_space(line[stop])
+                and not (brackets and line[stop] in "[]{}")
+                and not (mode == "mcif" and depth and line[stop] == "]")
+            ):
+                stop += 1
+            tokens.append(_Token("bare", line[pos:stop], lineno, lineno, pos, stop))
+            pos = stop
+        index += 1
+    return tokens
+
+
+def _hoist_compound_comments(tokens: list[_Token]) -> list[_Token]:
+    """Move comments inside lists and tables to just after the value, as own-line comments (D5)."""
+    result: list[_Token] = []
+    moved: list[_Token] = []
+    depth = 0
+    for token in tokens:
+        if token.kind == "comment" and depth:
+            moved.append(dataclasses.replace(token, inline=False))
+            continue
+        if moved and not depth and not (token.kind == "comment" and token.inline):
+            result += moved
+            moved = []
+        result.append(token)
+        if token.kind in "[{":
+            depth += 1
+        elif token.kind in "]}" and depth:
+            depth -= 1
+    return result + moved
+
+
+def _is_tag(token: _Token) -> bool:
+    return token.kind == "bare" and token.text.startswith("_")
+
+
+def _keyword(token: _Token) -> str | None:
+    """Return the lowercase CIF reserved word a bare token is (``data_``/``save_`` by prefix)."""
+    if token.kind != "bare":
+        return None
+    word = token.text.lower()
+    if word.startswith(("data_", "save_")):
+        return word[:5]
+    return word if word in ("loop_", "global_", "stop_") else None
+
+
+class _LosslessParser:
+    """Build CIF items from a token list."""
+
+    def __init__(self, tokens: list[_Token], lines: list[str], mode: _Mode, pragmatic: bool) -> None:
+        self.tokens = tokens
+        self.lines = lines
+        self.mode: _Mode = mode
+        self.pragmatic = pragmatic
+        self.k = 0
+        self.depth = 0  # open lists, tables and save frames
+
+    def nest(self, token: _Token, step: int) -> None:
+        self.depth += step
+        if self.depth > _MAX_NESTING:
+            raise ValueError(f"CIF lists, tables or save frames nested deeper than {_MAX_NESTING} at line {token.line}")
+
+    def peek(self) -> _Token | None:
+        return self.tokens[self.k] if self.k < len(self.tokens) else None
+
+    def string(self, text: str, line: int) -> str:
+        """Return a string value after checking it can be written back."""
+        try:
+            _cif_quote(text, self.mode)
+        except ValueError as error:
+            raise ValueError(f"{error} (line {line})") from None
+        return text
+
+    def value(self) -> CIFValue:
+        token = self.tokens[self.k]
+        self.k += 1
+        if token.kind == "text":
+            return CIFTextField(token.text)
+        if token.kind == "quoted":
+            return self.string(token.text, token.line)
+        if token.kind == "bare":
+            if _keyword(token) is not None:
+                raise ValueError(f"CIF reserved word {token.text[:60]!r} used as a value at line {token.line}")
+            if token.text in ("?", "."):
+                return DecimalGap(token.text)
+            number = _cif_number(token.text)
+            return self.string(token.text, token.line) if number is None else number
+        if token.kind in ("[", "{"):
+            close = "]" if token.kind == "[" else "}"
+            self.nest(token, 1)
+            values: list[CIFValue] = []
+            entries: list[tuple[str, CIFValue]] = []
+            while (inner := self.peek()) is None or inner.kind != close:
+                if inner is None:
+                    raise ValueError(f"unterminated CIF list or table starting at line {token.line}")
+                if token.kind == "[":
+                    values.append(self.value())
+                    continue
+                if inner.kind != "key":
+                    raise ValueError(f"CIF2 table key expected at line {inner.line}")
+                self.k += 1
+                if any(key == inner.text for key, _ in entries):
+                    raise ValueError(f"repeated CIF2 table key {inner.text[:60]!r} at line {inner.line}")
+                entries.append((inner.text, self.value()))
+            self.k += 1
+            self.nest(token, -1)
+            return tuple(values) if token.kind == "[" else CIFTable(tuple(entries))
+        raise ValueError(f"unexpected CIF token {token.text[:60]!r} at line {token.line}")
+
+    def items(self, frame_line: int | None) -> list[CIFItem]:
+        """Read items up to the next block (or, in a frame, its ``save_`` terminator)."""
+        items: list[CIFItem] = []
+        while (token := self.peek()) is not None:
+            word = _keyword(token)
+            if word == "data_":
+                if frame_line is not None:
+                    raise ValueError(f"data_ inside a save frame at line {token.line}")
+                return items
+            self.k += 1
+            if token.kind == "comment":
+                items.append(CIFComment(token.text, token.inline))
+            elif word == "save_":
+                if token.text[5:]:
+                    self.nest(token, 1)
+                    items.append(CIFSaveFrame(token.text[5:], tuple(self.items(token.line))))
+                    self.nest(token, -1)
+                elif frame_line is None:
+                    raise ValueError(f"save_ without an open save frame at line {token.line}")
+                else:
+                    return items
+            elif word == "loop_":
+                items.append(self.loop(token))
+            elif word is not None:
+                raise ValueError(f"CIF reserved word {token.text!r} at line {token.line}")
+            elif _is_tag(token):
+                items.append(self.data_item(token))
+            else:
+                raise ValueError(f"CIF value {token.text[:60]!r} without a data name at line {token.line}")
+        if frame_line is not None:
+            raise ValueError(f"unterminated CIF save frame starting at line {frame_line}")
+        return items
+
+    def data_item(self, name: _Token) -> CIFDataItem:
+        comments: list[tuple[int, CIFComment]] = []
+        while (token := self.peek()) is not None and token.kind == "comment":
+            comments.append((0, CIFComment(token.text, token.inline)))
+            self.k += 1
+        if token is None or _is_tag(token) or _keyword(token) in ("data_", "save_", "loop_"):
+            raise ValueError(f"CIF data name {name.text!r} has no value at line {name.line}")
+        value = self.value()
+        if self.pragmatic and token.kind == "bare":
+            joined = self.pragmatic_join(token)
+            if joined is not None:
+                value, comment = joined
+                if comment is not None:
+                    comments.append((1, comment))
+        after = self.peek()
+        if after is not None and after.kind == "comment" and after.inline:
+            comments.append((1, CIFComment(after.text, True)))
+            self.k += 1
+        return CIFDataItem(name.text, value, tuple(comments))
+
+    def pragmatic_join(self, token: _Token) -> tuple[str, CIFComment | None] | None:
+        """D1: join a bare value with the further words on its line, as the fast reader does.
+
+        :param token: The bare value token, already consumed.
+        :return: The joined value and the comment cut from its line, or ``None`` if nothing follows.
+        """
+        k = self.k
+        run_end = -1
+        while k < len(self.tokens):
+            other = self.tokens[k]
+            if not (
+                other.first == other.line == token.line
+                and other.kind in ("bare", "quoted")
+                and not _is_tag(other)
+                and _keyword(other) is None
+            ):
+                break
+            run_end = other.end
+            k += 1
+        if run_end < 0:
+            return None
+        raw = self.lines[token.line - 1][token.start :]
+        split = _LOSSLESS_VALUE_SPLIT_RE.search(raw)
+        cut = len(raw) if split is None else split.start()
+        span = run_end - token.start
+        hash_at = raw.find("#", 0, min(cut, span))
+        comment = None
+        if hash_at >= 0:
+            # Everything after that '#' is the item's inline comment: consume the whole line.
+            value = raw[:hash_at].rstrip()
+            comment = CIFComment(raw[hash_at + 1 :].rstrip(), True)
+            while (rest := self.peek()) is not None and rest.first == token.line:
+                if rest.line != token.line:
+                    raise ValueError(f"pragmatic CIF value at line {token.line} runs into a multi-line value")
+                self.k += 1
+        elif cut < span:
+            raise ValueError(f"pragmatic CIF value at line {token.line} would split a quoted string")
+        else:
+            value = raw[:span]
+            self.k = k
+        return self.string(value, token.line), comment
+
+    def loop(self, keyword: _Token) -> CIFLoop:
+        names: list[str] = []
+        comments: list[tuple[int, CIFComment]] = []
+        while (token := self.peek()) is not None and (_is_tag(token) or token.kind == "comment"):
+            if token.kind == "comment":
+                comments.append((len(names), CIFComment(token.text, token.inline)))
+            else:
+                names.append(token.text)
+            self.k += 1
+        if not names:
+            raise ValueError(f"CIF loop_ without data names at line {keyword.line}")
+        values: list[CIFValue] = []
+        pending: list[_Token] = []
+        while (token := self.peek()) is not None and not _is_tag(token) and _keyword(token) is None:
+            if token.kind == "comment":
+                pending.append(token)
+                self.k += 1
+                continue
+            comments += [(len(names) + len(values), CIFComment(c.text, c.inline)) for c in pending]
+            pending = []
+            values.append(self.value())
+        end = len(names) + len(values)
+        if pending and pending[0].inline:
+            comments.append((end, CIFComment(pending.pop(0).text, True)))
+        # Own-line comments after the loop's last token belong to the enclosing item sequence.
+        self.k -= len(pending)
+        while comments and comments[-1][0] == end and not comments[-1][1].inline:
+            comments.pop()
+            self.k -= 1
+        if not values:
+            # On re-reading, an empty loop ends only at a reserved word or the end of input, or at
+            # own-line comments that lead the next data_ block.
+            k = self.k
+            while k < len(self.tokens) and self.tokens[k].kind == "comment":
+                k += 1
+            after = self.tokens[k] if k < len(self.tokens) else None
+            word = None if after is None else _keyword(after)
+            if (word != "data_") if k > self.k else (after is not None and word is None):
+                raise ValueError(f"CIF loop_ at line {keyword.line} has no values")
+        if len(values) % len(names):
+            raise ValueError(
+                f"CIF loop starting at line {keyword.line} has {len(values)} values for {len(names)} data names"
+            )
+        rows = tuple(tuple(values[i : i + len(names)]) for i in range(0, len(values), len(names)))
+        return CIFLoop(tuple(names), rows, tuple(comments))
+
+
+def _read_cif_lossless(
+    source: str | os.PathLike[str] | IO[bytes] | Iterable[str], pragmatic: bool, allow_cif2: bool, repair: bool
+) -> list[CIFBlock]:
+    lines = _lossless_text(source, repair).split("\n")
+    # The header is the run of comment lines from line 1, as on the fast path.
+    header_lines = 0
+    while header_lines < len(lines) and lines[header_lines].strip().startswith("#"):
+        header_lines += 1
+    dialect: CIFDialect = "mcif" if allow_cif2 else "cif"
+    mode: _Mode = "mcif" if allow_cif2 else "cif1"
+    if not allow_cif2 and header_lines and _is_cif2_header(lines[0].strip()[1:].rstrip()):
+        mode = "cif2"
+    parser = _LosslessParser(_hoist_compound_comments(_lex(lines, mode, pragmatic)), lines, mode, pragmatic)
+    header = tuple(CIFComment(token.text) for token in parser.tokens[:header_lines])
+    parser.k = header_lines
+    leading: list[CIFComment] = []
+    while (token := parser.peek()) is not None and token.kind == "comment":
+        leading.append(CIFComment(token.text))
+        parser.k += 1
+    blocks: list[CIFBlock] = []
+    while (token := parser.peek()) is not None:
+        if _keyword(token) != "data_":
+            raise ValueError(f"CIF content before the first data_ at line {token.line}")
+        if not token.text[5:]:
+            raise ValueError(f"empty CIF data block name at line {token.line}")
+        parser.k += 1
+        items = parser.items(None)
+        trailing: list[CIFComment] = []
+        if parser.peek() is not None:
+            # Own-line comments after a block's last token lead the next block.
+            while items and isinstance(items[-1], CIFComment) and not items[-1].inline:
+                trailing.insert(0, cast(CIFComment, items.pop()))
+        blocks.append(CIFBlock(token.text[5:], tuple(items), header, tuple(leading), dialect))
+        leading = trailing
+    return blocks
+
+
+def _legacy_value(value: CIFValue) -> Any:
+    if isinstance(value, DecimalScalar):
+        return value.token
+    if isinstance(value, DecimalGap):
+        return value.value
+    if isinstance(value, CIFTextField):
+        first, *rest = value.text.split("\n")
+        if first == "\\":
+            parts: list[str] = []
+            newline = False
+            for trimmed in rest:
+                if newline:
+                    parts.append("\n")
+                newline = not trimmed.endswith("\\")
+                parts.append(trimmed.rstrip("\\"))
+            return "".join(parts)
+        return "\n".join(rest) if not first.strip() else value.text
+    if isinstance(value, tuple):
+        return [_legacy_value(entry) for entry in value]
+    if isinstance(value, CIFTable):
+        return {key: _legacy_value(entry) for key, entry in value.entries}
+    return value
+
+
+def _legacy_block(block: CIFBlock, *, structural_only: bool) -> dict[str, Any]:
+    """Return the dictionary the fast reader returns for this block.
+
+    Mirrors ``read_cif(..., allow_cif2=block.dialect == "mcif", structural_only=structural_only)``
+    with ``pragmatic=True``: lowercase keys without the leading ``_`` (later entries win, save frames
+    flattened), ``loop_N`` keys listing each loop's columns, and values as the fast reader's text.
+    With ``structural_only``, only retained data items are kept and, outside mCIF, loops without
+    a retained column are skipped.
+    """
+    result: dict[str, Any] = {}
+    loops = 0
+    skip_loops = structural_only and block.dialect != "mcif"
+
+    def walk(items: tuple[CIFItem, ...]) -> None:
+        nonlocal loops
+        for item in items:
+            if isinstance(item, CIFDataItem):
+                key = item.name[1:].lower()
+                if not structural_only or _is_retained_tag(key):
+                    result[key] = _legacy_value(item.value)
+            elif isinstance(item, CIFLoop):
+                header = [name[1:].lower() for name in item.names]
+                if skip_loops and not any(_is_retained_tag(name) for name in header):
+                    continue
+                columns: dict[str, list[Any]] = {name: [] for name in header}
+                for row in item.rows:
+                    for name, value in zip(header, row, strict=True):
+                        columns[name].append(_legacy_value(value))
+                result[f"loop_{loops}"] = list(columns)
+                loops += 1
+                result.update(columns)
+            elif isinstance(item, CIFSaveFrame):
+                walk(item.items)
+
+    walk(block.items)
+    return result
+
+
+@overload
 def read_cif(
     source: str | os.PathLike[str] | IO[bytes] | Iterable[str],
     pragmatic: bool = True,
@@ -541,23 +1037,66 @@ def read_cif(
     *,
     repair: bool = False,
     structural_only: bool = False,
-) -> tuple[list[tuple[str, dict[str, Any]]], str]:
-    """Read CIF text as ``(data_blocks, header)``.
+    lossless: Literal[False] = False,
+) -> tuple[list[tuple[str, dict[str, Any]]], str]: ...
+
+
+@overload
+def read_cif(
+    source: str | os.PathLike[str] | IO[bytes] | Iterable[str],
+    pragmatic: bool = True,
+    allow_cif2: bool = False,
+    *,
+    repair: bool = False,
+    structural_only: Literal[False] = False,
+    lossless: Literal[True],
+) -> list[CIFBlock]: ...
+
+
+def read_cif(
+    source: str | os.PathLike[str] | IO[bytes] | Iterable[str],
+    pragmatic: bool = True,
+    allow_cif2: bool = False,
+    *,
+    repair: bool = False,
+    structural_only: bool = False,
+    lossless: bool = False,
+) -> tuple[list[tuple[str, dict[str, Any]]], str] | list[CIFBlock]:
+    """Read CIF text as ``(data_blocks, header)``, or losslessly as :class:`~httk.atomistic.io.cif.CIFBlock` objects.
 
     Paths are opened through :class:`httk.core.TextstreamFileView`, including compressed
     CIF files. A binary stream is decoded like a file (UTF-8, with the same Latin-1 fallback
     under ``repair``). Open streams and iterables are consumed but left open.
 
+    With ``lossless=True`` the result is one :class:`~httk.atomistic.io.cif.CIFBlock` per ``data_`` block, keeping
+    data names, comments, numbers and every item in written order. Its syntax is CIF1, full
+    CIF2 when line 1 is the CIF2 magic code, or the magnetic CIF syntax (CIF1 plus lists,
+    ``dialect="mcif"``) under ``allow_cif2``. What it normalises: whitespace, quote style, line
+    ends, a byte-order mark, comments inside CIF2 lists and tables (moved after the value), and,
+    under ``pragmatic``, a bare value followed by more words on its line (joined as the fast
+    reader joins it) and a quote left open at the line end (the rest of the line, opening quote
+    included). Broken syntax raises ``ValueError`` with a line number, including inputs the fast
+    reader tolerates: a value without a data name, a data name without a value, a malformed loop
+    (also under ``repair``), an unterminated text field, and content before the first ``data_``.
+
     :param source: A filename, open text or binary stream, or iterable of CIF lines.
     :param pragmatic: Accept selected common deviations from strict CIF tokenization.
     :param allow_cif2: Parse CIF2 list values in addition to CIF1 data.
     :param repair: Apply documented, warning-emitting CIF repairs, including malformed
-        auxiliary-loop removal and a Latin-1 fallback for legacy files.
+        auxiliary-loop removal and a Latin-1 fallback for legacy files. Lossless reading applies
+        only the Latin-1 fallback.
     :param structural_only: Retain only tags consumed by httk's structural adapters (bond loops included) and
         skip auxiliary CIF1 loops.
-    :return: The data blocks and the leading comment header.
-    :raises ValueError: If a loop contains mismatched column value counts.
+    :param lossless: Return :class:`~httk.atomistic.io.cif.CIFBlock` objects instead of dictionaries.
+    :return: The data blocks and the leading comment header, or the lossless blocks.
+    :raises ValueError: If a loop contains mismatched column value counts, or, when lossless,
+        the CIF syntax is broken.
+    :raises TypeError: If ``lossless`` is combined with ``structural_only``.
     """
+    if lossless:
+        if structural_only:
+            raise TypeError("read_cif(lossless=True) keeps every item; structural_only does not apply")
+        return _read_cif_lossless(source, pragmatic, allow_cif2, repair)
     if isinstance(source, (str, os.PathLike)):
         path = Path(source)
         try:

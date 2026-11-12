@@ -1,0 +1,17 @@
+# header line 1
+# header line 2
+
+# leading of first block
+data_first # inline on data line
+_cell_length_a 5.0
+_journal_year 2026
+# trailing of first: moves to second.leading
+data_notes
+_note 'no atoms here'
+loop_
+_x
+1 2
+# between blocks
+data_last
+_cell_length_a 4.0
+# trailing of the last block

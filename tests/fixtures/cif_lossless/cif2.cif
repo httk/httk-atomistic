@@ -1,0 +1,15 @@
+#\#CIF_2.0
+# cif2 header
+data_c2
+_list [1 2.50 [a b] ?]
+_table {"k1":1.0 'k 2':[x y] "k3":{"n":.}}
+_tq """line one
+line "two" and 'three'
+"""
+_tq2 '''single'''
+_s "it's"
+loop_
+_a
+_b
+'q' [1 2]
+"r" {"z":?}

@@ -144,6 +144,10 @@ nitpick_ignore = [
     # StoredPropertyProjection is new in the sibling core workspace; the
     # committed release inventory cannot name it until core is released.
     ("py:class", "httk.core.storage.StoredPropertyProjection"),
+    # The CIF number classes are likewise new in the sibling core workspace.
+    ("py:class", "httk.core.DecimalScalar"),
+    ("py:class", "httk.core.DecimalVector"),
+    ("py:class", "httk.core.DecimalGap"),
     # The protocol property ``type`` is indexed through both its defining
     # module and the package re-export; qualified member links stay available.
     ("py:obj", "type"),

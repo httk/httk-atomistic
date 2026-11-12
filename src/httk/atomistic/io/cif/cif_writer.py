@@ -26,6 +26,21 @@ from decimal import Decimal, localcontext
 from fractions import Fraction
 from typing import Any, cast
 
+from httk.core import DecimalGap, DecimalScalar
+
+from .cif_items import (
+    CIFBlock,
+    CIFComment,
+    CIFDataItem,
+    CIFItem,
+    CIFLoop,
+    CIFTextField,
+    CIFValue,
+    _cif_mode,
+    _cif_quote,
+    _Mode,
+)
+
 _cif_ordinary_char = r'!%&()*+,-./0123456789:<=>?@ABCDEFGHIHJKLMNOPQRSTUVWXYZ\^`abcdefghijklmnopqrstuvwxyz{|}~'
 _cif_non_blank_char = _cif_ordinary_char + '"' + "#$" + "'" + "_" + ";[]"
 _cif_text_lead_char = _cif_ordinary_char + '"' + "#$" + "'" + "_ \t[]"
@@ -202,9 +217,117 @@ def _cif_write_data_block(f, data_block, max_line_length):
                 noteol = False
 
 
+def _put_comment(out: list[str], comment: CIFComment) -> None:
+    if comment.inline:
+        out[-1] += " #" + comment.text
+    else:
+        out.append("#" + comment.text)
+
+
+def _put_value(out: list[str], text: str, new_line: bool) -> None:
+    """Append a rendered value, on a new line or after the current one."""
+    if text.startswith("\n"):  # a text field: its ';' lines stand alone
+        out += text[1:].split("\n")
+        return
+    parts = text.split("\n")
+    if new_line:
+        out.append(parts[0])
+    else:
+        out[-1] += " " + parts[0]
+    out += parts[1:]
+
+
+def _lossless_value(value: CIFValue, mode: _Mode) -> str:
+    """Render a value; a text field starts with a line break so its ';' lands in column 0."""
+    if isinstance(value, str):
+        return _cif_quote(value, mode)
+    if isinstance(value, DecimalScalar):
+        return value.token
+    if isinstance(value, DecimalGap):
+        return value.value
+    if isinstance(value, CIFTextField):
+        return "\n;" + value.text + "\n;"
+    if isinstance(value, tuple):
+        return "[" + " ".join(_lossless_value(entry, mode) for entry in value) + "]"
+    return (
+        "{"
+        + " ".join(_cif_quote(key, mode, key=True) + ":" + _lossless_value(entry, mode) for key, entry in value.entries)
+        + "}"
+    )
+
+
+def _write_lossless_loop(out: list[str], loop: CIFLoop, mode: _Mode, max_line_length: int) -> None:
+    placed: dict[int, list[CIFComment]] = {}
+    for position, comment in loop.comments:
+        placed.setdefault(position, []).append(comment)
+
+    def put(position: int) -> bool:
+        for comment in placed.get(position, ()):
+            _put_comment(out, comment)
+        return position in placed
+
+    out.append("loop_")
+    put(0)
+    for index, name in enumerate(loop.names):
+        out.append(name)
+        put(index + 1)
+    width = len(loop.names)
+    fresh = True  # the next value starts a line
+    for index, value in enumerate(entry for row in loop.rows for entry in row):
+        text = _lossless_value(value, mode)
+        first = text.partition("\n")[0]
+        _put_value(out, text, fresh or index % width == 0 or len(out[-1]) + 1 + len(first) > max_line_length)
+        fresh = put(width + index + 1)
+
+
+def _write_lossless_items(out: list[str], items: tuple[CIFItem, ...], mode: _Mode, max_line_length: int) -> None:
+    for item in items:
+        if isinstance(item, CIFComment):
+            _put_comment(out, item)
+        elif isinstance(item, CIFDataItem):
+            out.append(item.name)
+            before = [comment for position, comment in item.comments if position == 0]
+            for comment in before:
+                _put_comment(out, comment)
+            _put_value(out, _lossless_value(item.value, mode), bool(before))
+            for position, comment in item.comments:
+                if position == 1:
+                    _put_comment(out, comment)
+        elif isinstance(item, CIFLoop):
+            _write_lossless_loop(out, item, mode, max_line_length)
+        else:
+            out.append("save_" + item.name)
+            _write_lossless_items(out, item.items, mode, max_line_length)
+            out.append("save_")
+
+
+def _lossless_cif_text(blocks: list[CIFBlock], max_line_length: int) -> str:
+    """Return the CIF text of lossless blocks (a pure function of the blocks)."""
+    first = blocks[0]
+    if any(block.header != first.header or block.dialect != first.dialect for block in blocks):
+        raise ValueError(
+            "blocks carry different file headers or dialects; use dataclasses.replace(block, header=..., dialect=...)"
+        )
+    for block in blocks[:-1]:
+        if block.items and isinstance(block.items[-1], CIFComment) and not block.items[-1].inline:
+            raise ValueError(
+                f"block {block.name!r} ends with own-line comments, which would re-read as the next block's "
+                "leading; move them into the next block's `leading` with dataclasses.replace"
+            )
+    mode = _cif_mode(first)
+    out = ["#" + comment.text for comment in first.header]
+    if first.leading:
+        out.append("")  # ends the header
+    for block in blocks:
+        out += ["#" + comment.text for comment in block.leading]
+        out.append("data_" + block.name)
+        _write_lossless_items(out, block.items, mode, max_line_length)
+    return "\n".join(out) + "\n"
+
+
 def write_cif(
     destination: str | os.PathLike[str] | io.TextIOBase,
-    data: Iterable[tuple[str | None, Mapping[str, object]]],
+    data: CIFBlock | Iterable[CIFBlock] | Iterable[tuple[str | None, Mapping[str, object]]],
     header: str | None = None,
     max_line_length: int = 80,
 ) -> None:
@@ -214,11 +337,34 @@ def write_cif(
     scalar values and uses ``loop_N`` keys to list its loop columns. ``header``, when
     supplied, is written before the data blocks.
 
+    ``data`` may instead be one :class:`~httk.atomistic.io.cif.CIFBlock` or an iterable of them,
+    as ``read_cif(..., lossless=True)`` returns. They are written losslessly, in the syntax of
+    their dialect and header, with the header (shared by all blocks) once at the top; reading the
+    output back gives equal blocks. ``header`` must then be ``None``; ``max_line_length`` wraps
+    loop rows.
+
     :param destination: Filename or open text stream receiving the CIF text.
-    :param data: Data-block pairs containing scalar data names and loop columns.
+    :param data: Data-block pairs containing scalar data names and loop columns, or CIF blocks.
     :param header: Optional text written before the data blocks.
     :param max_line_length: Maximum preferred line length for emitted values.
+    :raises TypeError: If CIF blocks are mixed with pairs, or given with ``header``.
+    :raises ValueError: If the blocks differ in header or dialect, or a block other than the last
+        ends with an own-line comment.
     """
+    entries = [data] if isinstance(data, CIFBlock) else list(data)
+    if any(isinstance(entry, CIFBlock) for entry in entries):
+        if not all(isinstance(entry, CIFBlock) for entry in entries):
+            raise TypeError("write_cif takes CIFBlocks or (name, block) pairs, not a mixture")
+        if header is not None:
+            raise TypeError("CIF blocks carry their own header; write_cif(header=...) does not apply")
+        text = _lossless_cif_text(cast(list[CIFBlock], entries), max_line_length)
+        if isinstance(destination, (str, os.PathLike)):
+            with open(destination, "w", encoding="utf-8", newline="\n") as stream:
+                stream.write(text)
+        else:
+            destination.write(text)
+        return
+    pairs = cast(list[tuple[str | None, Mapping[str, object]]], entries)
 
     with ExitStack() as stack:
         f: io.TextIOBase
@@ -241,7 +387,7 @@ def write_cif(
                     f.write(line + "\n")
 
         data_block_count = -1
-        for data_block in data:
+        for data_block in pairs:
             data_block_count += 1
             data_block_name_unfiltered = data_block[0]
             if data_block_name_unfiltered is None:

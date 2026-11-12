@@ -15,13 +15,35 @@
 #    You should have received a copy of the GNU Affero General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Read CIF and magnetic CIF files into neutral asymmetric-unit payloads."""
+"""Read CIF and magnetic CIF files into neutral asymmetric-unit payloads or lossless blocks."""
 
+from .cif_items import (
+    CIFBlock,
+    CIFComment,
+    CIFDataItem,
+    CIFDialect,
+    CIFItem,
+    CIFLoop,
+    CIFSaveFrame,
+    CIFTable,
+    CIFTextField,
+    CIFValue,
+)
 from .cif_parser import read_cif_asus, single_asu_from_cif_file
 from .cif_reader import read_cif
 from .mcif_parser import mag_asus_from_mcif_file, read_mcif_asus, single_mag_asu_from_mcif_file
 
 __all__ = [
+    "CIFBlock",
+    "CIFComment",
+    "CIFDataItem",
+    "CIFDialect",
+    "CIFItem",
+    "CIFLoop",
+    "CIFSaveFrame",
+    "CIFTable",
+    "CIFTextField",
+    "CIFValue",
     "mag_asus_from_mcif_file",
     "read_cif",
     "read_cif_asus",

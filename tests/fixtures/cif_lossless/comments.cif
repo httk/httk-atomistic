@@ -1,0 +1,16 @@
+data_comments
+_a 1.0 # after value
+_b
+# between name and value
+2.0
+loop_ # after loop_
+_atom_site_label # after name
+# own-line among names
+_atom_site_fract_x
+Fe1 0.1 # after first row
+# between rows
+O1
+# mid-row
+0.2 # after last value
+# own-line after loop
+_c x

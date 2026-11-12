@@ -1,0 +1,11 @@
+data_folded
+_t
+;\
+abc\
+def
+ghi
+;
+_u
+;  
+blank-ish first line
+;
