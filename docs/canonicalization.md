@@ -66,8 +66,8 @@ otherwise. Fractional coordinates are reduced componentwise modulo one into
    exact translation/same-group cell reduction, not general upward exploration.
 6. Choose by the bare assigned key (species class names included) first, then the
    anonymous geometry, restore the compatible chemical assignments, then choose
-   the scalar chemical minimum. Restore metadata and source precision under the
-   exact unchanged-crystal gate described below.
+   the scalar chemical minimum. Restore metadata, and record the precision from
+   the source by the derivation rule described below.
 7. Check the deadline and any reported bounded-work skips before returning the
    ASU. On a limit, raise `CanonicalizationLimitError` without a partial answer.
 
@@ -117,7 +117,7 @@ establish chemical-substitution covariance of these search states.
    of its visited key. Raise after 10,000 distinct visited states.
 10. A state whose parent evaluation finished with no lift is terminal. Apply the
     shared anonymous exact core directly, using the requested chirality policy.
-    Restore source metadata and unchanged precision; carry its path, shift and
+    Restore source metadata and record precision by the derivation rule; carry its path, shift and
     residual unchanged. Check the deadline before retaining the terminal.
 11. Deduplicate completed terminals by `(IT number, structure signature, path)`.
     Sort by `(-number of symmetry operations, IT number, residual,
@@ -273,18 +273,22 @@ recognition and no upward symmetry search.
     `B_std = M^T B_own`. Multiply cell precision by the maximum absolute row sum
     of `M^T`, coordinate precision by the maximum absolute column sum of
     `(M^T)^-1`, and charge by `abs(det M)`.
-11. **Collapse declared supercells.** In P1 repeat step 3. In group 2 or higher,
-    count exact pseudo-translations outside the group's own centring lattice.
+11. **Collapse declared supercells.** In P1 repeat step 3. In P-1, when exact
+    pseudo-translations exist, collapse the P1 expansion as in step 3 and read it
+    back as P-1, one site per inversion orbit: the inversion keeps the finer
+    lattice, and the collapse then does not depend on the input cell (the
+    tabulated self-lifts below reach only some sublattice orientations). The bare
+    label keeps the declared supercell, so the refined label then differs from it.
+    In group 3 or higher, count exact pseudo-translations outside the group's own centring lattice.
     Repeatedly consider the concatenated vendored same-IT transforms, remove
     duplicates, keep indices greater than one that divide
     `pseudo_translation_count+1`, and stable-sort by ascending index while
     preserving table order at equal index. Try each with tolerance zero; take
     the minimum result of the first transform that lands. Tabulated indices are
     at most 9. If none lands, warn and retain the current supercell.
-12. **Handle P-1 metric ties.** For group 2, proxy-Niggli-reduce, force the
-    transform proper, enumerate all proper proxy Gram automorphisms, retain the
-    least full exact metric, and preserve distinct tied `(site key, basis)`
-    entries. Other groups have one entry.
+12. **Enter P-1 once.** For group 2, proxy-Niggli-reduce and force the
+    transform proper. That cell is the only entry: the P-1 candidates of step 22
+    depend on the lattice, not on its basis. Other groups also have one entry.
 13. **Reduce triclinic lattices.** For groups 1 and 2, apply exact full Niggli
     reduction when the Gram is rational. A non-rational Gram that the reducer
     cannot handle remains in its proxy-selected entry.
@@ -338,7 +342,7 @@ recognition and no upward symmetry search.
     (`class_order_key`). In groups 2 to 15 the candidates are also taken after
     every kept cell change `σ` (see the classification section). Compare the pair
     `(anonymous, assignment)`, and retain the complete minimum tier. In groups 3
-    to 15 every `σ` reaching it contributes; in P-1 only the earliest. In a
+    to 15 every `σ` reaching it contributes; P-1 is step 22. In a
     Sohncke group only proper descriptions (`σ·action` with total determinant
     +1) compete, whatever `preserve_chirality` is: the two hands of a group that
     is its own partner are compared in step 15 instead.
@@ -351,8 +355,18 @@ recognition and no upward symmetry search.
     surviving candidate by each cell change of `K` (the cell changes that keep
     every letter and operation) to its least `(a·a, c·c, a·c)`, the reduction
     key (see the classification section); in a Sohncke group only the cell changes
-    of `K` with determinant +1. Then compare `(reduction key, full Gram
-    row-major)` and retain the least. Candidates that differ by a
+    of `K` with determinant +1. In P-1 the letters of an action `(M, t)`
+    depend only on `(M mod 2, 2t mod 2)`, so a cell `P B` keeps the least key
+    exactly when every row of `P` lies in a prescribed class of `L/2L`, with
+    the matching half translations. Selling-reduce the exact Gram (surds
+    included) to an obtuse superbase; the least vectors of each class then
+    follow combinatorially from its conorms, without evaluating a norm. Keep every
+    admissible class triple with the least `(a·a, b·b, c·c)`, every triple of
+    signed class minimizers with determinant +1 (in a degenerate lattice three
+    minimizers of independent classes can have determinant 3), and every
+    admissible half translation. The reduction key is those three norms, then
+    whether the Gram fails the exact Niggli conditions. Then compare
+    `(reduction key, full Gram row-major)` and retain the least. Candidates that differ by a
     lattice translation give the same result and are evaluated once.
 23. **Apply each distinct site action.** Apply `p' = p A + q mod 1`, transform
     the basis, and canonicalize translations and orbit representatives once per
@@ -415,15 +429,24 @@ recognition and no upward symmetry search.
     optimization type, immutable ID, and last-modified value. Scale an explicit
     composition by `output expanded count / input expanded count`. Do not copy a
     computed content ID.
-    After restoring each assignment, compare the result with the source using
-    exact `same_crystal`: identical basis, periodicity and charge, and identical
-    multisets of `(complete Species, wrapped fractional coordinate)` in the
-    expanded unit cell. If equal, restore the source precision bounds for the
-    cell and fractional coordinates while keeping the result's canonical cell
-    representation, group, sites, species and metadata. Apply this rule at the
-    exact-family boundary and the outer measured-family boundary. This prevents
-    internal, cancelling transforms from inflating precision bounds on an unchanged result. A genuinely changed
-    basis or occupied-site multiset retains the propagated conservative bounds.
+    After restoring each assignment, record the precision from the source. A
+    valid derivation is an exact `T` of either determinant sign whose rows lie in
+    the source translation lattice (`Z^3` plus the exact self-translations of its
+    expanded unit cell, centrings included), with `T G_src T^T = G_res`, under
+    which the source's expanded sites, mapped by `x' = x T^-1` and wrapped, equal
+    the result's up to one common translation, species included; a result cell
+    `|det T|` times larger takes every image of each site under the source
+    lattice. Rows are enumerated exactly in a proxy-reduced source basis with the
+    Cauchy bound `t_j^2 <= (G_res)_kk (G_src^-1)_jj`, surd Grams included. Of the valid derivations take the least
+    `(row sum of T, column sum of T^-1)`, and record the source cell precision
+    times that row sum and the source coordinate precision times that column
+    sum. Apply this rule at the exact-family boundary, the outer measured-family
+    boundary and the right-handed re-description of step 14. The recorded bounds
+    then depend on the source and the result, not on the internal path: an
+    unchanged result keeps the source bounds, and a crystal and its mirror image
+    record the same. Where no valid derivation exists (a tolerance-snapped
+    recognition, a lifted crystal) the propagated conservative path bounds are
+    kept.
 35. **Return.** `canonical_asu` and `canonicalize` restore the original species
     onto the recognized ASU and run steps 10–34 with species class names in the
     discrete key, returning the one result; its label equals the canonical bare
@@ -608,10 +631,16 @@ reduction key; ties go on to the full metric and the site key. No
 tier prefers a `σ` or the input's own description, so the representative's label,
 cell and sites do not depend on the input cell. The cell need not be the
 conventional reduced cell: keeping the letters can force a longer axis, e.g.
-P2₁/c with Cl on `a` and Na on `b` needs `a' = a + c`. In P-1 the earliest `σ` that
-reaches the key is kept: the entry set is the Niggli cell with every proper metric
-automorphism, so that choice is already intrinsic; the stored P-1 cell is `σ`
-times the Niggli cell, intrinsic but not reduced within its class.
+P2₁/c with Cl on `a` and Na on `b` needs `a' = a + c`. In P-1 the stored cell has
+the lexicographically least `(a·a, b·b, c·c)` among the cells that keep the
+canonical letters, then the Niggli Gram where it is among them (step 22). With
+every atom on the general position every cell keeps the letters, so the lengths
+are the successive minima and the stored Gram is the Niggli Gram, for a surd
+metric too. Atoms on inversion centres can force another cell, the most reduced
+by this lexicographic rule but not necessarily reduced in the usual sense, since
+the shortest vector can come last: in the cell (5, 6.083, 7.348 Å) with Na on `a`
+and Cl on `d`, the canonical letters `a, b` need Na→Cl to be `c/2`, so `c` is the
+5 Å vector and the stored cell is (6.083, 7.348, 5.000 Å).
 
 In a Sohncke group the refined terminal uses only proper descriptions of a
 right-handed entry, so its label keeps the hand as the bare one does and its

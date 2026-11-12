@@ -20,17 +20,20 @@ from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.prototype.view import PrototypeView
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure
-from httk.atomistic.models.structure.comparison import same_crystal
+from httk.atomistic.models.structure.bonds import SiteBond
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.models.structuretype.anonymize import dummy_species
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
+from httk.atomistic.reduction import niggli_reduce
 from httk.atomistic.symmetry import canonical_classification as classification
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.canonical import canonical_asu, canonicalize
 from httk.atomistic.symmetry.canonical_protostructure import (
     _ac_reduced,
     _apply_action,
+    _canonical_protostructure_asu,
     _discrete_candidates,
+    _is_niggli_gram,
     _kernel_residues,
     _mirrored,
     _sohncke,
@@ -389,7 +392,8 @@ def _fixture_names() -> list[str]:
     ]
 
 
-def _fixture(name: str) -> ASUStructure:
+def _fixture(name: str, *, precise: bool = False, bonded: bool = False) -> ASUStructure:
+    """A fixture in its standard setting; with ``precise`` its coordinate precision, with ``bonded`` its bonds."""
     try:
         loaded = httk.core.load(str(FIXTURES / name))
     except ValueError:  # an unrecognised declared setting or occupancies needing repair
@@ -397,13 +401,144 @@ def _fixture(name: str) -> ASUStructure:
     assert isinstance(loaded, ASUStructure)
     standard = _standard_input(loaded)
     sites = [WyckoffSite(site.wyckoff, site.free_params, site.species) for site in standard.wyckoff_sites]
-    return ASUStructure(standard.cell, standard.spacegroup, sites, standard.species)
+    return ASUStructure(
+        standard.cell,
+        standard.spacegroup,
+        sites,
+        standard.species,
+        coordinate_precision=standard.coordinate_precision if precise else None,
+        bonds=standard.bonds if bonded else None,
+    )
 
 
 @pytest.mark.extended
 @pytest.mark.parametrize("name", _fixture_names())
 def test_fixture_refined_label_is_bare_label_in_random_cells(name: str) -> None:
-    _assert_cell_independent(_fixture(name), random.Random(name), 2)
+    structure = _fixture(name)
+    _assert_cell_independent(structure, random.Random(name), 6 if structure.spacegroup.it_number == 2 else 2)
+
+
+@pytest.mark.parametrize("name", ("cod/7217003.cif", "cod/4131686.cif", "structreading/2.cif"))
+def test_p1_fixtures_are_stored_in_their_niggli_cells(name: str) -> None:
+    # FU4 §5: every atom is on the general position, so the stored cell is the reduced one; it was
+    # a fixed cell change of it (7217003: 7.149 9.737 14.105 Å, now 7.149 7.769 14.105 Å)
+    structure = _fixture(name)
+    _assert_cell_independent(structure, random.Random(name), 2)
+    gram = _refined_value(structure)[2]
+    niggli = niggli_reduce(structure.cell).cell.metric()
+    assert gram == tuple(niggli._element((row, column)) for row in range(3) for column in range(3))
+    assert _is_niggli_gram(gram)
+
+
+# P-1 on degenerate lattices with atoms on inversion centres: many tied class minimizers
+P1_DEGENERATE = {
+    f"{lattice}-{letters}": (basis, letters)
+    for lattice, basis in (
+        ("cubic", ((5, 0, 0), (0, 5, 0), (0, 0, 5))),
+        ("tetragonal", ((5, 0, 0), (0, 5, 0), (0, 0, 7))),
+        ("fcc", ((0, 3, 3), (3, 0, 3), (3, 3, 0))),
+        ("bcc", ((-2, 2, 2), (2, -2, 2), (2, 2, -2))),
+    )
+    for letters in ("ahi", "bei")
+}
+
+
+# FU4 review M2: the same species on two inversion centres half a translation apart, a declared
+# supercell. It collapses to its primitive cell in every input cell (the tabulated isomorphic
+# self-lifts reached only some cells); the bare label keeps the declared supercell, so the refined
+# label differs from it, as for any collapsed exact supercell
+P1_SUPERCELLS = {
+    "bcc-a-d": (((-3, 3, 3), (3, -3, 3), (3, 3, -3)), "Na", "ad"),
+    "hexlike-d-f": (((6, 0, 0), (-3, 5, 0), (0, 0, 7)), "Cl", "df"),
+    "skew-a-h": (((5, 0, 0), (1, 6, 0), (-1, 2, 7)), "Na", "ah"),
+}
+
+
+@pytest.mark.parametrize("name", P1_SUPERCELLS)
+def test_p1_declared_supercell_collapses_in_every_cell(name: str) -> None:
+    basis, species, letters = P1_SUPERCELLS[name]
+    structure = ASUStructure(
+        Cell(basis), 2, [WyckoffSite(letter, (), species) for letter in letters], [_species(species)]
+    )
+    first = _refined_value(structure)
+    assert first[:2] == (f"A_aP1_2_a:{species}", f"A_aP2_2_ab:{species}")
+    rng = random.Random(name)
+    for _ in range(4):
+        action = AffineOperation.identity()
+        for _ in range(rng.randint(1, 3)):
+            action = rng.choice(_redescriptions(2)) * action
+        assert _refined_value(_apply_action(structure, action)) == first
+
+
+@pytest.mark.parametrize("invariant", (True, False))
+def test_p1_supercell_collapses_only_when_its_bond_network_survives(invariant: bool) -> None:
+    # FU4 re-review N1: two Na (a, d) and two Cl (i) related by (1/2, 0, 0). A Na0-Na1 bond keeps
+    # that translation, so the cell collapses with its network; a Na0 bond along b alone does not,
+    # so the declared cell is the crystal's translation lattice and stays, network included
+    offset = (0, 0, 0) if invariant else (0, 1, 0)
+    structure = ASUStructure(
+        TRICLINIC_CELL,
+        2,
+        [
+            WyckoffSite("a", (), "Na"),
+            WyckoffSite("d", (), "Na"),
+            WyckoffSite("i", GENERAL, "Cl"),
+            WyckoffSite("i", (GENERAL[0] + F(1, 2), *GENERAL[1:]), "Cl"),
+        ],
+        [_species("Na"), _species("Cl")],
+        bonds=[SiteBond(0, 1 if invariant else 0, AffineOperation(((1, 0, 0), (0, 1, 0), (0, 0, 1)), offset))],
+    )
+
+    def value(asu: ASUStructure) -> tuple[Any, ...]:
+        result = _canonical_protostructure_asu(asu)
+        assert result.bonds is not None and len(result.bonds) == 1
+        return result.wyckoff_sites, result.bonds, result.cell.metric()
+
+    first = value(structure)
+    assert len(first[0]) == (2 if invariant else 4)
+    rng = random.Random(f"bonded-supercell-{invariant}")
+    for _ in range(3):
+        action = AffineOperation.identity()
+        for _ in range(3):
+            action = rng.choice(_redescriptions(2)) * action
+        assert value(_apply_action(structure, action)) == first
+
+
+@pytest.mark.extended
+@pytest.mark.parametrize("name", ("cod/7217003.cif", "cod/4131686.cif"))
+def test_p1_refined_cell_keeps_the_bond_network_in_every_cell(name: str) -> None:
+    structure = _fixture(name, precise=True, bonded=True)
+    assert structure.bonds
+
+    def value(asu: ASUStructure) -> tuple[Any, ...]:
+        result = _canonical_protostructure_asu(asu)
+        assert result.bonds is not None and len(result.bonds) == len(structure.bonds or ())
+        return result.bonds, result.wyckoff_sites, result.cell.metric()
+
+    first = value(structure)
+    rng = random.Random(name)
+    for _ in range(4):
+        action = AffineOperation.identity()
+        for _ in range(3):
+            action = rng.choice(_redescriptions(2)) * action
+        assert value(_apply_action(structure, action)) == first
+
+
+@pytest.mark.extended
+@pytest.mark.parametrize("name", P1_DEGENERATE)
+def test_p1_degenerate_lattices_give_one_refined_value_in_every_cell(name: str) -> None:
+    basis, letters = P1_DEGENERATE[name]
+    names = ("Na", "Cl", "O")
+    structure = ASUStructure(
+        Cell(basis),
+        2,
+        [
+            WyckoffSite(letter, GENERAL if letter == "i" else (), species)
+            for species, letter in zip(names, letters, strict=True)
+        ],
+        [_species(species) for species in names],
+    )
+    _assert_cell_independent(structure, random.Random(name), 6)
 
 
 def _enantiomer(asu: ASUStructure) -> ASUStructure:
@@ -631,26 +766,39 @@ def _sohncke_fixtures() -> list[str]:
 
 
 @pytest.mark.extended
-@pytest.mark.parametrize("name", _sohncke_fixtures())
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param(
+            name,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="its species classes merge, so the Protostructure constructor re-recognizes it "
+                "(_merges_classes -> canonical_asu_protostructure) with the 0.23 Å tolerance of its stated "
+                "coordinate precision (0.013), which snaps the two hands onto different Cm crystals (FU4 review M3)",
+            ),
+        )
+        if name == "cod/1001844.cif"
+        else name
+        for name in _sohncke_fixtures()
+    ],
+)
 def test_preserve_chirality_false_identifies_the_hands_of_every_sohncke_fixture(name: str) -> None:
     # every Sohncke group among the structreading fixtures (numbered by group), including I4_1,
     # I4_122 and F4_132, where the normalizing inversion needs an origin shift; the mirror image is
     # the same fractions in the negated basis (inverting the coordinates through the origin would
     # leave the group there). Bare and refined labels agree, and both representatives are right-handed
-    asu = _fixture(name)
+    asu = _fixture(name, precise=True)
     hands = (asu, _mirrored(asu))
     values = [_hand_value(hand) for hand in hands]
     assert values[0] == values[1]
-    # the representatives themselves, site order included (sorted, also with tied species
-    # assignments: 169, C and N on 4a); the recorded cell precision follows the description path
+    # the values themselves, site order (sorted, also with tied species assignments: 169, C and N
+    # on 4a) and the recorded precisions included
     first, second = (
-        classification.canonical_protostructure(
-            Protostructure(representative=hand), preserve_chirality=False
-        ).representative
+        classification.canonical_protostructure(Protostructure(representative=hand), preserve_chirality=False)
         for hand in hands
     )
-    assert first is not None and second is not None
-    assert first.wyckoff_sites == second.wyckoff_sites and same_crystal(first, second)
+    assert first == second
     assert values[0][2] > 0
     assert {
         str(

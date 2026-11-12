@@ -245,8 +245,10 @@ sites) does not depend on the cell the input was given in, and its cell is
 right-handed. By default it is the crystal itself: a Sohncke group uses no mirror
 description, so the two hands of a crystal can get different labels (P4₂32 `b`
 and `c`). A P-1 representative
-keeps a fixed cell change of the Niggli cell, intrinsic but not reduced within
-its class.
+is in its Niggli cell when every atom is on the general position; atoms on
+inversion centres can force the cell with the lexicographically least
+`(a·a, b·b, c·c)` among those keeping the canonical letters, which need not be
+reduced in the usual sense.
 `FundamentalDomainTemplate.bare_prototype` extracts the discrete anonymous key.
 The full procedure and retained-coordinate policy are specified in
 {doc}`canonicalization`.
@@ -988,11 +990,12 @@ their content identity. There are three versions, one per family:
 
 A label-rule change therefore bumps all three, while a change to the
 representative or to the net leaves the other families' records untouched. The
-label version is 4, the refined version 5 and the net version 5, since species
+label version is 4, the refined version 6 and the net version 5, since species
 classes replaced species names in every label, the hand is kept in Sohncke
 groups at every level, labels that could not be determined within the time
 budget are stored with an `X` marker, and species-class concentrations are
-rounded to three decimals. Saving requires the family's current version, and turning a record of
+rounded to three decimals; the refined version also covers the reduced P-1
+cell and the recorded precision taken from the least valid derivation of the source. Saving requires the family's current version, and turning a record of
 another version back into a value raises `ValueError` naming the family: its
 canonical form changed, so rebuild the database. Saving a protonet record also checks that its net
 is the canonical one for its bare description; a non-canonical net is rejected,

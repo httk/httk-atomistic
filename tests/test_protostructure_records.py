@@ -132,12 +132,12 @@ def test_protostructure_record_optional_forms_have_distinct_pinned_identities() 
     )
     expected_ids = (
         # representative species sorted: the stored representative lists its classes by name (Cl, Na)
-        "e61a04be21f46d24121d06a68f9d5f4b1fa5f329d1befe8e526461277985402c",
+        "ae7f003e49b0848c4292304eaa1e04ce5e1f426819467d2819d1e00e4f07a689",
         # dropped precision: the "Na"/"Cl" shorthand reads concentration 1.0 (precision 1/10), and
         # the occupations now store the species classes, which carry no precision
-        "40ee32e63d8249bdba0d19f2b39edbb5f35d7140ab4d6abe081d04c9373859f8",
+        "6148b1a62a3ead9122c38e4990b40a010d94c973440b631997f0f9d963c16dcd",
         # representative species sorted, as the first pin
-        "1c4d636ddef9d386f9e4f9002967e16b52b29d657c90645d0b4a9287f80661ae",
+        "f4c2d72157253ba43f6b05ece21217f867ac03d9ad19c18f20670789f89fd7fa",
     )
 
     records = tuple(_protostructure_record_from_value(value) for value in values)
@@ -170,9 +170,9 @@ def test_prototype_record_optional_forms_have_distinct_pinned_identities() -> No
         Prototype(representative=representative, discriminator="001"),
     )
     expected_ids = (
-        "ca91ca7cf0cf59f6ec294b3d469a605203c619d657d85a6b9c145d54561dd768",
-        "4590a246a1a691c959d7b3dcdea3a662fdf4f74640e265b6a94c1ff598959c5c",
-        "e05593314a108364b609ea326f37888d65c47d9d79880b62f7080d83165c1065",
+        "ea717baba2efce3a5862a896a683285a49049ccaa9f725f9fdb1ffbc1b95ade7",
+        "f65a2fdc5aec4b7e9cf9ea377c1b008398007bdcac3a4fc0d5240d5dfa421fc2",
+        "e09623790a0234d93f7aa8ed69ea840ea9ceba7e11c4edf7b2c8507bd02c081f",
     )
 
     records = tuple(_prototype_record_from_value(value) for value in values)

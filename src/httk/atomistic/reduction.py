@@ -181,15 +181,20 @@ def _niggli_step(parameters: tuple[fractions.Fraction, ...]) -> FracVector | Non
     return None
 
 
-def _is_niggli_parameters(parameters: tuple[fractions.Fraction, ...]) -> bool:
+def _exact_abs(value: Any) -> Any:
+    return value if value >= _ZERO else -value
+
+
+def _is_niggli_parameters(parameters: tuple[Any, ...]) -> bool:
+    # exact (a, b, c, xi, eta, zeta), Fraction or SurdScalar: abs is taken from the sign
     a, b, c, xi, eta, zeta = parameters
     if not (a <= b <= c):
         return False
-    if a == b and abs(xi) > abs(eta):
+    if a == b and _exact_abs(xi) > _exact_abs(eta):
         return False
-    if b == c and abs(eta) > abs(zeta):
+    if b == c and _exact_abs(eta) > _exact_abs(zeta):
         return False
-    if not (abs(xi) <= b and abs(eta) <= a and abs(zeta) <= a):
+    if not (_exact_abs(xi) <= b and _exact_abs(eta) <= a and _exact_abs(zeta) <= a):
         return False
     if not ((xi > _ZERO and eta > _ZERO and zeta > _ZERO) or (xi <= _ZERO and eta <= _ZERO and zeta <= _ZERO)):
         return False

@@ -3510,13 +3510,13 @@ def _run_search(
                 if partial:
                     from httk.atomistic.symmetry.canonical_protostructure import (
                         _canonical_protostructure_asu,
+                        _derived_precision,
                         _restore_source_metadata,
-                        _restore_unchanged_precision,
                     )
 
                     emitted = _canonical_protostructure_asu(state, preserve_chirality=preserve_chirality)
                     emitted = _restore_source_metadata(emitted, structure)
-                    emitted = _restore_unchanged_precision(emitted, structure)
+                    emitted = _derived_precision(emitted, structure)
                 else:
                     emitted = _canonical_orientation(_terminal_normal_form(state))
                     if not preserve_chirality:

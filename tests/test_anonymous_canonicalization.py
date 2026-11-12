@@ -1,8 +1,12 @@
 """Focused contracts for anonymous species geometry canonicalization."""
 
 import datetime
+import random
 from fractions import Fraction as F
+from itertools import product
+from pathlib import Path
 
+import httk.core
 import pytest
 from httk.core import FracVector, SurdVector
 from test_lift_p1 import _scrambled_p1
@@ -11,6 +15,7 @@ from httk.atomistic import (
     ASUStructure,
     Cell,
     ChemicalComposition,
+    Sites,
     Species,
     UnitcellStructure,
     UnitcellStructureView,
@@ -18,9 +23,19 @@ from httk.atomistic import (
     canonical_asu_protostructure,
     canonical_asu_protostructure_assignments,
 )
+from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.species.classes import _species_class
+from httk.atomistic.symmetry import canonical_classification as classification
 from httk.atomistic.symmetry._anonymous import _anonymous_p1_frame
-from httk.atomistic.symmetry.canonical_protostructure import _canonical_protostructure_assignments_asu
+from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.canonical_protostructure import (
+    _apply_action,
+    _canonical_protostructure_assignments_asu,
+    _derived_precision,
+    _mirrored,
+    _with_basis,
+)
+from httk.atomistic.symmetry.subgroups import _standard_input
 
 
 def _species(name: str, symbol: str, **kwargs: object) -> Species:
@@ -228,10 +243,163 @@ def test_precision_is_conservative_after_shear() -> None:
     assert UnitcellStructureView(result).cartesian_precision() >= UnitcellStructureView(precise).cartesian_precision()
 
 
-def test_exact_action_scales_coordinate_and_cell_precision() -> None:
-    from httk.atomistic.symmetry.affine_operation import AffineOperation
-    from httk.atomistic.symmetry.canonical_protostructure import _apply_action, _with_basis
+FIXTURES = Path(__file__).parent / "fixtures"
 
+
+def _fixture_with_precisions(name: str) -> ASUStructure:
+    """A fixture in its standard setting, keeping its stated cell and coordinate precisions."""
+    try:
+        loaded = httk.core.load(str(FIXTURES / name))
+    except ValueError:  # an unrecognised declared setting
+        loaded = httk.core.load(str(FIXTURES / name), repair=True)
+    standard = _standard_input(loaded)
+    return ASUStructure(
+        standard.cell,
+        standard.spacegroup,
+        [WyckoffSite(site.wyckoff, site.free_params, site.species) for site in standard.wyckoff_sites],
+        standard.species,
+        coordinate_precision=standard.coordinate_precision,
+    )
+
+
+@pytest.mark.parametrize("number", (146, 149, 151, 152, 153))
+def test_mirror_pair_records_the_source_precision(number: int) -> None:
+    # FU4 §6: a hand and its mirror image give one refined value; the recorded precisions were
+    # path products (146: 1/50000 and 1/12500) and are now those of the source
+    hand = _fixture_with_precisions(f"structreading/{number}.cif")
+    values = [
+        classification.canonical_protostructure(Protostructure(representative=value), preserve_chirality=False)
+        for value in (hand, _mirrored(hand))
+    ]
+    assert values[0] == values[1]
+    representative = values[0].representative
+    assert representative is not None
+    expected = F(1, 100000000) if number == 149 else F(1, 100000)
+    assert hand.cell.precision == hand.coordinate_precision == expected
+    assert representative.cell.precision == representative.coordinate_precision == expected
+
+
+def _rowsum(rows: tuple[tuple[int, ...], ...]) -> int:
+    return max(sum(abs(value) for value in row) for row in rows)
+
+
+def _valid_derivation_least_rowsum(source: ASUStructure, result: ASUStructure) -> int:
+    """Return the least row sum of a unimodular ``T`` (entries up to 3) deriving ``result`` from ``source``."""
+    gram = source.cell.metric().coefficient(1).to_fractions()
+    target = result.cell.metric().coefficient(1).to_fractions()
+
+    def dot(u: tuple[int, ...], v: tuple[int, ...]) -> F:
+        return sum((gram[i][j] * u[i] * v[j] for i in range(3) for j in range(3)), start=F(0))
+
+    vectors = [v for v in product(range(-3, 4), repeat=3) if any(v)]
+    rows = [[v for v in vectors if dot(v, v) == target[k][k]] for k in range(3)]
+    points = [tuple(site.free_params.to_fractions()) for site in source.wyckoff_sites]
+    stored = sorted(tuple(value % 1 for value in site.free_params.to_fractions()) for site in result.wyckoff_sites)
+    least = None
+    for change in product(*rows):
+        a, b, c = change
+        if (dot(a, b), dot(a, c), dot(b, c)) != (target[0][1], target[0][2], target[1][2]):
+            continue
+        matrix = FracVector(change)
+        if abs(matrix.det()) != 1:
+            continue
+        inverse = matrix.inv().to_fractions()
+        mapped = [tuple(sum(x[i] * inverse[i][j] for i in range(3)) for j in range(3)) for x in points]
+        for origin in mapped:
+            shift = tuple(stored[0][j] - origin[j] for j in range(3))
+            if sorted(tuple((q[j] + shift[j]) % 1 for j in range(3)) for q in mapped) == stored:
+                least = _rowsum(change) if least is None else min(least, _rowsum(change))
+                break
+    assert least is not None
+    return least
+
+
+def _check_least_valid_derivation(trials: int) -> None:
+    # the design review's P1 crystals in an fcc metric: the least row sum over all lattice
+    # isometries can belong to one that does not derive the stored sites, which would understate
+    # the precision; the recorded one is the least over the actual derivations
+    rng = random.Random(3)
+    for _ in range(trials):
+        points = [(F(0), F(0), F(0))] + [tuple(F(rng.randint(1, 30), 31) for _ in range(3)) for _ in range(2)]
+        source = ASUStructure(
+            Cell(((0, 3, 3), (3, 0, 3), (3, 3, 0)), precision=F(1, 100)),
+            1,
+            [WyckoffSite("a", point, "Na") for point in points],
+            [_species("Na", "Na")],
+        )
+        result = _canonical_protostructure_assignments_asu(source)[0]
+        assert result.cell.precision == F(1, 100) * _valid_derivation_least_rowsum(source, result)
+
+
+def test_precision_is_epsilon_times_the_least_valid_derivation() -> None:
+    _check_least_valid_derivation(4)
+
+
+@pytest.mark.extended
+def test_precision_is_epsilon_times_the_least_valid_derivation_extended() -> None:
+    _check_least_valid_derivation(12)
+
+
+def test_precision_through_a_larger_result_cell() -> None:
+    # the primitive rhombohedral cell of structreading/146 is stored in the triple hexagonal R3
+    # cell: the derivation has |det T| = 3, so every source site has three images in the result
+    view = UnitcellStructureView(httk.core.load(str(FIXTURES / "structreading/146.cif")))
+    rhombohedral = FracVector(
+        ((F(2, 3), F(1, 3), F(1, 3)), (F(-1, 3), F(1, 3), F(1, 3)), (F(-1, 3), F(-2, 3), F(1, 3)))
+    )
+    inverse = rhombohedral.inv()
+    points = dict.fromkeys(
+        (species, tuple((FracVector(row) * inverse).normalize().to_fractions()))
+        for species, row in zip(view.species_at_sites, view.sites.reduced_coords.to_fractions(), strict=True)
+    )
+    basis = SurdVector(rhombohedral) * view.cell.basis
+    results = [
+        canonical_asu_protostructure(
+            UnitcellStructure(
+                Cell(hand, precision=F(1, 100000)),
+                Sites([point for _species, point in points], precision=F(1, 100000)),
+                view.species,
+                [species for species, _point in points],
+            ),
+            preserve_chirality=False,
+        )
+        for hand in (basis, -basis)
+    ]
+    assert results[0] == results[1]
+    assert results[0].spacegroup.it_number == 146
+    assert results[0].cell.precision == F(3, 100000)
+
+
+def test_precision_without_an_exact_derivation_keeps_the_path_value() -> None:
+    # a tolerance-snapped recognition: the stored crystal is no exact re-description of the
+    # input, so no derivation exists and the propagated path bound stays
+    source = UnitcellStructure(
+        Cell(((5, 0, 0), (0, 5, 0), (0, 0, 5)), precision=F(1, 100)),
+        Sites([(0, 0, 0), (F(501, 1000), F(1, 2), F(1, 2))], precision=F(1, 1000)),
+        [_species("Na", "Na"), _species("Cl", "Cl")],
+        ["Na", "Cl"],
+    )
+    result = canonical_asu_protostructure(source, tolerance=0.05)
+    assert result.spacegroup.it_number == 221
+    assert _derived_precision(result, source) is result
+
+
+@pytest.mark.extended
+@pytest.mark.parametrize("name", ("cod/7217003.cif", "cod/4131686.cif", "structreading/2.cif"))
+def test_p1_fixture_records_its_source_precision(name: str) -> None:
+    # stored in the Niggli cell, a signed permutation of the cell as read; a sheared input
+    # (row sum 2) needs a derivation of row sum 2 back to it
+    source = _fixture_with_precisions(name)
+    sheared = _apply_action(source, AffineOperation(((1, 1, 0), (0, 1, 0), (0, 0, 1))))
+    for value, factor in ((source, 1), (sheared, 2)):
+        representative = classification.canonical_protostructure(Protostructure(representative=value)).representative
+        assert representative is not None
+        assert value.cell.precision is not None and value.coordinate_precision is not None
+        assert representative.cell.precision == factor * value.cell.precision
+        assert representative.coordinate_precision == factor * value.coordinate_precision
+
+
+def test_exact_action_scales_coordinate_and_cell_precision() -> None:
     source = _low_symmetry()
     precise = ASUStructure(
         Cell(source.cell.basis, precision=F(1, 100)),

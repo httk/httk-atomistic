@@ -4,16 +4,19 @@ This convention chooses the anonymous Wyckoff occupation pattern, then its speci
 and only then the exact geometry. Its finite affine search uses the same tabulated normalizer scope
 as the legacy canonicalizer, taken in groups 2 to 15 also after the bare canonicalizers' kept cell
 changes, and does not enumerate an infinite affine normalizer. In groups 3 to 15 the cell is then
-reduced within the cell changes that keep every letter, so it does not depend on the input cell.
+reduced within the cell changes that keep every letter, so it does not depend on the input cell;
+in P-1 the cell is the one with the least ``(a·a, b·b, c·c)`` among the cells that keep the
+canonical letters, found exactly from a Selling-reduced superbase.
 Public measured structure entry points optionally perform the established upward pseudosymmetry
 search first.
 """
 
 import math
+from collections import Counter
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import cache
-from itertools import product
+from itertools import combinations, product
 from typing import Any
 
 from httk.core import FracVector, SurdVector
@@ -25,10 +28,10 @@ from httk.atomistic.models.species.classes import _class_structure, _species_cla
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.bonds import _AmbiguousMatch, _bonds_key, _carried, _matched_bonds
-from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
+from httk.atomistic.reduction import _is_niggli_parameters
 from httk.atomistic.symmetry._anonymous import (
     _anonymous_p1_frame,
     _proxy_niggli_transform,
@@ -54,12 +57,13 @@ from httk.atomistic.symmetry.lift import (
     _demote_sites,
     _discrete_normalizer_translations,
     _enantiomorph,
+    _exact_translations,
     _ext_gcd,
     _isomorphic_reduced_entry,
-    _metric_automorphism_operations,
     _niggli_reduced_entry,
     _p1_metric_automorphism_operations,
     _primitive_reduced_entry,
+    _pseudo_translations,
     _site_key,
     _translation_normal_form,
 )
@@ -135,18 +139,14 @@ def _restore_assignment(result: ASUStructure, assignment: tuple[Species, ...], s
     return _restore_source_metadata(_carried(result, restored), source)
 
 
-def _restore_unchanged_precision(result: ASUStructure, source: StructureLike) -> ASUStructure:
-    """Restore source bounds when canonicalization leaves the exact unit-cell data unchanged."""
-    source_view = UnitcellStructureView(source)
-    if not same_crystal(result, source_view):
-        return result
+def _with_precisions(result: ASUStructure, cell_precision: Any, coordinate_precision: Any) -> ASUStructure:
     restored = ASUStructure(
-        Cell(result.cell, precision=source_view.cell.precision),
+        Cell(result.cell, precision=cell_precision),
         result.spacegroup,
         result.wyckoff_sites,
         result.species,
         transform=result.transform,
-        coordinate_precision=source_view.sites.precision,
+        coordinate_precision=coordinate_precision,
         charge=result.charge,
         molecular=result.molecular,
         assemblies=result.assemblies,
@@ -158,6 +158,167 @@ def _restore_unchanged_precision(result: ASUStructure, source: StructureLike) ->
         last_modified=result.last_modified,
     )
     return _carried(result, restored)
+
+
+def _exact_gram(cell: Cell) -> tuple[tuple[Any, ...], ...]:
+    """Return the exact Gram of a cell: Fractions when it is rational, else SurdScalars."""
+    metric = cell.metric()
+    if metric.is_rational:
+        return tuple(tuple(row) for row in metric.coefficient(1).to_fractions())
+    return tuple(tuple(metric._element((row, column)) for column in range(3)) for row in range(3))
+
+
+def _wrapped_atoms(view: UnitcellStructureView) -> list[tuple[str, tuple[Fraction, ...]]]:
+    """Return the unit-cell sites as ``(species, coordinate wrapped into [0, 1))``."""
+    coordinates = view.sites.reduced_coords.to_fractions()
+    return [
+        (species, tuple(value % 1 for value in row))
+        for species, row in zip(view.species_at_sites, coordinates, strict=True)
+    ]
+
+
+def _lattice_vectors_of_norm(
+    gram: tuple[tuple[Any, ...], ...], norm: Any, shifts: list[tuple[Fraction, ...]]
+) -> list[tuple[Fraction, ...]]:
+    """Return every vector ``z + s`` (``z`` integer, ``s`` in ``shifts``) of exact norm ``norm`` under ``gram``.
+
+    Coordinate ``j`` obeys the Cauchy bound ``t_j² ≤ norm (G⁻¹)_jj``, with ``(G⁻¹)_jj`` an exact
+    principal minor over the determinant (rational or surd); every comparison is exact.
+    """
+    determinant = (
+        gram[0][0] * (gram[1][1] * gram[2][2] - gram[1][2] * gram[2][1])
+        - gram[0][1] * (gram[1][0] * gram[2][2] - gram[1][2] * gram[2][0])
+        + gram[0][2] * (gram[1][0] * gram[2][1] - gram[1][1] * gram[2][0])
+    )
+    limits = []
+    bounds = []
+    for j in range(3):
+        k, m = (index for index in range(3) if index != j)
+        limit = norm * (gram[k][k] * gram[m][m] - gram[k][m] * gram[m][k]) / determinant
+        # seeded from a rational value near the limit, then corrected exactly
+        seed = limit if isinstance(limit, Fraction) else Fraction(float(limit))
+        bound = math.isqrt(max(math.floor(seed), 0))
+        while bound > 0 and bound**2 > limit:
+            _checkpoint()
+            bound -= 1
+        while (bound + 1) ** 2 <= limit:
+            _checkpoint()
+            bound += 1
+        limits.append(limit)
+        bounds.append(bound)
+    found = []
+    for z in product(*(range(-bound - 1, bound + 2) for bound in bounds)):
+        _checkpoint()
+        for shift in shifts:
+            vector = tuple(z[j] + shift[j] for j in range(3))
+            if (
+                any(vector)
+                and all(vector[j] ** 2 <= limits[j] for j in range(3))
+                and _gram_dot(gram, vector, vector) == norm
+            ):
+                found.append(vector)
+    return found
+
+
+def _row_times(row: tuple[Fraction, ...], matrix: list[list[Fraction]]) -> tuple[Fraction, ...]:
+    return tuple(sum((row[i] * matrix[i][j] for i in range(3)), start=Fraction(0)) for j in range(3))
+
+
+def _translation_images(
+    inverse_rows: list[list[Fraction]], shifts: list[tuple[Fraction, ...]]
+) -> list[tuple[Fraction, ...]]:
+    """Return the source translations modulo the result lattice, in result coordinates ``x T⁻¹``."""
+    generators = [tuple(value % 1 for value in row) for row in inverse_rows]
+    generators += [tuple(value % 1 for value in _row_times(shift, inverse_rows)) for shift in shifts]
+    images: set[tuple[Fraction, ...]] = {(Fraction(0), Fraction(0), Fraction(0))}
+    frontier = list(images)
+    while frontier:
+        _checkpoint()
+        point = frontier.pop()
+        for generator in generators:
+            image = tuple((point[j] + generator[j]) % 1 for j in range(3))
+            if image not in images:
+                images.add(image)
+                frontier.append(image)
+    return sorted(images)
+
+
+def _derived_precision(result: ASUStructure, source: StructureLike) -> ASUStructure:
+    """Record on ``result`` the precisions the source's stated ones give along its best derivation.
+
+    A valid derivation is an exact ``T`` (either determinant sign) whose rows lie in the source
+    translation lattice (``Z³`` plus the exact self-translations of its unit cell, centrings
+    included), with ``T G_src Tᵀ = G_res``, and under which the source unit-cell sites, mapped by
+    ``x' = x T⁻¹`` and wrapped, are the result's up to one common translation (species-aware).
+    Of these the ``T`` with the least ``(row sum of T, column sum of T⁻¹)`` gives
+    ``cell.precision = ε_cell × rowsum(T)`` and ``coordinate_precision = ε_coord × colsum(T⁻¹)``,
+    so the recorded precision depends on the source and the result, not on the path between
+    them (a mirror pair records the same). A result cell ``|det T|`` times larger takes every
+    image of each source site under the source lattice (:func:`_translation_images`). Rows are
+    enumerated exactly in a proxy-reduced source basis (:func:`_lattice_vectors_of_norm`). Where no valid derivation exists (a tolerance-snapped
+    recognition, a lifted crystal) the path value already on ``result`` is kept.
+    """
+    source_view = UnitcellStructureView(source)
+    source_atoms = _wrapped_atoms(source_view)
+    target = Counter(_wrapped_atoms(UnitcellStructureView(result)))
+    if not source_atoms or not target:
+        return result
+    gram, result_gram = _exact_gram(source_view.cell), _exact_gram(result.cell)
+    shifts = [(Fraction(0), Fraction(0), Fraction(0)), *_exact_translations(source_atoms)]
+    # enumerate in a (proxy-)reduced basis B' = U B, where the Cauchy box is tight, then map back
+    reduction = _proxy_niggli_transform(source_view.cell.metric()).to_fractions()
+    unreduction = FracVector(reduction).inv().to_fractions()
+    reduced_gram = tuple(tuple(_gram_dot(gram, row, column) for column in reduction) for row in reduction)
+    reduced_shifts = [_row_times(shift, unreduction) for shift in shifts]
+    rows = [
+        [
+            _row_times(vector, reduction)
+            for vector in _lattice_vectors_of_norm(reduced_gram, result_gram[k][k], reduced_shifts)
+        ]
+        for k in range(3)
+    ]
+    population = Counter(species for species, _point in target.elements())
+    anchor_species = min(population, key=lambda species: (population[species], species))
+    anchor = next(point for species, point in target if species == anchor_species)
+    best: tuple[Fraction, Fraction] | None = None
+    for a in rows[0]:
+        for b in rows[1]:
+            if _gram_dot(gram, a, b) != result_gram[0][1]:
+                continue
+            for c in rows[2]:
+                _checkpoint()
+                if _gram_dot(gram, a, c) != result_gram[0][2] or _gram_dot(gram, b, c) != result_gram[1][2]:
+                    continue
+                change = FracVector((a, b, c))
+                inverse = change.inv()
+                norms = (_matrix_row_sum_factor(change), _matrix_column_sum_factor(inverse))
+                if best is not None and norms >= best:
+                    continue
+                inverse_rows = inverse.to_fractions()
+                images = _translation_images(inverse_rows, shifts)
+                # a smaller cell sees each site once per image; a larger one (|det T| = k > 1) needs
+                # the k images of every source site under the source lattice
+                mapped: list[tuple[str, tuple[Fraction, ...]]] = []
+                for species, x in source_atoms:
+                    y = _row_times(x, inverse_rows)
+                    mapped.extend((species, tuple((y[j] + image[j]) % 1 for j in range(3))) for image in images)
+                # deduplicated, so a duplicated (species, coordinate) source site matches nothing and
+                # falls back to the path value
+                mapped = list(dict.fromkeys(mapped))
+                for species, y in mapped:
+                    if species != anchor_species:
+                        continue
+                    shift = tuple(anchor[j] - y[j] for j in range(3))
+                    if Counter((name, tuple((p[j] + shift[j]) % 1 for j in range(3))) for name, p in mapped) == target:
+                        best = norms
+                        break
+    if best is None:
+        return result
+    return _with_precisions(
+        result,
+        _scaled_precision(source_view.cell.precision, best[0]),
+        _scaled_precision(source_view.sites.precision, best[1]),
+    )
 
 
 def _anonymize_asu(
@@ -425,29 +586,177 @@ def _ac_reduced(ac: tuple[Any, Any, Any], residues: frozenset[_AcChange]) -> tup
     return key, list(dict.fromkeys(pair for value, pair in found if value == key))
 
 
+type _F2Matrix = tuple[tuple[int, ...], ...]
+type _IntVector = tuple[int, ...]
+
+
+@cache
+def _f2_inverse_transpose(matrix: _F2Matrix) -> _F2Matrix:
+    """Return ``matrix^-T`` over F₂: the cofactor matrix modulo 2, the determinant being 1."""
+    return tuple(
+        tuple(
+            (
+                matrix[(row + 1) % 3][(column + 1) % 3] * matrix[(row + 2) % 3][(column + 2) % 3]
+                - matrix[(row + 1) % 3][(column + 2) % 3] * matrix[(row + 2) % 3][(column + 1) % 3]
+            )
+            % 2
+            for column in range(3)
+        )
+        for row in range(3)
+    )
+
+
+def _gram_dot(gram: tuple[tuple[Any, ...], ...], u: tuple[Fraction | int, ...], v: tuple[Fraction | int, ...]) -> Any:
+    """Return the exact inner product of two rational coordinate vectors under ``gram``."""
+    total = gram[0][0] * 0
+    for row in range(3):
+        for column in range(3):
+            if u[row] and v[column]:
+                total += gram[row][column] * (u[row] * v[column])
+    return total
+
+
+def _selling_superbase(gram: tuple[tuple[Any, ...], ...]) -> tuple[_IntVector, ...]:
+    """Return an obtuse superbase ``v₀..v₃`` (integer coordinates) of the lattice with the exact ``gram``.
+
+    Selling reduction from ``(-b₁-b₂-b₃, b₁, b₂, b₃)``: while some ``v_i·v_j > 0``, add ``v_i``
+    to the other two and negate it. Each step lowers ``Σ|v|²`` by ``2 v_i·v_j``, so it ends for
+    every exact positive-definite Gram, surds included; only ring operations and exact signs are used.
+    """
+    vectors: list[_IntVector] = [(-1, -1, -1), (1, 0, 0), (0, 1, 0), (0, 0, 1)]
+    while True:
+        _checkpoint()
+        pair = next(((i, j) for i, j in combinations(range(4), 2) if _gram_dot(gram, vectors[i], vectors[j]) > 0), None)
+        if pair is None:
+            return tuple(vectors)
+        i, _j = pair
+        k, m = (index for index in range(4) if index not in pair)
+        vectors[k] = tuple(x + y for x, y in zip(vectors[k], vectors[i], strict=True))
+        vectors[m] = tuple(x + y for x, y in zip(vectors[m], vectors[i], strict=True))
+        vectors[i] = tuple(-x for x in vectors[i])
+
+
+def _p1_class_minima(gram: tuple[tuple[Any, ...], ...]) -> dict[_IntVector, tuple[Any, tuple[_IntVector, ...]]]:
+    """Return each nonzero class of ``L/2L`` with its exact least norm and every vector attaining it.
+
+    With an obtuse superbase (:func:`_selling_superbase`) and conorms ``p_ij = -v_i·v_j``,
+    ``|Σ n_i v_i|² = Σ p_ij (n_i - n_j)²``. A class is a split of ``{0, 1, 2, 3}`` by the parity
+    of ``n``; its minimum is the sum of the conorms across the split, attained exactly where
+    ``|n_i - n_j| = 1`` across and ``n_i = n_j`` within the split for every nonzero conorm. The
+    graph of nonzero conorms is connected, so with ``n₀ = 0`` every minimizer has ``|n_i| ≤ 3``.
+    A degenerate lattice (some zero conorm) can have up to four pairs of minimizers in a class.
+    Vectors and classes are integer coordinates in the basis of ``gram``; no norm is evaluated.
+    """
+    vectors = _selling_superbase(gram)
+    conorms = {(i, j): -_gram_dot(gram, vectors[i], vectors[j]) for i, j in combinations(range(4), 2)}
+    edges = [(pair, value) for pair, value in conorms.items() if value != 0]
+    minima: dict[_IntVector, tuple[Any, list[_IntVector]]] = {}
+    for tail in product(range(-3, 4), repeat=3):
+        _checkpoint()
+        n = (0, *tail)
+        odd = tuple(value % 2 for value in n)
+        if not any(odd):
+            continue
+        if any(abs(n[i] - n[j]) != 1 if odd[i] != odd[j] else n[i] != n[j] for (i, j), _value in edges):
+            continue
+        vector = tuple(sum(n[index] * vectors[index][axis] for index in range(4)) for axis in range(3))
+        residue = tuple(value % 2 for value in vector)
+        if residue not in minima:
+            norm = sum((value for (i, j), value in edges if odd[i] != odd[j]), start=gram[0][0] * 0)
+            minima[residue] = (norm, [])
+        minima[residue][1].append(vector)
+    if len(minima) != 7:
+        raise AssertionError("P-1 class minima: a Selling-reduced superbase must give all seven classes")
+    return {residue: (norm, tuple(found)) for residue, (norm, found) in minima.items()}
+
+
+def _is_niggli_gram(metric_key: tuple[Any, ...]) -> bool:
+    """Return whether a row-major exact Gram (rational or surd) is the Niggli-reduced one."""
+    g = metric_key
+    return _is_niggli_parameters((g[0], g[4], g[8], 2 * g[5], 2 * g[2], 2 * g[1]))
+
+
+def _p1_candidates(structure: ASUStructure, names: dict[str, str] | None = None) -> tuple[_Candidate, ...]:
+    """Return every proper P-1 description with the least discrete key and the least ``(a·a, b·b, c·c)``.
+
+    The letters of an action ``(M, t)`` depend only on ``(M mod 2, 2t mod 2)``, so a cell
+    ``B' = P B`` keeps the least key exactly when ``P mod 2`` is the inverse transpose of a
+    reaching ``M mod 2``, with the matching half translations: each row of ``P`` must lie in a
+    prescribed class of ``L/2L``, and nothing else is constrained. Each row takes the least
+    vectors of its class (:func:`_p1_class_minima`); every class triple with the least norms,
+    and every signed minimizer triple with determinant +1, is kept. The reduction key is those
+    norms, then whether the Gram is not the Niggli one. The candidates depend only on the
+    lattice and the letters, not on the input cell; with every atom on the general position
+    the cell is the Niggli cell.
+    """
+    from httk.atomistic.symmetry.canonical_classification import _letter_maps  # imports this module
+
+    letters = tuple(site.wyckoff for site in structure.wyckoff_sites)
+    keys: dict[tuple[str, ...], _DiscreteKey] = {}
+    reached: list[tuple[_DiscreteKey, AffineOperation]] = []
+    for operation, letter_map in _letter_maps(structure.spacegroup).items():
+        targets = tuple(letter_map[letter] for letter in letters)
+        if targets not in keys:
+            keys[targets] = _letters_key(structure, targets, names)
+        reached.append((keys[targets], operation))
+    best_key = min(keys.values())
+    # the row classes P mod 2 of the admissible cells, each with its half translations 2t mod 2
+    shifts: dict[_F2Matrix, set[_IntVector]] = {}
+    for key, operation in reached:
+        if key == best_key:
+            matrix = tuple(tuple(int(value) % 2 for value in row) for row in operation.matrix.to_fractions())
+            shift = tuple(int(2 * value) % 2 for value in operation.vector.to_fractions())
+            shifts.setdefault(_f2_inverse_transpose(matrix), set()).add(shift)
+    source_metric = structure.cell.metric()
+    gram = tuple(tuple(source_metric._element((row, column)) for column in range(3)) for row in range(3))
+    minima = _p1_class_minima(gram)
+    norms = {rows: tuple(minima[row][0] for row in rows) for rows in shifts}
+    least = min(norms.values())
+    candidates: list[_Candidate] = []
+    for rows, row_shifts in shifts.items():
+        if norms[rows] != least:
+            continue
+        for vectors in product(*(minima[row][1] for row in rows)):
+            _checkpoint()
+            basis_change = FracVector(vectors)
+            # a triple of minimizers of independent classes can have determinant 3 (degenerate lattices)
+            if basis_change.det() != 1:
+                continue
+            basis_map = SurdVector(basis_change)
+            metric = basis_map * source_metric * basis_map.T()
+            metric_key = tuple(metric._element((row, column)) for row in range(3) for column in range(3))
+            reduction_key = (least, not _is_niggli_gram(metric_key))
+            point = basis_change.T().inv()
+            for shift in sorted(row_shifts):
+                operation = AffineOperation(point, tuple(Fraction(value, 2) for value in shift))
+                candidates.append(_Candidate(operation, basis_change, metric_key, reduction_key))
+    return tuple(candidates)
+
+
 def _discrete_candidates(
     structure: ASUStructure, names: dict[str, str] | None = None, *, proper: bool = False
 ) -> tuple[_Candidate, ...]:
     """Return every right-handed description with the least discrete key, its cell reduced within its class.
 
-    In groups 2 to 15 the tabulated descriptions are also taken after each kept cell change
-    ``sigma`` of the bare canonicalizers, so the least discrete key is the canonical bare one.
-    In groups 3 to 15 every ``sigma`` reaching it contributes, and each description is moved by
-    the cell changes ``K`` that keep every letter (:func:`_kernel_residues`) to its least
-    ``(a·a, c·c, a·c)`` (:func:`_ac_reduced`), the reduction key; the cell does not depend on
-    the input cell. In P-1 the earliest ``sigma`` is kept: the entry set is the Niggli cell with
-    every proper metric automorphism, so that choice is already intrinsic. The structure must be
+    P-1 (standard setting) is :func:`_p1_candidates`. In groups 3 to 15 the tabulated
+    descriptions are also taken after each kept cell change ``sigma`` of the bare
+    canonicalizers, so the least discrete key is the canonical bare one. Every ``sigma``
+    reaching it contributes, and each description is moved by the cell changes ``K`` that keep
+    every letter (:func:`_kernel_residues`) to its least ``(a·a, c·c, a·c)``
+    (:func:`_ac_reduced`), the reduction key; the cell does not depend on the input cell. The structure must be
     right-handed (:func:`_right_handed`); left-handed descriptions are skipped, since an improper
     group operation gives each a right-handed twin with the same keys. With ``proper`` (a Sohncke
     group) only proper descriptions compete, so the key is the hand-preserving bare one.
     """
+    group = structure.spacegroup
+    if group.it_number == 2 and group.is_standard_setting:
+        return _p1_candidates(structure, names)
     from httk.atomistic.symmetry.canonical_classification import _cell_changes, _letter_maps  # imports this module
 
     identity_matrix = FracVector.eye((3, 3))
     point_operations = tuple((operation, operation.matrix.T().inv()) for operation in _point_operations(structure))
     metric_keys: dict[FracVector, tuple[Any, ...]] = {}
     source_metric = structure.cell.metric()
-    group = structure.spacegroup
     sigmas = _cell_changes(group) if group.is_standard_setting else (AffineOperation.identity(),)
     letter_maps = _letter_maps(group) if group.is_standard_setting else {}
     residues = _kernel_residues(group) if group.is_standard_setting and 3 <= group.it_number <= 15 else None
@@ -501,12 +810,6 @@ def _discrete_candidates(
         for sigma in sigmas
     ]
     best_key = min(key for key in sigma_keys if key is not None)
-    if residues is None:
-        # P-1: the entry set is the Niggli(-proxy) cell with every tied proper metric automorphism,
-        # closed under the input cell, so the earliest sigma of the fixed table that reaches the key
-        # is already intrinsic. The stored cell is sigma times the Niggli cell: intrinsic, but not
-        # reduced within its class. Every other group outside 3 to 15 has only the identity sigma.
-        sigmas = (sigmas[sigma_keys.index(best_key)],)
     reductions: dict[tuple[Any, ...], tuple[tuple[Any, ...], list[_AcChange]]] = {}
     candidates: list[_Candidate] = []
 
@@ -561,6 +864,60 @@ def _geometric_choice(
     return key, represented
 
 
+def _p1bar_primitive_entry(structure: ASUStructure) -> ASUStructure:
+    """Collapse an exact P-1 supercell to its primitive cell, whatever its basis.
+
+    The P1 expansion is collapsed by :func:`_primitive_reduced_entry` (``Z³`` and every exact
+    self-translation); the inversion through the origin keeps that finer lattice, so the result
+    is P-1 again, one site per inversion orbit. The tabulated isomorphic self-lifts reach only
+    some sublattice orientations, so the collapse would otherwise depend on the input cell. A
+    bond network that the self-translations do not keep makes the declared cell the crystal's
+    translation lattice: the structure is then returned unchanged, with its network.
+    """
+    if not _pseudo_translations(structure):
+        return structure
+    group = structure.spacegroup
+    points = [
+        WyckoffSite("a", FracVector(point).normalize(), site.species)
+        for site in structure.wyckoff_sites
+        for point in group.wyckoff_position(site.wyckoff).coordinates(site.free_params)
+    ]
+    expanded = _carried(
+        structure,
+        ASUStructure(
+            structure.cell,
+            1,
+            points,
+            structure.species,
+            coordinate_precision=structure.coordinate_precision,
+            charge=structure.charge,
+        ),
+    )
+    primitive = _primitive_reduced_entry(expanded)
+    sites = []
+    seen: set[tuple[str, tuple[Fraction, ...]]] = set()
+    for site in primitive.wyckoff_sites:
+        _checkpoint()
+        point = tuple(site.free_params.to_fractions())
+        if (site.species, point) in seen:
+            continue
+        seen.update({(site.species, point), (site.species, tuple(-value % 1 for value in point))})
+        match = group.identify_wyckoff(site.free_params)
+        if match is None:
+            raise ValueError("P-1 supercell collapse: a point on no Wyckoff position; this is a logic error")
+        sites.append(WyckoffSite(match[0].letter, match[1], site.species))
+    collapsed = ASUStructure(
+        primitive.cell,
+        group,
+        sites,
+        structure.species,
+        coordinate_precision=primitive.coordinate_precision,
+        charge=primitive.charge,
+    )
+    collapsed = _carried(primitive, collapsed)
+    return structure if structure.bonds is not None and collapsed.bonds is None else collapsed
+
+
 def _validate_exact_input(structure: ASUStructure) -> None:
     require_full_periodicity(structure.cell, "canonical_asu_protostructure")
     if any(site.moment is not None for site in structure.wyckoff_sites):
@@ -569,45 +926,6 @@ def _validate_exact_input(structure: ASUStructure) -> None:
         raise ValueError("canonical_asu_protostructure does not support structures with assemblies")
     if structure.molecular:
         raise ValueError("canonical_asu_protostructure does not support molecular structures")
-
-
-def _triclinic_proxy_entries(structure: ASUStructure) -> tuple[ASUStructure, ...]:
-    """Return every tied proper proxy-reduced entry for an exact P-1 structure."""
-    transform = _proxy_niggli_transform(structure.cell.metric())
-    if transform.det() < 0:
-        transform = -transform
-    reduced = _apply_action(
-        structure,
-        AffineOperation(transform.T().inv(), (0, 0, 0)),
-    )
-    proxy = reduced.cell.metric().coefficient(1)
-    gram = tuple(tuple(value for value in row) for row in proxy.to_fractions())
-    candidates = [
-        _apply_action(reduced, operation)
-        for operation in _metric_automorphism_operations(gram)
-        if operation.determinant() == 1
-    ]
-    if not candidates:
-        raise ValueError("P-1 proxy reduction found no proper metric automorphism")
-    keyed = [
-        (
-            candidate,
-            tuple(candidate.cell.metric()._element((row, column)) for row in range(3) for column in range(3)),
-        )
-        for candidate in candidates
-    ]
-    least = min(key for _candidate, key in keyed)
-    winners: list[ASUStructure] = []
-    winner_keys: set[tuple[Any, ...]] = set()
-    for candidate, key in keyed:
-        _checkpoint()
-        if key != least:
-            continue
-        candidate_key = (_site_key(candidate), _basis_key(candidate.cell.basis), _bonds_key(candidate))
-        if candidate_key not in winner_keys:
-            winner_keys.add(candidate_key)
-            winners.append(candidate)
-    return tuple(winners)
 
 
 @cache
@@ -627,11 +945,16 @@ def _right_handed(domain: FundamentalDomainStructure) -> ASUStructure:
     A left-handed basis is re-described improperly: by an improper group operation, else (a
     Sohncke group) an improper normalizer action, or, where none keeps the group, the inversion
     into the enantiomorphic partner. Its letters then read the crystal's own hand. A re-described
-    structure keeps only its cell, sites, species, coordinate precision and charge; sites lose
-    retained representatives.
+    structure keeps only its cell, sites, species and charge, with its precisions recorded from
+    ``domain`` (:func:`_derived_precision`); sites lose retained representatives.
     """
     if isinstance(domain, ASUStructure) and not _left_handed(domain):
         return domain
+    return _derived_precision(_right_handed_description(domain), domain)
+
+
+def _right_handed_description(domain: FundamentalDomainStructure) -> ASUStructure:
+    """Return :func:`_right_handed`'s re-description with its path precisions."""
     structure = _standard_input(
         _carried(
             domain,
@@ -730,24 +1053,6 @@ def _canonical_protostructure_geometry_entry(
     return _canonical_orientation(best)
 
 
-def _terminal_result_key(structure: ASUStructure, names: dict[str, str] | None = None) -> tuple[Any, ...]:
-    """Order tied lattice entries (and both hands) through the terminal's discrete and geometric tiers."""
-    metric = structure.cell.metric()
-    reduction = (
-        (metric._element((0, 0)), metric._element((2, 2)), metric._element((0, 2)))
-        if 3 <= structure.spacegroup.it_number <= 15
-        else ()
-    )
-    return (
-        _discrete_key(structure, AffineOperation.identity(), names),
-        reduction,
-        tuple(metric._element((row, column)) for row in range(3) for column in range(3)),
-        _site_key(structure),
-        _bonds_key(structure),
-        _basis_key(structure.cell.basis),
-    )
-
-
 def _own_enantiomorph_sohncke(spacegroup: Spacegroup) -> bool:
     """Return whether a group has only proper operations and is its own enantiomorphic partner.
 
@@ -792,20 +1097,17 @@ def _canonical_protostructure_geometry(
     current = _standard_input(structure)
     if current.spacegroup.it_number == 1:
         current = _primitive_reduced_entry(current)
+    elif current.spacegroup.it_number == 2:
+        current = _p1bar_primitive_entry(current)
     else:
         current = _isomorphic_reduced_entry(current)
-    entries = _triclinic_proxy_entries(current) if current.spacegroup.it_number == 2 else (current,)
-    return min(
-        (
-            _canonical_protostructure_geometry_entry(
-                entry,
-                preserve_chirality=preserve_chirality,
-                names=names,
-            )
-            for entry in entries
-        ),
-        key=lambda result: _terminal_result_key(result, names),
-    )
+    if current.spacegroup.it_number == 2:
+        # one entry: the P-1 candidates are intrinsic to the lattice (_p1_candidates)
+        transform = _proxy_niggli_transform(current.cell.metric())
+        if transform.det() < 0:
+            transform = -transform
+        current = _apply_action(current, AffineOperation(transform.T().inv(), (0, 0, 0)))
+    return _canonical_protostructure_geometry_entry(current, preserve_chirality=preserve_chirality, names=names)
 
 
 def _canonical_protostructure_assignments_asu(
@@ -838,7 +1140,7 @@ def _canonical_protostructure_assignments_asu(
         if key != best_geometry:
             continue
         result = _restore_assignment(canonical, assignment, structure)
-        restored.append(_restore_unchanged_precision(result, structure))
+        restored.append(_derived_precision(result, structure))
     return _deduplicate_results(restored)
 
 
@@ -894,7 +1196,8 @@ def _canonical_protostructure_asu(
     """Canonicalize one recognized ASU by its bare assigned key, species class names included, then geometry.
 
     The discrete tier is then the bare canonicalizer's, so the refined and bare labels agree as
-    strings. Without ``named`` (template class names) chemistry is chosen only after geometry.
+    strings, except where the refined terminal collapses an exact supercell (P-1 included) or
+    demotes a site declared on a more general letter than its point. Without ``named`` (template class names) chemistry is chosen only after geometry.
     """
     return min(
         _canonical_protostructure_assignments_asu(structure, preserve_chirality=preserve_chirality, named=named),
@@ -1000,7 +1303,7 @@ def _recognized_canonical_asus(
         assignment = tuple(outer_frame.assignments[0][outer_by_name[species.name]] for species in winner.species)
         named_winner = _restore_assignment(winner, assignment, source_view)
         result = _canonical_protostructure_asu(named_winner, preserve_chirality=preserve_chirality)
-        return (_restore_unchanged_precision(result, source_view),)
+        return (_derived_precision(result, source_view),)
     inner = _canonical_protostructure_assignments_asu(winner, preserve_chirality=preserve_chirality)
     restored = []
     for candidate in inner:
@@ -1009,7 +1312,7 @@ def _recognized_canonical_asus(
             _checkpoint()
             assignment = tuple(outer_assignment[outer_by_name[species.name]] for species in candidate.species)
             result = _restore_assignment(candidate, assignment, source_view)
-            restored.append(_restore_unchanged_precision(result, source_view))
+            restored.append(_derived_precision(result, source_view))
     return _deduplicate_results(restored)
 
 
