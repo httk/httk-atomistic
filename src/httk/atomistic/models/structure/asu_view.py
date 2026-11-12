@@ -108,6 +108,7 @@ class ASUStructureView(StructureView, ASUStructure):
             "_optimization_type",
             "_immutable_id",
             "_last_modified",
+            "_bonds",
         }
     )
 
@@ -257,6 +258,7 @@ class ASUStructureView(StructureView, ASUStructure):
             immutable_id=immutable_id,
             last_modified=last_modified,
             charge=asu.charge,
+            bonds=asu.bonds,
         )
 
     def _publish_asu(self, asu: ASUStructure) -> None:
@@ -326,6 +328,9 @@ class ASUStructureView(StructureView, ASUStructure):
     def unview(self) -> ASUStructure:
         """Return the resolved standalone asymmetric-unit structure."""
         return self._effective_asu()
+
+    def _with_bonds(self, bonds: Any) -> Any:
+        return self._effective_asu()._with_bonds(bonds)
 
     @property
     def sites(self) -> Any:

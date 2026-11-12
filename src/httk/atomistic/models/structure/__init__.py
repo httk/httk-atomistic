@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from .api import StructureAPI
-from .asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
+from .asu import ASUStructure, FundamentalDomainStructure, SiteBond, WyckoffSite
 from .backend import StructureBackend
 from .comparison import same_crystal
 from .datastream import DatastreamStructure
@@ -37,6 +37,7 @@ __all__ = [
     "PlainStructure",
     "PlainStructureView",
     "RecordStructure",
+    "SiteBond",
     "StructureAPI",
     "StructureBackend",
     "StructureLike",

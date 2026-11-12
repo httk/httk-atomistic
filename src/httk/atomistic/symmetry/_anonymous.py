@@ -9,7 +9,8 @@ from httk.core import FracVector, SurdVector
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.species.species import Species
-from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
+from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
+from httk.atomistic.models.structure.bonds import _bonds_key, _carried
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.reduction import _MAX_STEPS, _niggli_step, _parameters
@@ -18,6 +19,7 @@ from httk.atomistic.symmetry._standardization_common import (
     _matrix_row_sum_factor,
     _scaled_precision,
 )
+from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.lift import (
     _basis_key,
     _canonical_orientation,
@@ -62,7 +64,7 @@ def _rational_basis_change(new: SurdVector, old: SurdVector) -> FracVector:
 
 def _rebase_p1(structure: ASUStructure, basis_change: FracVector) -> ASUStructure:
     inverse = basis_change.inv()
-    return ASUStructure(
+    rebased = ASUStructure(
         Cell(
             SurdVector(basis_change) * structure.cell.basis,
             precision=structure.cell.precision,
@@ -76,6 +78,7 @@ def _rebase_p1(structure: ASUStructure, basis_change: FracVector) -> ASUStructur
         coordinate_precision=structure.coordinate_precision,
         charge=structure.charge,
     )
+    return _carried(structure, rebased, AffineOperation(inverse.T(), (0, 0, 0)))
 
 
 def _proxy_niggli_transform(metric: SurdVector) -> FracVector:
@@ -100,8 +103,12 @@ def _frame_key(structure: ASUStructure) -> tuple[Any, ...]:
     )
 
 
-def _anonymous_p1_frame(structure: StructureLike) -> _AnonymousFrame:
-    """Return one exact anonymous P1 frame and every tied source-class assignment."""
+def _anonymous_p1_frame(structure: StructureLike, bonded: FundamentalDomainStructure | None = None) -> _AnonymousFrame:
+    """Return one exact anonymous P1 frame and every tied source-class assignment.
+
+    ``bonded`` is a fundamental domain whose own-setting coordinates are the unit-cell coordinates of
+    ``structure``; its bond network is carried into the frame.
+    """
     view = UnitcellStructureView(structure)
     coordinates = tuple(view.sites.reduced_coords.to_fractions())
     species_at_sites = tuple(view.species_at_sites)
@@ -132,6 +139,8 @@ def _anonymous_p1_frame(structure: StructureLike) -> _AnonymousFrame:
         coordinate_precision=view.sites.precision,
         charge=view.charge,
     )
+    if bonded is not None:
+        p1 = _carried(bonded, p1, bonded.transform.operation)
     reduced = _primitive_reduced_entry(p1)
     if reduced.cell.basis.det().sign() < 0:
         reduced = _rebase_p1(reduced, -FracVector.eye((3, 3)))
@@ -145,7 +154,7 @@ def _anonymous_p1_frame(structure: StructureLike) -> _AnonymousFrame:
     final_names = _class_names(len(populations))
     final_species = _dummy_species(final_names)
     best_geometry: tuple[Any, ...] | None = None
-    candidates: list[tuple[ASUStructure, tuple[Species, ...]]] = []
+    candidates: list[tuple[ASUStructure, tuple[Species, ...], AffineOperation]] = []
 
     for operation in operations:
         _checkpoint()
@@ -198,18 +207,23 @@ def _anonymous_p1_frame(structure: StructureLike) -> _AnonymousFrame:
             )
             assignment = tuple(source_for_initial[class_name] for _count, _values, class_name in blocks)
             anonymous = _canonical_orientation(anonymous)
+            # the frame's coordinates are the reduced ones moved by the operation and the anchor
+            change = AffineOperation(FracVector.eye((3, 3)), [-value for value in anchor]) * operation
             if best_geometry is None or geometry < best_geometry:
                 best_geometry = geometry
-                candidates = [(anonymous, assignment)]
+                candidates = [(anonymous, assignment, change)]
             else:
-                candidates.append((anonymous, assignment))
+                candidates.append((anonymous, assignment, change))
 
     if not candidates:
         raise ValueError("anonymous P1 framing found no right-handed reduced-Gram representative")
-    best_frame_key = min(_frame_key(candidate) for candidate, _assignment in candidates)
+    best_frame_key = min(_frame_key(candidate) for candidate, _assignment, _change in candidates)
     winners = [
-        (candidate, assignment) for candidate, assignment in candidates if _frame_key(candidate) == best_frame_key
+        (candidate, assignment, change)
+        for candidate, assignment, change in candidates
+        if _frame_key(candidate) == best_frame_key
     ]
-    result = winners[0][0]
-    assignments = tuple(sorted({assignment for _candidate, assignment in winners}, key=repr))
+    # frames tied in geometry can differ in the network: the least one wins
+    result = min((_carried(reduced, frame, change) for frame, _assignment, change in winners), key=_bonds_key)
+    assignments = tuple(sorted({assignment for _candidate, assignment, _change in winners}, key=repr))
     return _AnonymousFrame(result, assignments)

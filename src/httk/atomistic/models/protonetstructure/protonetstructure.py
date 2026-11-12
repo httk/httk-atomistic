@@ -1,7 +1,7 @@
 """The immutable assigned-species protonetstructure value."""
 
 from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING, ClassVar, Literal, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
 
 from httk.atomistic.models.protonetstructure.backend import ProtonetstructureBackend
 from httk.atomistic.models.protonettype.protonettype import _checked_net, _class_runs, _standard
@@ -12,7 +12,7 @@ from httk.atomistic.models.species.species import Species
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.structure.asu import ASUStructure
+    from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 
 
 class Protonetstructure(ProtonetstructureBackend):
@@ -91,85 +91,90 @@ class Protonetstructure(ProtonetstructureBackend):
     @classmethod
     def from_asu(
         cls,
-        asu: "ASUStructure",
-        bonds: Iterable[tuple[int, int, int, int, int, int]],
+        asu: "FundamentalDomainStructure",
+        bonds: Iterable[tuple[int, int, int, int, int, int]] | None = None,
         *,
         on_limit: Literal["undetermined", "raise"] = "undetermined",
     ) -> "Protonetstructure":
-        """Build a value from a standard-setting ASU structure and its covalent bonds.
+        """Build a value from an ASU structure and its covalent bonds.
 
-        A bond ``(i, j, k, n1, n2, n3)`` joins the reference atom of ``asu.wyckoff_sites[i-1]``
-        to general-position operation ``k`` (identity = 1) plus lattice translation ``n``
-        applied to the reference atom of ``asu.wyckoff_sites[j-1]``. A reference atom is the
-        first-listed Wyckoff coordinate at the site's free parameters, not reduced modulo one; no
-        geometry is used. The translation ``n`` is any integer vector, so the free parameters need
-        not be reduced into [0, 1). Each bond stands for its whole symmetry orbit, so listing any
-        one member of an orbit is enough and repeats collapse. Which pairs are bonded is the
-        caller's responsibility: ``~`` means a covalent bond of unspecified order, dative bonds
-        counted as covalent. The result is the constructor's: the anonymous bare description is
-        kept and the net is canonicalized (see :class:`Protonetstructure`), within 120 s or an
-        enclosing budget. When the net search runs out, the result is undetermined: the canonical
-        bare protostructure label with ``__X`` for the net
-        (``<bare protostructure label>__X:<names>``, see :meth:`undetermined`). The bare part is
-        then canonicalized after the search; under an enclosing budget it is canonicalized before
-        the search, within that budget, and the label is
-        ``<Formulatype>_<Pearson>_<number>_X__X:<names>`` if it did not finish.
+        Without ``bonds`` the structure's own bond network (``bonds``)
+        is used, in any setting and either hand: the structure and its network are re-described in a
+        right-handed basis of the standard setting first. With ``bonds``, a bond
+        ``(i, j, k, n1, n2, n3)`` joins the reference atom of ``asu.wyckoff_sites[i-1]`` to
+        general-position operation ``k`` (identity = 1) plus lattice translation ``n`` applied to the
+        reference atom of ``asu.wyckoff_sites[j-1]``, and the structure must be in its space group's
+        standard setting without retained site representatives. A reference atom is the first-listed
+        Wyckoff coordinate at the site's free parameters, not reduced modulo one, so a structure's own
+        network is read whatever representatives its sites retain; no geometry is used. The translation ``n`` is any integer
+        vector, so the free parameters need not be reduced into [0, 1). Each bond stands for its whole
+        symmetry orbit, so listing any one member of an orbit is enough and repeats collapse. Which
+        pairs are bonded is the caller's responsibility: ``~`` means a covalent bond of unspecified
+        order, dative bonds counted as covalent. When two species share a class whose structure has
+        higher symmetry than declared, that symmetry is recognized and the bonds are re-expressed in
+        it, which needs the bond set to be invariant under it. The result is the constructor's: the
+        anonymous bare description is kept and the net is canonicalized (see
+        :class:`Protonetstructure`), within 120 s or an enclosing budget. When the net search runs
+        out, the result is undetermined: the canonical bare protostructure label with ``__X`` for the
+        net (``<bare protostructure label>__X:<names>``, see :meth:`undetermined`). The bare part is
+        then canonicalized after the search; under an enclosing budget it is canonicalized before the
+        search, within that budget, and the label is ``<Formulatype>_<Pearson>_<number>_X__X:<names>``
+        if it did not finish.
 
-        :param asu: The structure, in its space group's standard setting.
-        :param bonds: The bonds ``(i, j, k, n1, n2, n3)``.
+        :param asu: The structure.
+        :param bonds: The bonds ``(i, j, k, n1, n2, n3)``, or ``None`` for the structure's own network.
         :param on_limit: ``"undetermined"`` for the undetermined value when the net search runs out
             of its budget, or ``"raise"`` to raise
             :class:`~httk.atomistic.CanonicalizationLimitError` instead.
         :return: The protonetstructure value.
-        :raises ValueError: If the setting is not standard, the cell (after the setting transform)
-            is left-handed in a Sohncke group, whose letters and bonds would then describe the
-            mirror image, a site retains a representative, a bond is malformed, out of range or
-            bonds an atom to itself, the canonical net needs a translation outside -5..+4 (D4), or
-            two species share a class whose structure has another space group or conventional cell
-            than the declared one, or ``on_limit`` is unknown.
+        :raises ValueError: If ``bonds`` is omitted and the structure has no bond network; if
+            ``bonds`` is given and the setting is not standard, a site retains a representative, or a
+            bond is malformed, out of range or bonds an atom to itself; if the bond set is not
+            invariant under the recognized symmetry of the species classes; if the canonical net
+            needs a translation outside -5..+4 (D4); or if ``on_limit`` is unknown.
         :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the net search runs out of
             its budget.
         """
         from httk.atomistic.models.prototype.notation import class_order_key
+        from httk.atomistic.models.structure.asu import SiteBond, _affine, _op, _standard_elements
+        from httk.atomistic.symmetry.canonical_protostructure import _left_handed, _sohncke
         from httk.atomistic.symmetry.limits import CanonicalizationLimitError, _active, _budget_scope, _check_on_limit
         from httk.atomistic.symmetry.protonet import _tables
 
         _check_on_limit(on_limit)
-        spacegroup = asu.spacegroup
-        if not spacegroup.is_standard_setting:
-            raise ValueError("Protonetstructure.from_asu requires the space group's standard setting")
-        from httk.atomistic.symmetry.canonical_protostructure import _left_handed, _sohncke
-
-        if _sohncke(spacegroup) and _left_handed(asu):
-            raise ValueError(
-                "Protonetstructure.from_asu: the cell is left-handed in a Sohncke group, so the Wyckoff letters "
-                "and bonds would describe the mirror image; describe the crystal in a right-handed basis, or use "
-                "canonical_asu_protostructure(structure) and bonds on that"
-            )
-        sites = asu.wyckoff_sites
-        if any(site.representative is not None for site in sites):
-            raise ValueError(
-                "Protonetstructure.from_asu cannot use a retained WyckoffSite representative; drop it first"
-            )
-        if _merges_classes(asu):
-            from httk.atomistic.models.bareprotostructure.view import BareProtostructureView
-
-            recognized = BareProtostructureView(asu).unview()
-            counts = [
-                sum(group.wyckoff_position(letter).multiplicity for letter in letters)
-                for group, letters in (
-                    (recognized.spacegroup, [o.wyckoff for o in recognized.occupations]),
-                    (spacegroup, [site.wyckoff for site in sites]),
-                )
-            ]
-            if recognized.spacegroup.it_number != spacegroup.it_number or counts[0] != counts[1]:
+        structure = asu
+        if bonds is None:
+            if asu.bonds is None:
+                raise ValueError("Protonetstructure.from_asu: the structure has no bond network; pass bonds")
+            structure = _protonet_asu(asu)
+            elements = None
+        else:
+            spacegroup = asu.spacegroup
+            if not spacegroup.is_standard_setting:
                 raise ValueError(
-                    "Protonetstructure.from_asu: the ASU's species split a species class whose structure has "
-                    f"higher symmetry (IT {recognized.spacegroup.it_number}, not {spacegroup.it_number}), so the "
-                    "bonds of its sites do not describe the class structure; use "
-                    "canonical_asu_protostructure(structure) and bonds on that"
+                    "Protonetstructure.from_asu requires the space group's standard setting for bonds given "
+                    "as index tuples; give the structure its bond network to label it in any setting"
                 )
-        species = {value.name: value for value in asu.species}
+            if any(site.representative is not None for site in asu.wyckoff_sites):
+                raise ValueError(
+                    "Protonetstructure.from_asu cannot use a retained WyckoffSite representative; drop it first"
+                )
+            tables = _tables(spacegroup.it_number)
+            elements = [_index_bond(tables, asu, bond) for bond in bonds]
+            if (_sohncke(spacegroup) and _left_handed(asu)) or _merges_classes(asu):
+                # re-described in a right-handed cell or the class symmetry: carry the bonds as a network
+                standard = _standard_elements(spacegroup)
+                network = tuple(SiteBond(i, j, _affine(standard.operation(e))) for i, j, e in elements)
+                structure = _protonet_asu(asu._with_bonds(network))
+                elements = None
+        spacegroup = structure.spacegroup
+        sites = structure.wyckoff_sites
+        tables = _tables(spacegroup.it_number)
+        if elements is None:
+            assert structure.bonds is not None
+            standard = _standard_elements(spacegroup)
+            elements = [(bond.site, bond.partner, standard.element(_op(bond.operation))) for bond in structure.bonds]
+        species = {value.name: value for value in structure.species}
         class_of = {site.species: _species_class(species[site.species]).name for site in sites}
         letters: dict[str, list[str]] = {}
         for site in sites:
@@ -182,24 +187,13 @@ class Protonetstructure(ProtonetstructureBackend):
         rank = {name: index for index, name in enumerate(sorted(letters, key=class_key))}
         order = sorted(range(len(sites)), key=lambda s: (rank[class_of[sites[s].species]], sites[s].wyckoff))
         number = {old: new for new, old in enumerate(order)}
-        tables = _tables(spacegroup.it_number)
         rows = set()
-        for bond in bonds:
-            values = tuple(bond)
-            if len(values) != 6 or any(not isinstance(v, int) or isinstance(v, bool) for v in values):
-                raise ValueError(f"bond {bond!r} must be six integers (i, j, k, n1, n2, n3)")
-            i, j, k, n1, n2, n3 = values
-            if not (1 <= i <= len(sites) and 1 <= j <= len(sites)):
-                raise ValueError(f"bond {values!r} needs site indices in 1..{len(sites)}")
-            if not 1 <= k <= tables.nops:
-                raise ValueError(f"bond {values!r} needs an operation number in 1..{tables.nops}")
-            a, b, g = number[i - 1], number[j - 1], (k - 1, n1, n2, n3)
+        for i, j, g in elements:
+            a, b = number[i], number[j]
             if a > b:
                 a, b, g = b, a, tables.inv(g)
             H = [tables.letter(sites[order[s]].wyckoff).H for s in (a, b)]
             g = tables.canon(H[0], H[1], g, same_site=a == b)
-            if a == b and g == (0, 0, 0, 0):
-                raise ValueError(f"bond {values!r} bonds an atom to itself")
             rows.add((a + 1, b + 1, g[0] + 1, g[1], g[2], g[3]))
         from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
         from httk.atomistic.models.prototype.notation import _with_net_marker
@@ -289,3 +283,66 @@ class Protonetstructure(ProtonetstructureBackend):
             return f"Protonetstructure.undetermined({self._undetermined!r})"
         pairs = tuple((o.wyckoff, o.species) for o in self.occupations)
         return f"Protonetstructure({self.spacegroup.it_number}, {pairs!r}, {self.net!r})"
+
+
+def _index_bond(
+    tables: Any, asu: "FundamentalDomainStructure", bond: Iterable[int]
+) -> tuple[int, int, tuple[int, int, int, int]]:
+    """Validate one index-tuple bond ``(i, j, k, n1, n2, n3)`` and return it 0-based as ``(i, j, element)``."""
+    values = tuple(bond)
+    sites = asu.wyckoff_sites
+    if len(values) != 6 or any(not isinstance(v, int) or isinstance(v, bool) for v in values):
+        raise ValueError(f"bond {bond!r} must be six integers (i, j, k, n1, n2, n3)")
+    i, j, k, n1, n2, n3 = values
+    if not (1 <= i <= len(sites) and 1 <= j <= len(sites)):
+        raise ValueError(f"bond {values!r} needs site indices in 1..{len(sites)}")
+    if not 1 <= k <= tables.nops:
+        raise ValueError(f"bond {values!r} needs an operation number in 1..{tables.nops}")
+    g = (k - 1, n1, n2, n3)
+    if i == j:
+        H = tables.letter(sites[i - 1].wyckoff).H
+        if tables.canon(H, H, g, same_site=True) == (0, 0, 0, 0):
+            raise ValueError(f"bond {values!r} bonds an atom to itself")
+    return i - 1, j - 1, g
+
+
+def _protonet_asu(asu: "FundamentalDomainStructure") -> "FundamentalDomainStructure":
+    """Re-describe a structure with a bond network for the protonet labels.
+
+    The result is in a right-handed basis of the standard setting, and when two species share a
+    class whose structure has higher symmetry than declared (another space group or conventional
+    cell), it is the recognized class structure with the bonds matched onto it.
+
+    :param asu: The structure with a bond network.
+    :return: The re-described structure with its network.
+    :raises ValueError: If the bond set is not invariant under the recognized class symmetry.
+    """
+    from httk.atomistic.models.species.classes import _class_structure
+    from httk.atomistic.models.structure.bonds import _matched_bonds
+    from httk.atomistic.symmetry.canonical_protostructure import _left_handed, _right_handed, _sohncke
+    from httk.atomistic.symmetry.recognition import recognize_asu
+    from httk.atomistic.symmetry.subgroups import _standard_input
+
+    def oriented(structure: Any) -> Any:
+        if not structure.spacegroup.is_standard_setting:
+            structure = _standard_input(structure)
+        return _right_handed(structure) if _sohncke(structure.spacegroup) and _left_handed(structure) else structure
+
+    structure = oriented(asu)
+    if not _merges_classes(structure):
+        return structure
+    recognized = recognize_asu(_class_structure(structure))
+    declared = sum(structure.spacegroup.wyckoff_position(site.wyckoff).multiplicity for site in structure.wyckoff_sites)
+    found = sum(recognized.spacegroup.wyckoff_position(site.wyckoff).multiplicity for site in recognized.wyckoff_sites)
+    if recognized.spacegroup.it_number == structure.spacegroup.it_number and declared == found:
+        return structure
+    bonds = _matched_bonds(
+        structure, recognized, recognized.transform.operation.inverse() * structure.transform.operation
+    )
+    if bonds is None:
+        raise ValueError(
+            "Protonetstructure.from_asu: two species share a class whose structure has higher symmetry "
+            f"(IT {recognized.spacegroup.it_number}, not {structure.spacegroup.it_number}), and the bond set is not "
+            f"invariant under the recognized symmetry IT {recognized.spacegroup.it_number}"
+        )
+    return oriented(recognized._with_bonds(bonds))

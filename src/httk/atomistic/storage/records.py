@@ -53,13 +53,14 @@ from httk.atomistic.models.sites.numeric import NumericSites
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.classes import _species_class
 from httk.atomistic.models.species.species import Species
-from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
+from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, SiteBond, WyckoffSite
 from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
 from httk.atomistic.models.structure.semantics import StructureSymmetry, _stated_symmetry
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.models.trajectory.api import TrajectoryAPI
 from httk.atomistic.symmetry._canonical_form import _LABEL_FORM_VERSION, _NET_FORM_VERSION, _REFINED_FORM_VERSION
+from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 
 if TYPE_CHECKING:  # a runtime import is circular (records load during package import)
@@ -93,6 +94,7 @@ __all__ = [
     "ProtostructureRecord",
     "PrototypeRecord",
     "SettingTransformRecord",
+    "SiteBondRecord",
     "SitesRecord",
     "SpeciesConstituentRecord",
     "SpeciesRecord",
@@ -626,6 +628,60 @@ class SettingTransformRecord:
             "matrix": transform.matrix,
             "vector": tuple(transform.vector.to_fractions()),
             "hall_entry": transform.hall_entry,
+        }
+
+
+@dataclass(frozen=True)
+class SiteBondRecord:
+    """Represent one bond orbit of a fundamental domain's bond network.
+
+    The durable form of a :class:`~httk.atomistic.SiteBond`: the reference atom of domain site
+    ``site`` is bonded to the affine map ``x -> rotation x + translation`` (column convention, in
+    the stored setting) applied to the reference atom of domain site ``partner``.
+
+    :param site: The 0-based index of the first domain site.
+    :param partner: The 0-based index of the second domain site.
+    :param rotation: The exact rotation part of the group element.
+    :param translation: The exact translation part of the group element, lattice translation included.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_site_bond_record",
+        identity_name="atomistic_site_bond_record",
+    )
+    __httk_canonical_source__: ClassVar = SiteBond
+
+    site: int
+    partner: int
+    rotation: Annotated[FracVector, httk.core.storage.markers.Shape(3, 3)]
+    translation: tuple[fractions.Fraction, ...]
+
+    def __post_init__(self) -> None:
+        for name in ("site", "partner"):
+            value = getattr(self, name)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"SiteBondRecord {name} must be a non-negative integer")
+        rotation = FracVector(self.rotation)
+        translation = tuple(as_fraction(value, field="SiteBondRecord translation")[0] for value in self.translation)
+        if rotation.dim != (3, 3):
+            raise ValueError(f"SiteBondRecord rotation must be 3x3, got dim {rotation.dim}")
+        if len(translation) != 3:
+            raise ValueError(f"SiteBondRecord translation must have 3 elements, got {len(translation)}")
+        object.__setattr__(self, "rotation", rotation)
+        object.__setattr__(self, "translation", translation)
+
+    @classmethod
+    def __httk_project__(cls, bond: SiteBond) -> Mapping[str, object]:
+        """Project a site bond into durable fields.
+
+        :param bond: The site bond to project.
+        :return: The projected bond fields.
+        """
+        return {
+            "site": bond.site,
+            "partner": bond.partner,
+            "rotation": bond.operation.matrix,
+            "translation": tuple(bond.operation.vector.to_fractions()),
         }
 
 
@@ -1275,6 +1331,8 @@ class FundamentalDomainStructureRecord:
     :param chemical_formula_descriptive: The descriptive formula, if stated.
     :param chemical_formula_hill: The Hill formula, if stated.
     :param optimization_type: The optimization provenance, if stated.
+    :param bonds: The bond network, one least orbit member per bond orbit, or ``None`` when no
+        network is known; ``None`` leaves the content identity unchanged.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
     :param immutable_id: The per-revision immutable id; minted by the store when None.
     :param last_modified: The source modification timestamp, if stated.
@@ -1308,6 +1366,7 @@ class FundamentalDomainStructureRecord:
     chemical_formula_descriptive: str | None = None
     chemical_formula_hill: str | None = None
     optimization_type: str | None = None
+    bonds: Annotated[tuple[SiteBondRecord, ...] | None, IdentitySkipWhenNone()] = None
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
     last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
@@ -1341,6 +1400,11 @@ class FundamentalDomainStructureRecord:
             raise TypeError("FundamentalDomainStructureRecord spacegroup_hall_entry must be a string")
         if not isinstance(self.setting_transform, SettingTransformRecord):
             raise TypeError("FundamentalDomainStructureRecord setting_transform must be a SettingTransformRecord")
+        if self.bonds is not None:
+            bonds = tuple(self.bonds)
+            if not all(_effective_record_type(value) is SiteBondRecord for value in bonds):
+                raise TypeError("FundamentalDomainStructureRecord bonds must contain SiteBondRecord values")
+            object.__setattr__(self, "bonds", bonds)
         coordinate_precision = to_precision(self.coordinate_precision)
         object.__setattr__(self, "domain_sites", domain_sites)
         object.__setattr__(self, "coordinate_precision", coordinate_precision)
@@ -1364,6 +1428,7 @@ class FundamentalDomainStructureRecord:
                 "spacegroup_hall_entry": structure.spacegroup.hall_entry,
                 "setting_transform": structure.transform,
                 "coordinate_precision": structure.coordinate_precision,
+                "bonds": structure.bonds,
             }
         )
         return values
@@ -1490,6 +1555,12 @@ def _sites_from_record(record: SitesRecord) -> Sites:
     return Sites(record.reduced_coords, precision=record.precision)
 
 
+def _site_bonds_from_record(records: Iterable[SiteBondRecord]) -> tuple[SiteBond, ...]:
+    return tuple(
+        SiteBond(value.site, value.partner, AffineOperation(value.rotation, value.translation)) for value in records
+    )
+
+
 def _domain_structure_from_record(
     record: FundamentalDomainStructureRecord | ASUStructureRecord,
 ) -> FundamentalDomainStructure:
@@ -1520,6 +1591,7 @@ def _domain_structure_from_record(
         tuple(_species_from_record(value) for value in record.species),
         _setting_transform_from_record(record.setting_transform),
         record.coordinate_precision,
+        bonds=None if record.bonds is None else _site_bonds_from_record(record.bonds),
         **_common_constructor_values(record),
     )
 
@@ -1562,6 +1634,13 @@ def validate_structure_record(
     ):
         raise TypeError("validate_structure_record expects an exact root structure record")
     _validate_normalized_composition(record)
+    # the structure validates the bonds; a stored network must already be in its normal form
+    if (
+        not isinstance(record, UnitcellStructureRecord)
+        and record.bonds is not None
+        and _domain_structure_from_record(record).bonds != _site_bonds_from_record(record.bonds)
+    ):
+        raise ValueError("FundamentalDomainStructureRecord bonds are not the normalized bond network")
 
 
 def _assembly_record_from_assembly(assembly: Assembly) -> AssemblyRecord:
@@ -3062,6 +3141,13 @@ def _domain_structure_record_from_value(
         if structure.chemical_composition is None
         else ChemicalCompositionRecord(
             **cast(dict[str, Any], ChemicalCompositionRecord.__httk_project__(structure.chemical_composition))
+        )
+    )
+    values["bonds"] = (
+        None
+        if structure.bonds is None
+        else tuple(
+            SiteBondRecord(**cast(dict[str, Any], SiteBondRecord.__httk_project__(bond))) for bond in structure.bonds
         )
     )
     return record_type(**values)

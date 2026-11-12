@@ -342,9 +342,10 @@ symmetry while each of its species is its own class; when two of its species
 share a class, the class structure is recognized instead, and a declared
 representative becomes the canonical ASU of the class structure. So
 `Protostructure(representative=canonical_asu(s))` gives the canonical label too.
-`Protonetstructure.from_asu` refuses such an ASU when the class structure has
-another space group or conventional cell, since its bonds name the declared
-sites; build the net on `canonical_asu_protostructure(s)` instead.
+When the class structure has another space group or conventional cell,
+`Protonetstructure.from_asu` re-expresses the bonds, which name the declared
+sites, in the recognized symmetry; it raises when the bond set is not invariant
+under that symmetry.
 `canonical_asu` and `canonicalize` are structure canonicalizers: they keep the
 source species and the symmetry those have (`P m -3 m` here).
 A structure with a site occupied only by `vacancy` has no classes, so its
@@ -363,9 +364,8 @@ policy is available through `canonical_asu(preserve_chirality=False)` and
 (`BareProtostructure(...)`, `BarePrototype(...)` and the `Protonettype` and
 `Protonetstructure` constructors) are read in a right-handed basis of the standard
 setting. A declared ASU or representative in a left-handed cell is re-described as
-the same crystal in a right-handed one first; `Protonetstructure.from_asu`, whose
-bonds name the declared description, instead refuses a left-handed cell in a
-Sohncke group.
+the same crystal in a right-handed one first; `Protonetstructure.from_asu`
+re-describes its bonds with it.
 
 ```{important}
 The structure methods `canonical_bare_protostructure()` and
@@ -614,6 +614,47 @@ canonical = canonical_protonetstructure(value)
 assert canonical.label == "A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.10@3:S-K-Ag-Sb"
 ```
 
+#### A structure's own bond network
+
+An {py:class}`~httk.atomistic.ASUStructure` (or fundamental domain) can carry its
+bond network (see {doc}`details/asu`). `Protonetstructure.from_asu(asu)` and
+`Protonettype.from_asu(asu)` without a bond list use it, as do
+`ProtonetstructureView(asu)`, `ProtonettypeView(asu)`,
+`canonical_protonetstructure(asu)` and `canonical_protonettype(asu)`; a structure
+without a network still raises there, since bonds are never recognized. The
+network is re-described with the structure first, so the structure may be in any
+setting and either hand:
+
+```python
+from fractions import Fraction as F
+
+from httk.atomistic import (
+    AffineOperation,
+    ASUStructure,
+    Protonetstructure,
+    SiteBond,
+    Spacegroup,
+    Species,
+    WyckoffSite,
+)
+
+carbon = Species("C", ("C",), (1,))
+cell = [[F(7, 2), 0, 0], [0, F(7, 2), 0], [0, 0, F(7, 2)]]
+site = [WyckoffSite("a", (), "C")]
+# diamond in origin choices 1 and 2 with its C-C bond, one spelling of the bond orbit in each
+one = ASUStructure(cell, Spacegroup.from_setting("227:1"), site, [carbon],
+                   bonds=[SiteBond(0, 0, AffineOperation("-x+1/4,-y+1/4,-z+1/4"))])
+two = ASUStructure(cell, Spacegroup.from_setting("227:2"), site, [carbon],
+                   bonds=[SiteBond(0, 0, AffineOperation("-x+3/2,z+1/4,y-1/4"))])
+assert Protonetstructure.from_asu(one) == Protonetstructure.from_asu(two)
+```
+
+When two species share a class whose structure has higher symmetry than declared
+(COD 1001844, declared P1 with two `OH2` sites, whose class structure is `C m`), the
+class structure is recognized and every bond pair is matched to its nearest atom
+there; the bonds are kept if the bond set is invariant under the recognized group,
+and otherwise `from_asu` raises `ValueError` naming that group.
+
 ### Canonical protonet labels
 
 One net is one value. The constructors `Protonettype(...)` and
@@ -823,10 +864,13 @@ Every other failure raises, as before (U1):
 4. Disorder at levels that refuse it: a refined `Prototype` of a disordered
    structure, and `Structuretype`.
 5. A retained imprecise `WyckoffSite` representative of a refined value.
-6. `from_asu` with a non-standard setting, a left-handed cell in a Sohncke group, a
+6. `from_asu` with bonds given as index tuples on a non-standard setting or with a
    retained site representative, a malformed or out-of-range bond, a self-bond,
-   or species that share a class whose structure has more symmetry than the
-   declared one.
+   a structure without a bond network when no bonds are given, or species that
+   share a class whose structure has more symmetry than the declared one under
+   which the bond set is not invariant. A structure's own network is read whatever
+   site representatives it retains, since its reference atoms are the Wyckoff
+   chart points.
 7. A canonical net that needs a translation outside −5..+4, which the notation
    cannot write (D4).
 8. Internal invariant failures: the net search and the bare canonicalization

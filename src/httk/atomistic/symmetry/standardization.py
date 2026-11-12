@@ -16,6 +16,7 @@ from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.structure.asu import ASUStructure
+from httk.atomistic.models.structure.bonds import _carried
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.semantics import initialize_semantics
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
@@ -274,7 +275,7 @@ def conventional_cell(
     )
 
     def _standard_asu(charge: fractions.Fraction | None = None) -> ASUStructure:
-        return ASUStructure(
+        standardized = ASUStructure(
             new_cell,
             standard,
             standard_sites,
@@ -287,6 +288,7 @@ def conventional_cell(
             assemblies=asu.assemblies if had_existing_asu else None,
             charge=charge,
         )
+        return _carried(asu, standardized, asu._to_standard_operation())
 
     standard_asu = _standard_asu()
     result_structure: UnitcellStructure = UnitcellStructureView(standard_asu)

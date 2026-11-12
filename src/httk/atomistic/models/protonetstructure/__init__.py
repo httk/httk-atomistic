@@ -9,11 +9,13 @@ from .protonetstructure import Protonetstructure
 from .view_base import ProtonetstructureViewBase
 
 if TYPE_CHECKING:
+    from .bonded import BondedProtonetstructure
     from .label import ProtonetstructureLabel
     from .label_string import ProtonetstructureLabelString
     from .view import ProtonetstructureView
 
 __all__ = [
+    "BondedProtonetstructure",
     "Protonetstructure",
     "ProtonetstructureAPI",
     "ProtonetstructureBackend",
@@ -41,4 +43,9 @@ def __getattr__(name: str) -> object:
 
         globals()[name] = ProtonetstructureLabelString
         return ProtonetstructureLabelString
+    if name == "BondedProtonetstructure":
+        from .bonded import BondedProtonetstructure
+
+        globals()[name] = BondedProtonetstructure
+        return BondedProtonetstructure
     raise AttributeError(name)

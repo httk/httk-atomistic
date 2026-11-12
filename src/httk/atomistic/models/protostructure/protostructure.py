@@ -30,6 +30,7 @@ class Protostructure(ProtostructureBackend):
         right-handed basis, so its Wyckoff letters, and in an enantiomorphic pair its group, read
         the crystal's hand. An explicit ``spacegroup`` and ``occupations`` must then match that
         right-handed reading of the crystal, or the base disagrees with the representative.
+        A bond network of the representative is dropped.
     :param discriminator: An optional external class discriminator.
     """
 
@@ -55,6 +56,8 @@ class Protostructure(ProtostructureBackend):
 
                 representative = canonical_asu_protostructure(representative)
             representative = _class_representative(representative)
+            if representative.bonds is not None:  # the identity of a protostructure never depends on bonds
+                representative = representative._with_bonds(None)
             if not base_supplied:
                 spacegroup = representative.spacegroup
                 representative_species = {species.name: species for species in representative.species}

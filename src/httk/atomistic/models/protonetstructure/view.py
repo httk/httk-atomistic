@@ -12,8 +12,9 @@ from httk.atomistic.models.protonetstructure.view_base import ProtonetstructureV
 class ProtonetstructureView(ProtonetstructureViewBase, Protonetstructure):
     r"""Present a protonetstructure source as a lazy protonetstructure value.
 
-    Existing values and canonical label strings are accepted. Structures carry no
-    bonds, so there is no recognition.
+    Existing values, canonical label strings and fundamental-domain structures with a bond
+    network (see :meth:`~httk.atomistic.Protonetstructure.from_asu`) are accepted; a structure without a network
+    is not, since no bonds are recognized.
     ``unview()`` materializes a standalone value.
 
     :param obj: Protonetstructure-like source.

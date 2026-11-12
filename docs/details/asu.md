@@ -27,12 +27,55 @@ the cell.
 | `transform` | the transform from that stored setting to the structure's own coordinates; normally identity |
 | `wyckoff_sites` | one {py:class}`~httk.atomistic.WyckoffSite` per orbit: a Wyckoff letter, its free parameters, and a species name |
 | `species` | the species the sites name |
+| `bonds` | the optional bond network: one {py:class}`~httk.atomistic.SiteBond` per bond orbit, or `None` |
 
 An `WyckoffSite` carries a bare Wyckoff letter (`"e"`, not `"4e"`) and one exact
 value per degree of freedom — none at all for a fixed position such as an
 inversion centre. Partial occupancy needs nothing special: it lives in the
 referenced {py:class}`~httk.atomistic.Species`, which already carries a
 composition.
+
+## Bond networks
+
+An `ASUStructure` (or `FundamentalDomainStructure`) may carry a bond network,
+`bonds`. `None`, the default of every way of building one, means no network is
+known; `()` means the structure is known to have no bonds. A
+{py:class}`~httk.atomistic.SiteBond` `(site, partner, operation)` bonds the
+reference atom of `wyckoff_sites[site]` to `operation` applied to the reference
+atom of `wyckoff_sites[partner]`. A reference atom is the first-listed coordinate
+of the site's Wyckoff position in the stored setting at its free parameters, not
+reduced modulo one, and `operation` is an exact element of the stored setting's
+space group, lattice translation included. Each bond stands for its whole orbit
+under the group: the constructor replaces it by the least member of its orbit
+(first site not after the second; least element of the double coset of the two
+reference atoms' site-symmetry groups, compared in the standard setting by the
+length of the lattice translation, then operation and translation), so equal
+networks in any spelling compare equal and repeats collapse. Self-bonds, an
+operation outside the group and a site index out of range raise `ValueError`.
+Equality includes the network (`None`, `()` and a network all differ), and the
+storage records keep it; a structure without a network keeps its content identity.
+The protonet labels can be built from it (see {doc}`/prototypes`).
+
+Every operation that only re-describes the same sites carries the network with
+them: both atoms of every bond are mapped by the exact map between the two
+descriptions and located in the new orbits. Where the sites themselves change,
+the result has no network:
+
+| carries the network | drops it (`bonds=None`) |
+| --- | --- |
+| the change to the standard setting (`conventional_cell`, the canonicalizers' standardization) | expansion to a unit cell, and recognition from one (`recognize_asu`, `ASUStructureView` of a unit cell) |
+| `canonicalize` / `canonical_asu` (both `symmetry` modes), `canonical_asu_protostructure` and `canonical_asu_protostructure_assignments` (without `lift=True`), through recognition when the recognized group and lattice keep the bond set | subgroup descent and lift (`subgroup_representation`, `rerepresent` into another group, `lift_candidates`, `backward_lift`, `highest_symmetry`, `search_supergroups`) and the paths built on them (`represent_like`, `list_representations`, `canonicalize_full`, `interpolate_structures`) |
+| re-describing a left-handed cell right-handed, the mirror image and `normalize_chirality`, the affine-normalizer actions, origin shifts, cell reductions (the reduction of a P1 supercell to its primitive cell only when the bonds keep the smaller cell's translations) and the orientation of the canonical cell | the legacy metric-first canonicalizers (`canonical_asu_legacy`, `canonicalize_legacy`), `lift=True` in `canonical_asu_protostructure` and its assignments, supercells, and the collapse of an exact supercell by a self-lift |
+| reducing species to their classes, renaming and reordering sites; CIF reading, which reads `_geom_bond_` loops into the network (see {doc}`cif`) | templates and anonymization (`FundamentalDomainTemplate`, `Structuretype`) and the representatives of `Protostructure` and `Prototype` |
+
+Through recognition (`canonicalize` with `symmetry="detect"` and
+`canonical_asu_protostructure`) every atom is matched once to the nearest
+recognized atom, and the match must be one to one. Wherever the group or the
+lattice changes, the bond set must be invariant under the new symmetry, checked
+modulo both lattices, so a translation the new cell has and the old one lacks is
+checked too; otherwise the network is dropped (and `Protonetstructure.from_asu`
+raises). Descriptions tied in geometry are told apart by their normalized networks,
+so equal networks in different spellings canonicalize to one value.
 
 ## Any setting, including untabulated ones
 

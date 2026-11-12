@@ -12,8 +12,10 @@ from httk.atomistic.models.protonettype.view_base import ProtonettypeViewBase
 class ProtonettypeView(ProtonettypeViewBase, Protonettype):
     r"""Present a protonettype source as a lazy protonettype value.
 
-    Existing values, canonical label strings and protonetstructures (erased by class
-    position) are accepted. Structures carry no bonds, so there is no recognition.
+    Existing values, canonical label strings, protonetstructures (erased by class
+    position) and fundamental-domain structures with a bond network (see
+    :meth:`~httk.atomistic.Protonettype.from_asu`) are accepted; a structure without a network is not, since no
+    bonds are recognized.
     ``unview()`` materializes a standalone value.
 
     :param obj: Protonettype-like source.

@@ -24,6 +24,7 @@ from httk.atomistic.models.prototype.notation import class_order_key
 from httk.atomistic.models.species.classes import _class_structure, _species_class
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
+from httk.atomistic.models.structure.bonds import _AmbiguousMatch, _bonds_key, _carried, _matched_bonds
 from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
@@ -96,7 +97,7 @@ def _restore_source_metadata(result: ASUStructure, source: Any) -> ASUStructure:
             raise ValueError("cannot scale source composition for an empty structure")
         multiplier = Fraction(len(UnitcellStructureView(result).sites), source_count)
         metadata["chemical_composition"] = _scaled_composition(metadata["chemical_composition"], multiplier)
-    return ASUStructure(
+    restored = ASUStructure(
         result.cell,
         result.spacegroup,
         result.wyckoff_sites,
@@ -106,6 +107,7 @@ def _restore_source_metadata(result: ASUStructure, source: Any) -> ASUStructure:
         charge=result.charge,
         **metadata,
     )
+    return _carried(result, restored)
 
 
 def _restore_assignment(result: ASUStructure, assignment: tuple[Species, ...], source: Any) -> ASUStructure:
@@ -130,7 +132,7 @@ def _restore_assignment(result: ASUStructure, assignment: tuple[Species, ...], s
         coordinate_precision=result.coordinate_precision,
         charge=result.charge,
     )
-    return _restore_source_metadata(restored, source)
+    return _restore_source_metadata(_carried(result, restored), source)
 
 
 def _restore_unchanged_precision(result: ASUStructure, source: StructureLike) -> ASUStructure:
@@ -138,7 +140,7 @@ def _restore_unchanged_precision(result: ASUStructure, source: StructureLike) ->
     source_view = UnitcellStructureView(source)
     if not same_crystal(result, source_view):
         return result
-    return ASUStructure(
+    restored = ASUStructure(
         Cell(result.cell, precision=source_view.cell.precision),
         result.spacegroup,
         result.wyckoff_sites,
@@ -155,6 +157,7 @@ def _restore_unchanged_precision(result: ASUStructure, source: StructureLike) ->
         immutable_id=result.immutable_id,
         last_modified=result.last_modified,
     )
+    return _carried(result, restored)
 
 
 def _anonymize_asu(
@@ -165,7 +168,7 @@ def _anonymize_asu(
     anonymous_by_original = {
         original.name: anonymous.name for anonymous, original in zip(anonymous_species, assignment, strict=True)
     }
-    return ASUStructure(
+    anonymous = ASUStructure(
         structure.cell,
         structure.spacegroup,
         tuple(
@@ -177,6 +180,7 @@ def _anonymize_asu(
         coordinate_precision=structure.coordinate_precision,
         charge=structure.charge,
     )
+    return _carried(structure, anonymous)
 
 
 def _anonymous_geometry_key(structure: ASUStructure) -> tuple[Any, ...]:
@@ -199,7 +203,7 @@ def _anonymous_geometry_key(structure: ASUStructure) -> tuple[Any, ...]:
 
 
 def _chemical_key(structure: ASUStructure) -> tuple[Any, ...]:
-    return _site_key(structure), tuple(repr(species) for species in structure.species)
+    return _site_key(structure), tuple(repr(species) for species in structure.species), _bonds_key(structure)
 
 
 def _deduplicate_results(values: list[ASUStructure]) -> tuple[ASUStructure, ...]:
@@ -213,6 +217,7 @@ def _deduplicate_results(values: list[ASUStructure]) -> tuple[ASUStructure, ...]
             value.species,
             value.coordinate_precision,
             value.charge,
+            _bonds_key(value),
         )
         unique.setdefault(key, value)
     return tuple(sorted(unique.values(), key=_chemical_key))
@@ -226,7 +231,7 @@ def _apply_action(structure: ASUStructure, operation: AffineOperation) -> ASUStr
         sites.append(WyckoffSite(action.target_letter, action.apply(site.free_params), site.species))
     basis_change = operation.matrix.T().inv()
     basis = SurdVector(basis_change) * structure.cell.basis
-    return ASUStructure(
+    acted = ASUStructure(
         Cell(
             basis,
             precision=_scaled_precision(
@@ -245,11 +250,12 @@ def _apply_action(structure: ASUStructure, operation: AffineOperation) -> ASUStr
         ),
         charge=structure.charge,
     )
+    return _carried(structure, acted, operation)
 
 
 def _with_basis(structure: ASUStructure, basis: SurdVector) -> ASUStructure:
     basis_change = _rational_basis_change(basis, structure.cell.basis)
-    return ASUStructure(
+    rebased = ASUStructure(
         Cell(
             basis,
             precision=_scaled_precision(
@@ -265,6 +271,7 @@ def _with_basis(structure: ASUStructure, basis: SurdVector) -> ASUStructure:
         coordinate_precision=structure.coordinate_precision,
         charge=structure.charge,
     )
+    return _carried(structure, rebased)
 
 
 type _DiscreteKey = tuple[tuple[tuple[int, tuple[str, ...]], ...], tuple[Any, ...]]
@@ -547,6 +554,8 @@ def _geometric_choice(
     key = (
         metric_key,
         _site_key(represented),
+        # the network before the raw Cartesian basis, which the orientation rebuild replaces
+        _bonds_key(represented),
         _basis_key(represented.cell.basis),
     )
     return key, represented
@@ -594,7 +603,7 @@ def _triclinic_proxy_entries(structure: ASUStructure) -> tuple[ASUStructure, ...
         _checkpoint()
         if key != least:
             continue
-        candidate_key = (_site_key(candidate), _basis_key(candidate.cell.basis))
+        candidate_key = (_site_key(candidate), _basis_key(candidate.cell.basis), _bonds_key(candidate))
         if candidate_key not in winner_keys:
             winner_keys.add(candidate_key)
             winners.append(candidate)
@@ -624,14 +633,17 @@ def _right_handed(domain: FundamentalDomainStructure) -> ASUStructure:
     if isinstance(domain, ASUStructure) and not _left_handed(domain):
         return domain
     structure = _standard_input(
-        ASUStructure(
-            domain.cell,
-            domain.spacegroup,
-            domain.wyckoff_sites,
-            domain.species,
-            transform=domain.transform,
-            coordinate_precision=domain.coordinate_precision,
-            charge=domain.charge,
+        _carried(
+            domain,
+            ASUStructure(
+                domain.cell,
+                domain.spacegroup,
+                domain.wyckoff_sites,
+                domain.species,
+                transform=domain.transform,
+                coordinate_precision=domain.coordinate_precision,
+                charge=domain.charge,
+            ),
         )
     )
     if structure.cell.basis.det().sign() > 0:
@@ -646,7 +658,7 @@ def _right_handed(domain: FundamentalDomainStructure) -> ASUStructure:
             _checkpoint()
             action = compile_wyckoff_action(group, inversion, site.wyckoff, target_spacegroup=target)
             sites.append(WyckoffSite(action.target_letter, action.apply(site.free_params), site.species))
-        return ASUStructure(
+        inverted = ASUStructure(
             Cell(-structure.cell.basis, precision=structure.cell.precision, periodicity=structure.cell.periodicity),
             target,
             sites,
@@ -655,6 +667,7 @@ def _right_handed(domain: FundamentalDomainStructure) -> ASUStructure:
             coordinate_precision=structure.coordinate_precision,
             charge=structure.charge,
         )
+        return _carried(structure, inverted, inversion)
     from httk.atomistic.symmetry.canonical_classification import _actions  # imports this module
 
     improper = next((op for op in group.symmetry_operations if op.determinant() < 0), None)
@@ -730,6 +743,7 @@ def _terminal_result_key(structure: ASUStructure, names: dict[str, str] | None =
         reduction,
         tuple(metric._element((row, column)) for row in range(3) for column in range(3)),
         _site_key(structure),
+        _bonds_key(structure),
         _basis_key(structure.cell.basis),
     )
 
@@ -745,7 +759,7 @@ def _own_enantiomorph_sohncke(spacegroup: Spacegroup) -> bool:
 
 def _mirrored(structure: ASUStructure) -> ASUStructure:
     """Return the enantiomer: the same fractional coordinates and group in the negated (left-handed) basis."""
-    return ASUStructure(
+    mirrored = ASUStructure(
         Cell(-structure.cell.basis, precision=structure.cell.precision, periodicity=structure.cell.periodicity),
         structure.spacegroup,
         structure.wyckoff_sites,
@@ -754,6 +768,7 @@ def _mirrored(structure: ASUStructure) -> ASUStructure:
         coordinate_precision=structure.coordinate_precision,
         charge=structure.charge,
     )
+    return _carried(structure, mirrored)
 
 
 def _canonical_protostructure_geometry(
@@ -839,7 +854,8 @@ def _frame_candidates(
     structure: ASUStructure, *, preserve_chirality: bool, named: bool
 ) -> list[tuple[ASUStructure, tuple[Species, ...], tuple[Any, ...]]]:
     """Canonicalize every tied frame assignment of one hand, keyed for the choice between them."""
-    frame = _anonymous_p1_frame(UnitcellStructureView(structure))
+    bonded = structure if structure.spacegroup.it_number == 1 and structure.bonds is not None else None
+    frame = _anonymous_p1_frame(UnitcellStructureView(structure), bonded)
     anonymous_species = frame.structure.species
     candidates = []
     for assignment in frame.assignments:
@@ -919,7 +935,13 @@ def canonical_asu_protostructure_assignments(
         lift=lift,
         preserve_chirality=preserve_chirality,
         named=False,
+        bonded=_bonded_domain(structure),
     )
+
+
+def _bonded_domain(structure: Any) -> FundamentalDomainStructure | None:
+    """Return a structure that is a fundamental domain with a bond network, else ``None``."""
+    return structure if isinstance(structure, FundamentalDomainStructure) and structure.bonds is not None else None
 
 
 def _recognized_canonical_asus(
@@ -930,8 +952,14 @@ def _recognized_canonical_asus(
     lift: bool,
     preserve_chirality: bool,
     named: bool,
+    bonded: FundamentalDomainStructure | None = None,
 ) -> tuple[ASUStructure, ...]:
-    """Recognize ``structure``; return the anonymous assignment family, or with ``named`` the one named result."""
+    """Recognize ``structure``; return the anonymous assignment family, or with ``named`` the one named result.
+
+    ``bonded`` is a fundamental domain with a bond network whose own-setting coordinates are those of
+    ``structure``. Its network is carried through the anonymous frame and recognition (atoms matched to
+    the nearest recognized atoms) to the results; it is dropped if the recognized symmetry does not keep it.
+    """
     source_view = UnitcellStructureView(structure)
     if source_view.site_moments is not None:
         raise ValueError("canonical_asu_protostructure does not support structures with site moments")
@@ -941,7 +969,7 @@ def _recognized_canonical_asus(
         raise ValueError("canonical_asu_protostructure does not support molecular structures")
     require_full_periodicity(source_view.cell, "canonical_asu_protostructure")
     base = structure_tolerance(source_view) if tolerance is None else float(tolerance)
-    outer_frame = _anonymous_p1_frame(source_view)
+    outer_frame = _anonymous_p1_frame(source_view, bonded)
     normalized_p1 = outer_frame.structure
     winner, failures = _recognition_sweep(UnitcellStructureView(normalized_p1), base, factors)
     if winner is None or winner.spacegroup.it_number == 1:
@@ -955,6 +983,12 @@ def _recognized_canonical_asus(
             winner = alternate
     if winner is None:
         raise ValueError(f"no symmetry fit the structure within tolerance {base:g}; tried [{', '.join(failures)}]")
+    if normalized_p1.bonds is not None:
+        try:
+            bonds = _matched_bonds(normalized_p1, winner, winner.transform.operation.inverse())
+        except _AmbiguousMatch:  # no one-to-one atom match: the network cannot follow recognition
+            bonds = None
+        winner = winner._with_bonds(bonds)
     if lift:
         from httk.atomistic.symmetry.lift import canonicalize_legacy
 
@@ -1012,4 +1046,5 @@ def canonical_asu_protostructure(
         lift=lift,
         preserve_chirality=preserve_chirality,
         named=True,
+        bonded=_bonded_domain(structure),
     )[0]

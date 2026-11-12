@@ -14,6 +14,7 @@ from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
+from httk.atomistic.models.structure.bonds import _carried
 from httk.atomistic.symmetry._nearest_image import _NearestImageMetric
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
 from httk.atomistic.symmetry._standardization_common import (
@@ -160,7 +161,7 @@ def _exact_asu(
     # This forces the fundamental domain's exact expansion proof before copying its
     # declared representation. No symmetry recognition or coordinate snapping occurs.
     structure.expand_sites()
-    return ASUStructure(
+    promoted = ASUStructure(
         structure.cell,
         structure.spacegroup,
         structure.wyckoff_sites,
@@ -171,6 +172,7 @@ def _exact_asu(
         assemblies=structure.assemblies,
         charge=structure.charge,
     )
+    return _carried(structure, promoted)
 
 
 def _species_by_name(structure: ASUStructure) -> dict[str, Species]:

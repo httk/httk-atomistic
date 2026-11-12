@@ -10,6 +10,7 @@ import httk.atomistic.models.protonettype.view_base
 if TYPE_CHECKING:
     import httk.atomistic.models.protonetstructure.backend
     import httk.atomistic.models.protonetstructure.view_base
+    import httk.atomistic.models.structure.asu
 
 type ProtonettypeLike = (
     httk.atomistic.models.protonettype.backend.ProtonettypeBackend
@@ -19,4 +20,5 @@ type ProtonettypeLike = (
     | str
     | httk.atomistic.models.protonetstructure.backend.ProtonetstructureBackend
     | httk.atomistic.models.protonetstructure.view_base.ProtonetstructureViewBase
+    | httk.atomistic.models.structure.asu.FundamentalDomainStructure
 )

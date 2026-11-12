@@ -8,6 +8,7 @@ from httk.core import unwrap
 
 from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.protonetstructure.backend import ProtonetstructureBackend
+from httk.atomistic.models.protonetstructure.bonded import BondedProtonetstructure
 from httk.atomistic.models.protonetstructure.view_base import ProtonetstructureViewBase
 from httk.atomistic.models.protonettype.backend import ProtonettypeBackend
 from httk.atomistic.models.protonettype.protonettype import Protonettype
@@ -16,6 +17,9 @@ from httk.atomistic.models.prototype.notation import _erased_undetermined, _eras
 
 class DerivedProtonettype(ProtonettypeBackend):
     """Retain a protonetstructure source while exposing its anonymous erasure.
+
+    A fundamental domain with a bond network is taken through
+    :class:`~httk.atomistic.models.protonetstructure.bonded.BondedProtonetstructure`.
 
     Class run ``c`` gets the label ``anonymous_symbol(c)`` by position, so the site
     numbering and the net are unchanged; tied classes are never reordered by name.
@@ -27,10 +31,13 @@ class DerivedProtonettype(ProtonettypeBackend):
 
     @classmethod
     def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
-        """Adopt a protonetstructure backend or view."""
+        """Adopt a protonetstructure backend or view, or a fundamental domain with a bond network."""
         if hints and hints.get("kind", cls.kind) != cls.kind:
             return None
-        return cls(obj) if isinstance(obj, (ProtonetstructureBackend, ProtonetstructureViewBase)) else None
+        if isinstance(obj, (ProtonetstructureBackend, ProtonetstructureViewBase)):
+            return cls(obj)
+        bonded = BondedProtonetstructure._backend_adopt(obj)
+        return None if bonded is None else cls(bonded)
 
     def __init__(self, obj: Any) -> None:
         self._source = obj

@@ -19,11 +19,12 @@ snapping, no neighbour search. Tolerance enters this class only where a *measure
 structure is first recognized as symmetric, never in expansion.
 """
 
+import copy
 import datetime
 import fractions
 from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cache, cached_property, lru_cache
 from typing import Any, ClassVar, Self
 
 from httk.core import FracVector, SurdVector
@@ -46,10 +47,11 @@ from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.semantics import StructureSemanticsMixin, initialize_semantics
 from httk.atomistic.models.structure.unitcell import _check_referenced_species_concentrations
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
+from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 
-__all__ = ["ASUStructure", "FundamentalDomainStructure", "WyckoffSite"]
+__all__ = ["ASUStructure", "FundamentalDomainStructure", "SiteBond", "WyckoffSite"]
 
 
 @dataclass(frozen=True)
@@ -105,6 +107,210 @@ class WyckoffSite:
     def free_count(self) -> int:
         """How many free parameters this site carries."""
         return 0 if self.free_params.dim in ((), (0,)) else self.free_params.dim[0]
+
+
+@dataclass(frozen=True)
+class SiteBond:
+    """Represent one bond orbit of a fundamental domain's bond network.
+
+    The reference atom of ``wyckoff_sites[site]`` is bonded to ``operation`` applied to the
+    reference atom of ``wyckoff_sites[partner]``. A reference atom is the first-listed coordinate
+    of the site's Wyckoff position in the structure's stored setting at its free parameters, not
+    reduced modulo one. ``operation`` is an element of the stored setting's space group, lattice
+    translation included. The bond stands for its whole orbit under the group, so any member of
+    the orbit names the same bond.
+
+    :param site: The 0-based index of the first site.
+    :param partner: The 0-based index of the second site.
+    :param operation: The exact group element applied to the partner's reference atom.
+    """
+
+    site: int
+    partner: int
+    operation: AffineOperation
+
+    def __post_init__(self) -> None:
+        for name in ("site", "partner"):
+            value = getattr(self, name)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"SiteBond {name} must be a non-negative integer, got {value!r}")
+        if not isinstance(self.operation, AffineOperation):
+            raise TypeError("SiteBond operation must be an AffineOperation")
+
+
+# Exact affine maps as plain fractions, for the bond algebra: ``x -> W x + w`` with ``W`` row-major.
+type _Op = tuple[tuple[fractions.Fraction, ...], tuple[fractions.Fraction, ...]]
+type _Point = tuple[fractions.Fraction, ...]
+
+
+def _op(operation: AffineOperation) -> _Op:
+    return tuple(x for row in operation.matrix.to_fractions() for x in row), tuple(operation.vector.to_fractions())
+
+
+def _affine(op: _Op) -> AffineOperation:
+    W, w = op
+    return AffineOperation((W[0:3], W[3:6], W[6:9]), w)
+
+
+def _apply(op: _Op, point: Sequence[fractions.Fraction]) -> _Point:
+    W, w = op
+    return tuple(W[3 * r] * point[0] + W[3 * r + 1] * point[1] + W[3 * r + 2] * point[2] + w[r] for r in range(3))
+
+
+def _mul(a: _Op, b: _Op) -> _Op:
+    """Compose so that ``b`` applies first."""
+    Wa, Wb = a[0], b[0]
+    W = tuple(
+        sum((Wa[3 * r + i] * Wb[3 * i + c] for i in range(3)), fractions.Fraction(0))
+        for r in range(3)
+        for c in range(3)
+    )
+    return W, _apply(a, b[1])
+
+
+def _inv(a: _Op) -> _Op:
+    W, w = a
+    (p, q, r), (s, t, u), (v, x, y) = W[0:3], W[3:6], W[6:9]
+    det = p * (t * y - u * x) - q * (s * y - u * v) + r * (s * x - t * v)
+    adjugate = (
+        *(t * y - u * x, r * x - q * y, q * u - r * t),
+        *(u * v - s * y, p * y - r * v, r * s - p * u),
+        *(s * x - t * v, q * v - p * x, p * t - q * s),
+    )
+    inverse = tuple(value / det for value in adjugate)
+    linear = (inverse, (fractions.Fraction(0),) * 3)
+    return inverse, tuple(-value for value in _apply(linear, w))
+
+
+@cache
+def _group(spacegroup: Spacegroup) -> tuple[tuple[_Op, ...], frozenset[_Op]]:
+    """Return a space group's operations with translations in ``[0, 1)``, as a tuple and a set."""
+    operations = tuple((W, tuple(x % 1 for x in w)) for W, w in map(_op, spacegroup.symmetry_operations))
+    return operations, frozenset(operations)
+
+
+def _in_group(spacegroup: Spacegroup, op: _Op) -> bool:
+    return (op[0], tuple(x % 1 for x in op[1])) in _group(spacegroup)[1]
+
+
+def _reference(spacegroup: Spacegroup, site: WyckoffSite) -> _Point:
+    """Return a site's reference atom: its position's first-listed coordinate, not reduced modulo one."""
+    return _chart_point(spacegroup, site.wyckoff, site.free_params)
+
+
+@lru_cache(maxsize=65536)
+def _chart_point(spacegroup: Spacegroup, letter: str, free_params: FracVector) -> _Point:
+    return tuple(spacegroup.wyckoff_position(letter).representative.coordinate(free_params).to_fractions())
+
+
+def _checked_bonds(
+    spacegroup: Spacegroup, sites: Sequence[WyckoffSite], bonds: Sequence[SiteBond]
+) -> tuple[SiteBond, ...]:
+    """Validate bonds against the sites and the stored setting's group."""
+    checked = tuple(bonds)
+    for bond in checked:
+        if not isinstance(bond, SiteBond):
+            raise TypeError(f"bonds must contain SiteBond values, got {type(bond).__name__}")
+        if not (bond.site < len(sites) and bond.partner < len(sites)):
+            raise ValueError(f"{bond!r} refers to a site outside 0..{len(sites) - 1}")
+        op = _op(bond.operation)
+        if not _in_group(spacegroup, op):
+            raise ValueError(f"{bond!r}: the operation is not an element of {spacegroup.setting}")
+        if bond.site == bond.partner:
+            reference = _reference(spacegroup, sites[bond.site])
+            if _apply(op, reference) == reference:
+                raise ValueError(f"{bond!r} bonds an atom to itself")
+    return checked
+
+
+type _Element = tuple[int, int, int, int]
+
+
+def _to_standard(spacegroup: Spacegroup) -> AffineOperation:
+    """Return the map from a setting's coordinates to its IT standard setting's (identity if standard)."""
+    if spacegroup.is_standard_setting:
+        return AffineOperation.identity()
+    return spacegroup.transform_from_standard.operation.inverse()
+
+
+class _StandardElements:
+    """Convert a stored setting's group elements to and from the standard setting's integer elements.
+
+    An element ``(k, n1, n2, n3)`` is the standard setting's general-position operation ``k``
+    (0-based, see :mod:`httk.atomistic.symmetry.protonet`) followed by the lattice translation ``n``.
+
+    :param spacegroup: The stored setting.
+    """
+
+    def __init__(self, spacegroup: Spacegroup) -> None:
+        from httk.atomistic.symmetry.protonet import _tables  # imports the structure models
+
+        self.tables = _tables(spacegroup.it_number)
+        self.standard = spacegroup.is_standard_setting
+        self.to_standard = _op(_to_standard(spacegroup))
+        self.from_standard = _inv(self.to_standard)
+
+    def element(self, op: _Op) -> _Element:
+        """Return the standard-setting element of a stored-setting group element."""
+        W, w = op if self.standard else _mul(_mul(self.to_standard, op), self.from_standard)
+        assert all(x.denominator == 1 for x in W), "a standard-setting group element has an integer matrix"
+        k = self.tables._lookup[(tuple(int(x) for x in W), tuple(x % 1 for x in w))]
+        n = tuple(int(a - b) for a, b in zip(w, self.tables.w[k], strict=True))
+        return k, n[0], n[1], n[2]
+
+    def operation(self, e: _Element) -> _Op:
+        """Return the stored-setting group element of a standard-setting element."""
+        standard: _Op = (
+            tuple(fractions.Fraction(x) for x in self.tables.Wi[e[0]]),
+            tuple(a + b for a, b in zip(self.tables.w[e[0]], e[1:], strict=True)),
+        )
+        return standard if self.standard else _mul(_mul(self.from_standard, standard), self.to_standard)
+
+    @lru_cache(maxsize=4096)  # noqa: B019 - one instance per space group (see _standard_elements)
+    def stabilizer(self, reference: _Point) -> list[_Element]:
+        """Return the elements fixing a stored-setting point, lattice translations included."""
+        point = _apply(self.to_standard, reference)
+        tables, fixed = self.tables, []
+        for k in range(tables.nops):
+            W = tables.Wi[k]
+            moved = _apply((W, tables.w[k]), point)  # type: ignore[arg-type]
+            shift = [p - q for p, q in zip(point, moved, strict=True)]
+            if all(x.denominator == 1 for x in shift):
+                fixed.append((k, int(shift[0]), int(shift[1]), int(shift[2])))
+        return fixed
+
+
+@cache
+def _standard_elements(spacegroup: Spacegroup) -> _StandardElements:
+    return _StandardElements(spacegroup)
+
+
+def _normalized_bonds(
+    spacegroup: Spacegroup, sites: Sequence[WyckoffSite], bonds: Sequence[SiteBond]
+) -> tuple[SiteBond, ...]:
+    """Replace every bond by the least member of its orbit (site <= partner), sorted and deduplicated.
+
+    The members of the orbit of ``(i, j, g)`` with ``i <= j`` are ``H_i g H_j``, and for ``i == j``
+    also those of ``g`` inverted, ``H_s`` being the stabilizer of the reference atom of site ``s``.
+    They are compared as standard-setting elements ``(k, n)`` by ``(n.n, k, n)``, the order of the
+    protonet search, so the least member is the same in every setting.
+    """
+    from httk.atomistic.symmetry.protonet import _key
+
+    elements = _standard_elements(spacegroup)
+
+    def stabilizer(index: int) -> list[_Element]:
+        return elements.stabilizer(_reference(spacegroup, sites[index]))
+
+    canonical = set()
+    for bond in bonds:
+        i, j, g = bond.site, bond.partner, elements.element(_op(bond.operation))
+        if i > j:
+            i, j, g = j, i, elements.tables.inv(g)
+        canonical.add((i, j, _key(elements.tables.canon(stabilizer(i), stabilizer(j), g, same_site=i == j))))
+    return tuple(
+        SiteBond(i, j, _affine(elements.operation((key[1], key[2], key[3], key[4])))) for i, j, key in sorted(canonical)
+    )
 
 
 def _representative_matches_coordinates(
@@ -199,6 +405,9 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     :param last_modified: Optional source modification timestamp.
     :param charge: An explicitly assigned charge for the expanded cell content; it is not
         derived from the species.
+    :param bonds: The optional bond network, one :class:`SiteBond` per bond orbit in any
+        spelling; ``None`` (the default) means no network is known, ``()`` that there are no
+        bonds. Each bond is replaced by the least member of its orbit, and repeats collapse.
     :param _validated_proof: Internal proof that the supplied CIF expansion already validates
         the representatives.
     """
@@ -231,6 +440,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         immutable_id: str | None = None,
         last_modified: datetime.datetime | None = None,
         charge: fractions.Fraction | int | str | None = None,
+        bonds: Sequence[SiteBond] | None = None,
         _validated_proof: _ValidatedASUProof | None = None,
     ) -> None:
         self._cell = cell if isinstance(cell, Cell) else CellView(cell)
@@ -306,6 +516,21 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         )
         if _validated_proof is not None:
             self._precomputed_expansion = _validated_proof.expansion
+        self._bonds = (
+            None
+            if bonds is None
+            else _normalized_bonds(
+                self._spacegroup, self._wyckoff_sites, _checked_bonds(self._spacegroup, self._wyckoff_sites, bonds)
+            )
+        )
+
+    def _with_bonds(self, bonds: Sequence[SiteBond] | None) -> Self:
+        """Return a copy holding ``bonds``, trusted to be valid for these sites (normalized on access)."""
+        copied = copy.copy(self)
+        for cached in ("_canonical_bonds", "_httk_cached_content_ids", "composition"):  # caches of the old value
+            vars(copied).pop(cached, None)
+        copied._bonds = None if bonds is None else tuple(bonds)
+        return copied
 
     @classmethod
     def _from_validated_proof(
@@ -317,6 +542,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         transform: SettingTransform | None,
         coordinate_precision: Any,
         assemblies: Sequence[Assembly] | None = None,
+        bonds: Sequence[SiteBond] | None = None,
     ) -> Self:
         return cls(
             cell,
@@ -326,6 +552,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             transform,
             coordinate_precision,
             assemblies=assemblies,
+            bonds=bonds,
             _validated_proof=proof,
         )
 
@@ -370,10 +597,28 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             sites.append(WyckoffSite(position.letter, parameters, site.species, representative, site.moment))
         return standard, tuple(sites)
 
+    def _to_standard_operation(self) -> AffineOperation:
+        """Return the map from stored-setting to IT standard-setting coordinates (identity if standard)."""
+        return _to_standard(self._spacegroup)
+
     @property
     def wyckoff_sites(self) -> tuple[WyckoffSite, ...]:
         """Expose the symmetry-distinct sites."""
         return self._wyckoff_sites
+
+    @property
+    def bonds(self) -> tuple[SiteBond, ...] | None:
+        """Expose the bond network, one least orbit member per bond orbit, or ``None`` when unknown.
+
+        ``()`` means the structure is known to have no bonds.
+        """
+        return None if self._bonds is None else self._canonical_bonds
+
+    @cached_property
+    def _canonical_bonds(self) -> tuple[SiteBond, ...]:
+        # constructed bonds are already normal; carried ones (``_with_bonds``) are normalized on first use
+        assert self._bonds is not None
+        return _normalized_bonds(self._spacegroup, self._wyckoff_sites, self._bonds)
 
     @property
     def domain_sites(self) -> tuple[WyckoffSite, ...]:
@@ -785,6 +1030,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             and self._chemical_formula_descriptive == other._chemical_formula_descriptive
             and self._chemical_formula_hill == other._chemical_formula_hill
             and self._optimization_type == other._optimization_type
+            and self.bonds == other.bonds
         )
 
     def __repr__(self) -> str:
@@ -794,8 +1040,10 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             if self.is_standard_setting
             else f"setting {setting.setting if setting else '(untabulated)'}"
         )
+        bonds = "" if self._bonds is None else f", bonds={self.bonds!r}"
         return (
-            f"{type(self).__name__}({self._spacegroup.hermann_mauguin!r}, {len(self._wyckoff_sites)} site(s), {where})"
+            f"{type(self).__name__}({self._spacegroup.hermann_mauguin!r}, {len(self._wyckoff_sites)} site(s), "
+            f"{where}{bonds})"
         )
 
 

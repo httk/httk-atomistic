@@ -27,6 +27,7 @@ from httk.core import SurdVector
 from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
+from httk.atomistic.models.structure.bonds import _carried
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
 from httk.atomistic.symmetry._standardization_common import (
     _matrix_column_sum_factor,
@@ -351,7 +352,7 @@ def _standard_input(structure: ASUStructure) -> ASUStructure:
         precision=_scaled_precision(structure.cell.precision, _matrix_row_sum_factor(basis_matrix)),
         periodicity=structure.cell.periodicity,
     )
-    return ASUStructure(
+    standardized = ASUStructure(
         new_cell,
         standard,
         tuple(WyckoffSite(site.wyckoff, site.free_params, site.species) for site in sites),
@@ -363,6 +364,7 @@ def _standard_input(structure: ASUStructure) -> ASUStructure:
         ),
         charge=None if structure.charge is None else structure.charge * abs(transform.determinant()),
     )
+    return _carried(structure, standardized, structure._to_standard_operation())
 
 
 def _child_sites(parent: ASUStructure, transform: SubgroupTransform) -> tuple[WyckoffSite, ...]:

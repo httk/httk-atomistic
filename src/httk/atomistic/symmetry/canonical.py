@@ -455,6 +455,7 @@ def canonicalize(
         canonical_prototype,
     )
     from httk.atomistic.symmetry.canonical_protostructure import (
+        _bonded_domain,
         _canonical_protostructure_asu,
         _recognized_canonical_asus,
     )
@@ -498,6 +499,7 @@ def canonicalize(
                     lift=False,
                     preserve_chirality=preserve_chirality,
                     named=True,
+                    bonded=_bonded_domain(structure),
                 )[0]
         except _SolverLimitError as error:
             raise CanonicalizationLimitError(str(error)) from error

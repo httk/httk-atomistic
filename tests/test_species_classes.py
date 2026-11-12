@@ -416,9 +416,11 @@ def test_a_declared_asu_whose_species_share_a_class_is_classified_as_the_class_s
         assert str(PrototypeView(refined).label) == "A_cI2_229_a"
     assert str(asu.canonical_bare_protostructure().label) == label
     assert str(FormulatypeView(asu)) == "A"
-    # the bonds of the declared sites do not describe the class structure
-    with pytest.raises(ValueError, match="split a species class"):
-        Protonetstructure.from_asu(asu, [])
+    # the bonds are re-expressed in the class symmetry when it keeps them (follow-up 4, section 2.6)
+    assert str(Protonetstructure.from_asu(asu, []).label) == "A_cI2_229_a__:Fe"
+    assert str(Protonetstructure.from_asu(asu, [(1, 2, 1, 0, 0, 0)]).label) == "A_cI2_229_a__1~1@10:Fe"
+    with pytest.raises(ValueError, match="not invariant under the recognized symmetry IT 229"):
+        Protonetstructure.from_asu(asu, [(1, 1, 1, 1, 0, 0)])
     # a merge that keeps the space group and cell (AgO) is accepted
     ago = _standard(_load("cod/1509688.cif"))
     # (from_asu keeps the declared description, Ag on a and d)

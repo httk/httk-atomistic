@@ -61,6 +61,7 @@ from httk.atomistic import data
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite
+from httk.atomistic.models.structure.bonds import _bonds_key, _carried
 from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.symmetry._lattice import finite_translation_cosets
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
@@ -1116,7 +1117,7 @@ def _canonical_sites(structure: ASUStructure) -> ASUStructure:
     if not changed:
         return structure
     try:
-        return ASUStructure(
+        rewritten = ASUStructure(
             structure.cell,
             structure.spacegroup,
             ordered,
@@ -1127,6 +1128,7 @@ def _canonical_sites(structure: ASUStructure) -> ASUStructure:
         )
     except ValueError:
         return structure
+    return _carried(structure, rewritten)
 
 
 def _canonical_result_key(result: LiftResult) -> tuple[Any, ...]:
@@ -1134,7 +1136,7 @@ def _canonical_result_key(result: LiftResult) -> tuple[Any, ...]:
     path_key = tuple((transform.index, transform.subgroup_type) for transform in result.path)
     metric = result.asu.cell.metric()
     gram = tuple(metric._element((row, column)) for row in range(3) for column in range(3))
-    return (sites, tuple(result.shift.to_fractions()), gram, path_key)
+    return (sites, tuple(result.shift.to_fractions()), gram, path_key, _bonds_key(result.asu))
 
 
 def _crystals_match_within(left: ASUStructure, right: ASUStructure, tolerance: float) -> bool:
@@ -1456,7 +1458,7 @@ def _apply_normalizer_operation(
         sites.append(WyckoffSite(first_position.letter, first_parameters, site.species))
     basis = SurdVector(operation.matrix.T().inv()) * structure.cell.basis
     try:
-        return ASUStructure(
+        image = ASUStructure(
             Cell(basis, precision=structure.cell.precision, periodicity=structure.cell.periodicity),
             structure.spacegroup,
             sites,
@@ -1467,6 +1469,7 @@ def _apply_normalizer_operation(
         )
     except ValueError:
         return None
+    return _carried(structure, image, operation)
 
 
 def _enantiomorph(structure: ASUStructure) -> ASUStructure | None:
@@ -1516,7 +1519,7 @@ def _enantiomorph(structure: ASUStructure) -> ASUStructure | None:
             return None
         sites.append(WyckoffSite(first_position.letter, first_parameters, site.species))
     try:
-        return ASUStructure(
+        flipped = ASUStructure(
             structure.cell,
             partner,
             sites,
@@ -1527,6 +1530,7 @@ def _enantiomorph(structure: ASUStructure) -> ASUStructure | None:
         )
     except ValueError:
         return None
+    return _carried(structure, flipped, negate)
 
 
 def _integer_diagonalize(rows: tuple[tuple[int, ...], ...]) -> tuple[tuple[int, ...], list[list[int]]]:
@@ -1850,25 +1854,33 @@ def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
                 )
             )
 
+        def shifted_by(candidate: tuple[Fraction, ...]) -> ASUStructure:
+            if not any(candidate):
+                return structure
+            shift = FracVector(candidate)
+            shifted = ASUStructure(
+                structure.cell,
+                structure.spacegroup,
+                [
+                    WyckoffSite("a", (site.free_params + shift).normalize(), site.species, moment=site.moment)
+                    for site in structure.wyckoff_sites
+                ],
+                structure.species,
+                transform=SettingTransform.identity(),
+                coordinate_precision=structure.coordinate_precision,
+                charge=structure.charge,
+            )
+            return _carried(structure, shifted, AffineOperation(FracVector.eye((3, 3)), shift))
+
         winner = min(candidates, key=p1_key)
-        if not any(winner):
-            return structure
-        shift = FracVector(winner)
-        return ASUStructure(
-            structure.cell,
-            structure.spacegroup,
-            [
-                WyckoffSite("a", (site.free_params + shift).normalize(), site.species, moment=site.moment)
-                for site in structure.wyckoff_sites
-            ],
-            structure.species,
-            transform=SettingTransform.identity(),
-            coordinate_precision=structure.coordinate_precision,
-            charge=structure.charge,
-        )
+        if structure.bonds is None:
+            return shifted_by(winner)
+        # origins tied in the sites can differ in the network: the least one wins
+        least = p1_key(winner)
+        return min((shifted_by(c) for c in sorted(candidates) if p1_key(c) == least), key=_bonds_key)
 
     best = structure
-    best_key = _site_key(structure)
+    best_key = (_site_key(structure), _bonds_key(structure))
     for candidate in sorted(candidates):
         _checkpoint()
         if not any(candidate):
@@ -1880,7 +1892,7 @@ def _translation_normal_form(structure: ASUStructure) -> ASUStructure:
         )
         if image is None:
             continue
-        key = _site_key(image)
+        key = (_site_key(image), _bonds_key(image))
         if key < best_key:
             best, best_key = image, key
     return best
@@ -2036,7 +2048,7 @@ def _demote_sites(structure: ASUStructure) -> ASUStructure:
     if not changed:
         return structure
     try:
-        return ASUStructure(
+        relabelled = ASUStructure(
             structure.cell,
             structure.spacegroup,
             demoted,
@@ -2047,6 +2059,7 @@ def _demote_sites(structure: ASUStructure) -> ASUStructure:
         )
     except ValueError:
         return structure
+    return _carried(structure, relabelled)
 
 
 def _normal_form(structure: ASUStructure) -> ASUStructure:
@@ -2104,7 +2117,7 @@ def _normal_form(structure: ASUStructure) -> ASUStructure:
                 )
                 if flipped is not None:
                     reduced = _translation_normal_form(flipped)
-            key = _site_key(reduced)
+            key = (_site_key(reduced), _bonds_key(reduced))
             if best_key is None or key < best_key:
                 best, best_key = reduced, key
     return _canonical_sites(best) if best is not None else _canonical_sites(structure)
@@ -3009,7 +3022,7 @@ def _canonical_orientation(structure: ASUStructure) -> ASUStructure:
         return structure
     if oriented.basis == cell.basis or oriented.metric() != metric:
         return structure
-    return ASUStructure(
+    reoriented = ASUStructure(
         oriented,
         structure.spacegroup,
         structure.wyckoff_sites,
@@ -3018,6 +3031,7 @@ def _canonical_orientation(structure: ASUStructure) -> ASUStructure:
         coordinate_precision=structure.coordinate_precision,
         charge=structure.charge,
     )
+    return _carried(structure, reoriented)
 
 
 def _exact_translations(atoms: list[tuple[str, tuple[Fraction, ...]]]) -> list[tuple[Fraction, ...]]:
@@ -3118,7 +3132,7 @@ def _primitive_reduced_entry(structure: ASUStructure) -> ASUStructure:
     # absolute precision by the row-sum factor of S, and the fractional coordinate precision by the
     # column-sum factor of S^-1 -- the conservative bound that keeps cartesian_precision equal-or-wider.
     matrix = FracVector(lattice)
-    return ASUStructure(
+    primitive = ASUStructure(
         Cell(
             SurdVector(lattice) * structure.cell.basis,
             precision=_scaled_precision(structure.cell.precision, _matrix_row_sum_factor(matrix)),
@@ -3133,6 +3147,8 @@ def _primitive_reduced_entry(structure: ASUStructure) -> ASUStructure:
         ),
         charge=charge,
     )
+    # coordinates c' = c S^-1 (rows), so the column-convention map is (S^-1)^T
+    return _carried(structure, primitive, AffineOperation(FracVector(inverse).T(), (0, 0, 0)))
 
 
 def _pseudo_translations(structure: ASUStructure) -> list[tuple[Fraction, ...]]:

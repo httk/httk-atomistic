@@ -1,7 +1,7 @@
 """The immutable anonymous protonettype value."""
 
-from collections.abc import Sequence
-from typing import ClassVar, Self
+from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING, ClassVar, Literal, Self
 
 from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.protonettype.backend import ProtonettypeBackend
@@ -15,6 +15,9 @@ from httk.atomistic.models.prototype.notation import (
 )
 from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.symmetry.spacegroup import Spacegroup
+
+if TYPE_CHECKING:
+    from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 
 
 def _standard(spacegroup: Spacegroup | int, owner: str) -> Spacegroup:
@@ -159,6 +162,34 @@ class Protonettype(ProtonettypeBackend):
             raise ValueError("Protonettype class run c must carry the label anonymous_symbol(c)")
         nops = len(self._spacegroup.symmetry_operations)
         self._net = _checked_net(net, len(self._occupations), nops, "Protonettype", writable=writable)
+
+    @classmethod
+    def from_asu(
+        cls,
+        asu: "FundamentalDomainStructure",
+        bonds: Iterable[tuple[int, int, int, int, int, int]] | None = None,
+        *,
+        on_limit: Literal["undetermined", "raise"] = "undetermined",
+    ) -> "Protonettype":
+        """Build the anonymous value of an ASU structure and its covalent bonds.
+
+        The anonymous erasure of :meth:`Protonetstructure.from_asu
+        <httk.atomistic.Protonetstructure.from_asu>`, which documents the arguments; without
+        ``bonds`` the structure's own bond network is used.
+
+        :param asu: The structure.
+        :param bonds: The bonds ``(i, j, k, n1, n2, n3)``, or ``None`` for the structure's own network.
+        :param on_limit: ``"undetermined"`` or ``"raise"`` when the net search runs out of its budget.
+        :return: The protonettype value.
+        :raises ValueError: As :meth:`Protonetstructure.from_asu
+            <httk.atomistic.Protonetstructure.from_asu>`.
+        :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the net search runs out of
+            its budget.
+        """
+        from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
+        from httk.atomistic.models.protonettype.view import ProtonettypeView
+
+        return ProtonettypeView(Protonetstructure.from_asu(asu, bonds, on_limit=on_limit)).unview()
 
     @classmethod
     def undetermined(cls, label: str) -> "Protonettype":

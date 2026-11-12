@@ -52,7 +52,7 @@ from httk.atomistic.integrations import (
     VASPStructure,
     VASPTrajectory,
 )
-from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
+from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, SiteBond, WyckoffSite
 from httk.atomistic.models.structure.asu_view import ASUStructureView
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.comparison import same_crystal
@@ -179,6 +179,7 @@ from httk.atomistic.models.prototype.view import PrototypeView
 # families, whose adapters and formula bridge accept them.
 from httk.atomistic.models.protonetstructure.api import ProtonetstructureAPI
 from httk.atomistic.models.protonetstructure.backend import ProtonetstructureBackend
+from httk.atomistic.models.protonetstructure.bonded import BondedProtonetstructure
 from httk.atomistic.models.protonetstructure.label import ProtonetstructureLabel
 from httk.atomistic.models.protonetstructure.label_string import ProtonetstructureLabelString
 from httk.atomistic.models.protonetstructure.like import ProtonetstructureLike
@@ -291,7 +292,7 @@ BarePrototypeBackend.backend_classes = [
 ]
 ProtostructureBackend.backend_classes = []
 ProtonettypeBackend.backend_classes = [DerivedProtonettype, ProtonettypeLabelString]
-ProtonetstructureBackend.backend_classes = [ProtonetstructureLabelString]
+ProtonetstructureBackend.backend_classes = [ProtonetstructureLabelString, BondedProtonetstructure]
 PrototypeBackend.backend_classes = [DerivedPrototype]
 register_coercer(view_class_coercer([ChemicalFormulaView, FormulatypeView, AnonymousFormulaView, CompositionView]), Any)
 StructureBackend.backend_classes = [
@@ -364,6 +365,7 @@ __all__ = [
     "BarePrototypeLike",
     "BarePrototypeRecord",
     "BarePrototypeView",
+    "BondedProtonetstructure",
     "CanonicalizationLimitError",
     "CartesianSiteMoments",
     "CartesianSiteMomentsView",
@@ -444,6 +446,7 @@ __all__ = [
     "PymatgenStructureProtocol",
     "RecordTrajectory",
     "SettingTransform",
+    "SiteBond",
     "SiteMomentsLike",
     "Sites",
     "SitesLike",
