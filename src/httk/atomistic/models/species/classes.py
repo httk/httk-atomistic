@@ -14,7 +14,7 @@ are not part of the key. The class name is derived from the key alone and parses
 
 for example ``Ti``, ``Bi0.5Na0.5``, ``Li0.76``, ``Li0.333``, ``OH2``, ``K0.5Na0.5C1H3``. A name
 never contains ``/``. The rounded constituents may sum to slightly more than 1 (0.4995 and 0.5005
-round to 0.5 and 0.501); such a class has no vacancy, and :class:`Species` accepts it. A species
+round to 0.5 and 0.501); such a class has no vacancy, and :class:`~httk.atomistic.Species` accepts it. A species
 containing the unknown symbol ``X`` (a dummy template species or an unknown site) is not reduced:
 its class is its own name.
 """
