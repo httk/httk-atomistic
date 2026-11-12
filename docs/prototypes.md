@@ -282,8 +282,9 @@ mixed-species occupations: a `BareProtostructure` with an equal Fe/Ni mixture on
 
 Every level from `Formulatype` to `Protonetstructure` partitions the sites into
 the same species classes. Two species are in one class when they have the same
-key: the exact concentration of each chemical symbol other than `vacancy` (the
-vacancy is the remainder, stated or not), and the count of each attached symbol.
+key: the concentration of each chemical symbol other than `vacancy`, rounded to
+three decimals (half up; the vacancy is the remainder, stated or not), and the
+count of each attached symbol.
 The name, original name, labels, charges, spins, mass and concentration precision
 are not part of the key, so CIF site labels never split a class, an isotope is
 its element, and AgO (COD 1509688), whose CIF types `Ag1` as Ag⁺¹ and `Ag2` as
@@ -294,22 +295,27 @@ keeps its own species, names, labels and charges.
 A class name is derived from the key alone, and the label parsers rebuild the key
 from it:
 
-- one constituent at concentration 1: its symbol (`Ti`);
+- one constituent at rounded concentration 1: its symbol (`Ti`), the class of
+  the fully occupied element;
 - otherwise the constituents in alphabetical order, each followed by its
-  concentration, the vacancy omitted (`Bi0.5Na0.5`, `Li0.76`,
-  `Ag0.317Ga0.561`); a concentration is its shortest exact decimal, or `p/q`
-  when it has none (`Li1/3`), so it always contains `.` or `/`;
+  rounded concentration as its shortest decimal, always with a `.`, the vacancy
+  and constituents that round to 0 omitted (`Bi0.5Na0.5`, `Li0.76`,
+  `Ag0.317Ga0.561`, `Li0.333`);
 - attached atoms follow as symbol and count, the count always written and the
   symbols in alphabetical order (`OH2`, `NH4`, `OH1`, `K0.5Na0.5C1H3`).
 
-A class name uses only letters, digits, `.` and `/`, so it never contains the
-`-` that separates names, the `:` that starts the suffix, or the `_`, `~` and `@`
-of the net. A species with the unknown symbol `X` (a dummy template species) is
+A class name uses only letters, digits and `.`, so it never contains the `/`
+unusable in URLs and file names, the `-` that separates names, the `:` that
+starts the suffix, or the `_`, `~` and `@` of the net. A species with the unknown symbol `X` (a dummy template species) is
 its own class, by name; assigned levels reject it.
 
-Classes are compared exactly. Partially occupied sites therefore merge only when
-their occupancies are exactly equal: two half-occupied carbon sites form one
-class `C0.5`, but the same sites refined as 0.49 and 0.51 form two. Split
+Classes are compared by their rounded concentrations. Partially occupied sites
+therefore merge only when their occupancies agree to three decimals: two
+half-occupied carbon sites form one class `C0.5`, and so do 0.4996 and 0.5004,
+but the same sites refined as 0.49 and 0.51 form two. Occupancies that a file
+normalizes to fractions such as 83335/100004 are named by their rounded values
+(`F0.833O0.167`). The rounded constituents of one class can sum to slightly more
+than 1 (0.4995 and 0.5005 round to 0.5 and 0.501); such a class has no vacancy. Split
 positions of one atom with equal occupancies merge into one class (for example two
 half-occupied lithium positions 0.67 Å apart), and different Wyckoff orbits of one
 class are counted together, as for fully occupied sites.
@@ -938,10 +944,11 @@ their content identity. There are three versions, one per family:
 
 A label-rule change therefore bumps all three, while a change to the
 representative or to the net leaves the other families' records untouched. The
-label version is 3, the refined version 4 and the net version 4, since species
+label version is 4, the refined version 5 and the net version 5, since species
 classes replaced species names in every label, the hand is kept in Sohncke
-groups at every level, and labels that could not be determined within the time
-budget are stored with an `X` marker. Saving requires the family's current version, and turning a record of
+groups at every level, labels that could not be determined within the time
+budget are stored with an `X` marker, and species-class concentrations are
+rounded to three decimals. Saving requires the family's current version, and turning a record of
 another version back into a value raises `ValueError` naming the family: its
 canonical form changed, so rebuild the database. Saving a protonet record also checks that its net
 is the canonical one for its bare description; a non-canonical net is rejected,

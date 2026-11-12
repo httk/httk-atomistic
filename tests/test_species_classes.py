@@ -84,7 +84,7 @@ DISORDERED = [name for name in ALL if not all(_ordered(species) for species in _
         (Species("Bi1/Na1", ("Bi", "Na"), (F(1, 2), F(1, 2))), "Bi0.5Na0.5"),
         (Species("Li1", ("Li", "vacancy"), (F(19, 25), F(6, 25))), "Li0.76"),
         (Species("Li1", ("Li",), (F(19, 25),)), "Li0.76"),  # the vacancy is the remainder, stated or not
-        (Species("x", ("Li",), (F(1, 3),)), "Li1/3"),
+        (Species("x", ("Li",), (F(1, 3),)), "Li0.333"),  # rounded to three decimals, never "p/q"
         (Species("Ag1/Ga1", ("Ga", "Ag", "vacancy"), (F(561, 1000), F(317, 1000), F(61, 500))), "Ag0.317Ga0.561"),
         (Species("O1", ("O",), (1,), attached=("H",), nattached=(2,), charges=(-2,)), "OH2"),
         (Species("N1", ("N",), (1,), attached=("H",), nattached=(4,)), "NH4"),
@@ -93,8 +93,19 @@ DISORDERED = [name for name in ALL if not all(_ordered(species) for species in _
         (Species("m", ("Na", "K"), (F(1, 2), F(1, 2)), attached=("H", "C"), nattached=(3, 1)), "K0.5Na0.5C1H3"),
         (Species("Fe", ("Fe", "Fe"), (F(1, 2), F(1, 2)), charges=(2, 3)), "Fe"),  # charges dropped, then summed
         (Species("H", ("H",), (1,), mass=(2.014,)), "H"),  # an isotope is its element (S1)
-        (Species("O", ("O", "vacancy"), (F(303, 10000), F(9697, 10000))), "O0.0303"),
-        (Species("Cd1/Pb1", ("Cd", "Pb"), (F(1, 13), F(12, 13))), "Cd1/13Pb12/13"),
+        (Species("O", ("O", "vacancy"), (F(303, 10000), F(9697, 10000))), "O0.03"),
+        (Species("Cd1/Pb1", ("Cd", "Pb"), (F(1, 13), F(12, 13))), "Cd0.077Pb0.923"),
+        (Species("F", ("F", "O"), (F(83335, 100004), F(16669, 100004))), "F0.833O0.167"),
+        (Species("x", ("Li",), (F(2345, 10000),)), "Li0.235"),  # half up, not half even
+        (Species("x", ("Li",), (F(5, 10000),)), "Li0.001"),
+        (Species("x", ("Li", "Na"), (F(4, 10000), F(1, 2))), "Na0.5"),  # rounds to 0: dropped
+        (Species("x", ("Fe", "vacancy"), (F(9996, 10000), F(4, 10000))), "Fe"),  # rounds to 1: the element
+        (
+            Species("Fe", ("Fe", "Fe"), (F(5002, 10000), F(5002, 10000)), charges=(2, 3)),
+            "Fe",
+        ),  # 1.0004 is rounding noise
+        (Species("x", ("Fe", "Ni"), (F(9996, 10000), F(1, 100))), "Fe1.0Ni0.01"),
+        (Species("x", ("Na", "K"), (F(4995, 10000), F(5005, 10000))), "K0.501Na0.5"),  # sum over 1: no vacancy
     ],
 )
 def test_class_names_and_round_trip(species: Species, name: str) -> None:
@@ -132,6 +143,13 @@ def test_class_names_and_round_trip(species: Species, name: str) -> None:
         "Fe0.5Ni0.0",
         "Fe2.0",
         "Fe1/0",
+        "Li1/3",
+        "Cd1/13Pb12/13",
+        "Li0.3333",
+        "Na0.5000",
+        "Na0.0004",
+        "Fe1.0",
+        "Fe0.0005",
     ],
 )
 def test_class_name_parser_rejects_non_canonical_names(name: str) -> None:
@@ -146,8 +164,24 @@ def test_unknown_and_vacancy_only_species() -> None:
         _species_class(Species("empty", ("vacancy",), (1,)))
     with pytest.raises(ValueError, match="summing to 3/2"):
         _species_class(Species("Fe", ("Fe", "Fe"), (F(3, 4), F(3, 4)), charges=(2, 3)))
+    with pytest.raises(ValueError, match="summing to 1001/1000"):
+        _species_class(Species("Fe", ("Fe", "Fe"), (F(5003, 10000), F(5003, 10000)), charges=(2, 3)))
+    with pytest.raises(ValueError, match="no constituent other than vacancy"):
+        _species_class(Species("trace", ("Li", "vacancy"), (F(4, 10000), F(9996, 10000))))
     # each constituent at most one, their sum not limited
     assert _species_from_class_name("K0.6Na0.6").concentration == (F(3, 5), F(3, 5))
+    rounded = _species_class(Species("x", ("Na", "K"), (F(4995, 10000), F(5005, 10000))))
+    assert rounded.chemical_symbols == ("K", "Na") and rounded.concentration == (F(501, 1000), F(1, 2))
+
+
+def test_concentrations_equal_to_three_decimals_form_one_class() -> None:
+    refined = _species_class(Species("a", ("Ga", "B"), (F(7002, 10000), F(2998, 10000))))
+    assert refined == _species_class(Species("b", ("B", "Ga"), (F(3, 10), F(7, 10))))
+    assert refined.name == "B0.3Ga0.7"
+    assert _species_class(Species("c", ("B", "Ga"), (F(2821, 10000), F(7179, 10000)))).name == "B0.282Ga0.718"
+    assert _species_class(Species("Fe", ("Fe", "vacancy"), (F(9996, 10000), F(4, 10000)))) == _species_class(
+        Species("Fe", ("Fe",), (1,))
+    )
 
 
 def test_class_names_are_safe_inside_labels() -> None:
@@ -155,8 +189,8 @@ def test_class_names_are_safe_inside_labels() -> None:
     third = _species_class(Species("t", ("Li",), (F(1, 3),)))
     long = _species_class(Species("f", ("F", "O"), (F(83335, 100004), F(16669, 100004))))
     for species in (mixed, third, long):
-        assert re.fullmatch(r"[A-Za-z0-9./]+", species.name)
-    # names with "." and "/" after the ":" of a protonet label, whose net uses "." "@" "~" "_"
+        assert re.fullmatch(r"[A-Za-z0-9.]+", species.name)
+    # names with "." after the ":" of a protonet label, whose net uses "." "@" "~" "_"
     text = f"A2B_mP6_4_2a_a__1~1@2.2.2@2.3_2~3:{mixed.name}-{third.name}"
     value = parse_protonetstructure_label(text)
     assert str(value.label) == text
@@ -171,6 +205,7 @@ def test_every_fixture_species_round_trips(name: str) -> None:
         if "X" in species.chemical_symbols or set(species.chemical_symbols) == {"vacancy"}:
             continue
         reduced = _species_class(species)
+        assert "/" not in reduced.name
         assert _species_from_class_name(reduced.name) == reduced
         assert reduced.name == _species_class(_species_from_class_name(reduced.name)).name
 
@@ -268,12 +303,14 @@ def test_disordered_fixtures_give_anonymous_levels_directly(name: str) -> None:
     assert direct == canonical_bare_prototype(BarePrototypeView(assigned))
     assert BarePrototypeView(structure).unview() == BarePrototypeView(BareProtostructureView(structure)).unview()
     assert parse_bare_protostructure_label(str(assigned.label)) == assigned
+    assert "/" not in str(assigned.label)  # ordered fixtures name their classes by symbols alone
     net = _net(structure, bonded=False)
     protonettype = canonical_protonettype(net)
     protonetstructure = canonical_protonetstructure(net)
     assert protonettype == ProtonettypeView(protonetstructure).unview()
     assert str(protonettype.label).partition("__")[0] == str(direct.label)
     assert parse_protonetstructure_label(str(protonetstructure.label)) == protonetstructure
+    assert "/" not in str(protonetstructure.label)
 
 
 # ---------------------------------------------------------------------------------------------

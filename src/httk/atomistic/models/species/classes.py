@@ -1,22 +1,25 @@
 """Species classes: the chemistry-only identity of a species in the classification families.
 
-Two species are in the same class when they have the same key: the exact concentration of
-each constituent symbol other than ``vacancy`` (the vacancy is the remainder), and the count of
-each attached symbol. Name, original name, labels, charges, spins, mass and concentration
-precision are not part of the key. The class name is derived from the key alone and parses back
-to it::
+Two species are in the same class when they have the same key: the concentration of each
+constituent symbol other than ``vacancy``, summed exactly and rounded to three decimals half up
+(a symbol that rounds to 0 is dropped; the vacancy is the remainder), and the count of each
+attached symbol. Name, original name, labels, charges, spins, mass and concentration precision
+are not part of the key. The class name is derived from the key alone and parses back to it::
 
     name   = head { attach }
-    head   = SYM                      one constituent at concentration exactly 1
+    head   = SYM                      one constituent at rounded concentration 1
            | SYM frac { SYM frac }    otherwise; symbols alphabetical, vacancy omitted
-    frac   = shortest exact decimal (always with "."), else reduced "p/q"
+    frac   = shortest decimal of the rounded value, always with ".", at most three places
     attach = SYM count                count >= 1, always written; symbols alphabetical
 
-for example ``Ti``, ``Bi0.5Na0.5``, ``Li0.76``, ``Li1/3``, ``OH2``, ``K0.5Na0.5C1H3``. A species
+for example ``Ti``, ``Bi0.5Na0.5``, ``Li0.76``, ``Li0.333``, ``OH2``, ``K0.5Na0.5C1H3``. A name
+never contains ``/``. The rounded constituents may sum to slightly more than 1 (0.4995 and 0.5005
+round to 0.5 and 0.501); such a class has no vacancy, and :class:`Species` accepts it. A species
 containing the unknown symbol ``X`` (a dummy template species or an unknown site) is not reduced:
 its class is its own name.
 """
 
+import math
 import re
 from fractions import Fraction
 from functools import lru_cache
@@ -29,16 +32,16 @@ if TYPE_CHECKING:
 
 type _ClassKey = tuple[tuple[tuple[str, Fraction], ...], tuple[tuple[str, int], ...]]
 
-_TOKEN = re.compile(r"([A-Z][a-z]?)([0-9]+(?:\.[0-9]+|/[1-9][0-9]*)?)?")
+_TOKEN = re.compile(r"([A-Z][a-z]?)([0-9]+(?:\.[0-9]{1,3})?)?")
 
 
 def _class_key(species: Species) -> _ClassKey:
     """Return the class key of a species without ``X``.
 
     :param species: The species to classify.
-    :return: The sorted constituent concentrations and attached counts.
-    :raises ValueError: If the species has no constituent other than ``vacancy``, or the
-        constituents of one symbol sum to more than one.
+    :return: The sorted rounded constituent concentrations and attached counts.
+    :raises ValueError: If the species has no constituent other than ``vacancy`` that rounds above
+        0, or the constituents of one symbol round to more than one.
     """
     amounts: dict[str, Fraction] = {}
     for symbol, value in zip(species.chemical_symbols, species.concentration, strict=True):
@@ -48,6 +51,8 @@ def _class_key(species: Species) -> _ClassKey:
     for symbol, count in zip(species.attached or (), species.nattached or (), strict=True):
         if count:
             attached[symbol] = attached.get(symbol, 0) + count
+    rounded = {symbol: Fraction(math.floor(value * 1000 + Fraction(1, 2)), 1000) for symbol, value in amounts.items()}
+    amounts = {symbol: value for symbol, value in rounded.items() if value}
     if not amounts:
         raise ValueError(f"species {species.name!r} has no constituent other than vacancy, so it has no class")
     for symbol, value in amounts.items():
@@ -60,18 +65,9 @@ def _class_key(species: Species) -> _ClassKey:
 
 
 def _decimal(value: Fraction) -> str:
-    """Render a concentration as its shortest exact decimal, else as reduced ``p/q``; never without ``.`` or ``/``."""
-    rest, twos, fives = value.denominator, 0, 0
-    while rest % 2 == 0:
-        rest, twos = rest // 2, twos + 1
-    while rest % 5 == 0:
-        rest, fives = rest // 5, fives + 1
-    if rest != 1:
-        return f"{value.numerator}/{value.denominator}"
-    places = max(twos, fives, 1)
-    digits = str(value.numerator * 10**places // value.denominator).rjust(places + 1, "0")
-    text = (digits[:-places] + "." + digits[-places:]).rstrip("0")
-    return text + "0" if text.endswith(".") else text
+    """Render a rounded concentration, a multiple of 1/1000, as its shortest decimal, always with ``.``."""
+    whole, thousandths = divmod(value.numerator * 1000 // value.denominator, 1000)
+    return f"{whole}." + (f"{thousandths:03d}".rstrip("0") or "0")
 
 
 def _class_name(key: _ClassKey) -> str:
@@ -142,7 +138,7 @@ def _species_from_class_name(name: str) -> Species:
         amounts, rest = [(tokens[0][0], Fraction(1))], tokens[1:]
     else:
         amounts, rest = [], tokens
-        while rest and rest[0][1] is not None and ("." in rest[0][1] or "/" in rest[0][1]):
+        while rest and rest[0][1] is not None and "." in rest[0][1]:
             amounts.append((rest[0][0], Fraction(rest[0][1])))
             rest = rest[1:]
     attached = []

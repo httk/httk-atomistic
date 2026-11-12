@@ -10,7 +10,7 @@ occupations into species classes. The grammar is::
 A ``GROUP`` is the concatenation of one species class's Wyckoff letters, sorted
 alphabetically, a letter occupied ``k >= 2`` times prefixed by the integer ``k``
 (``2e``); count ``1`` is omitted. A ``NAME`` is a species class name (``Ti``,
-``Bi0.5Na0.5``, ``Li1/3``, ``OH2``; see :mod:`httk.atomistic.models.species.classes`), which
+``Bi0.5Na0.5``, ``Li0.333``, ``OH2``; see :mod:`httk.atomistic.models.species.classes`), which
 determines the class species and never contains ``-``, ``:`` or ``_``. Groups appear in
 the order of :func:`class_order_key`: largest summed conventional multiplicity first, then
 sorted Wyckoff letters. ``ANON`` is the anonymous formula built from
