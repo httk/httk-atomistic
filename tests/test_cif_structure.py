@@ -487,11 +487,11 @@ def test_the_in_memory_provider_serves_without_converting() -> None:
 LOSSLESS = FIXTURES / "cif_lossless"
 
 
-def test_the_fast_reader_faults_diverge_as_documented() -> None:
-    # FP1: comments in a loop header corrupt the fast reader's loop, not the lossless one.
+def test_the_fast_reader_divergences_are_as_documented() -> None:
+    # FP1, fixed: comments in a loop header read alike in the fast reader and the lossless one.
     comments = CIFStructure.from_cif(LOSSLESS / "comments.cif")
     ((_, fast),), _ = read_cif(LOSSLESS / "comments.cif", structural_only=True)
-    assert _legacy_block(comments, structural_only=True) != fast
+    assert _legacy_block(comments, structural_only=True) == fast
     with pytest.raises(ValueError) as loaded:
         httk.core.load(LOSSLESS / "comments.cif")
     with pytest.raises(ValueError) as converted:

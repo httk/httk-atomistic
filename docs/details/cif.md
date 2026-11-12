@@ -528,23 +528,32 @@ These are the deviations from a round trip, and the inputs where it differs from
   without a data name, a data name without a value (also before `loop_` or a block code), `stop_`
   or `global_` as a value, an unterminated text field, content before the first `data_`, an
   unwritable string such as a D9 value holding both `' ` and `" `, and a D1 cut inside a quote
-  raise; `ab#c` is one word (the fast reader cuts it at `#`), a quote directly before `]` in an
-  mCIF list, an upper-case keyword after a joined value, a multi-line mCIF list and comments in
-  a loop header are read correctly where the fast reader does not. For such inputs conversion
-  follows the correct reading, so it can differ from `load()`.
+  raise; `ab#c` is one word (the fast reader cuts it at `#`), and a quote directly before `]`
+  in an mCIF list, an upper-case keyword after a joined value and a multi-line mCIF list are
+  read correctly where the fast reader does not. For such inputs conversion follows the correct
+  reading, so it can differ from `load()`.
 - **D9, an unterminated quote** (under `pragmatic`, CIF1 and mCIF only). A quote left open at
   the end of its line reads as the rest of the line, opening quote included, as the fast reader
   reads it; the value round-trips, its quoting does not. Otherwise it raises.
 
-Known fast-reader issues, not fixed (they affect `load()`, not lossless reading):
+Fast-reader faults that were fixed (they affected `load()`, not lossless reading; on the
+repository fixtures and the sampled COD and MAGNDATA files no loaded structure changed):
 
-- **FP1.** A comment in a loop header corrupts the loop: `_atom_site_label # c` becomes a
-  column named `atom_site_label # c`, an own-line comment among the names ends the header, and
-  an inline comment on the `loop_` line empties it.
-- **FP2.** A loop name followed by a value on its line becomes part of the column name; only
-  loops that structure reading does not use have been seen with it.
-- **FP3.** Splitting a joined value is quadratic in the run of spaces that follows it (seconds
-  at tens of thousands of spaces).
+- **FP1.** A comment in a loop header corrupted the loop. A comment (a `#` that begins a token,
+  outside quoted strings and text fields, to the end of the line) and a blank line are now
+  ignored on a `loop_` line and among the loop's names, as everywhere else.
+- **FP2.** A loop name followed by a value, or two names, on one line became one column name.
+  Header lines are now split into tokens: every data name is a column, and the first token that
+  is not a data name starts the loop's values.
+- **FP3.** Splitting a joined value was quadratic in the run of spaces that follows it; it is
+  now linear. The data name, `data_` or `loop_` that ends a joined value on its line is now read
+  instead of being dropped, and an empty block code there (`data_` alone) raises "empty CIF
+  data block name". Accepted limit: many items on one line still take time quadratic in the
+  line's length, as each item copies the rest of the line (about half a second for 20 000
+  items on one line).
+- **FP4.** In a loop, a data name, `data_` or `loop_` on the same line after a quoted value or a
+  closing `;` was read as a value. It now ends the loop, also in a loop that structure reading
+  skips, so a structural item there (such as `_cell_length_a`) is kept.
 
 ## `httk symmetry info`
 

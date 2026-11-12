@@ -12,6 +12,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import httk.core
 import pytest
 from httk.core import DecimalGap, DecimalScalar, DecimalVector
 
@@ -33,9 +34,9 @@ FIXTURES = Path(__file__).parent / "fixtures"
 LOSSLESS = FIXTURES / "cif_lossless"
 ALL_FIXTURES = sorted(path for path in FIXTURES.rglob("*") if path.suffix in (".cif", ".mcif"))
 MALFORMED = FIXTURES / "malformed_auxiliary_loop.cif"
-# Synthetic probes of documented fast-reader faults (D8): a comment in a loop header (FP1) and
-# an mCIF quote directly before ']'. The lossless model is correct; the fast reader is not.
-FAST_READER_FAULTS = {LOSSLESS / "comments.cif", LOSSLESS / "mcif_brackets.mcif"}
+# A synthetic probe of a documented fast-reader divergence (D8): an mCIF quote directly before
+# ']'. The lossless model is correct; the fast reader is not.
+FAST_READER_FAULTS = {LOSSLESS / "mcif_brackets.mcif"}
 CIF2 = "#\\#CIF_2.0\n"
 C = CIFComment
 
@@ -88,6 +89,10 @@ def test_every_fixture_renders_the_fast_readers_dictionary(path: Path, caplog: p
     with caplog.at_level(logging.CRITICAL):
         fast = read_cif(path, allow_cif2=mcif, structural_only=not mcif)[0]
     assert [(block.name.lower(), _legacy_block(block, structural_only=not mcif)) for block in blocks] == fast
+    if not mcif:  # and every item, including the loops structure reading skips
+        with caplog.at_level(logging.CRITICAL):
+            full = read_cif(path)[0]
+        assert [(block.name.lower(), _legacy_block(block, structural_only=False)) for block in blocks] == full
 
 
 BONDS_CIF = """\
@@ -437,9 +442,62 @@ def test_d8_inputs_the_fast_reader_misreads() -> None:
     (block,) = _read(quoted, True)
     assert block.value("_l") == ("a", "b'", "c d")
     assert read_cif(io.StringIO(quoted), allow_cif2=True)[0][0][1]["l"] != ["a", "b'", "c d"]
+
+
+ORDERED = (FIXTURES / "cif_bonds" / "ordered.cif").read_text()
+
+
+def _loads_like_ordered(text: str) -> None:
+    """``text`` reads like ``ordered.cif`` in the fast reader, the lossless model and ``load()``."""
+    (block,) = _read(text)
+    assert read_cif(io.StringIO(text))[0][0][1] == _legacy_block(block, structural_only=False)
+    assert read_cif(io.StringIO(text))[0][0][1] == read_cif(io.StringIO(ORDERED))[0][0][1]
+    structure = httk.core.load(io.StringIO(text), format="cif")
+    ordered = httk.core.load(FIXTURES / "cif_bonds" / "ordered.cif")
+    assert structure == ordered and structure.bonds == ordered.bonds and structure.bonds
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    (
+        ("loop_\n_atom_site_label\n", "loop_ # sites\n_atom_site_label\n"),
+        ("_atom_site_label\n", "_atom_site_label # label\n"),
+        ("_atom_site_label\n", "_atom_site_label\n# own line\n\n"),
+        ("_geom_bond_distance\n", "_geom_bond_distance #d\n"),
+        ("loop_\n_space_group_symop_operation_xyz\n", "loop_\n#c\n_space_group_symop_operation_xyz #c\n#c\n"),
+    ),
+)
+def test_fp1_a_comment_in_a_loop_header_is_ignored(old: str, new: str) -> None:
+    _loads_like_ordered(ORDERED.replace(old, new, 1))
+
+
+def test_fp1_the_comments_fixture_reads_alike_in_both_readers() -> None:
     (block,) = read_cif(LOSSLESS / "comments.cif", lossless=True)
-    assert block.column("_atom_site_fract_x") == (DecimalScalar("0.1"), DecimalScalar("0.2"))
-    assert read_cif(LOSSLESS / "comments.cif")[0][0][1]["loop_0"] == []  # FP1
+    assert read_cif(LOSSLESS / "comments.cif")[0][0][1] == _legacy_block(block, structural_only=False)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    (
+        ("_atom_site_label\n_atom_site_type_symbol\n", "_atom_site_label _atom_site_type_symbol\n"),
+        ("loop_\n_geom_bond_atom_site_label_1\n", "loop_ _geom_bond_atom_site_label_1\n"),
+        ("_atom_site_calc_flag\nFe1", "_atom_site_calc_flag Fe1"),
+        ("_geom_bond_site_symmetry_2\nFe1 O1", "_geom_bond_site_symmetry_2 Fe1 # c\nO1"),
+        ("_space_group_symop_operation_xyz\nx,y,z", "_space_group_symop_operation_xyz 'x,y,z'"),
+    ),
+)
+def test_fp2_a_loop_header_line_is_split_into_tokens(old: str, new: str) -> None:
+    _loads_like_ordered(ORDERED.replace(old, new, 1))
+
+
+def test_fp2_a_value_after_a_loop_name_starts_the_values() -> None:
+    # structreading/111: a one-name loop, with its value on the name's line, before a data item
+    path = FIXTURES / "structreading" / "111.cif"
+    fast = read_cif(path)[0][0][1]
+    assert fast["publ_author_name"] == ["Ketelaar, J A A"]
+    assert fast["journal_name_full"].startswith("Zeitschrift fuer Kristallographie")
+    text = "data_x\nloop_ _a 1 _b\n2\n"
+    assert read_cif(io.StringIO(text))[0][0][1] == {"loop_0": ["a"], "a": ["1"], "b": "2"}
 
 
 def test_pragmatic_join_d1() -> None:
@@ -684,8 +742,55 @@ def test_pragmatic_join_is_linear_in_whitespace() -> None:
     text = "data_x\n_a x" + " " * 200_000 + "y _b 1\n"
     start = time.perf_counter()
     (block,) = _read(text)
-    assert time.perf_counter() - start < 2  # the fast reader's split takes minutes here (FP3)
+    assert time.perf_counter() - start < 2
     assert block.value("_a") == "x" + " " * 200_000 + "y" and block.value("_b") == DecimalScalar("1")
+    start = time.perf_counter()
+    fast = read_cif(io.StringIO(text))[0][0][1]
+    assert time.perf_counter() - start < 2  # FP3: the fast reader's split took minutes here
+    assert fast == _legacy_block(block, structural_only=False)
+
+
+def test_a_joined_value_leaves_the_name_or_keyword_that_ends_it() -> None:
+    # The fast reader used to drop the '_', 'data_' or 'loop_' that ended a joined value.
+    text = "data_x\n_a x y _b 1\n_c x y loop_ _d\n1\n_e x # y _f 2\n_g p q data_z\n_h 1\n"
+    fast = read_cif(io.StringIO(text))[0]
+    assert fast == [
+        ("x", {"a": "x y", "b": "1", "c": "x y", "loop_0": ["d"], "d": ["1"], "e": "x", "g": "p q"}),
+        ("z", {"h": "1"}),
+    ]
+    assert [(block.name, _legacy_block(block, structural_only=False)) for block in _read(text)] == fast
+
+
+def test_a_joined_value_ending_in_an_empty_block_code_raises() -> None:
+    for text in ("data_x\n_a x y data_\n", "data_\n_a 1\n"):
+        with pytest.raises(ValueError, match="empty CIF data block name"):
+            read_cif(io.StringIO(text))
+        with pytest.raises(ValueError, match="empty CIF data block name"):
+            _read(text)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    (
+        ("data_x\nloop_\n_a\n'x y' _b\n2\n", {"loop_0": ["a"], "a": ["x y"], "b": "2"}),
+        ("data_x\nloop_\n_a\n;\nt\n; _b 2\n", {"loop_0": ["a"], "a": ["t"], "b": "2"}),
+        ("data_x\nloop_ _a 'x y' _b\n2\n", {"loop_0": ["a"], "a": ["x y"], "b": "2"}),
+        (  # a skipped loop: the structural item after its quoted value is kept
+            "data_x\nloop_\n_publ_author_name\n'Smith, J' _cell_length_a 5.0\n",
+            {"loop_0": ["publ_author_name"], "publ_author_name": ["Smith, J"], "cell_length_a": "5.0"},
+        ),
+        (
+            "data_x\nloop_\n_publ_author_name\n;\nSmith\n; _cell_length_a 5.0\n",
+            {"loop_0": ["publ_author_name"], "publ_author_name": ["Smith"], "cell_length_a": "5.0"},
+        ),
+    ),
+)
+def test_fp4_a_data_name_after_a_quoted_value_or_text_field_ends_the_loop(text: str, expected: dict[str, Any]) -> None:
+    (block,) = _read(text)
+    assert read_cif(io.StringIO(text))[0][0][1] == expected == _legacy_block(block, structural_only=False)
+    structural = read_cif(io.StringIO(text), structural_only=True)[0][0][1]
+    assert structural == _legacy_block(block, structural_only=True)
+    assert structural.get("cell_length_a") == expected.get("cell_length_a")
 
 
 def test_cif1_quotes_before_brackets_are_ordinary() -> None:

@@ -117,7 +117,9 @@ _PROTECTED_LOOP_TAGS = frozenset(
 _MAGNETIC_FOURIER_COEFFICIENT_RE = re.compile(
     '^' + re.escape(CIF_TAGS['magnetic_fourier_coeff']).replace(r'\{\}', r'\d+') + '$'
 )
-_PRAGMATIC_VALUE_SPLIT_RE = re.compile(r'\s+_|\s+data_|\s+loop_')
+# Where a pragmatically joined value ends; the lookbehind keeps the match linear in a long run
+# of spaces, where the plain alternation was quadratic.
+_PRAGMATIC_VALUE_SPLIT_RE = re.compile(r"(?<!\s)\s+(?:_|data_|loop_)")
 _STRUCTURAL_LOOP_PREFIXES = ('atom_site', 'space_group', 'symmetry')
 # Bond-loop columns read by the structure adapter, without their _geom_bond_ prefix. Not
 # protected: a malformed bond loop is an auxiliary loop, which structure loading drops with a
@@ -193,21 +195,32 @@ def _read_cif_loop(
     noteol = False
     loop_data: dict[str, list[Any]] = {}
     header = []
+    # Read the header token by token: blank lines and comments (a '#' beginning a token) are
+    # skipped, and the first token that is not a data name starts the value stream.
     for row in f:
         striprow = row.strip()
-        lowrow = striprow.lower()
-        if lowrow.startswith("_"):
-            name = lowrow[1:]
+        if not striprow or striprow.startswith("#"):
+            continue
+        if not striprow.startswith("_"):
+            f.rewind()
+            break
+        for match in re.finditer(r"\S+", row):
+            token = match.group()
+            if token.startswith("#"):
+                break
+            if not token.startswith("_"):
+                f.rewind(row[match.start() :])
+                noteol = True
+                break
+            name = token[1:].lower()
             loop_data[name] = []
             header.append(name)
-            noteol = _read_cif_rewind_if_needed(f, row, 1)
-        else:
-            f.rewind()
+        if noteol:
             break
     columns = [loop_data[name] for name in header]
 
     if structural_only and header and not any(_is_retained_tag(name) for name in header) and not allow_cif2:
-        count = _skip_cif_loop(f, pragmatic)
+        count = _skip_cif_loop_tokens(f, pragmatic, 0, noteol) if noteol else _skip_cif_loop(f, pragmatic)
         counts = {name: count // len(header) + (index < count % len(header)) for index, name in enumerate(header)}
         _validate_loop_counts(header, counts, block_name, repair, structural_only)
         return None
@@ -295,9 +308,8 @@ def _skip_cif_loop(f: _RewindableIterator, pragmatic: bool) -> int:
     return count
 
 
-def _skip_cif_loop_tokens(f: _RewindableIterator, pragmatic: bool, count: int) -> int:
-    """Finish skipping a CIF1 loop through the ordinary tokenizer."""
-    noteol = False
+def _skip_cif_loop_tokens(f: _RewindableIterator, pragmatic: bool, count: int, noteol: bool = False) -> int:
+    """Finish skipping a CIF1 loop through the ordinary tokenizer, ``noteol`` if mid-line."""
     while True:
         try:
             row = next(f)
@@ -306,7 +318,8 @@ def _skip_cif_loop_tokens(f: _RewindableIterator, pragmatic: bool, count: int) -
         except StopIteration:
             return count
         lowrow = row.strip().lower()
-        if not row or row.startswith("_") or lowrow.startswith(("data_", "loop_")):
+        # A rewound rest of a line can start with whitespace, so test the stripped row.
+        if not row or lowrow.startswith(("_", "data_", "loop_")):
             f.rewind()
             return count
         f.rewind()
@@ -333,7 +346,8 @@ def _read_cif_data_value(
             noteol = False
             continue
         elif inloop and (
-            row.startswith("_") or (striprow[0] in "dDlL" and striprow.lower().startswith(("data_", "loop_")))
+            # the stripped row: a rewound rest of a line can start with whitespace
+            striprow[0] == "_" or (striprow[0] in "dDlL" and striprow.lower().startswith(("data_", "loop_")))
         ):
             f.rewind()
             return None, False
@@ -443,7 +457,10 @@ def _read_cif_data_value(
                 # multiple data values in this situation would be an
                 # error in the file otherwise, but if there is whitespace + underscore/data_/loop_ we parse that
                 # as a new symbol, since otherwise we COULD misread valid files (with very weird formatting...).
-                splitstr = _PRAGMATIC_VALUE_SPLIT_RE.split(striprow, maxsplit=1)
+                # The cut keeps that symbol for the next read, and a '#' before it comments out the rest.
+                match = _PRAGMATIC_VALUE_SPLIT_RE.search(striprow)
+                cut = len(striprow) if match is None else match.start()
+                splitstr = [striprow[:cut]] if "#" in striprow[:cut] else [striprow[:cut], striprow[cut:]]
             else:
                 splitstr = striprow.split(None, 1)
             # "Data on a line following a hash character `#' is considered to be a comment,
@@ -500,13 +517,12 @@ def _read_cif_data_block(
                 if irow.rstrip() == ";":
                     break
         elif striprow.startswith("_"):
-            lowrow = striprow.lower()
-            lowsplit = lowrow.split()
-            data_name = lowsplit[0][1:]
-            if len(lowsplit) > 1:
+            # Split off the name only: the rest of the line may hold many more items.
+            namesplit = striprow.split(None, 1)
+            data_name = namesplit[0][1:].lower()
+            if len(namesplit) > 1:
                 noteol = True
-                rightside = striprow.split(None, 1)[1].strip()
-                f.rewind(rightside)
+                f.rewind(namesplit[1])
             else:
                 noteol = False
             data_value, noteol = _read_cif_data_value(f, noteol, pragmatic, allow_cif2, inloop=False)
@@ -534,8 +550,10 @@ def _read_cif(
     for row in f:
         striprow = row.strip()
         if striprow and striprow[0] in "dD" and striprow[:5].lower() == "data_":
-            lowrow = striprow.lower()
-            data_block_name = lowrow.partition('_')[2].split()[0].strip()
+            name_tokens = striprow.lower().partition('_')[2].split(None, 1)
+            if not name_tokens:
+                raise ValueError("empty CIF data block name")
+            data_block_name = name_tokens[0]
             _read_cif_rewind_if_needed(f, row, 1)
             datalist.append(
                 (
@@ -553,13 +571,8 @@ def _read_cif(
     return datalist, header
 
 
-# The fast path's split is quadratic on long whitespace runs (FP3); this one matches the same
-# cuts in linear time.
-_LOSSLESS_VALUE_SPLIT_RE = re.compile(r"(?<!\s)\s+(?:_|data_|loop_)")
-
-
-# Lossless reading: read_cif(..., lossless=True) returns CIFBlocks. The fast path above is
-# untouched; _legacy_block renders a block as the dictionary that path returns.
+# Lossless reading: read_cif(..., lossless=True) returns CIFBlocks. It is separate from the fast
+# path above; _legacy_block renders a block as the dictionary that path returns.
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -863,7 +876,7 @@ class _LosslessParser:
         if run_end < 0:
             return None
         raw = self.lines[token.line - 1][token.start :]
-        split = _LOSSLESS_VALUE_SPLIT_RE.search(raw)
+        split = _PRAGMATIC_VALUE_SPLIT_RE.search(raw)
         cut = len(raw) if split is None else split.start()
         span = run_end - token.start
         hash_at = raw.find("#", 0, min(cut, span))
