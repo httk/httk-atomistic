@@ -100,6 +100,11 @@ _MAGNETIC_FOURIER_COEFFICIENT_RE = re.compile(
 )
 _PRAGMATIC_VALUE_SPLIT_RE = re.compile(r'\s+_|\s+data_|\s+loop_')
 _STRUCTURAL_LOOP_PREFIXES = ('atom_site', 'space_group', 'symmetry')
+# Bond-loop columns read by the structure adapter, without their _geom_bond_ prefix. Not
+# protected: a malformed bond loop is an auxiliary loop, which structure loading drops with a
+# warning even without repair, since a bond loop never stops a structure from loading.
+_BOND_COLUMNS = ('atom_site_label_1', 'atom_site_label_2', 'site_symmetry_1', 'site_symmetry_2', 'distance')
+_BOND_LOOP_TAGS = frozenset(f'geom_bond_{name}' for name in _BOND_COLUMNS)
 
 
 def _is_consumed_tag(name: str) -> bool:
@@ -108,6 +113,10 @@ def _is_consumed_tag(name: str) -> bool:
         or name.startswith(_STRUCTURAL_LOOP_PREFIXES)
         or _MAGNETIC_FOURIER_COEFFICIENT_RE.fullmatch(name) is not None
     )
+
+
+def _is_retained_tag(name: str) -> bool:
+    return _is_consumed_tag(name) or name in _BOND_LOOP_TAGS
 
 
 def _is_repairable_loop(header: list[str]) -> bool:
@@ -178,10 +187,10 @@ def _read_cif_loop(
             break
     columns = [loop_data[name] for name in header]
 
-    if structural_only and header and _is_repairable_loop(header) and not allow_cif2:
+    if structural_only and header and not any(_is_retained_tag(name) for name in header) and not allow_cif2:
         count = _skip_cif_loop(f, pragmatic)
         counts = {name: count // len(header) + (index < count % len(header)) for index, name in enumerate(header)}
-        _validate_loop_counts(header, counts, block_name, repair)
+        _validate_loop_counts(header, counts, block_name, repair, structural_only)
         return None
 
     # _read_cif_data_value recognizes and rewinds the next loop/data/tag token, so
@@ -196,18 +205,23 @@ def _read_cif_loop(
             continue
         break
     counts = {name: len(values) for name, values in loop_data.items()}
-    if not _validate_loop_counts(header, counts, block_name, repair):
+    if not _validate_loop_counts(header, counts, block_name, repair, structural_only):
         return None
     return loop_data
 
 
-def _validate_loop_counts(header: list[str], counts: dict[str, int], block_name: str, repair: bool) -> bool:
-    """Apply the common strict/repair policy to CIF loop column counts."""
+def _validate_loop_counts(
+    header: list[str], counts: dict[str, int], block_name: str, repair: bool, structural_only: bool = False
+) -> bool:
+    """Apply the common strict/repair policy to CIF loop column counts.
+
+    Structure loading (``structural_only``) drops a malformed bond loop even in strict mode.
+    """
     if len(set(counts.values())) > 1:
         rendered_counts = ", ".join(f"{name}={count}" for name, count in counts.items())
         message = f"CIF loop with {len(header)} columns has mismatched value counts: {rendered_counts}"
         if _is_repairable_loop(header):
-            if repair:
+            if repair or (structural_only and not _BOND_LOOP_TAGS.isdisjoint(header)):
                 logger.warning(
                     "CIF block %r: dropped malformed auxiliary loop starting with _%s",
                     block_name,
@@ -477,7 +491,7 @@ def _read_cif_data_block(
             else:
                 noteol = False
             data_value, noteol = _read_cif_data_value(f, noteol, pragmatic, allow_cif2, inloop=False)
-            if not structural_only or _is_consumed_tag(data_name):
+            if not structural_only or _is_retained_tag(data_name):
                 data_items[data_name] = data_value
     return data_items
 
@@ -539,7 +553,8 @@ def read_cif(
     :param allow_cif2: Parse CIF2 list values in addition to CIF1 data.
     :param repair: Apply documented, warning-emitting CIF repairs, including malformed
         auxiliary-loop removal and a Latin-1 fallback for legacy files.
-    :param structural_only: Retain only tags consumed by httk's structural adapters and skip auxiliary CIF1 loops.
+    :param structural_only: Retain only tags consumed by httk's structural adapters (bond loops included) and
+        skip auxiliary CIF1 loops.
     :return: The data blocks and the leading comment header.
     :raises ValueError: If a loop contains mismatched column value counts.
     """

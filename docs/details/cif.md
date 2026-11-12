@@ -63,7 +63,7 @@ Repair is not a general “make this file work” switch. It is a fixed set of t
 | Input issue | Strict mode | `repair=True` |
 | --- | --- | --- |
 | Invalid UTF-8 in a path input | `UnicodeDecodeError` | Retry the complete file as Latin-1 and warn |
-| Malformed auxiliary loop with unequal column lengths | Reject | Drop the loop and warn |
+| Malformed auxiliary loop with unequal column lengths | Reject; structure loading drops a malformed `_geom_bond_` loop and warns | Drop the loop and warn |
 | Malformed protected structural loop | Reject | Reject; structural data is never discarded |
 | Missing symmetry-operation loop with a valid Hall symbol | Reject | Generate the exact setting's operations and warn |
 | Unknown declared Hall/IT symmetry but usable operations | Reject the contradictory declaration | Ignore the declaration, identify the operations, and warn when the documented repair path applies |
@@ -248,6 +248,68 @@ a Boolean site-presence flag.
 
 The individual-value repair is deliberately narrow: values in `[-0.1, 0)` clamp to zero and
 values in `(1, 1.1]` clamp to one, with a warning. Values outside that band remain errors.
+
+## Bond loops
+
+A block with a `_geom_bond_` loop always loads as a structure with that bond network, its
+`bonds` (see {doc}`asu`); there is no option to ask for it. A block without the loop gives
+`bonds=None` (no network known), and a loop without rows gives `()`. Only
+`_geom_bond_atom_site_label_1`, `_geom_bond_atom_site_label_2`,
+`_geom_bond_site_symmetry_1`, `_geom_bond_site_symmetry_2` and `_geom_bond_distance` are
+read; the other columns are ignored.
+
+- **Symmetry codes.** `n_klm` is operation `n` of the block's own operation list followed
+  by the translation `(k-5, l-5, m-5)`; `n` alone has no translation; `.`, `?` or a missing
+  column is the atom as listed. `n` names an operation by its id
+  (`_space_group_symop_id`, `_space_group_symop.id` or `_symmetry_equiv_pos_site_id`) when
+  the file gives ids, and by its 1-based position in the list otherwise. Any other code needs
+  the block's own operations: it is unreadable when the block lists none (repair may generate
+  them from a Hall symbol) or gives ids that do not name them one to one.
+- **Labels.** A label matches an atom-site label exactly, else the one label equal to it
+  ignoring case (DDLm types `_atom_site.label` as a case-insensitive code).
+- **Atoms are located through the reader's own changes.** A label names its atom-site row,
+  and the row names the site the reader made from it after snapping to a special position,
+  combining co-located disorder and removing repeated orbits. The bonded atom is that site's
+  orbit point nearest the coordinate the row wrote (found in floating point among the exact
+  orbit points), so a row written outside the unit cell keeps its translation, and every row
+  of a disordered site maps to the combined site, whichever orbit member it was written at.
+- **Distances are checked.** Each bond's distance, computed from the loaded structure, must
+  equal `_geom_bond_distance` within the precision the file states, which includes the
+  precision of the coordinates it is computed from. The tolerance is `d_tol + δ₁ + δ₂`:
+  `d_tol` is three standard uncertainties, but never less than one unit in the last written
+  digit, and that unit alone when no uncertainty is given; `δₖ` is `(|a| + |b| + |c|)·pₖ`, with
+  `pₖ` one unit in the last written digit of the coarsest coordinate of bond end `k`'s
+  atom-site row; a coordinate with at most one decimal place, or an exact one, states no
+  precision and contributes nothing. A constrained distance, such as a riding hydrogen's
+  `0.9300` without an uncertainty, is thereby accepted when the rounded coordinates explain
+  the difference. A distance of `?` or `.`, or a loop without the distance column, is not
+  checked.
+- **An unreadable loop never stops loading.** An unknown code form, an operation the block
+  does not define, a resulting operation outside the group, a label that names no row,
+  several rows or a dummy row, a bond of an atom to itself, a distance that is not a finite
+  decimal number, a distance mismatch, or bond columns of different lengths log one warning
+  naming the block, the row (its labels, codes and distance) and the reason; the structure
+  loads with `bonds=None`. A bond loop whose value count does not fit its columns is dropped
+  with a warning even without `repair=True`. A loop whose rows hold only `?` and `.` carries
+  no information and gives `bonds=None` without a warning.
+
+A CIF bond list is the refinement program's choice, not a chemical model: it typically
+lists bonds by distance between atoms the author asked about, often without the bonds to
+hydrogen. The bonds are taken as the file gives them and become the `~` bonds of the
+protonet labels ({doc}`../prototypes`):
+
+```python
+from httk.core import load
+from httk.atomistic import ProtonetstructureView, canonical_protonetstructure
+
+structure = load("example.cif")
+print(structure.bonds)
+print(canonical_protonetstructure(structure).label)
+print(ProtonetstructureView(structure).label)
+```
+
+Bond types and orders, `_chemical_conn_bond_` loops, and writing a network back to CIF are
+not supported.
 
 ## Magnetic CIF
 

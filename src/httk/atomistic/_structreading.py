@@ -156,6 +156,7 @@ def _repair_category(message: str) -> str:
         "clamped site": "occupancy_clamped",
         "normalized co-located-site occupancies": "occupancy_normalized",
         "omitted partially declared constituent masses": "partial_masses_omitted",
+        "ignored its bond loop": "unreadable_bond_loop",
     }
     for marker, category in categories.items():
         if marker in message:

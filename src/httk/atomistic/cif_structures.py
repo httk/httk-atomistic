@@ -17,17 +17,34 @@ import logging
 import math
 import re
 from collections.abc import Mapping, Sequence
+from decimal import Decimal, InvalidOperation
 from functools import cache
 from typing import Any, NamedTuple
 
 from httk.core import FracVector, decimal_precision
 
 from httk.atomistic.elements import SYMBOLS
+from httk.atomistic.io.cif.cif_reader import _BOND_COLUMNS
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.cell.view import CellView
 from httk.atomistic.models.species.species import Species
-from httk.atomistic.models.structure.asu import ASUStructure, WyckoffSite, _ValidatedASUProof
+from httk.atomistic.models.structure.asu import (
+    ASUStructure,
+    SiteBond,
+    WyckoffSite,
+    _affine,
+    _apply,
+    _checked_bonds,
+    _group,
+    _inv,
+    _mul,
+    _Op,
+    _op,
+    _Point,
+    _reference,
+    _ValidatedASUProof,
+)
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 from httk.atomistic.symmetry.symop_key import symop_key_v1
@@ -42,6 +59,8 @@ __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
 _ALLOW_LARGE_CIF_UNCERTAINTY = "_httk_atomistic_allow_large_cif_uncertainty"
 _OCCUPANCY_ROUNDING_EXCESS = fractions.Fraction(1, 1000)
 _MAX_REPAIR_OCCUPANCY_EXCESS = fractions.Fraction(1, 10)
+# The symmetry codes of a bond loop: ``n`` or ``n_klm``.
+_SYMMETRY_CODE = re.compile(r"(\d+)(?:_(\d)(\d)(\d))?")
 _TYPE_SYMBOL_SPECIALS = frozenset({"D", "T", "X", "Vac", "Va"})
 
 _CIF_CORE_TYPE_SYMBOLS = frozenset(
@@ -512,6 +531,7 @@ def asu_structure_from_cif(
     species_by_name: dict[str, Species] = {}
     implicit_species_names: list[str] = []
     wyckoff_sites: list[WyckoffSite] = []
+    site_rows: list[int] = []  # the atom-site row of each entry of wyckoff_sites
     warning_uncertainties: list[Any] = []
     ambiguous_warning_count = 0
     debug_uncertainties: list[Any] = []
@@ -774,6 +794,7 @@ def asu_structure_from_cif(
         if limit_denominator is not None and parameters.dim not in ((), (0,)):
             parameters = FracVector([value.limit_denominator(limit_denominator) for value in parameters.to_fractions()])
         wyckoff_sites.append(WyckoffSite(letter, parameters, name, coordinate.normalize()))
+        site_rows.append(index)
         matched_position = standard.wyckoff_position(match[0])
         exact_special = (
             declaration is None
@@ -811,17 +832,18 @@ def asu_structure_from_cif(
             f"maximum is {math.sqrt(maximum.to_float()):.6g} Å"
         )
 
-    proof, canonical_species, assemblies = _deduplicate_wyckoff_sites(
+    proof, canonical_species, assemblies, canonical_sites = _deduplicate_wyckoff_sites(
         standard,
         transform,
         wyckoff_sites,
         species_by_name,
-        labels,
+        [labels[row] for row in site_rows],
         block_name=_block_name(data),
         coordinate_precision=data.get("coordinate_precision"),
         repair=repair,
     )
     canonical_species += tuple(species_by_name[name] for name in implicit_species_names)
+    row_sites = dict(zip(site_rows, canonical_sites, strict=True))
     return ASUStructure._from_validated_proof(
         cell,
         standard,
@@ -830,6 +852,7 @@ def asu_structure_from_cif(
         transform,
         data.get("coordinate_precision"),
         assemblies,
+        _cif_bonds(standard, proof.wyckoff_sites, cell, data, row_sites),
     )
 
 
@@ -843,8 +866,12 @@ def _deduplicate_wyckoff_sites(
     block_name: str,
     coordinate_precision: Any,
     repair: bool = False,
-) -> tuple[_ValidatedASUProof, tuple[Species, ...], tuple[Assembly, ...] | None]:
-    """Collapse repeated CIF orbits and combine co-located disorder losslessly."""
+) -> tuple[_ValidatedASUProof, tuple[Species, ...], tuple[Assembly, ...] | None, list[int]]:
+    """Collapse repeated CIF orbits and combine co-located disorder losslessly.
+
+    ``labels`` holds the CIF label of each entry of ``sites``. The last value returned is the
+    index of the resulting site of each entry of ``sites``.
+    """
     cosets = transform.lattice_cosets()
     identity = transform.is_identity()
     groups: list[tuple[frozenset[tuple[fractions.Fraction, ...]], list[int]]] = []
@@ -880,6 +907,7 @@ def _deduplicate_wyckoff_sites(
     species_at_sites: list[str] = []
     counts: list[int] = []
     assemblies: list[Assembly] = []
+    canonical_of = [0] * len(sites)
     for keys, members in groups:
         source_sites = [sites[index] for index in members]
         source_species = [(species_by_name[site.species], labels[index]) for site, index in zip(source_sites, members)]
@@ -932,6 +960,10 @@ def _deduplicate_wyckoff_sites(
                 species_at_sites.extend((species.name,) * len(ordered))
                 counts.append(len(ordered))
             assemblies.append(Assembly(tuple(assembly_groups), tuple(probabilities), tuple(precisions)))
+            first = len(canonical) - len(alternatives)
+            for index in members:
+                source = species_by_name[sites[index].species]
+                canonical_of[index] = first + next(k for k, item in enumerate(alternatives) if item[1] == source)
             continue
         species = _combine_cif_species(source_species, block_name=block_name, repair_overoccupancy=repair)
         previous = canonical_species.get(species.name)
@@ -943,6 +975,8 @@ def _deduplicate_wyckoff_sites(
             )
         canonical_species.setdefault(species.name, species)
         representative = source_sites[0]
+        for index in members:
+            canonical_of[index] = len(canonical)
         canonical.append(
             WyckoffSite(
                 representative.wyckoff,
@@ -967,7 +1001,153 @@ def _deduplicate_wyckoff_sites(
         ),
         tuple(canonical_species.values()),
         tuple(assemblies) or None,
+        canonical_of,
     )
+
+
+def _cif_bonds(
+    group: Spacegroup, sites: Sequence[WyckoffSite], cell: Cell, data: Mapping[str, Any], row_sites: Mapping[int, int]
+) -> list[SiteBond] | None:
+    """Return the block's ``_geom_bond_`` loop as bonds of the loaded ``sites``, or ``None``.
+
+    ``row_sites`` maps every non-dummy atom-site row to its index in ``sites``, which are in the
+    setting ``group``. Each bond end
+    is the atom of its row (the loaded orbit point nearest the coordinate the row wrote) moved
+    by the row's symmetry code. A row that cannot be read, or whose computed distance differs
+    from ``_geom_bond_distance`` by more than the file's precision, leaves the structure without
+    a network and logs a warning naming the row, which is why each bond is also validated here
+    rather than only by the constructor. A loop of placeholders only gives no network.
+    """
+    columns = data.get("_httk_atomistic_bonds")
+    if columns is None:
+        return None
+    block = _block_name(data)
+    if len({len(values) for values in columns.values()}) > 1:
+        _cif_warning(f"CIF block {block!r}: ignored its bond loop, the bond columns have different lengths")
+        return None
+    if columns["atom_site_label_1"] and all(v.strip() in ("?", ".") for values in columns.values() for v in values):
+        return None
+    count = len(columns["atom_site_label_1"])
+    rows = zip(*(columns.get(name) or ["?"] * count for name in _BOND_COLUMNS), strict=True)
+    rows_of: dict[str, list[int]] = {}
+    folded: dict[str, list[int]] = {}
+    for row, label in enumerate(data.get("labels") or data["symbols"]):
+        rows_of.setdefault(label, []).append(row)
+        folded.setdefault(label.casefold(), []).append(row)
+    names = data.get("_httk_atomistic_symop_codes") or []  # none: no usable operation list
+    operations = dict(zip(names, map(_op, map(operation_from_xyz, data["symops_xyz"])), strict=False))
+    references = [_reference(group, site) for site in sites]
+    basis = cell.basis.to_floats()
+    metric = [[sum(a * b for a, b in zip(u, v, strict=True)) for v in basis] for u in basis]
+    positions = data["positions_exact"]
+    # one unit in the last written digit of each row's coarsest coordinate, times |a| + |b| + |c|
+    span = sum(math.sqrt(metric[i][i]) for i in range(3))
+    precisions = _row_coordinate_precisions(data)
+
+    def end(label: str, code: str) -> tuple[int, _Op, int]:
+        found = rows_of.get(label) or folded.get(label.casefold(), [])  # exact first, then ignoring case
+        if len(found) != 1 or found[0] not in row_sites:
+            reason = (
+                "names no atom site"
+                if not found
+                else "names several atom sites"
+                if found[1:]
+                else "names a dummy atom site"
+            )
+            raise ValueError(f"label {label!r} {reason}")
+        site = row_sites[found[0]]
+        element = _row_element(group, references[site], [fractions.Fraction(x) for x in positions[found[0]]], metric)
+        if code in (".", "?"):
+            return site, element, found[0]
+        match = _SYMMETRY_CODE.fullmatch(code)
+        if match is None:
+            raise ValueError(f"symmetry code {code!r} is not of the form n or n_klm")
+        if not names:
+            raise ValueError(
+                f"symmetry code {code!r} cannot be resolved: the block lists no symmetry operations, "
+                "or ids that do not name them one to one"
+            )
+        if match[1] not in operations:
+            raise ValueError(f"symmetry code {code!r} names no symmetry operation of the block")
+        W, w = operations[match[1]]
+        shift = (0, 0, 0) if match[2] is None else tuple(int(match[k]) - 5 for k in (2, 3, 4))
+        return site, _mul((W, tuple(a + b for a, b in zip(w, shift, strict=True))), element), found[0]
+
+    bonds = []
+    for number, (first, second, code1, code2, distance) in enumerate(rows, 1):
+        try:
+            site, A1, row1 = end(first.strip(), code1.strip())
+            partner, A2, row2 = end(second.strip(), code2.strip())
+            coordinates = (precisions[row1] + precisions[row2]) * span
+            _check_bond_distance(
+                _apply(A1, references[site]), _apply(A2, references[partner]), distance, metric, coordinates
+            )
+            bond = SiteBond(site, partner, _affine(_mul(_inv(A1), A2)))
+            _checked_bonds(group, sites, [bond])
+        except (ValueError, ArithmeticError) as error:  # never fail the load for a bond loop
+            _cif_warning(
+                f"CIF block {block!r}: ignored its bond loop, row {number} "
+                f"({first} {second} {code1} {code2} {distance}): {error}"
+            )
+            return None
+        bonds.append(bond)
+    return bonds
+
+
+def _row_element(group: Spacegroup, reference: _Point, point: Sequence[fractions.Fraction], metric: Any) -> _Op:
+    """Return the group element moving a site's reference atom to its orbit point nearest ``point``."""
+    best: tuple[float, _Op] | None = None
+    for W, w in _group(group)[0]:
+        image = _apply((W, w), reference)
+        shift = [round(p - x) for p, x in zip(point, image, strict=True)]
+        r = [float(p - x - n) for p, x, n in zip(point, image, shift, strict=True)]
+        squared = sum(r[i] * metric[i][j] * r[j] for i in range(3) for j in range(3))
+        if best is None or squared < best[0]:
+            best = squared, (W, tuple(a + n for a, n in zip(w, shift, strict=True)))
+    assert best is not None
+    return best[1]
+
+
+def _row_coordinate_precisions(data: Mapping[str, Any]) -> list[float]:
+    """Return one unit in the last written digit of each row's coarsest coordinate, 0 without a claim.
+
+    Read from the row's coordinate tokens; a coordinate with at most one decimal place or an
+    exact companion value states no precision.
+    """
+    from httk.atomistic.io.cif.cif_parser import parse_cif_float
+
+    precisions = []
+    for row, claimed in zip(data["position_tokens"], data["position_precisions"], strict=True):
+        units = (parse_cif_float(token, meta=True)[1]["precision"] for token, claim in zip(row, claimed) if claim)
+        precisions.append(max((float(unit) for unit in units if unit is not None), default=0.0))
+    return precisions
+
+
+def _check_bond_distance(first: _Point, second: _Point, token: str, metric: Any, coordinates: float) -> None:
+    """Raise ``ValueError`` if two atoms are not ``token`` apart within the precision the file states.
+
+    The tolerance is three standard uncertainties, but at least one unit in the last written digit
+    (that unit alone without an uncertainty), plus ``coordinates``, the bound the written precision
+    of the two atoms' coordinates puts on the computed distance. ``?`` and ``.`` are not checked.
+    """
+    from httk.atomistic.io.cif.cif_parser import parse_cif_float
+
+    token = token.strip()
+    if token in ("?", "."):
+        return
+    stated, meta = parse_cif_float(token, meta=True)
+    try:
+        exponent = Decimal(re.sub(r"\(\d+\)", "", token)).as_tuple().exponent
+    except InvalidOperation:
+        raise ValueError(f"the distance {token!r} is not a decimal number") from None
+    if stated is None or not math.isfinite(stated) or not isinstance(exponent, int):
+        raise ValueError(f"the distance {token!r} is not a finite number")
+    unit = 10.0**exponent
+    tolerance = (unit if meta["esd"] is None else max(3 * float(meta["esd"]), unit)) + coordinates
+    r = [float(q - p) for p, q in zip(first, second, strict=True)]
+    distance = math.sqrt(sum(r[i] * metric[i][j] * r[j] for i in range(3) for j in range(3)))
+    if abs(distance - stated) > tolerance * (1 + 1e-9):
+        raise ValueError(f"the atoms are {distance:.6f} Å apart, not {token} (tolerance {tolerance:.2g} Å)")
 
 
 def _combine_cif_species(
@@ -1850,6 +2030,8 @@ def _read_cif_for_atomistic(
                     "_httk_atomistic_symmetry_multiplicities": raw_block.get("atom_site_site_symmetry_multiplicity"),
                     "_httk_atomistic_site_symmetry_orders": raw_block.get("atom_site_site_symmetry_order"),
                     "_httk_atomistic_block_name": name,
+                    "_httk_atomistic_bonds": _bond_columns(raw_block),
+                    "_httk_atomistic_symop_codes": _symop_codes(raw_block),
                 }
             )
     payload: dict[str, Any] = {"format": "cif", "blocks": blocks, "unparsed": unparsed, "header": header}
@@ -1858,6 +2040,39 @@ def _read_cif_for_atomistic(
     if not allow_large_cif_uncertainty:
         return payload
     return {**payload, _ALLOW_LARGE_CIF_UNCERTAINTY: True}
+
+
+def _bond_columns(block: Mapping[str, Any]) -> dict[str, list[str]] | None:
+    """The bond-loop columns this reader uses, or ``None`` without ``_geom_bond_atom_site_label_1``."""
+    if "geom_bond_atom_site_label_1" not in block:
+        return None
+    return {
+        name: [value] if isinstance(value, str) else list(value)
+        for name in _BOND_COLUMNS
+        if (value := block.get(f"geom_bond_{name}")) is not None
+    }
+
+
+def _symop_codes(block: Mapping[str, Any]) -> list[str] | None:
+    """Name each symmetry operation ``cifblock_to_asu`` reads, as bond-loop symmetry codes do.
+
+    Names are the operations' ids from the same loop if given, else their 1-based positions.
+    ``None`` when the block lists no operations (repair may generate them from a Hall symbol)
+    or gives ids that do not name them one to one.
+    """
+    if "space_group_symop.operation_xyz" in block or "space_group_symop_operation_xyz" in block:
+        xyz = block.get("space_group_symop.operation_xyz", block.get("space_group_symop_operation_xyz"))
+        names: tuple[str, ...] = ("space_group_symop.id", "space_group_symop_id")
+    elif "symmetry_equiv_pos_as_xyz" in block:
+        xyz, names = block["symmetry_equiv_pos_as_xyz"], ("symmetry_equiv_pos_site_id",)
+    else:
+        return None
+    count = 1 if isinstance(xyz, str) else len(xyz)
+    ids = next((block[name] for name in names if name in block), None)
+    if ids is None:
+        return [str(n) for n in range(1, count + 1)]
+    ids = [ids.strip()] if isinstance(ids, str) else [str(value).strip() for value in ids]
+    return ids if len(ids) == count == len(set(ids)) else None
 
 
 def _position_precision_metadata(
