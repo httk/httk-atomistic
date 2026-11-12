@@ -46,6 +46,7 @@ from httk.atomistic.models.protonetstructure.protonetstructure import Protonetst
 from httk.atomistic.models.protonettype.protonettype import Protonettype
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.protostructure import Protostructure
+from httk.atomistic.models.prototype.notation import _undetermined
 from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.sites.numeric import NumericSites
@@ -2314,9 +2315,12 @@ class BareProtostructureRecord:
 
     Labels are query conveniences, not unique identities.
 
-    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_it_number: The International Tables space-group number, or ``None``.
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param occupations: The canonical occupied Wyckoff positions.
+    :param undetermined: The label of an undetermined value (``X`` where a part was not
+        determined within the canonicalisation budget), which is then all the record stores
+        besides the space group, when known; ``None`` for a determined value.
     :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The public lineage id, if assigned.
     :param immutable_id: The revision id, if assigned.
@@ -2329,9 +2333,10 @@ class BareProtostructureRecord:
     )
     __httk_canonical_source__: ClassVar = BareProtostructure
 
-    spacegroup_it_number: int
-    spacegroup_hall_entry: str
+    spacegroup_it_number: int | None
+    spacegroup_hall_entry: str | None
     occupations: tuple[WyckoffOccupationRecord, ...]
+    undetermined: Annotated[str | None, IdentitySkipWhenNone()] = None
     canonical_form: int = _LABEL_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
@@ -2339,6 +2344,8 @@ class BareProtostructureRecord:
     @stored_property
     def label(self) -> str:
         """Expose the deterministic Wyckoff-only label for querying."""
+        if self.undetermined is not None:
+            return self.undetermined
         return _protostructure_record_label(self)
 
     def __post_init__(self) -> None:
@@ -2361,10 +2368,13 @@ class BareProtostructureRecord:
         :param value: The bare value to project.
         :return: The projected record fields.
         """
+        if (fields := _undetermined_fields(value)) is not None:
+            return {**fields, "canonical_form": _LABEL_FORM_VERSION, "id": None, "immutable_id": None}
         return {
             "spacegroup_it_number": value.spacegroup.it_number,
             "spacegroup_hall_entry": value.spacegroup.hall_entry,
             "occupations": value.occupations,
+            "undetermined": None,
             "canonical_form": _LABEL_FORM_VERSION,
             "id": None,
             "immutable_id": None,
@@ -2382,11 +2392,14 @@ class ProtostructureRecord:
     The record's content identity is independent of its storage layout, and two equal
     protostructures produce the same content identity.
 
-    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_it_number: The International Tables space-group number, or ``None``.
     :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
     :param occupations: The occupied Wyckoff positions and their real species.
     :param representative: The optional durable exact class anchor.
     :param discriminator: The optional external class discriminator.
+    :param undetermined: The label of an undetermined value (``X`` where a part was not
+        determined within the canonicalisation budget), which is then all the record stores
+        besides the space group, when known; ``None`` for a determined value.
     :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
     :param immutable_id: The per-revision immutable id; minted by the store when None.
@@ -2399,11 +2412,12 @@ class ProtostructureRecord:
     )
     __httk_canonical_source__: ClassVar = Protostructure
 
-    spacegroup_it_number: int
-    spacegroup_hall_entry: str
+    spacegroup_it_number: int | None
+    spacegroup_hall_entry: str | None
     occupations: tuple[WyckoffOccupationRecord, ...]
     representative: FundamentalDomainStructureRecord | None = None
     discriminator: str | None = None
+    undetermined: Annotated[str | None, IdentitySkipWhenNone()] = None
     canonical_form: int = _REFINED_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
@@ -2424,6 +2438,8 @@ class ProtostructureRecord:
 
         :return: The httk protostructure label.
         """
+        if self.undetermined is not None:
+            return self.undetermined
         return _protostructure_record_label(self)
 
     def __post_init__(self) -> None:
@@ -2431,7 +2447,7 @@ class ProtostructureRecord:
         if self.representative is not None and not isinstance(self.representative, FundamentalDomainStructureRecord):
             raise TypeError("ProtostructureRecord representative must be a FundamentalDomainStructureRecord or None")
         _validate_discriminator(type(self).__name__, self.discriminator)
-        if self.representative is None and self.discriminator is None:
+        if self.representative is None and self.discriminator is None and self.undetermined is None:
             raise ValueError(f"{type(self).__name__} requires a representative or discriminator")
 
     @classmethod
@@ -2455,12 +2471,22 @@ class ProtostructureRecord:
         :param protostructure: The protostructure to project.
         :return: The projected protostructure fields.
         """
+        if (fields := _undetermined_fields(protostructure)) is not None:
+            return {
+                **fields,
+                "representative": None,
+                "discriminator": None,
+                "canonical_form": _REFINED_FORM_VERSION,
+                "id": None,
+                "immutable_id": None,
+            }
         return {
             "spacegroup_it_number": protostructure.spacegroup.it_number,
             "spacegroup_hall_entry": protostructure.spacegroup.hall_entry,
             "occupations": protostructure.occupations,
             "representative": protostructure.representative,
             "discriminator": protostructure.discriminator,
+            "undetermined": None,
             "canonical_form": _REFINED_FORM_VERSION,
             "id": None,
             "immutable_id": None,
@@ -2564,9 +2590,12 @@ class BarePrototypeRecord:
 
     Labels are query conveniences, not unique identities.
 
-    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_it_number: The International Tables space-group number, or ``None``.
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param occupations: The canonical occupied Wyckoff positions.
+    :param undetermined: The label of an undetermined value (``X`` where a part was not
+        determined within the canonicalisation budget), which is then all the record stores
+        besides the space group, when known; ``None`` for a determined value.
     :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The public lineage id, if assigned.
     :param immutable_id: The revision id, if assigned.
@@ -2579,9 +2608,10 @@ class BarePrototypeRecord:
     )
     __httk_canonical_source__: ClassVar = BarePrototype
 
-    spacegroup_it_number: int
-    spacegroup_hall_entry: str
+    spacegroup_it_number: int | None
+    spacegroup_hall_entry: str | None
     occupations: tuple[PrototypeOccupation, ...]
+    undetermined: Annotated[str | None, IdentitySkipWhenNone()] = None
     canonical_form: int = _LABEL_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
@@ -2589,7 +2619,9 @@ class BarePrototypeRecord:
     @stored_property
     def label(self) -> str:
         """Expose the deterministic Wyckoff-only label for querying."""
-        return _prototype_label_from_fields(self.spacegroup_hall_entry, self.occupations)
+        if self.undetermined is not None:
+            return self.undetermined
+        return _prototype_label_from_fields(cast(str, self.spacegroup_hall_entry), self.occupations)
 
     def __post_init__(self) -> None:
         _validate_prototype_fields(type(self).__name__, self)
@@ -2610,10 +2642,13 @@ class BarePrototypeRecord:
         :param value: The bare value to project.
         :return: The projected record fields.
         """
+        if (fields := _undetermined_fields(value)) is not None:
+            return {**fields, "canonical_form": _LABEL_FORM_VERSION, "id": None, "immutable_id": None}
         return {
             "spacegroup_it_number": value.spacegroup.it_number,
             "spacegroup_hall_entry": value.spacegroup.hall_entry,
             "occupations": value.occupations,
+            "undetermined": None,
             "canonical_form": _LABEL_FORM_VERSION,
             "id": None,
             "immutable_id": None,
@@ -2628,11 +2663,14 @@ class PrototypeRecord:
     exact fundamental-domain-template representative and/or discriminator. At least
     one refinement is required. The discriminator is species-independent and is not part of the label.
 
-    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_it_number: The International Tables space-group number, or ``None``.
     :param spacegroup_hall_entry: The standard-setting Hall entry that names the stored Wyckoff data.
     :param occupations: The occupied Wyckoff positions and anonymous class labels.
     :param representative: The durable class representative, if one is held.
     :param discriminator: The externally assigned class discriminator, if one is held.
+    :param undetermined: The label of an undetermined value (``X`` where a part was not
+        determined within the canonicalisation budget), which is then all the record stores
+        besides the space group, when known; ``None`` for a determined value.
     :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
     :param immutable_id: The per-revision immutable id; minted by the store when None.
@@ -2645,11 +2683,12 @@ class PrototypeRecord:
     )
     __httk_canonical_source__: ClassVar = Prototype
 
-    spacegroup_it_number: int
-    spacegroup_hall_entry: str
+    spacegroup_it_number: int | None
+    spacegroup_hall_entry: str | None
     occupations: tuple[PrototypeOccupation, ...]
     representative: FundamentalDomainTemplateRecord | None = None
     discriminator: str | None = None
+    undetermined: Annotated[str | None, IdentitySkipWhenNone()] = None
     canonical_form: int = _REFINED_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
@@ -2664,7 +2703,9 @@ class PrototypeRecord:
 
         :return: The httk prototype label.
         """
-        return _prototype_label_from_fields(self.spacegroup_hall_entry, self.occupations)
+        if self.undetermined is not None:
+            return self.undetermined
+        return _prototype_label_from_fields(cast(str, self.spacegroup_hall_entry), self.occupations)
 
     def __post_init__(self) -> None:
         _validate_prototype_fields(type(self).__name__, self)
@@ -2673,7 +2714,7 @@ class PrototypeRecord:
         ):
             raise TypeError("PrototypeRecord representative must be a FundamentalDomainTemplateRecord or None")
         _validate_discriminator(type(self).__name__, self.discriminator)
-        if self.representative is None and self.discriminator is None:
+        if self.representative is None and self.discriminator is None and self.undetermined is None:
             raise ValueError(f"{type(self).__name__} requires a representative or discriminator")
 
     @classmethod
@@ -2693,6 +2734,15 @@ class PrototypeRecord:
         :param prototype: The prototype to project.
         :return: The projected prototype fields.
         """
+        if (fields := _undetermined_fields(prototype)) is not None:
+            return {
+                **fields,
+                "representative": None,
+                "discriminator": None,
+                "canonical_form": _REFINED_FORM_VERSION,
+                "id": None,
+                "immutable_id": None,
+            }
         template = prototype
         return {
             "spacegroup_it_number": template.spacegroup.it_number,
@@ -2700,20 +2750,55 @@ class PrototypeRecord:
             "occupations": tuple(template.occupations),
             "representative": prototype.representative,
             "discriminator": prototype.discriminator,
+            "undetermined": None,
             "canonical_form": _REFINED_FORM_VERSION,
             "id": None,
             "immutable_id": None,
         }
 
 
-def _validate_protostructure_fields(record_name: str, record: Any) -> None:
-    """Validate assigned Wyckoff storage fields shared by bare and refined records."""
+def _validate_undetermined_fields(record_name: str, record: Any) -> bool:
+    """Validate the fields of an undetermined record and return whether the record is undetermined.
+
+    An undetermined record stores its label, the canonical-form version and, when the label
+    determines it, the space group; occupations, net, representative and discriminator are empty.
+    """
+    if record.undetermined is None:
+        return False
+    if not isinstance(record.undetermined, str) or not record.undetermined:
+        raise TypeError(f"{record_name} undetermined must be a non-empty string or None")
+    if (record.spacegroup_it_number is None) != (record.spacegroup_hall_entry is None):
+        raise ValueError(f"{record_name} stores both or neither of spacegroup_it_number and spacegroup_hall_entry")
+    if record.spacegroup_it_number is not None:
+        _validate_spacegroup_fields(record_name, record)
+    if not isinstance(record.canonical_form, int) or isinstance(record.canonical_form, bool):
+        raise TypeError(f"{record_name} canonical_form must be an integer")
+    if (
+        tuple(record.occupations)
+        or tuple(getattr(record, "net", ()))
+        or getattr(record, "representative", None) is not None
+        or getattr(record, "discriminator", None) is not None
+    ):
+        raise ValueError(f"{record_name} of an undetermined value stores only its label and space group")
+    object.__setattr__(record, "occupations", ())
+    return True
+
+
+def _validate_spacegroup_fields(record_name: str, record: Any) -> None:
+    """Validate the IT number and Hall entry fields of a Wyckoff record."""
     if not isinstance(record.spacegroup_it_number, int) or isinstance(record.spacegroup_it_number, bool):
         raise TypeError(f"{record_name} spacegroup_it_number must be an integer")
     if not 1 <= record.spacegroup_it_number <= 230:
         raise ValueError(f"{record_name} spacegroup_it_number must be in [1, 230]")
     if not isinstance(record.spacegroup_hall_entry, str) or not record.spacegroup_hall_entry:
         raise TypeError(f"{record_name} spacegroup_hall_entry must be a non-empty string")
+
+
+def _validate_protostructure_fields(record_name: str, record: Any) -> None:
+    """Validate assigned Wyckoff storage fields shared by bare and refined records."""
+    if _validate_undetermined_fields(record_name, record):
+        return
+    _validate_spacegroup_fields(record_name, record)
     if not isinstance(record.canonical_form, int) or isinstance(record.canonical_form, bool):
         raise TypeError(f"{record_name} canonical_form must be an integer")
     occupations = tuple(record.occupations)
@@ -2724,12 +2809,9 @@ def _validate_protostructure_fields(record_name: str, record: Any) -> None:
 
 def _validate_prototype_fields(record_name: str, record: Any) -> None:
     """Validate the space group and anonymous occupations of a prototype record."""
-    if not isinstance(record.spacegroup_it_number, int) or isinstance(record.spacegroup_it_number, bool):
-        raise TypeError(f"{record_name} spacegroup_it_number must be an integer")
-    if not 1 <= record.spacegroup_it_number <= 230:
-        raise ValueError(f"{record_name} spacegroup_it_number must be in [1, 230]")
-    if not isinstance(record.spacegroup_hall_entry, str) or not record.spacegroup_hall_entry:
-        raise TypeError(f"{record_name} spacegroup_hall_entry must be a non-empty string")
+    if _validate_undetermined_fields(record_name, record):
+        return
+    _validate_spacegroup_fields(record_name, record)
     if not isinstance(record.canonical_form, int) or isinstance(record.canonical_form, bool):
         raise TypeError(f"{record_name} canonical_form must be an integer")
     occupations = tuple(record.occupations)
@@ -2794,6 +2876,46 @@ def _require_canonical_form(record: Any, family: str, version: int) -> None:
         )
 
 
+def _undetermined_fields(value: Any) -> dict[str, Any] | None:
+    """Return the record fields of an undetermined value: its label and its space group when known.
+
+    :param value: A label value.
+    :return: The fields, or ``None`` for a determined value.
+    """
+    parts = _undetermined(value)
+    if parts is None:
+        return None
+    spacegroup = parts.spacegroup
+    return {
+        "spacegroup_it_number": None if spacegroup is None else spacegroup.it_number,
+        "spacegroup_hall_entry": None if spacegroup is None else spacegroup.hall_entry,
+        "occupations": (),
+        "undetermined": value._undetermined,
+    }
+
+
+def _undetermined_from_record(record: Any, family: Any, version_family: str, version: int) -> Any:
+    """Rebuild an undetermined value from its record, parsing the label strictly.
+
+    :param record: The durable record, whose ``undetermined`` is set.
+    :param family: The value class.
+    :param version_family: The record's version family, for the message.
+    :param version: The family's current canonical-form version.
+    :return: The undetermined value.
+    :raises ValueError: If the label is not an undetermined label of the family, the record was
+        built under another canonical form, or the stored space group is not the label's.
+    """
+    _require_canonical_form(record, version_family, version)
+    value = family.undetermined(record.undetermined)
+    expected = cast(dict[str, Any], _undetermined_fields(value))
+    if (record.spacegroup_it_number, record.spacegroup_hall_entry) != (
+        expected["spacegroup_it_number"],
+        expected["spacegroup_hall_entry"],
+    ):
+        raise ValueError(f"{type(record).__name__} space group contradicts its undetermined label")
+    return value
+
+
 def _protostructure_record_label(record: BareProtostructureRecord | ProtostructureRecord) -> str:
     """Render the httk protostructure label for a durable protostructure record.
 
@@ -2803,7 +2925,7 @@ def _protostructure_record_label(record: BareProtostructureRecord | Protostructu
     from httk.atomistic.models.prototype.notation import render_protostructure_label
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
-    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
+    spacegroup = Spacegroup.from_hall_entry(cast(str, record.spacegroup_hall_entry))
     return render_protostructure_label(
         spacegroup, [(occupation.wyckoff, occupation.species.name) for occupation in record.occupations]
     )
@@ -2815,10 +2937,12 @@ def _protostructure_from_record(record: ProtostructureRecord) -> Protostructure:
     :param record: The durable protostructure record.
     :return: The reconstructed protostructure value.
     """
+    if record.undetermined is not None:
+        return _undetermined_from_record(record, Protostructure, "refined", _REFINED_FORM_VERSION)
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     _require_canonical_form(record, "refined", _REFINED_FORM_VERSION)
-    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
+    spacegroup = Spacegroup.from_hall_entry(cast(str, record.spacegroup_hall_entry))
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
     representative = None if record.representative is None else _domain_structure_from_record(record.representative)
@@ -2859,6 +2983,8 @@ def _protostructure_record_from_value(value: Protostructure) -> ProtostructureRe
     :param value: The protostructure value to store.
     :return: The durable protostructure record.
     """
+    if (fields := _undetermined_fields(value)) is not None:
+        return ProtostructureRecord(**fields)
     return ProtostructureRecord(
         spacegroup_it_number=value.spacegroup.it_number,
         spacegroup_hall_entry=value.spacegroup.hall_entry,
@@ -2964,10 +3090,12 @@ def _prototype_from_record(record: PrototypeRecord) -> Prototype:
     :param record: The durable prototype record.
     :return: The reconstructed prototype value.
     """
+    if record.undetermined is not None:
+        return _undetermined_from_record(record, Prototype, "refined", _REFINED_FORM_VERSION)
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     _require_canonical_form(record, "refined", _REFINED_FORM_VERSION)
-    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
+    spacegroup = Spacegroup.from_hall_entry(cast(str, record.spacegroup_hall_entry))
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
     representative = (
@@ -2987,6 +3115,8 @@ def _prototype_record_from_value(value: Prototype) -> PrototypeRecord:
     :param value: The prototype value to store.
     :return: The durable prototype record.
     """
+    if (fields := _undetermined_fields(value)) is not None:
+        return PrototypeRecord(**fields)
     representative = (
         None if value.representative is None else _fundamental_domain_template_record_from_value(value.representative)
     )
@@ -3005,10 +3135,12 @@ def _bare_protostructure_from_record(record: BareProtostructureRecord) -> BarePr
     :param record: The durable protostructure record.
     :return: The reconstructed protostructure value.
     """
+    if record.undetermined is not None:
+        return _undetermined_from_record(record, BareProtostructure, "label", _LABEL_FORM_VERSION)
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     _require_canonical_form(record, "label", _LABEL_FORM_VERSION)
-    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
+    spacegroup = Spacegroup.from_hall_entry(cast(str, record.spacegroup_hall_entry))
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
     return BareProtostructure(
@@ -3023,6 +3155,8 @@ def _bare_protostructure_record_from_value(value: BareProtostructure) -> BarePro
     :param value: The protostructure value to store.
     :return: The durable protostructure record.
     """
+    if (fields := _undetermined_fields(value)) is not None:
+        return BareProtostructureRecord(**fields)
     return BareProtostructureRecord(
         spacegroup_it_number=value.spacegroup.it_number,
         spacegroup_hall_entry=value.spacegroup.hall_entry,
@@ -3042,10 +3176,12 @@ def _bare_prototype_from_record(record: BarePrototypeRecord) -> BarePrototype:
     :param record: The durable prototype record.
     :return: The reconstructed prototype value.
     """
+    if record.undetermined is not None:
+        return _undetermined_from_record(record, BarePrototype, "label", _LABEL_FORM_VERSION)
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
     _require_canonical_form(record, "label", _LABEL_FORM_VERSION)
-    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
+    spacegroup = Spacegroup.from_hall_entry(cast(str, record.spacegroup_hall_entry))
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
     return BarePrototype(
@@ -3060,6 +3196,8 @@ def _bare_prototype_record_from_value(value: BarePrototype) -> BarePrototypeReco
     :param value: The prototype value to store.
     :return: The durable prototype record.
     """
+    if (fields := _undetermined_fields(value)) is not None:
+        return BarePrototypeRecord(**fields)
     return BarePrototypeRecord(
         spacegroup_it_number=value.spacegroup.it_number,
         spacegroup_hall_entry=value.spacegroup.hall_entry,
@@ -3110,10 +3248,13 @@ class ProtonettypeRecord:
     Occupations keep the value's site order, which the net's site numbers refer to.
     Labels are query conveniences, not unique identities.
 
-    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_it_number: The International Tables space-group number, or ``None``.
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param occupations: The anonymous occupied Wyckoff positions in site order.
     :param net: The bonding-net rows in label order.
+    :param undetermined: The label of an undetermined value (``X`` where a part was not
+        determined within the canonicalisation budget), which is then all the record stores
+        besides the space group, when known; ``None`` for a determined value.
     :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The public lineage id, if assigned.
     :param immutable_id: The revision id, if assigned.
@@ -3126,10 +3267,11 @@ class ProtonettypeRecord:
     )
     __httk_canonical_source__: ClassVar = Protonettype
 
-    spacegroup_it_number: int
-    spacegroup_hall_entry: str
+    spacegroup_it_number: int | None
+    spacegroup_hall_entry: str | None
     occupations: tuple[PrototypeOccupation, ...]
     net: tuple[ProtonetBondRecord, ...]
+    undetermined: Annotated[str | None, IdentitySkipWhenNone()] = None
     canonical_form: int = _NET_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
@@ -3137,6 +3279,8 @@ class ProtonettypeRecord:
     @stored_property
     def label(self) -> str:
         """Expose the protonettype label for querying."""
+        if self.undetermined is not None:
+            return self.undetermined
         return _protonet_record_label(self, [(o.label, o.wyckoff) for o in self.occupations], named=False)
 
     def __post_init__(self) -> None:
@@ -3150,6 +3294,8 @@ class ProtonettypeRecord:
         :param record: The record to validate.
         """
         value = _protonettype_from_record(record)
+        if not value.determined:
+            return
         canonical = _protonettype_record_from_value(Protonettype(value.spacegroup, value.occupations, value.net))
         _require_canonical("ProtonettypeRecord", "occupations", record.occupations, canonical.occupations)
         _require_canonical("ProtonettypeRecord", "net rows", _net_rows(record), _net_rows(canonical))
@@ -3161,11 +3307,14 @@ class ProtonettypeRecord:
         :param value: The protonettype to project.
         :return: The projected record fields.
         """
+        if (fields := _undetermined_fields(value)) is not None:
+            return {**fields, "net": (), "canonical_form": _NET_FORM_VERSION, "id": None, "immutable_id": None}
         return {
             "spacegroup_it_number": value.spacegroup.it_number,
             "spacegroup_hall_entry": value.spacegroup.hall_entry,
             "occupations": value.occupations,
             "net": _bond_records(value.net),
+            "undetermined": None,
             "canonical_form": _NET_FORM_VERSION,
             "id": None,
             "immutable_id": None,
@@ -3179,10 +3328,13 @@ class ProtonetstructureRecord:
     Occupations keep the value's site order, which the net's site numbers refer to.
     Labels are query conveniences, not unique identities.
 
-    :param spacegroup_it_number: The International Tables space-group number.
+    :param spacegroup_it_number: The International Tables space-group number, or ``None``.
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param occupations: The occupied Wyckoff positions in site order.
     :param net: The bonding-net rows in label order.
+    :param undetermined: The label of an undetermined value (``X`` where a part was not
+        determined within the canonicalisation budget), which is then all the record stores
+        besides the space group, when known; ``None`` for a determined value.
     :param canonical_form: The canonical-label rule version the record was built with.
     :param id: The public lineage id, if assigned.
     :param immutable_id: The revision id, if assigned.
@@ -3195,10 +3347,11 @@ class ProtonetstructureRecord:
     )
     __httk_canonical_source__: ClassVar = Protonetstructure
 
-    spacegroup_it_number: int
-    spacegroup_hall_entry: str
+    spacegroup_it_number: int | None
+    spacegroup_hall_entry: str | None
     occupations: tuple[WyckoffOccupationRecord, ...]
     net: tuple[ProtonetBondRecord, ...]
+    undetermined: Annotated[str | None, IdentitySkipWhenNone()] = None
     canonical_form: int = _NET_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
@@ -3206,6 +3359,8 @@ class ProtonetstructureRecord:
     @stored_property
     def label(self) -> str:
         """Expose the protonetstructure label for querying."""
+        if self.undetermined is not None:
+            return self.undetermined
         return _protonet_record_label(self, [(o.species.name, o.wyckoff) for o in self.occupations], named=True)
 
     def __post_init__(self) -> None:
@@ -3220,6 +3375,8 @@ class ProtonetstructureRecord:
         """
         _require_species_classes("ProtonetstructureRecord", "occupation", (o.species for o in record.occupations))
         value = _protonetstructure_from_record(record)
+        if not value.determined:
+            return
         canonical = _protonetstructure_record_from_value(
             Protonetstructure(value.spacegroup, value.occupations, value.net)
         )
@@ -3233,11 +3390,14 @@ class ProtonetstructureRecord:
         :param value: The protonetstructure to project.
         :return: The projected record fields.
         """
+        if (fields := _undetermined_fields(value)) is not None:
+            return {**fields, "net": (), "canonical_form": _NET_FORM_VERSION, "id": None, "immutable_id": None}
         return {
             "spacegroup_it_number": value.spacegroup.it_number,
             "spacegroup_hall_entry": value.spacegroup.hall_entry,
             "occupations": value.occupations,
             "net": _bond_records(value.net),
+            "undetermined": None,
             "canonical_form": _NET_FORM_VERSION,
             "id": None,
             "immutable_id": None,
@@ -3279,7 +3439,7 @@ def _protonet_record_label(
         (key, tuple(letter for _, letter in run)) for key, run in itertools.groupby(sites, key=lambda pair: pair[0])
     ]
     return render_protonet(
-        Spacegroup.from_hall_entry(record.spacegroup_hall_entry),
+        Spacegroup.from_hall_entry(cast(str, record.spacegroup_hall_entry)),
         [letters for _, letters in runs],
         _net_rows(record),
         [key for key, _ in runs] if named else None,
@@ -3290,7 +3450,7 @@ def _protonet_record_spacegroup(record: ProtonettypeRecord | ProtonetstructureRe
     """Return a protonet record's space group, checking the Hall entry against the IT number."""
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
-    spacegroup = Spacegroup.from_hall_entry(record.spacegroup_hall_entry)
+    spacegroup = Spacegroup.from_hall_entry(cast(str, record.spacegroup_hall_entry))
     if spacegroup.it_number != record.spacegroup_it_number:
         raise ValueError("stored space-group Hall entry contradicts its International Tables number")
     return spacegroup
@@ -3302,6 +3462,8 @@ def _protonettype_from_record(record: ProtonettypeRecord) -> Protonettype:
     :param record: The durable protonettype record.
     :return: The reconstructed protonettype value.
     """
+    if record.undetermined is not None:
+        return _undetermined_from_record(record, Protonettype, "net", _NET_FORM_VERSION)
     _require_canonical_form(record, "net", _NET_FORM_VERSION)
     return Protonettype._of(_protonet_record_spacegroup(record), tuple(record.occupations), _net_rows(record))
 
@@ -3312,6 +3474,8 @@ def _protonettype_record_from_value(value: Protonettype) -> ProtonettypeRecord:
     :param value: The protonettype value to store.
     :return: The durable protonettype record.
     """
+    if (fields := _undetermined_fields(value)) is not None:
+        return ProtonettypeRecord(**fields, net=())
     return ProtonettypeRecord(
         spacegroup_it_number=value.spacegroup.it_number,
         spacegroup_hall_entry=value.spacegroup.hall_entry,
@@ -3326,6 +3490,8 @@ def _protonetstructure_from_record(record: ProtonetstructureRecord) -> Protonets
     :param record: The durable protonetstructure record.
     :return: The reconstructed protonetstructure value.
     """
+    if record.undetermined is not None:
+        return _undetermined_from_record(record, Protonetstructure, "net", _NET_FORM_VERSION)
     _require_canonical_form(record, "net", _NET_FORM_VERSION)
     return Protonetstructure._of(
         _protonet_record_spacegroup(record),
@@ -3340,6 +3506,8 @@ def _protonetstructure_record_from_value(value: Protonetstructure) -> Protonetst
     :param value: The protonetstructure value to store.
     :return: The durable protonetstructure record.
     """
+    if (fields := _undetermined_fields(value)) is not None:
+        return ProtonetstructureRecord(**fields, net=())
     return ProtonetstructureRecord(
         spacegroup_it_number=value.spacegroup.it_number,
         spacegroup_hall_entry=value.spacegroup.hall_entry,

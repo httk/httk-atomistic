@@ -62,6 +62,8 @@ class PrototypeLabel(PrototypeViewBase, str):
         backend = self._backend
         if type(backend) is Prototype:
             return backend
+        if (text := getattr(backend, "_undetermined", None)) is not None:
+            return Prototype.undetermined(text)
         # Labels deliberately render only the base notation, but remain views: shedding
         # the view must recover every field held by the backend, including class identity
         # that has no textual label spelling.

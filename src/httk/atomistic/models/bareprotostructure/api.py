@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Self, cast
 
 from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
 from httk.atomistic.models.formula.formulatype_view import FormulatypeView
-from httk.atomistic.models.prototype.notation import render_aflow_label
+from httk.atomistic.models.prototype.notation import _known, _undetermined, render_aflow_label
 
 if TYPE_CHECKING:
     from httk.atomistic.models.bareprotostructure.backend import BareProtostructureBackend
@@ -34,6 +34,17 @@ class BareProtostructureAPI(ABC):
         """Return the occupied Wyckoff positions in canonical order."""
         raise NotImplementedError
 
+    @property
+    def determined(self) -> bool:
+        """Return whether every part of the label was determined.
+
+        A canonicaliser that runs out of its time budget returns an undetermined value instead,
+        which holds only its label, with ``X`` for the part that is not determined (see
+        :meth:`~httk.atomistic.BareProtostructure.undetermined`). Its other parts raise
+        ``ValueError`` when they are not known from the label.
+        """
+        return getattr(self, "_undetermined", None) is None
+
     def multiplicities(self) -> tuple[int, ...]:
         """Return tabulated standard-setting multiplicities for each occupation.
 
@@ -52,6 +63,8 @@ class BareProtostructureAPI(ABC):
 
         :return: The conventional-cell site count.
         """
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "nsites_conventional", undetermined.nsites)
         return sum(self.multiplicities())
 
     @property

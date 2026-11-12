@@ -18,6 +18,19 @@ sorted Wyckoff letters. ``ANON`` is the anonymous formula built from
 per-group summed conventional multiplicities reduced by their overall gcd, so it equals
 the :class:`~httk.atomistic.Formulatype` of the site counts.
 
+A part that the canonicalisers could not determine within their time budget is written ``X``,
+which replaces that part and everything after it that depends on it (see
+``determined`` of the label values)::
+
+    ANON_X                         ANON_X__X                 # nor the symmetry
+    ANON_PEARSON_ITNUMBER_X        ANON_PEARSON_ITNUMBER_X__X  # nor the Wyckoff part
+                                   PROTOTYPELABEL__X           # nor the net
+
+each followed by ``:NAME(-NAME)*`` at the assigned levels. Where the Wyckoff part is
+undetermined the names are ordered by site count, largest first, then by name; after a
+determined bare part they keep its order. ``X`` never fills those positions in a determined
+label.
+
 httk labels are deliberately NOT AFLOW labels. AFLOW orders classes by element symbol
 (alphabetically) so its unsuffixed prefix still depends on the chemistry; httk orders
 classes by site count and then by Wyckoff letters, so the unsuffixed prefix is
@@ -42,11 +55,18 @@ normalizer-equivalent settings.
 
 import re
 from collections.abc import Mapping, Sequence
-from functools import reduce
+from dataclasses import dataclass
+from fractions import Fraction
+from functools import lru_cache, reduce
 from math import gcd
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, NoReturn
 
-from httk.atomistic.models.formula.notation import anonymous_symbol
+from httk.atomistic.models.formula.notation import (
+    anonymous_symbol,
+    parse_anonymous_formula,
+    reduced_coefficients,
+    render_anonymous,
+)
 from httk.atomistic.models.species.classes import _species_from_class_name
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.symmetry.spacegroup import Spacegroup
@@ -74,6 +94,9 @@ _CRYSTAL_SYSTEM_LETTER = {
 }
 
 _GROUP_TOKEN = re.compile(r"(\d*)([a-zA-Z])")
+_PEARSON = re.compile(r"[a-z][A-Z]([1-9][0-9]*)")
+# lattice points of the conventional cell per centring type; R is tabulated on hexagonal axes
+_LATTICE_POINTS = {"P": 1, "A": 2, "B": 2, "C": 2, "S": 2, "I": 2, "F": 4, "R": 3}
 _NET_TARGET = re.compile(r"([0-9]+)(?:@([0-9]+)(?:@([0-9]{3}))?)?")
 _NET_RESERVED = frozenset("-=#$:/\\")
 
@@ -317,12 +340,17 @@ def parse_bare_prototype_label(text: str) -> "BarePrototype":
     canonical values; any deviation is rejected. This canonical-string-only stance mirrors
     :func:`~httk.atomistic.models.formula.notation.parse_anonymous_formula`.
 
+    An undetermined label (``X`` in place of a part) gives its undetermined value
+    (:meth:`~httk.atomistic.BarePrototype.undetermined`).
+
     :param text: The prototype label to parse.
     :return: The parsed :class:`~httk.atomistic.models.bareprototype.bareprototype.BarePrototype`.
     :raises ValueError: If ``text`` is not a canonical prototype label.
     """
     from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 
+    if _marks_undetermined(text):
+        return BarePrototype.undetermined(text)
     main, fields, names = _split_label(text)
     if names is not None:
         raise ValueError("a prototype label carries no ':' species suffix")
@@ -342,7 +370,8 @@ def parse_bare_protostructure_label(text: str) -> "BareProtostructure":
 
     The unsuffixed part is validated as for a prototype label; each ``:`` name must be a
     canonical species class name (see :mod:`httk.atomistic.models.species.classes`) and
-    becomes its class species. Non-canonical labels are rejected.
+    becomes its class species. Non-canonical labels are rejected. An undetermined label gives
+    its undetermined value (:meth:`~httk.atomistic.BareProtostructure.undetermined`).
 
     :param text: The protostructure label to parse.
     :return: The parsed :class:`~httk.atomistic.models.bareprotostructure.bareprotostructure.BareProtostructure`.
@@ -350,6 +379,8 @@ def parse_bare_protostructure_label(text: str) -> "BareProtostructure":
     """
     from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
 
+    if _marks_undetermined(text):
+        return BareProtostructure.undetermined(text)
     _, fields, names = _split_label(text)
     if names is None:
         raise ValueError("a protostructure label needs a ':' species suffix")
@@ -494,6 +525,31 @@ def _parse_protonet(
     return _parse_it_number(fields[2]), letters, suffix.split("-") if colon else None, _parse_net(net_text)
 
 
+def _protonettype_parts(text: str) -> tuple[int, list[tuple[str, str]], list[tuple[int, int, int, int, int, int]]]:
+    """Return a protonettype label's IT number, site-ordered occupations and net rows, without a search."""
+    it_number, letters, names, net = _parse_protonet(text)
+    if names is not None:
+        raise ValueError("a protonettype label carries no ':' species suffix")
+    return (
+        it_number,
+        [(letter, anonymous_symbol(index)) for index, group in enumerate(letters) for letter in group],
+        net,
+    )
+
+
+def _protonetstructure_parts(
+    text: str,
+) -> tuple[int, list[tuple[str, Species]], list[tuple[int, int, int, int, int, int]]]:
+    """Return a protonetstructure label's IT number, site-ordered occupations and net rows, without a search."""
+    it_number, letters, names, net = _parse_protonet(text)
+    if names is None:
+        raise ValueError("a protonetstructure label needs a ':' species suffix")
+    if len(names) != len(letters):
+        raise ValueError(f"label has {len(letters)} class(es) but {len(names)} species name(s)")
+    occupations = [(letter, _species_from_class_name(name)) for name, group in zip(names, letters) for letter in group]
+    return it_number, occupations, net
+
+
 def parse_protonettype_label(text: str) -> "Protonettype":
     """Parse a strictly canonical protonettype label.
 
@@ -501,7 +557,8 @@ def parse_protonettype_label(text: str) -> "Protonettype":
     value is constructed (which validates and canonicalizes the net) and the whole label is
     re-rendered and compared with ``text``, which rejects leading zeros, unsorted or repeated
     groups, non-canonical ``@`` spellings and nets that are not the canonical one. The reserved characters ``- = # $ : / \\`` inside the
-    net and a second ``__`` are rejected.
+    net and a second ``__`` are rejected. An undetermined label gives its undetermined value
+    (:meth:`~httk.atomistic.Protonettype.undetermined`), without a search.
 
     :param text: The protonettype label to parse.
     :return: The parsed :class:`~httk.atomistic.Protonettype`.
@@ -509,11 +566,9 @@ def parse_protonettype_label(text: str) -> "Protonettype":
     """
     from httk.atomistic.models.protonettype.protonettype import Protonettype
 
-    it_number, letters, names, net = _parse_protonet(text)
-    if names is not None:
-        raise ValueError("a protonettype label carries no ':' species suffix")
-    occupations = [(letter, anonymous_symbol(index)) for index, group in enumerate(letters) for letter in group]
-    value = Protonettype(it_number, occupations, net)
+    if _marks_undetermined(text):
+        return Protonettype.undetermined(text)
+    value = Protonettype(*_protonettype_parts(text))
     if str(value.label) != text:
         raise ValueError(f"{text!r} is not a canonical protonettype label")
     return value
@@ -532,15 +587,9 @@ def parse_protonetstructure_label(text: str) -> "Protonetstructure":
     """
     from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
 
-    it_number, letters, names, net = _parse_protonet(text)
-    if names is None:
-        raise ValueError("a protonetstructure label needs a ':' species suffix")
-    if len(names) != len(letters):
-        raise ValueError(f"label has {len(letters)} class(es) but {len(names)} species name(s)")
-    occupations: list[tuple[str, Species]] = []
-    for name, group in zip(names, letters):
-        occupations.extend((letter, _species_from_class_name(name)) for letter in group)
-    value = Protonetstructure(it_number, occupations, net)
+    if _marks_undetermined(text):
+        return Protonetstructure.undetermined(text)
+    value = Protonetstructure(*_protonetstructure_parts(text))
     if str(value.label) != text:
         raise ValueError(f"{text!r} is not a canonical protonetstructure label")
     return value
@@ -572,3 +621,214 @@ def try_parse_protonetstructure(text: str) -> "Protonetstructure | None":
         return parse_protonetstructure_label(text)
     except ValueError:  # deliberately not CanonicalizationLimitError: an unchecked label reports the limit
         return None
+
+
+_NAMED_KINDS = frozenset({"bare_protostructure", "protostructure", "protonetstructure"})
+_REFINED_KINDS = frozenset({"prototype", "protostructure"})
+
+
+@dataclass(frozen=True)
+class _Undetermined:
+    """What an undetermined label determines; ``None`` where it does not.
+
+    ``occupations`` are those of a determined bare part: sorted as in the bare value for a refined
+    value whose geometry was not determined, in site order (class runs in label order) for a
+    protonet value whose net was not determined.
+    """
+
+    formulatype: str
+    spacegroup: Spacegroup | None
+    nsites: int | None
+    occupations: tuple[Any, ...] | None
+
+
+def _marks_undetermined(text: object) -> bool:
+    """Return whether a label text marks a part as undetermined: its last bare field or its net is ``X``."""
+    return isinstance(text, str) and text.partition(":")[0].endswith("_X")
+
+
+@lru_cache(maxsize=1024)
+def _parse_undetermined(text: str, kind: str) -> _Undetermined:
+    """Strictly parse the undetermined label of one label family, without any search.
+
+    :param text: The label text.
+    :param kind: The family's ``kind``.
+    :return: What the label determines.
+    :raises ValueError: If ``text`` is not an undetermined label of that family.
+    """
+    from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
+    from httk.atomistic.models.prototype.occupation import PrototypeOccupation
+
+    if not isinstance(text, str) or not text:
+        raise ValueError("label must be a non-empty string")
+    named, net = kind in _NAMED_KINDS, kind.startswith("protonet")
+    main, colon, suffix = text.partition(":")
+    if named != bool(colon):
+        raise ValueError(f"a {kind} label {'needs' if named else 'carries no'} ':' species suffix")
+    if net:
+        main, _, rest = main.partition("__")
+        if rest != "X":
+            raise ValueError(f"{text!r} is not an undetermined {kind} label: its net segment must be '__X'")
+    elif "__" in main:
+        raise ValueError(f"a {kind} label has no '__' net segment")
+    fields = main.split("_")
+    if fields[-1] != "X":
+        # a determined bare part: the net, or for a refined value the geometry, was not determined
+        if not net and kind not in _REFINED_KINDS:
+            raise ValueError(f"{text!r} is not an undetermined {kind} label")
+        bare = parse_bare_protostructure_label(f"{main}:{suffix}") if named else parse_bare_prototype_label(main)
+        if not net:
+            occupations: tuple[Any, ...] = bare.occupations
+        else:
+            groups = [_parse_group(token) for token in fields[3:]]
+            if named:
+                occupations = tuple(
+                    WyckoffOccupation(letter, _species_from_class_name(name))
+                    for name, group in zip(suffix.split("-"), groups, strict=True)
+                    for letter in group
+                )
+            else:
+                occupations = tuple(
+                    PrototypeOccupation(letter, anonymous_symbol(index))
+                    for index, group in enumerate(groups)
+                    for letter in group
+                )
+        return _Undetermined(fields[0], bare.spacegroup, bare.nsites_conventional, occupations)
+    spacegroup: Spacegroup | None = None
+    nsites: int | None = None
+    primitive = 0
+    if len(fields) == 4:
+        it_number = _parse_it_number(fields[2])
+        if str(it_number) != fields[2]:
+            raise ValueError(f"{text!r}: the space-group number {fields[2]!r} is not written canonically")
+        spacegroup = Spacegroup.standard(it_number)
+        match = _PEARSON.fullmatch(fields[1])
+        if match is None:
+            raise ValueError(f"{text!r}: {fields[1]!r} is not a Pearson symbol")
+        lattice_points = _LATTICE_POINTS[spacegroup.centring_type]
+        nsites = int(match[1]) * (3 if spacegroup.centring_type == "R" else 1)
+        if pearson_symbol(spacegroup, nsites) != fields[1]:
+            raise ValueError(f"{text!r} has Pearson symbol {fields[1]!r}, not one of group {spacegroup.it_number}")
+        if nsites % lattice_points:
+            raise ValueError(f"{text!r}: {nsites} conventional sites do not fill the {lattice_points} lattice points")
+        primitive = nsites // lattice_points
+    elif len(fields) != 2:
+        raise ValueError(
+            f"{text!r} is not an undetermined {kind} label: expected ANON_X or ANON_PEARSON_ITNUMBER_X before "
+            f"{'__X' if net else 'the end'}"
+        )
+    counts = [count for _, count in parse_anonymous_formula(fields[0])]
+    if nsites is not None and primitive % sum(counts):
+        raise ValueError(f"{text!r}: the primitive cell's sites are not a multiple of the Formulatype {fields[0]}")
+    if named:
+        names = suffix.split("-")
+        for name in names:
+            _species_from_class_name(name)
+        if len(names) != len(counts) or len(set(names)) != len(names):
+            raise ValueError(f"{text!r} needs one distinct species class name per Formulatype class")
+        if [name for _, name in sorted(zip((-count for count in counts), names, strict=True))] != names:
+            raise ValueError(f"{text!r}: names must be ordered by site count, largest first, then by name")
+    return _Undetermined(fields[0], spacegroup, nsites, None)
+
+
+def _render_undetermined(
+    counts: Mapping[str, int | Fraction], spacegroup: Spacegroup | None, *, named: bool, net: bool
+) -> str:
+    """Render an undetermined label whose Wyckoff part (and with ``spacegroup=None`` its symmetry) is unknown.
+
+    :param counts: Each class key (its species class name at the assigned levels) and its site count
+        in one cell; with a space group, the summed conventional multiplicity.
+    :param spacegroup: The standard-setting space group, or ``None`` when the symmetry is unknown.
+    :param named: Whether to close the label with the ``:`` species suffix.
+    :param net: Whether to add the protonet levels' ``__X``.
+    :return: The label text; classes are ordered by count, largest first, then by key.
+    """
+    ordered = sorted(counts, key=lambda key: (-counts[key], key))
+    coefficients = reduced_coefficients([Fraction(counts[key]) for key in ordered])
+    assert coefficients is not None  # a value has at least one class
+    text = render_anonymous(coefficients)
+    if spacegroup is not None:
+        text += f"_{pearson_symbol(spacegroup, int(sum(counts.values())))}_{spacegroup.it_number}"
+    text += "_X__X" if net else "_X"
+    return text + (":" + "-".join(ordered) if named else "")
+
+
+def _with_net_marker(label: str) -> str:
+    """Return a bare label, determined or not, with the undetermined net ``__X`` before any ``:`` suffix."""
+    main, colon, names = label.partition(":")
+    return f"{main}__X{colon}{names}"
+
+
+def _undetermined(value: Any) -> _Undetermined | None:
+    """Return what an undetermined label value's label determines, or ``None`` for a determined value."""
+    text = getattr(value, "_undetermined", None)
+    return None if text is None else _parse_undetermined(text, value.kind)
+
+
+def _unknown(value: object, part: str) -> NoReturn:
+    """Raise the error for a part that an undetermined value does not know."""
+    raise ValueError(
+        f"{type(value).__name__} {getattr(value, '_undetermined', None)!r} cannot give its {part}: "
+        "the value is undetermined (determined is False)"
+    )
+
+
+def _known[T](value: object, part: str, known: T | None) -> T:
+    """Return a part an undetermined value's label determines, or raise if it does not."""
+    if known is None:
+        _unknown(value, part)
+    return known
+
+
+def _erased_label(source: Any, kind: str) -> str | None:
+    """Return an undetermined source's label cut to the broader level ``kind``, or ``None`` if it is determined.
+
+    The label is cut as the levels nest: the names for an anonymous level, ``__X`` for a level
+    without a net. What remains is a determined or undetermined label of that level.
+
+    :param source: A label value, view or backend of a narrower level.
+    :param kind: The ``kind`` of the broader level.
+    :return: The cut label, or ``None`` for a determined source.
+    """
+    text = getattr(source, "_undetermined", None)
+    if text is None:
+        return None
+    if kind not in _NAMED_KINDS:
+        text = text.partition(":")[0]
+    if not kind.startswith("protonet"):
+        text = text.replace("__X", "", 1)
+    return text
+
+
+def _erased_undetermined_label(source: Any, kind: str) -> str | None:
+    """Return the undetermined label of an undetermined source at the broader level ``kind``.
+
+    ``None`` when the source is determined, or when the cut label is determined there (the bare
+    part of a value whose net, or a refined value whose geometry, was not determined).
+    """
+    text = _erased_label(source, kind)
+    if text is None or (kind not in _REFINED_KINDS and not _marks_undetermined(text)):
+        return None
+    return text
+
+
+def _erased_undetermined(source: Any, kind: str) -> Any | None:
+    """Return an undetermined source's value at the broader level ``kind``, or ``None`` if it is determined.
+
+    :param source: A label value, view or backend of a narrower level.
+    :param kind: The ``kind`` of the broader level.
+    :return: The determined or undetermined value of that level, or ``None``.
+    """
+    text = _erased_label(source, kind)
+    if text is None:
+        return None
+    if kind == "prototype":
+        from httk.atomistic.models.prototype.prototype import Prototype
+
+        return Prototype.undetermined(text)
+    parse = {
+        "bare_prototype": parse_bare_prototype_label,
+        "bare_protostructure": parse_bare_protostructure_label,
+        "protonettype": parse_protonettype_label,
+    }[kind]
+    return parse(text)

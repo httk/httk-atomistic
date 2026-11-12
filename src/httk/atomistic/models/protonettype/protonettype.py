@@ -5,7 +5,14 @@ from typing import ClassVar, Self
 
 from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.protonettype.backend import ProtonettypeBackend
-from httk.atomistic.models.prototype.notation import _net_row_key, class_order_key
+from httk.atomistic.models.prototype.notation import (
+    _known,
+    _net_row_key,
+    _parse_undetermined,
+    _undetermined,
+    _unknown,
+    class_order_key,
+)
 from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -107,6 +114,7 @@ class Protonettype(ProtonettypeBackend):
     """
 
     kind: ClassVar[str] = "protonettype"
+    _undetermined: str | None = None
 
     def __init__(
         self,
@@ -152,29 +160,65 @@ class Protonettype(ProtonettypeBackend):
         nops = len(self._spacegroup.symmetry_operations)
         self._net = _checked_net(net, len(self._occupations), nops, "Protonettype", writable=writable)
 
+    @classmethod
+    def undetermined(cls, label: str) -> "Protonettype":
+        """Return the undetermined protonettype of a label in which ``X`` marks what is not determined.
+
+        The canonicalisers return such a value when a part did not finish within its time budget; it
+        holds only its label: ``<Formulatype>_X__X``, ``<Formulatype>_<Pearson>_<number>_X__X``, or
+        the determined bare label followed by ``__X`` when only the net was not determined. Two
+        undetermined values are equal when their labels are; that does not mean their structures are
+        the same.
+
+        :param label: The undetermined label.
+        :return: The undetermined value, with ``determined`` false.
+        :raises ValueError: If ``label`` is not an undetermined protonettype label.
+        """
+        _parse_undetermined(label, cls.kind)
+        return Protonettype._undetermined_of(label)
+
+    @classmethod
+    def _undetermined_of(cls, label: str) -> "Protonettype":
+        """Build an undetermined value from a trusted label, without parsing it."""
+        instance = object.__new__(Protonettype)
+        instance._undetermined = label
+        return instance
+
     @property
     def spacegroup(self) -> Spacegroup:
         """Return the standard-setting space group."""
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "spacegroup", undetermined.spacegroup)
         return self._spacegroup
 
     @property
     def occupations(self) -> tuple[PrototypeOccupation, ...]:
         """Return the anonymous Wyckoff occupations in site order."""
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "occupations", undetermined.occupations)
         return self._occupations
 
     @property
     def net(self) -> tuple[tuple[int, int, int, int, int, int], ...]:
         """Return the net rows ``(i, j, k, n1, n2, n3)`` in label order."""
+        if _undetermined(self) is not None:
+            _unknown(self, "net")
         return self._net
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Protonettype):
             return NotImplemented
+        if self._undetermined is not None or other._undetermined is not None:
+            return self._undetermined == other._undetermined
         return (self.spacegroup, self.occupations, self.net) == (other.spacegroup, other.occupations, other.net)
 
     def __hash__(self) -> int:
+        if self._undetermined is not None:
+            return hash(self._undetermined)
         return hash((self.spacegroup, self.occupations, self.net))
 
     def __repr__(self) -> str:
+        if self._undetermined is not None:
+            return f"Protonettype.undetermined({self._undetermined!r})"
         pairs = tuple((o.wyckoff, o.label) for o in self.occupations)
         return f"Protonettype({self.spacegroup.it_number}, {pairs!r}, {self.net!r})"

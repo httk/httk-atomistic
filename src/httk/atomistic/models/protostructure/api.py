@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Self, cast
 
 from httk.atomistic.models.formula.formula_view import ChemicalFormulaView
 from httk.atomistic.models.formula.formulatype_view import FormulatypeView
-from httk.atomistic.models.prototype.notation import render_aflow_label
+from httk.atomistic.models.prototype.notation import _known, _undetermined, _unknown, render_aflow_label
 
 if TYPE_CHECKING:
     from httk.atomistic.models.protostructure.backend import ProtostructureBackend
@@ -70,7 +70,8 @@ class ProtostructureAPI(ABC):
         :param cache: Optional caller-scoped cache for reusable comparison preparation.
         :return: Whether the two values are compatible within ``delta``.
         :raises TypeError: If ``delta`` is not a real number.
-        :raises ValueError: If ``delta`` is negative or non-finite.
+        :raises ValueError: If ``delta`` is negative or non-finite, or either value is undetermined
+            (its geometry is not known).
         """
         import math
         from numbers import Real
@@ -95,6 +96,9 @@ class ProtostructureAPI(ABC):
             except (TypeError, ValueError):
                 return False
         left: ProtostructureBackend = self if isinstance(self, Protostructure) else ProtostructureView(self).unview()
+        for value in (left, resolved):
+            if not value.determined:
+                _unknown(value, "geometry")
         if left.spacegroup != resolved.spacegroup or left.occupations != resolved.occupations:
             return False
         if (
@@ -120,6 +124,17 @@ class ProtostructureAPI(ABC):
         except NoCommonRepresentation:
             return False
 
+    @property
+    def determined(self) -> bool:
+        """Return whether every part of the label was determined.
+
+        A canonicaliser that runs out of its time budget returns an undetermined value instead,
+        which holds only its label, with ``X`` for the part that is not determined (see
+        :meth:`~httk.atomistic.Protostructure.undetermined`). Its other parts raise ``ValueError``
+        when they are not known from the label.
+        """
+        return getattr(self, "_undetermined", None) is None
+
     def multiplicities(self) -> tuple[int, ...]:
         """Return tabulated standard-setting multiplicities for each occupation.
 
@@ -138,6 +153,8 @@ class ProtostructureAPI(ABC):
 
         :return: The conventional-cell site count.
         """
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "nsites_conventional", undetermined.nsites)
         return sum(self.multiplicities())
 
     @property

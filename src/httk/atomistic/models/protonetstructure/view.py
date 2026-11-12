@@ -22,7 +22,7 @@ class ProtonetstructureView(ProtonetstructureViewBase, Protonetstructure):
 
     _backend: ProtonetstructureBackend
     _resolved_protonetstructure: Protonetstructure | None
-    _DEFERRED_FIELDS = frozenset({"_spacegroup", "_occupations", "_net"})
+    _DEFERRED_FIELDS = frozenset({"_undetermined", "_spacegroup", "_occupations", "_net"})
 
     def __new__(cls, obj: Any = MISSING, **hints: Any) -> Self:
         if obj is MISSING:  # pickle/copy rebuild an empty instance; __setstate__ restores it

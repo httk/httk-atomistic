@@ -126,7 +126,11 @@ class StructureAPI(ABC):
         hand, to tell the hands apart. As for every label, the structure of species classes is
         classified.
 
-        :return: A standalone canonical protostructure value.
+        :return: A standalone canonical protostructure value; an undetermined one (see
+            :func:`~httk.atomistic.canonical_bare_protostructure`) if its Wyckoff part does not finish
+            within that function's default budget.
+        :raises CanonicalizationLimitError: If :func:`~httk.atomistic.canonical_asu`, which runs
+            first, exceeds its limit; it returns no undetermined value.
         """
         from httk.atomistic.models.bareprotostructure.view import BareProtostructureView
         from httk.atomistic.models.species.classes import _class_structure
@@ -146,7 +150,11 @@ class StructureAPI(ABC):
         hand, to tell the hands apart. As for every label, the structure of species classes is
         classified.
 
-        :return: A standalone canonical prototype value.
+        :return: A standalone canonical prototype value; an undetermined one (see
+            :func:`~httk.atomistic.canonical_bare_prototype`) if its Wyckoff part does not finish
+            within that function's default budget.
+        :raises CanonicalizationLimitError: If :func:`~httk.atomistic.canonical_asu`, which runs
+            first, exceeds its limit; it returns no undetermined value.
         """
         from httk.atomistic.models.bareprototype.view import BarePrototypeView
         from httk.atomistic.models.species.classes import _class_structure

@@ -26,7 +26,7 @@ class BarePrototypeView(BarePrototypeViewBase, BarePrototype):
     _resolved_prototype: BarePrototype | None
     _tolerance: float | None
     _limit_denominator: int | None
-    _DEFERRED_FIELDS = frozenset({"_spacegroup", "_occupations"})
+    _DEFERRED_FIELDS = frozenset({"_undetermined", "_spacegroup", "_occupations"})
 
     def __new__(
         cls,

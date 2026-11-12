@@ -1,7 +1,7 @@
 """Projection of refined protostructure values onto their bare classification."""
 
 from functools import cached_property
-from typing import Any, Self, cast
+from typing import TYPE_CHECKING, Any, Self, cast
 
 from httk.core import unwrap
 
@@ -10,6 +10,10 @@ from httk.atomistic.models.protonetstructure.backend import ProtonetstructureBac
 from httk.atomistic.models.protonetstructure.view_base import ProtonetstructureViewBase
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.view_base import ProtostructureViewBase
+from httk.atomistic.models.prototype.notation import _erased_undetermined, _erased_undetermined_label
+
+if TYPE_CHECKING:
+    from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
 
 
 class ProjectedBareProtostructure(BareProtostructureBackend):
@@ -45,6 +49,8 @@ class ProjectedBareProtostructure(BareProtostructureBackend):
     def _projected(self) -> Any:
         """Return the source, or for a protonetstructure its canonical bare protostructure."""
         source = self._source
+        if (erased := _erased_undetermined(source, "bare_protostructure")) is not None:
+            return erased
         if not isinstance(source, (ProtonetstructureBackend, ProtonetstructureViewBase)):
             return source
         from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
@@ -55,6 +61,15 @@ class ProjectedBareProtostructure(BareProtostructureBackend):
             BareProtostructure(value.spacegroup, value.occupations), prototype=False, preserve_chirality=True
         )
 
+    def resolve(self) -> "BareProtostructure":
+        """Return the standalone bare classification."""
+        from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
+
+        projected = self._projected
+        if isinstance(projected, BareProtostructure):
+            return projected
+        return BareProtostructure(projected.spacegroup, projected.occupations)
+
     @property
     def spacegroup(self):
         """Return the standard-setting space group."""
@@ -64,6 +79,11 @@ class ProjectedBareProtostructure(BareProtostructureBackend):
     def occupations(self):
         """Return the canonical discrete occupations."""
         return self._projected.occupations
+
+    @property
+    def _undetermined(self) -> str | None:
+        """Return the source's undetermined label cut to this level, ``None`` if determined here."""
+        return _erased_undetermined_label(self._source, "bare_protostructure")
 
     def unwrap(self) -> Any:
         """Return the retained refined source."""

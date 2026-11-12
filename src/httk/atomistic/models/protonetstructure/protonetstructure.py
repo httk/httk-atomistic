@@ -1,11 +1,12 @@
 """The immutable assigned-species protonetstructure value."""
 
 from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING, ClassVar, Self
+from typing import TYPE_CHECKING, ClassVar, Literal, Self
 
 from httk.atomistic.models.protonetstructure.backend import ProtonetstructureBackend
 from httk.atomistic.models.protonettype.protonettype import _checked_net, _class_runs, _standard
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
+from httk.atomistic.models.prototype.notation import _known, _parse_undetermined, _undetermined, _unknown
 from httk.atomistic.models.species.classes import _merges_classes, _species_class
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.symmetry.spacegroup import Spacegroup
@@ -42,6 +43,7 @@ class Protonetstructure(ProtonetstructureBackend):
     """
 
     kind: ClassVar[str] = "protonetstructure"
+    _undetermined: str | None = None
 
     def __init__(
         self,
@@ -87,7 +89,13 @@ class Protonetstructure(ProtonetstructureBackend):
         self._net = _checked_net(net, len(self._occupations), nops, "Protonetstructure", writable=writable)
 
     @classmethod
-    def from_asu(cls, asu: "ASUStructure", bonds: Iterable[tuple[int, int, int, int, int, int]]) -> "Protonetstructure":
+    def from_asu(
+        cls,
+        asu: "ASUStructure",
+        bonds: Iterable[tuple[int, int, int, int, int, int]],
+        *,
+        on_limit: Literal["undetermined", "raise"] = "undetermined",
+    ) -> "Protonetstructure":
         """Build a value from a standard-setting ASU structure and its covalent bonds.
 
         A bond ``(i, j, k, n1, n2, n3)`` joins the reference atom of ``asu.wyckoff_sites[i-1]``
@@ -99,20 +107,34 @@ class Protonetstructure(ProtonetstructureBackend):
         one member of an orbit is enough and repeats collapse. Which pairs are bonded is the
         caller's responsibility: ``~`` means a covalent bond of unspecified order, dative bonds
         counted as covalent. The result is the constructor's: the anonymous bare description is
-        kept and the net is canonicalized (see :class:`Protonetstructure`).
+        kept and the net is canonicalized (see :class:`Protonetstructure`), within 120 s or an
+        enclosing budget. When the net search runs out, the result is undetermined: the canonical
+        bare protostructure label with ``__X`` for the net
+        (``<bare protostructure label>__X:<names>``, see :meth:`undetermined`). The bare part is
+        then canonicalized after the search; under an enclosing budget it is canonicalized before
+        the search, within that budget, and the label is
+        ``<Formulatype>_<Pearson>_<number>_X__X:<names>`` if it did not finish.
 
         :param asu: The structure, in its space group's standard setting.
         :param bonds: The bonds ``(i, j, k, n1, n2, n3)``.
+        :param on_limit: ``"undetermined"`` for the undetermined value when the net search runs out
+            of its budget, or ``"raise"`` to raise
+            :class:`~httk.atomistic.CanonicalizationLimitError` instead.
         :return: The protonetstructure value.
-        :raises ValueError: If the setting is not standard, the cell (after the setting
-            transform) is left-handed in a Sohncke group, whose letters and bonds would then
-            describe the mirror image, a site retains a representative, a bond is malformed, out of range or bonds an atom to itself, the canonical net needs
-            a translation outside -5..+4 (D4), or two species share a class whose structure has
-            another space group or conventional cell than the declared one.
+        :raises ValueError: If the setting is not standard, the cell (after the setting transform)
+            is left-handed in a Sohncke group, whose letters and bonds would then describe the
+            mirror image, a site retains a representative, a bond is malformed, out of range or
+            bonds an atom to itself, the canonical net needs a translation outside -5..+4 (D4), or
+            two species share a class whose structure has another space group or conventional cell
+            than the declared one, or ``on_limit`` is unknown.
+        :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the net search runs out of
+            its budget.
         """
         from httk.atomistic.models.prototype.notation import class_order_key
+        from httk.atomistic.symmetry.limits import CanonicalizationLimitError, _active, _budget_scope, _check_on_limit
         from httk.atomistic.symmetry.protonet import _tables
 
+        _check_on_limit(on_limit)
         spacegroup = asu.spacegroup
         if not spacegroup.is_standard_setting:
             raise ValueError("Protonetstructure.from_asu requires the space group's standard setting")
@@ -179,33 +201,91 @@ class Protonetstructure(ProtonetstructureBackend):
             if a == b and g == (0, 0, 0, 0):
                 raise ValueError(f"bond {values!r} bonds an atom to itself")
             rows.add((a + 1, b + 1, g[0] + 1, g[1], g[2], g[3]))
-        return Protonetstructure(
-            spacegroup, [(sites[s].wyckoff, species[sites[s].species]) for s in order], sorted(rows)
-        )
+        from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
+        from httk.atomistic.models.prototype.notation import _with_net_marker
+        from httk.atomistic.symmetry.canonical_classification import _canonical_bare, _wyckoff_undetermined
+
+        occupations = [(sites[s].wyckoff, species[sites[s].species]) for s in order]
+        description = BareProtostructure(spacegroup, occupations)
+        bare = None
+        # an undetermined net bins by the canonical bare part (U4); under an enclosing budget that part
+        # must come first, or nothing would remain for it once the net search has run out
+        enclosed = _active.get() is not None
+        try:
+            with _budget_scope(None if enclosed else 120.0):
+                if enclosed and on_limit == "undetermined":
+                    bare = _canonical_bare(description, prototype=False, preserve_chirality=True)
+                return Protonetstructure(spacegroup, occupations, sorted(rows))
+        except CanonicalizationLimitError:
+            if on_limit == "raise":
+                raise
+        if not enclosed:  # without an enclosing budget the bare part runs unbounded; it is cheap
+            bare = _canonical_bare(description, prototype=False, preserve_chirality=True)
+        if bare is None:
+            text = _wyckoff_undetermined(description, named=True, net=True, preserve_chirality=True)
+        else:
+            text = _with_net_marker(str(bare.label))
+        return Protonetstructure._undetermined_of(text)
+
+    @classmethod
+    def undetermined(cls, label: str) -> "Protonetstructure":
+        """Return the undetermined protonetstructure of a label in which ``X`` marks what is not determined.
+
+        The canonicalisers return such a value when a part did not finish within its time budget; it
+        holds only its label: ``<Formulatype>_X__X:<names>``,
+        ``<Formulatype>_<Pearson>_<number>_X__X:<names>``, or the determined bare label followed by
+        ``__X:<names>`` when only the net was not determined. Two undetermined values are equal when
+        their labels are; that does not mean their structures are the same.
+
+        :param label: The undetermined label.
+        :return: The undetermined value, with ``determined`` false.
+        :raises ValueError: If ``label`` is not an undetermined protonetstructure label.
+        """
+        _parse_undetermined(label, cls.kind)
+        return Protonetstructure._undetermined_of(label)
+
+    @classmethod
+    def _undetermined_of(cls, label: str) -> "Protonetstructure":
+        """Build an undetermined value from a trusted label, without parsing it."""
+        instance = object.__new__(Protonetstructure)
+        instance._undetermined = label
+        return instance
 
     @property
     def spacegroup(self) -> Spacegroup:
         """Return the standard-setting space group."""
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "spacegroup", undetermined.spacegroup)
         return self._spacegroup
 
     @property
     def occupations(self) -> tuple[WyckoffOccupation, ...]:
         """Return the occupied Wyckoff positions in site order."""
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "occupations", undetermined.occupations)
         return self._occupations
 
     @property
     def net(self) -> tuple[tuple[int, int, int, int, int, int], ...]:
         """Return the net rows ``(i, j, k, n1, n2, n3)`` in label order."""
+        if _undetermined(self) is not None:
+            _unknown(self, "net")
         return self._net
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Protonetstructure):
             return NotImplemented
+        if self._undetermined is not None or other._undetermined is not None:
+            return self._undetermined == other._undetermined
         return (self.spacegroup, self.occupations, self.net) == (other.spacegroup, other.occupations, other.net)
 
     def __hash__(self) -> int:
+        if self._undetermined is not None:
+            return hash(self._undetermined)
         return hash((self.spacegroup, self.occupations, self.net))
 
     def __repr__(self) -> str:
+        if self._undetermined is not None:
+            return f"Protonetstructure.undetermined({self._undetermined!r})"
         pairs = tuple((o.wyckoff, o.species) for o in self.occupations)
         return f"Protonetstructure({self.spacegroup.it_number}, {pairs!r}, {self.net!r})"

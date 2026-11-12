@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
+from httk.atomistic.models.prototype.notation import _known, _parse_undetermined, _undetermined
 from httk.atomistic.models.species.classes import _class_sites, _merges_classes
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure
 from httk.atomistic.symmetry.spacegroup import Spacegroup
@@ -35,6 +36,7 @@ class Protostructure(ProtostructureBackend):
     _spacegroup: Spacegroup
     _occupations: tuple[WyckoffOccupation, ...]
     kind: ClassVar[str] = "protostructure"
+    _undetermined: str | None = None
 
     def __init__(
         self,
@@ -78,14 +80,43 @@ class Protostructure(ProtostructureBackend):
         self._representative = representative
         self._discriminator = discriminator
 
+    @classmethod
+    def undetermined(cls, label: str) -> "Protostructure":
+        """Return the undetermined protostructure of a label in which ``X`` marks what is not determined.
+
+        The canonicalisers return such a value when a part did not finish within its time budget; it
+        holds only its label (no representative, no discriminator): ``<Formulatype>_X:<names>``,
+        ``<Formulatype>_<Pearson>_<number>_X:<names>``, or the determined bare label when only the
+        geometry was not determined. Two undetermined values are equal when their labels are; that
+        does not mean their structures are the same.
+
+        :param label: The undetermined label.
+        :return: The undetermined value, with ``determined`` false.
+        :raises ValueError: If ``label`` is not an undetermined protostructure label.
+        """
+        _parse_undetermined(label, cls.kind)
+        return Protostructure._undetermined_of(label)
+
+    @classmethod
+    def _undetermined_of(cls, label: str) -> "Protostructure":
+        """Build an undetermined value from a trusted label, without parsing it."""
+        instance = object.__new__(Protostructure)
+        instance._undetermined = label
+        instance._representative = instance._discriminator = None
+        return instance
+
     @property
     def spacegroup(self) -> Spacegroup:
         """Return the standard-setting space group."""
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "spacegroup", undetermined.spacegroup)
         return self._spacegroup
 
     @property
     def occupations(self) -> tuple[WyckoffOccupation, ...]:
         """Return the canonical occupied Wyckoff positions."""
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "occupations", undetermined.occupations)
         return self._occupations
 
     @property
@@ -99,6 +130,8 @@ class Protostructure(ProtostructureBackend):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Protostructure):
             return NotImplemented
+        if self._undetermined is not None or other._undetermined is not None:
+            return self._undetermined == other._undetermined
         return (self._spacegroup, self._occupations, self._representative, self._discriminator) == (
             other._spacegroup,
             other._occupations,
@@ -107,9 +140,13 @@ class Protostructure(ProtostructureBackend):
         )
 
     def __hash__(self) -> int:
+        if self._undetermined is not None:
+            return hash(self._undetermined)
         return hash((self._spacegroup, self._occupations, self._discriminator))
 
     def __repr__(self) -> str:
+        if self._undetermined is not None:
+            return f"Protostructure.undetermined({self._undetermined!r})"
         pairs = ", ".join(f"{occupation.wyckoff}:{occupation.species.name}" for occupation in self._occupations)
         parts = [f"{self._spacegroup.setting!r}, {pairs}"]
         if self._representative is not None:

@@ -35,7 +35,7 @@ class ProtostructureLabel(ProtostructureViewBase, str):
         if isinstance(obj, cls):
             return obj
         backend = cls._prepare_backend(obj, hints)
-        text = render_protostructure_label(
+        text = getattr(backend, "_undetermined", None) or render_protostructure_label(
             backend.spacegroup, [(occupation.wyckoff, occupation.species.name) for occupation in backend.occupations]
         )
         instance = str.__new__(cls, text)
@@ -71,6 +71,8 @@ class ProtostructureLabel(ProtostructureViewBase, str):
         backend = self._backend
         if type(backend) is Protostructure:
             return backend
+        if (text := getattr(backend, "_undetermined", None)) is not None:
+            return Protostructure.undetermined(text)
         # The label does not encode optional class identity, but a label is still
         # a view of its backend.  Do not silently discard it on ``unview()``.
         return Protostructure(

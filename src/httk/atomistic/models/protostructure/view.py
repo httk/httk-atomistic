@@ -22,7 +22,7 @@ class ProtostructureView(ProtostructureViewBase, Protostructure):
 
     _backend: ProtostructureBackend
     _resolved_protostructure: Protostructure | None
-    _DEFERRED_FIELDS = frozenset({"_spacegroup", "_occupations", "_representative", "_discriminator"})
+    _DEFERRED_FIELDS = frozenset({"_undetermined", "_spacegroup", "_occupations", "_representative", "_discriminator"})
 
     def __new__(cls, obj: Any = MISSING, **hints: Any) -> Self:
         if obj is MISSING:

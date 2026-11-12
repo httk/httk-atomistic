@@ -11,6 +11,7 @@ from httk.atomistic.models.protonetstructure.backend import ProtonetstructureBac
 from httk.atomistic.models.protonetstructure.view_base import ProtonetstructureViewBase
 from httk.atomistic.models.protonettype.backend import ProtonettypeBackend
 from httk.atomistic.models.protonettype.protonettype import Protonettype
+from httk.atomistic.models.prototype.notation import _erased_undetermined, _erased_undetermined_label
 
 
 class DerivedProtonettype(ProtonettypeBackend):
@@ -36,6 +37,8 @@ class DerivedProtonettype(ProtonettypeBackend):
 
     @cached_property
     def _derived(self) -> Protonettype:
+        if (erased := _erased_undetermined(self._source, "protonettype")) is not None:
+            return erased
         runs = groupby(self._source.occupations, key=lambda o: o.species.name)
         occupations = [(o.wyckoff, anonymous_symbol(index)) for index, (_, run) in enumerate(runs) for o in run]
         # a protonetstructure's net is already canonical as an anonymous net (D3 only picks species)
@@ -59,6 +62,11 @@ class DerivedProtonettype(ProtonettypeBackend):
     def net(self):
         """Return the unchanged net rows."""
         return self._derived.net
+
+    @property
+    def _undetermined(self) -> str | None:
+        """Return the source's undetermined label cut to this level, ``None`` if determined here."""
+        return _erased_undetermined_label(self._source, "protonettype")
 
     def unwrap(self) -> Any:
         """Return the retained protonetstructure source."""

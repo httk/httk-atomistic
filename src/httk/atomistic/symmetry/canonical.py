@@ -470,14 +470,23 @@ def canonicalize(
         _checkpoint()
         result: ASUStructure | BarePrototype | BareProtostructure | Prototype | Protostructure
         try:
+            # this budget governs the classification canonicalisers, and canonicalize keeps raising on a limit
             if isinstance(structure, PrototypeBackend):
-                result = canonical_prototype(structure, preserve_chirality=preserve_chirality)
+                result = canonical_prototype(
+                    structure, preserve_chirality=preserve_chirality, timeout=None, on_limit="raise"
+                )
             elif isinstance(structure, ProtostructureBackend):
-                result = canonical_protostructure(structure, preserve_chirality=preserve_chirality)
+                result = canonical_protostructure(
+                    structure, preserve_chirality=preserve_chirality, timeout=None, on_limit="raise"
+                )
             elif isinstance(structure, BarePrototypeBackend):
-                result = canonical_bare_prototype(structure, preserve_chirality=preserve_chirality)
+                result = canonical_bare_prototype(
+                    structure, preserve_chirality=preserve_chirality, timeout=None, on_limit="raise"
+                )
             elif isinstance(structure, BareProtostructureBackend):
-                result = canonical_bare_protostructure(structure, preserve_chirality=preserve_chirality)
+                result = canonical_bare_protostructure(
+                    structure, preserve_chirality=preserve_chirality, timeout=None, on_limit="raise"
+                )
             elif symmetry == "declared":
                 result = _canonical_protostructure_asu(_declared_asu(structure), preserve_chirality=preserve_chirality)
             else:

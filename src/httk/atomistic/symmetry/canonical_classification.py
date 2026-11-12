@@ -10,7 +10,7 @@ from collections import deque
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from functools import cache
 from itertools import product
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from httk.core import FracVector
 
@@ -31,11 +31,23 @@ from httk.atomistic.models.protonettype.view import ProtonettypeView
 from httk.atomistic.models.protostructure.like import ProtostructureLike
 from httk.atomistic.models.protostructure.protostructure import Protostructure
 from httk.atomistic.models.protostructure.view import ProtostructureView
+from httk.atomistic.models.prototype.derived import _anonymous_occupations
 from httk.atomistic.models.prototype.like import PrototypeLike
-from httk.atomistic.models.prototype.notation import class_order_key
+from httk.atomistic.models.prototype.notation import (
+    _classes,
+    _marks_undetermined,
+    _protonetstructure_parts,
+    _protonettype_parts,
+    _render_undetermined,
+    _undetermined,
+    _with_net_marker,
+    class_order_key,
+    parse_bare_protostructure_label,
+    parse_bare_prototype_label,
+)
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.prototype.view import PrototypeView
-from httk.atomistic.models.species.classes import _class_sites
+from httk.atomistic.models.species.classes import _class_sites, _species_class
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structuretype.anonymize import dummy_species
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
@@ -43,7 +55,7 @@ from httk.atomistic.symmetry._wyckoff_actions import compile_wyckoff_action
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.canonical_protostructure import _canonical_protostructure_asu, _sohncke
 from httk.atomistic.symmetry.lift import _discrete_normalizer_translations, _resetting_preserves_group
-from httk.atomistic.symmetry.limits import _budget_scope, _checkpoint
+from httk.atomistic.symmetry.limits import CanonicalizationLimitError, _budget_scope, _check_on_limit, _checkpoint
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -267,8 +279,99 @@ def _canonical_bare(value: Any, *, prototype: bool, preserve_chirality: bool) ->
     return min(candidates, key=lambda item: item[0])[1]
 
 
+def _converted(view: Callable[[Any], Any], obj: Any) -> Any:
+    """Convert ``obj`` through ``view`` and materialize it: the symmetry stage, which recognizes a structure."""
+    return view(obj).unview()
+
+
+def _structure_classes(obj: Any) -> dict[str, int]:
+    """Return each species class of a structure-like source and its number of sites in the cell."""
+    from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+
+    view = UnitcellStructureView(obj)
+    species = {value.name: value for value in view.species}
+    counts: dict[str, int] = {}
+    for name in view.species_at_sites:
+        key = _species_class(species[name]).name
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _wyckoff_undetermined(value: Any, *, named: bool, net: bool, preserve_chirality: bool) -> str:
+    """Return the undetermined label of a value whose Wyckoff part was not determined.
+
+    The Formulatype, the Pearson symbol and the space-group number are kept; with
+    ``preserve_chirality=False`` the number is that of the lower enantiomorphic partner, as in
+    the determined label. The conventional class counts do not depend on the description.
+    """
+    occupations = [(o.wyckoff, o.species.name if named else o.label) for o in value.occupations]
+    counts = {key: count for key, (_, count) in _classes(value.spacegroup, occupations).items()}
+    target = _chirality_target(value.spacegroup, preserve_chirality)
+    return _render_undetermined(counts, target, named=named, net=net)
+
+
+def _canonical_undetermined(value: Any, family: Any, *, preserve_chirality: bool) -> Any:
+    """Canonicalize the part an undetermined value's label determines, keeping its ``X`` parts.
+
+    A determined bare part (of a value whose net, or for a refined value whose geometry, was not
+    determined) is canonicalized like any bare value. A label that keeps only the Pearson symbol
+    and the number maps the number as a determined label would: with ``preserve_chirality=False``
+    to the lower enantiomorphic partner, the Pearson symbol unchanged. A label without symmetry is
+    returned unchanged.
+    """
+    text, parts = value._undetermined, _undetermined(value)
+    assert parts is not None  # only called for an undetermined value
+    named = ":" in text
+    if parts.occupations is not None:
+        parse = parse_bare_protostructure_label if named else parse_bare_prototype_label
+        bare = _canonical_bare(
+            parse(text.replace("__X", "", 1)), prototype=not named, preserve_chirality=preserve_chirality
+        )
+        canonical = str(bare.label)
+        if family.kind.startswith("protonet"):
+            canonical = _with_net_marker(canonical)
+    elif parts.spacegroup is not None:
+        formulatype, pearson, _, rest = text.split("_", 3)
+        target = _chirality_target(parts.spacegroup, preserve_chirality)
+        canonical = f"{formulatype}_{pearson}_{target.it_number}_{rest}"
+    else:
+        return value
+    return value if canonical == text else family._undetermined_of(canonical)
+
+
+def _canonical_bare_of(
+    obj: Any, *, prototype: bool, preserve_chirality: bool, timeout: float | None, on_limit: str
+) -> Any:
+    """Run the symmetry and Wyckoff stages of one bare family under one budget (see the public functions)."""
+    _check_on_limit(on_limit)
+    family = BarePrototype if prototype else BareProtostructure
+    value = None
+    try:
+        with _budget_scope(timeout):
+            value = _converted(BarePrototypeView if prototype else BareProtostructureView, obj)
+            if not value.determined:
+                return _canonical_undetermined(value, family, preserve_chirality=preserve_chirality)
+            return _canonical_bare(
+                family(value.spacegroup, value.occupations), prototype=prototype, preserve_chirality=preserve_chirality
+            )
+    except CanonicalizationLimitError:
+        if on_limit == "raise":
+            raise
+        if value is not None and not value.determined:
+            return value
+        if value is None:
+            text = _render_undetermined(_structure_classes(obj), None, named=not prototype, net=False)
+        else:
+            text = _wyckoff_undetermined(value, named=not prototype, net=False, preserve_chirality=preserve_chirality)
+        return family._undetermined_of(text)
+
+
 def canonical_bare_protostructure(
-    obj: BareProtostructureLike, *, preserve_chirality: bool = True
+    obj: BareProtostructureLike,
+    *,
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+    on_limit: Literal["undetermined", "raise"] = "undetermined",
 ) -> BareProtostructure:
     """Return the finite-action canonical assigned bare classification.
 
@@ -278,15 +381,31 @@ def canonical_bare_protostructure(
         (improper) description is then used, so a crystal and its mirror image can get different
         labels. With ``False`` mirror descriptions are allowed and the higher member of an
         enantiomorphic pair maps to the lower one, so both hands get one label.
+    :param timeout: Cooperative seconds for the whole call, shared by its stages; ``None``
+        disables the deadline (an enclosing budget still applies). The 120 s default is new:
+        this function used to run without a deadline.
+    :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+        an undetermined value whose label has ``X`` in place of that stage's part and everything
+        after it (``<Formulatype>_X:<names>``, or
+        ``<Formulatype>_<Pearson>_<number>_X:<names>``), keeping every part already determined; ``"raise"`` raises
+        :class:`~httk.atomistic.CanonicalizationLimitError`.
     :return: A standalone canonical bare protostructure.
+    :raises ValueError: If ``on_limit`` is unknown or the input is invalid.
+    :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+        partial result is returned.
     """
-    value = BareProtostructureView(obj).unview()
-    return _canonical_bare(
-        BareProtostructure(value.spacegroup, value.occupations), prototype=False, preserve_chirality=preserve_chirality
+    return _canonical_bare_of(
+        obj, prototype=False, preserve_chirality=preserve_chirality, timeout=timeout, on_limit=on_limit
     )
 
 
-def canonical_bare_prototype(obj: BarePrototypeLike, *, preserve_chirality: bool = True) -> BarePrototype:
+def canonical_bare_prototype(
+    obj: BarePrototypeLike,
+    *,
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+    on_limit: Literal["undetermined", "raise"] = "undetermined",
+) -> BarePrototype:
     """Return the finite-action canonical anonymous bare classification.
 
     :param obj: A bare-prototype-like value, converted through its View;
@@ -295,11 +414,21 @@ def canonical_bare_prototype(obj: BarePrototypeLike, *, preserve_chirality: bool
         (improper) description is then used, so a crystal and its mirror image can get different
         labels. With ``False`` mirror descriptions are allowed and the higher member of an
         enantiomorphic pair maps to the lower one, so both hands get one label.
+    :param timeout: Cooperative seconds for the whole call, shared by its stages; ``None``
+        disables the deadline (an enclosing budget still applies). The 120 s default is new:
+        this function used to run without a deadline.
+    :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+        an undetermined value whose label has ``X`` in place of that stage's part and everything
+        after it (``<Formulatype>_X``, or ``<Formulatype>_<Pearson>_<number>_X``), keeping every
+        part already determined; ``"raise"`` raises
+        :class:`~httk.atomistic.CanonicalizationLimitError`.
     :return: A standalone canonical bare prototype.
+    :raises ValueError: If ``on_limit`` is unknown or the input is invalid.
+    :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+        partial result is returned.
     """
-    value = BarePrototypeView(obj).unview()
-    return _canonical_bare(
-        BarePrototype(value.spacegroup, value.occupations), prototype=True, preserve_chirality=preserve_chirality
+    return _canonical_bare_of(
+        obj, prototype=True, preserve_chirality=preserve_chirality, timeout=timeout, on_limit=on_limit
     )
 
 
@@ -371,8 +500,48 @@ def _protonetstructure_net(value: Protonetstructure, *, preserve_chirality: bool
     )
 
 
+def _protonet_input(view: Callable[[Any], Any], family: Any, obj: Any) -> Any:
+    """Convert a protonet input; a label string becomes its own description, without a search.
+
+    Parsing a label through its view would run the constructor's net search first, before the
+    bare part; here the label's own bare description and rows are taken as written (``_of``),
+    and :func:`_require_canonical_label` checks the text against the result afterwards.
+    """
+    if not isinstance(obj, str) or "__" not in obj or (":" in obj) != (family is Protonetstructure):
+        return view(obj).unview()  # not a label of this level: the view decides
+    if _marks_undetermined(obj):
+        return family.undetermined(obj)
+    if family is Protonettype:
+        return Protonettype._of(*_protonettype_parts(obj))
+    return Protonetstructure._of(*_protonetstructure_parts(obj))
+
+
+def _require_canonical_label(
+    obj: Any, value: Any, result: Any, net: Callable[..., Any], *, own_key: bool, kind: str
+) -> None:
+    """Reject a label string that is not the canonical label of its own description, as parsing it would.
+
+    With the canonical bare key and the hand kept (``own_key``) the canonical result is the label's
+    own value; otherwise the constructor's search over the label's own bare key decides, if the
+    budget still allows it.
+    """
+    if not isinstance(obj, str) or not value.determined:
+        return
+    if not own_key:
+        try:
+            result = net(value, preserve_chirality=True, own_bare=True)
+        except CanonicalizationLimitError:
+            return  # not decidable within the budget: the canonical result stands
+    if str(result.label) != obj:
+        raise ValueError(f"{obj!r} is not a canonical {kind} label")
+
+
 def canonical_protonettype(
-    obj: ProtonettypeLike, *, preserve_chirality: bool = True, timeout: float | None = 120.0
+    obj: ProtonettypeLike,
+    *,
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+    on_limit: Literal["undetermined", "raise"] = "undetermined",
 ) -> Protonettype:
     """Return the exact canonical anonymous bare prototype with its canonical bonding net.
 
@@ -388,27 +557,56 @@ def canonical_protonettype(
         (improper) description is then used, so a crystal and its mirror image can get different
         labels. With ``False`` mirror descriptions are allowed and the higher member of an
         enantiomorphic pair maps to the lower one, so both hands get one label.
-    :param timeout: Cooperative seconds for the search; ``None`` disables the deadline.
+    :param timeout: Cooperative seconds for the whole call, shared by its stages: the bare part
+        first, then the net search with what remains. ``None`` disables the deadline (an
+        enclosing budget still applies).
+    :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+        an undetermined value whose label has ``X`` in place of that stage's part and everything
+        after it (``<bare prototype label>__X`` when only the net is not determined,
+        else ``<Formulatype>_<Pearson>_<number>_X__X``), keeping every part already determined; ``"raise"`` raises
+        :class:`~httk.atomistic.CanonicalizationLimitError`.
     :return: A standalone canonical protonettype.
-    :raises ValueError: If the input is invalid, the canonical net needs a translation outside
-        -5..+4 that the notation cannot write, or the net search and the bare canonicalization
-        disagree on the bare prototype.
-    :raises CanonicalizationLimitError: If the search exceeds its limit; no partial result is returned.
+    :raises ValueError: If ``on_limit`` is unknown, the input is invalid, the canonical net needs a
+        translation outside -5..+4 that the notation cannot write, or the net search and the bare
+        canonicalization disagree on the bare prototype.
+    :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+        partial result is returned.
     """
-    with _budget_scope(timeout):
-        value = ProtonettypeView(obj).unview()  # inside: parsing a label string runs the net search
-        result = _protonettype_net(value, preserve_chirality=preserve_chirality, own_bare=False)
-        expected = canonical_bare_prototype(value.bare_prototype, preserve_chirality=preserve_chirality)
-    if result.bare_prototype != expected:
+    _check_on_limit(on_limit)
+    value = bare = None
+    try:
+        with _budget_scope(timeout):
+            value = _protonet_input(ProtonettypeView, Protonettype, obj)
+            if not value.determined:
+                return _canonical_undetermined(value, Protonettype, preserve_chirality=preserve_chirality)
+            bare = _canonical_bare(value.bare_prototype, prototype=True, preserve_chirality=preserve_chirality)
+            result = _protonettype_net(value, preserve_chirality=preserve_chirality, own_bare=False)
+            own_key = preserve_chirality and value.bare_prototype == bare
+            _require_canonical_label(obj, value, result, _protonettype_net, own_key=own_key, kind="protonettype")
+    except CanonicalizationLimitError:
+        if on_limit == "raise" or value is None:
+            raise
+        if not value.determined:
+            return value
+        if bare is None:
+            text = _wyckoff_undetermined(value, named=False, net=True, preserve_chirality=preserve_chirality)
+        else:
+            text = _with_net_marker(str(bare.label))
+        return Protonettype._undetermined_of(text)
+    if result.bare_prototype != bare:
         raise ValueError(
             f"protonet search reached bare prototype {result.bare_prototype.label} "
-            f"but the canonical bare prototype is {expected.label}"
+            f"but the canonical bare prototype is {bare.label}"
         )
     return result
 
 
 def canonical_protonetstructure(
-    obj: ProtonetstructureLike, *, preserve_chirality: bool = True, timeout: float | None = 120.0
+    obj: ProtonetstructureLike,
+    *,
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+    on_limit: Literal["undetermined", "raise"] = "undetermined",
 ) -> Protonetstructure:
     """Return the exact canonical assigned bare protostructure with its canonical bonding net.
 
@@ -426,19 +624,55 @@ def canonical_protonetstructure(
         (improper) description is then used, so a crystal and its mirror image can get different
         labels. With ``False`` mirror descriptions are allowed and the higher member of an
         enantiomorphic pair maps to the lower one, so both hands get one label.
-    :param timeout: Cooperative seconds for the search; ``None`` disables the deadline.
+    :param timeout: Cooperative seconds for the whole call, shared by its stages: the bare part
+        first, then the net search with what remains. ``None`` disables the deadline (an
+        enclosing budget still applies).
+    :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+        an undetermined value whose label has ``X`` in place of that stage's part and everything
+        after it (``<bare protostructure label>__X:<names>``, with the canonical
+        bare protostructure label, when only the net is not determined, else
+        ``<Formulatype>_<Pearson>_<number>_X__X:<names>``), keeping every part already determined; ``"raise"`` raises
+        :class:`~httk.atomistic.CanonicalizationLimitError`.
     :return: A standalone canonical protonetstructure.
-    :raises ValueError: If the input is invalid, the canonical net needs a translation outside
-        -5..+4 that the notation cannot write, or the net search and the bare canonicalization
-        disagree on the anonymous bare prototype.
-    :raises CanonicalizationLimitError: If the search exceeds its limit; no partial result is returned.
+    :raises ValueError: If ``on_limit`` is unknown, the input is invalid, the canonical net needs a
+        translation outside -5..+4 that the notation cannot write, or the net search and the bare
+        canonicalization disagree on the anonymous bare prototype.
+    :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+        partial result is returned.
     """
-    with _budget_scope(timeout):
-        value = ProtonetstructureView(obj).unview()  # inside: parsing a label string runs the net search
-        result = _protonetstructure_net(value, preserve_chirality=preserve_chirality, own_bare=False)
-        # the values themselves, not their bare_protostructure projections, which canonicalize again
-        expected = canonical_bare_prototype(value, preserve_chirality=preserve_chirality)
-        reached = canonical_bare_prototype(result, preserve_chirality=preserve_chirality)
+    _check_on_limit(on_limit)
+    value = bare = None
+    try:
+        with _budget_scope(timeout):
+            value = _protonet_input(ProtonetstructureView, Protonetstructure, obj)
+            if not value.determined:
+                return _canonical_undetermined(value, Protonetstructure, preserve_chirality=preserve_chirality)
+            bare = _canonical_bare(
+                BareProtostructure(value.spacegroup, value.occupations),
+                prototype=False,
+                preserve_chirality=preserve_chirality,
+            )
+            result = _protonetstructure_net(value, preserve_chirality=preserve_chirality, own_bare=False)
+            reached = canonical_bare_prototype(
+                result, preserve_chirality=preserve_chirality, timeout=None, on_limit="raise"
+            )
+            # the anonymous key leads the assigned one, so the erased canonical bare part is the canonical
+            # bare prototype
+            expected = BarePrototype(bare.spacegroup, _anonymous_occupations(bare.spacegroup, bare.occupations))
+            own_key = preserve_chirality and BarePrototypeView(value).unview() == expected
+            _require_canonical_label(
+                obj, value, result, _protonetstructure_net, own_key=own_key, kind="protonetstructure"
+            )
+    except CanonicalizationLimitError:
+        if on_limit == "raise" or value is None:
+            raise
+        if not value.determined:
+            return value
+        if bare is None:
+            text = _wyckoff_undetermined(value, named=True, net=True, preserve_chirality=preserve_chirality)
+        else:
+            text = _with_net_marker(str(bare.label))
+        return Protonetstructure._undetermined_of(text)
     if reached != expected:
         raise ValueError(
             f"protonet search reached bare prototype {reached.label} but the canonical bare prototype is {expected.label}"
@@ -532,7 +766,52 @@ def _template_representative(result: ASUStructure) -> FundamentalDomainTemplate:
     return FundamentalDomainTemplate(result.cell, result.spacegroup, sites, species, result.coordinate_precision)
 
 
-def canonical_protostructure(obj: ProtostructureLike, *, preserve_chirality: bool = True) -> Protostructure:
+def _canonical_refined_of(
+    obj: Any, *, prototype: bool, preserve_chirality: bool, timeout: float | None, on_limit: str
+) -> Any:
+    """Run the Wyckoff and geometry stages of one refined family under one budget (see the public functions)."""
+    _check_on_limit(on_limit)
+    family, bare_family = (Prototype, BarePrototype) if prototype else (Protostructure, BareProtostructure)
+    value: Any = None
+    bare: Any = None
+    try:
+        with _budget_scope(timeout):
+            value = (PrototypeView if prototype else ProtostructureView)(obj).unview()
+            if not value.determined:
+                return _canonical_undetermined(value, family, preserve_chirality=preserve_chirality)
+            bare = _canonical_bare(
+                bare_family(value.spacegroup, value.occupations),
+                prototype=prototype,
+                preserve_chirality=preserve_chirality,
+            )
+            if value.representative is None:
+                return family(bare.spacegroup, bare.occupations, discriminator=value.discriminator)
+            domain = value.representative._domain if prototype else value.representative
+            result = _canonical_protostructure_asu(
+                _exact_representative(domain), preserve_chirality=preserve_chirality, named=not prototype
+            )
+    except CanonicalizationLimitError:
+        if on_limit == "raise" or value is None:
+            raise
+        if not value.determined:
+            return value
+        if bare is None:
+            text = _wyckoff_undetermined(value, named=not prototype, net=False, preserve_chirality=preserve_chirality)
+        else:
+            text = str(bare.label)  # the geometry was not determined: nothing determined is discarded (U6)
+        return family._undetermined_of(text)
+    if prototype:
+        return Prototype(representative=_template_representative(result), discriminator=value.discriminator)
+    return Protostructure(representative=_structure_representative(result), discriminator=value.discriminator)
+
+
+def canonical_protostructure(
+    obj: ProtostructureLike,
+    *,
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+    on_limit: Literal["undetermined", "raise"] = "undetermined",
+) -> Protostructure:
     """Return the exact canonical assigned refined classification.
 
     :param obj: A protostructure-like value.
@@ -542,19 +821,32 @@ def canonical_protostructure(obj: ProtostructureLike, *, preserve_chirality: boo
         enantiomorphic pair maps to the lower one, so both hands get one label.
         The representative is right-handed; with ``True`` it is the crystal itself, with ``False``
         it can be its mirror image.
+    :param timeout: Cooperative seconds for the whole call, shared by its stages; ``None``
+        disables the deadline (an enclosing budget still applies). The 120 s default is new:
+        this function used to run without a deadline.
+    :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+        an undetermined value whose label has ``X`` in place of that stage's part and everything
+        after it (the canonical bare protostructure label itself, as an undetermined value
+        without representative, when only the geometry is not determined, else
+        ``<Formulatype>_<Pearson>_<number>_X:<names>``), keeping every part already determined; ``"raise"`` raises
+        :class:`~httk.atomistic.CanonicalizationLimitError`.
     :return: A standalone canonical protostructure.
+    :raises ValueError: If ``on_limit`` is unknown or the input is invalid.
+    :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+        partial result is returned.
     """
-    value = ProtostructureView(obj).unview()
-    if value.representative is None:
-        bare = canonical_bare_protostructure(value, preserve_chirality=preserve_chirality)
-        return Protostructure(bare.spacegroup, bare.occupations, discriminator=value.discriminator)
-    result = _canonical_protostructure_asu(
-        _exact_representative(value.representative), preserve_chirality=preserve_chirality
+    return _canonical_refined_of(
+        obj, prototype=False, preserve_chirality=preserve_chirality, timeout=timeout, on_limit=on_limit
     )
-    return Protostructure(representative=_structure_representative(result), discriminator=value.discriminator)
 
 
-def canonical_prototype(obj: PrototypeLike, *, preserve_chirality: bool = True) -> Prototype:
+def canonical_prototype(
+    obj: PrototypeLike,
+    *,
+    preserve_chirality: bool = True,
+    timeout: float | None = 120.0,
+    on_limit: Literal["undetermined", "raise"] = "undetermined",
+) -> Prototype:
     """Return the exact canonical anonymous refined classification.
 
     :param obj: A prototype-like value.
@@ -564,13 +856,20 @@ def canonical_prototype(obj: PrototypeLike, *, preserve_chirality: bool = True) 
         enantiomorphic pair maps to the lower one, so both hands get one label.
         The representative is right-handed; with ``True`` it is the crystal itself, with ``False``
         it can be its mirror image.
+    :param timeout: Cooperative seconds for the whole call, shared by its stages; ``None``
+        disables the deadline (an enclosing budget still applies). The 120 s default is new:
+        this function used to run without a deadline.
+    :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+        an undetermined value whose label has ``X`` in place of that stage's part and everything
+        after it (the canonical bare prototype label itself, as an undetermined value
+        without representative, when only the geometry is not determined, else
+        ``<Formulatype>_<Pearson>_<number>_X``), keeping every part already determined; ``"raise"`` raises
+        :class:`~httk.atomistic.CanonicalizationLimitError`.
     :return: A standalone canonical prototype.
+    :raises ValueError: If ``on_limit`` is unknown or the input is invalid.
+    :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+        partial result is returned.
     """
-    value = PrototypeView(obj).unview()
-    if value.representative is None:
-        bare = canonical_bare_prototype(value, preserve_chirality=preserve_chirality)
-        return Prototype(bare.spacegroup, bare.occupations, discriminator=value.discriminator)
-    result = _canonical_protostructure_asu(
-        _exact_representative(value.representative._domain), preserve_chirality=preserve_chirality, named=False
+    return _canonical_refined_of(
+        obj, prototype=True, preserve_chirality=preserve_chirality, timeout=timeout, on_limit=on_limit
     )
-    return Prototype(representative=_template_representative(result), discriminator=value.discriminator)

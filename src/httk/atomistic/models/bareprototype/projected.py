@@ -5,9 +5,11 @@ from typing import Any, Self
 from httk.core import unwrap
 
 from httk.atomistic.models.bareprototype.backend import BarePrototypeBackend
+from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 from httk.atomistic.models.protonettype.backend import ProtonettypeBackend
 from httk.atomistic.models.protonettype.view_base import ProtonettypeViewBase
 from httk.atomistic.models.prototype.backend import PrototypeBackend
+from httk.atomistic.models.prototype.notation import _erased_undetermined, _erased_undetermined_label
 from httk.atomistic.models.prototype.view_base import PrototypeViewBase
 
 
@@ -33,6 +35,12 @@ class ProjectedBarePrototype(BarePrototypeBackend):
     def __init__(self, obj: Any) -> None:
         self._source = obj
 
+    def resolve(self) -> BarePrototype:
+        """Return the standalone bare classification."""
+        if (erased := _erased_undetermined(self._source, "bare_prototype")) is not None:
+            return erased
+        return BarePrototype(self._source.spacegroup, self._source.occupations)
+
     @property
     def spacegroup(self):
         """Return the standard-setting space group."""
@@ -42,6 +50,11 @@ class ProjectedBarePrototype(BarePrototypeBackend):
     def occupations(self):
         """Return the canonical discrete occupations."""
         return self._source.occupations
+
+    @property
+    def _undetermined(self) -> str | None:
+        """Return the source's undetermined label cut to this level, ``None`` if determined here."""
+        return _erased_undetermined_label(self._source, "bare_prototype")
 
     def unwrap(self) -> Any:
         """Return the retained refined source."""

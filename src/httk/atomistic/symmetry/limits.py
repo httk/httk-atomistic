@@ -44,6 +44,16 @@ def _budget_scope(timeout: float | None) -> Iterator[_Budget]:
         _active.reset(token)
 
 
+def _check_on_limit(on_limit: str) -> None:
+    """Validate a canonicaliser's ``on_limit`` option.
+
+    :param on_limit: ``"undetermined"`` or ``"raise"``.
+    :raises ValueError: For any other value.
+    """
+    if on_limit not in ("undetermined", "raise"):
+        raise ValueError(f"on_limit must be 'undetermined' or 'raise', not {on_limit!r}")
+
+
 def _checkpoint() -> None:
     budget = _active.get()
     if budget is not None and budget.deadline is not None and time.monotonic() >= budget.deadline:

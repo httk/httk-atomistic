@@ -626,9 +626,14 @@ keeps any assigned description as given.
 
 `canonical_protonettype` and `canonical_protonetstructure` return the canonical
 value for any protonet-like input. Both take `preserve_chirality` (as the bare
-canonicalizers do) and `timeout`, the cooperative seconds allowed for the search
-(default 120, `None` disables it); a search that exceeds it raises
-`CanonicalizationLimitError`. The net is chosen before the species. A canonical
+canonicalizers do), `timeout`, the cooperative seconds allowed for the whole call,
+the bare part first and then the net search (default 120, `None` disables it), and
+`on_limit`: a call that exceeds the budget gives an
+[undetermined label](#undetermined-labels), or with `on_limit="raise"` raises
+`CanonicalizationLimitError`. A label string input is read as its own description,
+without the net search that parsing it would run; it is checked against the result
+afterwards, so a non-canonical label still raises `ValueError` when that can be
+decided within the budget. The net is chosen before the species. A canonical
 `Protonetstructure` is therefore canonicalized anonymously first, and species
 names only break ties between descriptions that give the identical net. When
 classes tie in site count and letters, its species-to-letter assignment, and so
@@ -685,6 +690,144 @@ Which projections are string operations:
   `BareProtostructureView` of a `Protonetstructure`, and its
   `bare_protostructure` property, re-canonicalize its occupations, so both equal {py:func}`~httk.atomistic.canonical_bare_protostructure`
   of the same value.
+
+### Undetermined labels
+
+The protonetstructure label is a database row index, so a structure must get a
+label even when a part of it cannot be determined within the time budget. The
+six canonicalizers ({py:func}`~httk.atomistic.canonical_bare_prototype`,
+{py:func}`~httk.atomistic.canonical_bare_protostructure`,
+{py:func}`~httk.atomistic.canonical_prototype`,
+{py:func}`~httk.atomistic.canonical_protostructure`,
+{py:func}`~httk.atomistic.canonical_protonettype`,
+{py:func}`~httk.atomistic.canonical_protonetstructure`) and
+{py:meth}`~httk.atomistic.Protonetstructure.from_asu` take
+`on_limit="undetermined"` (the default) or `"raise"`. With the default, a
+`CanonicalizationLimitError` inside the call gives an *undetermined* value of the
+same class instead. Its label has `X` in place of the first part that did not
+finish and of everything after it that depends on it; a label is built from left
+to right, and nothing already determined is discarded:
+
+| What could not be determined | Bare and refined label | Protonet label |
+| ---------------------------- | ---------------------- | -------------- |
+| only the net | determined | `<bare prototype label>__X` |
+| the geometry of a refined value | `<bare label>`, the value undetermined (no representative, no discriminator) | — |
+| the Wyckoff part | `<Formulatype>_<Pearson>_<number>_X` | the same, followed by `__X` |
+| the symmetry too | `<Formulatype>_X` | `<Formulatype>_X__X` |
+
+The last row is not reached in practice: recognition has no checkpoint (spglib cannot
+be interrupted), so a deadline that passes during it is noticed in the Wyckoff stage,
+which keeps the recognized group. `<Formulatype>_X` comes only from an explicit
+undetermined value or a limit raised while the input is converted.
+
+The assigned levels append `:<names>`. For K₂AgSbS₄ (COD 1509425) a timeout in
+the Wyckoff part gives `A4B2CD_oP32_34_X` and `A4B2CD_oP32_34_X__X:S-K-Ag-Sb`, in
+the net alone `A4B2CD_oP32_34_4c_abc_ab_c__X:S-K-Ag-Sb`.
+
+- The Wyckoff part is the choice among equivalent descriptions. The space-group
+  number and the Pearson symbol are kept whenever the symmetry analysis
+  finished; with `preserve_chirality=False` the number is the lower
+  enantiomorphic partner's, as in the determined label. An undetermined Wyckoff
+  part makes the net undetermined too, because the net's site numbers follow the
+  label.
+- After a determined bare part the names keep the bare protostructure label's
+  order (the canonical bare protostructure, see the previous section). Where the
+  Wyckoff part is undetermined they are ordered by site count, largest first,
+  then by name: K₂AgSbS₄ gives `S-K-Ag-Sb`.
+- The levels still nest as prefixes: `A4B2CD`, `A4B2CD_oP32_34_X`,
+  `A4B2CD_oP32_34_X__X`, and `A4B2CD`, `A4B2CD_X`, `A4B2CD_X__X`.
+- The protonet canonicalizers take no structures, so the last row's protonet
+  label is built with `Protonetstructure.undetermined(...)` from an undetermined
+  bare label.
+- `X` never stands in those positions of a determined label: the Formulatype
+  starts with `A`, the Pearson symbol with a lower-case letter, a Wyckoff group is
+  lower case, a net group starts with a digit, and no species class is named `X`.
+
+Only `CanonicalizationLimitError` gives an undetermined label; invalid input still
+raises `ValueError`. The stages of one call share one budget (`timeout`; an enclosing
+budget still applies), so the net search gets what remains after the bare part.
+
+```{note}
+The bare and refined canonicalizers now take `timeout` too, and its 120 s default is a
+change of behaviour: they used to run without a deadline. Pass `timeout=None` for the
+old behaviour.
+```
+
+{py:func}`~httk.atomistic.canonicalize` keeps raising, also for classification
+inputs, and so do the structure methods `canonical_bare_protostructure()` and
+`canonical_bare_prototype()` when their first step, `canonical_asu`, runs out; their
+bare stage can still return an undetermined value. `from_asu` keeps its constructor's
+120 s budget; a net that runs out bins with the *canonical* bare label, not with the
+input's description (under an enclosing budget the bare part is canonicalized before
+the net search, so that it gets a share of the budget).
+
+The determined part of an undetermined input is canonicalized too, with the call's
+`preserve_chirality`: a determined bare part like any bare value (it keeps its `__X`),
+a Wyckoff-level label maps its number to the lower enantiomorphic partner with
+`preserve_chirality=False` (the Pearson symbol is unchanged), and a label without
+symmetry is returned unchanged. So `AB_cF8_225_a_b__X:Na-Cl` canonicalizes to
+`AB_cF8_225_a_b__X:Cl-Na`, as `AB_cF8_225_a_b:Na-Cl` does to `AB_cF8_225_a_b:Cl-Na`.
+
+An undetermined value holds only its label text. `determined` is `False`;
+`label`, `anonymous_formula`, `repr` (`Protonettype.undetermined('A4B2CD_X__X')`,
+which round-trips), equality and hashing work; `spacegroup`,
+`nsites_conventional` and the Pearson symbol are known when the label names them,
+and `occupations` when it carries a determined bare part. Every other part raises
+`ValueError` naming `determined`; so does `similar`, which needs the geometry. A
+refined value whose geometry was not determined keeps neither its representative nor
+its discriminator: two such values with one bare label are equal. Its broader levels cut the label as the levels nest
+(the names for the anonymous levels, `__X` for the bare ones), so the canonicalizers
+and the views of those levels accept it: `canonical_protonettype` of
+`A4B2CD_oP32_34_X__X:S-K-Ag-Sb` is `A4B2CD_oP32_34_X__X`, and the
+`bare_protostructure` of `A4B2CD_oP32_34_4c_abc_ab_c__X:S-K-Ag-Sb` is the determined
+`A4B2CD_oP32_34_4c_abc_ab_c:S-K-Ag-Sb`. The public factories
+{py:meth}`~httk.atomistic.BarePrototype.undetermined` (and alike on the other five
+classes) and the label parsers and views accept undetermined labels and parse them
+strictly, without a search: the space-group number as written by the renderer, a
+Pearson symbol of that group whose count fills its lattice points and whose primitive
+count is a multiple of the Formulatype's, and the names. A determined bare part must be
+a canonical label string, as for determined bare labels; the canonicalizers then
+canonicalize it. Durable records store them in their `undetermined`
+field (identity-bearing when set; occupations and net then empty, the space-group
+fields set only when the label names the group).
+
+```{warning}
+Two undetermined values are equal when their labels are equal. That does **not**
+mean their structures or nets are the same: `A4B2CD_oP32_34_X__X` bins every
+structure whose Wyckoff part was not determined in that group and Pearson
+symbol, whatever its net.
+```
+
+No structure known in the fixtures exceeds the default budget any longer: the
+large molecules of the net search (D8), such as the P1 COD 1001844 with 32 sites,
+now finish in well under a second, and are only undetermined under a short
+budget.
+
+#### Structures that still get no label
+
+Every other failure raises, as before (U1):
+
+1. Recognition finds no symmetry within tolerance, or spglib is missing
+   (`ImportError`).
+2. Unsupported content: a species containing the unknown symbol `X`, assemblies,
+   `molecular=True` at the assigned levels, a stated `chemical_composition`, site
+   moments, or a cell that is not periodic in all three directions.
+3. Species without a class: a vacancy-only species, or a species whose
+   constituents of one symbol sum to more than one site.
+4. Disorder at levels that refuse it: a refined `Prototype` of a disordered
+   structure, and `Structuretype`.
+5. A retained imprecise `WyckoffSite` representative of a refined value.
+6. `from_asu` with a non-standard setting, a left-handed cell in a Sohncke group, a
+   retained site representative, a malformed or out-of-range bond, a self-bond,
+   or species that share a class whose structure has more symmetry than the
+   declared one.
+7. A canonical net that needs a translation outside −5..+4, which the notation
+   cannot write (D4).
+8. Internal invariant failures: the net search and the bare canonicalization
+   disagreeing on the bare prototype, or a table construction error.
+9. Limits on the `lift=True` paths and in `canonicalize`, which keep raising, and in
+   `canonical_asu` as the first step of the structure methods
+   `canonical_bare_protostructure()` and `canonical_bare_prototype()`.
 
 ## Similarity and atom travel
 

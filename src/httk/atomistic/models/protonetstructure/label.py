@@ -56,6 +56,8 @@ class ProtonetstructureLabel(ProtonetstructureViewBase, str):
         backend = self._backend
         if type(backend) is Protonetstructure:
             return backend
+        if (text := getattr(backend, "_undetermined", None)) is not None:
+            return Protonetstructure.undetermined(text)
         resolve = getattr(backend, "resolve", None)
         if resolve is not None:  # the label-string and derived backends hold a canonical value
             return resolve()

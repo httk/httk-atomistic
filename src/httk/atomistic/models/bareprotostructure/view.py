@@ -40,7 +40,7 @@ class BareProtostructureView(BareProtostructureViewBase, BareProtostructure):
     _transform: Any
     _tolerance: float | None
     _limit_denominator: int | None
-    _DEFERRED_FIELDS = frozenset({"_spacegroup", "_occupations"})
+    _DEFERRED_FIELDS = frozenset({"_undetermined", "_spacegroup", "_occupations"})
 
     def __new__(
         cls,
@@ -124,7 +124,7 @@ class BareProtostructureView(BareProtostructureViewBase, BareProtostructure):
         backend = object.__getattribute__(self, "_backend")
         if type(backend) is BareProtostructure:
             resolved = backend
-        elif isinstance(backend, RecognizedBareProtostructure):
+        elif isinstance(backend, RecognizedBareProtostructure) or hasattr(backend, "resolve"):
             resolved = backend.resolve()
         else:
             resolved = BareProtostructure(

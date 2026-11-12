@@ -3,6 +3,7 @@
 from typing import Any, Self
 
 from httk.atomistic.models.bareprotostructure.backend import BareProtostructureBackend
+from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
 from httk.atomistic.models.prototype.notation import try_parse_bare_protostructure
 
 
@@ -19,6 +20,8 @@ class BareProtostructureLabelString(BareProtostructureBackend):
 
     kind = "bare_protostructure"
     _raw: str
+    _value: BareProtostructure
+    _undetermined: str | None
 
     @classmethod
     def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
@@ -41,6 +44,11 @@ class BareProtostructureLabelString(BareProtostructureBackend):
         parsed = try_parse_bare_protostructure(obj)
         assert parsed is not None  # _backend_adopt guarantees a canonical label
         self._value = parsed
+        self._undetermined = parsed._undetermined
+
+    def resolve(self) -> BareProtostructure:
+        """Return the parsed value."""
+        return self._value
 
     @property
     def spacegroup(self):

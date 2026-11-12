@@ -19,6 +19,7 @@ class ProtonettypeLabelString(ProtonettypeBackend):
 
     kind = "protonettype"
     _raw: str
+    _undetermined: str | None
     _value: Protonettype
 
     @classmethod
@@ -36,10 +37,12 @@ class ProtonettypeLabelString(ProtonettypeBackend):
             return None
         instance = cls.__new__(cls)
         instance._raw, instance._value = obj, parsed  # parsed once: each parse canonicalizes the net
+        instance._undetermined = parsed._undetermined
         return instance
 
     def __init__(self, obj: str, **hints: Any) -> None:
         self._raw, self._value = obj, parse_protonettype_label(obj)
+        self._undetermined = self._value._undetermined
 
     def resolve(self) -> Protonettype:
         """Return the parsed canonical value."""

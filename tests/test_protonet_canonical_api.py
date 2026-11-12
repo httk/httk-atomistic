@@ -393,15 +393,26 @@ def test_unwritable_canonical_translation_is_reported(monkeypatch: pytest.Monkey
         canonical_protonetstructure(value)
 
 
-def test_tiny_timeout_raises_limit_error() -> None:
+def test_tiny_timeout_raises_limit_error_with_on_limit_raise() -> None:
     label = str(_value("k2agsbs4-frame").protonettype.label)
     _search.cache_clear()
     with pytest.raises(CanonicalizationLimitError):  # the budget also covers parsing the label
-        canonical_protonettype(label, timeout=1e-9)
+        canonical_protonettype(label, timeout=1e-9, on_limit="raise")
     with pytest.raises(CanonicalizationLimitError):
-        canonical_protonetstructure(_value("k2agsbs4-frame"), timeout=1e-9)
+        canonical_protonetstructure(_value("k2agsbs4-frame"), timeout=1e-9, on_limit="raise")
     with pytest.raises(CanonicalizationLimitError):
-        canonical_protonettype(_value("k2agsbs4-frame"), timeout=1e-9)
+        canonical_protonettype(_value("k2agsbs4-frame"), timeout=1e-9, on_limit="raise")
+
+
+def test_tiny_timeout_gives_undetermined_labels() -> None:
+    # nothing is determined within 1e-9 s; a label string is read as its own description, without a search,
+    # so the bare part is tried first and also runs out
+    label = str(_value("k2agsbs4-frame").protonettype.label)
+    _search.cache_clear()
+    assert str(canonical_protonettype(label, timeout=1e-9).label) == "A4B2CD_oP32_34_X__X"
+    assert str(canonical_protonettype(_value("k2agsbs4-frame"), timeout=1e-9).label) == "A4B2CD_oP32_34_X__X"
+    value = canonical_protonetstructure(_value("k2agsbs4-frame"), timeout=1e-9)
+    assert str(value.label) == "A4B2CD_oP32_34_X__X:S-K-Ag-Sb" and not value.determined
 
 
 # ---------------------------------------------------------------------------------------------

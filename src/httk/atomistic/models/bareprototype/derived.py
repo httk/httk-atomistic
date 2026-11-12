@@ -14,6 +14,7 @@ from httk.atomistic.models.protonetstructure.view_base import ProtonetstructureV
 from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.view_base import ProtostructureViewBase
 from httk.atomistic.models.prototype.derived import _anonymous_occupations
+from httk.atomistic.models.prototype.notation import _erased_undetermined, _erased_undetermined_label
 
 
 class DerivedBarePrototype(BarePrototypeBackend):
@@ -50,6 +51,8 @@ class DerivedBarePrototype(BarePrototypeBackend):
 
     @cached_property
     def _derived(self) -> BarePrototype:
+        if (erased := _erased_undetermined(self._source, "bare_prototype")) is not None:
+            return erased
         return BarePrototype(
             self._source.spacegroup, _anonymous_occupations(self._source.spacegroup, self._source.occupations)
         )
@@ -67,6 +70,11 @@ class DerivedBarePrototype(BarePrototypeBackend):
     def occupations(self):
         """Return canonical anonymous occupations."""
         return self._derived.occupations
+
+    @property
+    def _undetermined(self) -> str | None:
+        """Return the source's undetermined label cut to this level, ``None`` if determined here."""
+        return _erased_undetermined_label(self._source, "bare_prototype")
 
     def unwrap(self) -> Any:
         """Return the retained assigned source."""

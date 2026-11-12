@@ -811,8 +811,12 @@ best ones.
   only relative to the cell.
 - **Numbering blow-up.** The numbering search is exact but exponential in the
   worst case, with many interchangeable, similarly connected sites. The whole
-  search runs under the cooperative `timeout` (default 120 seconds) and raises
-  `CanonicalizationLimitError` instead of returning a partial answer.
+  call runs under the cooperative `timeout` (default 120 seconds), the bare part
+  first and the net search with what remains. No partial net is returned: with
+  the default `on_limit="undetermined"` the result is an undetermined value whose
+  label keeps every determined part and has `X` for the rest
+  (`<bare label>__X`, see [undetermined labels](prototypes.md#undetermined-labels));
+  `on_limit="raise"` raises `CanonicalizationLimitError`.
 - **Translation range.** A label can write a translation only in -5..+4 per axis.
   Input rows and bonds take any integer translation, and gauge moves absorb
   unreduced free parameters; a canonical net that still needs a longer
@@ -846,8 +850,11 @@ best ones.
 
 ## Limits, completion and migration
 
-`canonicalize` and `search_supergroups` default to `timeout=120.0` seconds;
-`None` disables the deadline. A positive finite value is required. The clock is
+`canonicalize`, `search_supergroups` and the six classification-family
+canonicalizers default to `timeout=120.0` seconds; `None` disables the deadline.
+The classification-family canonicalizers return an undetermined label on a limit
+unless called with `on_limit="raise"` (see {doc}`prototypes`); `canonicalize`
+always raises. A positive finite value is required. The clock is
 monotonic. A scoped `ContextVar` isolates concurrent callers and restores the
 previous scope even after exceptions; nested scopes cannot extend an enclosing
 deadline. Checkpoints cover recognition sweeps and fitting, anonymous origins,

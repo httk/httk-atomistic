@@ -10,7 +10,11 @@ from httk.atomistic.models.protostructure.backend import ProtostructureBackend
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
 from httk.atomistic.models.protostructure.view_base import ProtostructureViewBase
 from httk.atomistic.models.prototype.backend import PrototypeBackend
-from httk.atomistic.models.prototype.notation import canonical_label_map
+from httk.atomistic.models.prototype.notation import (
+    _erased_undetermined,
+    _erased_undetermined_label,
+    canonical_label_map,
+)
 from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.models.prototype.prototype import Prototype
 from httk.atomistic.models.species.species import Species
@@ -84,6 +88,8 @@ class DerivedPrototype(PrototypeBackend):
     @cached_property
     def _derived(self) -> Prototype:
         source = self._source
+        if (erased := _erased_undetermined(source, "prototype")) is not None:
+            return erased
         value = source._backend if isinstance(source, ProtostructureViewBase) else source
         occupations = _anonymous_occupations(value.spacegroup, value.occupations)
         representative = value.representative
@@ -108,6 +114,11 @@ class DerivedPrototype(PrototypeBackend):
     @property
     def discriminator(self):
         return self._derived.discriminator
+
+    @property
+    def _undetermined(self) -> str | None:
+        """Return the source's undetermined label cut to this level, ``None`` if determined here."""
+        return _erased_undetermined_label(self._source, "prototype")
 
     def unwrap(self) -> Any:
         return unwrap(self._source)

@@ -35,7 +35,7 @@ class BareProtostructureLabel(BareProtostructureViewBase, str):
         if isinstance(obj, cls):
             return obj
         backend = cls._prepare_backend(obj, hints)
-        text = render_protostructure_label(
+        text = getattr(backend, "_undetermined", None) or render_protostructure_label(
             backend.spacegroup, [(occupation.wyckoff, occupation.species.name) for occupation in backend.occupations]
         )
         instance = str.__new__(cls, text)
@@ -60,6 +60,8 @@ class BareProtostructureLabel(BareProtostructureViewBase, str):
         backend = self._backend
         if type(backend) is BareProtostructure:
             return backend
+        if (text := getattr(backend, "_undetermined", None)) is not None:
+            return BareProtostructure.undetermined(text)
         return BareProtostructure(backend.spacegroup, backend.occupations)
 
     def unwrap(self) -> Any:

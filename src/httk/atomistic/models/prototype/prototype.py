@@ -5,6 +5,7 @@ from typing import ClassVar
 
 from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 from httk.atomistic.models.prototype.backend import PrototypeBackend
+from httk.atomistic.models.prototype.notation import _known, _parse_undetermined, _undetermined
 from httk.atomistic.models.prototype.occupation import PrototypeOccupation
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
 from httk.atomistic.symmetry.spacegroup import Spacegroup
@@ -28,6 +29,7 @@ class Prototype(PrototypeBackend):
     """
 
     kind: ClassVar[str] = "prototype"
+    _undetermined: str | None = None
 
     def __init__(
         self,
@@ -83,12 +85,41 @@ class Prototype(PrototypeBackend):
         self._representative = representative
         self._discriminator = discriminator
 
+    @classmethod
+    def undetermined(cls, label: str) -> "Prototype":
+        """Return the undetermined prototype of a label in which ``X`` marks what is not determined.
+
+        The canonicalisers return such a value when a part did not finish within its time budget; it
+        holds only its label (no representative, no discriminator): ``<Formulatype>_X``,
+        ``<Formulatype>_<Pearson>_<number>_X``, or the determined bare label when only the geometry
+        was not determined. Two undetermined values are equal when their labels are; that does not
+        mean their structures are the same.
+
+        :param label: The undetermined label.
+        :return: The undetermined value, with ``determined`` false.
+        :raises ValueError: If ``label`` is not an undetermined prototype label.
+        """
+        _parse_undetermined(label, cls.kind)
+        return Prototype._undetermined_of(label)
+
+    @classmethod
+    def _undetermined_of(cls, label: str) -> "Prototype":
+        """Build an undetermined value from a trusted label, without parsing it."""
+        instance = object.__new__(Prototype)
+        instance._undetermined = label
+        instance._representative = instance._discriminator = None
+        return instance
+
     @property
     def spacegroup(self) -> Spacegroup:
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "spacegroup", undetermined.spacegroup)
         return self._spacegroup
 
     @property
     def occupations(self) -> tuple[PrototypeOccupation, ...]:
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "occupations", undetermined.occupations)
         return self._occupations
 
     @property
@@ -102,6 +133,8 @@ class Prototype(PrototypeBackend):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Prototype):
             return NotImplemented
+        if self._undetermined is not None or other._undetermined is not None:
+            return self._undetermined == other._undetermined
         return (self._spacegroup, self._occupations, self._representative, self._discriminator) == (
             other._spacegroup,
             other._occupations,
@@ -110,9 +143,13 @@ class Prototype(PrototypeBackend):
         )
 
     def __hash__(self) -> int:
+        if self._undetermined is not None:
+            return hash(self._undetermined)
         return hash((self._spacegroup, self._occupations, self._discriminator))
 
     def __repr__(self) -> str:
+        if self._undetermined is not None:
+            return f"Prototype.undetermined({self._undetermined!r})"
         pairs = ", ".join(f"{value.wyckoff}:{value.label}" for value in self._occupations)
         parts = [f"{self._spacegroup.setting!r}, {pairs}"]
         if self._representative is not None:

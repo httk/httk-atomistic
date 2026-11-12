@@ -20,7 +20,7 @@ import httk.atomistic.models.prototype.backend
 import httk.atomistic.models.prototype.view_base
 from httk.atomistic.composition import _site_data
 from httk.atomistic.models.formula.backend import ChemicalFormulaBackend
-from httk.atomistic.models.formula.notation import anonymous_symbol
+from httk.atomistic.models.formula.notation import anonymous_symbol, parse_anonymous_formula
 from httk.atomistic.models.formula.structure import StructureComposition
 from httk.atomistic.models.formula.wyckoff import WyckoffComposition
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
@@ -90,7 +90,10 @@ class SiteCountFormula(ChemicalFormulaBackend):
     @cached_property
     def _amounts(self) -> tuple[tuple[str, Fraction], ...]:
         source = self._source
-        if isinstance(source, _WYCKOFF_BACKENDS):
+        if isinstance(source, _WYCKOFF_BACKENDS) and not source.determined:
+            # an undetermined label value still names its Formulatype
+            counts = [Fraction(count) for _, count in parse_anonymous_formula(str(source.label).split("_", 1)[0])]
+        elif isinstance(source, _WYCKOFF_BACKENDS):
             occupations = [
                 (o.wyckoff, o.species.name if isinstance(o, WyckoffOccupation) else o.label) for o in source.occupations
             ]

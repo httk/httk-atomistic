@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 
 from httk.atomistic.models.bareprotostructure.backend import BareProtostructureBackend
 from httk.atomistic.models.protostructure.occupation import WyckoffOccupation
+from httk.atomistic.models.prototype.notation import _known, _parse_undetermined, _undetermined, _unknown
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 
@@ -21,6 +22,7 @@ class BareProtostructure(BareProtostructureBackend):
     """
 
     kind: ClassVar[str] = "bare_protostructure"
+    _undetermined: str | None = None
 
     def __init__(
         self, spacegroup: Spacegroup | int, occupations: Sequence[WyckoffOccupation | tuple[str, Any]]
@@ -45,24 +47,57 @@ class BareProtostructure(BareProtostructureBackend):
                 raise ValueError(str(exc)) from exc
         self._occupations = tuple(sorted(raw, key=lambda value: (value.species.name, value.wyckoff)))
 
+    @classmethod
+    def undetermined(cls, label: str) -> "BareProtostructure":
+        """Return the undetermined bare protostructure of a label in which ``X`` marks what is not determined.
+
+        The canonicalisers return such a value when a part did not finish within its time budget; it
+        holds only its label, ``<Formulatype>_X:<names>`` or
+        ``<Formulatype>_<Pearson>_<number>_X:<names>``. Two undetermined values are equal when their
+        labels are; that does not mean their structures are the same.
+
+        :param label: The undetermined label.
+        :return: The undetermined value, with ``determined`` false.
+        :raises ValueError: If ``label`` is not an undetermined bare protostructure label.
+        """
+        _parse_undetermined(label, cls.kind)
+        return BareProtostructure._undetermined_of(label)
+
+    @classmethod
+    def _undetermined_of(cls, label: str) -> "BareProtostructure":
+        """Build an undetermined value from a trusted label, without parsing it."""
+        instance = object.__new__(BareProtostructure)
+        instance._undetermined = label
+        return instance
+
     @property
     def spacegroup(self) -> Spacegroup:
         """Return the standard-setting space group."""
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "spacegroup", undetermined.spacegroup)
         return self._spacegroup
 
     @property
     def occupations(self) -> tuple[WyckoffOccupation, ...]:
         """Return the canonical occupied Wyckoff positions."""
+        if _undetermined(self) is not None:
+            _unknown(self, "occupations")
         return self._occupations
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, BareProtostructure):
             return NotImplemented
+        if self._undetermined is not None or other._undetermined is not None:
+            return self._undetermined == other._undetermined
         return (self.spacegroup, self.occupations) == (other.spacegroup, other.occupations)
 
     def __hash__(self) -> int:
+        if self._undetermined is not None:
+            return hash(self._undetermined)
         return hash((self.spacegroup, self.occupations))
 
     def __repr__(self) -> str:
+        if self._undetermined is not None:
+            return f"BareProtostructure.undetermined({self._undetermined!r})"
         pairs = ", ".join(f"{value.wyckoff}:{value.species.name}" for value in self.occupations)
         return f"BareProtostructure({self.spacegroup.setting!r}, {pairs})"

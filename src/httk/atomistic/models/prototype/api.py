@@ -4,7 +4,13 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Self, cast
 
 from httk.atomistic.models.formula.formulatype_view import FormulatypeView
-from httk.atomistic.models.prototype.notation import pearson_symbol, render_prototype_label
+from httk.atomistic.models.prototype.notation import (
+    _known,
+    _undetermined,
+    _unknown,
+    pearson_symbol,
+    render_prototype_label,
+)
 
 if TYPE_CHECKING:
     from httk.atomistic.models.prototype.backend import PrototypeBackend
@@ -39,11 +45,24 @@ class PrototypeAPI(ABC):
         """Return an optional geometrical-class discriminator."""
         return None
 
+    @property
+    def determined(self) -> bool:
+        """Return whether every part of the label was determined.
+
+        A canonicaliser that runs out of its time budget returns an undetermined value instead,
+        which holds only its label, with ``X`` for the part that is not determined (see
+        :meth:`~httk.atomistic.Prototype.undetermined`). Its other parts raise ``ValueError``
+        when they are not known from the label.
+        """
+        return getattr(self, "_undetermined", None) is None
+
     def multiplicities(self) -> tuple[int, ...]:
         return tuple(self.spacegroup.wyckoff_position(value.wyckoff).multiplicity for value in self.occupations)
 
     @property
     def nsites_conventional(self) -> int:
+        if (undetermined := _undetermined(self)) is not None:
+            return _known(self, "nsites_conventional", undetermined.nsites)
         return sum(self.multiplicities())
 
     @property
@@ -65,6 +84,8 @@ class PrototypeAPI(ABC):
         return self
 
     def _prototype_label_text(self) -> str:
+        if (text := getattr(self, "_undetermined", None)) is not None:
+            return text
         return render_prototype_label(self.spacegroup, [(value.wyckoff, value.label) for value in self.occupations])
 
     def similar(
@@ -91,7 +112,8 @@ class PrototypeAPI(ABC):
         :param cache: Optional caller-scoped cache for reusable comparison preparation.
         :return: Whether the two values are compatible within ``delta``.
         :raises TypeError: If ``delta`` is not a real number.
-        :raises ValueError: If ``delta`` is negative or non-finite.
+        :raises ValueError: If ``delta`` is negative or non-finite, or either value is undetermined
+            (its geometry is not known).
         """
         import math
         from numbers import Real
@@ -116,6 +138,9 @@ class PrototypeAPI(ABC):
             except (TypeError, ValueError):
                 return False
         left: PrototypeBackend = self if isinstance(self, Prototype) else PrototypeView(self).unview()
+        for value in (left, resolved):
+            if not value.determined:
+                _unknown(value, "geometry")
         if left.spacegroup != resolved.spacegroup or left.occupations != resolved.occupations:
             return False
         if (

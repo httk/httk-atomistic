@@ -51,6 +51,8 @@ class BarePrototypeLabel(BarePrototypeViewBase, str):
         backend = self._backend
         if type(backend) is BarePrototype:
             return backend
+        if (text := getattr(backend, "_undetermined", None)) is not None:
+            return BarePrototype.undetermined(text)
         return BarePrototype(backend.spacegroup, backend.occupations)
 
     def unwrap(self) -> Any:
