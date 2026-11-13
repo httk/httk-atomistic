@@ -67,7 +67,13 @@ import itertools
 import math
 import re
 from collections.abc import Iterable, Sequence
-from typing import SupportsFloat
+from fractions import Fraction
+from typing import TYPE_CHECKING, Any, SupportsFloat
+
+if TYPE_CHECKING:  # the structure helpers import lazily: notation reads this module, and protonet imports it
+    from httk.atomistic.models.structure.asu import FundamentalDomainStructure, SiteBond, WyckoffSite
+    from httk.atomistic.symmetry.protonet import _Element, _GroupTables
+    from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 __all__: list[str] = []
 
@@ -179,20 +185,29 @@ def _detect(vectors: Iterable[Iterable[SupportsFloat]]) -> tuple[str | None, flo
     for v in floats:
         if len(v) != 3 or not any(v):
             raise ValueError(f"a bond vector must be three components, not all zero; got {v!r}")
-    n = len(floats)
-    if n < 2:
+    return _detect_angles(len(floats), _sorted_angles(floats))
+
+
+def _detect_angles(count: int, angles: Sequence[float]) -> tuple[str | None, float | None]:
+    """Return the baseline shape and misfit of ``count`` bonds from their sorted pair angles.
+
+    :param count: The number of bonds.
+    :param angles: The ``count * (count - 1) / 2`` angles between the bond directions, in degrees,
+        sorted ascending.
+    :return: As :func:`_detect`.
+    """
+    if count < 2:
         return None, None
-    angles = _sorted_angles(floats)
-    if n == 2:
+    if count == 2:
         return ("L2" if round(angles[0], 6) >= _LINEAR_FROM else "A2"), None
-    if n not in _IDEAL_ANGLES:
-        return f"I{n}", None
+    if count not in _IDEAL_ANGLES:
+        return f"I{count}", None
     best_name, best = "", math.inf
-    for name, ideal in _IDEAL_ANGLES[n].items():  # table order breaks ties
+    for name, ideal in _IDEAL_ANGLES[count].items():  # table order breaks ties
         m = _misfit(angles, ideal)
         if m < best:
             best_name, best = name, m
-    return (best_name if best <= _IRREGULAR_ABOVE else f"I{n}"), best
+    return (best_name if best <= _IRREGULAR_ABOVE else f"I{count}"), best
 
 
 def _bond_count(symbol: str) -> int:
@@ -230,3 +245,186 @@ def _written(symbol: str | None) -> str:
     if symbol is None:
         return ""
     return "" if _DEFAULTS.get(_bond_count(symbol)) == symbol else symbol
+
+
+def _check_shape(symbol: str, count: int) -> None:
+    """Check a supplied shape symbol against the bond count of its site.
+
+    :param symbol: The shape symbol.
+    :param count: The site's bond count.
+    :raises ValueError: If ``symbol`` is unknown, the site has fewer than two bonds, or the
+        symbol's number is not ``count``.
+    """
+    if not _is_known(symbol):
+        raise ValueError(f"unknown shape symbol {symbol!r}")
+    if count < 2:
+        raise ValueError(f"shape {symbol!r} given for a site with {count} bond(s); only two or more bonds have a shape")
+    if _bond_count(symbol) != count:
+        raise ValueError(f"shape {symbol!r} is for {_bond_count(symbol)} bonds, but the site has {count}")
+
+
+def _bond_counts(
+    tables: "_GroupTables", stabilisers: Sequence[Sequence["_Element"]], rows: Iterable[tuple[int, int, "_Element"]]
+) -> tuple[int, ...]:
+    """Return the number of distinct atoms bonded to the reference atom of each site.
+
+    Each row ``(a, b, g)`` reaches the atoms ``h g H_b`` (``h`` in ``H_a``) from ``a`` and
+    ``h g^-1 H_a`` (``h`` in ``H_b``) from ``b``; a coset is keyed by its least element, so
+    repeated or overlapping rows count each atom once.
+
+    :param tables: The standard setting's group tables.
+    :param stabilisers: Per site, the elements fixing its reference atom (translations included).
+    :param rows: The bonds ``(site, partner, element)`` as standard-setting elements.
+    :return: The bond count per site.
+    """
+    from httk.atomistic.symmetry.protonet import _key
+
+    reached: list[set[tuple[int, tuple[int, ...]]]] = [set() for _ in stabilisers]
+    for a, b, g in rows:
+        for site, x, other in ((a, g, b), (b, tables.inv(g), a)):
+            for h in stabilisers[site]:
+                y = tables.mul(h, x)
+                reached[site].add((other, min(_key(tables.mul(y, z)) for z in stabilisers[other])))
+    return tuple(len(atoms) for atoms in reached)
+
+
+def _stabilisers(spacegroup: "Spacegroup", sites: Sequence["WyckoffSite"]) -> list[list["_Element"]]:
+    """Return the standard elements fixing each stored reference atom, refusing a site at a special point."""
+    from httk.atomistic.models.structure.asu import _group, _reference, _standard_elements
+
+    elements, order = _standard_elements(spacegroup), len(_group(spacegroup)[0])
+    stabilisers = []
+    for number, site in enumerate(sites):
+        fixed = elements.stabilizer(_reference(spacegroup, site))
+        if len(fixed) * spacegroup.wyckoff_position(site.wyckoff).multiplicity != order:
+            raise ValueError(
+                f"site {number} lies at a special point of its Wyckoff letter {site.wyckoff!r}; its bond count "
+                "and shape are undefined; give it the special letter"
+            )
+        stabilisers.append(fixed)
+    return stabilisers
+
+
+def _structure_bond_counts(
+    spacegroup: "Spacegroup", sites: Sequence["WyckoffSite"], bonds: Sequence["SiteBond"]
+) -> tuple[int, ...]:
+    """Return the bond count of every site of a network, in its stored setting.
+
+    :param spacegroup: The stored setting.
+    :param sites: The Wyckoff sites.
+    :param bonds: The bond network.
+    :return: The bond count per site.
+    :raises ValueError: If a site lies at a special point of its own Wyckoff letter.
+    """
+    from httk.atomistic.models.structure.asu import _op, _standard_elements
+
+    elements = _standard_elements(spacegroup)
+    rows = [(bond.site, bond.partner, elements.element(_op(bond.operation))) for bond in bonds]
+    return _bond_counts(elements.tables, _stabilisers(spacegroup, sites), rows)
+
+
+def _averaged_metric(structure: "FundamentalDomainStructure", tables: "_GroupTables") -> list[list[Any]]:
+    """Return the exact metric of the standard-setting coordinates, averaged over the point group.
+
+    Entries are ``Fraction`` for a rational metric, else surd scalars.
+    """
+    A = structure.transform_from_standard.operation.matrix.to_fractions()  # own = A standard + a
+    metric = structure.cell.metric()
+    G: list[list[Any]] = (
+        [list(row) for row in metric.coefficient(1).to_fractions()]
+        if metric.is_rational
+        else [[metric._element((r, c)) for c in range(3)] for r in range(3)]
+    )
+    standard = [
+        [sum((A[r][a] * G[r][c] * A[c][b] for r in range(3) for c in range(3)), Fraction(0)) for b in range(3)]
+        for a in range(3)
+    ]
+    return [
+        [
+            sum((W[r][a] * standard[r][c] * W[c][b] for W in tables.W for r in range(3) for c in range(3)), Fraction(0))
+            / tables.nops
+            for b in range(3)
+        ]
+        for a in range(3)
+    ]
+
+
+def _angle(metric: Sequence[Sequence[Any]], u: Sequence[Fraction], v: Sequence[Fraction]) -> float:
+    """Return the angle in degrees between two exact vectors, from the exact squared cosine."""
+
+    def form(x: Sequence[Fraction], y: Sequence[Fraction]) -> Any:
+        return sum((x[a] * metric[a][b] * y[b] for a in range(3) for b in range(3)), Fraction(0))
+
+    p = form(u, v)
+    square = p * p / (form(u, u) * form(v, v))
+    if not isinstance(square, Fraction) and square.is_rational:
+        square = square._rational_fraction()
+    sign = (p > 0) - (p < 0) if isinstance(p, Fraction) else p.sign()
+    cosine = math.copysign(math.sqrt(float(square) if isinstance(square, Fraction) else square.to_float()), sign)
+    return math.degrees(math.acos(max(-1.0, min(1.0, cosine))))
+
+
+def _baseline_shapes(
+    structure: "FundamentalDomainStructure", supplied: Sequence[str | None] | None = None
+) -> tuple[str | None, ...]:
+    """Return the baseline shape of every site of a structure's network.
+
+    The detector reads the sorted angles between the bonds of each site's reference atom. They
+    come from the exact metric of the standard-setting coordinates averaged over the point group,
+    and each exact squared cosine is converted to a float once, so every exact re-description of
+    one crystal (cell, origin, setting, mirror image) gives bit-identical angles and so the same
+    shapes. Atoms are ``(site, point)`` pairs: two sites at one point are two atoms.
+
+    :param structure: A structure with a bond network.
+    :param supplied: Optional symbols per site; a site with one keeps it and is not measured.
+    :return: Per site, its shape, or ``None`` for fewer than two bonds.
+    :raises ValueError: If the structure has no network, a site lies at a special point of its
+        Wyckoff letter, or a measured site has a zero-length bond.
+    """
+    from httk.atomistic.models.structure.asu import _apply, _op, _reference, _standard_elements
+
+    bonds = structure.bonds
+    if bonds is None:
+        raise ValueError("a structure without a bond network has no shapes")
+    spacegroup, sites = structure.spacegroup, structure.wyckoff_sites
+    elements = _standard_elements(spacegroup)
+    tables = elements.tables
+    stabilisers = _stabilisers(spacegroup, sites)
+    rows = [(bond.site, bond.partner, elements.element(_op(bond.operation))) for bond in bonds]
+    counts = _bond_counts(tables, stabilisers, rows)
+    refs = [(p[0], p[1], p[2]) for p in (_apply(elements.to_standard, _reference(spacegroup, site)) for site in sites)]
+    metric: list[list[Any]] | None = None
+    result: list[str | None] = []
+    for s, count in enumerate(counts):
+        if supplied is not None and supplied[s] is not None:
+            result.append(supplied[s])
+            continue
+        if count < 2:
+            result.append(None)
+            continue
+        atoms = {
+            (other, tables.apply(tables.mul(h, x), refs[other]))
+            for a, b, g in rows
+            for site, x, other in ((a, g, b), (b, tables.inv(g), a))
+            if site == s
+            for h in stabilisers[s]
+        }
+        assert len(atoms) == count, "the bond count and the neighbour atoms use the same groups"
+        vectors = [tuple(p - q for p, q in zip(point, refs[s], strict=True)) for _other, point in atoms]
+        if any(not any(d) for d in vectors):
+            raise ValueError(f"site {s}: a zero-length bond has no direction; supply its shape")
+        if metric is None:
+            metric = _averaged_metric(structure, tables)
+        angles = sorted(_angle(metric, u, v) for u, v in itertools.combinations(vectors, 2))
+        result.append(_detect_angles(count, angles)[0])
+    return tuple(result)
+
+
+def _site_shapes(structure: "FundamentalDomainStructure") -> tuple[str | None, ...]:
+    """Return every site's shape: the supplied symbol where the structure has one, else the baseline.
+
+    :param structure: A structure with a bond network.
+    :return: Per site, its shape, or ``None`` for fewer than two bonds.
+    :raises ValueError: As :func:`_baseline_shapes`.
+    """
+    return _baseline_shapes(structure, structure.shapes)

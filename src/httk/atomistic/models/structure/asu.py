@@ -313,6 +313,38 @@ def _normalized_bonds(
     )
 
 
+def _checked_shapes(
+    spacegroup: Spacegroup,
+    sites: Sequence[WyckoffSite],
+    bonds: Sequence[SiteBond] | None,
+    shapes: Sequence[str | None] | None,
+) -> tuple[str | None, ...] | None:
+    """Validate supplied shapes against the network's bond counts; all ``None`` normalizes to ``None``."""
+    if shapes is None:
+        return None
+    if bonds is None:
+        raise ValueError("shapes need a bond network: give bonds as well")
+    if isinstance(shapes, str):
+        raise TypeError("shapes must be a sequence of str or None values, one per site, not a str")
+    checked = tuple(shapes)
+    if len(checked) != len(sites):
+        raise ValueError(f"shapes must give one symbol or None per Wyckoff site: {len(checked)} for {len(sites)} sites")
+    if any(symbol is not None and not isinstance(symbol, str) for symbol in checked):
+        raise TypeError("shapes must contain str or None values")
+    if all(symbol is None for symbol in checked):
+        return None
+    from httk.atomistic.symmetry.shapes import _check_shape, _structure_bond_counts
+
+    counts = _structure_bond_counts(spacegroup, sites, bonds)
+    for index, (symbol, count) in enumerate(zip(checked, counts, strict=True)):
+        if symbol is not None:
+            try:
+                _check_shape(symbol, count)
+            except ValueError as error:
+                raise ValueError(f"shapes[{index}]: {error}") from None
+    return checked
+
+
 def _representative_matches_coordinates(
     representative: FracVector,
     candidates: Sequence[FracVector | Sequence[fractions.Fraction]],
@@ -408,6 +440,10 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     :param bonds: The optional bond network, one :class:`SiteBond` per bond orbit in any
         spelling; ``None`` (the default) means no network is known, ``()`` that there are no
         bonds. Each bond is replaced by the least member of its orbit, and repeats collapse.
+    :param shapes: Optional supplied bond shapes, one symbol or ``None`` per Wyckoff site (see
+        :mod:`httk.atomistic.symmetry.shapes`); ``None`` for a site means the baseline detector
+        decides. Needs ``bonds``; each symbol must be known and end in its site's bond count.
+        All ``None`` is the same as no shapes.
     :param _validated_proof: Internal proof that the supplied CIF expansion already validates
         the representatives.
     """
@@ -420,6 +456,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     _coordinate_precision: fractions.Fraction | None
     _charge: fractions.Fraction | None
     _precomputed_expansion: tuple[FracVector, tuple[str, ...], tuple[int, ...]]
+    _shapes: tuple[str | None, ...] | None
     kind: ClassVar[str] = "asu"
 
     def __init__(
@@ -441,6 +478,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         last_modified: datetime.datetime | None = None,
         charge: fractions.Fraction | int | str | None = None,
         bonds: Sequence[SiteBond] | None = None,
+        shapes: Sequence[str | None] | None = None,
         _validated_proof: _ValidatedASUProof | None = None,
     ) -> None:
         self._cell = cell if isinstance(cell, Cell) else CellView(cell)
@@ -523,13 +561,16 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
                 self._spacegroup, self._wyckoff_sites, _checked_bonds(self._spacegroup, self._wyckoff_sites, bonds)
             )
         )
+        self._shapes = _checked_shapes(self._spacegroup, self._wyckoff_sites, self._bonds, shapes)
 
-    def _with_bonds(self, bonds: Sequence[SiteBond] | None) -> Self:
-        """Return a copy holding ``bonds``, trusted to be valid for these sites (normalized on access)."""
+    def _with_bonds(self, bonds: Sequence[SiteBond] | None, *, shapes: Sequence[str | None] | None) -> Self:
+        """Return a copy holding ``bonds`` and ``shapes``, trusted to be valid for these sites (normalized on access)."""
+        assert bonds is not None or shapes is None, "shapes need a network"
         copied = copy.copy(self)
         for cached in ("_canonical_bonds", "_httk_cached_content_ids", "composition"):  # caches of the old value
             vars(copied).pop(cached, None)
         copied._bonds = None if bonds is None else tuple(bonds)
+        copied._shapes = None if shapes is None or all(symbol is None for symbol in shapes) else tuple(shapes)
         return copied
 
     @classmethod
@@ -613,6 +654,11 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         ``()`` means the structure is known to have no bonds.
         """
         return None if self._bonds is None else self._canonical_bonds
+
+    @property
+    def shapes(self) -> tuple[str | None, ...] | None:
+        """Expose the supplied bond shapes, one symbol or ``None`` (baseline) per site, or ``None`` when none are supplied."""
+        return self._shapes
 
     @cached_property
     def _canonical_bonds(self) -> tuple[SiteBond, ...]:
@@ -1031,6 +1077,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             and self._chemical_formula_hill == other._chemical_formula_hill
             and self._optimization_type == other._optimization_type
             and self.bonds == other.bonds
+            and self.shapes == other.shapes
         )
 
     def __repr__(self) -> str:
@@ -1041,6 +1088,8 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             else f"setting {setting.setting if setting else '(untabulated)'}"
         )
         bonds = "" if self._bonds is None else f", bonds={self.bonds!r}"
+        if self._shapes is not None:
+            bonds += f", shapes={self._shapes!r}"
         return (
             f"{type(self).__name__}({self._spacegroup.hermann_mauguin!r}, {len(self._wyckoff_sites)} site(s), "
             f"{where}{bonds})"

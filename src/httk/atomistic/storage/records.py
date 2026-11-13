@@ -1333,6 +1333,9 @@ class FundamentalDomainStructureRecord:
     :param optimization_type: The optimization provenance, if stated.
     :param bonds: The bond network, one least orbit member per bond orbit, or ``None`` when no
         network is known; ``None`` leaves the content identity unchanged.
+    :param shapes: The supplied bond shapes, one symbol per site with ``""`` for a site without
+        one (the baseline decides), or ``None`` when none are supplied; needs ``bonds``, and
+        ``None`` leaves the content identity unchanged.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
     :param immutable_id: The per-revision immutable id; minted by the store when None.
     :param last_modified: The source modification timestamp, if stated.
@@ -1367,6 +1370,7 @@ class FundamentalDomainStructureRecord:
     chemical_formula_hill: str | None = None
     optimization_type: str | None = None
     bonds: Annotated[tuple[SiteBondRecord, ...] | None, IdentitySkipWhenNone()] = None
+    shapes: Annotated[tuple[str, ...] | None, IdentitySkipWhenNone()] = None
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
     last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
@@ -1405,6 +1409,13 @@ class FundamentalDomainStructureRecord:
             if not all(_effective_record_type(value) is SiteBondRecord for value in bonds):
                 raise TypeError("FundamentalDomainStructureRecord bonds must contain SiteBondRecord values")
             object.__setattr__(self, "bonds", bonds)
+        if self.shapes is not None:
+            shapes = tuple(self.shapes)
+            if not all(isinstance(value, str) for value in shapes):
+                raise TypeError("FundamentalDomainStructureRecord shapes must contain str values")
+            if self.bonds is None:
+                raise ValueError("FundamentalDomainStructureRecord shapes need bonds")
+            object.__setattr__(self, "shapes", shapes)
         coordinate_precision = to_precision(self.coordinate_precision)
         object.__setattr__(self, "domain_sites", domain_sites)
         object.__setattr__(self, "coordinate_precision", coordinate_precision)
@@ -1429,6 +1440,7 @@ class FundamentalDomainStructureRecord:
                 "setting_transform": structure.transform,
                 "coordinate_precision": structure.coordinate_precision,
                 "bonds": structure.bonds,
+                "shapes": _shapes_record(structure.shapes),
             }
         )
         return values
@@ -1555,6 +1567,10 @@ def _sites_from_record(record: SitesRecord) -> Sites:
     return Sites(record.reduced_coords, precision=record.precision)
 
 
+def _shapes_record(shapes: tuple[str | None, ...] | None) -> tuple[str, ...] | None:
+    return None if shapes is None else tuple(symbol or "" for symbol in shapes)
+
+
 def _site_bonds_from_record(records: Iterable[SiteBondRecord]) -> tuple[SiteBond, ...]:
     return tuple(
         SiteBond(value.site, value.partner, AffineOperation(value.rotation, value.translation)) for value in records
@@ -1592,6 +1608,7 @@ def _domain_structure_from_record(
         _setting_transform_from_record(record.setting_transform),
         record.coordinate_precision,
         bonds=None if record.bonds is None else _site_bonds_from_record(record.bonds),
+        shapes=None if record.shapes is None else tuple(symbol or None for symbol in record.shapes),
         **_common_constructor_values(record),
     )
 
@@ -1634,13 +1651,13 @@ def validate_structure_record(
     ):
         raise TypeError("validate_structure_record expects an exact root structure record")
     _validate_normalized_composition(record)
-    # the structure validates the bonds; a stored network must already be in its normal form
-    if (
-        not isinstance(record, UnitcellStructureRecord)
-        and record.bonds is not None
-        and _domain_structure_from_record(record).bonds != _site_bonds_from_record(record.bonds)
-    ):
-        raise ValueError("FundamentalDomainStructureRecord bonds are not the normalized bond network")
+    # the structure validates the bonds and shapes; stored ones must already be in their normal form
+    if not isinstance(record, UnitcellStructureRecord) and record.bonds is not None:
+        structure = _domain_structure_from_record(record)
+        if structure.bonds != _site_bonds_from_record(record.bonds):
+            raise ValueError("FundamentalDomainStructureRecord bonds are not the normalized bond network")
+        if _shapes_record(structure.shapes) != record.shapes:
+            raise ValueError("FundamentalDomainStructureRecord shapes are not in their normal form")
 
 
 def _assembly_record_from_assembly(assembly: Assembly) -> AssemblyRecord:

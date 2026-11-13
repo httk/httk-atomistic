@@ -28,6 +28,7 @@ the cell.
 | `wyckoff_sites` | one {py:class}`~httk.atomistic.WyckoffSite` per orbit: a Wyckoff letter, its free parameters, and a species name |
 | `species` | the species the sites name |
 | `bonds` | the optional bond network: one {py:class}`~httk.atomistic.SiteBond` per bond orbit, or `None` |
+| `shapes` | optional supplied bond shapes, one symbol or `None` per site (needs `bonds`), or `None` |
 
 An `WyckoffSite` carries a bare Wyckoff letter (`"e"`, not `"4e"`) and one exact
 value per degree of freedom — none at all for a fixed position such as an
@@ -68,6 +69,10 @@ the result has no network:
 | re-describing a left-handed cell right-handed, the mirror image and `normalize_chirality`, the affine-normalizer actions, origin shifts, cell reductions (the reduction of a P1 supercell to its primitive cell only when the bonds keep the smaller cell's translations) and the orientation of the canonical cell | the legacy metric-first canonicalizers (`canonical_asu_legacy`, `canonicalize_legacy`), `lift=True` in `canonical_asu_protostructure` and its assignments, supercells, and the collapse of an exact supercell by a self-lift |
 | reducing species to their classes, renaming and reordering sites; CIF reading, which reads `_geom_bond_` loops into the network (see {doc}`cif`) | templates and anonymization (`FundamentalDomainTemplate`, `Structuretype`) and the representatives of `Protostructure` and `Prototype` |
 
+Supplied shapes (below) are carried and dropped with the network; sites with
+different supplied shapes that merge drop both, as a bond set that is not
+invariant does.
+
 Through recognition (`canonicalize` with `symmetry="detect"` and
 `canonical_asu_protostructure`) every atom is matched once to the nearest
 recognized atom, and the match must be one to one. Wherever the group or the
@@ -75,7 +80,55 @@ lattice changes, the bond set must be invariant under the new symmetry, checked
 modulo both lattices, so a translation the new cell has and the old one lacks is
 checked too; otherwise the network is dropped (and `Protonetstructure.from_asu`
 raises). Descriptions tied in geometry are told apart by their normalized networks,
-so equal networks in different spellings canonicalize to one value.
+and then by their supplied shapes, so equal networks in different spellings
+canonicalize to one value.
+
+### Bond shapes
+
+The *bond count* of a site is the number of distinct atoms bonded to one of its
+atoms; two sites at one point are two atoms. The *shape* of a site with two or
+more bonds is the arrangement of those bonds, named by a symbol that ends in the
+bond count: `L2` (linear), `A2` (bent), `TP3`, `T4`, `SP4`, `OC6` and the other
+IUPAC polyhedral symbols without the hyphen, a few SHAPE program labels, and
+`I<n>` for an irregular arrangement of `n` bonds. Sites with fewer than two bonds
+have no shape.
+
+A structure with a network may carry `shapes`: one symbol or `None` per Wyckoff
+site, where `None` means "use the baseline". The constructor raises `ValueError`
+for shapes without `bonds`, a length other than the number of sites, an unknown
+symbol, a symbol on a site with fewer than two bonds, or a symbol whose number is
+not the site's bond count (`TypeError` for a value that is not a string or
+`None`). Shapes that are all `None` are the same as no shapes. A site placed at a
+special point of its own Wyckoff letter (the general letter at an inversion
+centre, say) has no defined bond count: counting or checking shapes on it raises
+`ValueError`, so give it the special letter.
+
+The *baseline* detector gives the shape of every site without a supplied symbol,
+on demand: it compares the sorted angles between the site's bonds with those of
+the ideal shapes of its bond count and takes the closest, `I<n>` when that is more
+than 15 degrees away (root mean square), and `L2` from 165 degrees for two bonds.
+Bond lengths are not used. The angles come from the exact metric averaged over the
+point group, each exact squared cosine converted to a float once, so every exact
+re-description of one crystal (cell, origin, setting, mirror image) gives the same
+angles, bit for bit, and so the same shapes. Crystals that are only approximately
+related (independently rounded inputs) can differ where an angle lies within
+rounding noise of a threshold or a tie. `math.acos` is not correctly rounded, so
+platforms with different C maths libraries may differ in the last bit of an angle;
+after the misfit is rounded to 1e-6 that changes a shape only for a value within
+about 1e-12 of a rounding boundary. A zero-length bond (two coincident sites bonded to each
+other) has no direction; the baseline raises `ValueError` for its site, and a
+supplied symbol for that site avoids it. Networks read from CIF `_geom_bond_`
+loops have no shapes of their own and use the baseline.
+
+Supplied shapes move with their sites wherever the network is carried and are
+dropped wherever it is dropped. Where sites merge (recognition, a cell
+reduction, a P-1 supercell collapse), a site without a symbol takes its partner's,
+and two different symbols on one merged site count as a network that is not
+invariant: the result has neither network nor shapes (the P-1 collapse then keeps
+the uncollapsed structure). Supplied shapes are part of equality and of the
+content identity and are stored (as `""` for a site without a symbol); baseline
+shapes are never stored, so a structure without supplied shapes keeps its content
+identity.
 
 ## Any setting, including untabulated ones
 

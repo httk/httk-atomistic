@@ -27,7 +27,13 @@ from httk.atomistic.models.prototype.notation import class_order_key
 from httk.atomistic.models.species.classes import _class_structure, _species_class
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
-from httk.atomistic.models.structure.bonds import _AmbiguousMatch, _bonds_key, _carried, _matched_bonds
+from httk.atomistic.models.structure.bonds import (
+    _AmbiguousMatch,
+    _bonds_key,
+    _carried,
+    _matched,
+    _ShapeConflict,
+)
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.models.structuretype.fundamental import FundamentalDomainTemplate
@@ -1288,10 +1294,10 @@ def _recognized_canonical_asus(
         raise ValueError(f"no symmetry fit the structure within tolerance {base:g}; tried [{', '.join(failures)}]")
     if normalized_p1.bonds is not None:
         try:
-            bonds = _matched_bonds(normalized_p1, winner, winner.transform.operation.inverse())
-        except _AmbiguousMatch:  # no one-to-one atom match: the network cannot follow recognition
-            bonds = None
-        winner = winner._with_bonds(bonds)
+            bonds, shapes = _matched(normalized_p1, winner, winner.transform.operation.inverse())
+        except (_AmbiguousMatch, _ShapeConflict):  # no one-to-one atom match, or merged shapes: dropped
+            bonds = shapes = None
+        winner = winner._with_bonds(bonds, shapes=shapes)
     if lift:
         from httk.atomistic.symmetry.lift import canonicalize_legacy
 

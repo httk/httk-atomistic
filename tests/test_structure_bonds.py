@@ -408,7 +408,7 @@ def test_structures_without_a_network_keep_their_content_identity() -> None:
 def test_a_carried_copy_does_not_keep_the_cached_identity_of_its_source() -> None:
     diamond = _diamond("227:2")
     content_id(diamond)  # caches the identity on the value
-    plain = diamond._with_bonds(None)
+    plain = diamond._with_bonds(None, shapes=None)
     assert content_id(plain) == content_id(ASUStructure(diamond.cell, diamond.spacegroup, diamond.wyckoff_sites, [C]))
     assert content_id(plain) != content_id(diamond)
 

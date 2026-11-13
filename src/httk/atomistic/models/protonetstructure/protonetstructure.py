@@ -165,13 +165,17 @@ class Protonetstructure(ProtonetstructureBackend):
                 # re-described in a right-handed cell or the class symmetry: carry the bonds as a network
                 standard = _standard_elements(spacegroup)
                 network = tuple(SiteBond(i, j, _affine(standard.operation(e))) for i, j, e in elements)
-                structure = _protonet_asu(asu._with_bonds(network))
+                structure = _protonet_asu(asu._with_bonds(network, shapes=None))
                 elements = None
         spacegroup = structure.spacegroup
         sites = structure.wyckoff_sites
         tables = _tables(spacegroup.it_number)
         if elements is None:
-            assert structure.bonds is not None
+            if structure.bonds is None:  # a carry dropped it (a non-invariant set or merged shapes)
+                raise ValueError(
+                    "Protonetstructure.from_asu: the bond network could not be carried to the description "
+                    "the label is read from"
+                )
             standard = _standard_elements(spacegroup)
             elements = [(bond.site, bond.partner, standard.element(_op(bond.operation))) for bond in structure.bonds]
         species = {value.name: value for value in structure.species}
@@ -345,4 +349,4 @@ def _protonet_asu(asu: "FundamentalDomainStructure") -> "FundamentalDomainStruct
             f"(IT {recognized.spacegroup.it_number}, not {structure.spacegroup.it_number}), and the bond set is not "
             f"invariant under the recognized symmetry IT {recognized.spacegroup.it_number}"
         )
-    return oriented(recognized._with_bonds(bonds))
+    return oriented(recognized._with_bonds(bonds, shapes=None))

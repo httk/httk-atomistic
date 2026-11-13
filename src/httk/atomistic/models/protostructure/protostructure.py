@@ -57,7 +57,7 @@ class Protostructure(ProtostructureBackend):
                 representative = canonical_asu_protostructure(representative)
             representative = _class_representative(representative)
             if representative.bonds is not None:  # the identity of a protostructure never depends on bonds
-                representative = representative._with_bonds(None)
+                representative = representative._with_bonds(None, shapes=None)
             if not base_supplied:
                 spacegroup = representative.spacegroup
                 representative_species = {species.name: species for species in representative.species}
