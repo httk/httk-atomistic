@@ -12,10 +12,12 @@ from httk.atomistic.models.cell.view import CellView
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.cartesian_view import CartesianSiteMomentsView
 from httk.atomistic.models.sites.sites import Sites
+from httk.atomistic.models.structure.bonds import _cell_carried
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.semantics import initialize_semantics
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.symmetry.affine_operation import AffineOperation
 
 __all__ = [
     "NiggliReducedStructureResult",
@@ -285,9 +287,9 @@ def niggli_reduced(structure: StructureLike) -> NiggliReducedStructureResult:
     exact remapping is ``f_reduced = f_original * transform.inv()`` followed by periodic
     normalization. Species, species-at-sites order, Cartesian site moments, molecular
     information, assemblies, chemical composition, formulas, optimization type, charge,
-    and precision are carried unchanged or propagated. Symmetry is invalidated because
-    its operations are basis-relative; immutable identifiers and last-modified metadata
-    are invalidated because this operation creates a derived structure.
+    precision and the bond network are carried unchanged or propagated. Symmetry is
+    invalidated because its operations are basis-relative; immutable identifiers and
+    last-modified metadata are invalidated because this operation creates a derived structure.
 
     :param structure: The structure to express in a Niggli-reduced cell.
     :return: The reduced structure and its exact reduction metadata.
@@ -328,4 +330,5 @@ def niggli_reduced(structure: StructureLike) -> NiggliReducedStructureResult:
         immutable_id=result.immutable_id,
         last_modified=result.last_modified,
     )
+    result = _cell_carried(view, result, AffineOperation(inverse.T(), (0, 0, 0)))
     return NiggliReducedStructureResult(result, reduction.cell, reduction.transform)

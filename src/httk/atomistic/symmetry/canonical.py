@@ -199,7 +199,8 @@ def _recognition_sweep(
         _checkpoint()
         symprec = base * float(factor)
         try:
-            recognized = recognize_asu(view, tolerance=symprec, _retain_found_transform=True)
+            # the canonicalizers carry the network themselves, from the frame they recognize
+            recognized = recognize_asu(view, tolerance=symprec, _retain_found_transform=True, _carry_bonds=False)
         except ValueError as error:
             failures.append(f"{symprec:g}: {error}")
             continue

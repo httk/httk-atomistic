@@ -554,6 +554,7 @@ def _reference_setting(candidate: ASUStructure, reference: ASUStructure) -> ASUS
     spacegroup = reference.spacegroup
     sites = candidate.wyckoff_sites
     residual = reference.transform
+    operation = AffineOperation.identity()  # from the candidate's stored coordinates to the result's
     if not spacegroup.is_standard_setting:
         mapped = []
         for site in sites:
@@ -565,7 +566,8 @@ def _reference_setting(candidate: ASUStructure, reference: ASUStructure) -> ASUS
             mapped.append(WyckoffSite(position.letter, parameters, site.species))
         sites = tuple(mapped)
         residual = SettingTransform.identity()
-    return ASUStructure(
+        operation = transform.operation
+    expressed = ASUStructure(
         cell,
         spacegroup,
         sites,
@@ -577,6 +579,7 @@ def _reference_setting(candidate: ASUStructure, reference: ASUStructure) -> ASUS
         ),
         charge=candidate.charge,
     )
+    return _carried(candidate, expressed, operation)
 
 
 def _normalizer_image(structure: ASUStructure, operation: AffineOperation) -> ASUStructure | None:

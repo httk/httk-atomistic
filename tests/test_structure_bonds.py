@@ -567,12 +567,13 @@ def test_the_pair_comparison_tells_networks_apart() -> None:
     assert not _same_network(source, other)
 
 
-def test_operations_that_change_the_sites_drop_the_network() -> None:
+def test_subgroup_descent_and_recognition_carry_the_network() -> None:
+    # dropped before follow-up 7 part B (packet P2); both describe the same atoms
     from httk.atomistic import recognize_asu, subgroup_representation
 
     diamond = _diamond("227:2")
-    assert subgroup_representation(diamond, 141).asu.bonds is None
-    assert recognize_asu(UnitcellStructureView(diamond)).bonds is None
+    assert _same_network(diamond, subgroup_representation(diamond, 141).asu)
+    assert _same_network(diamond, recognize_asu(UnitcellStructureView(diamond)))
 
 
 # ---------------------------------------------------------------------------------------------

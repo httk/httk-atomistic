@@ -13,10 +13,12 @@ from httk.core import FracVector, SurdVector, unwrap
 from httk.atomistic.composition import Assembly, ChemicalComposition
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.sites.sites import Sites
+from httk.atomistic.models.structure.bonds import _cell_carried
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.semantics import initialize_semantics
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 from httk.atomistic.symmetry.standardization import ConventionalCellResult, conventional_cell
@@ -119,8 +121,9 @@ def primitive_cell(
     applied exactly. Site moments are carried through as per-site data: Cartesian and collinear
     moments are unchanged by the basis recombination, and translation images that collapse onto one
     primitive site must agree, or the magnetic order needs the larger cell. Assemblies are refused
-    because the centring collapse cannot preserve correlated site groups. This operation does not
-    perform Niggli reduction.
+    because the centring collapse cannot preserve correlated site groups. A bond network is carried
+    through recognition and the collapse when the recognized symmetry keeps it. This operation does
+    not perform Niggli reduction.
 
     :param structure: The structure to express in a primitive cell.
     :param tolerance: The Cartesian recognition tolerance, or ``None`` to derive it.
@@ -236,4 +239,6 @@ def primitive_cell(
         chemical_formula_hill=source_hill,
         optimization_type=source_optimization,
     )
+    # the centring translations keep the conventional cell's network, so the collapse carries it
+    result = _cell_carried(conventional.structure, result, AffineOperation(coordinate_matrix.T(), (0, 0, 0)))
     return PrimitiveCellResult(result, spacegroup, conventional, transform, multiplier)

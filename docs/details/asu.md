@@ -71,31 +71,54 @@ The protonet labels can be built from it (see {doc}`/prototypes`); their net seg
 then depends on the coordinates through the baseline shapes of the sites without a
 supplied shape (below).
 
-Every operation that only re-describes the same sites carries the network with
-them: both atoms of every bond are mapped by the exact map between the two
-descriptions and located in the new orbits. Where the sites themselves change,
-the result has no network:
+Every operation that describes the same crystal carries the network, with its shapes and
+sources: both atoms of every bond are mapped by the exact map between the two descriptions and
+located among the new sites. An operation that adds, removes or substitutes atoms drops it.
+*When invariant* below means that the bond set and the assigned shapes must be invariant under
+the new group and lattice, checked exactly and modulo both lattices (so a translation the new
+cell has and the old one lacks is checked too); otherwise the network is dropped.
 
-| carries the network | drops it (`bonds=None`) |
+| operation | network |
 | --- | --- |
-| the change to the standard setting (`conventional_cell`, the canonicalizers' standardization); the expansion to a unit cell (`UnitcellStructureView`, below) | recognition from a unit cell (`recognize_asu`, `ASUStructureView` of a unit cell) |
-| `canonicalize` / `canonical_asu` (both `symmetry` modes), `canonical_asu_protostructure` and `canonical_asu_protostructure_assignments` (without `lift=True`), through recognition when the recognized group and lattice keep the bond set | subgroup descent and lift (`subgroup_representation`, `rerepresent` into another group, `lift_candidates`, `backward_lift`, `highest_symmetry`, `search_supergroups`) and the paths built on them (`represent_like`, `list_representations`, `canonicalize_full`, `interpolate_structures`) |
-| re-describing a left-handed cell right-handed, the mirror image and `normalize_chirality`, the affine-normalizer actions, origin shifts, cell reductions (the reduction of a P1 supercell to its primitive cell only when the bonds keep the smaller cell's translations) and the orientation of the canonical cell | the legacy metric-first canonicalizers (`canonical_asu_legacy`, `canonicalize_legacy`), `lift=True` in `canonical_asu_protostructure` and its assignments, supercells, and the collapse of an exact supercell by a self-lift |
-| reducing species to their classes, renaming and reordering sites; CIF reading, which reads `_geom_bond_` loops into the network (see {doc}`cif`) | templates and anonymization (`FundamentalDomainTemplate`, `Structuretype`) and the representatives of `Protostructure` and `Prototype` |
+| the change to the standard setting (`conventional_cell` of a domain, the canonicalizers' standardization) | carried |
+| `canonicalize` / `canonical_asu` (both `symmetry` modes), `canonical_asu_protostructure` and `canonical_asu_protostructure_assignments` (without `lift=True`) | carried when invariant |
+| re-describing a left-handed cell right-handed, the mirror image and `normalize_chirality`, the affine-normalizer actions, origin shifts and the orientation of the canonical cell | carried |
+| cell reductions of a domain (a P1 supercell to its primitive cell) | carried when invariant under the translations given up |
+| reducing species to their classes, renaming and reordering sites; CIF reading, which reads `_geom_bond_` loops into the network (see {doc}`cif`) | carried |
+| domain to unit cell: `UnitcellStructureView` of a domain and its `unview()`, and the `sites` that `CIFStructure`, `DatastreamStructure` and `RecordStructure` present (below) | carried |
+| unit cell to domain by recognition: `recognize_asu`, `ASUStructureView`, `conventional_cell` and `primitive_cell` of a unit cell, and the canonicalizers above given a unit cell | carried when invariant |
+| supercells: `build_supercell`, `orthogonal_supercell` and `cubic_supercell` (any input, presented as a unit cell first) | carried |
+| cell re-descriptions of a unit cell: `niggli_reduced`, and its reduction to a smaller cell (the last step of `primitive_cell`) | carried; a reduction when invariant |
+| `UnitcellStructure.rationalized()`, and `without_charges()` of any structure (whose result is a unit cell, so a domain's network arrives expanded onto its sites) | carried (the same atoms in the same order; snapping moves coordinates, not atoms) |
+| subgroup descent: `subgroup_representation`, `rerepresent` into a subgroup, `common_subgroup_representation`, and the paths built of descents, normalizer images and re-descriptions (`represent_like`, `list_representations`, `canonicalize_full`) | carried: a subgroup keeps every network of its group |
+| `NumericUnitcellStructureView` | carried (`NumericUnitcellStructure` drops it) |
+| lifts: `lift_candidates`, `backward_lift`, `highest_symmetry`, `search_supergroups`, `rerepresent` into a supergroup, the legacy metric-first canonicalizers (`canonical_asu_legacy`, `canonicalize_legacy`), `lift=True` and the collapse of an exact supercell by a self-lift | dropped (below) |
+| coincident sites that cannot be told apart: two sites of one species at one point wherever a unit-cell network is carried, and any coincident sites of a unit cell given to the canonicalizers, whose anonymous frames rename the species | dropped |
+| `interpolate_structures` | dropped on the frames between the end points (new geometry); the end points keep theirs |
+| templates and anonymization (`FundamentalDomainTemplate`, `Structuretype`) and the representatives of `Protostructure` and `Prototype` | dropped (atoms substituted; no identity depends on bonds) |
+| adding, removing or substituting atoms; the ASE and pymatgen bridges; file writers (CIF writes no `_geom_bond_` loop); trajectory frames | dropped, or not represented |
+
+Lifts are the one deviation from the rule: a lift describes the same atoms, idealized, yet it
+still drops the network; carrying it by matching atoms, as recognition does, is left to a later
+version.
 
 Assigned shapes (below) and the sources are carried and dropped with the network; sites with
 different assigned shapes that merge drop both, as a bond set that is not
 invariant does (`Protonetstructure.from_asu` raises instead).
 
-Through recognition (`canonicalize` with `symmetry="detect"` and
-`canonical_asu_protostructure`) every atom is matched once to the nearest
-recognized atom, and the match must be one to one. Wherever the group or the
-lattice changes, the bond set must be invariant under the new symmetry, checked
-modulo both lattices, so a translation the new cell has and the old one lacks is
-checked too; otherwise the network is dropped (and `Protonetstructure.from_asu`
-raises). Descriptions tied in geometry are told apart by their normalized networks,
-and then by their assigned shapes, so equal networks in different spellings
-canonicalize to one value.
+Through recognition (`recognize_asu`, `ASUStructureView`, `canonicalize` with
+`symmetry="detect"` and `canonical_asu_protostructure`, from a domain or a unit cell) every
+atom is matched once to the nearest recognized atom, and the match must be one to one; the
+bond set must then be invariant under the recognized symmetry. Otherwise the network is dropped
+(and `Protonetstructure.from_asu` raises). A unit cell with a network gets the protonet labels
+of the asymmetric unit recognition gives it, `ASUStructureView(cell)`: the labels of that
+description, as for `BareProtostructureView(cell)`, so two descriptions of one crystal (another
+origin, site order or cell) can be labelled differently, while `canonical_protonetstructure`
+gives them one label. `ProtonetstructureView(cell)` raises `ValueError` when
+recognition drops the network, and for a cell that is not periodic in three dimensions (label a
+molecular fundamental domain instead). Descriptions tied in geometry are told
+apart by their normalized networks, and then by their assigned shapes, so equal networks in
+different spellings canonicalize to one value.
 
 ### Bond shapes
 

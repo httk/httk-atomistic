@@ -468,6 +468,7 @@ def test_protostructure_view_retains_and_passes_all_recognition_options(monkeypa
         "transform": transform,
         "tolerance": 0.125,
         "limit_denominator": 17,
+        "_carry_bonds": False,  # the label has no bonds
     }
 
 

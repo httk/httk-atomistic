@@ -5,7 +5,7 @@ The minimal canonical structure interface for httk-atomistic.
 from abc import ABC, abstractmethod
 from fractions import Fraction
 from functools import cached_property
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.moments.backend import SiteMomentsBackend
@@ -16,7 +16,18 @@ if TYPE_CHECKING:
     from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
     from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
     from httk.atomistic.models.formula.composition import Composition
+    from httk.atomistic.models.structure.like import StructureLike
     from httk.atomistic.models.structure.network import BondNetwork
+
+
+def _without_network(structure: Any) -> Any:
+    """Return ``structure`` without its bond network, for operations that discard it anyway.
+
+    Only a structure that holds its network itself (a unit cell or a fundamental domain) is copied;
+    any other is returned as it is.
+    """
+    strip = getattr(structure, "_with_bonds", None)
+    return strip(None) if strip is not None and structure.bonds is not None else structure
 
 
 class StructureAPI(ABC):
@@ -100,15 +111,16 @@ class StructureAPI(ABC):
     def without_charges(self) -> "StructureAPI":
         """Return an EXPLICIT lossy projection that drops declared oxidation states.
 
-        The canonical structure components and semantic metadata are preserved. A structure
-        without species charges is returned by identity; charged structures are rebuilt in the
-        canonical unit-cell family.
+        The canonical structure components, the bond network and semantic metadata are
+        preserved. A structure without species charges is returned by identity; charged
+        structures are rebuilt in the canonical unit-cell family.
 
         :return: A charge-free structure, or this structure when already charge-free.
         """
         if not any(species.charges is not None for species in self.species):
             return self
         from httk.atomistic.models.structure.unitcell import UnitcellStructure
+        from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
         return UnitcellStructure(
             self.cell,
@@ -126,6 +138,8 @@ class StructureAPI(ABC):
             immutable_id=getattr(self, "immutable_id", None),
             last_modified=getattr(self, "last_modified", None),
             charge=self.charge,
+            # the same atoms in the same order: the network of the presented sites carries over
+            bonds=None if self.bonds is None else UnitcellStructureView(cast("StructureLike", self)).bonds,
         )
 
     def canonical_bare_protostructure(self) -> "BareProtostructure":
@@ -149,7 +163,7 @@ class StructureAPI(ABC):
         from httk.atomistic.symmetry.canonical import canonical_asu
         from httk.atomistic.symmetry.canonical_classification import canonical_bare_protostructure
 
-        canonical = canonical_asu(_class_structure(self), preserve_chirality=False)
+        canonical = canonical_asu(_without_network(_class_structure(self)), preserve_chirality=False)
         return canonical_bare_protostructure(BareProtostructureView(canonical).unview(), preserve_chirality=False)
 
     def canonical_bare_prototype(self) -> "BarePrototype":
@@ -174,7 +188,9 @@ class StructureAPI(ABC):
         from httk.atomistic.symmetry.canonical_classification import canonical_bare_prototype
 
         # the anonymous levels drop molecular metadata, as BarePrototypeView does
-        canonical = canonical_asu(_class_structure(self, drop_molecular=True), preserve_chirality=False)
+        canonical = canonical_asu(
+            _without_network(_class_structure(self, drop_molecular=True)), preserve_chirality=False
+        )
         return canonical_bare_prototype(BarePrototypeView(canonical).unview(), preserve_chirality=False)
 
     @cached_property

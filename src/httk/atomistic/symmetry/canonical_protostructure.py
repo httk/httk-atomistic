@@ -31,7 +31,11 @@ from httk.atomistic.models.structure.bonds import (
     _AmbiguousMatch,
     _bonds_key,
     _carried,
+    _cell_domain,
+    _CoincidentAtoms,
+    _dropped,
     _matched,
+    _orbit_index,
     _ShapeConflict,
 )
 from httk.atomistic.models.structure.like import StructureLike
@@ -1269,8 +1273,22 @@ def canonical_asu_protostructure_assignments(
 
 
 def _bonded_domain(structure: Any) -> FundamentalDomainStructure | None:
-    """Return a structure that is a fundamental domain with a bond network, else ``None``."""
-    return structure if isinstance(structure, FundamentalDomainStructure) and structure.bonds is not None else None
+    """Return the fundamental domain carrying a structure's bond network, else ``None``.
+
+    A fundamental domain with a network is itself; a three-dimensional unit-cell presentation with
+    a network is the P1 domain of its sites. The canonical frames rename species, so a unit cell
+    with coincident sites cannot carry its network through them: it is dropped (and logged).
+    """
+    if isinstance(structure, FundamentalDomainStructure):
+        return structure if structure.bonds is not None else None
+    view = UnitcellStructureView(structure)
+    if view.bonds is None or view.cell.periodicity != (True, True, True):
+        return None
+    domain = _cell_domain(view)
+    if any(len(entries) > 1 for entries in _orbit_index(domain).values()):
+        _dropped("coincident atoms: the canonical frames rename species")
+        return None
+    return domain
 
 
 def _recognized_canonical_asus(
@@ -1315,8 +1333,12 @@ def _recognized_canonical_asus(
     if normalized_p1.bonds is not None:
         try:
             network = _matched(normalized_p1, winner, winner.transform.operation.inverse())
-        except (_AmbiguousMatch, _ShapeConflict):  # no one-to-one atom match, or merged shapes: dropped
+        except (_AmbiguousMatch, _ShapeConflict, _CoincidentAtoms) as error:
+            _dropped(f"recognition: {error}")
             network = None
+        else:
+            if network is None:
+                _dropped("recognition: the bond set is not invariant under the recognized symmetry")
         winner = winner._with_bonds(network)
     if lift:
         from httk.atomistic.symmetry.lift import canonicalize_legacy

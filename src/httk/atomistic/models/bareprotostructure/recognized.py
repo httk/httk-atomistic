@@ -160,6 +160,7 @@ class RecognizedBareProtostructure(BareProtostructureBackend):
                 transform=self._transform,
                 tolerance=self._tolerance,
                 limit_denominator=self._limit_denominator,
+                _carry_bonds=False,  # the label has no bonds
             )
             self._validate_structure(asu)
         else:

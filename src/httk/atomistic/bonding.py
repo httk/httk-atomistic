@@ -35,6 +35,7 @@ import math
 
 from httk.core import register_citation
 
+from httk.atomistic.models.structure.api import _without_network
 from httk.atomistic.models.structure.asu import (
     ASUStructure,
     _affine,
@@ -207,7 +208,7 @@ def _distance_bonds(structure: StructureLike, tolerance: float, shared_ligand: b
     """Return :func:`distance_bonds`, or with ``shared_ligand`` false its tentative network."""
     if isinstance(tolerance, bool) or not math.isfinite(tolerance):
         raise ValueError(f"tolerance must be a finite number, got {tolerance!r}")
-    asu = ASUStructureView(structure).resolve()
+    asu = ASUStructureView(_without_network(structure)).resolve()  # its network is replaced
     radii, metals, ends, ligands = _site_radii(asu)
     has_non_metal = False in metals  # then metal-metal pairs are not bonded
     spacegroup, sites = asu.spacegroup, asu.wyckoff_sites

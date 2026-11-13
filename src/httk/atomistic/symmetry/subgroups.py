@@ -451,6 +451,8 @@ def subgroup_representation(
 ) -> SubgroupRepresentationResult:
     """Express an exact ASU in a subgroup's IT standard setting.
 
+    The bond network, with its shapes and sources, is carried through every descent.
+
     :param structure: The fully periodic parent asymmetric-unit structure.
     :param subgroup: The target subgroup space group or IT number.
     :return: The child ASU, selected maximal-subgroup path, and exact multiplier.
@@ -500,6 +502,8 @@ def subgroup_representation(
                 coordinate_precision=child.coordinate_precision,
                 charge=child_charge,
             )
-        current = child
+        # the child describes the parent's atoms (child = inverse of the child-to-parent map), and a
+        # subgroup keeps every bond set of its parent
+        current = _carried(current, child, transform.operation.inverse())
         path.append(transform)
     return SubgroupRepresentationResult(current, current.spacegroup, tuple(path), multiplier)

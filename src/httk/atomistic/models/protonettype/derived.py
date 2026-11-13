@@ -18,7 +18,8 @@ from httk.atomistic.models.prototype.notation import _erased_undetermined, _eras
 class DerivedProtonettype(ProtonettypeBackend):
     """Retain a protonetstructure source while exposing its anonymous erasure.
 
-    A fundamental domain with a bond network is taken through
+    A structure with a bond network (a fundamental domain, or a unit cell through its recognized
+    asymmetric unit) is taken through
     :class:`~httk.atomistic.models.protonetstructure.bonded.BondedProtonetstructure`.
 
     Class run ``c`` gets the label ``anonymous_symbol(c)`` by position, so the site
@@ -31,7 +32,7 @@ class DerivedProtonettype(ProtonettypeBackend):
 
     @classmethod
     def _backend_adopt(cls, obj: Any, **hints: Any) -> Self | None:
-        """Adopt a protonetstructure backend or view, or a fundamental domain with a bond network."""
+        """Adopt a protonetstructure backend or view, or a structure with a bond network."""
         if hints and hints.get("kind", cls.kind) != cls.kind:
             return None
         if isinstance(obj, (ProtonetstructureBackend, ProtonetstructureViewBase)):

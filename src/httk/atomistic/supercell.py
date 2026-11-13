@@ -29,11 +29,13 @@ from httk.atomistic.models.moments.collinear import CollinearSiteMoments
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
+from httk.atomistic.models.structure.bonds import _cell_carried
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.symmetry._lattice import finite_translation_cosets
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
+from httk.atomistic.symmetry.affine_operation import AffineOperation
 
 from .composition import Assembly, ChemicalComposition
 
@@ -215,7 +217,7 @@ def build_supercell(
     Crystal-axis site moments are converted to Cartesian moments because the supercell has
     new crystal axes; Cartesian and collinear moments retain their representation.
     Structure charge and explicit composition amounts are scaled by the exact cell-content
-    multiplier.
+    multiplier. A bond network is carried: every bond becomes one bond per copy of the cell.
 
     Requires a fully 3D-periodic structure. Repeating a slab within its own plane is a
     perfectly sensible operation, but it is not this one: the transformation matrix here
@@ -280,6 +282,7 @@ def build_supercell(
         optimization_type=getattr(semantics, "optimization_type", None),
         charge=None if view.charge is None else view.charge * multiplier,
     )
+    result = _cell_carried(view, result, AffineOperation(inverse.T(), (0, 0, 0)))
     orthogonality, cubicity = _shape_scores(new_cell.metric())
     return SupercellResult(result, matrix, multiplier, orthogonality, cubicity)
 

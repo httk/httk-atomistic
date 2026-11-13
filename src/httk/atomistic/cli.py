@@ -168,7 +168,7 @@ def _handle_info(arguments: argparse.Namespace, context: CLIContext, prog: str) 
         # mCIF. Recognizing the raw magnetic backend would bypass that projection.
         view = UnitcellStructureView(asu)
         tolerance = structure_tolerance(view) if arguments.tolerance is None else arguments.tolerance
-        recognized = recognize_asu(view, tolerance=tolerance)
+        recognized = recognize_asu(view, tolerance=tolerance, _carry_bonds=False)
         print(f"recognized (tolerance {_num(tolerance, exact=arguments.exact)}):")
         _print_group(recognized)
         _print_wyckoff(recognized, exact=arguments.exact)

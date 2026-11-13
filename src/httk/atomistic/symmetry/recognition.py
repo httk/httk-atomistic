@@ -220,6 +220,7 @@ def recognize_asu(
     tolerance: float | None = None,
     limit_denominator: int | None = None,
     _retain_found_transform: bool = False,
+    _carry_bonds: bool = True,
 ) -> ASUStructure:
     """Build an :class:`~httk.atomistic.ASUStructure` from a full structure.
 
@@ -242,6 +243,10 @@ def recognize_asu(
     the tolerance, or if the sites do not group into complete orbits — both of which mean
     the structure does not actually have the symmetry it was said to have.
 
+    The structure's bond network (``bonds`` of its unit-cell presentation) is carried onto the
+    result, each atom matched once to the nearest recognized atom, when the recognized symmetry
+    keeps the bond set and the assigned shapes; otherwise the result has no network.
+
     :param structure: The full structure to recognize.
     :param setting: The structure's own tabulated setting, if known.
     :param standard: The IT standard setting for an untabulated own setting.
@@ -252,6 +257,8 @@ def recognize_asu(
         parameters, or ``None`` to retain their exact stated values.
     :param _retain_found_transform: Internal canonicalization hook retaining spglib's
         recognized-to-standard transform instead of folding it into the returned basis.
+    :param _carry_bonds: Internal hook; ``False`` leaves the bond network uncarried, for a caller
+        that carries it itself.
     :return: The recognized asymmetric-unit structure.
     :raises ImportError: If symmetry must be searched and the optional spglib dependency is
         unavailable.
@@ -282,20 +289,22 @@ def recognize_asu(
             raise ValueError(f"'standard' must be an IT standard setting, got {standard.setting}")
     else:
         standard, found, wyckoff_hints, equivalent_hints = _find_symmetry(view, tolerance)
-        # Public recognition keeps its established preference for an already-standard input frame.
+        # Public recognition keeps its established preference for an already-standard input frame,
+        # when the cell's metric admits the group in that frame: the sites of a sheared cell can still
+        # fit the group's operations read in its own basis, which describes no crystal of that group.
         # ``canonical_asu`` privately reverses the attempts: retaining spglib's standardizing frame
         # prevents arbitrary index-one shears from reaching expensive exact metric arithmetic.  Both
         # candidates still pass the same exact-table reconstruction, and the other remains a fallback.
         if abs(found.determinant()) == 1:
             attempts = (
-                (found, SettingTransform.identity())
-                if _retain_found_transform
-                else (SettingTransform.identity(), found)
+                (SettingTransform.identity(), found)
+                if not _retain_found_transform and _metric_fits(view.cell, standard, tolerance)
+                else (found, SettingTransform.identity())
             )
             first_error: ValueError | None = None
             for attempt in attempts:
                 try:
-                    return _recognize(
+                    recognized = _recognize(
                         view,
                         standard,
                         attempt,
@@ -307,11 +316,13 @@ def recognize_asu(
                 except ValueError as error:
                     if first_error is None:
                         first_error = error
+                    continue
+                return _with_carried_bonds(view, recognized) if _carry_bonds else recognized
             assert first_error is not None
             raise first_error
         transform = found
 
-    return _recognize(
+    recognized = _recognize(
         view,
         standard,
         transform,
@@ -320,6 +331,57 @@ def recognize_asu(
         wyckoff_hints=wyckoff_hints,
         equivalent_hints=equivalent_hints,
     )
+    return _with_carried_bonds(view, recognized) if _carry_bonds else recognized
+
+
+def _metric_fits(cell: Any, spacegroup: Spacegroup, tolerance: float) -> bool:
+    """Whether every operation of ``spacegroup``, read in ``cell``'s own basis, is an isometry within ``tolerance``.
+
+    An operation ``W`` keeps the metric ``G`` when ``W^T G W = G``. Lattice vectors each moved by
+    at most ``tolerance`` change ``G_ij`` by at most ``tolerance (|a_i| + |a_j|) + tolerance^2``;
+    twice that is allowed, in floats, as for the other tolerant checks of recognition.
+    """
+    basis = cell.basis.to_floats()
+    G = [[sum(basis[i][k] * basis[j][k] for k in range(3)) for j in range(3)] for i in range(3)]
+    lengths = [math.sqrt(G[i][i]) for i in range(3)]
+    for operation in spacegroup.symmetry_operations:
+        W = operation.matrix.to_floats()
+        for i in range(3):
+            for j in range(3):
+                moved = sum(W[a][i] * G[a][b] * W[b][j] for a in range(3) for b in range(3))
+                if abs(moved - G[i][j]) > 2 * (tolerance * (lengths[i] + lengths[j]) + tolerance * tolerance):
+                    return False
+    return True
+
+
+def _with_carried_bonds(view: Any, asu: ASUStructure) -> ASUStructure:
+    """Return the recognized ``asu`` with the unit-cell network of ``view`` carried onto it, when invariant.
+
+    Every atom is matched once to the nearest recognized atom. The network is dropped, and the
+    reason logged, when the bond set or the assigned shapes are not invariant under the
+    recognized symmetry, the atoms do not match one to one, or coincident atoms cannot be told
+    apart. Recognition keeps the input cell, so the recognized ASU's own-setting coordinates
+    are the input's.
+    """
+    from httk.atomistic.models.structure.bonds import (
+        _AmbiguousMatch,
+        _cell_domain,
+        _CoincidentAtoms,
+        _dropped,
+        _matched,
+        _ShapeConflict,
+    )
+
+    if view.bonds is None:
+        return asu
+    try:
+        network = _matched(_cell_domain(view), asu, asu.transform.operation.inverse())
+    except (_AmbiguousMatch, _ShapeConflict, _CoincidentAtoms) as error:
+        _dropped(f"recognition: {error}")
+        return asu
+    if network is None:
+        _dropped("recognition: the bond set is not invariant under the recognized symmetry")
+    return asu._with_bonds(network)
 
 
 def _recognize(

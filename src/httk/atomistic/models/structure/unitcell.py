@@ -453,8 +453,9 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
         within ``basis_tolerance / scale`` (``scale`` is kept); any other cell (an irrational
         basis not built from parameters) is left unchanged, so radicals such as the hexagonal
         ``sqrt(3)`` are never rounded away. Crystal-axis moments are re-expressed in the new cell
-        so their Cartesian vectors are unchanged. Precision and all other metadata are carried
-        through; ``immutable_id`` and ``last_modified`` are not, since the result is a new value.
+        so their Cartesian vectors are unchanged. Precision, the bond network (the same atoms in
+        the same order) and all other metadata are carried through; ``immutable_id`` and
+        ``last_modified`` are not, since the result is a new value.
 
         :param coordinate_tolerance: The fractional snapping tolerance, or ``None`` for the default.
         :param basis_tolerance: The snapping tolerance for lengths, or ``None`` for the default.
@@ -491,6 +492,7 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
             chemical_formula_hill=getattr(self, "chemical_formula_hill", None),
             optimization_type=getattr(self, "optimization_type", None),
             charge=self.charge,
+            bonds=self._network,
         )
 
     def supercell(

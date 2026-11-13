@@ -417,29 +417,41 @@ def _snap(
 
 
 def _nearest(target: FundamentalDomainStructure) -> Callable[[_Point], _Point]:
-    """Return a function matching a point to the nearest exact atom of ``target`` (Cartesian distance)."""
-    points = [entry[2] for entries in _orbit_index(target).values() for entry in entries]
+    """Return a function matching a point to the nearest exact atom of ``target`` (Cartesian distance).
+
+    The distances are compared in floats (one atom per point, its nearest lattice translate per
+    component); the returned atom is exact.
+    """
+    points = [entries[0][2] for entries in _orbit_index(target).values()]  # coincident atoms are one point
+    floats = [tuple(float(x) for x in image) for image in points]
     basis = target.cell.basis.to_floats()
     M = target.transform.matrix.to_floats()  # column convention: own = M stored + v
     own = [[sum(basis[i][k] * basis[j][k] for k in range(3)) for j in range(3)] for i in range(3)]
-    metric = [
+    (g00, g01, g02), (g10, g11, g12), (g20, g21, g22) = (
         [sum(M[a][i] * own[a][b] * M[b][j] for a in range(3) for b in range(3)) for j in range(3)] for i in range(3)
-    ]
+    )
 
     def nearest(point: _Point) -> _Point:
-        found: dict[_Point, float] = {}
-        for image in points:
-            _checkpoint()
-            shift = [round(p - q) for p, q in zip(point, image, strict=True)]
-            r = [float(p - q - s) for p, q, s in zip(point, image, shift, strict=True)]
-            distance = sum(r[a] * metric[a][b] * r[b] for a in range(3) for b in range(3))
-            exact = tuple(q + s for q, s in zip(image, shift, strict=True))
-            found[exact] = min(distance, found.get(exact, math.inf))
-        ranked = sorted(found.values())
+        _checkpoint()
+        x, y, z = (float(value) for value in point)
+        best, second, index = math.inf, math.inf, 0
+        for number, (a, b, c) in enumerate(floats):
+            r0, r1, r2 = x - a, y - b, z - c
+            r0, r1, r2 = r0 - round(r0), r1 - round(r1), r2 - round(r2)
+            distance = (
+                r0 * (g00 * r0 + g01 * r1 + g02 * r2)
+                + r1 * (g10 * r0 + g11 * r1 + g12 * r2)
+                + r2 * (g20 * r0 + g21 * r1 + g22 * r2)
+            )
+            if distance < best:
+                best, second, index = distance, best, number
+            elif distance < second:
+                second = distance
         # ponytail: "clearly nearest" is within half the runner-up's distance; the one-to-one check backs it up
-        if len(ranked) > 1 and not ranked[0] * 4 < ranked[1]:
+        if len(points) > 1 and not best * 4 < second:
             raise _AmbiguousMatch("an atom has no clearly nearest atom in the recognized structure")
-        return min(found, key=found.__getitem__)
+        image = points[index]
+        return tuple(q + round(p - q) for p, q in zip(point, image, strict=True))
 
     return nearest
 

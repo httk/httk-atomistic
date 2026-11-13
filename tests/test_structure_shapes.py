@@ -671,11 +671,12 @@ def test_views_keep_supplied_shapes() -> None:
     assert _shapes(ASUStructureView(source, immutable_id="x")) == ("TPY3", None)
 
 
-def test_operations_that_drop_the_network_drop_the_shapes() -> None:
+def test_operations_carry_or_drop_the_shapes_with_the_network() -> None:
     diamond = _diamond("227:2")
     source = _with(diamond, ("SS4",))
-    assert _shapes(subgroup_representation(source, 141).asu) is None
-    assert _shapes(recognize_asu(UnitcellStructureView(source))) is None
+    # subgroup descent and recognition carry the network (follow-up 7 part B, packet P2)
+    assert _shapes(subgroup_representation(source, 141).asu) == ("SS4",)
+    assert _shapes(recognize_asu(UnitcellStructureView(source))) == ("SS4",)
     refined = Protostructure(representative=source)
     assert refined.representative is not None and _shapes(refined.representative) is None
     assert refined == Protostructure(representative=diamond._with_bonds(None))

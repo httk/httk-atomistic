@@ -21,7 +21,12 @@ from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.semantics import initialize_semantics
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
-from httk.atomistic.symmetry.recognition import _cartesian_distance_squared, recognize_asu, structure_tolerance
+from httk.atomistic.symmetry.recognition import (
+    _cartesian_distance_squared,
+    _with_carried_bonds,
+    recognize_asu,
+    structure_tolerance,
+)
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -175,7 +180,8 @@ def conventional_cell(
     Construction and expansion are exact, including the rhombohedral case where the
     standard hexagonal cell contains three primitive cells. Basis precision is multiplied by
     ``M.T()`` and coordinate precision by the maximum absolute column sum of
-    ``inv(M.T())``; unknown precision remains unknown. Requires a fully 3D-periodic
+    ``inv(M.T())``; unknown precision remains unknown. A bond network is carried, through
+    recognition when the recognized symmetry keeps it. Requires a fully 3D-periodic
     structure.
 
     :param structure: The structure or asymmetric-unit structure to standardize.
@@ -223,11 +229,13 @@ def conventional_cell(
                 original.species_at_sites,
                 molecular=source_molecular,
                 charge=original.charge,
+                bonds=original.bonds,
             )
         asu = recognize_asu(
             recognition_source,
             tolerance=tolerance,
             limit_denominator=limit_denominator,
+            _carry_bonds=False,  # carried once, onto the ASU chosen below
         )
         preferred = None if _preferred_transforms is None else _preferred_transforms.get(asu.spacegroup.centring_type)
         found = asu.transform_from_standard
@@ -247,7 +255,9 @@ def conventional_cell(
                     transform=preferred,
                     tolerance=tolerance,
                     limit_denominator=limit_denominator,
+                    _carry_bonds=False,
                 )
+        asu = _with_carried_bonds(UnitcellStructureView(recognition_source), asu)
 
     assert asu is not None
     # A Cartesian moment is a lab-frame vector and a collinear moment a frame-free scalar, so both
@@ -359,6 +369,7 @@ def conventional_cell(
             chemical_formula_hill=source_hill,
             optimization_type=source_optimization,
             charge=None if original.charge is None else original.charge * multiplier,
+            bonds=result_structure.bonds,
         )
 
     return ConventionalCellResult(
