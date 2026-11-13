@@ -15,7 +15,7 @@ from typing import Any
 import httk.core
 import protonet_reference as oracle
 import pytest
-from _protonet_support import load_structure, raw_rows, reference_point, scramble
+from _protonet_support import letter_field, load_structure, raw_rows, reference_point, scramble
 from httk.core import FracVector
 
 from httk.atomistic import ASUStructure, Cell, Species, WyckoffSite
@@ -437,6 +437,73 @@ def test_bond_gram_transforms_with_the_cell_and_has_the_rank_of_the_periodicity(
         assert cells._bond_gram(tables, *scramble(tables, sites, rows, rng, change_description=False)) == (G, gbb)
         X = _random_cell(it, rng)
         assert cells._bond_gram(tables, *_move(it, sites, rows, X)) == (cells._form(X, G), gbb)
+
+
+# ---------------------------------------------------------------------------------------------
+# the bond weights do not depend on the reference atoms: distinct sites of one letter share a
+# probe point, which once let a gauge make their bond look swappable and halve its weight
+# ---------------------------------------------------------------------------------------------
+GAUGE_REPROS = {
+    "P2_1/m": (
+        11,
+        [("Y", "f"), ("Y", "f")],
+        [(0, 0, (0, 0, -1, 1)), (0, 1, (1, -1, 0, 0)), (0, 1, (1, 1, 1, -1)), (1, 1, (2, -1, 1, 0))],
+    ),
+    "C2/c": (
+        15,
+        [("X", "f")] * 5,
+        [
+            (0, 2, (5, 1, 1, -1)),
+            (0, 4, (0, -1, 0, 1)),
+            (0, 4, (5, -1, -1, 1)),
+            (0, 4, (7, 0, -1, 0)),
+            (1, 1, (2, 1, -1, 0)),
+            (1, 4, (0, -1, -1, 1)),
+            (2, 3, (5, -1, 0, -1)),
+        ],
+    ),
+}
+
+
+@pytest.mark.parametrize("name", list(GAUGE_REPROS))
+def test_reference_atoms_change_neither_the_bond_gram_nor_the_net(name: str) -> None:
+    it, sites, rows = GAUGE_REPROS[name]
+    tables, rng = _tables(it), random.Random(name)
+    gram, expected = cells._bond_gram(tables, sites, rows), _net(it, sites, rows)
+    for _ in range(12):
+        scrambled = scramble(tables, sites, rows, rng, change_description=False)
+        assert cells._bond_gram(tables, *scrambled) == gram
+        assert _net(it, *scrambled) == expected
+
+
+def _many_site_net(tables: Any, rng: random.Random) -> tuple[list[Any], list[Any]]:
+    """Five or six sites, letters repeated, with same-site rows and translations of up to one cell."""
+    wyckoff = [w for w in tables.spacegroup.wyckoff if w.free_count] * 3 + list(tables.spacegroup.wyckoff)
+    sites: list[Any] = []
+    count = rng.randint(5, 6)
+    while len(sites) < count:
+        w = rng.choice(wyckoff)
+        if w.free_count or all(letter != w.letter for _, letter in sites):  # a fixed position holds one site
+            sites.append((rng.choice("XY"), w.letter))
+    H = [letter_field(tables, letter, "H") for _, letter in sites]
+    rows = {(k, k + 1, IDENTITY) for k in range(len(sites) - 1)}
+    while len(rows) < 2 * len(sites):
+        i, j = sorted((rng.randrange(len(sites)), rng.randrange(len(sites))))
+        g = tables.canon(H[i], H[j], (rng.randrange(tables.nops), *(rng.randint(-1, 1) for _ in range(3))), i == j)
+        if i != j or g != IDENTITY:
+            rows.add((i, j, g))
+    return sites, sorted(rows)
+
+
+@pytest.mark.parametrize("it,nets", _profile([(it, 1) for it in MONOCLINIC], [(it, 6) for it in MONOCLINIC]))
+def test_many_site_nets_have_one_canonical_net(it: int, nets: int) -> None:
+    tables, rng = _tables(it), random.Random(f"many-sites-{it}-{nets}")
+    for _ in range(nets):
+        sites, rows = _many_site_net(tables, rng)
+        gram, expected = cells._bond_gram(tables, sites, rows), _net(it, sites, rows)
+        for _ in range(3):
+            assert cells._bond_gram(tables, *scramble(tables, sites, rows, rng, change_description=False)) == gram
+            assert _net(it, *scramble(tables, sites, rows, rng)) == expected, (sites, rows)
 
 
 # ---------------------------------------------------------------------------------------------

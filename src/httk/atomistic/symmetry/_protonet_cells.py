@@ -152,13 +152,22 @@ def _bond_gram(
 
 
 def _bond_weight(tables: "_GroupTables", sites: Sequence[tuple[object, str]], i: int, j: int, g: "_Element") -> int:
-    """Return the number of bonds of a row's orbit in the cell: operations over the set stabiliser."""
+    """Return the number of bonds of a row's orbit in the cell: operations over the set stabiliser.
+
+    Each end stands for a generic point of its Wyckoff chart, so an operation fixes it exactly
+    when it fixes the chart (the line through the probe ``ref``). Only the ends of a same-site
+    row can be swapped: two sites are distinct orbits even when their letters, hence their probes,
+    coincide. Changing the reference atom of a site by ``h`` (rows ``g -> h g`` out, ``g h⁻¹`` in)
+    conjugates the stabiliser by ``h``, so the weight, like the bond vectors, is the same for
+    every description of the net.
+    """
     p = tables.letter(sites[i][1]).ref
     q = tables.apply(g, tables.letter(sites[j][1]).ref)
     count = 0
     for k in range(tables.nops):
         hp, hq = tables.apply((k, 0, 0, 0), p), tables.apply((k, 0, 0, 0), q)
-        for x, y, z, t in ((hp, p, hq, q), (hp, q, hq, p)):  # kept, or the two ends swapped
+        ends = ((hp, p, hq, q), (hp, q, hq, p)) if i == j else ((hp, p, hq, q),)  # kept, or swapped
+        for x, y, z, t in ends:
             shift = [a - c for a, c in zip(x, y, strict=True)]
             if all(s.denominator == 1 for s in shift) and shift == [a - c for a, c in zip(z, t, strict=True)]:
                 count += 1
