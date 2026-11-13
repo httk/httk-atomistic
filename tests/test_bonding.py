@@ -456,11 +456,37 @@ def test_a_mixed_site_is_a_metal_end_or_a_non_metal_ligand_only_when_all_constit
     assert _counts(distance_bonds(_casio(a=mixed("Ca", "Au"), c="H"))) == (2, 2, 2)
 
 
-def test_an_element_without_an_electronegativity_never_loses_a_bond() -> None:
+def test_a_metal_without_an_electronegativity_ranks_below_every_valued_non_metal() -> None:
     assert not {"He", "Ne", "Ar", "Rn", "Pm", "Eu", "Tb", "Yb"} & set(_ELECTRONEGATIVITIES)
-    # Eu-Si 3.3 Å, beyond the 3.09 Å radius sum; Ca at the same distance is parted
-    assert _counts(distance_bonds(_casio(a="Eu", ab=3.3))) == (2, 2, 2)
-    assert _counts(distance_bonds(_casio(ab=3.3))) == (1, 1, 2)
+    # Eu-Si and Yb-Si 3.3 Å, beyond the 3.09 and 2.98 Å radius sums: parted across O like Ca
+    for cation in ("Eu", "Yb", "Pm", "Tb", "Ca"):
+        assert _counts(_distance_bonds(_casio(a=cation, ab=3.3), 0.45, False)) == (2, 2, 2)
+        assert _counts(distance_bonds(_casio(a=cation, ab=3.3))) == (1, 1, 2)
+    # c need only beat b: H (2.20) above Si (1.90) parts Eu as it parts Ca
+    assert _counts(distance_bonds(_casio(a="Eu", c="H", ab=3.3))) == (1, 1, 2)
+
+
+def test_a_mixed_metal_site_ignores_constituents_without_an_electronegativity() -> None:
+    def mixed(*symbols: str) -> Species:
+        return Species("M", symbols, tuple(F(1, len(symbols)) for _ in symbols))
+
+    # Ca/Eu counts as Ca (1.00), Eu/Yb as a valueless metal: both parted from Si across O
+    assert _counts(distance_bonds(_casio(a=mixed("Ca", "Eu"), ab=3.3))) == (1, 1, 2)
+    assert _counts(distance_bonds(_casio(a=mixed("Eu", "Yb"), ab=3.3))) == (1, 1, 2)
+    # Au/Eu counts as Au (2.54), above H (2.20): kept, as for Ca/Au
+    assert _counts(distance_bonds(_casio(a=mixed("Au", "Eu"), c="H", ab=3.3))) == (2, 2, 2)
+    # Eu beside a non-metal makes a non-metal end without a value: never parted (Ca/Si at the same place is)
+    assert _counts(distance_bonds(_casio(b=mixed("Eu", "Si"), ab=3.9))) == (2, 2, 2)
+    assert _counts(distance_bonds(_casio(b=mixed("Ca", "Si"), ab=3.9))) == (1, 1, 2)
+
+
+def test_a_non_metal_without_an_electronegativity_never_loses_a_bond() -> None:
+    # He and Ar never act as the shared ligand c ...
+    assert _counts(distance_bonds(_casio(c="He"))) == (2, 2, 2)
+    assert _counts(distance_bonds(_casio(c="Ar"))) == (2, 2, 2)
+    # ... nor as the non-metal end b: Ca-Ar 3.1 Å (beyond the 2.82 Å sum) across a shared F
+    assert _counts(distance_bonds(_triangle("Ca", "Ar", "F", 3.1, 2.3, 2.0))) == (2, 2, 2)
+    assert _counts(distance_bonds(_triangle("Ca", "Cl", "F", 3.1, 2.3, 2.0))) == (1, 1, 2)
 
 
 def test_a_dropped_bond_orbit_goes_from_both_ends() -> None:

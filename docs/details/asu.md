@@ -180,11 +180,17 @@ tetrahedron. The electronegativities are Pauling's as compiled by
 [WebElements](https://www.webelements.com/periodicity/eneg_pauling/): Allred's
 revised values (*J. Inorg. Nucl. Chem.* 17, 215 (1961)), else Pauling's (1960),
 and for the noble gases and Am–Cm Huheey, Keiter and Keiter (1993). He, Ne, Ar,
-Rn, Pm, Eu, Tb and Yb have no value there: such an atom never acts as *c*, and
-its bonds are never dropped. A mixed site is a metal *a* only when all its
+Rn, Pm, Eu, Tb and Yb have no value there, and none is invented. A metal *a*
+without a value (Pm, Eu, Tb, Yb) counts as less electronegative than any
+non-metal with one, so a valued non-metal *c* parts it from *b* like any other
+cation. A non-metal without a value (He, Ne, Ar, Rn) never acts as *b* or *c*,
+so its bonds are never dropped. A mixed site is a metal *a* only when all its
 constituents are metals and a non-metal *c* only when all are non-metals; it
 counts with its constituents' largest value as *a* or *b* and their smallest as
-*c*, so a bond is dropped only when the condition holds for every constituent.
+*c*, so a bond is dropped only when the condition holds for every constituent
+with a value. A mixed metal site ignores its constituents without a value when
+taking the largest (and counts as a valueless metal when none has one); any
+other mixed site with a constituent without a value never acts as *b* or *c*.
 The conditions depend on distances and sites only and are symmetric in *a* and
 *b*, so whole bond orbits are kept or dropped, and the network stays the same
 for every exact re-description.
@@ -213,9 +219,7 @@ molecular structures better than ionic ones; the metal rule ignores metal–meta
 bonds in compounds (Re–Re in Re₂Cl₈²⁻ salts, Hg₂²⁺), and anion–anion contacts
 are judged by distance alone. The shared-ligand rule cannot part a cation from
 an anion centre closer than their radius sum or sharing no more electronegative
-non-metal. It keeps every bond of Pm, Eu, Tb and Yb, which have no
-electronegativity, so Eu and Yb silicates and other oxo-salts keep their cation
-contacts. It also drops real metal–ligand bonds that are longer than the radius
+non-metal. It also drops real metal–ligand bonds that are longer than the radius
 sum (the low-spin radii of Mn, Fe and Co are small) and share a cage or ring
 atom more electronegative than both: the Fe–B bonds of a ferracarborane
 (2.23–2.38 Å, across the cage C), Ir–B in thiaboranes (across S) and Fe–C to

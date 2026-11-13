@@ -99,9 +99,10 @@ def _site_radii(
     The constituents are the symbols with a positive concentration other than ``vacancy``
     (attached atoms are ignored); the radius is the largest of theirs, and the site is a metal
     when none of them is a non-metal. A site's electronegativity is the largest of its
-    constituents' as a bond end and the smallest as a shared ligand, ``None`` when a constituent
-    has no value; as a ligand also ``None`` unless every constituent is a non-metal. All are
-    ``None`` for a site without an element.
+    constituents' as a bond end and the smallest as a shared ligand. A metal end ignores
+    constituents without a value, and is ``-inf`` (below every value) when none has one; any
+    other end or ligand is ``None`` when a constituent has no value, and a ligand also unless
+    every constituent is a non-metal. All are ``None`` for a site without an element.
     """
     constituents = {
         species.name: [
@@ -125,7 +126,10 @@ def _site_radii(
         values = [_ELECTRONEGATIVITIES.get(symbol) for symbol in elements]
         known = [value for value in values if value is not None]
         complete = bool(elements) and len(known) == len(values)
-        ends.append(max(known) if complete else None)
+        if elements and not _NON_METALS.intersection(elements):  # a metal end: valueless constituents rank lowest
+            ends.append(max(known, default=-math.inf))
+        else:
+            ends.append(max(known) if complete else None)
         ligands.append(min(known) if complete and _NON_METALS.issuperset(elements) else None)
     return radii, metals, ends, ligands
 
@@ -159,18 +163,21 @@ def distance_bonds(structure: StructureLike, *, tolerance: float = 0.45) -> ASUS
     or Huheey et al. 1993). A mixed site is a metal end when all its constituents are metals and a
     non-metal ligand when all are non-metals; it counts with its constituents' largest value as
     *a* or *b* and their smallest as *c*, so a bond is dropped only when the condition holds for
-    every constituent. A site with a constituent without a value (He, Ne, Ar, Rn, Pm, Eu, Tb, Yb)
-    never acts as *c*, and its bonds are never dropped. This parts the large cations of oxo-salts
-    from the anion centres (in diopside CaMgSi2O6, Ca from Si: Ca 8 and Si 4 bonds, not 12 and 6).
+    every constituent with a value. A metal end without a value (Pm, Eu, Tb, Yb) counts as less
+    electronegative than any non-metal with one: a mixed metal end ignores its constituents
+    without a value when taking the largest, and counts so when none has one. Any other site with
+    a constituent without a value (He, Ne, Ar, Rn, or one of those metals beside a non-metal on a
+    mixed site) never acts as *b* or *c*. No values are invented. This parts the large cations of
+    oxo-salts from the anion centres (in diopside CaMgSi2O6, Ca from Si: Ca 8 and Si 4 bonds, not
+    12 and 6).
 
     A heuristic: it misses metal-metal bonds in compounds (Re-Re in Re2Cl8(2-) salts, Hg2(2+)) and
     judges anion-anion contacts by distance only. The shared-ligand rule cannot part a cation from
     an anion centre closer than their radius sum (Cs, Rb and Ba radii are large) or sharing no
-    more electronegative non-metal; it keeps every bond of Pm, Eu, Tb and Yb (no electronegativity),
-    so Eu and Yb silicates and other oxo-salts keep their cation contacts; and it drops real
-    metal-ligand bonds longer than the radius sum that share a cage or ring atom (C, N or S) more
-    electronegative than both, as in metallacarboranes (Fe-B 2.23-2.38 Å across cage C),
-    thiaboranes (Ir-B across S) and eta-bonded heteroarenes (Fe-C across N).
+    more electronegative non-metal; and it drops real metal-ligand bonds longer than the radius
+    sum that share a cage or ring atom (C, N or S) more electronegative than both, as in
+    metallacarboranes (Fe-B 2.23-2.38 Å across cage C), thiaboranes (Ir-B across S) and
+    eta-bonded heteroarenes (Fe-C across N).
 
     Distances are floats computed from the exact structure: the network is the same for every
     exact asymmetric-unit re-description of one crystal, except that a pair within float noise of
