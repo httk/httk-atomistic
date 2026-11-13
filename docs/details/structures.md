@@ -237,6 +237,17 @@ assert structure.sites.reduced_coords.to_floats()[1] == [1.0 / 3.0, 1.0 / 3.0, 0
 assert float(cell.volume) == cell.volume.to_float()    # scalars support float(...)
 ```
 
+A cell built from parameters is exact when every angle has an exact cosine (a multiple of 15° or
+36°) and the resulting `cz²` is rational (it is not for, e.g., `(3, 4, 5, 75, 75, 75)` or
+`(3, 4, 5, 72, 72, 72)`). Otherwise the whole basis is a deterministic rational approximation,
+never a mix of surds and approximations; in it a cosine or sine whose value is 0, ±1/2 or ±1
+(`cos 90°`, `sin 90°`, `cos 120°`, `sin 30°`) is still exact, and only the irrational ones are
+approximated. A monoclinic cell with a 104.5° angle therefore keeps its right angles exactly, and
+its metric is exactly invariant under the group's operations. A rhombohedral-axes cell
+(`a = b = c`, `α = β = γ`) with an approximated basis does not: the sines and `cz` are
+approximated separately, so its three edges are not exactly equally long and its metric breaks
+the threefold axis by about `1e-11` of the squared edge length.
+
 ## The numeric layer: plain floats and numpy
 
 There are three ways to leave the exact model for plain floats, and they serve different needs:

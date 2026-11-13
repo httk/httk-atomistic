@@ -5,11 +5,14 @@ coordinates, exact lengths/angles/volume, exact Cartesian positions, and VectorL
 
 import fractions
 import math
+from pathlib import Path
 
+import httk.core
 import pytest
 from httk.core import FracVector, SurdVector
 
-from httk.atomistic import Cell, CellParams, Sites, UnitcellStructure
+from httk.atomistic import ASUStructure, Cell, CellParams, Sites, UnitcellStructure
+from httk.atomistic.symmetry.canonical_protostructure import _metric_keeps_group
 
 F = fractions.Fraction
 
@@ -56,6 +59,53 @@ def test_non_niven_angle_falls_back_deterministically() -> None:
     assert floats[1][0] == pytest.approx(ca, abs=1e-9)
     assert floats[1][1] == pytest.approx(sg, abs=1e-9)
     assert floats[2][1] == pytest.approx(cy, abs=1e-9)
+
+
+def test_rational_fallback_keeps_the_rational_cosines_and_sines_exact() -> None:
+    # a non-Niven angle forces the rational fallback; cos 90 = 0, sin 90 = 1 and cos 120 = -1/2
+    # stay exact there, only the irrational values are approximated
+    monoclinic = CellParams((5, 6, 7, 90, F(1053, 10), 90)).basis
+    rows = monoclinic.coefficient(1).to_fractions()
+    assert monoclinic.radicands == (1,) and rows[:2] == [[5, 0, 0], [0, 6, 0]] and rows[2][1] == 0
+    metric = monoclinic * monoclinic.T()
+    two_fold = SurdVector([[-1, 0, 0], [0, 1, 0], [0, 0, -1]])
+    assert two_fold.T() * metric * two_fold == metric
+    hexagonal = CellParams((3, 3, 5, F(1003, 10), 90, 120)).basis
+    assert hexagonal.radicands == (1,) and hexagonal.coefficient(1).to_fractions()[1][0] == F(-3, 2)
+
+
+@pytest.mark.xfail(strict=True, reason="accepted limit: an approximated rhombohedral basis has unequal edges")
+@pytest.mark.parametrize("angle", [F("57.3"), F(72), F(75)])
+def test_approximated_rhombohedral_metric_keeps_the_threefold_axis(angle: F) -> None:
+    # a non-Niven angle, or Niven angles with an irrational cz**2: the fallback approximates sin
+    # and cz separately, so |b|**2 and |c|**2 differ from |a|**2 by about 1e-11 relative
+    basis = CellParams((5, 5, 5, angle, angle, angle)).basis
+    metric = basis * basis.T()
+    threefold = SurdVector([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
+    assert threefold.T() * metric * threefold == metric
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+# no structure (format tests) or no cell
+NOT_STRUCTURES = ("cif_lossless/", "structural_modulation.cif")
+
+
+@pytest.mark.parametrize(
+    "name",
+    sorted(
+        name
+        for name in (str(path.relative_to(FIXTURES)) for path in FIXTURES.rglob("*.cif"))
+        if not name.startswith(NOT_STRUCTURES)
+    ),
+)
+def test_fixture_metric_is_exactly_invariant_under_its_group(name: str) -> None:
+    # a cell built from the stated parameters keeps every angle the group fixes exactly (90 and
+    # 120 degrees), in the stored setting: W^T G W == G for every point operation W
+    structure = httk.core.load(str(FIXTURES / name), repair=True)
+    assert isinstance(structure, ASUStructure)
+    if structure.spacegroup.it_number <= 2:
+        pytest.skip("triclinic: no angle is fixed")
+    assert _metric_keeps_group(structure)
 
 
 # --------------------------------------------------------------- scale factoring

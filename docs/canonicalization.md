@@ -313,11 +313,13 @@ recognition and no upward symmetry search.
     with improper operations when the cell metric does not keep every operation
     exactly (`Wᵀ G W ≠ G`), as for an ASU recognized from measured data, which keeps
     its measured cell: there the improper operations cannot identify the hands.
-    The test is exact, so it also fires for every monoclinic CIF, whose cell built
-    from its parameters leaves residues of about `1e-11` in the components that
-    should be zero; the cost there is about 1.5 times the canonicalization time.
-    Among the repository fixtures no label changed; for structreading/6,
-    structreading/9 and cod/1001844 the mirrored hand's representative wins.
+    The test is exact. A cell built from parameters keeps the right angles and
+    120° angles its group fixes exactly, so among the repository fixtures it fires
+    only for cod/1001844 (P1 as stored, recognized in a higher group), where the
+    mirrored hand's representative wins. It still fires for a rhombohedral-axes
+    cell whose angle has no exact cosine (or whose exact cosines give an
+    irrational `cz²`, e.g. 72° or 75°): its approximated basis does not give the
+    three edges exactly equal lengths.
     Other groups remain. Moments are already excluded.
 16. **Build representative operations.** Start with identity. For P1, append all
     exact integral automorphisms of the full rational Gram. For other groups, append every affine

@@ -145,7 +145,7 @@ FORM_VERSIONS = {"label": _LABEL_FORM_VERSION, "refined": _REFINED_FORM_VERSION,
 def test_records_carry_their_family_canonical_form_version(build, from_record, family) -> None:
     version = FORM_VERSIONS[family]
     record = build()
-    assert record.canonical_form == version == {"label": 4, "refined": 7, "net": 6}[family]
+    assert record.canonical_form == version == {"label": 4, "refined": 8, "net": 6}[family]
     assert type(record).__httk_project__(from_record(record))["canonical_form"] == version
     type(record).__httk_validate__(record)
     with pytest.raises(TypeError, match="canonical_form must be an integer"):

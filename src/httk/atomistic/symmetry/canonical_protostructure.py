@@ -1141,10 +1141,11 @@ def _canonical_protostructure_assignments_asu(
     relate the hands), and both hands' candidates compete. So do both hands of any other group
     whose improper operations are not exact isometries of the cell (:func:`_metric_keeps_group`):
     a recognized ASU keeps its measured cell, whose metric then cannot identify the hands. The
-    test is exact, so it also fires for every monoclinic CIF, whose cell built from its parameters
-    leaves residues of about ``1e-11`` where the metric should be zero; that costs about 1.5 times
-    the canonicalization time there. Among the repository fixtures it changed no label; for
-    structreading/6, structreading/9 and cod/1001844 the mirrored hand's representative wins.
+    test is exact. A cell built from parameters keeps the right angles and 120° angles its group
+    fixes exactly, so among the repository fixtures it fires only for cod/1001844 (P1 as stored,
+    recognized in a higher group), where the mirrored hand's representative wins. It still fires
+    for a rhombohedral-axes cell built from parameters with an approximated basis (an angle with no
+    exact cosine, or an irrational ``cz**2``), whose edges are not exactly equally long.
     """
     if not isinstance(structure, ASUStructure):
         raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")

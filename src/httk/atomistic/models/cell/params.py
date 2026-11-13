@@ -16,12 +16,12 @@ _PARAMS_PREC = exactmath.default_accuracy
 
 
 def _rcos(deg: fractions.Fraction) -> fractions.Fraction:
-    """A deterministic rational cosine of ``deg`` degrees at ``_PARAMS_PREC``."""
+    """A deterministic rational cosine of ``deg`` degrees: exact where rational, else at ``_PARAMS_PREC``."""
     return fractions.Fraction(exactmath.cos(deg, degrees=True, prec=_PARAMS_PREC, limit=False, exact=False))
 
 
 def _rsin(deg: fractions.Fraction) -> fractions.Fraction:
-    """A deterministic rational sine of ``deg`` degrees at ``_PARAMS_PREC``."""
+    """A deterministic rational sine of ``deg`` degrees: exact where rational, else at ``_PARAMS_PREC``."""
     return fractions.Fraction(exactmath.sin(deg, degrees=True, prec=_PARAMS_PREC, limit=False, exact=False))
 
 
@@ -32,8 +32,11 @@ def _params_to_basis(params: tuple[fractions.Fraction, ...]) -> SurdVector:
     First cell vector along x, second in the xy-plane. When all of ``cos(alpha)``, ``cos(beta)``,
     ``cos(gamma)``, ``sin(gamma)`` are exact in the surd field (Niven angles) AND the resulting
     ``cz**2`` is rational, the basis is exact (radicals intact). Otherwise it falls back
-    **completely** to a deterministic rational matrix at ``_PARAMS_PREC`` — never mixing exact
-    and approximate entries.
+    **completely** to a deterministic rational matrix — never mixing surd and approximate entries.
+    In that fallback a cosine or sine whose value is rational (0, ±1/2 or ±1, e.g. ``cos 90°``,
+    ``cos 120°``, ``sin 30°``) is exact, and only the irrational ones are approximated at
+    ``_PARAMS_PREC``, so a monoclinic cell keeps its exact zeros. A rhombohedral-axes cell does not
+    keep equal edge lengths there: ``sin(gamma)`` and ``cz`` are approximated separately.
     """
     a, b, c, alpha, beta, gamma = params
     cos_a = SurdScalar.cos_degrees(alpha)
@@ -78,7 +81,9 @@ class CellParams(CellBackend):
     :class:`~fractions.Fraction` values (converted through :class:`~httk.core.FracVector`, so a
     string such as ``"3.567"`` is kept exactly as written). The exact ``basis`` is derived lazily and
     cached using the standard crystallographic orientation convention (first cell vector along x,
-    second in the xy-plane); for the common Niven angles it is exact (radicals intact). Since
+    second in the xy-plane); for the common Niven angles it is exact (radicals intact), and
+    otherwise a deterministic rational approximation in which the cosines and sines that are 0,
+    ±1/2 or ±1 stay exact, so a monoclinic cell keeps its right angles. Since
     parameters carry no separate length factor, ``scale`` is the exact ``1`` and
     ``unscaled_basis == basis``. Parameters carry neither orientation nor periodicity, so a cell
     → parameters → cell round-trip reproduces lengths and angles, and reproduces volume only for
