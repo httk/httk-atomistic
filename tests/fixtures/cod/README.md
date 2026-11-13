@@ -27,3 +27,4 @@ Do not edit or trim them; the tests depend on the exact original content.
 | 4131686 | C20H16N2O2 (P-1, Z = 1): molecule on an inversion centre |
 | 7217003 | triazolo-benzothiadiazine dioxide C16H14N4O2S (P-1): a protonet search performance regression |
 | 7219102 | sarcosine C3H7NO2 (P2₁2₁2₁): a small chiral-group molecular crystal |
+| 4120336 | ferracarborane C8H22B14Fe (P2₁/c): `distance_bonds` drops its six Fe–B bonds across the cage C (a known limitation, `test_bonding.py`) |

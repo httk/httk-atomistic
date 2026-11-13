@@ -162,6 +162,41 @@ elements) the distance rule alone applies. The cation radius sums are generous, 
 without this rule the cations of ionic solids bond to each other (rutile TiO₂
 would give Ti 6 O and 10 Ti neighbours; with it, Ti 6 and O 3).
 
+The bonds found so far form the *tentative network*. Finally, a cation does not
+bond to an anion centre across a ligand they share: a tentative bond between a
+metal *a* and a non-metal *b* is dropped when both
+
+1. it is longer than the sum of the two radii, `d(a, b) > r(a) + r(b)`, so it
+   exists only through the tolerance, and
+2. some non-metal *c* tentatively bonded to both *a* and *b* is more
+   electronegative than both.
+
+All drops are decided on the tentative network in one pass; a drop never
+changes another decision. Bonds between two metals or between two non-metals
+are never dropped. Without this rule the oxo-anion centres of oxo-salts bond to
+the large cations around them: diopside CaMgSi₂O₆ gives calcium 12 bonds, four
+of them to silicon, and silicon six; with it, calcium 8 and a silicon
+tetrahedron. The electronegativities are Pauling's as compiled by
+[WebElements](https://www.webelements.com/periodicity/eneg_pauling/): Allred's
+revised values (*J. Inorg. Nucl. Chem.* 17, 215 (1961)), else Pauling's (1960),
+and for the noble gases and Am–Cm Huheey, Keiter and Keiter (1993). He, Ne, Ar,
+Rn, Pm, Eu, Tb and Yb have no value there: such an atom never acts as *c*, and
+its bonds are never dropped. A mixed site is a metal *a* only when all its
+constituents are metals and a non-metal *c* only when all are non-metals; it
+counts with its constituents' largest value as *a* or *b* and their smallest as
+*c*, so a bond is dropped only when the condition holds for every constituent.
+The conditions depend on distances and sites only and are symmetric in *a* and
+*b*, so whole bond orbits are kept or dropped, and the network stays the same
+for every exact re-description.
+
+The length condition keeps a metal–non-metal bond that is shorter than the
+radius sum. Its cost is that a contact between a very large cation (Cs, Rb, Ba)
+and an oxo-anion centre that is shorter than their radius sum survives.
+Dropping the length condition was measured on ICSD and COD samples and not
+adopted: it parted few more such pairs, and in organometallic entries it also
+dropped real metal–carbon and metal–hydrogen bonds. The condition does not
+protect every metal–ligand bond, though: see the limitations below.
+
 ```python
 from httk.atomistic import ASUStructure, Cell, Species, WyckoffSite, distance_bonds
 
@@ -176,12 +211,20 @@ bonded = distance_bonds(nacl)  # Na-Cl at 2.82 Å; Na-Na is metal-metal; Cl-Cl a
 This is a heuristic, not a chemical model. Covalent radii suit covalent and
 molecular structures better than ionic ones; the metal rule ignores metal–metal
 bonds in compounds (Re–Re in Re₂Cl₈²⁻ salts, Hg₂²⁺), and anion–anion contacts
-are judged by distance alone. Disordered structures need care:
+are judged by distance alone. The shared-ligand rule cannot part a cation from
+an anion centre closer than their radius sum or sharing no more electronegative
+non-metal. It keeps every bond of Pm, Eu, Tb and Yb, which have no
+electronegativity, so Eu and Yb silicates and other oxo-salts keep their cation
+contacts. It also drops real metal–ligand bonds that are longer than the radius
+sum (the low-spin radii of Mn, Fe and Co are small) and share a cage or ring
+atom more electronegative than both: the Fe–B bonds of a ferracarborane
+(2.23–2.38 Å, across the cage C), Ir–B in thiaboranes (across S) and Fe–C to
+η-bonded heteroarenes (across N). Disordered structures need care:
 pairs closer than 0.5 Å (split positions) are never bonded, but partially
 occupied neighbours are bonded as if both were present. Distances are floats
 computed from the exact structure, so every exact asymmetric-unit re-description of one
 crystal gives the same network except where a distance lies within float noise of its
-cutoff.
+cutoff or of its radius sum.
 
 ## Any setting, including untabulated ones
 
