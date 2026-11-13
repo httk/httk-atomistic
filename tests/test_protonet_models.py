@@ -4,6 +4,7 @@ import pickle
 from fractions import Fraction
 
 import pytest
+from _protonet_support import default_shapes
 
 from httk.atomistic import (
     BareProtostructureView,
@@ -28,8 +29,8 @@ from httk.atomistic.models.prototype.notation import (
 from httk.atomistic.symmetry.protonet import _tables
 
 BARE = "A4B2CD_oP32_34_4c_abc_ab_c"
-NET = "1~8.10_2~8.10_3~9.10_4~9.10@3"
-KS_NET = "1~5.6.7.7@4.8.10_2~5.6@4.7@4.7@2@556.8@1@556.10@1@556_3~5.6.7@1@556.9.10@4@455_4~5.7.7@3@445.9@4@454.10@4@455"
+NET = "8~1.2_9~3.4_10~1.2.3.4@4"  # the frame with default shapes (S A2, Ag and Sb T4)
+KS_NET = "5~1.2.3.4_7~1.1@3.2.2@4@554.3@3.4.4@3@554_6~1@3.2.3@2_1~8.10_2~8@1@556.10@1@556_3~9@2.10@3@545_4~9@4.10@3@545"
 ROWS = [(i, j, 1, 0, 0, 0) for i, j in ((1, 8), (1, 10), (2, 8), (2, 10), (3, 9), (3, 10), (4, 9))] + [
     (4, 10, 3, 0, 0, 0)
 ]
@@ -43,11 +44,12 @@ def _sp(name: str) -> Species:
 
 
 def _anon(net=ROWS) -> Protonettype:
-    return Protonettype(34, list(zip(LETTERS, CLASSES)), net)
+    return Protonettype(34, list(zip(LETTERS, CLASSES)), net, default_shapes(34, LETTERS, net))
 
 
 def _assigned() -> Protonetstructure:
-    return Protonetstructure(34, [(letter, _sp(name)) for letter, name in zip(LETTERS, NAMES)], ROWS)
+    occupations = [(letter, _sp(name)) for letter, name in zip(LETTERS, NAMES)]
+    return Protonetstructure(34, occupations, ROWS, default_shapes(34, LETTERS, ROWS))
 
 
 def test_k2agsbs4_labels_and_prefix_nesting() -> None:
@@ -80,12 +82,13 @@ def test_parse_render_round_trip(text: str) -> None:
     parse = parse_protonetstructure_label if ":" in text else parse_protonettype_label
     value = parse(text)
     assert str(value.label) == text
-    assert parse(str(type(value)(value.spacegroup, value.occupations, value.net).label)) == value
+    assert parse(str(type(value)(value.spacegroup, value.occupations, value.net, value.shapes).label)) == value
 
 
 def test_tied_classes_take_the_d3_order() -> None:
     # wurtzite's net is symmetric in its two classes on b, so the smallest name tuple orders them
-    value = Protonetstructure(186, [("b", _sp("Zn")), ("b", _sp("S"))], [(1, 2, 1, 0, 0, 0), (1, 2, 2, 0, 0, 0)])
+    rows = [(1, 2, 1, 0, 0, 0), (1, 2, 2, 0, 0, 0)]
+    value = Protonetstructure(186, [("b", _sp("Zn")), ("b", _sp("S"))], rows, ("T4", "T4"))
     assert [o.species.name for o in value.occupations] == ["S", "Zn"]
     assert value == parse_protonetstructure_label("AB_hP4_186_b_b__1~2.2@2:S-Zn")
     # the same for NaCl, whose a and b are exchanged by an origin shift
@@ -113,24 +116,25 @@ def _respelled(rows: list[tuple[int, ...]]) -> list[tuple[int, int, int, int, in
 
 def test_one_net_is_one_value_whatever_its_spelling() -> None:
     rows = _respelled(ROWS)
-    raw = Protonettype._of(34, list(zip(LETTERS, CLASSES)), rows)
+    shapes = default_shapes(34, LETTERS, rows)
+    raw = Protonettype._of(34, list(zip(LETTERS, CLASSES)), rows, shapes)
     assert raw.net != _anon().net  # a well-formed, non-canonical spelling
     assert _anon(rows) == _anon() and hash(_anon(rows)) == hash(_anon())
     assert str(_anon(rows).label) == f"{BARE}__{NET}"
     occupations = [(letter, _sp(name)) for letter, name in zip(LETTERS, NAMES)]
-    assert Protonetstructure(34, occupations, rows) == _assigned()
-    assert hash(Protonetstructure(34, occupations, rows)) == hash(_assigned())
+    assert Protonetstructure(34, occupations, rows, shapes) == _assigned()
+    assert hash(Protonetstructure(34, occupations, rows, shapes)) == hash(_assigned())
     with pytest.raises(ValueError, match="not a canonical"):
         parse_protonettype_label(str(raw.label))
     with pytest.raises(ValueError, match="not a canonical"):
-        parse_protonetstructure_label(str(Protonetstructure._of(34, occupations, rows).label))
+        parse_protonetstructure_label(str(Protonetstructure._of(34, occupations, rows, shapes).label))
 
 
 def test_input_rows_take_any_lattice_translation() -> None:
     shifted = [(i, j, k, n1 + 7, n2 - 9, n3 + 30) for i, j, k, n1, n2, n3 in ROWS]
     assert _anon(shifted) == _anon()
     with pytest.raises(ValueError, match="translation"):
-        Protonettype._of(34, list(zip(LETTERS, CLASSES)), shifted)
+        Protonettype._of(34, list(zip(LETTERS, CLASSES)), shifted, default_shapes(34, LETTERS, ROWS))
     # a bond six cells along c next to the frame's own bonds needs a canonical -6 (D4)
     with pytest.raises(ValueError, match=r"cannot write this canonical net.*\(D4\)"):
         _anon([*ROWS, (1, 8, 1, 0, 0, -6)])
@@ -146,7 +150,7 @@ def test_input_rows_take_any_lattice_translation() -> None:
         "1~8.",
         "1~8@3@55",
         "01~8",
-        "8~1",
+        "1~8",  # Ag (two bonds) lists its bond to S (one)
         "1~8.8",
         "2~3_1~2",
         "1~2_1~3",
@@ -181,7 +185,6 @@ def test_parser_rejects_other_forms() -> None:
 @pytest.mark.parametrize(
     "row",
     [
-        (8, 1, 1, 0, 0, 0),  # i > j
         (0, 1, 1, 0, 0, 0),
         (1, 11, 1, 0, 0, 0),
         (1, 8, 5, 0, 0, 0),  # group 34 has four operations
@@ -227,7 +230,8 @@ def test_erasure_is_positional() -> None:
     ps = _assigned()
     assert ProtonettypeView(ps).label == str(ps.label).rsplit(":", 1)[0]
     assert ps.protonettype == _anon()
-    tied = Protonetstructure(4, [("a", _sp("Zn")), ("a", _sp("S"))], [(1, 1, 2, 0, 0, 0), (1, 2, 1, 0, 0, 0)])
+    rows = [(1, 1, 2, 0, 0, 0), (1, 2, 1, 0, 0, 0)]
+    tied = Protonetstructure(4, [("a", _sp("Zn")), ("a", _sp("S"))], rows, default_shapes(4, ["a", "a"], rows))
     assert str(tied.label) == "AB_mP4_4_a_a__1~1@2.2:Zn-S"
     assert ProtonettypeView(tied).label == "AB_mP4_4_a_a__1~1@2.2"
     assert ProtonettypeView(tied).label == str(tied.label).rsplit(":", 1)[0]

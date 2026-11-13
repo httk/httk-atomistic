@@ -51,6 +51,11 @@ class ProtonettypeLabel(ProtonettypeViewBase, str):
         """Return the net rows of the presented protonettype."""
         return self._backend.net
 
+    @property
+    def shapes(self):
+        """Return the per-site bond shapes of the presented protonettype."""
+        return self._backend.shapes
+
     def unview(self) -> Protonettype:
         """Return the standalone protonettype value."""
         backend = self._backend
@@ -61,7 +66,7 @@ class ProtonettypeLabel(ProtonettypeViewBase, str):
         resolve = getattr(backend, "resolve", None)
         if resolve is not None:  # the label-string and derived backends hold a canonical value
             return resolve()
-        return Protonettype(backend.spacegroup, backend.occupations, backend.net)
+        return Protonettype(backend.spacegroup, backend.occupations, backend.net, backend.shapes)
 
     def unwrap(self) -> Any:
         """Return the raw object behind the backend.

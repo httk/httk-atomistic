@@ -3314,7 +3314,8 @@ class ProtonetBondRecord:
 
     The durable analogue of a net row ``(i, j, k, n1, n2, n3)``.
 
-    :param site: The 1-based site ``i`` of the reference atom.
+    :param site: The 1-based listing site ``i`` of the row: the end that comes first in the
+        listing order, whose reference atom the row starts from.
     :param target: The 1-based site ``j`` of the bonded atom.
     :param operation: The 1-based general-position operation ``k`` (identity = 1).
     :param translation_a: The lattice translation ``n1``.
@@ -3355,6 +3356,8 @@ class ProtonettypeRecord:
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param occupations: The anonymous occupied Wyckoff positions in site order.
     :param net: The bonding-net rows in label order.
+    :param shapes: The bond shape symbol per site, defaults included, ``""`` for a site with fewer
+        than two bonds; ``()`` for an undetermined value.
     :param undetermined: The label of an undetermined value (``X`` where a part was not
         determined within the canonicalisation budget), which is then all the record stores
         besides the space group, when known; ``None`` for a determined value.
@@ -3374,6 +3377,7 @@ class ProtonettypeRecord:
     spacegroup_hall_entry: str | None
     occupations: tuple[PrototypeOccupation, ...]
     net: tuple[ProtonetBondRecord, ...]
+    shapes: tuple[str, ...] = ()
     undetermined: Annotated[str | None, IdentitySkipWhenNone()] = None
     canonical_form: int = _NET_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
@@ -3399,9 +3403,12 @@ class ProtonettypeRecord:
         value = _protonettype_from_record(record)
         if not value.determined:
             return
-        canonical = _protonettype_record_from_value(Protonettype(value.spacegroup, value.occupations, value.net))
+        canonical = _protonettype_record_from_value(
+            Protonettype(value.spacegroup, value.occupations, value.net, value.shapes)
+        )
         _require_canonical("ProtonettypeRecord", "occupations", record.occupations, canonical.occupations)
         _require_canonical("ProtonettypeRecord", "net rows", _net_rows(record), _net_rows(canonical))
+        _require_canonical("ProtonettypeRecord", "shapes", record.shapes, canonical.shapes)
 
     @classmethod
     def __httk_project__(cls, value: Protonettype) -> Mapping[str, object]:
@@ -3411,12 +3418,20 @@ class ProtonettypeRecord:
         :return: The projected record fields.
         """
         if (fields := _undetermined_fields(value)) is not None:
-            return {**fields, "net": (), "canonical_form": _NET_FORM_VERSION, "id": None, "immutable_id": None}
+            return {
+                **fields,
+                "net": (),
+                "shapes": (),
+                "canonical_form": _NET_FORM_VERSION,
+                "id": None,
+                "immutable_id": None,
+            }
         return {
             "spacegroup_it_number": value.spacegroup.it_number,
             "spacegroup_hall_entry": value.spacegroup.hall_entry,
             "occupations": value.occupations,
             "net": _bond_records(value.net),
+            "shapes": _net_shapes_record(value.shapes),
             "undetermined": None,
             "canonical_form": _NET_FORM_VERSION,
             "id": None,
@@ -3435,6 +3450,8 @@ class ProtonetstructureRecord:
     :param spacegroup_hall_entry: The standard-setting Hall entry.
     :param occupations: The occupied Wyckoff positions in site order.
     :param net: The bonding-net rows in label order.
+    :param shapes: The bond shape symbol per site, defaults included, ``""`` for a site with fewer
+        than two bonds; ``()`` for an undetermined value.
     :param undetermined: The label of an undetermined value (``X`` where a part was not
         determined within the canonicalisation budget), which is then all the record stores
         besides the space group, when known; ``None`` for a determined value.
@@ -3454,6 +3471,7 @@ class ProtonetstructureRecord:
     spacegroup_hall_entry: str | None
     occupations: tuple[WyckoffOccupationRecord, ...]
     net: tuple[ProtonetBondRecord, ...]
+    shapes: tuple[str, ...] = ()
     undetermined: Annotated[str | None, IdentitySkipWhenNone()] = None
     canonical_form: int = _NET_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
@@ -3481,10 +3499,11 @@ class ProtonetstructureRecord:
         if not value.determined:
             return
         canonical = _protonetstructure_record_from_value(
-            Protonetstructure(value.spacegroup, value.occupations, value.net)
+            Protonetstructure(value.spacegroup, value.occupations, value.net, value.shapes)
         )
         _require_canonical("ProtonetstructureRecord", "occupations", record.occupations, canonical.occupations)
         _require_canonical("ProtonetstructureRecord", "net rows", _net_rows(record), _net_rows(canonical))
+        _require_canonical("ProtonetstructureRecord", "shapes", record.shapes, canonical.shapes)
 
     @classmethod
     def __httk_project__(cls, value: Protonetstructure) -> Mapping[str, object]:
@@ -3494,12 +3513,20 @@ class ProtonetstructureRecord:
         :return: The projected record fields.
         """
         if (fields := _undetermined_fields(value)) is not None:
-            return {**fields, "net": (), "canonical_form": _NET_FORM_VERSION, "id": None, "immutable_id": None}
+            return {
+                **fields,
+                "net": (),
+                "shapes": (),
+                "canonical_form": _NET_FORM_VERSION,
+                "id": None,
+                "immutable_id": None,
+            }
         return {
             "spacegroup_it_number": value.spacegroup.it_number,
             "spacegroup_hall_entry": value.spacegroup.hall_entry,
             "occupations": value.occupations,
             "net": _bond_records(value.net),
+            "shapes": _net_shapes_record(value.shapes),
             "undetermined": None,
             "canonical_form": _NET_FORM_VERSION,
             "id": None,
@@ -3508,11 +3535,27 @@ class ProtonetstructureRecord:
 
 
 def _validate_net_field(record_name: str, record: Any) -> None:
-    """Require a tuple of bond records in a protonet record's ``net`` field."""
+    """Require a tuple of bond records in a protonet record's ``net`` field and of strings in ``shapes``."""
     net = tuple(record.net)
     if not all(_effective_record_type(value) is ProtonetBondRecord for value in net):
         raise TypeError(f"{record_name} net must contain ProtonetBondRecord values")
     object.__setattr__(record, "net", net)
+    shapes = tuple(record.shapes)
+    if not all(isinstance(value, str) for value in shapes):
+        raise TypeError(f"{record_name} shapes must contain str values")
+    if shapes and len(shapes) != len(record.occupations):
+        raise ValueError(f"{record_name} shapes must give one entry per occupation")
+    object.__setattr__(record, "shapes", shapes)
+
+
+def _net_shapes_record(shapes: tuple[str | None, ...]) -> tuple[str, ...]:
+    """Return a protonet value's shapes as stored: ``""`` for a site without a shape."""
+    return tuple(symbol or "" for symbol in shapes)
+
+
+def _net_shapes(record: ProtonettypeRecord | ProtonetstructureRecord) -> tuple[str | None, ...] | None:
+    """Return a protonet record's shapes as value shapes; ``None`` when none are stored."""
+    return tuple(symbol or None for symbol in record.shapes) if record.shapes else None
 
 
 def _net_rows(record: ProtonettypeRecord | ProtonetstructureRecord) -> tuple[tuple[int, int, int, int, int, int], ...]:
@@ -3546,6 +3589,7 @@ def _protonet_record_label(
         [letters for _, letters in runs],
         _net_rows(record),
         [key for key, _ in runs] if named else None,
+        shapes=tuple(symbol or None for symbol in record.shapes) or (None,) * len(sites),
     )
 
 
@@ -3568,7 +3612,9 @@ def _protonettype_from_record(record: ProtonettypeRecord) -> Protonettype:
     if record.undetermined is not None:
         return _undetermined_from_record(record, Protonettype, "net", _NET_FORM_VERSION)
     _require_canonical_form(record, "net", _NET_FORM_VERSION)
-    return Protonettype._of(_protonet_record_spacegroup(record), tuple(record.occupations), _net_rows(record))
+    return Protonettype._of(
+        _protonet_record_spacegroup(record), tuple(record.occupations), _net_rows(record), _net_shapes(record)
+    )
 
 
 def _protonettype_record_from_value(value: Protonettype) -> ProtonettypeRecord:
@@ -3584,6 +3630,7 @@ def _protonettype_record_from_value(value: Protonettype) -> ProtonettypeRecord:
         spacegroup_hall_entry=value.spacegroup.hall_entry,
         occupations=tuple(value.occupations),
         net=_bond_records(value.net),
+        shapes=_net_shapes_record(value.shapes),
     )
 
 
@@ -3600,6 +3647,7 @@ def _protonetstructure_from_record(record: ProtonetstructureRecord) -> Protonets
         _protonet_record_spacegroup(record),
         tuple(WyckoffOccupation(value.wyckoff, _species_from_record(value.species)) for value in record.occupations),
         _net_rows(record),
+        _net_shapes(record),
     )
 
 
@@ -3622,6 +3670,7 @@ def _protonetstructure_record_from_value(value: Protonetstructure) -> Protonetst
             for occupation in value.occupations
         ),
         net=_bond_records(value.net),
+        shapes=_net_shapes_record(value.shapes),
     )
 
 

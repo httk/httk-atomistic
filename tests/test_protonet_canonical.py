@@ -33,7 +33,6 @@ from httk.atomistic.symmetry.protonet import (
     _CanonicalNet,
     _cell,
     _cell_candidates,
-    _key,
     _mat_mul,
     _moved,
     _search,
@@ -50,15 +49,15 @@ NACL = {frozenset(("Na", "Cl")): 3.0}
 
 # name -> (it number, spec or None for the CIF, cell, cutoffs, expected net or None)
 CASES: dict[str, tuple[Any, ...]] = {
-    "k2agsbs4-frame": (34, None, None, FRAME, "1~8.10_2~8.10_3~9.10_4~9.10@3"),
+    "k2agsbs4-frame": (34, None, None, FRAME, "8~1.2_9~3.4_10~1.2.3.4@4"),
     "k2agsbs4-full": (
         34,
         None,
         None,
         {**FRAME, frozenset(("K", "S")): 3.75},
         (
-            "1~5.6.7.7@4.8.10_2~5.6@4.7@4.7@2@556.8@1@556.10@1@556"
-            "_3~5.6.7@1@556.9.10@4@455_4~5.7.7@3@445.9@4@454.10@4@455"
+            "5~1.2.3.4_7~1.1@3.2.2@4@554.3@3.4.4@3@554_6~1@3.2.3@2"
+            "_1~8.10_2~8@1@556.10@1@556_3~9@2.10@3@545_4~9@4.10@3@545"
         ),
     ),
     "nacl": (225, [("Na", "a", ()), ("Cl", "b", ())], CUBIC, NACL, "1~2"),
@@ -76,7 +75,7 @@ CASES: dict[str, tuple[Any, ...]] = {
         [("Pd", "a", ()), ("Se", "c", (F(1112, 10000), F(1179, 10000), F(4073, 10000)))],
         (5.7457, 5.8679, 7.6946, 90, 90, 90),
         {frozenset(("Pd", "Se")): 2.6, frozenset(("Se",)): 2.6},
-        "1~1@2@455.2.2@4@455",
+        "2~1.1@3_1~1@2@545",
     ),
     "p21-chain": (
         4,
@@ -120,24 +119,25 @@ def _case(name: str) -> tuple[int, list[Any], list[Any], list[list[float]], list
     return it, sites, refs, lattice, rows, dist
 
 
-def _oracle_net(it: int, sites: Any, rows: Any) -> dict[str, Any]:
+def _oracle_net(it: int, sites: Any, rows: Any, shapes: Any = None) -> dict[str, Any]:
     """The oracle's net; in groups 3 to 15 its least key over the cells chosen from the net (task 4.2).
 
     The oracle searches the equivalent descriptions alone; the cells come from production's
     ``_cell_candidates``, which ``test_protonet_cells.py`` tests on its own.
     """
     if not 3 <= it <= 15:
-        return oracle.canonical_net(it, sites, rows)
-    tables, reference = _tables(it), oracle.tables(it)
+        return oracle.canonical_net(it, sites, rows, shapes=shapes)
+    tables = _tables(it)
     best: tuple[Any, ...] | None = None
     result: dict[str, Any] = {}
     for X in _cell_candidates(tables, sites, rows)[0]:
         cell = _cell(it, X)
         moved = [(cls, cell.letter(letter)[0]) for cls, letter in sites]
         hand = X[0][0] * X[1][1] - X[0][1] * X[1][0]
-        expected = oracle.canonical_net(it, moved, [_moved(tables, cell, sites, row) for row in rows], hand=hand)
-        ranks = tuple((-sum(reference.letter(x)["multiplicity"] for x in g), tuple(g)) for g in expected["groups"])
-        key = (ranks, list(expected["slots"]), [_key(c) for c in expected["codes"]])
+        expected = oracle.canonical_net(
+            it, moved, [_moved(tables, cell, sites, row) for row in rows], hand=hand, shapes=shapes
+        )
+        key = expected["cand"]
         if best is None or key < best:
             best, result = key, {**expected, "realisations": list(expected["realisations"])}
         elif key == best:
@@ -160,6 +160,7 @@ def _assert_matches_oracle(result: _CanonicalNet, expected: dict[str, Any]) -> N
     assert list(result.slots) == list(expected["slots"])
     assert list(result.codes) == list(expected["codes"])
     assert list(result.groups) == list(expected["groups"])
+    assert list(result.shapes) == list(expected["shapes"])
     # D3 (review R1): the smallest name tuple over the realisations, not the oracle's first one
     assert min(r.classes for r in result.realisations) == min(tuple(r["classes"]) for r in expected["realisations"])
 
@@ -467,7 +468,7 @@ def test_pdse2_is_one_string_over_150_scrambles() -> None:
     for _ in range(150):
         result = _canonical_net(it, *scramble(tables, sites, rows, rng))
         seen.add(oracle.render(result.slots, result.codes))
-    assert seen == {"1~1@2@455.2.2@4@455"}
+    assert seen == {"2~1.1@3_1~1@2@545"}
 
 
 FIXTURE_NORMAL = (

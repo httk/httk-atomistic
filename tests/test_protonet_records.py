@@ -1,8 +1,14 @@
 """Durable records, entry families and registrations for protonettypes and protonetstructures."""
 
+import contextlib
 import dataclasses
+import os
+import uuid
+from collections.abc import Iterator
+from typing import Any
 
 import pytest
+from _protonet_support import default_shapes
 from httk.core.register import known_entry_families, resolve_entry_record
 from httk.core.storage import content_id, resolve_storage_record, storage_identity_name
 from test_protonet_models import _respelled
@@ -52,16 +58,18 @@ def _sp(name: str) -> Species:
     return Species(name, (name,), (1,))
 
 
-def _anon(net=ROWS) -> Protonettype:
-    return Protonettype(34, list(zip(LETTERS, CLASSES, strict=True)), net)
+def _anon(net=ROWS, shapes=None) -> Protonettype:
+    shapes = default_shapes(34, LETTERS, net) if shapes is None else shapes
+    return Protonettype(34, list(zip(LETTERS, CLASSES, strict=True)), net, shapes)
 
 
 def _assigned(net=ROWS) -> Protonetstructure:
-    return Protonetstructure(34, [(letter, _sp(name)) for letter, name in zip(LETTERS, NAMES, strict=True)], net)
+    occupations = [(letter, _sp(name)) for letter, name in zip(LETTERS, NAMES, strict=True)]
+    return Protonetstructure(34, occupations, net, default_shapes(34, LETTERS, net))
 
 
 def _tied(first: str = "Zn", second: str = "S") -> Protonetstructure:
-    return Protonetstructure(4, [("a", _sp(first)), ("a", _sp(second))], TIED_ROWS)
+    return Protonetstructure(4, [("a", _sp(first)), ("a", _sp(second))], TIED_ROWS, ("TP3", None))
 
 
 CASES = [
@@ -103,9 +111,10 @@ def test_validate_rejects_reordered_occupations_and_foreign_net(build, to_record
 
 
 def test_validate_rejects_a_non_canonical_net() -> None:
-    rows = _respelled(ROWS)
-    anonymous = Protonettype._of(34, list(zip(LETTERS, CLASSES, strict=True)), rows)
-    assigned = Protonetstructure._of(34, [(x, _sp(name)) for x, name in zip(LETTERS, NAMES, strict=True)], rows)
+    rows, shapes = _respelled(ROWS), default_shapes(34, LETTERS, ROWS)
+    anonymous = Protonettype._of(34, list(zip(LETTERS, CLASSES, strict=True)), rows, shapes)
+    occupations = [(x, _sp(name)) for x, name in zip(LETTERS, NAMES, strict=True)]
+    assigned = Protonetstructure._of(34, occupations, rows, shapes)
     for record in (_protonettype_record_from_value(anonymous), _protonetstructure_record_from_value(assigned)):
         assert _net_rows(record) != _net_rows(_protonettype_record_from_value(_anon()))
         with pytest.raises(ValueError, match="net rows are not in canonical order"):
@@ -136,7 +145,7 @@ FORM_VERSIONS = {"label": _LABEL_FORM_VERSION, "refined": _REFINED_FORM_VERSION,
 def test_records_carry_their_family_canonical_form_version(build, from_record, family) -> None:
     version = FORM_VERSIONS[family]
     record = build()
-    assert record.canonical_form == version == {"label": 4, "refined": 6, "net": 5}[family]
+    assert record.canonical_form == version == {"label": 4, "refined": 6, "net": 6}[family]
     assert type(record).__httk_project__(from_record(record))["canonical_form"] == version
     type(record).__httk_validate__(record)
     with pytest.raises(TypeError, match="canonical_form must be an integer"):
@@ -156,15 +165,16 @@ P1BAR_NET = [(1, 1, 2, 0, -1, 0), (1, 2, 1, 0, 0, 1), (1, 3, 2, 0, -1, 1), (1, 3
 
 @pytest.mark.parametrize("assigned", [False, True], ids=["protonettype", "protonetstructure"])
 def test_p1bar_constructor_is_idempotent(assigned: bool) -> None:
+    shapes = default_shapes(2, ["d", "e", "h"], P1BAR_NET)
     if assigned:
         value: Protonettype | Protonetstructure = Protonetstructure(
-            2, [("d", _sp("Na")), ("e", _sp("K")), ("h", _sp("Cl"))], P1BAR_NET
+            2, [("d", _sp("Na")), ("e", _sp("K")), ("h", _sp("Cl"))], P1BAR_NET, shapes
         )
         parse, to_record = parse_protonetstructure_label, _protonetstructure_record_from_value
     else:
-        value = Protonettype(2, [("d", "A"), ("e", "B"), ("h", "C")], P1BAR_NET)
+        value = Protonettype(2, [("d", "A"), ("e", "B"), ("h", "C")], P1BAR_NET, shapes)
         parse, to_record = parse_protonettype_label, _protonettype_record_from_value
-    assert type(value)(value.spacegroup, value.occupations, value.net) == value
+    assert type(value)(value.spacegroup, value.occupations, value.net, value.shapes) == value
     assert parse(str(value.label)) == value
     record = to_record(value)  # type: ignore[arg-type]
     type(record).__httk_validate__(record)
@@ -176,6 +186,29 @@ def test_record_fields_are_checked() -> None:
         dataclasses.replace(record, net=((1, 8, 1, 0, 0, 0),))
     with pytest.raises(TypeError, match="integers"):
         ProtonetBondRecord(1, 2, 1, 0, 0, True)
+    with pytest.raises(TypeError, match="shapes must contain str"):
+        dataclasses.replace(record, shapes=(None,) * len(record.occupations))
+    with pytest.raises(ValueError, match="one entry per occupation"):
+        dataclasses.replace(record, shapes=("A2",))
+
+
+SHAPED = ("A2",) * 4 + (None,) * 3 + ("I4", "SS4", "T4")  # the B8 shapes of K2AgSbS4
+
+
+def test_records_store_every_shape_and_validate_them() -> None:
+    value = _anon(shapes=SHAPED)
+    record = _protonettype_record_from_value(value)
+    assert record.shapes == ("A2",) * 4 + ("",) * 3 + ("I4", "SS4", "T4")  # defaults included
+    assert _protonettype_from_record(record) == value and record.label == str(value.label)
+    assert record.label.endswith("__8I4~1.2_9SS4~3.4_10~1.2.3.4@4")
+    ProtonettypeRecord.__httk_validate__(record)
+    assert content_id(record) != content_id(_protonettype_record_from_value(_anon()))  # T4 on both Ag sites
+    with pytest.raises(ValueError, match="site 8"):
+        _protonettype_from_record(dataclasses.replace(record, shapes=("A2",) * 4 + ("",) * 3 + ("I5", "SS4", "T4")))
+    with pytest.raises(ValueError, match="shapes are missing"):
+        _protonettype_from_record(dataclasses.replace(record, shapes=()))
+    undetermined = _protonettype_record_from_value(Protonettype.undetermined("A4B2CD_oP32_34_X__X"))
+    assert undetermined.shapes == () and undetermined.net == ()
 
 
 def test_content_identity_tracks_the_net() -> None:
@@ -197,37 +230,70 @@ def test_storage_names_families_and_registry() -> None:
     assert resolve_storage_record(ProtonetstructureView(_assigned())) is ProtonetstructureRecord
 
 
-@pytest.mark.parametrize("engine", ["sqlite", "duckdb"])
-def test_store_round_trip_after_reopen(tmp_path, engine) -> None:
-    pytest.importorskip("sqlalchemy")
-    pytest.importorskip("httk.store")
-    if engine == "duckdb":
-        pytest.importorskip("duckdb_engine")
-    from httk.store import Backend, EntryIdScheme, SqlStore
+@contextlib.contextmanager
+def _store(engine: str, tmp_path: Any, name: str, *, drop: bool = False) -> Iterator[Any]:
+    """A store over one database that ``name`` names again after a reopen; Mongo needs HTTK_TEST_MONGODB_URI.
 
-    values = (_anon(), _anon(ROWS[:-1]), _assigned(), _tied(), _tied("S", "Zn"))
+    ``drop`` removes the Mongo database when the store closes.
+    """
+    pytest.importorskip("httk.store")
+    from httk.store import EntryIdScheme
+
+    ids = EntryIdScheme("httk.test", "1")
     declarations = {ProtonettypeEntry: ProtonettypeRecord, ProtonetstructureEntry: ProtonetstructureRecord}
-    path = tmp_path / f"protonets.{engine}"
-    factory = getattr(Backend, engine)
-    with factory(path) as database:
-        store = SqlStore(database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records=declarations)
+    if engine != "mongo":
+        pytest.importorskip("sqlalchemy")
+        if engine == "duckdb":
+            pytest.importorskip("duckdb_engine")
+        from httk.store import Backend, SqlStore
+
+        with getattr(Backend, engine)(tmp_path / f"{name}.{engine}") as database:
+            yield SqlStore(database, entry_ids=ids, entry_records=declarations)
+        return
+    uri = os.environ.get("HTTK_TEST_MONGODB_URI")
+    if not uri:
+        pytest.skip("HTTK_TEST_MONGODB_URI is not set")
+    pymongo = pytest.importorskip("pymongo")
+    from httk.store.backend.mongo import MongoDatabase, MongoStore
+
+    client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=1000)
+    try:
+        client.admin.command("ping")
+    except Exception as error:
+        client.close()
+        pytest.skip(f"MongoDB test server is unreachable: {error}")
+    try:
+        yield MongoStore(MongoDatabase(client, name), entry_ids=ids, entry_records=declarations)
+    finally:
+        if drop:
+            client.drop_database(name)
+        client.close()
+
+
+@pytest.mark.parametrize("engine", ["sqlite", "duckdb", "mongo"])
+def test_store_round_trip_after_reopen(tmp_path, engine) -> None:
+    values = (_anon(), _anon(ROWS[:-1]), _anon(shapes=SHAPED), _assigned(), _tied(), _tied("S", "Zn"))
+    name = f"httk_test_{uuid.uuid4().hex}"
+    with _store(engine, tmp_path, name) as store:
         saved = [(value, store.save(value)) for value in values]
-    with factory(path) as database:
-        store = SqlStore(database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records=declarations)
-        for value, sid in saved:
-            record_type = resolve_storage_record(value)
-            fetched = store.fetch(record_type, sid, eager=True)
-            from_record = (
-                _protonettype_from_record if record_type is ProtonettypeRecord else _protonetstructure_from_record
-            )
-            assert from_record(fetched) == value
-            assert content_id(fetched) == content_id(value)
-            assert fetched.label == str(value.label)
-        for record_type, count in ((ProtonettypeRecord, 2), (ProtonetstructureRecord, 3)):
-            searcher = store.searcher()
-            searcher.variable(record_type)
-            assert searcher.count() == count
-        search = store.searcher()
-        v = search.variable(ProtonettypeRecord)
-        search.add(v.net.operation == 3)  # child-record chaining reaches the bond rows
-        assert [row.v.label for row in search.results(v=v)] == [str(_anon().label)]
+    with _store(engine, tmp_path, name, drop=True) as store:
+        _check_reopened(store, saved)
+
+
+def _check_reopened(store: Any, saved: list[Any]) -> None:
+    for value, sid in saved:
+        record_type = resolve_storage_record(value)
+        fetched = store.fetch(record_type, sid, eager=True)
+        from_record = _protonettype_from_record if record_type is ProtonettypeRecord else _protonetstructure_from_record
+        assert from_record(fetched) == value
+        assert content_id(fetched) == content_id(value)
+        assert fetched.label == str(value.label)
+    for record_type, count in ((ProtonettypeRecord, 3), (ProtonetstructureRecord, 3)):
+        searcher = store.searcher()
+        searcher.variable(record_type)
+        assert searcher.count() == count
+    search = store.searcher()
+    v = search.variable(ProtonettypeRecord)
+    search.add(v.net.operation == 4)  # child-record chaining reaches the bond rows
+    labels = sorted(row.v.label for row in search.results(v=v))
+    assert labels == sorted(str(value.label) for value in (_anon(), _anon(shapes=SHAPED)))

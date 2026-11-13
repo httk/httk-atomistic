@@ -63,6 +63,11 @@ class ProtonettypeLabelString(ProtonettypeBackend):
         """Return the net rows of the parsed label."""
         return self._value.net
 
+    @property
+    def shapes(self):
+        """Return the per-site bond shapes of the parsed label."""
+        return self._value.shapes
+
     def unwrap(self) -> str:
         """Return the original label text."""
         return self._raw

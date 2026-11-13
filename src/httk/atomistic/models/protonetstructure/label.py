@@ -51,6 +51,11 @@ class ProtonetstructureLabel(ProtonetstructureViewBase, str):
         """Return the net rows of the presented protonetstructure."""
         return self._backend.net
 
+    @property
+    def shapes(self):
+        """Return the per-site bond shapes of the presented protonetstructure."""
+        return self._backend.shapes
+
     def unview(self) -> Protonetstructure:
         """Return the standalone protonetstructure value."""
         backend = self._backend
@@ -61,7 +66,7 @@ class ProtonetstructureLabel(ProtonetstructureViewBase, str):
         resolve = getattr(backend, "resolve", None)
         if resolve is not None:  # the label-string and derived backends hold a canonical value
             return resolve()
-        return Protonetstructure(backend.spacegroup, backend.occupations, backend.net)
+        return Protonetstructure(backend.spacegroup, backend.occupations, backend.net, backend.shapes)
 
     def unwrap(self) -> Any:
         """Return the raw object behind the backend.

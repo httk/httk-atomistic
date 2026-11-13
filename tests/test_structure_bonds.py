@@ -611,9 +611,8 @@ def test_cod_1001844_is_labelled_in_the_symmetry_of_its_classes() -> None:
     assert structure.spacegroup.it_number == 1
     value = Protonetstructure.from_asu(structure)
     assert str(value.label) == (
-        "A12B3C_mC64_8_4a10b_2a2b_2a__1~15.16_2~17_3~17_4~18_5~15.17_6~15.17@3_7~15.18_8~16.17@1@554"
-        "_9~16.18@1@554_10~16.18@3@454_11~17.18_12~17.18@1@454_13~17.18@3@454_14~17.18@3@454_15~19_16~20"
-        ":F-Np-OH2"
+        "A12B3C_mC64_8_4a10b_2a2b_2a__17~2.3.5.6.8.11.12.13.14_15SAPR8~1.5.6@3.7.19_16SAPR8~1.8@1@554.9.10.20"
+        "_18SAPR8~4.7.9@1@556.10@3@556.11.12@3@556.13@3@556.14@1@656_1L2_10L2_14L2:F-Np-OH2"
     )
     # a bond that only one of two pseudo-symmetric partners has: not invariant under C m
     rows = [(b.site, b.partner, b.operation) for b in structure.bonds]

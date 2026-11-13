@@ -54,7 +54,7 @@ normalizer-equivalent settings.
 """
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import lru_cache, reduce
@@ -98,6 +98,7 @@ _PEARSON = re.compile(r"[a-z][A-Z]([1-9][0-9]*)")
 # lattice points of the conventional cell per centring type; R is tabulated on hexagonal axes
 _LATTICE_POINTS = {"P": 1, "A": 2, "B": 2, "C": 2, "S": 2, "I": 2, "F": 4, "R": 3}
 _NET_TARGET = re.compile(r"([0-9]+)(?:@([0-9]+)(?:@([0-9]{3}))?)?")
+_NET_HEAD = re.compile(r"([1-9][0-9]*)([A-Z]+[1-9][0-9]*)?")  # site number, then an optional shape
 _NET_RESERVED = frozenset("-=#$:/\\")
 
 
@@ -427,10 +428,47 @@ def try_parse_bare_protostructure(text: str) -> "BareProtostructure | None":
         return None
 
 
-def _net_row_key(row: Sequence[int]) -> tuple[int, ...]:
-    """Return the label order key of a row: site pair, then ``(n1²+n2²+n3², k, n1, n2, n3)``."""
-    i, j, k, n1, n2, n3 = row
-    return (i, j, n1 * n1 + n2 * n2 + n3 * n3, k, n1, n2, n3)
+def _code_key(row: Sequence[int]) -> tuple[int, ...]:
+    """Return the order key of a row's code: ``(n1²+n2²+n3², k, n1, n2, n3)``."""
+    _, _, k, n1, n2, n3 = row
+    return (n1 * n1 + n2 * n2 + n3 * n3, k, n1, n2, n3)
+
+
+def _listing_positions(counts: Sequence[int], pairs: Iterable[tuple[int, int]], number: Sequence[int]) -> list[int]:
+    """Return each site's 1-based position in the listing order of a net segment.
+
+    A site is *top* when none of its bonded neighbours has a larger bond count. The listing
+    order is larger bond count first, top sites first among equal counts, then smaller site
+    number.
+
+    :param counts: The bond count per 0-based site.
+    :param pairs: The bonded 0-based site pairs, in either direction.
+    :param number: The site number per 0-based site.
+    :return: The listing position per 0-based site.
+    """
+    top = [True] * len(counts)
+    for a, b in pairs:
+        top[a] = top[a] and counts[b] <= counts[a]
+        top[b] = top[b] and counts[a] <= counts[b]
+    order = sorted(range(len(counts)), key=lambda s: (-counts[s], not top[s], number[s]))
+    position = [0] * len(counts)
+    for p, s in enumerate(order, 1):
+        position[s] = p
+    return position
+
+
+def _label_rows(net: Iterable[Sequence[int]], counts: Sequence[int]) -> tuple[tuple[int, int, int, int, int, int], ...]:
+    """Return net rows, each written from its listing site, in label order.
+
+    Label order sorts by the listing positions of the listing site and the target, then by code.
+
+    :param net: The rows ``(i, j, k, n1, n2, n3)``, each listed from site ``i``.
+    :param counts: The bond count per site, in site order.
+    :return: The rows in label order.
+    """
+    rows = [(i, j, k, n1, n2, n3) for i, j, k, n1, n2, n3 in net]
+    pos = _listing_positions(counts, [(i - 1, j - 1) for i, j, *_ in rows], range(1, len(counts) + 1))
+    return tuple(sorted(rows, key=lambda row: (pos[row[0] - 1], pos[row[1] - 1], *_code_key(row))))
 
 
 def _render_target(row: Sequence[int]) -> str:
@@ -443,14 +481,29 @@ def _render_target(row: Sequence[int]) -> str:
     return f"{j}@{k}" if k != 1 else str(j)
 
 
-def _render_net(net: Sequence[Sequence[int]]) -> str:
-    """Render the net part of a protonet label from its rows."""
-    groups: list[tuple[int, list[str]]] = []
-    for row in sorted(net, key=_net_row_key):
-        if not groups or groups[-1][0] != row[0]:
-            groups.append((row[0], []))
-        groups[-1][1].append(_render_target(row))
-    return "_".join(f"{site}~" + ".".join(targets) for site, targets in groups)
+def _render_net(net: Sequence[Sequence[int]], shapes: Sequence[str | None]) -> str:
+    """Render the net part of a protonet label from its rows and its sites' shapes.
+
+    The listing order comes from the label alone: a site's bond count is its shape's number, else
+    1 if it is in a row, else 0. A site gets a group if it lists a row or its shape differs from
+    the default of its bond count.
+    """
+    from httk.atomistic.symmetry.shapes import _bond_count, _written
+
+    in_row = {site for row in net for site in row[:2]}
+    counts = [
+        _bond_count(symbol) if symbol is not None else int(site in in_row) for site, symbol in enumerate(shapes, 1)
+    ]
+    targets: dict[int, list[str]] = {}
+    for row in _label_rows(net, counts):
+        targets.setdefault(row[0], []).append(_render_target(row))
+    pos = _listing_positions(counts, [(row[0] - 1, row[1] - 1) for row in net], range(1, len(shapes) + 1))
+    groups = []
+    for s in sorted(range(len(shapes)), key=pos.__getitem__):
+        written = _written(shapes[s])
+        if s + 1 in targets or written:
+            groups.append(f"{s + 1}{written}" + ("~" + ".".join(targets[s + 1]) if s + 1 in targets else ""))
+    return "_".join(groups)
 
 
 def render_protonet(
@@ -458,19 +511,23 @@ def render_protonet(
     class_letters: Sequence[tuple[str, ...]],
     net: Sequence[Sequence[int]],
     names: Sequence[str] | None = None,
+    *,
+    shapes: Sequence[str | None],
 ) -> str:
     """Render a protonettype or protonetstructure label.
 
     The bare part lists the classes in the given order, which is the value's class order
     and is not re-sorted, because it fixes the site numbering of the net. ``__`` and the
-    net follow; an empty net leaves a trailing ``__``. With ``names`` the ``:`` species
-    suffix closes the label.
+    net follow; an empty net without written shapes leaves a trailing ``__``. With ``names``
+    the ``:`` species suffix closes the label.
 
     :param spacegroup: The standard-setting space group.
     :param class_letters: Each class's sorted Wyckoff letters, in class order.
-    :param net: The rows ``(i, j, k, n1, n2, n3)`` of the bonding net.
+    :param net: The rows ``(i, j, k, n1, n2, n3)`` of the bonding net, each listed from site
+        ``i``, the end that comes first in the listing order.
     :param names: The class species names in class order, or ``None`` for the anonymous
         level.
+    :param shapes: The shape symbol per site, ``None`` for a site with fewer than two bonds.
     :return: The label text.
     :raises ValueError: If a letter is absent from the setting or a translation cannot be
         written.
@@ -481,35 +538,85 @@ def render_protonet(
         ]
     except KeyError as exc:
         raise ValueError(str(exc)) from exc
-    text = _assemble(spacegroup, class_letters, multiplicities) + "__" + _render_net(net)
+    text = _assemble(spacegroup, class_letters, multiplicities) + "__" + _render_net(net, shapes)
     return text if names is None else text + ":" + "-".join(names)
 
 
-def _parse_net(text: str) -> list[tuple[int, int, int, int, int, int]]:
-    """Parse the net part of a protonet label into rows, without canonicality checks."""
+def _parse_net(text: str) -> tuple[list[tuple[int, int, int, int, int, int]], dict[int, str]]:
+    """Parse the net part of a protonet label into rows and written shapes, without canonicality checks."""
     if "__" in text:
         raise ValueError("a protonet label has exactly one '__' net segment")
     if _NET_RESERVED.intersection(text):
         raise ValueError(f"protonet net {text!r} uses a reserved character")
     rows: list[tuple[int, int, int, int, int, int]] = []
+    written: dict[int, str] = {}
+    opened: set[int] = set()
     for group in text.split("_") if text else ():
-        site, tilde, targets = group.partition("~")
-        if not tilde or not site.isascii() or not site.isdigit():
-            raise ValueError(f"invalid protonet group {group!r}")
-        for target in targets.split("."):
-            match = _NET_TARGET.fullmatch(target)
-            if match is None:
+        head, tilde, targets = group.partition("~")
+        match = _NET_HEAD.fullmatch(head)
+        if match is None or not (tilde or match.group(2)):
+            raise ValueError(f"invalid protonet group {group!r}: a site number, then a shape, '~' and bonds, or both")
+        site = int(match.group(1))
+        if site in opened:
+            raise ValueError(f"protonet site {site} opens a second group in {text!r}; one group per site")
+        opened.add(site)
+        if match.group(2):
+            written[site] = match.group(2)
+        for target in targets.split(".") if tilde else ():
+            target_match = _NET_TARGET.fullmatch(target)
+            if target_match is None:
                 raise ValueError(f"invalid protonet destination {target!r} in group {group!r}")
-            j, k, klm = match.groups()
+            j, k, klm = target_match.groups()
             n1, n2, n3 = (int(digit) - 5 for digit in klm) if klm else (0, 0, 0)
-            rows.append((int(site), int(j), int(k) if k else 1, n1, n2, n3))
-    return rows
+            rows.append((site, int(j), int(k) if k else 1, n1, n2, n3))
+    return rows, written
+
+
+def _shapes_with_defaults(
+    spacegroup: Spacegroup,
+    letters: Sequence[str],
+    rows: Sequence[tuple[int, int, int, int, int, int]],
+    written: Mapping[int, str],
+) -> tuple[str | None, ...]:
+    """Return every site's shape from the written symbols, filling the defaults by bond count.
+
+    :param spacegroup: The standard-setting space group.
+    :param letters: The Wyckoff letter per site, in site order.
+    :param rows: The parsed net rows.
+    :param written: The written symbol per 1-based site.
+    :return: The shape per site, ``None`` for fewer than two bonds.
+    :raises ValueError: If a row is malformed, a written symbol is unknown, does not end in its
+        site's bond count or is on a site with fewer than two bonds, or a bond count without a
+        default has no written symbol.
+    """
+    from httk.atomistic.models.protonettype.protonettype import _net_counts
+    from httk.atomistic.symmetry.shapes import _DEFAULTS, _check_shape
+
+    counts = _net_counts(spacegroup, letters, rows, "protonet label")
+    if any(not 1 <= site <= len(letters) for site in written):
+        raise ValueError(f"protonet shapes name a site outside 1..{len(letters)}")
+    shapes: list[str | None] = []
+    for site, count in enumerate(counts, 1):
+        symbol = written.get(site)
+        if symbol is not None:
+            try:
+                _check_shape(symbol, count)
+            except ValueError as exc:
+                raise ValueError(f"protonet site {site}: {exc}") from None
+        elif count >= 2:
+            symbol = _DEFAULTS.get(count)
+            if symbol is None:
+                raise ValueError(f"protonet site {site} has {count} bonds, which have no default shape; write one")
+        shapes.append(symbol)
+    return tuple(shapes)
 
 
 def _parse_protonet(
     text: str,
-) -> tuple[int, list[tuple[str, ...]], list[str] | None, list[tuple[int, int, int, int, int, int]]]:
-    """Split a protonet label into IT number, per-class letters, names and net rows."""
+) -> tuple[
+    int, list[tuple[str, ...]], list[str] | None, list[tuple[int, int, int, int, int, int]], tuple[str | None, ...]
+]:
+    """Split a protonet label into IT number, per-class letters, names, net rows and shapes (defaults filled)."""
     if not isinstance(text, str):
         raise ValueError("label must be a string")
     bare, sep, rest = text.partition("__")
@@ -522,32 +629,40 @@ def _parse_protonet(
     if bare_names is not None:
         raise ValueError("the ':' species suffix of a protonet label follows the net")
     letters = [tuple(_parse_group(token)) for token in fields[3:]]
-    return _parse_it_number(fields[2]), letters, suffix.split("-") if colon else None, _parse_net(net_text)
+    rows, written = _parse_net(net_text)
+    it_number = _parse_it_number(fields[2])
+    shapes = _shapes_with_defaults(
+        Spacegroup.standard(it_number), [letter for group in letters for letter in group], rows, written
+    )
+    return it_number, letters, suffix.split("-") if colon else None, rows, shapes
 
 
-def _protonettype_parts(text: str) -> tuple[int, list[tuple[str, str]], list[tuple[int, int, int, int, int, int]]]:
-    """Return a protonettype label's IT number, site-ordered occupations and net rows, without a search."""
-    it_number, letters, names, net = _parse_protonet(text)
+def _protonettype_parts(
+    text: str,
+) -> tuple[int, list[tuple[str, str]], list[tuple[int, int, int, int, int, int]], tuple[str | None, ...]]:
+    """Return a protonettype label's IT number, site-ordered occupations, net rows and shapes, without a search."""
+    it_number, letters, names, net, shapes = _parse_protonet(text)
     if names is not None:
         raise ValueError("a protonettype label carries no ':' species suffix")
     return (
         it_number,
         [(letter, anonymous_symbol(index)) for index, group in enumerate(letters) for letter in group],
         net,
+        shapes,
     )
 
 
 def _protonetstructure_parts(
     text: str,
-) -> tuple[int, list[tuple[str, Species]], list[tuple[int, int, int, int, int, int]]]:
-    """Return a protonetstructure label's IT number, site-ordered occupations and net rows, without a search."""
-    it_number, letters, names, net = _parse_protonet(text)
+) -> tuple[int, list[tuple[str, Species]], list[tuple[int, int, int, int, int, int]], tuple[str | None, ...]]:
+    """Return a protonetstructure label's IT number, site-ordered occupations, net rows and shapes, without a search."""
+    it_number, letters, names, net, shapes = _parse_protonet(text)
     if names is None:
         raise ValueError("a protonetstructure label needs a ':' species suffix")
     if len(names) != len(letters):
         raise ValueError(f"label has {len(letters)} class(es) but {len(names)} species name(s)")
     occupations = [(letter, _species_from_class_name(name)) for name, group in zip(names, letters) for letter in group]
-    return it_number, occupations, net
+    return it_number, occupations, net, shapes
 
 
 def parse_protonettype_label(text: str) -> "Protonettype":

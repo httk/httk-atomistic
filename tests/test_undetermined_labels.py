@@ -297,7 +297,8 @@ def test_a_label_string_is_read_without_a_search_and_still_checked() -> None:
             assert str(function(text, preserve_chirality=chirality).label) == str(
                 function(value, preserve_chirality=chirality).label
             )
-    respelled = str(Protonettype._of(34, list(zip(LETTERS, CLASSES, strict=True)), _respelled(ROWS)).label)
+    occupations, shapes = list(zip(LETTERS, CLASSES, strict=True)), value.protonettype.shapes  # S sites alike
+    respelled = str(Protonettype._of(34, occupations, _respelled(ROWS), shapes).label)
     assert respelled != str(value.protonettype.label)
     for chirality in (True, False):
         with pytest.raises(ValueError, match="not a canonical protonettype label"):

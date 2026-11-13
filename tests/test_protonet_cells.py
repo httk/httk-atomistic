@@ -460,12 +460,13 @@ FAMILY = [(n, m, m2) for n, m, m2 in product(product((0, 1), repeat=3), repeat=3
 
 
 def test_group_14_family_instance() -> None:
-    # under the 4.1 set this member gave ..._4~4@3@565 before and ..._4~4@3@465 after x+2z, y, -z
+    # under the 4.1 set this member gave ..._4~4@3@565 before and ..._4~4@3@465 after x+2z, y, -z (nets 5;
+    # nets 6 compares the codes in listing order, which numbers the two self-bonded sites the other way)
     assert len(_signature_trivial_cells()) == 19 and ((1, 2), (0, -1)) in _signature_trivial_cells()
     sites, rows = _family_member((0, 1, 0), (1, 1, 0), (0, 0, 1))
     for X in (UNIT, ((1, 2), (0, -1))):
         result = _canonical_net(14, *_move(14, sites, rows, X))
-        assert oracle.render(result.slots, result.codes) == "1~1@2.2_3~3@2@455_4~4@3@565"
+        assert oracle.render(result.slots, result.codes) == "1~1@2.2_3~3@3@565_4~4@2@455"
 
 
 @pytest.mark.parametrize(

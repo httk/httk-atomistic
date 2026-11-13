@@ -1,13 +1,13 @@
 """The immutable anonymous protonettype value."""
 
 from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING, ClassVar, Literal, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
 
 from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.protonettype.backend import ProtonettypeBackend
 from httk.atomistic.models.prototype.notation import (
     _known,
-    _net_row_key,
+    _label_rows,
     _parse_undetermined,
     _undetermined,
     _unknown,
@@ -64,9 +64,10 @@ def _class_runs(spacegroup: Spacegroup, pairs: Sequence[tuple[str, str]], owner:
 def _checked_net(
     net: Sequence[Sequence[int]], nsites: int, nops: int, owner: str, *, writable: bool
 ) -> tuple[tuple[int, int, int, int, int, int], ...]:
-    """Validate net rows against the site and operation counts and return them in label order.
+    """Validate net rows against the site and operation counts and return them as tuples.
 
-    Input rows take any lattice translation; ``writable`` requires the label's range -5..+4.
+    Input rows take any lattice translation and either direction; ``writable`` requires the
+    label's range -5..+4.
     """
     rows: list[tuple[int, int, int, int, int, int]] = []
     for row in net:
@@ -74,8 +75,8 @@ def _checked_net(
         if len(values) != 6 or any(not isinstance(v, int) or isinstance(v, bool) for v in values):
             raise ValueError(f"{owner} net row {row!r} must be six integers (i, j, k, n1, n2, n3)")
         i, j, k, n1, n2, n3 = (int(v) for v in values)
-        if not 1 <= i <= j <= nsites:
-            raise ValueError(f"{owner} net row {values!r} needs 1 <= i <= j <= {nsites}")
+        if not (1 <= i <= nsites and 1 <= j <= nsites):
+            raise ValueError(f"{owner} net row {values!r} needs site numbers in 1..{nsites}")
         if not 1 <= k <= nops:
             raise ValueError(f"{owner} net row {values!r} needs an operation number in 1..{nops}")
         if writable and any(not -5 <= n <= 4 for n in (n1, n2, n3)):
@@ -85,7 +86,82 @@ def _checked_net(
         rows.append((i, j, k, n1, n2, n3))
     if len(set(rows)) != len(rows):
         raise ValueError(f"{owner} net has duplicate rows")
-    return tuple(sorted(rows, key=_net_row_key))
+    return tuple(rows)
+
+
+def _net_counts(
+    spacegroup: Spacegroup, letters: Sequence[str], net: Sequence[Sequence[int]], owner: str
+) -> tuple[int, ...]:
+    """Validate net rows and return the bond count of every site (``shapes._bond_counts``).
+
+    :param spacegroup: The standard-setting space group.
+    :param letters: The Wyckoff letter per site, in site order.
+    :param net: The rows ``(i, j, k, n1, n2, n3)``.
+    :param owner: The name in error messages.
+    :return: The number of atoms bonded to an atom of each site.
+    :raises ValueError: If a letter is unknown or a row is malformed.
+    """
+    from httk.atomistic.symmetry.protonet import _tables
+    from httk.atomistic.symmetry.shapes import _bond_counts
+
+    tables = _tables(spacegroup.it_number)
+    known = {position.letter for position in spacegroup.wyckoff}
+    if unknown := sorted(set(letters) - known):
+        raise ValueError(f"{owner}: space group {spacegroup.it_number} has no Wyckoff letter {unknown[0]!r}")
+    rows = _checked_net(net, len(letters), tables.nops, owner, writable=False)
+    stabilisers = [tables.letter(letter).H for letter in letters]
+    elements = [(i - 1, j - 1, (k - 1, n1, n2, n3)) for i, j, k, n1, n2, n3 in rows]
+    for row, (a, b, g) in zip(rows, elements, strict=True):  # the site symmetry may map the bond onto the atom
+        if a == b and tables.canon(stabilisers[a], stabilisers[a], g, same_site=True) == (0, 0, 0, 0):
+            raise ValueError(f"{owner} net row {row!r} bonds an atom to itself")
+    return _bond_counts(tables, stabilisers, elements)
+
+
+def _checked_shapes(shapes: Sequence[str | None] | None, counts: Sequence[int], owner: str) -> tuple[str | None, ...]:
+    """Validate a value's shapes against its bond counts: a symbol exactly on each site with two or more bonds.
+
+    ``None`` stands for no shapes and is accepted only when no site has two or more bonds.
+    """
+    from httk.atomistic.symmetry.shapes import _check_shape
+
+    if shapes is None:
+        if any(count >= 2 for count in counts):
+            raise ValueError(f"{owner} shapes are missing: every site with two or more bonds needs a symbol")
+        return (None,) * len(counts)
+    if isinstance(shapes, str):
+        raise TypeError(f"{owner} shapes must be a sequence of str or None values, one per site, not a str")
+    checked = tuple(shapes)
+    if len(checked) != len(counts):
+        raise ValueError(f"{owner} shapes must give one entry per site: {len(checked)} for {len(counts)} sites")
+    for site, (symbol, count) in enumerate(zip(checked, counts, strict=True), 1):
+        if symbol is None:
+            if count >= 2:
+                raise ValueError(f"{owner} site {site} has {count} bonds and needs a shape")
+        elif not isinstance(symbol, str):
+            raise TypeError(f"{owner} shapes must contain str or None values")
+        else:
+            try:
+                _check_shape(symbol, count)
+            except ValueError as exc:
+                raise ValueError(f"{owner} site {site}: {exc}") from None
+    return checked
+
+
+def _assign_net(
+    value: Any,
+    net: Sequence[Sequence[int]],
+    shapes: Sequence[str | None] | None,
+    owner: str,
+    *,
+    writable: bool,
+) -> None:
+    """Validate and store a value's net and shapes, the rows in label order (shared by both levels)."""
+    letters = [o.wyckoff for o in value._occupations]
+    nops = len(value._spacegroup.symmetry_operations)
+    rows = _checked_net(net, len(letters), nops, owner, writable=writable)
+    counts = _net_counts(value._spacegroup, letters, rows, owner)
+    value._shapes = _checked_shapes(shapes, counts, owner)
+    value._net = _label_rows(rows, counts)
 
 
 class Protonettype(ProtonettypeBackend):
@@ -109,9 +185,16 @@ class Protonettype(ProtonettypeBackend):
 
     :param spacegroup: The standard-setting space group or its IT number.
     :param occupations: Occupied Wyckoff positions and their anonymous labels, in site order.
-    :param net: The net rows ``(i, j, k, n1, n2, n3)``, with ``i <= j``.
-    :raises ValueError: If the input is malformed or the canonical net needs a translation
-        outside -5..+4, which the notation cannot write (D4).
+    :param net: The net rows ``(i, j, k, n1, n2, n3)``, in either direction; stored rows are
+        written from their listing site.
+    :param shapes: The bond shape symbol per site (see :mod:`httk.atomistic.symmetry.shapes`),
+        ``None`` for a site with fewer than two bonds; every site with two or more bonds needs a
+        known symbol (or ``I<n>``) ending in its bond count. ``None`` for the whole argument only
+        when no site has two or more bonds.
+    :raises ValueError: If the input is malformed, a shape is missing, unknown or has the wrong
+        bond count, or the canonical net needs a translation outside -5..+4, which the notation
+        cannot write (D4).
+    :raises TypeError: If ``shapes`` is a string or holds a value that is neither a string nor ``None``.
     :raises CanonicalizationLimitError: If the net search exceeds its 120 s deadline, or an
         enclosing canonicalization budget.
     """
@@ -124,14 +207,16 @@ class Protonettype(ProtonettypeBackend):
         spacegroup: Spacegroup | int,
         occupations: Sequence[PrototypeOccupation | tuple[str, str]],
         net: Sequence[Sequence[int]] = (),
+        shapes: Sequence[str | None] | None = None,
     ) -> None:
         from httk.atomistic.symmetry.canonical_classification import _protonettype_net
         from httk.atomistic.symmetry.limits import _active, _budget_scope
 
-        self._assign(spacegroup, occupations, net, writable=False)
+        self._assign(spacegroup, occupations, net, shapes, writable=False)
         with _budget_scope(120.0 if _active.get() is None else None):  # an enclosing budget governs
             canonical = _protonettype_net(self, preserve_chirality=True, own_bare=True)
-        self._spacegroup, self._occupations, self._net = canonical.spacegroup, canonical.occupations, canonical.net
+        self._spacegroup, self._occupations = canonical.spacegroup, canonical.occupations
+        self._net, self._shapes = canonical.net, canonical.shapes
 
     @classmethod
     def _of(
@@ -139,10 +224,11 @@ class Protonettype(ProtonettypeBackend):
         spacegroup: Spacegroup | int,
         occupations: Sequence[PrototypeOccupation | tuple[str, str]],
         net: Sequence[Sequence[int]],
+        shapes: Sequence[str | None] | None,
     ) -> Self:
-        """Build from a trusted canonical net: validate the structure only, no canonicalization."""
+        """Build from a trusted canonical net and its shapes: validate the structure only, no canonicalization."""
         instance = object.__new__(cls)
-        instance._assign(spacegroup, occupations, net, writable=True)
+        instance._assign(spacegroup, occupations, net, shapes, writable=True)
         return instance
 
     def _assign(
@@ -150,6 +236,7 @@ class Protonettype(ProtonettypeBackend):
         spacegroup: Spacegroup | int,
         occupations: Sequence[PrototypeOccupation | tuple[str, str]],
         net: Sequence[Sequence[int]],
+        shapes: Sequence[str | None] | None,
         *,
         writable: bool,
     ) -> None:
@@ -160,8 +247,7 @@ class Protonettype(ProtonettypeBackend):
         labels = _class_runs(self._spacegroup, [(o.wyckoff, o.label) for o in self._occupations], "Protonettype")
         if labels != [anonymous_symbol(index) for index in range(len(labels))]:
             raise ValueError("Protonettype class run c must carry the label anonymous_symbol(c)")
-        nops = len(self._spacegroup.symmetry_operations)
-        self._net = _checked_net(net, len(self._occupations), nops, "Protonettype", writable=writable)
+        _assign_net(self, net, shapes, "Protonettype", writable=writable)
 
     @classmethod
     def from_asu(
@@ -169,6 +255,7 @@ class Protonettype(ProtonettypeBackend):
         asu: "FundamentalDomainStructure",
         bonds: Iterable[tuple[int, int, int, int, int, int]] | None = None,
         *,
+        shapes: Sequence[str | None] | None = None,
         on_limit: Literal["undetermined", "raise"] = "undetermined",
     ) -> "Protonettype":
         """Build the anonymous value of an ASU structure and its covalent bonds.
@@ -179,6 +266,7 @@ class Protonettype(ProtonettypeBackend):
 
         :param asu: The structure.
         :param bonds: The bonds ``(i, j, k, n1, n2, n3)``, or ``None`` for the structure's own network.
+        :param shapes: With ``bonds``, optional supplied shapes, one symbol or ``None`` per Wyckoff site.
         :param on_limit: ``"undetermined"`` or ``"raise"`` when the net search runs out of its budget.
         :return: The protonettype value.
         :raises ValueError: As :meth:`Protonetstructure.from_asu
@@ -189,7 +277,7 @@ class Protonettype(ProtonettypeBackend):
         from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
         from httk.atomistic.models.protonettype.view import ProtonettypeView
 
-        return ProtonettypeView(Protonetstructure.from_asu(asu, bonds, on_limit=on_limit)).unview()
+        return ProtonettypeView(Protonetstructure.from_asu(asu, bonds, shapes=shapes, on_limit=on_limit)).unview()
 
     @classmethod
     def undetermined(cls, label: str) -> "Protonettype":
@@ -231,25 +319,37 @@ class Protonettype(ProtonettypeBackend):
 
     @property
     def net(self) -> tuple[tuple[int, int, int, int, int, int], ...]:
-        """Return the net rows ``(i, j, k, n1, n2, n3)`` in label order."""
+        """Return the net rows ``(i, j, k, n1, n2, n3)`` in label order, each from its listing site."""
         if _undetermined(self) is not None:
             _unknown(self, "net")
         return self._net
+
+    @property
+    def shapes(self) -> tuple[str | None, ...]:
+        """Return the bond shape symbol per site, ``None`` for a site with fewer than two bonds."""
+        if _undetermined(self) is not None:
+            _unknown(self, "shapes")
+        return self._shapes
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Protonettype):
             return NotImplemented
         if self._undetermined is not None or other._undetermined is not None:
             return self._undetermined == other._undetermined
-        return (self.spacegroup, self.occupations, self.net) == (other.spacegroup, other.occupations, other.net)
+        return (self.spacegroup, self.occupations, self.net, self.shapes) == (
+            other.spacegroup,
+            other.occupations,
+            other.net,
+            other.shapes,
+        )
 
     def __hash__(self) -> int:
         if self._undetermined is not None:
             return hash(self._undetermined)
-        return hash((self.spacegroup, self.occupations, self.net))
+        return hash((self.spacegroup, self.occupations, self.net, self.shapes))
 
     def __repr__(self) -> str:
         if self._undetermined is not None:
             return f"Protonettype.undetermined({self._undetermined!r})"
         pairs = tuple((o.wyckoff, o.label) for o in self.occupations)
-        return f"Protonettype({self.spacegroup.it_number}, {pairs!r}, {self.net!r})"
+        return f"Protonettype({self.spacegroup.it_number}, {pairs!r}, {self.net!r}, {self.shapes!r})"

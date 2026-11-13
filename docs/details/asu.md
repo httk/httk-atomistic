@@ -55,7 +55,9 @@ networks in any spelling compare equal and repeats collapse. Self-bonds, an
 operation outside the group and a site index out of range raise `ValueError`.
 Equality includes the network (`None`, `()` and a network all differ), and the
 storage records keep it; a structure without a network keeps its content identity.
-The protonet labels can be built from it (see {doc}`/prototypes`).
+The protonet labels can be built from it (see {doc}`/prototypes`); their net segment
+then depends on the coordinates through the baseline shapes of the sites without a
+supplied shape (below).
 
 Every operation that only re-describes the same sites carries the network with
 them: both atoms of every bond are mapped by the exact map between the two
@@ -71,7 +73,7 @@ the result has no network:
 
 Supplied shapes (below) are carried and dropped with the network; sites with
 different supplied shapes that merge drop both, as a bond set that is not
-invariant does.
+invariant does (`Protonetstructure.from_asu` raises instead).
 
 Through recognition (`canonicalize` with `symmetry="detect"` and
 `canonical_asu_protostructure`) every atom is matched once to the nearest

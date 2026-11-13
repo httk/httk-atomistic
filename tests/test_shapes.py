@@ -190,7 +190,7 @@ def test_exact_inputs_convert_with_float() -> None:
 
 def test_defaults_table() -> None:
     assert _DEFAULTS == {
-        2: "L2",
+        2: "A2",
         3: "TP3",
         4: "T4",
         5: "TBPY5",
@@ -206,7 +206,7 @@ def test_defaults_table() -> None:
 
 def test_written() -> None:
     assert _written(None) == ""
-    assert _written("L2") == "" and _written("A2") == "A2"
+    assert _written("A2") == "" and _written("L2") == "L2"
     assert _written("T4") == "" and _written("SP4") == "SP4" and _written("I4") == "I4"
     assert _written("COC12") == "" and _written("IC12") == "IC12" and _written("I10") == "I10"
 

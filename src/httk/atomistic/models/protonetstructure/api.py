@@ -50,6 +50,12 @@ class ProtonetstructureAPI(ABC):
         raise NotImplementedError
 
     @property
+    @abstractmethod
+    def shapes(self) -> tuple[str | None, ...]:
+        """Return the bond shape symbol per site, ``None`` for a site with fewer than two bonds."""
+        raise NotImplementedError
+
+    @property
     def determined(self) -> bool:
         """Return whether every part of the label was determined.
 
@@ -136,4 +142,10 @@ class ProtonetstructureAPI(ABC):
             (name, tuple(o.wyckoff for o in run))
             for name, run in groupby(self.occupations, key=lambda o: o.species.name)
         ]
-        return render_protonet(self.spacegroup, [letters for _, letters in runs], self.net, [name for name, _ in runs])
+        return render_protonet(
+            self.spacegroup,
+            [letters for _, letters in runs],
+            self.net,
+            [name for name, _ in runs],
+            shapes=self.shapes,
+        )

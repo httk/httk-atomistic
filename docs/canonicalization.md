@@ -678,7 +678,7 @@ result is required.
 `canonical_protonettype` and `canonical_protonetstructure` canonicalize a bare
 prototype or bare protostructure together with a symmetric covalent bonding net
 (see {doc}`prototypes` for the notation). Like the bare routines they work from
-the materialized value alone and use no coordinates. The functions take
+the materialized value alone, its bonds and shapes, and use no coordinates. The functions take
 `preserve_chirality` and `timeout`; with `preserve_chirality=False` the net is
 first transferred into the lower enantiomorphic group by the same inversion the
 bare routines use, and canonicalized with that group's own tables. With
@@ -708,8 +708,8 @@ whereas `BareProtostructure(...)` keeps any assigned description.
   not moved into any asymmetric unit.
 - **Row.** `(i, j, g)`: the reference atom of site `i` is bonded to `g` applied to
   the reference atom of site `j`. A row stands for the whole symmetry orbit of
-  that bond, and a net is a set of rows. Rows are oriented `i <= j`; reversing a
-  row replaces `g` by its inverse.
+  that bond, and a net is a set of rows. A row may be written from either end;
+  reversing it replaces `g` by its inverse.
 - **Code of a row.** Let `H_i` and `H_j` be the site-symmetry groups of the two
   reference atoms. Every element of the double coset `H_i g H_j` names the same
   orbit, and for a bond inside one orbit (`i == j`) the inverse double coset does
@@ -729,24 +729,60 @@ whereas `BareProtostructure(...)` keeps any assigned description.
   `class_order_key` order and, within a class, by Wyckoff letter. Sites sharing
   class and letter are interchangeable, and so are classes tied in count and
   letters.
+- **Bond count.** The number `c(s)` of distinct atoms bonded to the reference atom
+  of site `s`: a row `(a, b, g)` reaches the atoms `h g H_b` (`h` in `H_a`) from
+  `a` and `h g⁻¹ H_a` (`h` in `H_b`) from `b`, each coset counted once. It is a
+  site invariant: no description, gauge or numbering changes it.
+- **Shape.** One symbol per site with two or more bonds, carried with the site
+  (see {doc}`prototypes`); also a site invariant.
+- **Listing order.** A site is *top* when no bonded neighbour has a larger bond
+  count. Sites are listed by larger count, then top sites, then smaller number.
+  Each row is written from the end listed first (its *listing site*), and the
+  label order of the rows is listing position of the listing site, then of the
+  target, then code.
 
 ### Canonical net
 
 Over every equivalent description that yields the canonical bare key, every
 allowed numbering and every gauge, the canonical net minimizes, in this order:
 
-1. the sorted list of site pairs `(i, j)`, one per row, in ascending tuple
-   order;
-2. the list of row code keys, compared row by row in pair order.
+1. the bare key;
+2. the sorted list of site pairs `(min, max)` of the numbers, one per row
+   (the numbering pattern);
+3. the listed pairs `(listing site, target)` in label order;
+4. the list of row code keys in label order, each the least member of its double
+   coset in the listed direction;
+5. the shapes by site number, compared as strings (`""` for none).
 
-The net is therefore independent of coordinates, which is the point: choosing
+For a numbering, the listing order follows from the bond counts and the numbers
+alone, so steps 3 and 5 cost one pass over the rows, and step 3 prunes a
+numbering before its exact code search. The codes are minimised exactly in label
+order by running the reference-atom search of step 6 below with each site's
+listing position in place of its number. Shapes never choose reference atoms: for
+a fixed description and numbering they are fixed, so step 5 only decides between
+numberings tied on steps 1 to 4, the automorphic ones that map sites of different
+shapes onto the same numbers. The net text is a function of steps 1 to 5.
+
+The result does not depend on the description. The bond counts, and so the
+listing order of a numbering, are site invariants, and shapes travel with their
+sites; so two descriptions related by a cell change, a coset of equivalent
+descriptions, the chirality transfer, a gauge or a permutation of sites and rows
+give equal keys at every step for corresponding numberings, and the existing
+exactness arguments for the numbering and reference-atom searches carry over
+unchanged. The cell choices from the net (step 2 of the algorithm) read only the
+sites and rows, and are unchanged.
+
+The bonds and codes do not depend on coordinates, which is the point: choosing
 reference atoms by position (unit cell, asymmetric unit, reduced parameters)
 would change the string when an atom crosses a boundary in another compound of
-the same prototype. For the assigned level the anonymous canonical net is found
-first; only if several realisations give the identical net string is the tie
-broken by the species class name tuple in class order, smallest first. The assigned
-value's bare part can then differ from `canonical_bare_protostructure`, which
-breaks ties between tied classes by class name alone.
+the same prototype. The shapes do depend on coordinates, through the baseline
+detector that `from_asu` applies to sites without a supplied shape; the
+canonicalizers themselves read the shapes the value carries. For the assigned
+level the anonymous canonical net is found first; only if several realisations
+give the identical net string is the tie broken by the species class name tuple
+in class order, smallest first. The assigned value's bare part can then differ
+from `canonical_bare_protostructure`, which breaks ties between tied classes by
+class name alone.
 
 ### Algorithm
 
@@ -809,9 +845,10 @@ per-space-group tables are built.
    sets never multiply. Within a group of tied classes, the classes that appear in
    no row are interchangeable, so they are placed in sorted order among the
    positions the bonded classes leave free. Neither change alters the result.
-8. **Result.** The smallest `(bare key, pair list, code keys)` is kept together
-   with all realisations `(cell, coset, numbering, gauge)` of it. Results are memoised
-   on the oriented rows reduced to their codes.
+8. **Result.** The smallest `(bare key, pair list, listed pairs, code keys,
+   shapes)` is kept together with all realisations `(cell, coset, numbering,
+   gauge)` of it. Results are memoised on the oriented rows reduced to their codes
+   and the shapes.
 
 The per-group tables are the one-off cost; a net search on a typical structure
 takes a fraction of the corresponding bare or protostructure canonicalization,
@@ -987,7 +1024,10 @@ Bonding-net canonical strings additionally depend on these conventions:
   standard setting, identity first, not the International Tables order and not
   `Spacegroup.symmetry_operations` order (group 34 lists the identity last there);
 - a row's code is the smallest element of its double coset under the key
-  `(n1² + n2² + n3², k, n1, n2, n3)`, with `k` the operation index;
+  `(n1² + n2² + n3², k, n1, n2, n3)`, with `k` the operation index, taken in
+  the listed direction (from the end that comes first in the listing order);
+- shapes are compared as strings in site-number order, after the codes; the
+  defaults table and the baseline detector are part of the nets version;
 - the per-group tables are computed at one exact rational probe point
   (`(13/97, 29/101, 41/103)`), never a float or a structure's own parameters;
 - the set of equivalent descriptions is closed in signature (Wyckoff letter map

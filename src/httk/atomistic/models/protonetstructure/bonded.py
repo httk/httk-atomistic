@@ -70,6 +70,11 @@ class BondedProtonetstructure(ProtonetstructureBackend):
         return self._value.net
 
     @property
+    def shapes(self) -> tuple[str | None, ...]:
+        """Return the per-site bond shapes, each supplied or else from the baseline."""
+        return self._value.shapes
+
+    @property
     def _undetermined(self) -> str | None:
         """Return the undetermined label when the net search ran out, else ``None``."""
         return self._value._undetermined

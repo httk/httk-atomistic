@@ -11,7 +11,7 @@ import random
 from collections import Counter
 from collections.abc import Callable, Hashable, Mapping, Sequence
 from fractions import Fraction
-from typing import Any
+from typing import Any, cast
 
 import httk.core
 
@@ -152,6 +152,30 @@ def scramble(
         rows2.append((new_index[a], new_index[b], g))
     rng.shuffle(rows2)
     return sites2, rows2
+
+
+def scramble_shaped(
+    tables: Any, sites: Sequence[Site], rows: Sequence[Row], shapes: Sequence[str | None], rng: random.Random, **kw: Any
+) -> tuple[list[Site], list[Row], list[str | None]]:
+    """:func:`scramble` with per-site shapes carried along with their sites."""
+    tagged: list[Site] = [((cls, s), letter) for s, (cls, letter) in enumerate(sites)]
+    moved, rows2 = scramble(tables, tagged, rows, rng, **kw)
+    tags = [cast(tuple[Hashable, int], tag) for tag, _ in moved]
+    return (
+        [(cls, letter) for (cls, _), (_, letter) in zip(tags, moved, strict=True)],
+        rows2,
+        [shapes[s] for _, s in tags],
+    )
+
+
+def random_shapes(tables: Any, sites: Sequence[Site], rows: Sequence[Row], rng: random.Random) -> list[str | None]:
+    """A random valid shape per site of a 0-based net: any known symbol or ``I<n>`` with its bond count."""
+    from httk.atomistic.symmetry.shapes import _KNOWN, _bond_count, _bond_counts
+
+    counts = _bond_counts(tables, [letter_field(tables, letter, "H") for _, letter in sites], rows)
+    return [
+        None if n < 2 else rng.choice([s for s in sorted(_KNOWN) if _bond_count(s) == n] + [f"I{n}"]) for n in counts
+    ]
 
 
 def random_net(tables: Any, rng: random.Random) -> tuple[list[Site], list[Row]]:
@@ -305,3 +329,12 @@ def generic_cutoffs(
     _, dist = raw_rows(tables, sites, refs, lattice, probe)
     shortest = min(dist.values())
     return dict.fromkeys(probe, factor * shortest)
+
+
+def default_shapes(it_number: int, letters: Sequence[str], rows: Sequence[Sequence[int]]) -> list[str | None]:
+    """The default shape of every site of a 1-based net (``I<n>`` where its bond count has none)."""
+    from httk.atomistic.models.protonettype.protonettype import _net_counts
+    from httk.atomistic.symmetry.shapes import _DEFAULTS
+
+    counts = _net_counts(Spacegroup.standard(it_number), letters, rows, "default_shapes")
+    return [None if count < 2 else _DEFAULTS.get(count, f"I{count}") for count in counts]

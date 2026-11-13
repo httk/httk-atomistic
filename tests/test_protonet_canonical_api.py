@@ -10,7 +10,14 @@ from typing import Any
 import httk.core
 import protonet_reference as oracle
 import pytest
-from _protonet_support import handmade, lattice_from_parameters, load_structure, raw_rows, scramble
+from _protonet_support import (
+    default_shapes,
+    handmade,
+    lattice_from_parameters,
+    load_structure,
+    raw_rows,
+    scramble_shaped,
+)
 from httk.core import FracVector
 from test_protonet_canonical import QUARTZ, QUARTZ_CELL, SI_O, _enantiomorph
 
@@ -38,8 +45,10 @@ type Bond = tuple[int, int, int, int, int, int]
 K2AGSBS4 = str(Path(__file__).parent / "fixtures" / "cod" / "1509425.cif")
 FRAME = {frozenset(("Sb", "S")): 3.0, frozenset(("Ag", "S")): 3.0}
 FULL_NET = (
-    "1~5.6.7.7@4.8.10_2~5.6@4.7@4.7@2@556.8@1@556.10@1@556_3~5.6.7@1@556.9.10@4@455_4~5.7.7@3@445.9@4@454.10@4@455"
+    "5SAPR8~1.2.3.4_7~1.1@3.2.2@4@554.3@3.4.4@3@554_6I6~1@3.2.3@2_1TPR6~8.10_2TPR6~8@1@556.10@1@556"
+    "_3SPY5~9@2.10@3@545_4I5~9@4.10@3@545_8I4_9SS4"
 )
+FRAME_NET = "8I4~1.2_9SS4~3.4_10~1.2.3.4@4"  # the B8 net of follow-up 5
 CUBIC = (5.64, 5.64, 5.64, 90, 90, 90)
 NACL = {frozenset(("Na", "Cl")): 3.0}
 ELEMENT = {"A": "C", "B": "N"}  # the made-up P2_1 classes A and B; the label suffix names their classes C, N
@@ -75,14 +84,14 @@ CASES: dict[str, tuple[Any, ...]] = {
     ),
 }
 LABELS = {
-    "k2agsbs4-frame": "A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.10@3:S-K-Ag-Sb",
+    "k2agsbs4-frame": f"A4B2CD_oP32_34_4c_abc_ab_c__{FRAME_NET}:S-K-Ag-Sb",
     "k2agsbs4-full": f"A4B2CD_oP32_34_4c_abc_ab_c__{FULL_NET}:S-K-Ag-Sb",
     "nacl": "AB_cF8_225_a_b__1~2:Cl-Na",
     "nacl-exchanged": "AB_cF8_225_a_b__1~2:Cl-Na",
     "diamond": "A_cF8_227_a__1~1@14@654:C",
     "wurtzite": "AB_hP4_186_b_b__1~2.2@2:S-Zn",
-    "pdse2": "A2B_oP12_61_c_a__1~1@2@455.2.2@4@455:Se-Pd",
-    "p21-chain": "A2B_mP6_4_2a_a__1~1@2.2.2@2.3_2~3:N-C",  # renamed: species B and A are classes N and C
+    "pdse2": "A2B_oP12_61_c_a__2SP4~1.1@3_1TPY3~1@2@545:Se-Pd",
+    "p21-chain": "A2B_mP6_4_2a_a__1I5~1@2.2.2@2.3_2I3~3:N-C",  # renamed: species B and A are classes N and C
 }
 
 
@@ -126,6 +135,16 @@ def _case(name: str) -> tuple[ASUStructure, tuple[Bond, ...], list[Any], list[An
     return asu, tuple(_bonds(rows)), sites, rows
 
 
+def _input_shapes(asu: ASUStructure, bonds: tuple[Bond, ...]) -> tuple[str | None, ...]:
+    """The baseline shape of every site of ``asu`` with the index bonds as its network."""
+    from httk.atomistic.models.structure.asu import SiteBond, _affine, _standard_elements
+    from httk.atomistic.symmetry.shapes import _site_shapes
+
+    standard = _standard_elements(asu.spacegroup)
+    network = [SiteBond(i - 1, j - 1, _affine(standard.operation((k - 1, *n)))) for i, j, k, *n in bonds]
+    return _site_shapes(asu._with_bonds(network, shapes=None))
+
+
 @cache
 def _value(name: str) -> Protonetstructure:
     asu, bonds, _, _ = _case(name)
@@ -156,10 +175,10 @@ def test_k2agsbs4_levels_nest_as_in_the_brief() -> None:
     nt = canonical_protonettype(ps)
     assert str(nt.anonymous_formula) == "A4B2CD"
     assert str(canonical_bare_prototype(nt).label) == "A4B2CD_oP32_34_4c_abc_ab_c"
-    assert str(nt.label) == "A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.10@3"
+    assert str(nt.label) == f"A4B2CD_oP32_34_4c_abc_ab_c__{FRAME_NET}"
     # no classes tie here, so the assigned bare part equals the canonical bare protostructure (R5)
     assert str(canonical_bare_protostructure(ps).label) == "A4B2CD_oP32_34_4c_abc_ab_c:S-K-Ag-Sb"
-    assert str(ps.label) == "A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.10@3:S-K-Ag-Sb"
+    assert str(ps.label) == f"A4B2CD_oP32_34_4c_abc_ab_c__{FRAME_NET}:S-K-Ag-Sb"
 
 
 # Species exchanges that keep the prototype label: NaCl (a and b swapped by an origin shift) and
@@ -206,9 +225,9 @@ def test_label_is_the_canonical_render(name: str) -> None:
     value = _value(name)
     sites = [(o.species.name, o.wyckoff) for o in value.occupations]
     rows = [(i - 1, j - 1, (k - 1, n1, n2, n3)) for i, j, k, n1, n2, n3 in value.net]
-    result = _canonical_net(value.spacegroup.it_number, sites, rows)
+    result = _canonical_net(value.spacegroup.it_number, sites, rows, shapes=value.shapes)
     net = [(i, j, g[0] + 1, g[1], g[2], g[3]) for (i, j), g in zip(result.slots, result.codes, strict=True)]
-    expected = render_protonet(Spacegroup.standard(result.it_number), result.groups, net)
+    expected = render_protonet(Spacegroup.standard(result.it_number), result.groups, net, shapes=result.shapes)
     assert str(canonical_protonettype(value).label) == expected
 
 
@@ -219,7 +238,7 @@ def test_constructor_equals_the_canonicaliser_on_a_canonical_bare_part(name: str
     assert value == _canonical(name) and value.protonettype == canonical_protonettype(value)
     anonymous = value.protonettype
     rows = _translated(anonymous, random.Random(name))
-    assert Protonettype(anonymous.spacegroup, anonymous.occupations, rows) == anonymous
+    assert Protonettype(anonymous.spacegroup, anonymous.occupations, rows, anonymous.shapes) == anonymous
     assert eval(repr(value), {"Protonetstructure": Protonetstructure, "Species": Species, "Fraction": F}) == value
 
 
@@ -244,12 +263,13 @@ TIED_BLOCKS: dict[str, tuple[list[str], list[Bond]]] = {
 def test_bonded_tied_classes_take_the_lowest_site_numbers(name: str) -> None:
     letters, net = TIED_BLOCKS[name]
     occupations = [(letter, "ABCD"[s // len(set(letters))]) for s, letter in enumerate(letters)]
-    value = Protonettype(14, occupations, net)
+    shapes = default_shapes(14, letters, net)
+    value = Protonettype(14, occupations, net, shapes)
     bonded = {s for row in value.net for s in row[:2]}
     assert bonded == set(range(1, len(bonded) + 1)) and max(bonded) < len(letters)
     assert value == canonical_protonettype(value)
     sites = [(label, letter) for letter, label in occupations]
-    expected = oracle.canonical_net(14, sites, [(i - 1, j - 1, (k - 1, *n)) for i, j, k, *n in net])
+    expected = oracle.canonical_net(14, sites, [(i - 1, j - 1, (k - 1, *n)) for i, j, k, *n in net], shapes=shapes)
     assert [((i, j), (k - 1, *n)) for i, j, k, *n in value.net] == [
         (tuple(slot), tuple(code)) for slot, code in zip(expected["slots"], expected["codes"], strict=True)
     ]
@@ -311,10 +331,12 @@ def _variants(name: str, rng: random.Random, count: int) -> list[Protonetstructu
     out.append(Protonetstructure.from_asu(asu, reversed_bonds))
     out.append(Protonetstructure.from_asu(*_unreduced(asu, bonds, rng)))
     value = _value(name)
-    out.append(Protonetstructure(value.spacegroup, value.occupations, _translated(value, rng)))
+    out.append(Protonetstructure(value.spacegroup, value.occupations, _translated(value, rng), value.shapes))
     assert all(v == value for v in out)
+    # the scrambled descriptions below have made-up coordinates: the real shapes travel with their sites
+    shapes = _input_shapes(asu, bonds)
     for _ in range(count):
-        sites2, rows2 = scramble(tables, sites, rows, rng)
+        sites2, rows2, shapes2 = scramble_shaped(tables, sites, rows, shapes, rng)
         spec = [
             (
                 cls,
@@ -323,7 +345,7 @@ def _variants(name: str, rng: random.Random, count: int) -> list[Protonetstructu
             )
             for cls, letter in sites2
         ]
-        out.append(Protonetstructure.from_asu(_asu(it, spec, asu.cell), _bonds(rows2)))
+        out.append(Protonetstructure.from_asu(_asu(it, spec, asu.cell), _bonds(rows2), shapes=shapes2))
     return out
 
 
@@ -369,7 +391,10 @@ def test_guard_rejects_a_net_search_on_another_bare_prototype(monkeypatch: pytes
     def wrong(*args: Any, **kwargs: Any) -> Any:
         result = real(*args, **kwargs)
         moved = tuple(dataclasses.replace(r, letters=("c",) * len(r.letters)) for r in result.realisations)
-        return dataclasses.replace(result, realisations=moved)
+        # shapes valid for the moved letters, so that only the bare prototype is wrong
+        net = [(i, j, g[0] + 1, *g[1:]) for (i, j), g in zip(result.slots, result.codes, strict=True)]
+        shapes = tuple(default_shapes(result.it_number, moved[0].letters, net))
+        return dataclasses.replace(result, realisations=moved, shapes=shapes)
 
     monkeypatch.setattr(protonet_module, "_canonical_net", wrong)
     with pytest.raises(ValueError, match="bare prototype"):
@@ -475,8 +500,8 @@ def test_b_only_periodic_net_does_not_depend_on_the_cell() -> None:
     # P2_1/c: a helix on the 2_1 axis at (0,y,1/4) (op 3) and a dimer across the origin centre (op 2).
     # In the cell x' = x + 2z the helix row becomes op 3 plus the translation (1,0,0); the net is the same.
     occupations = [("e", "A"), ("e", "B")]
-    base = Protonettype(14, occupations, [(1, 1, 3, 0, 0, 0), (2, 2, 2, 0, 0, 0)])
-    moved = Protonettype(14, occupations, [(1, 1, 3, 1, 0, 0), (2, 2, 2, 0, 0, 0)])
+    base = Protonettype(14, occupations, [(1, 1, 3, 0, 0, 0), (2, 2, 2, 0, 0, 0)], ("A2", None))
+    moved = Protonettype(14, occupations, [(1, 1, 3, 1, 0, 0), (2, 2, 2, 0, 0, 0)], ("A2", None))
     assert base == moved
 
 
@@ -491,11 +516,11 @@ def test_from_asu_re_describes_a_left_handed_cell_in_a_sohncke_group() -> None:
     asu = ASUStructure(
         Cell([6, 6, 6, 90, 90, 90]), 208, [WyckoffSite("i", (F(1, 7),), "H"), WyckoffSite("b", (), "P")], species
     )
-    assert str(Protonetstructure.from_asu(asu, [(1, 2, 1, 0, 0, 0)]).label) == "A3B_cP16_208_i_b__1~2:H-P"
+    assert str(Protonetstructure.from_asu(asu, [(1, 2, 1, 0, 0, 0)]).label) == "A3B_cP16_208_i_b__2I6~1:H-P"
     improper = next(action for action in _actions(asu.spacegroup) if action.determinant() < 0)
     left = _apply_action(asu, improper)
     assert left.cell.basis.det().sign() < 0
-    assert str(Protonetstructure.from_asu(left, [(1, 2, 1, 0, 0, 0)]).label) == "A3B_cP16_208_i_b__1~2:H-P"
+    assert str(Protonetstructure.from_asu(left, [(1, 2, 1, 0, 0, 0)]).label) == "A3B_cP16_208_i_b__2I6~1:H-P"
     # outside the Sohncke groups a left-handed cell is accepted: an improper operation keeps the crystal
     rocksalt = ASUStructure(
         Cell(((-5, 0, 0), (0, 5, 0), (0, 0, 5))),

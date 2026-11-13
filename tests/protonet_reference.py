@@ -25,6 +25,10 @@ range).  An earlier version searched a +-1 / +-2 lattice box and could miss the 
 
 Test copy: this is the oracle for tests/test_protonet_canonical.py, copied from the workspace
 docs/protonet_followup/protonet_reference.py with only ruff formatting and this note added.
+Follow-up 5 (shapes) was ported by the P-b implementation agent from the design note
+FU5_SHAPES_NOTE.md: bond counts from exact neighbour points, the listing order (B5) and the
+comparison order (B6), and the net grammar with shapes.  The defaults table follows decision S2
+(two bonds: A2), which settled after the note.
 """
 
 import math
@@ -675,7 +679,31 @@ def _exact_codes(T, letters, number, rows):
 # ---------------------------------------------------------------------------------------------
 # the canonical form
 # ---------------------------------------------------------------------------------------------
-def canonical_net(it_number, sites, rows, class_order="formula", hand=1):
+def bond_counts(T, sites, rows):
+    """Number of distinct atoms bonded to the reference atom of each site, from exact neighbour points.
+    An atom is (site, point): two sites at one point are two atoms."""
+    refs = [T.letter(letter)["ref"] for _, letter in sites]
+    H = [T.letter(letter)["H"] for _, letter in sites]
+    atoms = [set() for _ in sites]
+    for a, b, g in rows:
+        for h in H[a]:
+            atoms[a].add((b, T.apply(T.mul(h, g), refs[b])))
+        for h in H[b]:
+            atoms[b].add((a, T.apply(T.mul(h, T.inv(g)), refs[a])))
+    return [len(x) for x in atoms]
+
+
+def listing_positions(counts, pairs, number):
+    """1-based listing position per site: larger count, then top sites, then smaller number (B5)."""
+    top = {}
+    for s in range(len(counts)):
+        neighbours = [b for a, b in pairs if a == s] + [a for a, b in pairs if b == s]
+        top[s] = not any(counts[t] > counts[s] for t in neighbours)
+    order = sorted(range(len(counts)), key=lambda s: (-counts[s], 0 if top[s] else 1, number[s]))
+    return {s: p + 1 for p, s in enumerate(order)}
+
+
+def canonical_net(it_number, sites, rows, class_order="formula", hand=1, shapes=None):
     """sites: [(class_id, wyckoff_letter)] in any order; rows: [(i, j, (k, n1, n2, n3))] with 0-based
     site indices and elements relative to the sites' reference atoms.
 
@@ -700,6 +728,9 @@ def canonical_net(it_number, sites, rows, class_order="formula", hand=1):
     """
     T = tables(it_number)
     sohncke = all(operation.determinant() > 0 for operation in T.spacegroup.symmetry_operations)
+    shapes = [None] * len(sites) if shapes is None else list(shapes)
+    counts = bond_counts(T, sites, rows)  # site invariants: the input description serves
+    pairs = [(a, b) for a, b, _ in rows]
     best = None
     for coset in T.cosets:
         if sohncke and hand * coset["action"].determinant() < 0:
@@ -736,8 +767,12 @@ def canonical_net(it_number, sites, rows, class_order="formula", hand=1):
             if best is not None and (bare_key, pattern) > (best["bare"], best["pattern"]):
                 continue
             for number in numberings:
-                slots, codes, gauge = _exact_codes(T, letters, number, moved)
-                cand = (bare_key, pattern, [key(c) for c in codes])
+                pos = listing_positions(counts, pairs, number)
+                pos_slots, codes, gauge = _exact_codes(T, letters, pos, moved)  # codes minimised in label order
+                number_of_pos = {pos[s]: number[s] for s in pos}
+                slots = [(number_of_pos[p], number_of_pos[q]) for p, q in pos_slots]
+                by_number = sorted(range(len(sites)), key=lambda s: number[s])
+                cand = (bare_key, pattern, slots, [key(c) for c in codes], [shapes[s] or "" for s in by_number])
                 if best is None or cand < best["cand"]:
                     best = dict(
                         cand=cand,
@@ -746,6 +781,7 @@ def canonical_net(it_number, sites, rows, class_order="formula", hand=1):
                         slots=slots,
                         codes=codes,
                         groups=[group_of[c] for c in ordered_classes],
+                        shapes=[shapes[s] for s in by_number],
                         realisations=[],
                     )
                 if cand == best["cand"]:
@@ -753,9 +789,11 @@ def canonical_net(it_number, sites, rows, class_order="formula", hand=1):
                         dict(coset=coset, number=number, gauge=gauge, classes=ordered_classes, letters=letters)
                     )
     return dict(
+        cand=best["cand"],
         groups=best["groups"],
-        net=render(best["slots"], best["codes"]),
+        net=render(best["slots"], best["codes"], best["shapes"]),
         slots=best["slots"],
+        shapes=best["shapes"],
         codes=best["codes"],
         classes=min((r["classes"] for r in best["realisations"]), key=lambda names: [str(n) for n in names]),
         realisations=best["realisations"],
@@ -763,18 +801,29 @@ def canonical_net(it_number, sites, rows, class_order="formula", hand=1):
 
 
 # ---------------------------------------------------------------------------------------------
-# notation:   1~8.10_2~8.10_3~9.10_4~9.10@3
+# notation:   8I4~1.2_9SS4~3.4_10~1.2.3.4@4
 #
 #   net     = group { "_" group }
-#   group   = site "~" target { "." target }
+#   group   = site [ shape ] [ "~" target { "." target } ]      at least one of shape and "~"
+#   shape   = uppercase letters, then the bond count            e.g. OC6, TPRS9, I10
 #   target  = site [ "@" operation [ "@" klm ] ]
 #
 #   "~"  a covalent bond of unspecified order (the only bond symbol so far)
-#   "."  separates the destinations of the bonds that start at the group's first site
+#   "."  separates the destinations of the bonds the group's site lists
 #   "@"  operation number (1-based); a second "@" adds the lattice translation as three digits,
 #        each digit = translation + 5.  Operation 1 with zero translation is not written at all,
 #        and a zero translation ("555") is never written.
+#   A shape is written only where it differs from the default of its bond count.  Groups follow
+#   the listing order; a site opens a group if it lists a bond or has a written shape.
 # ---------------------------------------------------------------------------------------------
+DEFAULTS = {2: "A2", 3: "TP3", 4: "T4", 5: "TBPY5", 6: "OC6", 7: "PBPY7", 8: "CU8", 9: "TPRS9", 12: "COC12"}
+
+
+def shape_count(symbol):
+    letters = symbol.rstrip("0123456789")
+    return int(symbol[len(letters) :])
+
+
 def render_code(e):
     if e == IDENTITY:
         return ""
@@ -786,28 +835,48 @@ def render_code(e):
     return f"@{e[0] + 1}@{digits[0]}{digits[1]}{digits[2]}"
 
 
-def render(slots, codes):
-    out, last = [], None
+def render(slots, codes, shapes=None):
+    """slots in label order, each (listing site, target).  Without shapes the groups are the runs of
+    equal listing sites; with shapes (per site number) the listing order also places shape-only groups."""
+    targets, order = {}, []
     for (i, j), e in zip(slots, codes):
-        item = f"{j}{render_code(e)}"
-        if i == last:
-            out[-1] += "." + item
-        else:
-            out.append(f"{i}~{item}")
-            last = i
+        if i not in targets:
+            targets[i] = []
+            order.append(i)
+        targets[i].append(f"{j}{render_code(e)}")
+    if shapes is None:
+        return "_".join(f"{i}~" + ".".join(targets[i]) for i in order)
+    in_row = {x for slot in slots for x in slot}
+    counts = [shape_count(sh) if sh else int(n in in_row) for n, sh in enumerate(shapes, 1)]
+    pos = listing_positions(counts, [(i - 1, j - 1) for i, j in slots], list(range(1, len(shapes) + 1)))
+    out = []
+    for s in sorted(pos, key=pos.get):
+        n, sh = s + 1, shapes[s]
+        written = sh if sh and DEFAULTS.get(shape_count(sh)) != sh else ""
+        if n in targets or written:
+            out.append(f"{n}{written}" + (("~" + ".".join(targets[n])) if n in targets else ""))
     return "_".join(out)
 
 
 def parse(text):
-    """inverse of render: [(i, j, element)] with 1-based site numbers; rejects non-canonical spellings"""
-    rows = []
+    """inverse of render: ([(i, j, element)] with 1-based site numbers, {site: written shape});
+    rejects non-canonical target spellings"""
+    rows, written = [], {}
     if not text:
-        return rows
+        return rows, written
     for group in text.split("_"):
         head, sep, tail = group.partition("~")
-        if not sep or not head.isdigit() or not tail:
+        number = head[: len(head) - len(head.lstrip("0123456789"))]
+        shape = head[len(number) :]
+        if not number or number[0] == "0" or (not sep and not shape) or (sep and not tail):
             raise ValueError(f"malformed group {group!r}")
-        for target in tail.split("."):
+        if shape and not (shape.rstrip("0123456789").isalpha() and shape.rstrip("0123456789").isupper()):
+            raise ValueError(f"malformed shape {shape!r}")
+        if int(number) in written or any(r[0] == int(number) for r in rows):
+            raise ValueError(f"site {number} opens a second group")
+        if shape:
+            written[int(number)] = shape
+        for target in tail.split(".") if sep else ():
             j, *code = target.split("@")
             if not j.isdigit() or len(code) > 2 or not all(part.isdigit() for part in code):
                 raise ValueError(f"malformed target {target!r}")
@@ -820,5 +889,5 @@ def parse(text):
             element = (k, n[0], n[1], n[2])
             if target != f"{j}{render_code(element)}" or k < 0:
                 raise ValueError(f"non-canonical spelling {target!r}")
-            rows.append((int(head), int(j), element))
-    return rows
+            rows.append((int(number), int(j), element))
+    return rows, written

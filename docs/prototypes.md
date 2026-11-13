@@ -470,7 +470,9 @@ usual species suffix:
 ```
 label      = bare_label "__" net [ ":" name { "-" name } ]
 net        = group { "_" group }                  (may be empty)
-group      = site "~" target { "." target }
+group      = site [ shape ] [ "~" target { "." target } ]   (a shape, bonds, or both)
+site       = digits                               (no leading zero)
+shape      = uppercase letters, then the bond count            e.g. OC6, TPRS9, I10
 target     = site [ "@" op [ "@" klm ] ]
 klm        = digit digit digit                    (each digit = translation + 5)
 ```
@@ -478,47 +480,138 @@ klm        = digit digit digit                    (each digit = translation + 5)
 The anonymous levels and the protonetstructure nest as string prefixes; the
 canonical bare protostructure label is not always one (see
 [the species-order rule](#species-order-of-protonetstructure-labels)).
-For K₂AgSbS₄ (COD 1509425), where no classes tie:
+For K₂AgSbS₄ (COD 1509425) with its Ag-S and Sb-S bonds, where no classes tie:
 
 ```
 A4B2CD                                                                   Formulatype
 A4B2CD_oP32_34_4c_abc_ab_c                                               BarePrototype
-A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.10@3                Protonettype
+A4B2CD_oP32_34_4c_abc_ab_c__8I4~1.2_9SS4~3.4_10~1.2.3.4@4                Protonettype
 A4B2CD_oP32_34_4c_abc_ab_c:S-K-Ag-Sb                                     BareProtostructure
-A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.10@3:S-K-Ag-Sb      Protonetstructure
+A4B2CD_oP32_34_4c_abc_ab_c__8I4~1.2_9SS4~3.4_10~1.2.3.4@4:S-K-Ag-Sb      Protonetstructure
 ```
 
 **What the parts are.** Everything after `__` describes which atoms are
-covalently bonded. The numbers are the symmetry-distinct sites of the
-prototype, counted in the order the label lists them: here 1-4 are the four S
-sites on `4c`, 5-7 are K on `2a`, `2b` and `4c`, 8-9 are Ag on `2a` and `2b`,
-and 10 is Sb on `4c`. Each number stands for one reference atom of that site.
-Groups are separated by `_`, and each group lists the bonds that start at its
-first site. `~` means "is covalently bonded to" (bond order unspecified, dative
-bonds counted as covalent), and `.` separates the destinations. So `1~8.10`
-says that site 1 is bonded to site 8 and to site 10; it is a list, not a
-chain. A destination may carry `@n`, meaning the bond goes to the copy of that
-site's reference atom produced by symmetry operation number `n` of the space
-group, not to the reference atom itself. A second `@` adds a lattice
-translation as three digits, each being the shift along a, b, c plus 5, so
-`10@3@545` is operation 3 followed by one cell back along b. No `@` means the
-reference atom itself, and a zero translation is never written. A reference
-atom is the first-listed Wyckoff coordinate at the site's free parameters, not
-reduced modulo one.
+covalently bonded and how the bonds around each atom are arranged. The numbers
+are the symmetry-distinct sites of the prototype, counted in the order the label
+lists them: here 1-4 are the four S sites on `4c`, 5-7 are K on `2a`, `2b` and
+`4c`, 8-9 are Ag on `2a` and `2b`, and 10 is Sb on `4c`. Each number stands for
+one reference atom of that site. Groups are separated by `_`. A group starts
+with a site number, then optionally that site's *shape* (below), then `~` and the
+bonds the site lists. `~` means "is covalently bonded to" (bond order
+unspecified, dative bonds counted as covalent), and `.` separates the
+destinations. So `8I4~1.2` says that site 8 has the shape `I4` and is bonded to
+site 1 and to site 2; it is a list, not a chain. A destination may carry `@n`,
+meaning the bond goes to the copy of that site's reference atom produced by
+symmetry operation number `n` of the space group, not to the reference atom
+itself. A second `@` adds a lattice translation as three digits, each being the
+shift along a, b, c plus 5, so `10@3@545` is operation 3 followed by one cell
+back along b. No `@` means the reference atom itself, and a zero translation is
+never written. A reference atom is the first-listed Wyckoff coordinate at the
+site's free parameters, not reduced modulo one.
+
+**Which site lists a bond.** The *bond count* of a site is the number of atoms
+bonded to one of its atoms. A site is a *top site* when none of its bonded
+neighbours has a larger bond count. The sites are listed by larger bond count
+first, then top sites first, then smaller number, and each symmetry-distinct
+bond is listed once, from whichever end comes first in that order (a bond
+between copies of one site is listed there). Groups follow the listing order,
+and within a group the destinations follow the listing order of their sites,
+then the code. A site opens a group only if it lists a bond or has a written
+shape. So a polyhedron centre lists all its bonds, and its ligands open no
+groups of their own unless they have something left to say.
 
 **How to read it.** Each entry is one symmetry-distinct bond, and all its
-symmetry copies are implied. The example therefore reads: S1 bonds to Ag8 and
-Sb10; S2 likewise; S3 bonds to Ag9 and Sb10; S4 bonds to Ag9 and to the image
-of Sb10 under operation 3 (`-x+1/2,y+1/2,z+1/2`). Those eight entries generate
-all 32 Ag-S and Sb-S bonds in the unit cell. Sites that appear nowhere, here the
-three K sites, have no covalent bonds. The net records covalent bonds only: a
-missing row means "no covalent bond", not "no contact". Which atom pairs are
-bonded is decided by the caller, who supplies the bond list; *httk₂* does not
-infer it. The string is canonical: which symmetry copy serves as each site's
-reference atom, and how interchangeable sites such as the four S are numbered,
-is chosen so that the string comes out smallest. The intent is that two
-crystals with the same prototype and the same bonding network get the same
-string, whatever their coordinates or choice of origin.
+symmetry copies are implied. The example therefore reads: Ag8 (shape `I4`, an
+irregular four-bonded site) bonds to S1 and S2; Ag9 (a see-saw, `SS4`) bonds
+to S3 and S4; Sb10 (a tetrahedron, the default for four bonds, so not written)
+bonds to S1, S2, S3 and the image of S4 under operation 4 (`x+1/2,-y+1/2,z+1/2`).
+Those eight entries generate all 32 Ag-S and Sb-S bonds in the unit cell. The S
+sites, two-bonded and bent (`A2`, the default), open no group. Sites that appear
+nowhere, here the three K sites, have no covalent bonds. The net records covalent
+bonds only: a missing row means "no covalent bond", not "no contact". Which atom
+pairs are bonded is decided by the caller, who supplies the bond list (or by
+{py:func}`~httk.atomistic.distance_bonds`, see {doc}`details/asu`); *httk₂* does
+not infer it otherwise. The string is canonical: which symmetry copy serves as
+each site's reference atom, and how interchangeable sites such as the four S are
+numbered, is chosen so that the string comes out smallest. Two crystals with the
+same prototype, the same bonding network and the same shapes get the same
+string, whatever their choice of origin and setting, and, outside P-1/P1 periodic
+nets (D7), the cell; the net depends on the coordinates only through the shapes.
+
+#### Bond shapes
+
+The *shape* of a site with two or more bonds is the arrangement of the bonds
+around one of its atoms: the directions to every atom it is bonded to. All atoms
+of a site have the same shape, and sites with fewer than two bonds have none. A
+shape symbol ends in the bond count. The symbols are the IUPAC polyhedral symbols
+without the hyphen where IUPAC defines one (N. G. Connelly et al. (eds.),
+*Nomenclature of Inorganic Chemistry: IUPAC Recommendations 2005*, section
+IR-9.3.2.1 and Table IR-9.2), the SHAPE program's labels otherwise (M. Llunell et
+al., *SHAPE 2.1 User's Manual*, Universitat de Barcelona, 2013, "List of
+reference shapes"), and `I<n>` for an irregular arrangement of `n` bonds:
+
+| Symbol | Name | Source | Default for its count |
+|---|---|---|---|
+| `L2` | linear | IUPAC L-2 | |
+| `A2` | angular (bent) | IUPAC A-2 | yes |
+| `TP3` | trigonal plane | IUPAC TP-3 | yes |
+| `TPY3` | trigonal pyramid | IUPAC TPY-3 | |
+| `TS3` | T-shape | IUPAC TS-3 | |
+| `T4` | tetrahedron | IUPAC T-4 | yes |
+| `SP4` | square plane | IUPAC SP-4 | |
+| `SS4` | see-saw | IUPAC SS-4 | |
+| `TBPY5` | trigonal bipyramid | IUPAC TBPY-5 | yes |
+| `SPY5` | square pyramid | IUPAC SPY-5 | |
+| `OC6` | octahedron | IUPAC OC-6 | yes |
+| `TPR6` | trigonal prism | IUPAC TPR-6 | |
+| `PPY6` | pentagonal pyramid | SHAPE PPY-6 | |
+| `PBPY7` | pentagonal bipyramid | IUPAC PBPY-7 | yes |
+| `CU8` | cube | IUPAC CU-8 | yes |
+| `SAPR8` | square antiprism | IUPAC SAPR-8 | |
+| `DD8` | dodecahedron | IUPAC DD-8 (SHAPE TDD-8) | |
+| `HBPY8` | hexagonal bipyramid | IUPAC HBPY-8 | |
+| `TPRS9` | trigonal prism, square-face tricapped | IUPAC TPRS-9 (SHAPE TCTPR-9) | yes |
+| `COC12` | cuboctahedron | SHAPE COC-12 | yes |
+| `ACOC12` | anticuboctahedron | SHAPE ACOC-12 | |
+| `IC12` | icosahedron | SHAPE IC-12 | |
+| `I<n>` | irregular, `n` bonds | *httk₂* | |
+
+A symbol is written only where it differs from the default of its bond count; a
+missing symbol means the default. Bond counts without a default (1 is never a
+shape; 10, 11, 13 and up) always write theirs. The defaults are one table, and a
+change to it is a change of the net version.
+
+**Where shapes come from.** A value states them:
+`Protonettype(spacegroup, occupations, net, shapes)` and its `Protonetstructure`
+counterpart take one symbol per site, `None` below two bonds, and require a
+known symbol (or `I<n>`) ending in the site's bond count on every site with two
+or more bonds. Parsing a label fills in the defaults. A structure's network may
+carry supplied shapes (`shapes=` beside `bonds`, see {doc}`details/asu`), and
+`from_asu` with index-tuple bonds takes `shapes=` too. Every other site gets the
+*baseline*: the angles between every pair of its bond directions, sorted, are
+compared with the sorted angles of each ideal shape of the same bond count by
+root mean square difference in degrees (rounded to 1e-6), and the closest shape
+wins (ties: table order); above 15 degrees, or for a count without ideal shapes,
+the site is `I<n>`. Two bonds are `L2` from 165 degrees, else `A2`. Bond lengths
+are not used. CIF `_geom_bond_` networks have no shapes of their own and use the
+baseline. Some ideal shapes lie closer together than the 15 degree limit in this
+measure, so a slightly distorted polyhedron can be named after its neighbour:
+`SAPR8`/`DD8` 9.7, `COC12`/`ACOC12` 9.4, `COC12`/`IC12` 11.7, `TP3`/`TPY3`
+13.0 and `CU8`/`HBPY8` 14.5 degrees. The closest shape still wins
+deterministically.
+
+**Description independence.** The baseline reads exact quantities: the
+standard-setting metric of the structure averaged over the point group, and each
+exact squared cosine between two bonds converted to a float once. Every exact
+re-description of one crystal (cell, origin, setting, mirror image) therefore
+gives the same angles bit for bit, and the same shapes. The limits: crystals
+that are only approximately related (independently rounded files) are different
+exact crystals, and their shapes can differ where an angle, a misfit or a tie
+lies within rounding noise of a threshold; species classes merged by recognition
+use the recognized geometry; and `math.acos` is not correctly rounded, so
+platforms with different C maths libraries may differ in the last bit, which
+after the 1e-6 rounding changes a shape only for a value within about 1e-12 of a
+rounding boundary.
 
 **Relation to CIF.** This is the CIF bond list in compressed form. CIF records
 a bond as two atom labels plus a symmetry code for each
@@ -531,15 +624,22 @@ to a fixed list for the space group's standard setting, with the identity as
 number 1. CIF's atoms are whichever ones the file happens to list, with
 coordinates, whereas here they are the reference atoms fixed by the canonical
 rule. CIF may list every bond around every atom, with distances, whereas here
-each symmetry-distinct bond appears exactly once and no geometry is stored.
-Finally, the redundant `_555` is dropped.
+each symmetry-distinct bond appears exactly once, without distances, and every
+site with a non-default shape writes it. Finally, the redundant `_555` is dropped.
 
 **Strictness.** As for the other labels the parser is canonical-only
 (`parse_protonettype_label` and `parse_protonetstructure_label` in the
 notation module): it builds the value, re-renders it and rejects any string that
-differs, so `1~8@1`, `1~8@3@555`, `1~8.`, `1~8@3@55` and unsorted or repeated
-groups all fail. The following also hold.
+differs, so `8~1@1`, `8~1@3@555`, `8~1.`, `8~1@3@55`, a written default shape
+(`10T4~...`), a bond listed from the wrong end (`1~8`) and unsorted groups all
+fail. The following also hold.
 
+- A site number opens at most one group (several groups per site are reserved
+  for several shapes on one site). A group needs a shape, bonds, or both: `3`
+  alone is rejected.
+- An unknown shape symbol, a symbol whose number is not the site's bond count, a
+  symbol on a site with fewer than two bonds, and a missing symbol for a bond
+  count without a default raise `ValueError`.
 - `__` splits the bare label from the net at its first occurrence; neither part
   can contain `__`, since no field or group is empty, and a second `__` is
   rejected. The species suffix is split off at the last `:`.
@@ -559,17 +659,18 @@ groups all fail. The following also hold.
   3 `-x+1/2,y+1/2,z+1/2`, 4 `x+1/2,-y+1/2,z+1/2`, so 3 and 4 are exchanged. It
   is also not the order of `Spacegroup.symmetry_operations`, which for group 34
   lists the identity last.
-- A pair of sites may repeat (`1~7.7@4`, two different bond orbits between the
+- A pair of sites may repeat (`7~1.1@3`, two different bond orbits between the
   same two sites), and `i~i@...` is a bond between symmetry copies of one site
   (diamond: `1~1@14@654`).
 - An empty net is written with a trailing `__`: `AB_cF8_225_a_b__`. Sites
-  without bonds do not appear in the net but keep their number.
+  without bonds or a written shape do not appear in the net but keep their number.
 
 The example below builds K₂AgSbS₄ from an exact asymmetric unit and an explicit
 bond list: the eight Ag-S and Sb-S bonds that a 3.0 angstrom cutoff finds,
 written `(i, j, k, n1, n2, n3)` against the input site order. The caller
-supplies the bonds; `from_asu` renumbers them into site order and returns the
-constructor's value, with the net canonicalized. Bonds may carry any integer
+supplies the bonds; `from_asu` renumbers them into site order, takes the shapes
+from the baseline (or from `shapes=`, one symbol or `None` per input site) and
+returns the constructor's value, with the net canonicalized. Bonds may carry any integer
 translation, so the free parameters need not be reduced into [0, 1). The
 asymmetric unit is the vendored COD entry; the label is pinned by
 `tests/test_protonet_canonical_api.py`.
@@ -613,7 +714,8 @@ bonds = [
 ]
 value = Protonetstructure.from_asu(asu, bonds)
 canonical = canonical_protonetstructure(value)
-assert canonical.label == "A4B2CD_oP32_34_4c_abc_ab_c__1~8.10_2~8.10_3~9.10_4~9.10@3:S-K-Ag-Sb"
+assert canonical.label == "A4B2CD_oP32_34_4c_abc_ab_c__8I4~1.2_9SS4~3.4_10~1.2.3.4@4:S-K-Ag-Sb"
+assert value.shapes == ("A2", "A2", "A2", "A2", None, None, None, "I4", "SS4", "T4")
 ```
 
 #### A structure's own bond network
@@ -655,7 +757,8 @@ When two species share a class whose structure has higher symmetry than declared
 (COD 1001844, declared P1 with two `OH2` sites, whose class structure is `C m`), the
 class structure is recognized and every bond pair is matched to its nearest atom
 there; the bonds are kept if the bond set is invariant under the recognized group,
-and otherwise `from_asu` raises `ValueError` naming that group.
+and otherwise `from_asu` raises `ValueError` naming that group. It raises too when
+two sites with different supplied shapes merge there.
 
 ### Canonical protonet labels
 
@@ -664,6 +767,8 @@ One net is one value. The constructors `Protonettype(...)` and
 (no affine-normalizer pass, as for `BarePrototype(...)`) and canonicalize the
 net over site numbering, reference atoms and the equivalent descriptions with
 the same anonymous bare key, orientation-preserving, with the default timeout.
+Shapes travel with their sites; where interchangeable sites differ only in their
+shapes, the smaller symbol takes the smaller number.
 Two spellings of one net therefore give one equal value, and for a canonical
 bare part the constructor's value is the canonical one.
 
@@ -723,13 +828,16 @@ Examples in P2₁/c (no. 14), where operation 2 is the inversion `-x,-y,-z`:
 | N on `e` bonded to its own inversion image and to H on `e` | `AB_mP8_14_e_e__1~1@2.2:N-H` | `AB_mP8_14_e_e:H-N` |
 | C on `e`, the same net | `AB_mP8_14_e_e__1~1@2.2:C-H` | `AB_mP8_14_e_e:C-H` |
 | N and H on `e` joined by two bonds, neither self-bonded | `AB_mP8_14_e_e__1~2.2@2:H-N` | `AB_mP8_14_e_e:H-N` |
-| O on `e`, Cu on `a`, Zn on `b`, O bonded to Cu | `A2BC_mP8_14_e_a_b__1~2:O-Cu-Zn` | `A2BC_mP8_14_e_a_b:O-Cu-Zn` |
-| The same sites, O bonded to Zn | `A2BC_mP8_14_e_a_b__1~2:O-Zn-Cu` | `A2BC_mP8_14_e_a_b:O-Cu-Zn` |
+| O on `e`, Cu on `a`, Zn on `b`, O bonded to Cu | `A2BC_mP8_14_e_a_b__2L2~1:O-Cu-Zn` | `A2BC_mP8_14_e_a_b:O-Cu-Zn` |
+| The same sites, O bonded to Zn | `A2BC_mP8_14_e_a_b__2L2~1:O-Zn-Cu` | `A2BC_mP8_14_e_a_b:O-Cu-Zn` |
 
-The first two rows share the protonettype `AB_mP8_14_e_e__1~1@2.2`: the net puts
-the self-bonded class first, whichever name it has. In the last row the two
-inversion centres `a` and `b` are exchanged by an origin shift, and the net puts
-the centre bonded to O on `a`.
+The N, C and H sites have the default shapes of their bond counts, and the metal
+on an inversion centre is linear (`L2`), its two bonds being each other's
+inversion images. The first two rows share the protonettype
+`AB_mP8_14_e_e__1~1@2.2`: the net puts the self-bonded class first, whichever
+name it has. In the last row the two inversion centres `a` and `b` are exchanged
+by an origin shift, and the net puts the centre bonded to O on `a`; that
+two-bonded centre lists the bond to O, which has one.
 
 Which projections are string operations:
 
@@ -990,12 +1098,19 @@ their content identity. There are three versions, one per family:
 
 A label-rule change therefore bumps all three, while a change to the
 representative or to the net leaves the other families' records untouched. The
-label version is 4, the refined version 6 and the net version 5, since species
+label version is 4, the refined version 6 and the net version 6, since species
 classes replaced species names in every label, the hand is kept in Sohncke
 groups at every level, labels that could not be determined within the time
 budget are stored with an `X` marker, and species-class concentrations are
 rounded to three decimals; the refined version also covers the reduced P-1
-cell and the recorded precision taken from the least valid derivation of the source. Saving requires the family's current version, and turning a record of
+cell and the recorded precision taken from the least valid derivation of the source,
+and the net version the bond shapes and the listing order of the net segment.
+Any change that can change a shape the baseline detects (the defaults table, the
+ideal shapes or their order, the thresholds, the misfit rounding, the tie order,
+the metric averaging or the float conversion) is a change of the net rule. The
+protonet records store the full shape of every site, defaults included, as
+`shapes` (`""` for a site with fewer than two bonds, `()` for an undetermined
+value). Saving requires the family's current version, and turning a record of
 another version back into a value raises `ValueError` naming the family: its
 canonical form changed, so rebuild the database. Saving a protonet record also checks that its net
 is the canonical one for its bare description; a non-canonical net is rejected,

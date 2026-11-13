@@ -4,10 +4,10 @@ An *element* ``(k, n1, n2, n3)`` is operation ``k`` (0-based branch of the stand
 general Wyckoff position, identity ``0``) followed by the lattice translation ``n``.  A *row*
 ``(i, j, g)`` bonds the reference atom of site ``i`` to ``g`` applied to the reference atom of
 site ``j``; the reference atom is the first-listed Wyckoff coordinate at the site's free
-parameters, not reduced modulo one.  ``_canonical_net`` returns the smallest pair list and
-code list over every equivalent description, numbering and gauge, together with every
-realisation of it; in groups 3 to 15 the descriptions follow the cells chosen from the net
-(``_protonet_cells``).  Everything is exact: integers in the search, :class:`~fractions.Fraction`
+parameters, not reduced modulo one.  ``_canonical_net`` returns the smallest key (bare key,
+numbering pattern, listed pairs, codes, shapes) over every equivalent description, numbering
+and gauge, together with every realisation of it; in groups 3 to 15 the descriptions follow
+the cells chosen from the net (``_protonet_cells``).  Everything is exact: integers in the search, :class:`~fractions.Fraction`
 only while the per-space-group tables are built.
 """
 
@@ -19,7 +19,7 @@ from fractions import Fraction
 from functools import cache, cached_property, lru_cache
 from itertools import combinations, permutations, product
 
-from httk.atomistic.models.prototype.notation import class_order_key
+from httk.atomistic.models.prototype.notation import _listing_positions, class_order_key
 from httk.atomistic.symmetry._protonet_cells import _cell_candidates, _Matrix2
 from httk.atomistic.symmetry._wyckoff_actions import compile_wyckoff_action
 from httk.atomistic.symmetry.affine_operation import AffineOperation
@@ -31,6 +31,7 @@ from httk.atomistic.symmetry.canonical_classification import (
     _target_letter,
 )
 from httk.atomistic.symmetry.limits import _checkpoint
+from httk.atomistic.symmetry.shapes import _bond_counts
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 __all__: list[str] = []
@@ -44,7 +45,13 @@ type _Assign = tuple[_Sym | None, ...]
 type _State = tuple[_Assign, int, frozenset[int]]  # reference atoms, unknown count, rows used
 type _Constraint = tuple[list[list[int]], int, tuple[int, ...]]  # (U, rank, z): v = U[:, :rank] z + kernel
 type _Rank = tuple[int, tuple[str, ...]]
-type _Candidate = tuple[tuple[_Rank, ...], tuple[tuple[int, int], ...], tuple[tuple[int, int, int, int, int], ...]]
+type _Candidate = tuple[
+    tuple[_Rank, ...],  # 1. the bare key
+    tuple[tuple[int, int], ...],  # 2. the numbering pattern
+    tuple[tuple[int, int], ...],  # 3. the listed pairs (listing site, target) in label order
+    tuple[tuple[int, int, int, int, int], ...],  # 4. the code keys in label order
+    tuple[str, ...],  # 5. the shapes by site number, "" for none
+]
 
 _IDENTITY: _Element = (0, 0, 0, 0)
 _PROBE: _Point = (Fraction(13, 97), Fraction(29, 101), Fraction(41, 103))  # generic free-parameter values
@@ -1051,14 +1058,16 @@ class _CanonicalNet:
 
     :param it_number: The target group (differs from the input only without preserved chirality).
     :param groups: Sorted Wyckoff letters per class, in label order.
-    :param slots: 1-based site pairs ``(i, j)``, ``i <= j``, sorted.
-    :param codes: One element (0-based operation) per slot.
+    :param slots: 1-based site pairs ``(i, j)`` in label order, each from its listing site ``i``
+        (the end that comes first in the listing order), so ``i > j`` occurs.
+    :param codes: One element (0-based operation) per slot, in the listed direction.
     :param realisations: The descriptions giving this net, de-duplicated by ``(classes, letters,
         number)``; a coset repeating an earlier coset's letters and bond orbits is skipped.  Other
         ``(cell, coset, gauge)`` triples of an equal realisation are therefore not kept, which
         matters only for a future geometric round trip (D9).  Their order, and so which one is
         first, is a search detail that may change between versions: a caller may take the first
         only for what every realisation shares, and otherwise picks by an order-free rule (D3).
+    :param shapes: The shape per site number, ``None`` for a site with fewer than two bonds.
     """
 
     it_number: int
@@ -1066,6 +1075,7 @@ class _CanonicalNet:
     slots: tuple[tuple[int, int], ...]
     codes: tuple[_Element, ...]
     realisations: tuple[_Realisation, ...]
+    shapes: tuple[str | None, ...]
 
 
 def _canonical_net(
@@ -1073,6 +1083,7 @@ def _canonical_net(
     sites: Sequence[tuple[Hashable, str]],
     rows: Iterable[tuple[int, int, _Element]],
     *,
+    shapes: Sequence[str | None] | None = None,
     preserve_chirality: bool = True,
     own_bare: bool = False,
 ) -> _CanonicalNet:
@@ -1082,6 +1093,8 @@ def _canonical_net(
     :param sites: ``(class id, Wyckoff letter)`` per site, in any order.
     :param rows: ``(i, j, element)`` with 0-based site indices and elements relative to the
         sites' reference atoms; any lattice translation.
+    :param shapes: The shape symbol per site (``None`` for none), carried with the sites; ``None``
+        for no shapes at all.
     :param preserve_chirality: Whether to keep the higher enantiomorphic group.
     :param own_bare: Search only the descriptions with the input's own bare key (its sorted class
         letter groups) instead of the smallest one; the constructors' canonicalization.
@@ -1103,7 +1116,10 @@ def _canonical_net(
         if i > j:
             i, j, g = j, i, tables.inv(g)
         normalised.add((i, j, tables.canon(tables.letter(sites[i][1]).H, tables.letter(sites[j][1]).H, g, i == j)))
-    return _search(it_number, sites, frozenset(normalised), preserve_chirality, own_bare)
+    shaped = (None,) * len(sites) if shapes is None else tuple(shapes)
+    if len(shaped) != len(sites):
+        raise ValueError(f"shapes give {len(shaped)} entries for {len(sites)} sites")
+    return _search(it_number, sites, frozenset(normalised), shaped, preserve_chirality, own_bare)
 
 
 def _class_groups(
@@ -1125,12 +1141,20 @@ def _search(
     it_number: int,
     sites: tuple[tuple[Hashable, str], ...],
     rows: frozenset[_Row],
+    shapes: tuple[str | None, ...],
     preserve_chirality: bool,
     own_bare: bool = False,
 ) -> _CanonicalNet:
-    """Search every cell, coset, class order, numbering and gauge for the smallest net (memoised)."""
+    """Search every cell, coset, class order, numbering and gauge for the smallest net (memoised).
+
+    Candidates compare by the bare key, the numbering pattern, the listed pairs, the codes and
+    the shapes by site number, in that order. Bond counts, and so the listing order of a
+    numbering, are site invariants, computed once on the input description.
+    """
     tables = _tables(it_number)
     ordered = sorted(rows)
+    counts = _bond_counts(tables, [tables.letter(letter).H for _, letter in sites], ordered)
+    pairs = [(a, b) for a, b, _ in ordered]
     target = _chirality_target(tables.spacegroup, preserve_chirality).it_number
     if target != it_number:
         transfer = _transfer(it_number, target)
@@ -1142,7 +1166,7 @@ def _search(
     for s, (cls, _) in enumerate(sites):
         sites_of.setdefault(cls, []).append(s)
     best: _Candidate | None = None
-    result: tuple[list[tuple[int, int]], list[_Element], list[tuple[str, ...]]] | None = None
+    result: tuple[tuple[tuple[int, int], ...], list[_Element], list[tuple[str, ...]]] | None = None
     realisations: dict[tuple[object, ...], _Realisation] = {}
     seen: set[tuple[object, ...]] = set()
     # monoclinic: the cells chosen from the net come first (task 4.2); a net of rank 0 with a
@@ -1226,10 +1250,19 @@ def _search(
                     for part in arrangement
                     for cls in (sorted(part, key=lambda c: number[sites_of[c][0]]) if part[0] in single else part)
                 ]
-                slots, codes, gauge = _exact_codes(tables, letters, number, moved)
-                candidate = (bare_key, pattern, tuple(_key(c) for c in codes))
+                # the codes are minimised in label order: each site's listing position stands for its number
+                numbers = [number[s] for s in range(len(sites))]
+                pos = dict(enumerate(_listing_positions(counts, pairs, numbers)))
+                listed = sorted((pos[a], pos[b]) if pos[a] <= pos[b] else (pos[b], pos[a]) for a, b, _ in moved)
+                numbered = {p: numbers[s] for s, p in pos.items()}
+                step3 = tuple((numbered[p], numbered[q]) for p, q in listed)
+                if best is not None and (bare_key, pattern, step3) > best[:3]:
+                    continue
+                _, codes, gauge = _exact_codes(tables, letters, pos, moved)
+                step5 = tuple(shapes[s] or "" for s in sorted(range(len(sites)), key=numbers.__getitem__))
+                candidate = (bare_key, pattern, step3, tuple(_key(c) for c in codes), step5)
                 if best is None or candidate < best:
-                    best, result, realisations = candidate, (slots, codes, [group_of[c] for c in ordered_classes]), {}
+                    best, result, realisations = candidate, (step3, codes, [group_of[c] for c in ordered_classes]), {}
                 if candidate == best:
                     real = _Realisation(
                         index,
@@ -1240,9 +1273,10 @@ def _search(
                         X,
                     )
                     realisations.setdefault((real.classes, real.letters, real.number), real)
-    assert result is not None
+    assert result is not None and best is not None
     slots, codes, groups = result
-    return _CanonicalNet(target, tuple(groups), tuple(slots), tuple(codes), tuple(realisations.values()))
+    by_number = tuple(symbol or None for symbol in best[4])
+    return _CanonicalNet(target, tuple(groups), slots, tuple(codes), tuple(realisations.values()), by_number)
 
 
 def _pregauge(

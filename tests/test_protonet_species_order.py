@@ -4,7 +4,7 @@ from functools import cache
 
 import httk.core
 import pytest
-from _protonet_support import generic_cutoffs, load_structure, raw_rows
+from _protonet_support import default_shapes, generic_cutoffs, load_structure, raw_rows
 from test_protonet_canonical import FIXTURE_EXTENDED, FIXTURE_NORMAL, FIXTURES, _profile
 from test_protonet_canonical_api import CASES, _asu, _bonds, _value
 
@@ -48,23 +48,26 @@ ROWS = {
     "o-cu": (
         [("e", "O"), ("a", "Cu"), ("b", "Zn")],
         [(1, 2, 1, 0, 0, 0)],
-        "A2BC_mP8_14_e_a_b__1~2:O-Cu-Zn",
+        "A2BC_mP8_14_e_a_b__2L2~1:O-Cu-Zn",
         "A2BC_mP8_14_e_a_b:O-Cu-Zn",
     ),
     "o-zn": (
         [("e", "O"), ("a", "Cu"), ("b", "Zn")],
         [(1, 3, 1, 0, 0, 0)],
-        "A2BC_mP8_14_e_a_b__1~2:O-Zn-Cu",
+        "A2BC_mP8_14_e_a_b__2L2~1:O-Zn-Cu",
         "A2BC_mP8_14_e_a_b:O-Cu-Zn",
     ),
 }
 SELF_BONDED_PROTONETTYPE = "AB_mP8_14_e_e__1~1@2.2"
+# the default shapes, except that two bonds through an inversion centre are linear
+LINEAR = {"o-cu": (None, "L2", None), "o-zn": (None, None, "L2")}
 
 
 @pytest.mark.parametrize("name", list(ROWS))
 def test_species_order_rows(name: str) -> None:
     occupations, bonds, label, bare_label = ROWS[name]
-    value = Protonetstructure(14, [(letter, _species(species)) for letter, species in occupations], bonds)
+    shapes = LINEAR.get(name) or default_shapes(14, [letter for letter, _ in occupations], bonds)
+    value = Protonetstructure(14, [(letter, _species(species)) for letter, species in occupations], bonds, shapes)
     canonical = canonical_protonetstructure(value)
     bare = canonical_bare_protostructure(value)
     assert str(canonical.label) == label

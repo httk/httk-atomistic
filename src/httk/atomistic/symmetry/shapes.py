@@ -80,8 +80,9 @@ __all__: list[str] = []
 _LINEAR_FROM = 165.0  # degrees: two bonds at least this far apart are linear (decision S3)
 _IRREGULAR_ABOVE = 15.0  # degrees RMS: beyond this no ideal shape is assigned (decision S3)
 # The shape a missing symbol in the label means, per bond count.  One table: a change is a nets
-# version bump.  Two bonds: linear (maintainer decision S2, Nov 12 2026).
-_DEFAULTS = {2: "L2", 3: "TP3", 4: "T4", 5: "TBPY5", 6: "OC6", 7: "PBPY7", 8: "CU8", 9: "TPRS9", 12: "COC12"}
+# version bump.  Two bonds: bent, settled from the follow-up 5 counts (decision S2, Nov 13 2026: 4% of
+# carbon-free COD and 18% of ICSD inorganic two-bonded sites are linear).
+_DEFAULTS = {2: "A2", 3: "TP3", 4: "T4", 5: "TBPY5", 6: "OC6", 7: "PBPY7", 8: "CU8", 9: "TPRS9", 12: "COC12"}
 
 
 def _unit(v: Sequence[float]) -> tuple[float, ...]:
