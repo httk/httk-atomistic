@@ -454,7 +454,12 @@ def _loads_like_ordered(text: str) -> None:
     assert read_cif(io.StringIO(text))[0][0][1] == read_cif(io.StringIO(ORDERED))[0][0][1]
     structure = httk.core.load(io.StringIO(text), format="cif")
     ordered = httk.core.load(FIXTURES / "cif_bonds" / "ordered.cif")
-    assert structure == ordered and structure.bonds == ordered.bonds and structure.bonds
+    assert (
+        structure == ordered
+        and structure.bonds == ordered.bonds
+        and structure.bonds is not None
+        and structure.bonds.pairs
+    )
 
 
 @pytest.mark.parametrize(

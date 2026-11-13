@@ -30,6 +30,7 @@ from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.network import BondNetwork
 
 __all__ = ["CIFStructure", "read_cif_structures"]
 
@@ -236,6 +237,16 @@ class CIFStructure(CIFBlock, StructureBackend):
     def site_moments(self) -> SiteMomentsBackend | None:
         """Expose the converted structure's site moments, or ``None`` when they are unstated."""
         return self.resolve().site_moments
+
+    @property
+    def bonds(self) -> BondNetwork | None:
+        """Expose the bond network of the presented unit-cell sites, read from the CIF's bond loop.
+
+        :return: The network indexing :attr:`sites`, or ``None`` when the CIF gives none.
+        """
+        from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+
+        return UnitcellStructureView(self.resolve()).bonds
 
     @property
     def charge(self) -> Fraction | None:

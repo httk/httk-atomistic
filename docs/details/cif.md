@@ -256,7 +256,8 @@ values in `(1, 1.1]` clamp to one, with a warning. Values outside that band rema
 
 A block with a `_geom_bond_` loop always loads as a structure with that bond network, its
 `bonds` (see {doc}`asu`); there is no option to ask for it. A block without the loop gives
-`bonds=None` (no network known), and a loop without rows gives `()`. Only
+`bonds=None` (no network known), and a loop without rows gives a network without
+bonds, `BondNetwork(pairs=())`. Only
 `_geom_bond_atom_site_label_1`, `_geom_bond_atom_site_label_2`,
 `_geom_bond_site_symmetry_1`, `_geom_bond_site_symmetry_2` and `_geom_bond_distance` are
 read; the other columns are ignored.
@@ -305,7 +306,7 @@ least one bond that leaves Wyckoff sites without a bond logs one warning naming 
 counting those sites per element, such as `17 H sites have no bond in the listed loop`. Sites
 are counted as Wyckoff sites (orbits), not atoms. A site is named by its elements other than
 vacancy, sorted and joined with `/` for a mixed-occupancy site (`Co/Fe`), or by its species
-name when no element remains. An empty loop, `()`, gives no warning, and the warning never stops
+name when no element remains. An empty loop (no pairs) gives no warning, and the warning never stops
 a load.
 
 ```python

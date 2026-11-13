@@ -22,8 +22,8 @@ structure is first recognized as symmetric, never in expansion.
 import copy
 import datetime
 import fractions
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
 from functools import cache, cached_property, lru_cache
 from typing import Any, ClassVar, Self
 
@@ -44,6 +44,7 @@ from httk.atomistic.models.species.like import SpeciesLike
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.species.view import SpeciesView
 from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.network import BondNetwork, SiteBond, _bond_network, _checked_symbols
 from httk.atomistic.models.structure.semantics import StructureSemanticsMixin, initialize_semantics
 from httk.atomistic.models.structure.unitcell import _check_referenced_species_concentrations
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
@@ -51,7 +52,7 @@ from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 
-__all__ = ["ASUStructure", "FundamentalDomainStructure", "SiteBond", "WyckoffSite"]
+__all__ = ["ASUStructure", "FundamentalDomainStructure", "WyckoffSite"]
 
 
 @dataclass(frozen=True)
@@ -107,35 +108,6 @@ class WyckoffSite:
     def free_count(self) -> int:
         """How many free parameters this site carries."""
         return 0 if self.free_params.dim in ((), (0,)) else self.free_params.dim[0]
-
-
-@dataclass(frozen=True)
-class SiteBond:
-    """Represent one bond orbit of a fundamental domain's bond network.
-
-    The reference atom of ``wyckoff_sites[site]`` is bonded to ``operation`` applied to the
-    reference atom of ``wyckoff_sites[partner]``. A reference atom is the first-listed coordinate
-    of the site's Wyckoff position in the structure's stored setting at its free parameters, not
-    reduced modulo one. ``operation`` is an element of the stored setting's space group, lattice
-    translation included. The bond stands for its whole orbit under the group, so any member of
-    the orbit names the same bond.
-
-    :param site: The 0-based index of the first site.
-    :param partner: The 0-based index of the second site.
-    :param operation: The exact group element applied to the partner's reference atom.
-    """
-
-    site: int
-    partner: int
-    operation: AffineOperation
-
-    def __post_init__(self) -> None:
-        for name in ("site", "partner"):
-            value = getattr(self, name)
-            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-                raise ValueError(f"SiteBond {name} must be a non-negative integer, got {value!r}")
-        if not isinstance(self.operation, AffineOperation):
-            raise TypeError("SiteBond operation must be an AffineOperation")
 
 
 # Exact affine maps as plain fractions, for the bond algebra: ``x -> W x + w`` with ``W`` row-major.
@@ -316,14 +288,12 @@ def _normalized_bonds(
 def _checked_shapes(
     spacegroup: Spacegroup,
     sites: Sequence[WyckoffSite],
-    bonds: Sequence[SiteBond] | None,
+    bonds: Sequence[SiteBond],
     shapes: Sequence[str | None] | None,
 ) -> tuple[str | None, ...] | None:
-    """Validate supplied shapes against the network's bond counts; all ``None`` normalizes to ``None``."""
+    """Validate assigned shapes against the network's bond counts; all ``None`` normalizes to ``None``."""
     if shapes is None:
         return None
-    if bonds is None:
-        raise ValueError("shapes need a bond network: give bonds as well")
     if isinstance(shapes, str):
         raise TypeError("shapes must be a sequence of str or None values, one per site, not a str")
     checked = tuple(shapes)
@@ -333,15 +303,9 @@ def _checked_shapes(
         raise TypeError("shapes must contain str or None values")
     if all(symbol is None for symbol in checked):
         return None
-    from httk.atomistic.symmetry.shapes import _check_shape, _structure_bond_counts
+    from httk.atomistic.symmetry.shapes import _structure_bond_counts
 
-    counts = _structure_bond_counts(spacegroup, sites, bonds)
-    for index, (symbol, count) in enumerate(zip(checked, counts, strict=True)):
-        if symbol is not None:
-            try:
-                _check_shape(symbol, count)
-            except ValueError as error:
-                raise ValueError(f"shapes[{index}]: {error}") from None
+    _checked_symbols(checked, _structure_bond_counts(spacegroup, sites, bonds), "Wyckoff site")
     return checked
 
 
@@ -437,13 +401,13 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     :param last_modified: Optional source modification timestamp.
     :param charge: An explicitly assigned charge for the expanded cell content; it is not
         derived from the species.
-    :param bonds: The optional bond network, one :class:`SiteBond` per bond orbit in any
-        spelling; ``None`` (the default) means no network is known, ``()`` that there are no
-        bonds. Each bond is replaced by the least member of its orbit, and repeats collapse.
-    :param shapes: Optional supplied bond shapes, one symbol or ``None`` per Wyckoff site (see
-        :mod:`httk.atomistic.symmetry.shapes`); ``None`` for a site means the baseline detector
-        decides. Needs ``bonds``; each symbol must be known and end in its site's bond count.
-        All ``None`` is the same as no shapes.
+    :param bonds: The optional bond network: a :class:`~httk.atomistic.BondNetwork`, a mapping
+        of its fields, or a plain sequence of :class:`~httk.atomistic.SiteBond` (no shapes, no
+        source). ``None`` (the default) means no network is known; no pairs mean that there are no
+        bonds. The pairs and shapes index ``wyckoff_sites``; each bond is one bond orbit in any
+        spelling and is replaced by the least member of its orbit, and repeats collapse. Each
+        assigned shape symbol (see :mod:`httk.atomistic.symmetry.shapes`) must be known and end in
+        its site's bond count; ``None`` for a site means the baseline detector decides.
     :param _validated_proof: Internal proof that the supplied CIF expansion already validates
         the representatives.
     """
@@ -456,7 +420,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     _coordinate_precision: fractions.Fraction | None
     _charge: fractions.Fraction | None
     _precomputed_expansion: tuple[FracVector, tuple[str, ...], tuple[int, ...]]
-    _shapes: tuple[str | None, ...] | None
+    _network: BondNetwork | None
     kind: ClassVar[str] = "asu"
 
     def __init__(
@@ -477,8 +441,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         immutable_id: str | None = None,
         last_modified: datetime.datetime | None = None,
         charge: fractions.Fraction | int | str | None = None,
-        bonds: Sequence[SiteBond] | None = None,
-        shapes: Sequence[str | None] | None = None,
+        bonds: BondNetwork | Mapping[str, Any] | Sequence[SiteBond] | None = None,
         _validated_proof: _ValidatedASUProof | None = None,
     ) -> None:
         self._cell = cell if isinstance(cell, Cell) else CellView(cell)
@@ -554,23 +517,20 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         )
         if _validated_proof is not None:
             self._precomputed_expansion = _validated_proof.expansion
-        self._bonds = (
-            None
-            if bonds is None
-            else _normalized_bonds(
-                self._spacegroup, self._wyckoff_sites, _checked_bonds(self._spacegroup, self._wyckoff_sites, bonds)
-            )
-        )
-        self._shapes = _checked_shapes(self._spacegroup, self._wyckoff_sites, self._bonds, shapes)
+        network = _bond_network(bonds)
+        if network is not None:
+            sites = self._wyckoff_sites
+            pairs = _normalized_bonds(self._spacegroup, sites, _checked_bonds(self._spacegroup, sites, network.pairs))
+            _checked_shapes(self._spacegroup, sites, pairs, network.shapes)
+            network = replace(network, pairs=pairs)
+        self._network = network
 
-    def _with_bonds(self, bonds: Sequence[SiteBond] | None, *, shapes: Sequence[str | None] | None) -> Self:
-        """Return a copy holding ``bonds`` and ``shapes``, trusted to be valid for these sites (normalized on access)."""
-        assert bonds is not None or shapes is None, "shapes need a network"
+    def _with_bonds(self, network: BondNetwork | None) -> Self:
+        """Return a copy holding ``network``, trusted to be valid for these sites (its pairs normalized on access)."""
         copied = copy.copy(self)
-        for cached in ("_canonical_bonds", "_httk_cached_content_ids", "composition"):  # caches of the old value
+        for cached in ("_canonical_network", "_httk_cached_content_ids", "composition"):  # caches of the old value
             vars(copied).pop(cached, None)
-        copied._bonds = None if bonds is None else tuple(bonds)
-        copied._shapes = None if shapes is None or all(symbol is None for symbol in shapes) else tuple(shapes)
+        copied._network = network
         return copied
 
     @classmethod
@@ -583,7 +543,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         transform: SettingTransform | None,
         coordinate_precision: Any,
         assemblies: Sequence[Assembly] | None = None,
-        bonds: Sequence[SiteBond] | None = None,
+        bonds: BondNetwork | Sequence[SiteBond] | None = None,
     ) -> Self:
         return cls(
             cell,
@@ -648,23 +608,21 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
         return self._wyckoff_sites
 
     @property
-    def bonds(self) -> tuple[SiteBond, ...] | None:
-        """Expose the bond network, one least orbit member per bond orbit, or ``None`` when unknown.
+    def bonds(self) -> BondNetwork | None:
+        """Expose the bond network, or ``None`` when no network is known.
 
-        ``()`` means the structure is known to have no bonds.
+        Its pairs and shapes index :attr:`wyckoff_sites`; the pairs hold one least orbit member per
+        bond orbit, and no pairs mean that the structure is known to have no bonds.
         """
-        return None if self._bonds is None else self._canonical_bonds
-
-    @property
-    def shapes(self) -> tuple[str | None, ...] | None:
-        """Expose the supplied bond shapes, one symbol or ``None`` (baseline) per site, or ``None`` when none are supplied."""
-        return self._shapes
+        return None if self._network is None else self._canonical_network
 
     @cached_property
-    def _canonical_bonds(self) -> tuple[SiteBond, ...]:
-        # constructed bonds are already normal; carried ones (``_with_bonds``) are normalized on first use
-        assert self._bonds is not None
-        return _normalized_bonds(self._spacegroup, self._wyckoff_sites, self._bonds)
+    def _canonical_network(self) -> BondNetwork:
+        # constructed networks are already normal; carried ones (``_with_bonds``) are normalized on first use
+        assert self._network is not None
+        return replace(
+            self._network, pairs=_normalized_bonds(self._spacegroup, self._wyckoff_sites, self._network.pairs)
+        )
 
     @property
     def domain_sites(self) -> tuple[WyckoffSite, ...]:
@@ -1077,7 +1035,6 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             and self._chemical_formula_hill == other._chemical_formula_hill
             and self._optimization_type == other._optimization_type
             and self.bonds == other.bonds
-            and self.shapes == other.shapes
         )
 
     def __repr__(self) -> str:
@@ -1087,9 +1044,7 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             if self.is_standard_setting
             else f"setting {setting.setting if setting else '(untabulated)'}"
         )
-        bonds = "" if self._bonds is None else f", bonds={self.bonds!r}"
-        if self._shapes is not None:
-            bonds += f", shapes={self._shapes!r}"
+        bonds = "" if self._network is None else f", bonds={self.bonds!r}"
         return (
             f"{type(self).__name__}({self._spacegroup.hermann_mauguin!r}, {len(self._wyckoff_sites)} site(s), "
             f"{where}{bonds})"

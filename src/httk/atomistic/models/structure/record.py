@@ -14,6 +14,7 @@ from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.species.view import SpeciesView
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure
 from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.network import BondNetwork
 from httk.atomistic.models.structure.semantics import StructureSymmetry, _stated_symmetry
 from httk.atomistic.storage.records import (
     ASUStructureRecord,
@@ -277,6 +278,16 @@ class RecordStructure(StructureBackend):
         :return: The timestamp, or ``None`` when it is absent.
         """
         return self._record.last_modified
+
+    @property
+    def bonds(self) -> BondNetwork | None:
+        """Expose the bond network of the presented unit-cell sites.
+
+        :return: A domain record's network expanded to its unit cell; ``None`` for a unit-cell
+            record, which stores no network yet.
+        """
+        # FU7 P4: unit-cell records store their network
+        return None if self._is_unitcell else self._expanded.bonds
 
     @property
     def asu(self) -> ASUStructure | FundamentalDomainStructure | None:

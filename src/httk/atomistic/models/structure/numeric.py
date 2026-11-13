@@ -271,6 +271,14 @@ class NumericUnitcellStructure:
         return self._charge
 
     @property
+    def bonds(self) -> None:
+        """Expose no bond network, since a float-owning value has none; converting a structure drops it.
+
+        :return: ``None``.
+        """
+        return None
+
+    @property
     def molecular(self) -> bool:
         """Whether this structure describes a molecular unit cell.
 

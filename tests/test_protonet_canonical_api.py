@@ -137,12 +137,13 @@ def _case(name: str) -> tuple[ASUStructure, tuple[Bond, ...], list[Any], list[An
 
 def _input_shapes(asu: ASUStructure, bonds: tuple[Bond, ...]) -> tuple[str | None, ...]:
     """The baseline shape of every site of ``asu`` with the index bonds as its network."""
-    from httk.atomistic.models.structure.asu import SiteBond, _affine, _standard_elements
+    from httk.atomistic.models.structure.asu import _affine, _standard_elements
+    from httk.atomistic.models.structure.network import BondNetwork, SiteBond
     from httk.atomistic.symmetry.shapes import _site_shapes
 
     standard = _standard_elements(asu.spacegroup)
     network = [SiteBond(i - 1, j - 1, _affine(standard.operation((k - 1, *n)))) for i, j, k, *n in bonds]
-    return _site_shapes(asu._with_bonds(network, shapes=None))
+    return _site_shapes(asu._with_bonds(BondNetwork(tuple(network))))
 
 
 @cache

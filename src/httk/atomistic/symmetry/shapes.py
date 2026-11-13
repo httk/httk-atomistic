@@ -71,7 +71,9 @@ from fractions import Fraction
 from typing import TYPE_CHECKING, Any, SupportsFloat
 
 if TYPE_CHECKING:  # the structure helpers import lazily: notation reads this module, and protonet imports it
-    from httk.atomistic.models.structure.asu import FundamentalDomainStructure, SiteBond, WyckoffSite
+    from httk.atomistic.models.structure.api import StructureAPI
+    from httk.atomistic.models.structure.asu import FundamentalDomainStructure, WyckoffSite
+    from httk.atomistic.models.structure.network import SiteBond
     from httk.atomistic.symmetry.protonet import _Element, _GroupTables
     from httk.atomistic.symmetry.spacegroup import Spacegroup
 
@@ -324,18 +326,21 @@ def _structure_bond_counts(
     return _bond_counts(elements.tables, _stabilisers(spacegroup, sites), rows)
 
 
+def _exact_metric(structure: "StructureAPI") -> list[list[Any]]:
+    """Return the exact metric of a structure's own reduced coordinates: ``Fraction`` entries when rational, else surd scalars."""
+    metric = structure.cell.metric()
+    if metric.is_rational:
+        return [list(row) for row in metric.coefficient(1).to_fractions()]
+    return [[metric._element((r, c)) for c in range(3)] for r in range(3)]
+
+
 def _averaged_metric(structure: "FundamentalDomainStructure", tables: "_GroupTables") -> list[list[Any]]:
     """Return the exact metric of the standard-setting coordinates, averaged over the point group.
 
     Entries are ``Fraction`` for a rational metric, else surd scalars.
     """
     A = structure.transform_from_standard.operation.matrix.to_fractions()  # own = A standard + a
-    metric = structure.cell.metric()
-    G: list[list[Any]] = (
-        [list(row) for row in metric.coefficient(1).to_fractions()]
-        if metric.is_rational
-        else [[metric._element((r, c)) for c in range(3)] for r in range(3)]
-    )
+    G = _exact_metric(structure)
     standard = [
         [sum((A[r][a] * G[r][c] * A[c][b] for r in range(3) for c in range(3)), Fraction(0)) for b in range(3)]
         for a in range(3)
@@ -384,9 +389,9 @@ def _baseline_shapes(
     """
     from httk.atomistic.models.structure.asu import _apply, _op, _reference, _standard_elements
 
-    bonds = structure.bonds
-    if bonds is None:
+    if structure.bonds is None:
         raise ValueError("a structure without a bond network has no shapes")
+    bonds = structure.bonds.pairs
     spacegroup, sites = structure.spacegroup, structure.wyckoff_sites
     elements = _standard_elements(spacegroup)
     tables = elements.tables
@@ -421,11 +426,81 @@ def _baseline_shapes(
     return tuple(result)
 
 
-def _site_shapes(structure: "FundamentalDomainStructure") -> tuple[str | None, ...]:
-    """Return every site's shape: the supplied symbol where the structure has one, else the baseline.
+def _cell_neighbours(nsites: int, pairs: Iterable["SiteBond"]) -> list[set[tuple[int, tuple[Fraction, ...]]]]:
+    """Return, per site of a unit cell, its distinct bonded atoms ``(partner, translation)``.
 
-    :param structure: A structure with a bond network.
-    :return: Per site, its shape, or ``None`` for fewer than two bonds.
-    :raises ValueError: As :func:`_baseline_shapes`.
+    A pair ``(i, j, n)`` adds ``(j, n)`` to ``i`` and ``(i, -n)`` to ``j``, so a bond of a site to a
+    translate of itself adds two atoms.
     """
-    return _baseline_shapes(structure, structure.shapes)
+    atoms: list[set[tuple[int, tuple[Fraction, ...]]]] = [set() for _ in range(nsites)]
+    for bond in pairs:
+        n = tuple(Fraction(x) for x in bond.operation.vector.to_fractions())
+        atoms[bond.site].add((bond.partner, n))
+        atoms[bond.partner].add((bond.site, tuple(-x for x in n)))
+    return atoms
+
+
+def _cell_bond_counts(nsites: int, pairs: Iterable["SiteBond"]) -> tuple[int, ...]:
+    """Return the bond count of every site of a unit-cell network (lattice-translation bonds).
+
+    :param nsites: The number of sites.
+    :param pairs: The bonds, each operation a lattice translation.
+    :return: The number of distinct atoms bonded to each site.
+    """
+    return tuple(len(atoms) for atoms in _cell_neighbours(nsites, pairs))
+
+
+def _cell_baseline_shapes(
+    structure: "StructureAPI", supplied: Sequence[str | None] | None = None
+) -> tuple[str | None, ...]:
+    """Return the baseline shape of every site of a unit-cell structure's network.
+
+    As :func:`_baseline_shapes`, without symmetry: the angles come from the cell's exact metric,
+    not averaged. Every exact re-description (cell, origin, mirror image, site order) still gives
+    bit-identical angles, since a unit cell lists the atoms of an orbit separately.
+
+    :param structure: A structure presented as a unit cell (its network indexes ``sites``) with a
+        bond network.
+    :param supplied: Optional symbols per site; a site with one keeps it and is not measured.
+    :return: Per site, its shape, or ``None`` for fewer than two bonds.
+    :raises ValueError: If the structure has no network, or a measured site has a zero-length bond.
+    """
+    network = structure.bonds
+    if network is None:
+        raise ValueError("a structure without a bond network has no shapes")
+    points = [[Fraction(x) for x in row] for row in structure.sites.reduced_coords.to_fractions()]
+    metric: list[list[Any]] | None = None
+    result: list[str | None] = []
+    for s, atoms in enumerate(_cell_neighbours(len(points), network.pairs)):
+        if supplied is not None and supplied[s] is not None:
+            result.append(supplied[s])
+            continue
+        if len(atoms) < 2:
+            result.append(None)
+            continue
+        vectors = [tuple(p + t - q for p, t, q in zip(points[other], n, points[s], strict=True)) for other, n in atoms]
+        if any(not any(d) for d in vectors):
+            raise ValueError(f"site {s}: a zero-length bond has no direction; supply its shape")
+        if metric is None:
+            metric = _exact_metric(structure)
+        angles = sorted(_angle(metric, u, v) for u, v in itertools.combinations(vectors, 2))
+        result.append(_detect_angles(len(atoms), angles)[0])
+    return tuple(result)
+
+
+def _site_shapes(structure: "StructureAPI") -> tuple[str | None, ...]:
+    """Return every site's shape: the assigned symbol where the network has one, else the baseline.
+
+    :param structure: A fundamental domain (its sites are its Wyckoff sites) or a unit-cell
+        structure (its sites are ``sites``) with a bond network.
+    :return: Per site, its shape, or ``None`` for fewer than two bonds.
+    :raises ValueError: As :func:`_baseline_shapes` and :func:`_cell_baseline_shapes`.
+    """
+    from httk.atomistic.models.structure.asu import FundamentalDomainStructure
+
+    network = structure.bonds
+    if network is None:
+        raise ValueError("a structure without a bond network has no shapes")
+    if isinstance(structure, FundamentalDomainStructure):
+        return _baseline_shapes(structure, network.shapes)
+    return _cell_baseline_shapes(structure, network.shapes)

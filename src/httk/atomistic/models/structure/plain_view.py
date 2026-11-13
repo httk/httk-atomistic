@@ -56,6 +56,11 @@ class PlainStructureView(StructureView, tuple):
     def __init__(self, obj: StructureLike, **hints: Any) -> None:
         super().__init__()
 
+    @property
+    def bonds(self) -> None:
+        """Expose no bond network; a primitive triple has no bonds, so presenting a structure this way drops its network."""
+        return None
+
     def unwrap(self) -> Any:
         """Return the raw value wrapped by the backend.
 

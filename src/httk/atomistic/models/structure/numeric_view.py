@@ -12,6 +12,7 @@ from httk.atomistic.models.sites.numeric_view import SitesNumericView
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.like import StructureLike
+from httk.atomistic.models.structure.network import BondNetwork
 from httk.atomistic.models.structure.semantics import StructureSemanticsMixin
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structure.view import StructureView
@@ -95,6 +96,11 @@ class NumericUnitcellStructureView(StructureSemanticsMixin, StructureView):
         """Expose Cartesian site moments as numeric values."""
         moments = self._exact.site_moments
         return None if moments is None else to_numeric(moments.cartesian_moments)
+
+    @property
+    def bonds(self) -> BondNetwork | None:
+        """Expose the exact structure's bond network (a re-presentation carries it)."""
+        return self._exact.bonds
 
     @property
     def assemblies(self) -> tuple[Assembly, ...] | None:

@@ -127,6 +127,11 @@ class ASEAtomsView(StructureView, ase.Atoms):
     def __init__(self, obj: "StructureLike", **hints: Any) -> None:
         pass
 
+    @property
+    def bonds(self) -> None:
+        """Expose no bond network; no bonds are read into ``ase.Atoms``, so presenting a structure this way drops its network."""
+        return None
+
     def unwrap(self) -> Any:
         """Return the original value represented by the underlying backend."""
         return unwrap(self._backend)

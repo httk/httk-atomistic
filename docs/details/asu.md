@@ -27,8 +27,7 @@ the cell.
 | `transform` | the transform from that stored setting to the structure's own coordinates; normally identity |
 | `wyckoff_sites` | one {py:class}`~httk.atomistic.WyckoffSite` per orbit: a Wyckoff letter, its free parameters, and a species name |
 | `species` | the species the sites name |
-| `bonds` | the optional bond network: one {py:class}`~httk.atomistic.SiteBond` per bond orbit, or `None` |
-| `shapes` | optional supplied bond shapes, one symbol or `None` per site (needs `bonds`), or `None` |
+| `bonds` | the optional bond network, a {py:class}`~httk.atomistic.BondNetwork` (one {py:class}`~httk.atomistic.SiteBond` per bond orbit, optional shapes, sources), or `None` |
 
 An `WyckoffSite` carries a bare Wyckoff letter (`"e"`, not `"4e"`) and one exact
 value per degree of freedom — none at all for a fixed position such as an
@@ -38,9 +37,22 @@ composition.
 
 ## Bond networks
 
-An `ASUStructure` (or `FundamentalDomainStructure`) may carry a bond network,
-`bonds`. `None`, the default of every way of building one, means no network is
-known; `()` means the structure is known to have no bonds. A
+Every structure exposes `bonds`: a {py:class}`~httk.atomistic.BondNetwork`, or
+`None` when no network is known (the default of every way of building one). A
+network holds `pairs`, the bonds (none means the structure is known to have no
+bonds); `shapes`, one shape symbol or `None` per site, or `None` when no shapes are
+assigned (below); and `source` and `shapes_source`, a
+{py:class}`~httk.atomistic.BondSource` each (free-text `description`, `software`,
+`version`, `uri`, every field a string or `None`), naming who assigned the bonds
+and the shapes (`shapes_source` `None`: the same as `source`). The pairs and the
+shapes are content; the sources are provenance and take part neither in equality
+nor in the content identity. Constructors take `bonds=` as a network, as a mapping
+with its keys (`pairs` required), or as a plain sequence of bonds (no shapes, no
+source). A `shapes_source` without shapes, an empty source field (use `None`) and an
+unknown key raise `ValueError`.
+
+On an `ASUStructure` (or `FundamentalDomainStructure`) the pairs and shapes index
+`wyckoff_sites`, and a
 {py:class}`~httk.atomistic.SiteBond` `(site, partner, operation)` bonds the
 reference atom of `wyckoff_sites[site]` to `operation` applied to the reference
 atom of `wyckoff_sites[partner]`. A reference atom is the first-listed coordinate
@@ -53,7 +65,7 @@ reference atoms' site-symmetry groups, compared in the standard setting by the
 length of the lattice translation, then operation and translation), so equal
 networks in any spelling compare equal and repeats collapse. Self-bonds, an
 operation outside the group and a site index out of range raise `ValueError`.
-Equality includes the network (`None`, `()` and a network all differ), and the
+Equality includes the network (`None`, no pairs and pairs all differ), and the
 storage records keep it; a structure without a network keeps its content identity.
 The protonet labels can be built from it (see {doc}`/prototypes`); their net segment
 then depends on the coordinates through the baseline shapes of the sites without a
@@ -66,13 +78,13 @@ the result has no network:
 
 | carries the network | drops it (`bonds=None`) |
 | --- | --- |
-| the change to the standard setting (`conventional_cell`, the canonicalizers' standardization) | expansion to a unit cell, and recognition from one (`recognize_asu`, `ASUStructureView` of a unit cell) |
+| the change to the standard setting (`conventional_cell`, the canonicalizers' standardization); the expansion to a unit cell (`UnitcellStructureView`, below) | recognition from a unit cell (`recognize_asu`, `ASUStructureView` of a unit cell) |
 | `canonicalize` / `canonical_asu` (both `symmetry` modes), `canonical_asu_protostructure` and `canonical_asu_protostructure_assignments` (without `lift=True`), through recognition when the recognized group and lattice keep the bond set | subgroup descent and lift (`subgroup_representation`, `rerepresent` into another group, `lift_candidates`, `backward_lift`, `highest_symmetry`, `search_supergroups`) and the paths built on them (`represent_like`, `list_representations`, `canonicalize_full`, `interpolate_structures`) |
 | re-describing a left-handed cell right-handed, the mirror image and `normalize_chirality`, the affine-normalizer actions, origin shifts, cell reductions (the reduction of a P1 supercell to its primitive cell only when the bonds keep the smaller cell's translations) and the orientation of the canonical cell | the legacy metric-first canonicalizers (`canonical_asu_legacy`, `canonicalize_legacy`), `lift=True` in `canonical_asu_protostructure` and its assignments, supercells, and the collapse of an exact supercell by a self-lift |
 | reducing species to their classes, renaming and reordering sites; CIF reading, which reads `_geom_bond_` loops into the network (see {doc}`cif`) | templates and anonymization (`FundamentalDomainTemplate`, `Structuretype`) and the representatives of `Protostructure` and `Prototype` |
 
-Supplied shapes (below) are carried and dropped with the network; sites with
-different supplied shapes that merge drop both, as a bond set that is not
+Assigned shapes (below) and the sources are carried and dropped with the network; sites with
+different assigned shapes that merge drop both, as a bond set that is not
 invariant does (`Protonetstructure.from_asu` raises instead).
 
 Through recognition (`canonicalize` with `symmetry="detect"` and
@@ -82,7 +94,7 @@ lattice changes, the bond set must be invariant under the new symmetry, checked
 modulo both lattices, so a translation the new cell has and the old one lacks is
 checked too; otherwise the network is dropped (and `Protonetstructure.from_asu`
 raises). Descriptions tied in geometry are told apart by their normalized networks,
-and then by their supplied shapes, so equal networks in different spellings
+and then by their assigned shapes, so equal networks in different spellings
 canonicalize to one value.
 
 ### Bond shapes
@@ -95,12 +107,12 @@ IUPAC polyhedral symbols without the hyphen, a few SHAPE program labels, and
 `I<n>` for an irregular arrangement of `n` bonds. Sites with fewer than two bonds
 have no shape.
 
-A structure with a network may carry `shapes`: one symbol or `None` per Wyckoff
-site, where `None` means "use the baseline". The constructor raises `ValueError`
-for shapes without `bonds`, a length other than the number of sites, an unknown
-symbol, a symbol on a site with fewer than two bonds, or a symbol whose number is
-not the site's bond count (`TypeError` for a value that is not a string or
-`None`). Shapes that are all `None` are the same as no shapes. A site placed at a
+A network may carry `shapes`: one symbol or `None` per Wyckoff site, where `None`
+means "not assigned: use the baseline". The constructor raises `ValueError` for a
+length other than the number of sites, an unknown symbol, a symbol on a site with
+fewer than two bonds, or a symbol whose number is not the site's bond count
+(`TypeError` for a value that is not a string or `None`). Shapes that are all
+`None` are the same as no shapes. A site placed at a
 special point of its own Wyckoff letter (the general letter at an inversion
 centre, say) has no defined bond count: counting or checking shapes on it raises
 `ValueError`, so give it the special letter.
@@ -122,15 +134,52 @@ other) has no direction; the baseline raises `ValueError` for its site, and a
 supplied symbol for that site avoids it. Networks read from CIF `_geom_bond_`
 loops have no shapes of their own and use the baseline.
 
-Supplied shapes move with their sites wherever the network is carried and are
+Assigned shapes move with their sites wherever the network is carried and are
 dropped wherever it is dropped. Where sites merge (recognition, a cell
 reduction, a P-1 supercell collapse), a site without a symbol takes its partner's,
 and two different symbols on one merged site count as a network that is not
 invariant: the result has neither network nor shapes (the P-1 collapse then keeps
-the uncollapsed structure). Supplied shapes are part of equality and of the
+the uncollapsed structure). Assigned shapes are part of equality and of the
 content identity and are stored (as `""` for a site without a symbol); baseline
-shapes are never stored, so a structure without supplied shapes keeps its content
+shapes are never stored, so a structure without assigned shapes keeps its content
 identity.
+
+### Networks on unit cells
+
+A {py:class}`~httk.atomistic.UnitcellStructure` takes `bonds=` in the same three
+forms, between its explicit sites and without symmetry: the pairs and shapes index
+`sites`, and the operation of each {py:class}`~httk.atomistic.SiteBond` must be a
+lattice translation `n` (zero along a non-periodic direction): the atom at
+`sites[site]`, as stored and not wrapped, is bonded to the atom at `sites[partner]`
+moved by `n`, and the bond stands for itself and its lattice translates. A
+fractional translation, any other operation, a site index out of range and a bond
+of an atom to itself (`site == partner` with `n = 0`) raise `ValueError`. The pairs
+are put in a normal form, so equality does not depend on the order or spelling
+given: each bond once, oriented `site <= partner` (`(i, j, n)` with `i > j` becomes
+`(j, i, -n)`; a bond of a site to its own translate keeps the lexicographically
+smaller of `n` and `-n`), sorted by `(site, partner, n·n, n)`. The bond count of a
+site is the number of distinct `(partner, translation)` atoms bonded to it, so a
+bond of a site to its own translate counts two; shapes are validated against it as
+above. The baseline reads the angles from the cell's exact metric, without
+averaging: a unit cell lists every atom of an orbit separately, so every exact
+re-description (cell, origin, mirror image, site order, supercell) still gives
+bit-identical angles. Where the metric keeps the group exactly the unit-cell
+baseline equals the fundamental domain's on its expansion; where it does not (the
+rhombohedral-axes cells), atoms of one orbit can get different symbols.
+
+`UnitcellStructureView` of a fundamental domain presents the domain's network on
+the unit-cell sites it presents: every bond orbit expanded into explicit pairs,
+every atom with its site's shape, the sources unchanged (a molecular domain whose
+retained representative is not an exact orbit point drops it).
+`CIFStructure` and `DatastreamStructure` expose the network of the unit-cell sites
+they present, `RecordStructure` that of a fundamental-domain record expanded to its
+unit cell, and `NumericUnitcellStructureView` that of its exact structure.
+`NumericUnitcellStructure`, `PlainStructureView`, the ASE and pymatgen views, trajectory
+frames and the other structure classes have no network (`None`). Unit-cell networks
+are not yet stored: a unit-cell storage record keeps no network (so a
+`RecordStructure` of one gives `None`), and the content identity of a unit-cell
+structure does not depend on its network. Where a carry drops a network, the reason is
+logged at debug level with the context `bonds`.
 
 ### Default bonds from distances
 

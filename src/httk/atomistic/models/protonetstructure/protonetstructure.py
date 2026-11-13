@@ -156,7 +156,8 @@ class Protonetstructure(ProtonetstructureBackend):
             its budget.
         """
         from httk.atomistic.models.prototype.notation import class_order_key
-        from httk.atomistic.models.structure.asu import SiteBond, _affine, _checked_shapes, _op, _standard_elements
+        from httk.atomistic.models.structure.asu import _affine, _checked_shapes, _op, _standard_elements
+        from httk.atomistic.models.structure.network import BondNetwork, SiteBond
         from httk.atomistic.symmetry.canonical_protostructure import _left_handed, _sohncke
         from httk.atomistic.symmetry.limits import CanonicalizationLimitError, _active, _budget_scope, _check_on_limit
         from httk.atomistic.symmetry.protonet import _tables
@@ -199,7 +200,7 @@ class Protonetstructure(ProtonetstructureBackend):
             standard = _standard_elements(spacegroup)
             network = tuple(SiteBond(i, j, _affine(standard.operation(e))) for i, j, e in elements)
             checked = _checked_shapes(spacegroup, asu.wyckoff_sites, network, shapes)
-            structure = asu._with_bonds(network, shapes=checked)
+            structure = asu._with_bonds(BondNetwork(network, checked))
             if (_sohncke(spacegroup) and _left_handed(asu)) or _merges_classes(asu):
                 # re-described in a right-handed cell or the class symmetry: the network and shapes are carried
                 structure = _protonet_asu(structure)
@@ -214,7 +215,9 @@ class Protonetstructure(ProtonetstructureBackend):
                     "the label is read from"
                 )
             standard = _standard_elements(spacegroup)
-            elements = [(bond.site, bond.partner, standard.element(_op(bond.operation))) for bond in structure.bonds]
+            elements = [
+                (bond.site, bond.partner, standard.element(_op(bond.operation))) for bond in structure.bonds.pairs
+            ]
         species = {value.name: value for value in structure.species}
         class_of = {site.species: _species_class(species[site.species]).name for site in sites}
         letters: dict[str, list[str]] = {}
@@ -392,7 +395,7 @@ def _protonet_asu(asu: "FundamentalDomainStructure") -> "FundamentalDomainStruct
     if recognized.spacegroup.it_number == structure.spacegroup.it_number and declared == found:
         return structure
     try:
-        bonds, shapes = _matched(
+        network = _matched(
             structure, recognized, recognized.transform.operation.inverse() * structure.transform.operation
         )
     except _ShapeConflict:
@@ -400,10 +403,10 @@ def _protonet_asu(asu: "FundamentalDomainStructure") -> "FundamentalDomainStruct
             "Protonetstructure.from_asu: sites with different supplied shapes merge under the recognized symmetry "
             f"IT {recognized.spacegroup.it_number}"
         ) from None
-    if bonds is None:
+    if network is None:
         raise ValueError(
             "Protonetstructure.from_asu: two species share a class whose structure has higher symmetry "
             f"(IT {recognized.spacegroup.it_number}, not {structure.spacegroup.it_number}), and the bond set is not "
             f"invariant under the recognized symmetry IT {recognized.spacegroup.it_number}"
         )
-    return oriented(recognized._with_bonds(bonds, shapes=shapes))
+    return oriented(recognized._with_bonds(network))

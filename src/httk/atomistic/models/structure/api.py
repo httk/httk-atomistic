@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
     from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
     from httk.atomistic.models.formula.composition import Composition
+    from httk.atomistic.models.structure.network import BondNetwork
 
 
 class StructureAPI(ABC):
@@ -59,6 +60,17 @@ class StructureAPI(ABC):
         from an explicit zero.
 
         :return: The assigned charge, or ``None`` when it is unstated.
+        """
+        return None
+
+    @property
+    def bonds(self) -> "BondNetwork | None":
+        """Expose the bond network, or ``None`` when none is known (always, for a structure without one).
+
+        See :class:`~httk.atomistic.BondNetwork`; on a unit-cell presentation its pairs and shapes
+        index ``sites``.
+
+        :return: The network, or ``None``.
         """
         return None
 

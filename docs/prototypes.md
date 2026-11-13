@@ -586,8 +586,8 @@ change to it is a change of the net version.
 counterpart take one symbol per site, `None` below two bonds, and require a
 known symbol (or `I<n>`) ending in the site's bond count on every site with two
 or more bonds. Parsing a label fills in the defaults. A structure's network may
-carry supplied shapes (`shapes=` beside `bonds`, see {doc}`details/asu`), and
-`from_asu` with index-tuple bonds takes `shapes=` too. Every other site gets the
+carry assigned shapes (the `shapes` of its {py:class}`~httk.atomistic.BondNetwork`,
+see {doc}`details/asu`), and `from_asu` with index-tuple bonds takes `shapes=`. Every other site gets the
 *baseline*: the angles between every pair of its bond directions, sorted, are
 compared with the sorted angles of each ideal shape of the same bond count by
 root mean square difference in degrees (rounded to 1e-6), and the closest shape

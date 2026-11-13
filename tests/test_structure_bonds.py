@@ -17,6 +17,7 @@ from httk.atomistic import (
     AffineOperation,
     ASUStructure,
     ASUStructureRecord,
+    BondNetwork,
     FundamentalDomainStructure,
     FundamentalDomainStructureRecord,
     Protonetstructure,
@@ -87,7 +88,7 @@ def _own_pairs(structure: Any) -> set[tuple[F, ...]]:
     """
     transform = structure.transform
     pairs = set()
-    for bond in structure.bonds:
+    for bond in structure.bonds.pairs:
         p, q = _reference(structure, bond.site), bond.operation.apply(_reference(structure, bond.partner))
         for g in structure.spacegroup.symmetry_operations:
             a, b = transform.to_setting(g.apply(p)), transform.to_setting(g.apply(q))
@@ -254,7 +255,7 @@ def _in_standard_setting(structure: ASUStructure) -> ASUStructure:
         identified = standard.identify_wyckoff(transform.to_standard(own).normalize())
         assert identified is not None
         sites.append(WyckoffSite(identified[0].letter, identified[1], site.species))
-    pairs = sorted({(b.site, b.partner) for b in structure.bonds or ()})
+    pairs = sorted({(b.site, b.partner) for b in (structure.bonds.pairs if structure.bonds else ())})
     return ASUStructure(basis, standard, sites, structure.species, bonds=_nearest_bonds(standard, basis, sites, pairs))
 
 
@@ -334,13 +335,13 @@ def _diamond_members(diamond: ASUStructure) -> list[SiteBond]:
 
 def test_a_bond_orbit_has_one_normal_form() -> None:
     diamond = _diamond("227:2")
-    (bond,) = diamond.bonds
+    (bond,) = diamond.bonds.pairs
     spacegroup = diamond.spacegroup
     # every member of the orbit (each neighbour, by every element reaching it) collapses to one bond
     members = _diamond_members(diamond)
     assert len(members) > 4
     rebuilt = ASUStructure(diamond.cell, spacegroup, diamond.wyckoff_sites, [C], bonds=members)
-    assert rebuilt.bonds == (bond,)
+    assert rebuilt.bonds.pairs == (bond,)
     assert rebuilt == diamond
     inverse = AffineOperation(bond.operation.inverse().matrix, bond.operation.inverse().vector)
     assert (
@@ -348,14 +349,14 @@ def test_a_bond_orbit_has_one_normal_form() -> None:
     )
     # a bond between two sites, given reversed
     structure = _p21n()
-    forward = structure.bonds[0]
+    forward = structure.bonds.pairs[0]
     reversed_bond = SiteBond(forward.partner, forward.site, forward.operation.inverse())
     again = ASUStructure(
         structure.cell,
         structure.spacegroup,
         structure.wyckoff_sites,
         structure.species,
-        bonds=[reversed_bond, *structure.bonds],
+        bonds=[reversed_bond, *structure.bonds.pairs],
     )
     assert again.bonds == structure.bonds
 
@@ -375,7 +376,7 @@ def test_invalid_bonds_are_rejected() -> None:
     with pytest.raises(ValueError, match="not an element"):
         ASUStructure(*args, bonds=[SiteBond(0, 0, AffineOperation(FracVector.eye((3, 3)), (F(1, 3), 0, 0)))])
     with pytest.raises(ValueError, match="outside"):
-        ASUStructure(*args, bonds=[SiteBond(0, 1, diamond.bonds[0].operation)])
+        ASUStructure(*args, bonds=[SiteBond(0, 1, diamond.bonds.pairs[0].operation)])
     with pytest.raises(ValueError, match="non-negative"):
         SiteBond(-1, 0, AffineOperation.identity())
     with pytest.raises(TypeError, match="AffineOperation"):
@@ -386,13 +387,13 @@ def test_no_network_empty_network_and_a_network_are_distinct() -> None:
     diamond = _diamond("227:2")
     args = (diamond.cell, diamond.spacegroup, diamond.wyckoff_sites, [C])
     none, empty = ASUStructure(*args), ASUStructure(*args, bonds=[])
-    assert none.bonds is None and empty.bonds == ()
+    assert none.bonds is None and empty.bonds == BondNetwork(())
     assert none != empty != diamond != none
     assert "bonds" not in repr(none)
-    assert "bonds=()" in repr(empty)
-    (bond,) = diamond.bonds
+    assert "bonds=BondNetwork(pairs=()," in repr(empty)
+    (bond,) = diamond.bonds.pairs
     assert eval(repr(bond), {"SiteBond": SiteBond, "AffineOperation": AffineOperation}) == bond
-    assert f"bonds=({bond!r},)" in repr(diamond)
+    assert f"bonds=BondNetwork(pairs=({bond!r},)," in repr(diamond)
 
 
 def test_structures_without_a_network_keep_their_content_identity() -> None:
@@ -408,7 +409,7 @@ def test_structures_without_a_network_keep_their_content_identity() -> None:
 def test_a_carried_copy_does_not_keep_the_cached_identity_of_its_source() -> None:
     diamond = _diamond("227:2")
     content_id(diamond)  # caches the identity on the value
-    plain = diamond._with_bonds(None, shapes=None)
+    plain = diamond._with_bonds(None)
     assert content_id(plain) == content_id(ASUStructure(diamond.cell, diamond.spacegroup, diamond.wyckoff_sites, [C]))
     assert content_id(plain) != content_id(diamond)
 
@@ -428,7 +429,7 @@ def test_records_round_trip_the_network_and_keep_the_identity_without_one(kind: 
         assert _domain_structure_from_record(record) == value
         record_type.__httk_validate__(record)
     # a stored network must be the normal one: another spelling of the same orbit is rejected
-    other = next(member.operation for member in _diamond_members(diamond) if member != diamond.bonds[0])
+    other = next(member.operation for member in _diamond_members(diamond) if member != diamond.bonds.pairs[0])
     spelled = SiteBondRecord(0, 0, other.matrix, tuple(other.vector.to_fractions()))
     with pytest.raises(ValueError, match="normalized"):
         record_type.__httk_validate__(replace(records[2], bonds=(spelled,)))
@@ -559,7 +560,9 @@ def test_all_tied_assignments_carry_the_network() -> None:
 def test_the_pair_comparison_tells_networks_apart() -> None:
     # the check above is not vacuous: another bond of the same crystal is not the same network
     source = _p21n()
-    other = ASUStructure(source.cell, source.spacegroup, source.wyckoff_sites, source.species, bonds=source.bonds[:1])
+    other = ASUStructure(
+        source.cell, source.spacegroup, source.wyckoff_sites, source.species, bonds=source.bonds.pairs[:1]
+    )
     assert _same_network(source, source)
     assert not _same_network(source, other)
 
@@ -591,7 +594,7 @@ def test_a_left_handed_description_gives_the_label_of_the_right_handed_one() -> 
     assert Protonetstructure.from_asu(left) == Protonetstructure.from_asu(right)
     # explicit index bonds on a left-handed cell are carried the same way
     standard = protonet._tables(4)
-    (bond,) = left.bonds
+    (bond,) = left.bonds.pairs
     k = next(
         index
         for index, operation in enumerate(standard.operations)
@@ -618,7 +621,7 @@ def test_cod_1001844_is_labelled_in_the_symmetry_of_its_classes() -> None:
         "_18SAPR8~4.7.9@1@556.10@3@556.11.12@3@556.13@3@556.14@1@656_1L2_6L2_10L2_14L2:F-Np-OH2"
     )
     # a bond that only one of two pseudo-symmetric partners has: not invariant under C m
-    rows = [(b.site, b.partner, b.operation) for b in structure.bonds]
+    rows = [(b.site, b.partner, b.operation) for b in structure.bonds.pairs]
     broken = ASUStructure(
         structure.cell,
         1,

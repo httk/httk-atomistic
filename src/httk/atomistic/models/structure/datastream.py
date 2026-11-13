@@ -20,6 +20,7 @@ from httk.atomistic.models.moments.backend import SiteMomentsBackend
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.network import BondNetwork
 
 if TYPE_CHECKING:
     from httk.atomistic.models.formula.composition import Composition
@@ -241,6 +242,16 @@ class DatastreamStructure(StructureBackend):
         :return: Site moments, or ``None`` when they are unstated.
         """
         return self.resolve().site_moments
+
+    @property
+    def bonds(self) -> BondNetwork | None:
+        """Expose the bond network of the presented unit-cell sites.
+
+        :return: The parsed structure's network, indexing :attr:`sites`, or ``None``.
+        """
+        from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+
+        return UnitcellStructureView(self.resolve()).bonds
 
     @property
     def charge(self) -> Any:

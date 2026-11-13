@@ -12,7 +12,7 @@ from _protonet_support import random_net, random_shapes, scramble_shaped
 from test_protonet_canonical import _cell_changes, _oracle_net, _random_cell_change
 from test_structure_shapes import _b8
 
-from httk.atomistic import ASUStructure, Protonetstructure, Protonettype, SiteBond, Species, WyckoffSite
+from httk.atomistic import ASUStructure, BondNetwork, Protonetstructure, Protonettype, SiteBond, Species, WyckoffSite
 from httk.atomistic.models.prototype.notation import parse_protonetstructure_label, parse_protonettype_label
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.canonical_classification import canonical_protonetstructure
@@ -341,9 +341,10 @@ CHAIN = [(1, 2, 1, 0, 0, 0), (2, 1, 1, 1, 0, 0)]  # a chain along a through both
 def _pair(species: tuple[Species, Species], shapes: Any = None, *, bonds: bool = True) -> ASUStructure:
     """P1, a doubled along a: one atom at 0 and one at 1/2; with ``bonds`` the chain as the network."""
     sites = [WyckoffSite("a", (0, 0, 0), species[0].name), WyckoffSite("a", (F(1, 2), 0, 0), species[1].name)]
-    network = [SiteBond(0, 1, ONE), SiteBond(1, 0, AffineOperation(ONE.matrix, (1, 0, 0)))] if bonds else None
+    pairs = (SiteBond(0, 1, ONE), SiteBond(1, 0, AffineOperation(ONE.matrix, (1, 0, 0))))
+    network = BondNetwork(pairs, shapes) if bonds else None
     unique = list(dict.fromkeys(species))
-    return ASUStructure([[6, 0, 0], [0, 4, 0], [0, 0, 5]], 1, sites, unique, bonds=network, shapes=shapes)
+    return ASUStructure([[6, 0, 0], [0, 4, 0], [0, 0, 5]], 1, sites, unique, bonds=network)
 
 
 def test_from_asu_uses_supplied_shapes_and_the_baseline_for_the_rest() -> None:

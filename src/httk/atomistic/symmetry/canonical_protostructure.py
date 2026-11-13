@@ -1314,10 +1314,10 @@ def _recognized_canonical_asus(
         raise ValueError(f"no symmetry fit the structure within tolerance {base:g}; tried [{', '.join(failures)}]")
     if normalized_p1.bonds is not None:
         try:
-            bonds, shapes = _matched(normalized_p1, winner, winner.transform.operation.inverse())
+            network = _matched(normalized_p1, winner, winner.transform.operation.inverse())
         except (_AmbiguousMatch, _ShapeConflict):  # no one-to-one atom match, or merged shapes: dropped
-            bonds = shapes = None
-        winner = winner._with_bonds(bonds, shapes=shapes)
+            network = None
+        winner = winner._with_bonds(network)
     if lift:
         from httk.atomistic.symmetry.lift import canonicalize_legacy
 

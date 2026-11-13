@@ -16,6 +16,7 @@ from httk.atomistic import (
     AffineOperation,
     ASUStructure,
     ASUStructureView,
+    BondNetwork,
     SettingTransform,
     SiteBond,
     Spacegroup,
@@ -37,14 +38,14 @@ CL = Species("Cl", ("Cl",), (1,))
 
 def _counts(structure: ASUStructure) -> tuple[int, ...]:
     assert structure.bonds is not None
-    return _structure_bond_counts(structure.spacegroup, structure.wyckoff_sites, structure.bonds)
+    return _structure_bond_counts(structure.spacegroup, structure.wyckoff_sites, structure.bonds.pairs)
 
 
 def _pairs(structure: ASUStructure) -> Counter[tuple[str, ...]]:
     """Bond orbits by their (sorted) site species."""
     assert structure.bonds is not None
     names = [site.species for site in structure.wyckoff_sites]
-    return Counter(tuple(sorted((names[b.site], names[b.partner]))) for b in structure.bonds)
+    return Counter(tuple(sorted((names[b.site], names[b.partner]))) for b in structure.bonds.pairs)
 
 
 def _rocksalt(a: object, cation: Species = NA) -> ASUStructure:
@@ -67,13 +68,13 @@ def test_rocksalt_bonds_each_ion_to_six_counterions_only() -> None:
     nacl = distance_bonds(_rocksalt(F(564, 100)))  # Na-Cl 2.82, Na-Na and Cl-Cl 3.99 Å
     assert _pairs(nacl) == Counter({("Cl", "Na"): 1})
     assert _counts(nacl) == (6, 6)
-    assert nacl.shapes is None
-    assert nacl == _rocksalt(F(564, 100))._with_bonds(nacl.bonds, shapes=None)
+    assert nacl.bonds is not None and nacl.bonds.shapes is None
+    assert nacl == _rocksalt(F(564, 100))._with_bonds(nacl.bonds)
 
 
 def test_diamond_bonds_each_carbon_to_four() -> None:
     diamond = distance_bonds(_diamond("227:2"))
-    assert len(diamond.bonds or ()) == 1
+    assert diamond.bonds is not None and len(diamond.bonds.pairs) == 1
     assert _counts(diamond) == (4,)
 
 
@@ -137,13 +138,13 @@ def test_a_setting_change_gives_the_same_network() -> None:
         moved.append(WyckoffSite(identified[0].letter, identified[1], site.species))
     target = ASUStructure(transform.basis_to_standard(source.cell.basis), standard, moved, species)
     left, right = distance_bonds(source), distance_bonds(target)
-    assert left.bonds and _counts(left) == _counts(right)
+    assert left.bonds is not None and left.bonds.pairs and _counts(left) == _counts(right)
     assert canonical_protonetstructure(left) == canonical_protonetstructure(right)
 
 
 def test_a_mixed_site_takes_its_largest_radius() -> None:
     # Na-Cl 3.3 Å: beyond the Na-Cl cutoff 3.13, within the K-Cl cutoff 3.50
-    assert distance_bonds(_rocksalt(F(66, 10))).bonds == ()
+    assert distance_bonds(_rocksalt(F(66, 10))).bonds == BondNetwork(())
     mixed = Species("M", ("Na", "K", "vacancy"), (F(1, 2), F(1, 4), F(1, 4)))
     assert _counts(distance_bonds(_rocksalt(F(66, 10), mixed))) == (6, 6)
 
@@ -155,7 +156,7 @@ def test_split_positions_closer_than_half_an_angstrom_are_not_bonded() -> None:
         [WyckoffSite("a", (0, 0, 0), "Na"), WyckoffSite("a", (F(1, 20), 0, 0), "Na")],  # 0.25 Å apart
         [NA],
     )
-    assert distance_bonds(p1).bonds == ()
+    assert distance_bonds(p1).bonds == BondNetwork(())
 
 
 def test_an_element_without_a_radius_is_named() -> None:
@@ -195,7 +196,7 @@ def test_a_site_bonds_to_its_own_translates() -> None:
         ASUStructure([[F(5, 2), 0, 0], [0, 3, 0], [0, 0, 4]], 1, [WyckoffSite("a", (0, 0, 0), "Na")], [NA])
     )
     assert _counts(found) == (4,)  # 2.5 and 3 Å along a and b; 4 Å along c is beyond the 3.77 Å cutoff
-    assert all(bond.site == bond.partner == 0 for bond in found.bonds or ())
+    assert found.bonds is not None and all(bond.site == bond.partner == 0 for bond in found.bonds.pairs)
 
 
 def _brute(structure: ASUStructure, tolerance: float = 0.45) -> list[Counter[tuple[Any, ...]]]:
@@ -260,7 +261,7 @@ def _listed(structure: ASUStructure) -> list[Counter[tuple[Any, ...]]]:
     M = structure.transform.matrix.to_floats()
     sites, group = structure.wyckoff_sites, structure.spacegroup
     found: list[Counter[tuple[Any, ...]]] = [Counter() for _ in sites]
-    for bond in structure._bonds or ():
+    for bond in structure._network.pairs if structure._network else ():
         p, q = _reference(group, sites[bond.site]), _apply(_op(bond.operation), _reference(group, sites[bond.partner]))
         f = [sum(M[r][c] * float(q[c] - p[c]) for c in range(3)) for r in range(3)]
         found[bond.site][(bond.partner, *(round(sum(f[k] * basis[k][c] for k in range(3)), 4) for c in range(3)))] += 1
@@ -495,7 +496,7 @@ def test_a_dropped_bond_orbit_goes_from_both_ends() -> None:
     names = [site.species for site in diopside.wyckoff_sites]
 
     def ca_si(structure: ASUStructure) -> list[SiteBond]:
-        return [b for b in structure._bonds or () if {names[b.site], names[b.partner]} == {"Ca", "Si"}]
+        return [b for b in structure._network.pairs if {names[b.site], names[b.partner]} == {"Ca", "Si"}]
 
     # the tentative network finds each Ca-Si orbit from the Ca and from the Si reference atom
     assert {names[b.site] for b in ca_si(tentative)} == {"Ca", "Si"}

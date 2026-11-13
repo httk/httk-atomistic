@@ -142,6 +142,11 @@ class PymatgenStructureView(StructureView, pymatgen.core.Structure):
     def __init__(self, obj: "StructureLike", **hints: Any) -> None:
         pass
 
+    @property
+    def bonds(self) -> None:
+        """Expose no bond network; no bond graph is read into a pymatgen ``Structure``, so presenting a structure this way drops its network."""
+        return None
+
     def unwrap(self) -> Any:
         """Return the original value represented by the underlying backend."""
         return self._raw

@@ -491,7 +491,7 @@ def test_p1_supercell_collapses_only_when_its_bond_network_survives(invariant: b
 
     def value(asu: ASUStructure) -> tuple[Any, ...]:
         result = _canonical_protostructure_asu(asu)
-        assert result.bonds is not None and len(result.bonds) == 1
+        assert result.bonds is not None and len(result.bonds.pairs) == 1
         return result.wyckoff_sites, result.bonds, result.cell.metric()
 
     first = value(structure)
@@ -508,11 +508,11 @@ def test_p1_supercell_collapses_only_when_its_bond_network_survives(invariant: b
 @pytest.mark.parametrize("name", ("cod/7217003.cif", "cod/4131686.cif"))
 def test_p1_refined_cell_keeps_the_bond_network_in_every_cell(name: str) -> None:
     structure = _fixture(name, precise=True, bonded=True)
-    assert structure.bonds
+    assert structure.bonds is not None and structure.bonds.pairs
 
     def value(asu: ASUStructure) -> tuple[Any, ...]:
         result = _canonical_protostructure_asu(asu)
-        assert result.bonds is not None and len(result.bonds) == len(structure.bonds or ())
+        assert result.bonds is not None and len(result.bonds.pairs) == len(structure.bonds.pairs)
         return result.bonds, result.wyckoff_sites, result.cell.metric()
 
     first = value(structure)

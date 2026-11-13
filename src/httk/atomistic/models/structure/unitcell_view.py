@@ -18,6 +18,7 @@ from httk.atomistic.models.structure.api import StructureAPI
 from httk.atomistic.models.structure.asu import FundamentalDomainStructure
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.like import StructureLike
+from httk.atomistic.models.structure.network import BondNetwork, _checked_cell_network
 from httk.atomistic.models.structure.semantics import (
     _METADATA_UNSET,
     StructureSymmetry,
@@ -182,6 +183,20 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
         _check_sites_length(sites, self._species_at_sites)
         object.__setattr__(self, "_sites", sites)
 
+    def _fill_network(self) -> None:
+        backend = self._effective_backend()
+        if isinstance(backend, UnitcellStructure):
+            network = backend.bonds  # validated by its constructor
+        elif isinstance(backend, FundamentalDomainStructure):
+            from httk.atomistic.models.structure.bonds import _expanded_network
+
+            network = _expanded_network(backend)
+        else:
+            network = backend.bonds
+            if network is not None:
+                network = _checked_cell_network(network, len(self._species_at_sites), self.cell.periodicity)
+        object.__setattr__(self, "_network", network)
+
     def _fill_site_moments(self) -> None:
         value = _norm_site_moments(self._effective_backend().site_moments)
         _check_site_moments(value, self.sites, self.cell)
@@ -206,6 +221,11 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
     def _species_at_sites(self) -> tuple[str, ...]:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
         self._fill_species_at_sites()
         return self.__dict__["_species_at_sites"]
+
+    @cached_property
+    def _network(self) -> BondNetwork | None:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
+        self._fill_network()
+        return self.__dict__["_network"]
 
     @cached_property
     def _site_moments(self) -> SiteMomentsBackend | None:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -246,6 +266,10 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
 
         :return: The exact unit-cell structure represented by this view.
         """
+        return self._materialized(self.bonds)
+
+    def _materialized(self, network: BondNetwork | None) -> UnitcellStructure:
+        """Materialize the presented components with ``network``, never reading the presented network."""
         # A genuine UnitcellStructure backend carrying the same metadata is exactly the presented
         # value: reuse it. Otherwise (other backends, ASU expansion, or view-level metadata)
         # materialize a plain UnitcellStructure from the presented components.
@@ -254,7 +278,7 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
             backend.immutable_id,
             backend.last_modified,
         ):
-            return backend
+            return backend if backend.bonds is network else backend._with_bonds(network)
         return UnitcellStructure(
             self.cell,
             self.sites,
@@ -271,7 +295,12 @@ class UnitcellStructureView(StructureView, UnitcellStructure):
             immutable_id=self.immutable_id,
             last_modified=self.last_modified,
             charge=self.charge,
+            bonds=network,
         )
+
+    def _with_bonds(self, network: BondNetwork | None) -> UnitcellStructure:  # type: ignore[override]
+        """Return the presented unit cell holding ``network`` instead of its own, which is never computed."""
+        return self._materialized(network)
 
     @property
     def immutable_id(self) -> str | None:

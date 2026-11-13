@@ -40,6 +40,7 @@ from httk.atomistic import (
     ASUStructure,
     ASUStructureRecord,
     ASUStructureView,
+    BondNetwork,
     Cell,
     FundamentalDomainStructure,
     FundamentalDomainStructureRecord,
@@ -56,7 +57,7 @@ from httk.atomistic import (
 from httk.atomistic import data as atomistic_data
 from httk.atomistic.entries.structures import StructureEntry
 from httk.atomistic.models.structure import asu as asu_module
-from httk.atomistic.models.structure.bonds import _bonds_key, _carried, _matched, _ShapeConflict
+from httk.atomistic.models.structure.bonds import _bonds_key, _carried, _CoincidentAtoms, _matched, _ShapeConflict
 from httk.atomistic.storage.records import _domain_structure_from_record, _domain_structure_record_from_value
 from httk.atomistic.symmetry import protonet, shapes
 from httk.atomistic.symmetry.canonical_protostructure import _p1bar_primitive_entry
@@ -147,22 +148,27 @@ def _loaded(name: str) -> Any:
 
 
 def _with(structure: Any, shapes: Any = None, **changes: Any) -> ASUStructure:
-    """The structure rebuilt with other ``shapes`` (and other constructor values)."""
+    """The structure rebuilt with other ``shapes`` (and other constructor values; ``bonds`` as pairs)."""
     values = {
         "cell": structure.cell,
         "spacegroup": structure.spacegroup,
         "wyckoff_sites": structure.wyckoff_sites,
         "species": structure.species,
         "transform": structure.transform,
-        "bonds": structure.bonds,
     }
+    pairs = changes.pop("bonds", structure.bonds.pairs)
     values.update(changes)
-    return ASUStructure(**values, shapes=shapes)
+    return ASUStructure(**values, bonds=BondNetwork(pairs, shapes))
+
+
+def _shapes(structure: Any) -> Any:
+    """A structure's assigned shapes, ``None`` without a network or shapes."""
+    return None if structure.bonds is None else structure.bonds.shapes
 
 
 def _irregular(structure: Any) -> tuple[str | None, ...]:
     """A valid supplied symbol for every shaped site that the baseline never gives a regular site: ``I<n>``."""
-    counts = _structure_bond_counts(structure.spacegroup, structure.wyckoff_sites, structure.bonds)
+    counts = _structure_bond_counts(structure.spacegroup, structure.wyckoff_sites, structure.bonds.pairs)
     symbols = tuple(None if count < 2 else f"I{count}" for count in counts)
     return None if all(symbol is None for symbol in symbols) else symbols
 
@@ -179,7 +185,7 @@ def _neighbour_atoms(structure: Any, s: int) -> set[tuple[int, tuple[F, ...]]]:
 
     target = reference(s)
     atoms = set()
-    for bond in structure.bonds:
+    for bond in structure.bonds.pairs:
         ends = [
             (bond.site, reference(bond.site)),
             (bond.partner, asu_module._apply(asu_module._op(bond.operation), reference(bond.partner))),
@@ -226,7 +232,7 @@ def _recorded() -> Iterator[list[tuple[int, tuple[float, ...], tuple[str | None,
 
 def _stars(structure: Any) -> list[tuple[str, int, tuple[float, ...], str | None]]:
     """The sorted multiset of (species, bond count, exact-path angles, symbol) over the measured sites."""
-    counts = _structure_bond_counts(structure.spacegroup, structure.wyckoff_sites, structure.bonds)
+    counts = _structure_bond_counts(structure.spacegroup, structure.wyckoff_sites, structure.bonds.pairs)
     with _recorded() as calls:
         symbols = _baseline_shapes(structure)
     measured = [s for s, count in enumerate(counts) if count >= 2]
@@ -300,7 +306,7 @@ def test_the_angle_detector_is_the_reference_detector_after_its_angles() -> None
 # bond counts
 # ---------------------------------------------------------------------------------------------
 def _counts(structure: Any) -> tuple[int, ...]:
-    return _structure_bond_counts(structure.spacegroup, structure.wyckoff_sites, structure.bonds)
+    return _structure_bond_counts(structure.spacegroup, structure.wyckoff_sites, structure.bonds.pairs)
 
 
 def test_bond_counts_on_special_positions() -> None:
@@ -362,8 +368,8 @@ def test_supplied_shapes_are_validated_against_the_bond_counts() -> None:
     structure = _p21n()  # Si: three bonds, O: two
     assert _counts(structure) == (3, 2)
     ok = _with(structure, ("TPY3", "A2"))
-    assert ok.shapes == ("TPY3", "A2")
-    assert _with(structure, ("I3", None)).shapes == ("I3", None)
+    assert _shapes(ok) == ("TPY3", "A2")
+    assert _shapes(_with(structure, ("I3", None))) == ("I3", None)
     with pytest.raises(ValueError, match="one symbol or None per Wyckoff site"):
         _with(structure, ("TPY3",))
     with pytest.raises(ValueError, match=r"shapes\[0\]: unknown shape symbol 'XX3'"):
@@ -376,8 +382,6 @@ def test_supplied_shapes_are_validated_against_the_bond_counts() -> None:
         _with(structure, (3, None))
     with pytest.raises(TypeError, match="not a str"):
         _with(structure, "A2")
-    with pytest.raises(ValueError, match="need a bond network"):
-        _with(structure, ("TPY3", "A2"), bonds=None)
     # a symbol on a site with fewer than two bonds
     chain = _p1_pair(chain=False)  # a dimer: one bond per atom
     assert _counts(chain) == (1, 1)
@@ -390,13 +394,13 @@ def test_supplied_shapes_are_validated_against_the_bond_counts() -> None:
 def test_all_none_shapes_are_no_shapes() -> None:
     structure = _p21n()
     plain = _with(structure, (None, None))
-    assert plain.shapes is None
+    assert _shapes(plain) is None
     assert plain == structure == _with(structure, None)
-    assert "shapes" not in repr(plain)
+    assert "shapes=None" in repr(plain)
     supplied = _with(structure, ("TPY3", None))
     assert supplied != structure
     assert "shapes=('TPY3', None)" in repr(supplied)
-    assert structure._with_bonds(structure.bonds, shapes=(None, None)).shapes is None
+    assert _shapes(structure._with_bonds(BondNetwork(structure.bonds.pairs, (None, None)))) is None
 
 
 # ---------------------------------------------------------------------------------------------
@@ -416,7 +420,7 @@ def _coincident(*, bonded: bool, shapes: Any = None) -> ASUStructure:
         if all((x - y).denominator == 1 for x, y in zip(g.apply(oxygen).to_fractions(), (F(1, 2), 0, 0), strict=True))
     )
     bonds = [SiteBond(0, 2, to_oxygen), SiteBond(1, 2, to_oxygen)] + ([SiteBond(0, 1, ONE)] if bonded else [])
-    return ASUStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], group, sites, species, bonds=bonds, shapes=shapes)
+    return ASUStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], group, sites, species, bonds=BondNetwork(bonds, shapes))
 
 
 def test_coincident_sites_are_two_atoms() -> None:
@@ -442,13 +446,13 @@ def test_a_site_at_a_special_point_of_its_letter_is_refused() -> None:
     with pytest.raises(ValueError, match=message):
         _site_shapes(structure)
     with pytest.raises(ValueError, match=message):
-        ASUStructure(cell, 14, sites, [C], bonds=bonds, shapes=["I2"])
+        ASUStructure(cell, 14, sites, [C], bonds=BondNetwork(bonds, ["I2"]))
 
 
 def test_a_structure_without_a_network_has_no_shapes() -> None:
     diamond = _diamond("227:2")
     with pytest.raises(ValueError, match="without a bond network"):
-        _site_shapes(diamond._with_bonds(None, shapes=None))
+        _site_shapes(diamond._with_bonds(None))
 
 
 # ---------------------------------------------------------------------------------------------
@@ -568,8 +572,8 @@ def test_every_canonicaliser_carries_supplied_shapes(name: str, carrier: str) ->
     result = CARRIERS[carrier](source)
     assert result.bonds is not None
     # every shaped site of the result is an image of a shaped source site, with its symbol
-    assert result.shapes == _irregular(result)
-    assert result.bonds == CARRIERS[carrier](plain).bonds
+    assert _shapes(result) == _irregular(result)
+    assert result.bonds.pairs == CARRIERS[carrier](plain).bonds.pairs
 
 
 def _twins(spacegroup: Spacegroup, second: str) -> ASUStructure:
@@ -579,7 +583,7 @@ def _twins(spacegroup: Spacegroup, second: str) -> ASUStructure:
     sites = [WyckoffSite("e", p, "Si"), WyckoffSite("e", (p[0], p[1] + F(1, 2), p[2]), second)]
     species = [SI] if second == "Si" else [SI, Species(second, (second,), (1,))]
     bonds = _nearest_bonds(spacegroup, basis, sites, [(0, 0), (1, 1)])
-    return ASUStructure(basis, spacegroup, sites, species, bonds=bonds, shapes=("L2", "A2"))
+    return ASUStructure(basis, spacegroup, sites, species, bonds=BondNetwork(bonds, ("L2", "A2")))
 
 
 @pytest.mark.parametrize("carrier", sorted(CARRIERS))
@@ -587,8 +591,8 @@ def test_shapes_of_sites_with_equal_counts_land_on_their_own_sites(carrier: str)
     source = _twins(Spacegroup.from_hm_entry("P 1 21/n 1"), "Ge")
     assert _counts(source) == (2, 2)
     result = CARRIERS[carrier](source)
-    assert result.shapes is not None
-    assert {site.species: shape for site, shape in zip(result.wyckoff_sites, result.shapes, strict=True)} == {
+    assert _shapes(result) is not None
+    assert {site.species: shape for site, shape in zip(result.wyckoff_sites, _shapes(result), strict=True)} == {
         "Si": "L2",
         "Ge": "A2",
     }
@@ -599,8 +603,8 @@ def test_shapes_of_one_species_follow_their_atoms() -> None:
     group = source.spacegroup
     for index, coset in enumerate(protonet._tables(14).cosets[1:6]):
         result = _redescribed(source, coset.action, seed=index)
-        assert result.shapes is not None
-        for site, shape in zip(source.wyckoff_sites, source.shapes or (), strict=True):
+        assert _shapes(result) is not None
+        for site, shape in zip(source.wyckoff_sites, _shapes(source) or (), strict=True):
             image = coset.action.apply(FracVector(asu_module._reference(group, site))).normalize().to_fractions()
             (number,) = [
                 n
@@ -611,7 +615,7 @@ def test_shapes_of_one_species_follow_their_atoms() -> None:
                     for g in group.symmetry_operations
                 )
             ]
-            assert result.shapes[number] == shape
+            assert _shapes(result)[number] == shape
 
 
 def test_coincident_sites_carry_their_bonds_and_shapes() -> None:
@@ -619,11 +623,11 @@ def test_coincident_sites_carry_their_bonds_and_shapes() -> None:
     expected = {"Fe": (6, "OC6"), "Mn": (6, "I6"), "O": (4, None)}
     for index, coset in enumerate(protonet._tables(221).cosets[1:4]):
         result = _redescribed(source, coset.action, seed=index)
-        assert result.bonds is not None and len(result.bonds) == 2  # Fe-O and Mn-O
-        assert result.shapes is not None
+        assert result.bonds is not None and len(result.bonds.pairs) == 2  # Fe-O and Mn-O
+        assert _shapes(result) is not None
         found = {
             site.species: (count, shape)
-            for site, count, shape in zip(result.wyckoff_sites, _counts(result), result.shapes, strict=True)
+            for site, count, shape in zip(result.wyckoff_sites, _counts(result), _shapes(result), strict=True)
         }
         assert found == expected
 
@@ -644,11 +648,11 @@ def test_carries_that_rename_coincident_sites_or_stack_one_species_fail_loudly()
     oxygen = source.species[2]
     # C: the coincident Fe and Mn renamed (and so changed) on the way
     renamed = [Species("Mn", ("Mn",), (1,), charges=(2,)), Species("Fe", ("Fe",), (1,), charges=(3,)), oxygen]
-    with pytest.raises(ValueError, match="internal error"):
+    with pytest.raises(_CoincidentAtoms, match="not one atom"):
         _carried(source, _coincident_target(source, action, ["Mn", "Fe", "O"], renamed), action)
     # the same carry with the species kept is fine, whichever site lists which species
     swapped = _carried(source, _coincident_target(source, action, ["Mn", "Fe", "O"], source.species), action)
-    assert swapped.bonds is not None and len(swapped.bonds) == 2
+    assert swapped.bonds is not None and len(swapped.bonds.pairs) == 2
     # E: two sites of one species at one point
     fe = source.species[0]
     stacked = _with(
@@ -657,24 +661,24 @@ def test_carries_that_rename_coincident_sites_or_stack_one_species_fail_loudly()
         wyckoff_sites=(*[WyckoffSite("a", (), "Fe")] * 2, source.wyckoff_sites[2]),
         species=[fe, oxygen],
     )
-    with pytest.raises(ValueError, match="internal error"):
+    with pytest.raises(_CoincidentAtoms, match="not one atom"):
         _carried(stacked, _coincident_target(stacked, action, ["Fe", "Fe", "O"], [fe, oxygen]), action)
 
 
 def test_views_keep_supplied_shapes() -> None:
     source = _with(_p21n(), ("TPY3", None))
-    assert ASUStructureView(source).shapes == ("TPY3", None)
-    assert ASUStructureView(source, immutable_id="x").shapes == ("TPY3", None)
+    assert _shapes(ASUStructureView(source)) == ("TPY3", None)
+    assert _shapes(ASUStructureView(source, immutable_id="x")) == ("TPY3", None)
 
 
 def test_operations_that_drop_the_network_drop_the_shapes() -> None:
     diamond = _diamond("227:2")
     source = _with(diamond, ("SS4",))
-    assert subgroup_representation(source, 141).asu.shapes is None
-    assert recognize_asu(UnitcellStructureView(source)).shapes is None
+    assert _shapes(subgroup_representation(source, 141).asu) is None
+    assert _shapes(recognize_asu(UnitcellStructureView(source))) is None
     refined = Protostructure(representative=source)
-    assert refined.representative is not None and refined.representative.shapes is None
-    assert refined == Protostructure(representative=diamond._with_bonds(None, shapes=None))
+    assert refined.representative is not None and _shapes(refined.representative) is None
+    assert refined == Protostructure(representative=diamond._with_bonds(None))
 
 
 def _merging_pair(shapes: Any) -> ASUStructure:
@@ -691,18 +695,18 @@ HALVE = AffineOperation(((2, 0, 0), (0, 1, 0), (0, 0, 1)))
 
 def test_carrying_merges_shapes_and_drops_the_network_on_a_conflict() -> None:
     # _carried serves lift, the anonymous frames, subgroups and standardization alike
-    assert _carried(_merging_pair(("L2", "L2")), _half_cell(), HALVE).shapes == ("L2",)
-    assert _carried(_merging_pair(("A2", None)), _half_cell(), HALVE).shapes == ("A2",)  # None gives way
-    assert _carried(_merging_pair(None), _half_cell(), HALVE).shapes is None
+    assert _shapes(_carried(_merging_pair(("L2", "L2")), _half_cell(), HALVE)) == ("L2",)
+    assert _shapes(_carried(_merging_pair(("A2", None)), _half_cell(), HALVE)) == ("A2",)  # None gives way
+    assert _shapes(_carried(_merging_pair(None), _half_cell(), HALVE)) is None
     dropped = _carried(_merging_pair(("L2", "A2")), _half_cell(), HALVE)
-    assert dropped.bonds is None and dropped.shapes is None
+    assert dropped.bonds is None and _shapes(dropped) is None
 
 
 def test_recognition_drops_the_network_on_a_shape_conflict() -> None:
     carried = canonical_asu_protostructure(_merging_pair(("L2", None)))
-    assert carried.bonds is not None and carried.shapes == ("L2",)
+    assert carried.bonds is not None and _shapes(carried) == ("L2",)
     dropped = canonical_asu_protostructure(_merging_pair(("L2", "A2")))
-    assert dropped.bonds is None and dropped.shapes is None
+    assert dropped.bonds is None and _shapes(dropped) is None
     # the recognition carry itself
     source = _merging_pair(("L2", "A2"))
     target = recognize_asu(UnitcellStructureView(source))
@@ -710,9 +714,10 @@ def test_recognition_drops_the_network_on_a_shape_conflict() -> None:
     with pytest.raises(_ShapeConflict):
         _matched(source, target, target.transform.operation.inverse())
     agreeing = _merging_pair(("L2", "L2"))
-    bonds, shapes = _matched(agreeing, target, target.transform.operation.inverse())
-    assert bonds is not None and shapes == ("L2",)
-    assert _matched(_p1_pair(chain=True), target, target.transform.operation.inverse())[1] is None
+    network = _matched(agreeing, target, target.transform.operation.inverse())
+    assert network is not None and network.shapes == ("L2",)
+    unshaped = _matched(_p1_pair(chain=True), target, target.transform.operation.inverse())
+    assert unshaped is not None and unshaped.shapes is None
 
 
 def test_the_p1bar_collapse_keeps_the_uncollapsed_structure_on_a_shape_conflict() -> None:
@@ -720,16 +725,18 @@ def test_the_p1bar_collapse_keeps_the_uncollapsed_structure_on_a_shape_conflict(
     p = (F(1, 8), F(1, 5), F(1, 7))
     sites = [WyckoffSite("i", p, "C"), WyckoffSite("i", (p[0] + F(1, 2), p[1], p[2]), "C")]
     bonds = [SiteBond(0, 1, ONE), SiteBond(1, 0, AffineOperation(ONE.matrix, (1, 0, 0)))]
-    agreeing = ASUStructure(cell, 2, sites, [C], bonds=bonds, shapes=("L2", "L2"))
+    agreeing = ASUStructure(cell, 2, sites, [C], bonds=BondNetwork(bonds, ("L2", "L2")))
     collapsed = _p1bar_primitive_entry(agreeing)
-    assert len(collapsed.wyckoff_sites) == 1 and collapsed.shapes == ("L2",)
-    conflicting = ASUStructure(cell, 2, sites, [C], bonds=bonds, shapes=("L2", "A2"))
+    assert len(collapsed.wyckoff_sites) == 1 and _shapes(collapsed) == ("L2",)
+    conflicting = ASUStructure(cell, 2, sites, [C], bonds=BondNetwork(bonds, ("L2", "A2")))
     assert _p1bar_primitive_entry(conflicting) is conflicting
 
 
 def test_the_tie_break_key_tells_supplied_shapes_apart() -> None:
     structure = _p21n()
-    assert _bonds_key(structure) == tuple((b.site, b.partner, *asu_module._op(b.operation)) for b in structure.bonds)
+    assert _bonds_key(structure) == tuple(
+        (b.site, b.partner, *asu_module._op(b.operation)) for b in structure.bonds.pairs
+    )
     keys = [_bonds_key(_with(structure, value)) for value in (("TPY3", None), ("I3", None), ("TPY3", "A2"))]
     assert keys[0][:-1] == keys[1][:-1] == _bonds_key(structure)
     assert keys[0][-1] == (-1, ("TPY3", "")) and keys[2][-1] == (-1, ("TPY3", "A2"))
@@ -761,8 +768,8 @@ def test_records_round_trip_supplied_shapes(kind: type[Any]) -> None:
     args = (plain.cell, plain.spacegroup, plain.wyckoff_sites, plain.species)
     values = (
         kind(*args, bonds=plain.bonds),
-        kind(*args, bonds=plain.bonds, shapes=("TPY3", None)),
-        kind(*args, bonds=plain.bonds, shapes=("TPY3", "A2")),
+        kind(*args, bonds=BondNetwork(plain.bonds.pairs, ("TPY3", None))),
+        kind(*args, bonds=BondNetwork(plain.bonds.pairs, ("TPY3", "A2"))),
     )
     records = [_domain_structure_record_from_value(value) for value in values]
     record_type = ASUStructureRecord if kind is ASUStructure else FundamentalDomainStructureRecord

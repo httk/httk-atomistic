@@ -37,7 +37,6 @@ from httk.core import register_citation
 
 from httk.atomistic.models.structure.asu import (
     ASUStructure,
-    SiteBond,
     _affine,
     _apply,
     _group,
@@ -47,6 +46,7 @@ from httk.atomistic.models.structure.asu import (
 )
 from httk.atomistic.models.structure.asu_view import ASUStructureView
 from httk.atomistic.models.structure.like import StructureLike
+from httk.atomistic.models.structure.network import BondNetwork, SiteBond
 
 __all__ = ["distance_bonds"]
 
@@ -191,7 +191,7 @@ def distance_bonds(structure: StructureLike, *, tolerance: float = 0.45) -> ASUS
         ...     [WyckoffSite("a", (), "Na"), WyckoffSite("b", (), "Cl")],
         ...     [Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))],
         ... )
-        >>> len(distance_bonds(nacl).bonds)  # one bond orbit: Na-Cl at 2.82 Å
+        >>> len(distance_bonds(nacl).bonds.pairs)  # one bond orbit: Na-Cl at 2.82 Å
         1
 
     :param structure: Any structure an :class:`~httk.atomistic.ASUStructureView` accepts.
@@ -317,7 +317,7 @@ def _distance_bonds(structure: StructureLike, tolerance: float, shared_ligand: b
                 "bib_type": "article",
             },
         )
-    return asu._with_bonds(bonds, shapes=None)  # normalized on first access
+    return asu._with_bonds(BondNetwork(tuple(bonds)))  # normalized on first access
 
 
 def _without_shared_ligand_bonds(

@@ -9,20 +9,29 @@ target whose coordinates were snapped by recognition, matching each mapped atom 
 target atom. Where the target's group is not the source's, every image of every bond is
 carried, and the bond set must be invariant under the target's group, which is checked exactly.
 
-Supplied shapes (``FundamentalDomainStructure.shapes``) travel with the network: every image of
-a site with a symbol hands it to the target site it lands on (``_mapped_shapes``). A site
-without a symbol gives way to one; two different symbols on one target site are a
-``_ShapeConflict``, which means "not carried", as a bond set that is not invariant does.
+Assigned shapes (``bonds.shapes``) travel with the network: every image of a site with a symbol
+hands it to the target site it lands on (``_mapped_shapes``). A site without a symbol gives way to
+one; two different symbols on one target site are a ``_ShapeConflict``, which means "not carried",
+as a bond set that is not invariant does. The sources of the network are copied unchanged.
+
+Unit cells reuse the same algebra through a bridge: ``_cell_domain`` presents a unit cell as the
+P1 fundamental domain of its sites, whose normalized pairs are the unit cell's own. The bridge
+never expands that domain, so coincident sites never meet its coincidence check; a carry that
+cannot tell coincident atoms apart raises ``_CoincidentAtoms``, and every bridge path drops the
+network instead. ``_expanded_network`` gives a fundamental domain's network on its unit cell.
+Every drop is logged at debug level with the context ``bonds``.
 """
 
+import logging
 import math
 from collections.abc import Callable
 from fractions import Fraction
 from functools import lru_cache
 
+from httk.atomistic.models.structure.api import StructureAPI
 from httk.atomistic.models.structure.asu import (
     FundamentalDomainStructure,
-    SiteBond,
+    WyckoffSite,
     _affine,
     _apply,
     _group,
@@ -35,12 +44,22 @@ from httk.atomistic.models.structure.asu import (
     _Point,
     _reference,
 )
+from httk.atomistic.models.structure.network import BondNetwork, SiteBond
+from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.symmetry._lattice import finite_translation_cosets
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.limits import _checkpoint
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 
 __all__: list[str] = []
+
+_logger = logging.getLogger(__name__)
+
+
+def _dropped(reason: str) -> None:
+    """Log at debug level that a carry dropped a bond network, and why."""
+    _logger.debug("bond network dropped: %s", reason, extra={"context": "bonds"})
+
 
 # Per wrapped point, one ``(site, operation, unwrapped image, species)`` per site with an atom there:
 # coincident sites (two species at one point) stay two atoms, told apart by their species (its repr,
@@ -76,18 +95,25 @@ def _tags(structure: FundamentalDomainStructure) -> tuple[str, ...]:
     return tuple(tags)
 
 
+class _CoincidentAtoms(ValueError):
+    """Raise when coincident sites cannot be told apart: two of one species, or renamed on the way."""
+
+
 def _locate(index: _Index, point: _Point, tag: str = "") -> tuple[int, _Op]:
     """Return the site with an atom at an exact point (the one of species ``tag`` where several are) and its element.
 
     Where several sites share the point, exactly one must have the species ``tag``: a carry that
-    renames coincident sites, or two sites of one species at one point, fails loudly.
+    renames coincident sites, or two sites of one species at one point, raises
+    ``_CoincidentAtoms``. A point with no site at all is an internal error.
     """
     entries = index.get(_mod1(point), [])
+    if not entries:
+        raise ValueError(f"internal error: bond atom {point} is not an atom of the re-described structure")
     matches = entries if len(entries) == 1 else [entry for entry in entries if entry[3] == tag]
     if len(matches) != 1:
-        raise ValueError(
-            f"internal error: bond atom {point} is not one atom of the re-described structure "
-            f"({len(entries)} site(s) there, {len(matches)} of the atom's species)"
+        raise _CoincidentAtoms(
+            f"bond atom {point} is not one atom of the re-described structure "
+            f"({len(entries)} coincident site(s) there, {len(matches)} of the atom's species)"
         )
     number, (W, w), image, _species = matches[0]
     return number, (W, tuple(a + p - q for a, p, q in zip(w, point, image, strict=True)))
@@ -104,8 +130,9 @@ def _bond_atoms(
     structure: FundamentalDomainStructure, bonds: tuple[SiteBond, ...] | None = None
 ) -> list[tuple[_Point, _Point, tuple[str, str]]]:
     """Return both atoms of every bond (the stored ones by default), in the stored setting, with their tags."""
-    bonds = structure._bonds if bonds is None else bonds
-    assert bonds is not None
+    if bonds is None:
+        assert structure._network is not None
+        bonds = structure._network.pairs
     sites, group, tags = structure.wyckoff_sites, structure.spacegroup, _tags(structure)
     return [
         (
@@ -138,7 +165,12 @@ class _AmbiguousMatch(ValueError):
 
 
 class _ShapeConflict(ValueError):
-    """Raise when sites with different supplied shapes land on one site of the target."""
+    """Raise when sites with different assigned shapes land on one site of the target."""
+
+
+def _rebuilt(network: BondNetwork, pairs: tuple[SiteBond, ...], shapes: tuple[str | None, ...] | None) -> BondNetwork:
+    """Return ``network`` with carried pairs and shapes, its sources copied (the shapes' only with shapes)."""
+    return BondNetwork(pairs, shapes, network.source, None if shapes is None else network.shapes_source)
 
 
 def _mapped_shapes(
@@ -147,7 +179,7 @@ def _mapped_shapes(
     image: Callable[[_Point], _Point],
     cosets: list[_Point],
 ) -> tuple[str | None, ...] | None:
-    """Hand the source's supplied shapes to the target sites its atoms land on.
+    """Hand the source's assigned shapes to the target sites its atoms land on.
 
     :param source: The structure whose shapes are carried.
     :param target: The re-described structure.
@@ -156,11 +188,11 @@ def _mapped_shapes(
     :return: The target's shapes, or ``None`` when no target site gets a symbol.
     :raises _ShapeConflict: If two different symbols land on one target site.
     """
-    if source._shapes is None:
+    if source._network is None or source._network.shapes is None:
         return None
     index = _orbit_index(target)
     shapes: list[str | None] = [None] * len(target.wyckoff_sites)
-    for site, symbol, tag in zip(source.wyckoff_sites, source._shapes, _tags(source), strict=True):
+    for site, symbol, tag in zip(source.wyckoff_sites, source._network.shapes, _tags(source), strict=True):
         if symbol is None:
             continue
         reference = _reference(source.spacegroup, site)
@@ -238,25 +270,28 @@ def _carried[T: FundamentalDomainStructure](
     ``operation`` maps the source's stored-setting coordinates to the target's (identity when
     omitted), and the target's atoms must be the images of the source's. A source without a
     network gives ``target`` unchanged; so does a target whose group the bond set is not
-    invariant under, or one where sites with different supplied shapes merge. Supplied shapes
-    are carried with the network. Coincident sites (several at one point) are told apart by
-    their species, so a carry that renames or changes species must not involve them.
+    invariant under, or one where sites with different assigned shapes merge (both logged).
+    Assigned shapes and the sources are carried with the network. Coincident sites (several at
+    one point) are told apart by their species, so a carry that renames or changes species must
+    not involve them.
 
     :param source: The structure whose network is carried.
     :param target: The re-described structure.
     :param operation: The map from the source's stored-setting coordinates to the target's.
     :return: ``target`` with the carried network.
+    :raises _CoincidentAtoms: If coincident atoms cannot be told apart.
     :raises ValueError: If a mapped atom is not an atom of the target, an internal invariant
         violation.
     """
-    if source._bonds is None or target is source:
+    network = source._network
+    if network is None or target is source:
         return target
     phi = _op(AffineOperation.identity() if operation is None else operation)
     same = (operation is None or operation.is_identity()) and source.spacegroup == target.spacegroup
     if same and [(x.wyckoff, x.free_params) for x in source.wyckoff_sites] == [
         (x.wyckoff, x.free_params) for x in target.wyckoff_sites
     ]:
-        return target._with_bonds(source._bonds, shapes=source._shapes)
+        return target._with_bonds(network)
     bonds: tuple[SiteBond, ...] | None
     if same or (
         _contains(target.spacegroup, source.spacegroup, phi)
@@ -268,23 +303,24 @@ def _carried[T: FundamentalDomainStructure](
     else:
         bonds = _network(source, target, phi)
         if bonds is None:
+            _dropped("the bond set is not invariant under the target's group and lattice")
             return target
-    if source._shapes is None:
-        return target._with_bonds(bonds, shapes=None)
     try:
         shapes = _mapped_shapes(source, target, lambda point: _apply(phi, point), _cosets(phi))
-    except _ShapeConflict:  # not carried, like a bond set that is not invariant
+    except _ShapeConflict as error:  # not carried, like a bond set that is not invariant
+        _dropped(f"shape conflict: {error}")
         return target
-    return target._with_bonds(bonds, shapes=shapes)
+    return target._with_bonds(_rebuilt(network, bonds, shapes))
 
 
 def _bonds_key(structure: FundamentalDomainStructure) -> tuple[object, ...]:
-    """Order structures with equal sites by their normalized networks, then supplied shapes (empty without a network)."""
-    if structure.bonds is None:
+    """Order structures with equal sites by their normalized networks, then assigned shapes (empty without a network)."""
+    network = structure.bonds
+    if network is None:
         return ()
-    key: tuple[object, ...] = tuple((bond.site, bond.partner, *_op(bond.operation)) for bond in structure.bonds)
+    key: tuple[object, ...] = tuple((bond.site, bond.partner, *_op(bond.operation)) for bond in network.pairs)
     # -1 sorts before every bond entry (sites are >= 0), so a string never meets a number
-    return key if structure.shapes is None else (*key, (-1, tuple(symbol or "" for symbol in structure.shapes)))
+    return key if network.shapes is None else (*key, (-1, tuple(symbol or "" for symbol in network.shapes)))
 
 
 def _pair_key(first: _Point, second: _Point, tags: tuple[str, str] = ("", "")) -> tuple[object, ...]:
@@ -320,25 +356,29 @@ def _matched_bonds(
 
 def _matched(
     source: FundamentalDomainStructure, target: FundamentalDomainStructure, operation: AffineOperation
-) -> tuple[tuple[SiteBond, ...] | None, tuple[str | None, ...] | None]:
-    """Carry the network and supplied shapes of ``source`` onto a recognized ``target``, matching once.
+) -> BondNetwork | None:
+    """Carry the network of ``source`` onto a recognized ``target``, matching once.
 
-    As :func:`_matched_bonds`; the shapes follow the same matched atoms.
+    As :func:`_matched_bonds`; the assigned shapes follow the same matched atoms, and the sources
+    are copied.
 
-    :param source: The structure whose network and shapes are carried.
+    :param source: The structure (with a network) whose network is carried.
     :param target: The recognized structure.
     :param operation: The map from the source's stored-setting coordinates to the target's.
-    :return: The target's bonds (``None`` when the bond set is not invariant) and shapes (``None``
-        without bonds or supplied shapes).
+    :return: The target's network, or ``None`` when the bond set is not invariant.
     :raises _AmbiguousMatch: As :func:`_matched_bonds`.
-    :raises _ShapeConflict: If sites with different supplied shapes merge.
+    :raises _ShapeConflict: If sites with different assigned shapes merge.
+    :raises _CoincidentAtoms: If coincident atoms cannot be told apart.
     """
+    network = source._network
+    assert network is not None, "only a structure with a network is matched"
     phi = _op(operation)
     snap = _snap(source, target, phi)
     bonds = _network(source, target, phi, snap)
-    if bonds is None or source._shapes is None:
-        return bonds, None
-    return bonds, _mapped_shapes(source, target, lambda point: _apply(phi, snap(point)), _cosets(phi))
+    if bonds is None:
+        return None
+    shapes = _mapped_shapes(source, target, lambda point: _apply(phi, snap(point)), _cosets(phi))
+    return _rebuilt(network, bonds, shapes)
 
 
 def _snap(
@@ -402,3 +442,84 @@ def _nearest(target: FundamentalDomainStructure) -> Callable[[_Point], _Point]:
         return min(found, key=found.__getitem__)
 
     return nearest
+
+
+def _cell_domain(structure: StructureAPI, *, network: bool = True) -> FundamentalDomainStructure:
+    """Present a three-dimensional unit cell as the P1 fundamental domain of its sites, with its network.
+
+    One ``WyckoffSite("a", x, species)`` per site, unwrapped, so the domain's normalized pairs are
+    the unit cell's own. The domain is a private bridge: it is never expanded, so coincident sites
+    never meet the expansion's coincidence check.
+
+    :param structure: A structure presented as a unit cell (its network indexes ``sites``).
+    :param network: Whether the domain takes the structure's network (else it has none, and the
+        structure's network is never read).
+    :return: The bridge domain.
+    """
+    rows = structure.sites.reduced_coords.to_fractions()
+    sites = [WyckoffSite("a", row, name) for row, name in zip(rows, structure.species_at_sites, strict=True)]
+    domain = FundamentalDomainStructure(structure.cell, 1, sites, structure.species)
+    return domain._with_bonds(structure.bonds) if network else domain
+
+
+def _cell_carried[T: UnitcellStructure](source: StructureAPI, target: T, operation: AffineOperation | None = None) -> T:
+    """Return ``target`` with the unit-cell network of ``source`` carried by the exact map ``operation``.
+
+    As :func:`_carried` through :func:`_cell_domain` bridges: ``operation`` maps the source's
+    reduced coordinates to the target's and the target's atoms must be the images of the
+    source's. Dropped (and logged) where the network is not invariant under the target's lattice,
+    shapes conflict, or coincident atoms cannot be told apart.
+
+    :param source: A structure presented as a unit cell, with or without a network.
+    :param target: The re-described unit cell.
+    :param operation: The map from the source's coordinates to the target's (identity when omitted).
+    :return: ``target`` with the carried network, or without a network (any network of its own
+        is never kept).
+    """
+    if source.bonds is None:
+        return target._with_bonds(None)
+    try:
+        carried = _carried(_cell_domain(source), _cell_domain(target, network=False), operation)
+    except _CoincidentAtoms as error:
+        _dropped(f"coincident atoms: {error}")
+        return target._with_bonds(None)
+    return target._with_bonds(carried.bonds)
+
+
+def _expanded_network(structure: FundamentalDomainStructure) -> BondNetwork | None:
+    """Return a fundamental domain's network on the unit-cell sites it presents (``sites``), or ``None``.
+
+    Every bond orbit is expanded into explicit pairs (lattice translations of the presented
+    sites, in normal form) and every atom gets its site's assigned shape; the sources are copied.
+    A molecular domain presents its retained representatives: when one is not an exact orbit
+    point, the network is dropped (and logged).
+
+    :param structure: The fundamental domain.
+    :return: The unit-cell network, or ``None`` without a network or when it is dropped.
+    """
+    network = structure._network
+    if network is None:
+        return None
+    if structure.molecular and any(
+        site.representative is not None
+        and site.representative.normalize() not in structure._representatives_for_site(site)
+        for site in structure.wyckoff_sites
+    ):
+        _dropped("a retained molecular representative is not an exact orbit point")
+        return None
+    cell = UnitcellStructure(structure.cell, structure.sites, structure.species, structure.species_at_sites)
+    target = _cell_domain(cell, network=False)
+    phi = _op(structure.transform.operation)
+    try:
+        pairs = _network(structure, target, phi)
+        shapes = _mapped_shapes(structure, target, lambda point: _apply(phi, point), _cosets(phi))
+    except _CoincidentAtoms as error:
+        _dropped(f"coincident atoms: {error}")
+        return None
+    except _ShapeConflict as error:  # an orbit's atoms share their site's shape, so this is unexpected
+        _dropped(f"shape conflict: {error}")
+        return None
+    if pairs is None:  # every bond orbit is a union of unit-cell bonds, so this is unexpected
+        _dropped("the bond set is not invariant under the unit cell's lattice")
+        return None
+    return _rebuilt(network, pairs, shapes)

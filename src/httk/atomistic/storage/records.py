@@ -53,7 +53,8 @@ from httk.atomistic.models.sites.numeric import NumericSites
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.classes import _species_class
 from httk.atomistic.models.species.species import Species
-from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, SiteBond, WyckoffSite
+from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
+from httk.atomistic.models.structure.network import BondNetwork, SiteBond
 from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
 from httk.atomistic.models.structure.semantics import StructureSymmetry, _stated_symmetry
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
@@ -1439,8 +1440,8 @@ class FundamentalDomainStructureRecord:
                 "spacegroup_hall_entry": structure.spacegroup.hall_entry,
                 "setting_transform": structure.transform,
                 "coordinate_precision": structure.coordinate_precision,
-                "bonds": structure.bonds,
-                "shapes": _shapes_record(structure.shapes),
+                "bonds": None if structure.bonds is None else structure.bonds.pairs,
+                "shapes": None if structure.bonds is None else _shapes_record(structure.bonds.shapes),
             }
         )
         return values
@@ -1607,8 +1608,12 @@ def _domain_structure_from_record(
         tuple(_species_from_record(value) for value in record.species),
         _setting_transform_from_record(record.setting_transform),
         record.coordinate_precision,
-        bonds=None if record.bonds is None else _site_bonds_from_record(record.bonds),
-        shapes=None if record.shapes is None else tuple(symbol or None for symbol in record.shapes),
+        bonds=None
+        if record.bonds is None
+        else BondNetwork(
+            _site_bonds_from_record(record.bonds),
+            None if record.shapes is None else tuple(symbol or None for symbol in record.shapes),
+        ),
         **_common_constructor_values(record),
     )
 
@@ -1654,9 +1659,10 @@ def validate_structure_record(
     # the structure validates the bonds and shapes; stored ones must already be in their normal form
     if not isinstance(record, UnitcellStructureRecord) and record.bonds is not None:
         structure = _domain_structure_from_record(record)
-        if structure.bonds != _site_bonds_from_record(record.bonds):
+        assert structure.bonds is not None
+        if structure.bonds.pairs != _site_bonds_from_record(record.bonds):
             raise ValueError("FundamentalDomainStructureRecord bonds are not the normalized bond network")
-        if _shapes_record(structure.shapes) != record.shapes:
+        if _shapes_record(structure.bonds.shapes) != record.shapes:
             raise ValueError("FundamentalDomainStructureRecord shapes are not in their normal form")
 
 
@@ -3164,7 +3170,8 @@ def _domain_structure_record_from_value(
         None
         if structure.bonds is None
         else tuple(
-            SiteBondRecord(**cast(dict[str, Any], SiteBondRecord.__httk_project__(bond))) for bond in structure.bonds
+            SiteBondRecord(**cast(dict[str, Any], SiteBondRecord.__httk_project__(bond)))
+            for bond in structure.bonds.pairs
         )
     )
     return record_type(**values)

@@ -32,7 +32,6 @@ from httk.atomistic.models.cell.view import CellView
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import (
     ASUStructure,
-    SiteBond,
     WyckoffSite,
     _affine,
     _apply,
@@ -46,6 +45,7 @@ from httk.atomistic.models.structure.asu import (
     _reference,
     _ValidatedASUProof,
 )
+from httk.atomistic.models.structure.network import SiteBond
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 from httk.atomistic.symmetry.symop_key import symop_key_v1
@@ -1104,9 +1104,9 @@ def _warn_unbonded_sites(block: str, structure: ASUStructure) -> None:
     symbols other than ``vacancy``, sorted and joined with ``/`` for a mixed site (``Co/Fe``), or
     by its species name when none remains. Missing bonds are not completed.
     """
-    if not structure.bonds:
+    if structure.bonds is None or not structure.bonds.pairs:
         return
-    bonded = {end for bond in structure.bonds for end in (bond.site, bond.partner)}
+    bonded = {end for bond in structure.bonds.pairs for end in (bond.site, bond.partner)}
     by_name = {entry.name: entry for entry in structure.species}
 
     def element(name: str) -> str:

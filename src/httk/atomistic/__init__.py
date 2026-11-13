@@ -52,7 +52,7 @@ from httk.atomistic.integrations import (
     VASPStructure,
     VASPTrajectory,
 )
-from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, SiteBond, WyckoffSite
+from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from httk.atomistic.models.structure.asu_view import ASUStructureView
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.cif import CIFStructure, _coerce_cif_structure, read_cif_structures
@@ -60,6 +60,7 @@ from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.models.structure.datastream import DatastreamStructure
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.modulated import ModulatedStructure
+from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond
 from httk.atomistic.models.cell.numeric import NumericCell
 from httk.atomistic.models.sites.numeric import NumericSites
 from httk.atomistic.models.moments.numeric import NumericSiteMoments
@@ -371,6 +372,8 @@ __all__ = [
     "BarePrototypeLike",
     "BarePrototypeRecord",
     "BarePrototypeView",
+    "BondNetwork",
+    "BondSource",
     "BondedProtonetstructure",
     "CIFStructure",
     "CIFStructureRecord",

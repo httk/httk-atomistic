@@ -1,12 +1,13 @@
 from typing import TYPE_CHECKING
 
 from .api import StructureAPI
-from .asu import ASUStructure, FundamentalDomainStructure, SiteBond, WyckoffSite
+from .asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
 from .backend import StructureBackend
 from .cif import CIFStructure, read_cif_structures
 from .comparison import same_crystal
 from .datastream import DatastreamStructure
 from .like import StructureLike
+from .network import BondNetwork, BondSource, SiteBond
 from .numeric import NumericUnitcellStructure
 from .numeric_view import NumericUnitcellStructureView
 from .optimade import OptimadeStructure
@@ -29,6 +30,8 @@ from .view import StructureView
 __all__ = [
     "ASUStructure",
     "ASUStructureView",
+    "BondNetwork",
+    "BondSource",
     "CIFStructure",
     "DatastreamStructure",
     "FundamentalDomainStructure",

@@ -41,7 +41,8 @@ class Trajectory(TrajectoryBackend):
             raise ValueError("Trajectory requires at least one frame")
         from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 
-        coerced = tuple(UnitcellStructureView(frame).unview() for frame in frames)
+        # trajectory frames hold no bond network: drop it without expanding a domain's
+        coerced = tuple(UnitcellStructureView(frame)._with_bonds(None) for frame in frames)
         species = coerced[0].species
         species_at_sites = coerced[0].species_at_sites
         for index, frame in enumerate(coerced[1:], 1):

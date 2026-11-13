@@ -94,7 +94,7 @@ def test_a_cod_bond_loop_becomes_the_network(entry: str, caplog: pytest.LogCaptu
         structure = _load(entry)
     assert not [record for record in caplog.records if "bond loop" in record.getMessage()]
     assert _rows(entry) == rows
-    assert structure.bonds is not None and len(structure.bonds) == orbits
+    assert structure.bonds is not None and len(structure.bonds.pairs) == orbits
 
 
 # COD entry -> the warning for the Wyckoff sites its listed loop leaves without a bond.
@@ -119,7 +119,9 @@ def test_unbonded_sites_are_counted_per_element(caplog: pytest.LogCaptureFixture
     def warned(*bonds: tuple[int, int]) -> list[str]:
         caplog.clear()
         ends = tuple(SimpleNamespace(site=site, partner=partner) for site, partner in bonds)
-        stand_in = SimpleNamespace(wyckoff_sites=structure.wyckoff_sites, species=structure.species, bonds=ends)
+        stand_in = SimpleNamespace(
+            wyckoff_sites=structure.wyckoff_sites, species=structure.species, bonds=SimpleNamespace(pairs=ends)
+        )
         with caplog.at_level("WARNING", logger=LOGGER):
             cif_structures._warn_unbonded_sites("b", cast(Any, stand_in))
         return [record.getMessage() for record in caplog.records]
@@ -205,7 +207,7 @@ def test_the_network_expands_to_the_pairs_the_file_states() -> None:
 
     expanded = set()
     assert structure.bonds is not None
-    for bond in structure.bonds:
+    for bond in structure.bonds.pairs:
         p = reference(bond.site)
         q = _apply(bond.operation.matrix.to_fractions(), bond.operation.vector.to_fractions(), reference(bond.partner))
         expanded |= {_key(_apply(*g, p), _apply(*g, q)) for g in elements}
@@ -219,7 +221,7 @@ def _bonds(name: str) -> Any:
 def test_disordered_rows_named_in_the_loop_map_to_their_merged_site() -> None:
     structure = load(str(BONDS / "disordered.cif"))
     # Fe1 and Co1 share one site, so their bonds to O1 are one orbit; the dummy row comes first
-    assert structure.bonds == _bonds("ordered.cif") and len(structure.bonds) == 2
+    assert structure.bonds == _bonds("ordered.cif") and len(structure.bonds.pairs) == 2
     assert structure.species[0].name == "Co1/Fe1"
 
 
@@ -235,7 +237,7 @@ def test_symmetry_codes_use_the_operation_ids(caplog: pytest.LogCaptureFixture) 
 
 def test_no_loop_and_an_empty_loop_differ() -> None:
     assert _bonds("no_loop.cif") is None
-    assert _bonds("empty_loop.cif") == ()
+    assert _bonds("empty_loop.cif").pairs == ()
 
 
 def test_the_coordinates_written_precision_is_part_of_the_tolerance(
@@ -338,7 +340,7 @@ def test_codes_need_the_blocks_own_operations(tmp_path: Path, caplog: pytest.Log
 
 
 def test_labels_match_exactly_then_ignoring_case(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-    assert _variant(tmp_path, caplog, HEAD + LOOP + "FE1 o1 1.0445 .\n").bonds == _bonds("ordered.cif")[:1]
+    assert _variant(tmp_path, caplog, HEAD + LOOP + "FE1 o1 1.0445 .\n").bonds.pairs == _bonds("ordered.cif").pairs[:1]
     twins = HEAD.replace("O2 O 0.12", "Ox2 O 0.4 0.4 0.4 1 d\nOX2 O 0.12")
     assert _variant(tmp_path, caplog, twins + LOOP + "Fe1 OX2 1.2588 4_554\n").bonds is not None  # exact wins
     assert _variant(tmp_path, caplog, twins + LOOP + "Fe1 ox2 1.2588 4_554\n").bonds is None
@@ -353,11 +355,11 @@ def test_a_loop_of_placeholders_gives_no_network_silently(tmp_path: Path, caplog
 def test_a_merged_row_written_at_another_orbit_member() -> None:
     """Co1 is written at -x,-y,-z of Fe1; its two bonds to O1 are Fe1's."""
     structure = load(str(BONDS / "merged_other_member.cif"))
-    assert structure.bonds == (SiteBond(0, 1, AffineOperation.identity()),)
+    assert structure.bonds.pairs == (SiteBond(0, 1, AffineOperation.identity()),)
 
 
 def test_a_snapped_row_written_as_a_translated_copy() -> None:
     """Fe1 written near (0, 1, 1/2) snaps onto 2c (0, 0, 1/2); its bond keeps the translation."""
     structure = load(str(BONDS / "snapped_translated.cif"))
     assert structure.wyckoff_sites[0].wyckoff == "c"
-    assert structure.bonds == (SiteBond(0, 1, operation_from_xyz("x,y-1,z")),)
+    assert structure.bonds.pairs == (SiteBond(0, 1, operation_from_xyz("x,y-1,z")),)

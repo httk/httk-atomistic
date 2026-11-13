@@ -2,11 +2,12 @@
 The Simple structure representation for httk-atomistic.
 """
 
+import copy
 import datetime
 import fractions
 import math
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
 from httk.core import SurdVector, VectorLike, unwrap
 from httk.core.exactmath import best_rational_in_interval
@@ -26,6 +27,7 @@ from httk.atomistic.models.species.like import SpeciesLike
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.species.view import SpeciesView
 from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.network import BondNetwork, SiteBond, _bond_network, _checked_cell_network
 from httk.atomistic.models.structure.semantics import (
     StructureSemanticsMixin,
     StructureSymmetry,
@@ -164,6 +166,12 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
     :param last_modified: Optional source modification timestamp.
     :param charge: An explicitly assigned charge for the cell content; it is not derived
         from the species, and an explicit zero remains distinct from an unstated charge.
+    :param bonds: The optional bond network between explicit sites: a
+        :class:`~httk.atomistic.BondNetwork`, a mapping of its fields, or a plain sequence of
+        :class:`~httk.atomistic.SiteBond` (no shapes, no source). ``None`` (the default) means no
+        network is known; no pairs mean that there are no bonds. The pairs and shapes index
+        ``sites``; each bond's operation must be a lattice translation (zero along non-periodic
+        directions), and the pairs are put in a normal form (see :attr:`bonds`).
     """
 
     _cell: Cell
@@ -172,6 +180,7 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
     _species_at_sites: tuple[str, ...]
     _site_moments: SiteMomentsBackend | None
     _charge: fractions.Fraction | None
+    _network: BondNetwork | None = None
     kind: ClassVar[str] = "unitcell"
 
     def __init__(
@@ -192,6 +201,7 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
         immutable_id: str | None = None,
         last_modified: datetime.datetime | None = None,
         charge: fractions.Fraction | int | str | None = None,
+        bonds: BondNetwork | Mapping[str, Any] | Sequence[SiteBond] | None = None,
     ) -> None:
         if species_at_sites is None:
             raise TypeError("UnitcellStructure species_at_sites is required")
@@ -210,6 +220,9 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
         _check_referenced_species_concentrations(norm_species_at_sites, norm_species)
         norm_site_moments = _norm_site_moments(site_moments)
         _check_site_moments(norm_site_moments, norm_sites, norm_cell)
+        network = _bond_network(bonds)
+        if network is not None:
+            network = _checked_cell_network(network, len(norm_species_at_sites), norm_cell.periodicity)
 
         self._cell = norm_cell
         self._sites = norm_sites
@@ -217,6 +230,7 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
         self._species_at_sites = norm_species_at_sites
         self._site_moments = norm_site_moments
         self._charge = None if charge is None else fractions.Fraction(charge)
+        self._network = network
         initialize_semantics(
             self,
             nsites=len(norm_sites),
@@ -278,6 +292,29 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
         :return: The assigned charge, or ``None`` when it is unstated.
         """
         return self._charge
+
+    @property
+    def bonds(self) -> BondNetwork | None:
+        """Expose the bond network between the explicit sites, or ``None`` when no network is known.
+
+        Its pairs and shapes index :attr:`sites`. Each bond's operation is a lattice translation
+        ``n``: the atom at ``sites[site]`` (as stored, not wrapped) is bonded to the atom at
+        ``sites[partner]`` moved by ``n``, and the bond stands for itself and its lattice
+        translates. The pairs are in normal form: each bond once, oriented ``site <= partner`` (a
+        bond of a site to a translate of itself with the lexicographically smaller of ``n`` and
+        ``-n``), sorted by ``(site, partner, n.n, n)``.
+
+        :return: The network, or ``None`` when no network is known.
+        """
+        return self._network
+
+    def _with_bonds(self, network: BondNetwork | None) -> Self:
+        """Return a copy holding ``network``, trusted to be valid and normal for these sites."""
+        copied = copy.copy(self)
+        for cached in ("_httk_cached_content_ids", "composition"):  # caches of the old value
+            vars(copied).pop(cached, None)
+        copied._network = network
+        return copied
 
     @property
     def coordinate_precision(self) -> fractions.Fraction | None:
@@ -575,6 +612,7 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
             and self.chemical_formula_descriptive == other.chemical_formula_descriptive
             and self.chemical_formula_hill == other.chemical_formula_hill
             and self.optimization_type == other.optimization_type
+            and self.bonds == other.bonds
         )
 
     def __repr__(self) -> str:
@@ -583,9 +621,10 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
             # Cartesian-backed sites show their backend, so eval(repr(x)) keeps the representation.
             cartesian = _cartesian_backend(self._sites, self._cell)
             sites = self._sites if cartesian is None else cartesian
+            bonds = "" if self.bonds is None else f", bonds={self.bonds!r}"
             return (
                 f"UnitcellStructure(cell={self._cell!r}, sites={sites!r}, "
-                f"species={self._species!r}, species_at_sites={self._species_at_sites!r})"
+                f"species={self._species!r}, species_at_sites={self._species_at_sites!r}{bonds})"
             )
         # Large structure: abbreviate the bulky arguments and mark the elision with a trailing ...
         return (
