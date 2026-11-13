@@ -270,9 +270,9 @@ def canonical_asu_legacy(
     accepted near a tolerance boundary, never to *how* an accepted symmetry is represented.  An exact
     non-rational Gram whose canonical Cartesian factor requires nested radicals outside the supported
     surd field remains idempotent but can retain its input's global Cartesian rotation. Free-parameter
-    values come from row-Hermite chart projection of the measured coordinates, so two noisy
-    measurements of the same crystal can reach the same Wyckoff choices with slightly different
-    rational parameter values.
+    values are the exact group average of each orbit's measured members, read back by row-Hermite
+    chart projection, so two noisy measurements of the same crystal can reach the same Wyckoff
+    choices with slightly different rational parameter values.
 
     :param structure: The measured structure, ``UnitcellStructure`` or ``ASUStructure``.
     :param tolerance: The base Cartesian tolerance, or ``None`` to derive it from the structure's

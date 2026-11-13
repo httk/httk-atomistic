@@ -610,9 +610,12 @@ def test_cod_1001844_is_labelled_in_the_symmetry_of_its_classes() -> None:
     structure = _cod_1001844()
     assert structure.spacegroup.it_number == 1
     value = Protonetstructure.from_asu(structure)
+    # the shapes are measured on the recognized C m geometry, whose free parameters are each orbit's
+    # group average (follow-up 5, A3): site 6 is 166.05 degrees there (L2); with the first member's
+    # coordinates it was 162.49 degrees (A2)
     assert str(value.label) == (
         "A12B3C_mC64_8_4a10b_2a2b_2a__17~2.3.5.6.8.11.12.13.14_15SAPR8~1.5.6@3.7.19_16SAPR8~1.8@1@554.9.10.20"
-        "_18SAPR8~4.7.9@1@556.10@3@556.11.12@3@556.13@3@556.14@1@656_1L2_10L2_14L2:F-Np-OH2"
+        "_18SAPR8~4.7.9@1@556.10@3@556.11.12@3@556.13@3@556.14@1@656_1L2_6L2_10L2_14L2:F-Np-OH2"
     )
     # a bond that only one of two pseudo-symmetric partners has: not invariant under C m
     rows = [(b.site, b.partner, b.operation) for b in structure.bonds]

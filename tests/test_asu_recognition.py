@@ -229,13 +229,83 @@ def test_recognition_is_lossy_and_expansion_is_not() -> None:
 def test_limit_denominator_idealises_free_parameters_on_request() -> None:
     """Turning 0.3333 into 1/3 is a claim about the data, so it is opt-in."""
     exact = UnitcellStructureView(_monoclinic())
-    noisy = _perturbed(exact, F(1, 100000))
+    coords = [list(row) for row in exact.sites.reduced_coords.to_fractions()]
+    coords[0][1] += F(3, 100000)  # one atom's noise does not cancel in the orbit average
+    noisy = UnitcellStructure(exact.cell, coords, exact.species, exact.species_at_sites)
 
     faithful = recognize_asu(noisy, setting=Spacegroup.standard(15))
-    assert faithful.wyckoff_sites[0].free_params.to_fractions()[0] != F(1, 3)
+    assert faithful.wyckoff_sites[0].free_params == FracVector([F(400009, 1200000)])
 
     idealised = recognize_asu(noisy, setting=Spacegroup.standard(15), limit_denominator=12)
     assert idealised.wyckoff_sites[0].free_params == FracVector([F(1, 3)])
+
+
+def _noisy_cm() -> UnitcellStructure:
+    """A Cm crystal measured in P1: every atom and the cell metric carry their own small error."""
+    exact = UnitcellStructureView(
+        ASUStructure(
+            [[6, 0, 0], [0, 7, 0], [-2, 0, 5]],
+            8,
+            [
+                WyckoffSite("a", (F(1, 7), F(2, 9)), "Na"),
+                WyckoffSite("a", (F(4, 7), F(5, 9)), "Cl"),
+                WyckoffSite("b", (F(2, 7), F(1, 5), F(7, 9)), "Cl"),
+            ],
+            _species("Na", "Cl"),
+        )
+    )
+    coords = [
+        [value + F((7 * index + 3 * axis) % 11 - 5, 100000) for axis, value in enumerate(row)]
+        for index, row in enumerate(exact.sites.reduced_coords.to_fractions())
+    ]
+    cell = Cell([[6, 0, 0], [F(1, 10000), 7, 0], [-2, F(-1, 10000), 5]])
+    return UnitcellStructure(cell, coords, exact.species, exact.species_at_sites)
+
+
+def test_recognition_commutes_with_mirroring_and_site_order() -> None:
+    """The mirror image, listed in another order, recognizes to the mirror image of the result.
+
+    The orbit's free parameters are its group average rather than the first member's value, so
+    neither the site order nor the hand picks the idealised crystal. The measured metric does not
+    keep the mirror plane exactly, so the improper operation cannot identify the two hands; without
+    ``preserve_chirality`` both hands compete and the results are equal.
+    """
+    from httk.atomistic.symmetry.canonical_protostructure import (
+        _canonical_protostructure_asu,
+        _metric_keeps_group,
+        _mirrored,
+        canonical_asu_protostructure,
+    )
+
+    noisy = _noisy_cm()
+    order = list(reversed(range(len(noisy.sites))))
+    mirror = UnitcellStructure(
+        Cell(-noisy.cell.basis),
+        [noisy.sites.reduced_coords.to_fractions()[index] for index in order],
+        noisy.species,
+        [noisy.species_at_sites[index] for index in order],
+    )
+
+    def expanded(value: UnitcellStructure) -> list[tuple[F, ...]]:
+        recognized = UnitcellStructureView(recognize_asu(value, setting=Spacegroup.standard(8)))
+        return sorted(map(tuple, recognized.sites.reduced_coords.to_fractions()))
+
+    assert not _metric_keeps_group(recognize_asu(noisy, setting=Spacegroup.standard(8)))
+    assert expanded(noisy) == expanded(mirror)
+    # the mirror image in the same cell: the coordinates inverted through the origin, which keeps C m
+    inverted = UnitcellStructure(
+        noisy.cell,
+        [[-value for value in noisy.sites.reduced_coords.to_fractions()[index]] for index in order],
+        noisy.species,
+        [noisy.species_at_sites[index] for index in order],
+    )
+    assert expanded(inverted) == sorted(tuple((-value) % 1 for value in row) for row in expanded(noisy))
+
+    kept = [canonical_asu_protostructure(value) for value in (noisy, mirror)]
+    assert _canonical_protostructure_asu(_mirrored(kept[0])) == _canonical_protostructure_asu(kept[1])
+    assert canonical_asu_protostructure(noisy, preserve_chirality=False) == canonical_asu_protostructure(
+        mirror, preserve_chirality=False
+    )
 
 
 def test_a_structure_without_the_claimed_symmetry_is_rejected() -> None:

@@ -130,14 +130,16 @@ def test_protostructure_record_optional_forms_have_distinct_pinned_identities() 
         Protostructure(225, [("a", "Na"), ("b", "Cl")], discriminator="001"),
         Protostructure(representative=_rocksalt_asu(), discriminator="001"),
     )
+    # refined form 7 (orbit group average in recognition); with version 6 patched in these are the
+    # earlier pins, so only the version changed them
     expected_ids = (
         # representative species sorted: the stored representative lists its classes by name (Cl, Na)
-        "ae7f003e49b0848c4292304eaa1e04ce5e1f426819467d2819d1e00e4f07a689",
+        "f5650091680101fd63b03f1c0c938a1a1a637ad61a17526cdf56bb12952bf7a9",
         # dropped precision: the "Na"/"Cl" shorthand reads concentration 1.0 (precision 1/10), and
         # the occupations now store the species classes, which carry no precision
-        "6148b1a62a3ead9122c38e4990b40a010d94c973440b631997f0f9d963c16dcd",
+        "2a6e329f6156f54862652b4061e1145e3e7771311f823240537aba543e1643eb",
         # representative species sorted, as the first pin
-        "f4c2d72157253ba43f6b05ece21217f867ac03d9ad19c18f20670789f89fd7fa",
+        "04447ffd3a59867c9f3d50015899f39ea20fbcfc95e1d2eee5641dba49d4d858",
     )
 
     records = tuple(_protostructure_record_from_value(value) for value in values)
@@ -169,10 +171,11 @@ def test_prototype_record_optional_forms_have_distinct_pinned_identities() -> No
         Prototype(prototype=_rocksalt_prototype(), discriminator="001"),
         Prototype(representative=representative, discriminator="001"),
     )
+    # refined form 7, as above
     expected_ids = (
-        "ea717baba2efce3a5862a896a683285a49049ccaa9f725f9fdb1ffbc1b95ade7",
-        "f65a2fdc5aec4b7e9cf9ea377c1b008398007bdcac3a4fc0d5240d5dfa421fc2",
-        "e09623790a0234d93f7aa8ed69ea840ea9ceba7e11c4edf7b2c8507bd02c081f",
+        "2cf6d07364c3322392ffac3742063eb09557a2695cc2fd33280c54cb8ac28c5e",
+        "b3ec67b5f8f8dfa36b9258bb16ef69fce7f0a01468630fa3da3fedaac839e591",
+        "0fb8d45de9640d6e2c74b487add4641fe8d9006d68fb36b8703a7341b3be62e6",
     )
 
     records = tuple(_prototype_record_from_value(value) for value in values)

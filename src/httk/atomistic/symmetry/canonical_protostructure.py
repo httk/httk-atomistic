@@ -1116,6 +1116,16 @@ def _canonical_protostructure_geometry(
     return _canonical_protostructure_geometry_entry(current, preserve_chirality=preserve_chirality, names=names)
 
 
+def _metric_keeps_group(structure: ASUStructure) -> bool:
+    """Return whether every operation of the group is an exact isometry of the cell metric."""
+    metric = structure.cell.metric()
+    for operation in structure.spacegroup.symmetry_operations:
+        matrix = SurdVector(structure.transform.symop_to_setting(operation).matrix)
+        if matrix.T() * metric * matrix != metric:
+            return False
+    return True
+
+
 def _canonical_protostructure_assignments_asu(
     structure: ASUStructure,
     *,
@@ -1128,13 +1138,22 @@ def _canonical_protostructure_assignments_asu(
     canonicalizer; otherwise chemistry is chosen only after the anonymous geometry. Without
     ``preserve_chirality``, in a Sohncke group that is its own enantiomorphic partner, the
     enantiomer is canonicalized too, with its own frame (whose proper-only automorphisms cannot
-    relate the hands), and both hands' candidates compete.
+    relate the hands), and both hands' candidates compete. So do both hands of any other group
+    whose improper operations are not exact isometries of the cell (:func:`_metric_keeps_group`):
+    a recognized ASU keeps its measured cell, whose metric then cannot identify the hands. The
+    test is exact, so it also fires for every monoclinic CIF, whose cell built from its parameters
+    leaves residues of about ``1e-11`` where the metric should be zero; that costs about 1.5 times
+    the canonicalization time there. Among the repository fixtures it changed no label; for
+    structreading/6, structreading/9 and cod/1001844 the mirrored hand's representative wins.
     """
     if not isinstance(structure, ASUStructure):
         raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")
     _validate_exact_input(structure)
     hands = [structure]
-    if not preserve_chirality and _own_enantiomorph_sohncke(structure.spacegroup):
+    group = structure.spacegroup
+    if not preserve_chirality and (
+        _own_enantiomorph_sohncke(group) or (not _sohncke(group) and not _metric_keeps_group(structure))
+    ):
         hands.append(_mirrored(structure))
     candidates = []
     for hand in hands:

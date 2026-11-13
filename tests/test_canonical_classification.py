@@ -766,23 +766,7 @@ def _sohncke_fixtures() -> list[str]:
 
 
 @pytest.mark.extended
-@pytest.mark.parametrize(
-    "name",
-    [
-        pytest.param(
-            name,
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="its species classes merge, so the Protostructure constructor re-recognizes it "
-                "(_merges_classes -> canonical_asu_protostructure) with the 0.23 Å tolerance of its stated "
-                "coordinate precision (0.013), which snaps the two hands onto different Cm crystals (FU4 review M3)",
-            ),
-        )
-        if name == "cod/1001844.cif"
-        else name
-        for name in _sohncke_fixtures()
-    ],
-)
+@pytest.mark.parametrize("name", _sohncke_fixtures())
 def test_preserve_chirality_false_identifies_the_hands_of_every_sohncke_fixture(name: str) -> None:
     # every Sohncke group among the structreading fixtures (numbered by group), including I4_1,
     # I4_122 and F4_132, where the normalizing inversion needs an origin shift; the mirror image is

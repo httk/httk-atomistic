@@ -54,8 +54,9 @@ Cartesian inversion), so the pair maps to one canonical representative and the t
 partners' canonical labels coincide. In a Sohncke group that is its own
 partner (P1, P2₁, I4₁, P4₂32, I4₁32, ...) the flag instead canonicalizes the mirror
 image too and lets both hands compete, with every species assignment, so a crystal
-and its mirror image give one representative. With chirality preserved, no
-mirror (improper) description is used in a Sohncke group, so the hand shows
+and its mirror image give one representative. It does so too in a group with improper
+operations whose measured cell, kept by recognition, does not keep them exactly. With
+chirality preserved, no mirror (improper) description is used in a Sohncke group, so the hand shows
 wherever the group number or the Wyckoff letters can show it: in P4₂32 a crystal
 with P on `b` and its mirror image with P on `c` get different labels. The
 canonical cell is always right-handed and, with chirality preserved, describes the
@@ -115,8 +116,8 @@ contract and the same scalar convention as `canonical_asu`.
 `canonical_asu_legacy` selects the earlier metric-first convention.
 
 Only recognition and its fit test use floating point. Free Wyckoff parameters
-come from exact row-Hermite chart projection of the recognized coordinates, not
-from a metric least-squares fit. Boundary decisions can still vary with the
+are the exact group average of each orbit's measured members, read back through
+the exact row-Hermite chart projection, not a metric least-squares fit. Boundary decisions can still vary with the
 floating-point platform or spglib build. See {doc}`canonicalization` for the
 numbered wrapper and terminal algorithms, exact ordering keys, finite bounds,
 table hashes, and tested spglib version.

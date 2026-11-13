@@ -309,8 +309,16 @@ recognition and no upward symmetry search.
     negated basis) is canonicalized as well, with its own anonymous frame, and
     the candidates of both hands compete in steps 31–33. The enantiomer keeps the
     group whether or not the inversion through the origin does (I4₁, I4₁22 and
-    F4₁32 need an origin shift for it). Other groups remain. Moments are already
-    excluded.
+    F4₁32 need an origin shift for it). The enantiomer also competes in a group
+    with improper operations when the cell metric does not keep every operation
+    exactly (`Wᵀ G W ≠ G`), as for an ASU recognized from measured data, which keeps
+    its measured cell: there the improper operations cannot identify the hands.
+    The test is exact, so it also fires for every monoclinic CIF, whose cell built
+    from its parameters leaves residues of about `1e-11` in the components that
+    should be zero; the cost there is about 1.5 times the canonicalization time.
+    Among the repository fixtures no label changed; for structreading/6,
+    structreading/9 and cod/1001844 the mirrored hand's representative wins.
+    Other groups remain. Moments are already excluded.
 16. **Build representative operations.** Start with identity. For P1, append all
     exact integral automorphisms of the full rational Gram. For other groups, append every affine
     normalizer coset in vendored order. Do not filter by the lift search's
@@ -541,7 +549,8 @@ p' = p A + q mod 1
 Finally compare the complete transformed source orbit-family multiset with the
 complete target-family multiset after composing `(A,q)`. Coefficients must agree
 exactly and constants agree modulo integers. This chart projection is also how
-recognition obtains free parameters: it is not a metric least-squares fit.
+recognition reads back the free parameters of each orbit's group-averaged point:
+it is not a metric least-squares fit.
 
 ## Classification family canonicalizers
 

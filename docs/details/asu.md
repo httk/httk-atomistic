@@ -315,9 +315,15 @@ Wyckoff position. A structure that states no precision falls back to
 2. Choosing a position is the only tolerant step, and it is a discrete decision.
 3. The chosen position then supplies **exact** values for its fixed components.
    `0.2499` does not travel onward; the position says that component is `1/4`.
-   Only the free parameters keep the measured value. Idealising those too is
-   available through `limit_denominator=`, but it is opt-in, because turning
-   `0.3333` into `1/3` is a claim about the data that only you can make.
+   Only the free parameters are not snapped: each orbit's free parameters
+   are the exact average of its members, every member pulled back onto one point by
+   every operation of the group, so no member's value is preferred. For a given
+   setting and transform the recognized crystal (its expanded orbits) depends
+   neither on the order of the sites nor on their hand; which orbit member's
+   parameters represent it may.
+   Idealising those too is available through `limit_denominator=` (applied after
+   averaging), but it is opt-in, because turning `0.3333` into `1/3` is a claim
+   about the data that only you can make.
 4. After that the object is exact and closed.
 
 ```{admonition} Expansion is lossless; recognition is not

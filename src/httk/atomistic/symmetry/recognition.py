@@ -16,14 +16,18 @@ The contract, stated once so the asymmetry is not a surprise:
   advertised as such.
 
 A file's decimals are embedded as the exact rational they literally say — ``0.3333`` is
-``3333/10000``, never silently ``1/3``. Free parameters keep that value; only the fixed
-components of the chosen position are replaced. Idealising the free parameters too is
-available on request through ``limit_denominator``, but it is not the default, because
-inventing ``1/3`` from a file that said ``0.3333`` is a claim about the data that only the
-caller can make.
+``3333/10000``, never silently ``1/3``. Free parameters are not snapped: they are the exact
+group average of the orbit's members, each pulled back onto one point by every operation of
+the group, so no member's value is preferred. For a given setting and transform the recognized
+crystal (its expanded orbits) does not depend on the order of the sites or on their hand;
+which orbit member's parameters represent it may. Only the fixed components of the chosen
+position are replaced. Idealising the free parameters too is available on request through
+``limit_denominator``, but it is not the default, because inventing ``1/3`` from a file that
+said ``0.3333`` is a claim about the data that only the caller can make.
 """
 
 import fractions
+import logging
 import math
 from collections.abc import Iterator, Sequence
 from itertools import product
@@ -40,11 +44,14 @@ from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.symmetry._nearest_image import _NearestImageMetric
 from httk.atomistic.symmetry._periodic_wrap import wrap_periodic
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
+from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup
 from httk.atomistic.symmetry.wyckoff import WyckoffBranch, WyckoffPosition
 
 __all__ = ["DEFAULT_TOLERANCE", "recognize_asu", "structure_tolerance"]
+
+logger = logging.getLogger(__name__)
 
 #: Fallback matching tolerance, as a Cartesian distance in the cell's own length units
 #: (angstrom for ordinary crystallographic data), used only when the structure does not say
@@ -407,6 +414,7 @@ def _recognize_impl(
         cell,
         tolerance,
         equivalent_hints=equivalent_hints,
+        limit_denominator=limit_denominator,
     )
 
 
@@ -473,14 +481,14 @@ def _cartesian_distance_squared(difference: FracVector, cell: Any) -> float:
     return float(shortest.lengthsqr().to_float())
 
 
-def _orbit_has_bijective_members(
+def _orbit_matching(
     member_indices: Sequence[int],
     placed: Sequence[tuple[WyckoffPosition, FracVector, FracVector]],
     orbit: Sequence[FracVector],
     cell: Any,
     tolerance: float,
-) -> bool:
-    """Whether the candidate input sites occupy every generated orbit point once."""
+) -> dict[int, int] | None:
+    """Map each generated orbit point to the one input site on it, or ``None`` if they do not occupy each once."""
     limit = tolerance * tolerance
     basis = cell.basis.to_floats()
     orbit_floats = [[float(value) for value in point.to_fractions()] for point in orbit]
@@ -494,7 +502,7 @@ def _orbit_has_bijective_members(
         for member in member_indices
     }
     if any(not choices for choices in candidates.values()):
-        return False
+        return None
     matched_orbit: dict[int, int] = {}
 
     def augment(member: int, visited: set[int]) -> bool:
@@ -508,7 +516,7 @@ def _orbit_has_bijective_members(
                 return True
         return False
 
-    return all(augment(member, set()) for member in member_indices)
+    return matched_orbit if all(augment(member, set()) for member in member_indices) else None
 
 
 def _fractional_distance_squared(
@@ -532,8 +540,9 @@ def _group_into_orbits(
     tolerance: float,
     *,
     equivalent_hints: tuple[int, ...] | None = None,
+    limit_denominator: int | None = None,
 ) -> ASUStructure:
-    """Collapse symmetry-equivalent sites, keeping one representative each.
+    """Collapse symmetry-equivalent sites into one Wyckoff site per orbit.
 
     Grouping is by *orbit membership*, not by comparing recovered parameters: the orbit a
     site belongs to is generated from one member and the remaining sites are matched
@@ -545,11 +554,18 @@ def _group_into_orbits(
     measured structure every member of an orbit carries its own rounding, so each recovers
     a slightly different free parameter and generates a slightly different orbit. Exact
     membership would then place each atom in an orbit of its own and report the structure
-    as having no symmetry at all. The representative's parameters are the ones kept, so the
-    idealised structure adopts one member's value for the whole orbit.
+    as having no symmetry at all. The parameters kept are the orbit's exact group average
+    (:func:`_orbit_average`), not one member's value, so the expanded orbit does not depend on
+    which member comes first; which orbit member's parameters represent it may.
     """
     cosets = transform.lattice_cosets()
     consumed = [False] * len(placed)
+    measured = view.sites.reduced_coords.normalize()
+    operations = tuple(
+        (AffineOperation(operation.matrix, operation.vector + coset), operation.matrix.inv().T())
+        for operation in (transform.symop_to_setting(op) for op in standard.symmetry_operations)
+        for coset in cosets
+    )
     wyckoff_sites: list[WyckoffSite] = []
     site_moments = view.site_moments
     if isinstance(site_moments, CrystalAxisSiteMoments) and site_moments.cell != cell:
@@ -558,7 +574,7 @@ def _group_into_orbits(
             "convert them to Cartesian first"
         )
 
-    for index, (position, parameters, _snapped) in enumerate(placed):
+    for index, (position, parameters, anchor) in enumerate(placed):
         if consumed[index]:
             continue
         species = species_at_sites[index]
@@ -600,7 +616,8 @@ def _group_into_orbits(
                 f"but only {len(members)} of them are present; the structure is not symmetric under "
                 f"{standard.setting} as claimed"
             )
-        if not _orbit_has_bijective_members(members, placed, orbit, cell, tolerance):
+        matching = _orbit_matching(members, placed, orbit, cell, tolerance)
+        if matching is None:
             raise ValueError(
                 f"Wyckoff position {position.multiplicity}{position.letter} generates {len(orbit)} sites, "
                 "but the input does not occupy each generated position exactly once"
@@ -608,6 +625,22 @@ def _group_into_orbits(
 
         for other in members:
             consumed[other] = True
+        # an orbit occupied exactly averages to its own points: only measured members are averaged
+        if any(tuple(measured[other].to_fractions()) not in seen for other in members):
+            at_point = {tuple(orbit[point].to_fractions()): measured[member] for point, member in matching.items()}
+            average = _orbit_average(anchor, at_point, operations)
+            found = position.parameters_of(transform.to_standard(average))
+            if found is None:  # the average is invariant under the anchor's site symmetry, so this is not expected
+                logger.debug(
+                    "the group average of the orbit of %s%s is not on that position; keeping %s",
+                    position.multiplicity,
+                    position.letter,
+                    parameters,
+                )
+            else:
+                parameters = found
+        if limit_denominator is not None and position.free_count:
+            parameters = FracVector([value.limit_denominator(limit_denominator) for value in parameters.to_fractions()])
         moment = None if site_moments is None else _orbit_moment(site_moments, members, species, position, cell)
         wyckoff_sites.append(WyckoffSite(position.letter, parameters, species, moment=moment))
 
@@ -617,6 +650,31 @@ def _group_into_orbits(
     return ASUStructure(
         cell, standard, wyckoff_sites, view.species, transform, view.sites.precision, charge=view.charge
     )
+
+
+def _orbit_average(
+    anchor: FracVector,
+    at_point: dict[tuple[fractions.Fraction, ...], FracVector],
+    operations: Sequence[tuple[AffineOperation, FracVector]],
+) -> FracVector:
+    """Average an orbit's measured members onto one point through every operation of the group.
+
+    Each operation ``x -> W x + w`` maps the anchor (the representative's snapped point) exactly onto
+    a generated orbit point; the member matched to that point, in its image nearest it, differs from
+    it by ``d``, and ``W^-1 d`` is that member pulled back next to the anchor. The exact mean of these
+    points is invariant under the anchor's site symmetry, so it lies on the anchor's Wyckoff position.
+
+    :param anchor: The representative's snapped point.
+    :param at_point: The measured member matched to each normalized orbit point.
+    :param operations: Every operation of the group in the setting, with the transposed inverse of
+        its matrix (the form a row coordinate is multiplied by).
+    :return: The averaged point.
+    """
+    total = FracVector.zeros((3,))
+    for operation, inverse in operations:
+        target = operation.apply(anchor).normalize()
+        total = total + (at_point[tuple(target.to_fractions())] - target).normalize_half() * inverse
+    return anchor + total * fractions.Fraction(1, len(operations))
 
 
 def _orbit_moment(
