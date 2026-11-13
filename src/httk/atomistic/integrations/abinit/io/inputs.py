@@ -340,7 +340,9 @@ def _geometry(values: Variables, units: Units) -> dict[str, Any]:
             "exact ABINIT frame, and scalecart scales its Cartesian components"
         )
     else:
-        # Same lengths and angles as ABINIT's cell, in the CellParams frame; fractional sites do not see the frame.
+        # Same lengths and angles as ABINIT's cell, in CellParams' frame: the standard one, or for three
+        # equal angles the symmetric one, which is ABINIT's (trigonal axis along z). Fractional sites do
+        # not see the frame.
         payload["cell_parameters"] = [_entry(token, "acell") for token in acell_tokens] + [
             _entry(token, "angdeg") for token in angdeg
         ]

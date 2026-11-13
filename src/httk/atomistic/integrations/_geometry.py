@@ -19,12 +19,14 @@ it for their writers. The payload is a mapping with these keys:
     rational approximation of the basis. Its precision derives from the digits of the three
     length tokens only. A fully periodic structure keeps the parameters as its cell, so its
     lengths and angles are exactly the given ones; a partially periodic one keeps only the
-    (possibly approximated) basis, since lattice parameters carry no periodicity. Cartesian
-    positions are interpreted in the *CellParams frame* and reduced through that basis:
-    ``a`` along +x, ``b`` in the xy plane with positive y, and ``c`` with positive z
-    (right-handed). A format whose lattice-parameter convention uses another frame must
-    give Cartesian positions with an explicit ``cell`` instead. With an approximated basis
-    the site precision also covers the approximation (see below).
+    (possibly approximated) standard-frame basis, since lattice parameters carry no periodicity. Cartesian
+    positions are interpreted in the *standard frame* and reduced through CellParams' standard
+    basis: ``a`` along +x, ``b`` in the xy plane with positive y, and ``c`` with positive z
+    (right-handed). That is the cell's own frame except for an approximated rhombohedral-axes
+    cell, which CellParams orients symmetrically; the fractional sites do not see the frame.
+    A format whose lattice-parameter convention uses another frame must give Cartesian
+    positions with an explicit ``cell`` instead. With an approximated basis the site
+    precision also covers the approximation (see below).
 ``cell_unit``
     ``"angstrom"`` or ``"bohr"``.
 ``bohr_angstrom``
@@ -92,7 +94,7 @@ from httk.atomistic.integrations.vasp.io.poscar_writer import _write_poscar_payl
 from httk.atomistic.io import _check_load_precision
 from httk.atomistic.models._vector_guards import to_surdscalar
 from httk.atomistic.models.cell.cell import Cell
-from httk.atomistic.models.cell.params import CellParams
+from httk.atomistic.models.cell.params import CellParams, _params_to_basis
 from httk.atomistic.models.cell.view import CellView
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
@@ -375,9 +377,14 @@ def _unitcell(data: Mapping[str, Any]) -> UnitcellStructure:
             override_sites = fractions.Fraction(str(override)) / max(params[:3])
         else:
             precision = None if cell_claim is None else cell_claim * cell_scale
-        # Kept as the parameters (exact lengths and angles), as CIF keeps them.
-        cell = CellView(CellParams(params, precision=precision))
-        raw_basis = cell.basis  # in Å
+        raw_basis = _params_to_basis(tuple(params), standard=True)  # in Å, the frame of Cartesian positions
+        # Kept as the parameters (exact lengths and angles), as CIF keeps them. Parameters carry no
+        # periodicity, so a partially periodic cell keeps only the basis, in that frame.
+        cell = (
+            CellView(CellParams(params, precision=precision))
+            if all(periodicity)
+            else Cell(raw_basis, precision=precision)
+        )
         position_factor = _unit_scale(data, "positions_unit") if cartesian else fractions.Fraction(1)
         if cartesian:
             basis_error = _approximation_error(raw_basis, params)

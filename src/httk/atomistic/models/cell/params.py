@@ -25,18 +25,52 @@ def _rsin(deg: fractions.Fraction) -> fractions.Fraction:
     return fractions.Fraction(exactmath.sin(deg, degrees=True, prec=_PARAMS_PREC, limit=False, exact=False))
 
 
-def _params_to_basis(params: tuple[fractions.Fraction, ...]) -> SurdVector:
+def _rhombohedral_basis(a: fractions.Fraction, alpha: fractions.Fraction) -> SurdVector:
     """
-    Build the standard-orientation cell basis from ``(a, b, c, alpha, beta, gamma)``.
+    The symmetric basis of the rhombohedral-axes cell ``(a, a, a, alpha, alpha, alpha)``.
 
-    First cell vector along x, second in the xy-plane. When all of ``cos(alpha)``, ``cos(beta)``,
-    ``cos(gamma)``, ``sin(gamma)`` are exact in the surd field (Niven angles) AND the resulting
+    The threefold axis is along z: ``v_k = a (r cos phi_k, r sin phi_k, h)`` for ``phi_k = 0, 120,
+    240`` degrees, with the rational point ``h = (1 - t**2)/(1 + t**2)``, ``r = 2t/(1 + t**2)`` on
+    the unit circle. So ``|v_k|**2 == a**2`` and ``v_i . v_j == a**2 (h**2 - r**2/2)`` exactly, and
+    the entries lie in Q(sqrt(3)). The rational ``t`` solves ``h**2 - r**2/2 = cos(alpha)``, i.e.
+    ``h = sqrt((1 + 2 cos(alpha))/3)`` and ``t = sqrt((1 - h)/(1 + h))``, with each of the cosine
+    and the two roots rounded within ``_PARAMS_PREC / 16``; the realized cosine
+    ``h**2 - r**2/2`` is then within ``_PARAMS_PREC`` of ``cos(alpha)``.
+    """
+    prec = _PARAMS_PREC / 16
+    cos_a = fractions.Fraction(exactmath.cos(alpha, degrees=True, prec=prec, limit=False, exact=False))
+    h = fractions.Fraction(exactmath.sqrt((1 + 2 * cos_a) / 3, prec=prec, limit=False, exact=False))
+    t = fractions.Fraction(exactmath.sqrt((1 - h) / (1 + h), prec=prec, limit=False, exact=False))
+    ar, ah = a * 2 * t / (1 + t * t), a * (1 - t * t) / (1 + t * t)
+
+    def scalar(value: fractions.Fraction, radicand: int = 1) -> SurdScalar:
+        return SurdVector.from_radicand_map({radicand: value})._as_scalar()
+
+    grid = [
+        [scalar(ar), scalar(fractions.Fraction(0)), scalar(ah)],
+        [scalar(-ar / 2), scalar(ar / 2, 3), scalar(ah)],
+        [scalar(-ar / 2), scalar(-ar / 2, 3), scalar(ah)],
+    ]
+    return SurdVector._from_scalar_grid(grid, (3, 3))
+
+
+def _params_to_basis(params: tuple[fractions.Fraction, ...], *, standard: bool = False) -> SurdVector:
+    """
+    Build the cell basis from ``(a, b, c, alpha, beta, gamma)``.
+
+    Standard orientation: first cell vector along x, second in the xy-plane. When all of
+    ``cos(alpha)``, ``cos(beta)``, ``cos(gamma)``, ``sin(gamma)`` are exact in the surd field (Niven
+    angles) AND the resulting
     ``cz**2`` is rational, the basis is exact (radicals intact). Otherwise it falls back
     **completely** to a deterministic rational matrix — never mixing surd and approximate entries.
     In that fallback a cosine or sine whose value is rational (0, ±1/2 or ±1, e.g. ``cos 90°``,
     ``cos 120°``, ``sin 30°``) is exact, and only the irrational ones are approximated at
     ``_PARAMS_PREC``, so a monoclinic cell keeps its exact zeros. A rhombohedral-axes cell does not
-    keep equal edge lengths there: ``sin(gamma)`` and ``cz`` are approximated separately.
+    keep equal edge lengths there (``sin(gamma)`` and ``cz`` are approximated separately), so unless
+    ``standard`` is set such a cell (``a == b == c``, ``alpha == beta == gamma``) is instead given
+    the symmetric orientation of :func:`_rhombohedral_basis`, with exactly equal edges and angles.
+    ``standard=True`` is for Cartesian data stated in the standard frame (CP2K coordinates, mCIF
+    Cartesian moments).
     """
     a, b, c, alpha, beta, gamma = params
     cos_a = SurdScalar.cos_degrees(alpha)
@@ -58,6 +92,8 @@ def _params_to_basis(params: tuple[fractions.Fraction, ...]) -> SurdVector:
                 [(cv * cos_b)._as_scalar(), (cv * cy)._as_scalar(), cz],
             ]
             return SurdVector._from_scalar_grid(grid, (3, 3))
+    if not standard and a == b == c and alpha == beta == gamma:
+        return _rhombohedral_basis(a, alpha)
     # Fully deterministic rational fallback (a non-Niven angle, or an irrational cz**2).
     ca, cb, cg = _rcos(alpha), _rcos(beta), _rcos(gamma)
     sg = _rsin(gamma)
@@ -83,7 +119,11 @@ class CellParams(CellBackend):
     cached using the standard crystallographic orientation convention (first cell vector along x,
     second in the xy-plane); for the common Niven angles it is exact (radicals intact), and
     otherwise a deterministic rational approximation in which the cosines and sines that are 0,
-    ±1/2 or ±1 stay exact, so a monoclinic cell keeps its right angles. Since
+    ±1/2 or ±1 stay exact, so a monoclinic cell keeps its right angles. The exception is a
+    rhombohedral-axes cell (``a == b == c``, ``alpha == beta == gamma``) that would be
+    approximated: it gets the symmetric orientation instead, the threefold axis along z and the
+    first vector in the xz-plane, with exactly equal edge lengths and angles (entries in
+    Q(sqrt(3)), the common cosine within ``1e-10``), so its metric keeps the threefold axis. Since
     parameters carry no separate length factor, ``scale`` is the exact ``1`` and
     ``unscaled_basis == basis``. Parameters carry neither orientation nor periodicity, so a cell
     → parameters → cell round-trip reproduces lengths and angles, and reproduces volume only for
@@ -146,7 +186,8 @@ class CellParams(CellBackend):
     def basis(self) -> SurdVector:
         """Return the basis derived from the stored parameters.
 
-        :return: The standard-orientation cell vectors.
+        :return: The cell vectors, in the standard orientation except for an approximated
+            rhombohedral-axes cell (see the class docstring).
         """
         if self._basis_cache is None:
             self._basis_cache = _params_to_basis(self._params)

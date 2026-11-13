@@ -5,9 +5,10 @@ from collections.abc import Callable, Mapping
 from fractions import Fraction
 from typing import Any
 
-from httk.core import FracVector
+from httk.core import FracVector, SurdVector
 
 from httk.atomistic.models.cell.cell import Cell
+from httk.atomistic.models.cell.params import _params_to_basis
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.moments.crystalaxis import CrystalAxisSiteMoments
 from httk.atomistic.models.sites.sites import Sites
@@ -206,6 +207,11 @@ def _moments(data: Mapping[str, Any], cell: Cell) -> Any:
     if basis == "crystalaxis":
         return CrystalAxisSiteMoments(exact_rows, cell, precision=precision)
     if basis == "cartesian":
+        # mCIF's Cartesian frame is the standard one (a along x, b in the xy-plane), which is the
+        # cell's own frame except for an approximated rhombohedral-axes cell: rotate into that.
+        standard = _params_to_basis(tuple(Fraction(value) for value in data["cell_parameters_exact"]), standard=True)
+        if standard != cell.basis:
+            return CartesianSiteMoments(SurdVector(exact_rows) * standard.inv() * cell.basis, precision=precision)
         return CartesianSiteMoments(exact_rows, precision=precision)
     raise ValueError(f"unsupported mCIF moment basis {basis!r}")
 

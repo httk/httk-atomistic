@@ -13,7 +13,9 @@ object and are inspected with exactly the same code:
 2. **Cell parameters** — the flat 6-tuple
    $(a, b, c, \\alpha, \\beta, \\gamma)$, angles in degrees, accepted directly by
    `Cell` and `UnitcellStructure`. A basis is built for you using the standard
-   orientation convention: $\\mathbf{a}$ along $x$, $\\mathbf{b}$ in the $xy$-plane.
+   orientation convention: $\\mathbf{a}$ along $x$, $\\mathbf{b}$ in the $xy$-plane
+   (a rhombohedral-axes cell whose angle has no exact cosine is instead built with
+   its threefold axis along $z$, which keeps its three edges exactly equal).
 3. **An spglib-style triple** — `(lattice, positions, numbers)`, the shape
    symmetry libraries speak. `UnitcellStructureView` presents it as a `UnitcellStructure`,
    inventing one species per distinct atomic number.

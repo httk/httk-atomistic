@@ -173,9 +173,9 @@ def test_inexact_angdeg_uses_lattice_parameters() -> None:
     cos_beta = sum(x * y for x, y in zip(basis[0], basis[2])) / (4 * 6)
     assert math.degrees(math.acos(cos_beta)) == pytest.approx(104.5, abs=1e-8)
     assert _load_text("acell 3*10 Angstrom angdeg 3*70 znucl 6").cell.lengths == (10, 10, 10)
-    # In Bohr the CellParams approximation reaches the b and c lengths (~1e-11 Å; see the report).
-    bohr = [float(length) for length in _load_text("acell 3*10 angdeg 3*70 znucl 6").cell.lengths]
-    assert bohr == pytest.approx([10 * float(BOHR)] * 3, abs=1e-9)
+    # Equal angles give CellParams' symmetric rhombohedral cell (ABINIT's frame too), whose
+    # lengths are exact in Bohr as well.
+    assert _load_text("acell 3*10 angdeg 3*70 znucl 6").cell.lengths == (10 * BOHR,) * 3
 
 
 @pytest.mark.parametrize(

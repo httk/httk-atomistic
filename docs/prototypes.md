@@ -1098,7 +1098,7 @@ their content identity. There are three versions, one per family:
 
 A label-rule change therefore bumps all three, while a change to the
 representative or to the net leaves the other families' records untouched. The
-label version is 4, the refined version 8 and the net version 6, since species
+label version is 4, the refined version 9 and the net version 6, since species
 classes replaced species names in every label, the hand is kept in Sohncke
 groups at every level, labels that could not be determined within the time
 budget are stored with an `X` marker, and species-class concentrations are
@@ -1107,7 +1107,8 @@ cell, the recorded precision taken from the least valid derivation of the source
 and the free parameters of a recognized orbit as the exact group average of its
 members (with both hands competing where the measured cell does not keep the group)
 and cells built from parameters whose rational cosines and sines (0, ±1/2, ±1) are
-exact where the others are approximated, and the net version the bond shapes and
+exact where the others are approximated, with an approximated rhombohedral-axes cell
+built in the symmetric orientation that keeps its threefold axis exactly, and the net version the bond shapes and
 the listing order of the net segment.
 Any change that can change a shape the baseline detects (the defaults table, the
 ideal shapes or their order, the thresholds, the misfit rounding, the tie order,

@@ -66,7 +66,10 @@ def read_cp2k_input(source: Any, *, precision: float | None = None) -> dict[str,
     The geometry is the single ``&FORCE_EVAL/&SUBSYS`` section (or a file holding just one
     ``&SUBSYS`` block, as the ``cp2k-input`` writer produces): ``&CELL`` from ``A``/``B``/``C``
     vectors or ``ABC`` with ``ALPHA_BETA_GAMMA`` (payload ``cell_parameters``, built as for
-    CIF in CP2K's frame: ``a`` along x, ``b`` in the xy plane), ``PERIODIC``, ``&COORD`` (Cartesian or
+    CIF; Cartesian rows are read in CP2K's frame, ``a`` along x, ``b`` in the xy plane, which is
+    also the cell's frame except for a fully periodic rhombohedral-axes cell whose angle has no
+    exact cosine: that cell gets the symmetric basis of exact surds in Q(sqrt(3)), threefold axis
+    along z), ``PERIODIC``, ``&COORD`` (Cartesian or
     ``SCALED``), and each atom's element from its ``&KIND`` ``ELEMENT`` keyword or else its
     kind name. Lengths must be in Å, CP2K's default. Keyword names are case-insensitive;
     ``!``/``#`` comments and ``\\`` line continuations are honoured.
@@ -250,8 +253,8 @@ def _cell(subsys: _Section) -> tuple[dict[str, Any], list[bool]]:
     lengths = _values(abc, "ABC", "angstrom")
     found = cell.keyword("ALPHA_BETA_GAMMA")
     angles = ["90", "90", "90"] if found is None else _values(found, "ALPHA_BETA_GAMMA", "deg")
-    # CellParams' frame (a along +x, b in the xy plane, c with positive z) is CP2K's, so
-    # Cartesian &COORD rows are meant in it too.
+    # CP2K's frame (a along +x, b in the xy plane, c with positive z) is CellParams' standard
+    # frame, through which the payload reduces Cartesian &COORD rows.
     return {"cell_parameters": lengths + angles}, periodicity
 
 

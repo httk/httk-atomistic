@@ -53,13 +53,19 @@ Compressed files (`.gz`, `.bz2`) are decompressed.
 
 - `&CELL`: either the `A`, `B` and `C` vectors, or `ABC` with
   `ALPHA_BETA_GAMMA` (default `90 90 90`). Lattice parameters are built as for
-  CIF files, in CP2K's own frame (a along +x, b in the xy plane, c with positive
-  z), so Cartesian `&COORD` rows mean what CP2K means. Angles with exact cosines
-  (60, 90, 120 degrees, ...) give an exact cell, with square roots kept exactly;
-  other angles (say a monoclinic 104.5) give a deterministic rational
-  approximation of the cell vectors within about 1e-10 Å. A fully periodic
-  cell keeps the exact lengths and angles as written; with a `PERIODIC` other
-  than `XYZ` only the cell vectors are kept. `PERIODIC` (`XYZ` by default, also `XY`,
+  CIF files, and Cartesian `&COORD` rows are read in CP2K's own frame (a along
+  +x, b in the xy plane, c with positive z), so they mean what CP2K means.
+  Angles with exact cosines (60, 90, 120 degrees, ...) give an exact cell in
+  that frame, with square roots kept exactly; other angles (say a monoclinic
+  104.5) give a deterministic rational approximation of the cell vectors within
+  about 1e-10 Å. A fully periodic cell keeps the exact lengths and angles as
+  written; with a `PERIODIC` other than `XYZ` only the cell vectors are kept, in
+  CP2K's frame. The exception is a fully periodic rhombohedral-axes cell
+  (`ABC a a a`, `ALPHA_BETA_GAMMA α α α`) whose angle has no exact cosine: like
+  every cell built from these parameters it gets the symmetric basis, threefold
+  axis along z, with exactly equal lengths and angles and entries that are exact
+  surds in Q(√3); the whole crystal is then rotated out of CP2K's frame, and its
+  fractional sites are unchanged. `PERIODIC` (`XYZ` by default, also `XY`,
   `XZ`, `YZ`, `X`, `Y`, `Z`, `NONE`) becomes the cell's `periodicity`.
 - `&COORD`: one `kind x y z` line per atom, Cartesian Å or fractional with
   `SCALED .TRUE.` (also `SCALED` alone, or `T`). A fifth (molecule-name) column

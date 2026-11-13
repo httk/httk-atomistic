@@ -87,6 +87,18 @@ def test_abc_rhombohedral_and_default_angles(tmp_path: Path) -> None:
     assert cubic.cell.basis == SurdVector([[2, 0, 0], [0, 3, 0], [0, 0, 4]])
 
 
+def test_abc_approximated_rhombohedral_reads_cartesian_rows_in_cp2k_frame(tmp_path: Path) -> None:
+    # the cell is oriented symmetrically, but &COORD rows are meant along CP2K's a = x axis
+    structure = _load(tmp_path, _input("ABC 5 5 5\nALPHA_BETA_GAMMA 57.3 57.3 57.3", "C 2.5 0 0"))
+    assert structure.sites.reduced_coords.to_fractions() == [[Fraction(1, 2), 0, 0]]
+    assert structure.cell.lengths == (5, 5, 5)
+    # partially periodic: only the basis is kept, in CP2K's frame, so the site stays on x
+    slab = _load(tmp_path, _input("ABC 5 5 5\nALPHA_BETA_GAMMA 57.3 57.3 57.3\nPERIODIC XY", "C 2.5 0 0"))
+    assert slab.cell.periodicity == (True, True, False)
+    assert slab.cell.basis.to_floats()[0][1:] == [0, 0]
+    assert slab.cartesian_sites() == SurdVector([[Fraction(5, 2), 0, 0]])
+
+
 def test_abc_monoclinic_cartesian_round_trip(tmp_path: Path) -> None:
     # 104.5 degrees has no exact cosine: CellParams' rational approximation of the basis, in
     # CP2K's frame (a along x, b in the xy plane), with the site precision covering it.

@@ -124,8 +124,9 @@ opposite sides of a special position from both being snapped onto it.
 Cell lengths and angles are retained as their exact CIF parameters. For angles outside the
 exact surd trigonometric set, the Cartesian basis remains the cell backend's documented
 deterministic rational approximation, in which the rational cosines and sines (0, ±1/2, ±1) are
-not approximated, so right angles stay exact; the original parameter backend remains
-recoverable.
+not approximated, so right angles stay exact (a rhombohedral-axes cell is instead built in its
+symmetric orientation, with exactly equal edges and angles); the original parameter backend
+remains recoverable.
 
 ## Dummy sites and attached hydrogens
 

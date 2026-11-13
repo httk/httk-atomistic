@@ -85,7 +85,8 @@ The `cell`, `sites`, and `species` components each get the same view/backend tre
   `volume`. The params representation is a flat `(a, b, c, alpha, beta, gamma)` 6-tuple
   (angles in degrees): a cell can be constructed from parameters anywhere a `CellLike` is
   accepted (the basis is built with the standard orientation convention — first vector
-  along x, second in the xy-plane), and `CellParamsView` presents any cell as its
+  along x, second in the xy-plane — except for an approximated rhombohedral-axes cell, see
+  below), and `CellParamsView` presents any cell as its
   parameters, with the elements also available as the named properties `a`/`b`/`c`/
   `alpha`/`beta`/`gamma`. Note that parameters carry no orientation, so cell → params →
   cell reproduces lengths, angles, and volume but not the original orientation.
@@ -243,10 +244,24 @@ A cell built from parameters is exact when every angle has an exact cosine (a mu
 never a mix of surds and approximations; in it a cosine or sine whose value is 0, ±1/2 or ±1
 (`cos 90°`, `sin 90°`, `cos 120°`, `sin 30°`) is still exact, and only the irrational ones are
 approximated. A monoclinic cell with a 104.5° angle therefore keeps its right angles exactly, and
-its metric is exactly invariant under the group's operations. A rhombohedral-axes cell
-(`a = b = c`, `α = β = γ`) with an approximated basis does not: the sines and `cz` are
-approximated separately, so its three edges are not exactly equally long and its metric breaks
-the threefold axis by about `1e-11` of the squared edge length.
+its metric is exactly invariant under the group's operations.
+
+A rhombohedral-axes cell (`a = b = c`, `α = β = γ`) that would be approximated is the one
+exception to the standard orientation: in it the sines and `cz` would be approximated separately,
+so its three edges would not be exactly equally long. It is built in the symmetric orientation
+instead, with the threefold axis along z and the first vector in the xz-plane:
+`vₖ = a (r cos φₖ, r sin φₖ, h)` for `φₖ = 0°, 120°, 240°`, where `(h, r)` is a rational point
+on the unit circle (`h = (1 − t²)/(1 + t²)`, `r = 2t/(1 + t²)`, `t` rational). The edges are
+then exactly `a` long and meet at one exactly common angle, whose cosine `h² − r²/2` is within
+`1e-10` of `cos α`; the entries lie in Q(√3), and the metric keeps the threefold axis exactly.
+This is ABINIT's orientation for equal `angdeg`. Readers of Cartesian data stated in the
+standard frame (CP2K `&COORD` rows, mCIF Cartesian moments) convert it into this orientation.
+
+Cartesian data you supply yourself together with such a cell is read in the symmetric frame:
+`CartesianSiteMoments` on a structure whose cell is `Cell([a, a, a, α, α, α])` or a
+`CellParams`, and `CartesianSites(coords, CellParams((a, a, a, α, α, α)).basis)`. Before this
+orientation was introduced they were read in the standard frame. To state Cartesian data in the
+standard frame (or any other), give the cell as an explicit 3×3 basis in that frame.
 
 ## The numeric layer: plain floats and numpy
 

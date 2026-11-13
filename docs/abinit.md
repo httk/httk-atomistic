@@ -58,11 +58,15 @@ along *z* for three equal angles, otherwise the first vector along *x*)
 whenever that construction is exact: angles of 30, 45, 60, 90, 120, 135 or
 150 degrees whose square roots stay simple surds. Other angles, such as
 `angdeg 90 104.5 90`, are read as lattice parameters (`acell` lengths,
-`angdeg` angles) and built as for CIF: the lengths and angles are ABINIT's
-(with lengths in Bohr the approximation also shifts *b* and *c* by about
-1e-11 Å), the basis is a deterministic rational approximation (about 1e-10) in the
+`angdeg` angles) and built as for CIF: the lengths and angles are ABINIT's,
+the basis is a deterministic rational approximation (about 1e-10) in the
 lattice-parameter frame (*a* along *x*, *b* in the *xy* plane), and the cell
-precision comes from the digits of the `acell` tokens. Fractional positions
+precision comes from the digits of the `acell` tokens. Three equal such angles
+(`angdeg 3*70`) instead give the symmetric rhombohedral cell that all cells
+built from parameters use for these angles: ABINIT's own frame (trigonal axis
+along *z*), with exactly equal lengths (in Bohr too) meeting at one exactly
+common angle within about 1e-10 of the given one, and entries that are exact
+surds in Q(√3). Fractional positions
 do not depend on the frame. Cartesian positions (`xcart`, `xangst`) and a
 `scalecart` other than `3*1` do, so with such angles they are refused; give
 an explicit `rprim` instead.

@@ -4,7 +4,7 @@ from fractions import Fraction
 from pathlib import Path
 
 import pytest
-from httk.core import load
+from httk.core import SurdVector, load
 
 from httk.atomistic import ModulatedStructure, SymopsStructure, UnitcellStructureView
 from httk.atomistic.io.cif.mcif_parser import cifblock_to_mag_asu
@@ -38,6 +38,24 @@ def test_cartesian_mcif_preserves_source_kind_and_exact_values() -> None:
     assert isinstance(structure, SymopsStructure)
     assert structure.site_moments.kind == "cartesian"
     assert _moment_rows(UnitcellStructureView(structure).site_moments) == ((1, 2, 3),)
+
+
+def test_cartesian_mcif_moments_stay_in_the_standard_frame_of_a_rhombohedral_cell() -> None:
+    # mCIF's Cartesian x is along a; an approximated rhombohedral-axes cell is oriented
+    # symmetrically, so the moment is rotated with it and stays along a
+    block = {
+        "format": "mcif",
+        "cell_parameters_exact": ("5", "5", "5", "57.3", "57.3", "57.3"),
+        "positions_exact": [("0", "0", "0")],
+        "symbols": ["Fe"],
+        "labels": ["Fe1"],
+        "symops_xyz": ("x,y,z,+1",),
+        "moment_basis": "cartesian",
+        "magmoms_exact": (("2", "0", "0"),),
+    }
+    structure = symops_structures_from_mcif(block)[0]
+    moments = structure.site_moments.cartesian_moments
+    assert moments * structure.cell.basis.inv() == SurdVector([[Fraction(2, 5), 0, 0]])
 
 
 def test_incommensurate_block_loads_as_modulated_structure() -> None:

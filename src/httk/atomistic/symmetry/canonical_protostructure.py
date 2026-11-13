@@ -1142,10 +1142,10 @@ def _canonical_protostructure_assignments_asu(
     whose improper operations are not exact isometries of the cell (:func:`_metric_keeps_group`):
     a recognized ASU keeps its measured cell, whose metric then cannot identify the hands. The
     test is exact. A cell built from parameters keeps the right angles and 120° angles its group
-    fixes exactly, so among the repository fixtures it fires only for cod/1001844 (P1 as stored,
-    recognized in a higher group), where the mirrored hand's representative wins. It still fires
-    for a rhombohedral-axes cell built from parameters with an approximated basis (an angle with no
-    exact cosine, or an irrational ``cz**2``), whose edges are not exactly equally long.
+    fixes exactly, and an approximated rhombohedral-axes cell is built in its symmetric orientation
+    with exactly equal edges and angles, so among the repository fixtures it fires only for
+    cod/1001844 (P1 as stored, recognized in a higher group), where the mirrored hand's
+    representative wins.
     """
     if not isinstance(structure, ASUStructure):
         raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")

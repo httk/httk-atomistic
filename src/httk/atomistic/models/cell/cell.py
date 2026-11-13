@@ -56,7 +56,8 @@ class Cell(CellBackend):
 
     The constructor accepts any cell-like value: a 3x3 basis (one cell vector per row), the six
     cell parameters ``(a, b, c, alpha, beta, gamma)`` in degrees (built through
-    :class:`~httk.atomistic.models.cell.params.CellParams` in the standard orientation, so
+    :class:`~httk.atomistic.models.cell.params.CellParams` in the standard orientation, or the
+    symmetric one for an approximated rhombohedral-axes cell, so
     ``Cell([3, 3, 5, 90, 90, 120])`` is the exact hexagonal cell), or another cell backend or
     view, whose ``scale``, ``precision`` and ``periodicity`` are adopted unless given explicitly.
 

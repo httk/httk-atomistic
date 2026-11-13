@@ -12,6 +12,8 @@ import pytest
 from httk.core import FracVector, SurdVector
 
 from httk.atomistic import ASUStructure, Cell, CellParams, Sites, UnitcellStructure
+from httk.atomistic.models.cell.params import _params_to_basis
+from httk.atomistic.symmetry.canonical_classification import canonical_bare_protostructure
 from httk.atomistic.symmetry.canonical_protostructure import _metric_keeps_group
 
 F = fractions.Fraction
@@ -47,8 +49,9 @@ def test_rhombohedral_60_exact_reconstruction() -> None:
 
 
 def test_non_niven_angle_falls_back_deterministically() -> None:
-    first = CellParams((1, 1, 1, 73, 73, 73)).basis
-    second = CellParams((1, 1, 1, 73, 73, 73)).basis
+    # c differs from a and b, so not rhombohedral axes: the standard-orientation fallback
+    first = CellParams((1, 1, F(11, 10), 73, 73, 73)).basis
+    second = CellParams((1, 1, F(11, 10), 73, 73, 73)).basis
     # The deterministic rational fallback is byte-identical across calls.
     assert first == second
     # ...and matches the float reference reconstruction to a tight tolerance.
@@ -58,7 +61,7 @@ def test_non_niven_angle_falls_back_deterministically() -> None:
     floats = first.to_floats()
     assert floats[1][0] == pytest.approx(ca, abs=1e-9)
     assert floats[1][1] == pytest.approx(sg, abs=1e-9)
-    assert floats[2][1] == pytest.approx(cy, abs=1e-9)
+    assert floats[2][1] == pytest.approx(1.1 * cy, abs=1e-9)
 
 
 def test_rational_fallback_keeps_the_rational_cosines_and_sines_exact() -> None:
@@ -74,15 +77,59 @@ def test_rational_fallback_keeps_the_rational_cosines_and_sines_exact() -> None:
     assert hexagonal.radicands == (1,) and hexagonal.coefficient(1).to_fractions()[1][0] == F(-3, 2)
 
 
-@pytest.mark.xfail(strict=True, reason="accepted limit: an approximated rhombohedral basis has unequal edges")
-@pytest.mark.parametrize("angle", [F("57.3"), F(72), F(75)])
+@pytest.mark.parametrize("angle", [F("57.3"), F(72), F(75), F("109.4712206"), F("119.9"), F(1, 3)])
 def test_approximated_rhombohedral_metric_keeps_the_threefold_axis(angle: F) -> None:
-    # a non-Niven angle, or Niven angles with an irrational cz**2: the fallback approximates sin
-    # and cz separately, so |b|**2 and |c|**2 differ from |a|**2 by about 1e-11 relative
+    # a non-Niven angle, or Niven angles with an irrational cz**2: the symmetric orientation gives
+    # three edges of exactly the stated length at one exactly common angle, within 1e-10 in cosine
     basis = CellParams((5, 5, 5, angle, angle, angle)).basis
     metric = basis * basis.T()
     threefold = SurdVector([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
     assert threefold.T() * metric * threefold == metric
+    assert metric.is_rational and basis.det().sign() > 0
+    gram = metric.coefficient(1).to_fractions()
+    assert gram[0][0] == 25
+    assert abs(gram[0][1] / 25 - F(math.cos(math.radians(angle)))) < F(1, 10**10)
+    # the standard orientation, for Cartesian data stated in it, is still available
+    assert _params_to_basis((F(5), F(5), F(5), angle, angle, angle), standard=True).to_floats()[0][1:] == [0, 0]
+
+
+_R3M = "x,y,z z,x,y y,z,x -z,-y,-x -y,-x,-z -x,-z,-y -x,-y,-z -z,-x,-y -y,-z,-x z,y,x y,x,z x,z,y"
+_R3C = (
+    "x,y,z z,x,y y,z,x -z+1/2,-y+1/2,-x+1/2 -y+1/2,-x+1/2,-z+1/2 -x+1/2,-z+1/2,-y+1/2 "
+    "-x,-y,-z -z,-x,-y -y,-z,-x z+1/2,y+1/2,x+1/2 y+1/2,x+1/2,z+1/2 x+1/2,z+1/2,y+1/2"
+)
+
+
+@pytest.mark.parametrize(
+    ("a", "angle", "operations", "sites", "label"),
+    [
+        ("4.7459", "57.23", _R3M, ["Bi1 Bi 0.2339 0.2339 0.2339"], "A_hR2_166_c:Bi"),
+        ("4.5", "72", _R3M, ["Sb1 Sb 0.233 0.233 0.233"], "A_hR2_166_c:Sb"),
+        (
+            "5.128",
+            "55.28",
+            _R3C,
+            ["Al1 Al 0.3523 0.3523 0.3523", "O1 O 0.5561 -0.0561 0.25"],
+            "A3B2_hR10_167_e_c:O-Al",
+        ),
+    ],
+    ids=("Bi", "Sb", "Al2O3"),
+)
+def test_rhombohedral_axes_cif_keeps_its_group_exactly(
+    tmp_path: Path, a: str, angle: str, operations: str, sites: list[str], label: str
+) -> None:
+    # a CIF on rhombohedral axes (:R) with an angle that has no exact cosine (or 72 degrees)
+    lines = ["data_r"] + [f"_cell_length_{axis} {a}" for axis in "abc"]
+    lines += [f"_cell_angle_{name} {angle}" for name in ("alpha", "beta", "gamma")]
+    lines += ["loop_", "_symmetry_equiv_pos_as_xyz", *operations.split()]
+    lines += ["loop_", "_atom_site_label", "_atom_site_type_symbol"]
+    lines += [f"_atom_site_fract_{axis}" for axis in "xyz"] + sites
+    path = tmp_path / "r.cif"
+    path.write_text("\n".join(lines) + "\n")
+    structure = httk.core.load(str(path))
+    assert isinstance(structure, ASUStructure)
+    assert _metric_keeps_group(structure)
+    assert str(canonical_bare_protostructure(structure).label) == label
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
