@@ -41,6 +41,7 @@ from httk.core.storage import stored_property
 
 from httk.atomistic._composition_values import normalization
 from httk.atomistic.composition import Assembly, project_composition, validate_assemblies
+from httk.atomistic.entries.bonds import bond_definitions
 from httk.atomistic.entries.precision import precision_definitions
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.formula.composition import Composition
@@ -50,6 +51,7 @@ from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.models.structure.network import BondNetwork, SiteBond, _checked_cell_network
 from httk.atomistic.models.structure.semantics import (
     _ELEMENTS,
     _FORMULA_TOKEN,
@@ -59,6 +61,7 @@ from httk.atomistic.models.structure.semantics import (
     validate_descriptive_formula,
     validate_hill_formula,
 )
+from httk.atomistic.symmetry.affine_operation import AffineOperation
 
 _STRUCTURES_DEFINITION_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 _COORDINATE_SPANS = frozenset(
@@ -88,6 +91,45 @@ def _is_definition_iri(value: object) -> bool:
         return bool(urlsplit(value).scheme)
     except ValueError:
         return False
+
+
+_BOND_KEYS = frozenset({"pairs", "shapes", "source", "shapes_source"})
+_PAIR_KEYS = frozenset({"site", "partner", "operation_xyz"})
+
+
+def _decoded_bond_network(raw: object) -> BondNetwork:
+    """Decode an ``_httk_bonds`` dictionary into a network (validated against its sites by the caller).
+
+    :param raw: The decoded JSON value.
+    :return: The network, with its sources.
+    :raises TypeError: If a value has the wrong JSON type.
+    :raises ValueError: If a key is missing or unknown, or an operation does not parse.
+    :raises ArithmeticError: If an operation divides by zero.
+    """
+    if not isinstance(raw, Mapping):
+        raise TypeError("expected a dictionary")
+    if unknown := set(raw) - _BOND_KEYS:
+        raise ValueError(f"unknown keys {sorted(map(str, unknown))!r}")
+    pairs = raw.get("pairs")
+    if not isinstance(pairs, tuple | list):
+        raise TypeError("'pairs' must be a list")
+    bonds = []
+    for pair in pairs:
+        if not isinstance(pair, Mapping) or set(pair) != _PAIR_KEYS:
+            raise ValueError(f"each pair must be a dictionary of exactly {sorted(_PAIR_KEYS)!r}")
+        site, partner, xyz = pair["site"], pair["partner"], pair["operation_xyz"]
+        if not isinstance(site, int) or not isinstance(partner, int) or not isinstance(xyz, str):
+            raise TypeError("a pair's 'site' and 'partner' must be integers and 'operation_xyz' a string")
+        bonds.append(SiteBond(site, partner, AffineOperation(xyz)))
+    shapes = raw.get("shapes")
+    if shapes is not None and not isinstance(shapes, tuple | list):
+        raise TypeError("'shapes' must be a list or null")
+    for key in ("source", "shapes_source"):
+        if raw.get(key) is not None and not isinstance(raw.get(key), Mapping):
+            raise TypeError(f"{key!r} must be a dictionary or null")
+    return BondNetwork(
+        tuple(bonds), None if shapes is None else tuple(shapes), raw.get("source"), raw.get("shapes_source")
+    )
 
 
 @dataclass(frozen=True, init=False)
@@ -1156,6 +1198,35 @@ class OptimadeStructure(StructureBackend):
             )
         rows = self._numeric_matrix(raw, property_name="_httk_site_moments", rows=nsites)
         return CartesianSiteMoments(rows)
+
+    @property
+    def bonds(self) -> BondNetwork | None:
+        """Expose the source bond network of a unit-cell span, read from ``_httk_bonds``.
+
+        The value is found through its definition ``$id`` where the info document names it, else
+        under ``_httk_bonds``, and is validated as a unit-cell structure validates its network.
+
+        :return: The network, or ``None`` when absent, null, or for any span other than
+            ``unit_cell`` and ``molecular_unit_cell`` (reading a symmetric span is not supported).
+        :raises httk.core.optimade.entries.IncompleteOptimadeResourceError: If the value is malformed.
+        """
+        return self._bonds
+
+    @cached_property
+    def _bonds(self) -> BondNetwork | None:
+        definition_id = bond_definitions()["_httk_bonds"].definition_id
+        name = self._remote_names_by_definition_id.get(definition_id, "_httk_bonds")
+        attributes = self.raw.get("attributes")
+        raw = attributes.get(name) if isinstance(attributes, Mapping) else None
+        if raw is None or self.site_coordinate_span not in _UNIT_CELL_SPANS:
+            return None
+        try:
+            network = _decoded_bond_network(raw)
+            return _checked_cell_network(network, len(self.species_at_sites), self.cell.periodicity)
+        except (TypeError, ValueError, ArithmeticError) as exc:
+            if isinstance(exc, IncompleteOptimadeResourceError):
+                raise
+            raise IncompleteOptimadeResourceError(f"OPTIMADE property {name!r} is invalid: {exc}") from exc
 
     @cached_property
     def symmetry(self) -> StructureSymmetry | None:

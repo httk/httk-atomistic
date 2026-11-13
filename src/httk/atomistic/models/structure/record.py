@@ -26,6 +26,7 @@ from httk.atomistic.storage.records import (
     _moment_from_record,
     _stored_floats,
     _symmetry_from_record,
+    _unitcell_network_from_record,
 )
 
 
@@ -283,11 +284,12 @@ class RecordStructure(StructureBackend):
     def bonds(self) -> BondNetwork | None:
         """Expose the bond network of the presented unit-cell sites.
 
-        :return: A domain record's network expanded to its unit cell; ``None`` for a unit-cell
-            record, which stores no network yet.
+        :return: A unit-cell record's network as stored, a domain record's expanded to its unit
+            cell, or ``None`` when the record has none.
         """
-        # FU7 P4: unit-cell records store their network
-        return None if self._is_unitcell else self._expanded.bonds
+        if isinstance(self._record, UnitcellStructureRecord):
+            return _unitcell_network_from_record(self._record)
+        return self._expanded.bonds
 
     @property
     def asu(self) -> ASUStructure | FundamentalDomainStructure | None:

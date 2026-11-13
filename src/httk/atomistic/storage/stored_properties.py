@@ -75,6 +75,7 @@ _STANDARD_PROPERTIES: tuple[str, ...] = (
     "wyckoff_positions",
     "structure_features",
     "_httk_site_moments",
+    "_httk_bonds",
     "optimization_type",
 )
 
@@ -282,12 +283,11 @@ def _domain_symmetry_value(record: Any, name: str) -> object:
         value = setting.record.get("hm_extended")
         return None if not value else " ".join(part.strip() for part in str(value).split("\n") if part.strip())
     if name == "space_group_symmetry_operations_xyz":
-        operations = (
-            tuple(transform.symop_to_setting(value) for value in spacegroup.symmetry_operations)
-            if setting is None
-            else setting.symmetry_operations
-        )
-        return [operation.wrapped().to_xyz() for operation in operations]
+        if setting is None:  # with the lattice cosets of a transform to a larger cell
+            from httk.atomistic.models.structure.asu import _setting_operations_xyz
+
+            return list(_setting_operations_xyz(spacegroup, transform))
+        return [operation.wrapped().to_xyz() for operation in setting.symmetry_operations]
     if name == "wyckoff_positions":
         if setting is None:
             return None
@@ -310,6 +310,34 @@ def _domain_symmetry_value(record: Any, name: str) -> object:
     if name == "_httk_setting_transform":
         return _setting_transform_payload(transform)
     raise AssertionError(f"unknown domain symmetry property: {name}")
+
+
+def _bonds_value(record: Any, backing: str) -> object:
+    """Serve ``_httk_bonds``: a unit-cell record's straight from its rows, a domain's through its structure."""
+    from httk.atomistic.entries.bonds import _network_payload, bond_properties
+    from httk.atomistic.storage.records import (
+        _IDENTITY_MATRIX,
+        _bond_source,
+        _domain_structure_from_record,
+        _network_rows,
+        _shapes_from_record,
+    )
+    from httk.atomistic.symmetry.affine_operation import AffineOperation
+
+    if record.bonds is None:
+        return None
+    if backing != "unitcell":
+        return bond_properties(_domain_structure_from_record(record), entry=record.id)["_httk_bonds"]
+    network = record.bonds
+    return _network_payload(
+        (
+            (int(row[0]), int(row[1]), AffineOperation(_IDENTITY_MATRIX, row[2:5]).to_xyz())
+            for row in _network_rows(network.pairs)
+        ),
+        _shapes_from_record(network.shapes),
+        _bond_source(record.bonds_source),
+        _bond_source(record.shapes_source),
+    )
 
 
 def _numeric_response_value(record: Any, name: str) -> object:
@@ -335,6 +363,7 @@ _NUMERIC_OWN = frozenset(
         "fractional_site_positions",
         "cartesian_site_positions",
         "_httk_site_moments",
+        "_httk_bonds",
         "assemblies",
         "space_group_it_number",
         "space_group_symbol_hall",
@@ -413,6 +442,8 @@ def _response_value(record: Any, name: str, backing: str) -> object:
         from httk.atomistic.storage.records import _domain_structure_from_record
 
         return _domain_structure_from_record(record).cartesian_site_moments_floats()
+    if name == "_httk_bonds":
+        return _bonds_value(record, backing)
     if name in {
         "space_group_it_number",
         "space_group_symbol_hall",

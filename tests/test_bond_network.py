@@ -518,7 +518,8 @@ def test_every_structure_class_and_view_exposes_bonds() -> None:
     assert UnitcellStructureView(domain).bonds == UnitcellStructureView(cell).bonds == expected
     record = _domain_structure_record_from_value(domain)
     assert RecordStructure(record).bonds == UnitcellStructureView(RecordStructure(record)).bonds == expected
-    assert RecordStructure(_unitcell_record_from_structure(cell)).bonds is None  # FU7 P4 stores it
+    stored = RecordStructure(_unitcell_record_from_structure(cell)).bonds
+    assert stored == expected and (stored.source, stored.shapes_source) == (expected.source, expected.shapes_source)
     assert PlainStructureView(cell).bonds is None
     pytest.importorskip("numpy")
     assert atomistic.NumericUnitcellStructureView(cell).bonds == expected

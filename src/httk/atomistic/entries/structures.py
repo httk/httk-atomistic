@@ -17,6 +17,7 @@ from httk.core.datastream import BytestreamBackend, BytestreamView, TextstreamBa
 from httk.core.optimade import IncompleteOptimadeResourceError
 
 from httk.atomistic.entries._payloads import assemblies_payload, species_payload
+from httk.atomistic.entries.bonds import BOND_PROPERTY_KEYS, bond_definitions, bond_properties
 from httk.atomistic.entries.charge import CHARGE_PROPERTY_KEYS, charge_definitions, charge_properties
 from httk.atomistic.entries.counts import COUNT_PROPERTY_KEYS, count_definitions, count_properties
 from httk.atomistic.entries.moments import MOMENT_PROPERTY_KEYS, moment_definitions, moment_properties
@@ -100,6 +101,7 @@ class StructureEntry:
             .extended(charge_definitions())
             .extended(count_definitions())
             .extended(moment_definitions())
+            .extended(bond_definitions())
         )
 
 
@@ -319,6 +321,7 @@ class StructureEntryProvider(EntryProvider):
         property_keys.update({name: name for name in CHARGE_PROPERTY_KEYS})
         property_keys.update({name: name for name in COUNT_PROPERTY_KEYS})
         property_keys.update({name: name for name in MOMENT_PROPERTY_KEYS})
+        property_keys.update({name: name for name in BOND_PROPERTY_KEYS})
         property_keys.update({name: name for name in self._property_names})
         return property_keys
 
@@ -360,6 +363,7 @@ class StructureEntryProvider(EntryProvider):
                 record.update(charge_properties(None))
                 record.update(count_properties(None))
                 record.update(moment_properties(None))
+                record.update(bond_properties(None))
                 if cif:
                     record["structure_features"] = []
             else:
@@ -387,6 +391,7 @@ class StructureEntryProvider(EntryProvider):
                     if structure.site_coordinate_span in {"unit_cell", "molecular_unit_cell"}:
                         raise
                     record.update({name: None for name in MOMENT_PROPERTY_KEYS})
+                record.update(bond_properties(structure, entry=entry_id))
             entry_properties = self._properties.get(entry_id, {})
             for name in self._property_names:
                 record[name] = entry_properties.get(name)

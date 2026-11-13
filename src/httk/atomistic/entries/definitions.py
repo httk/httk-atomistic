@@ -19,6 +19,7 @@ __all__ = ["load_httk_definitions"]
 
 _DEFINITION_IDS = {
     "affine_transformation": "https://schemas.httk.org/defs/v0.1/properties/symmetry/affine_transformation",
+    "bonds": "https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds",
     "centring_type": "https://schemas.httk.org/defs/v0.1/properties/spacegroups/centring_type",
     "crystal_system": "https://schemas.httk.org/defs/v0.1/properties/pointgroups/crystal_system",
     "fractional_coordinate_precision": "https://schemas.httk.org/defs/v0.1/properties/core/fractional_coordinate_precision",

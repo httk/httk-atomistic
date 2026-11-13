@@ -28,6 +28,10 @@ register_property_definition(
     resource="httk.registry.schemas.atomistic:fractional_coordinate_precision.json",
 )
 register_property_definition(
+    definition_id="https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds",
+    resource="httk.registry.schemas.atomistic:bonds.json",
+)
+register_property_definition(
     definition_id="https://schemas.httk.org/defs/v0.1/properties/chemistry/species_charges",
     resource="httk.registry.schemas.atomistic:species_charges.json",
 )

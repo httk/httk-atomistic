@@ -1,0 +1,241 @@
+{
+    "$id": "https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds",
+    "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
+    "title": "Bond network",
+    "x-optimade-type": "dictionary",
+    "x-optimade-definition": {
+        "kind": "property",
+        "version": "0.1.0",
+        "format": "1.3",
+        "name": "bonds",
+        "label": "bonds_chemistry"
+    },
+    "x-optimade-unit": "inapplicable",
+    "x-optimade-requirements": {
+        "support": "may",
+        "sortable": false,
+        "query-support": "none",
+        "response-level": "should not"
+    },
+    "type": [
+        "object",
+        "null"
+    ],
+    "description": "The bond network of a structure: which atoms are bonded to which, optionally the shape of the bonds around the atoms of each site, and who assigned them.\n\nThe network is stated in terms of the served sites of the structure, so a client needs only `fractional_site_positions` (or `cartesian_site_positions` and `lattice_vectors`), `site_coordinate_span` and, for a symmetric span, `space_group_symmetry_operations_xyz`.\nWhat counts as a bond is decided by whoever assigned the network, named in `source`.\n\n**Requirements/Conventions**:\n\n- The value MUST be `null` when no bond network is known, and when `site_coordinate_span` is not one of `unit_cell`, `molecular_unit_cell`, `fundamental_domain`, `molecular_fundamental_domain`, `asymmetric_unit` and `molecular_asymmetric_unit`.\n- Otherwise it MUST be a dictionary with the following keys:\n\n    - **pairs**: REQUIRED; List of dictionaries.\n      The bonds; an empty list means the structure is known to have no bonds.\n      Each dictionary has the keys `site` and `partner`, 0-based indices into the sites of the structure (the order of `species_at_sites` and `fractional_site_positions`), and `operation_xyz`, an affine operation on fractional coordinates.\n      The atom at `fractional_site_positions[site]` is bonded to the atom at the point obtained by applying `operation_xyz` to `fractional_site_positions[partner]`, with no reduction modulo lattice translations.\n      For a `unit_cell` or `molecular_unit_cell` span, `operation_xyz` is a lattice translation `x+n1,y+n2,z+n3` with integers `n1`, `n2`, `n3` (zero along non-periodic directions), and the entry stands for that bond and its translates by every lattice vector.\n      For the four fundamental-domain and asymmetric-unit spans, the entry stands for its orbit: for every operation `g` in `space_group_symmetry_operations_xyz` and every lattice translation `t`, the atom at `g(a) + t` is bonded to the atom at `g(b) + t`, where `a` and `b` are the two atoms the entry names.\n      Each bond, or bond orbit, SHOULD be listed once. An atom is never bonded to itself.\n      Where served positions are stated to limited precision, the operation locates the bonded atom to that precision.\n\n    - **shapes**: REQUIRED; List of strings or `null`, or `null`.\n      One entry per site, in the order of `species_at_sites`, naming the arrangement of the bonds around each atom of that site: a symbol that ends in the number of atoms bonded to one atom of the site.\n      An entry is `null` when the site has no assigned shape: always for a site with fewer than two bonds, and otherwise when the assignment gave it none, in which case a client may determine one itself.\n      The value is `null` when no shapes are assigned.\n\n    - **source**: REQUIRED; Dictionary or `null`.\n      Who assigned the bonds; `null` when unknown.\n\n    - **shapes\\_source**: REQUIRED; Dictionary or `null`.\n      Who assigned the shapes, in the form of `source`; `null` when `source` assigned them or no shapes are assigned.",
+    "properties": {
+        "pairs": {
+            "x-optimade-type": "list",
+            "x-optimade-unit": "inapplicable",
+            "x-optimade-dimensions": {
+                "names": [
+                    "_httk_dim_bonds"
+                ],
+                "sizes": [
+                    null
+                ]
+            },
+            "type": [
+                "array"
+            ],
+            "description": "The bonds, each a dictionary of `site`, `partner` and `operation_xyz`.",
+            "items": {
+                "x-optimade-type": "dictionary",
+                "x-optimade-unit": "inapplicable",
+                "type": [
+                    "object"
+                ],
+                "description": "One bond, or one bond orbit for a symmetric span.",
+                "properties": {
+                    "site": {
+                        "x-optimade-type": "integer",
+                        "x-optimade-unit": "inapplicable",
+                        "type": [
+                            "integer"
+                        ],
+                        "description": "0-based index of the first atom's site in the served site list."
+                    },
+                    "partner": {
+                        "x-optimade-type": "integer",
+                        "x-optimade-unit": "inapplicable",
+                        "type": [
+                            "integer"
+                        ],
+                        "description": "0-based index of the site whose served position `operation_xyz` is applied to."
+                    },
+                    "operation_xyz": {
+                        "x-optimade-type": "string",
+                        "x-optimade-unit": "inapplicable",
+                        "type": [
+                            "string"
+                        ],
+                        "description": "The affine operation as an `x,y,z` triplet in the notation of `space_group_symmetry_operations_xyz` (Jones' faithful representation, IUCr CIF `_space_group_symop.operation_xyz`), generalised: each component is a sum of signed terms, each term either a variable `x`, `y` or `z` optionally preceded by an exact rational coefficient and `*` (for example `2*y`, `1/2*x`), or an exact rational constant, which may be any rational number including integers and values outside [0, 1).\nThis grammar is a superset of, and not compatible with, the OPTIMADE symmetry-operation grammar, which allows only coefficients of one, at most two variables per component and the translations 1/2, 1/3, 2/3, 1/4, 3/4, 1/6 and 5/6.\nThe operation is applied to the served fractional position of `partner`, with no reduction modulo lattice translations.",
+                        "x-undef-pattern": "^[-+]?(([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?)([-+](([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?))*,[-+]?(([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?)([-+](([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?))*,[-+]?(([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?)([-+](([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?))*$",
+                        "examples": [
+                            "x,y,z",
+                            "x,y+1,z",
+                            "-x+3/2,y,-z-1",
+                            "x-y+z,y,z",
+                            "2*y,1/2*x,z"
+                        ]
+                    }
+                }
+            }
+        },
+        "shapes": {
+            "x-optimade-type": "list",
+            "x-optimade-unit": "inapplicable",
+            "x-optimade-dimensions": {
+                "names": [
+                    "dim_sites"
+                ],
+                "sizes": [
+                    null
+                ]
+            },
+            "type": [
+                "array",
+                "null"
+            ],
+            "description": "The bond shape of each site, or `null` per site without an assigned shape.\nThe symbols are the IUPAC polyhedral symbols without the hyphen (`L2` linear, `A2` angular, `TP3` trigonal plane, `TPY3` trigonal pyramid, `TS3` T-shape, `T4` tetrahedron, `SP4` square plane, `SS4` see-saw, `TBPY5` trigonal bipyramid, `SPY5` square pyramid, `OC6` octahedron, `TPR6` trigonal prism, `PBPY7` pentagonal bipyramid, `CU8` cube, `SAPR8` square antiprism, `DD8` dodecahedron, `HBPY8` hexagonal bipyramid, `TPRS9` square-face tricapped trigonal prism), the SHAPE program's labels without the hyphen where IUPAC has none (`PPY6` pentagonal pyramid, `COC12` cuboctahedron, `ACOC12` anticuboctahedron, `IC12` icosahedron), and `I<n>` for an irregular arrangement of `n` bonds.\nThe number that ends a symbol MUST equal the number of atoms bonded to one atom of the site.",
+            "items": {
+                "x-optimade-type": "string",
+                "x-optimade-unit": "inapplicable",
+                "type": [
+                    "string",
+                    "null"
+                ]
+            }
+        },
+        "source": {
+            "x-optimade-type": "dictionary",
+            "x-optimade-unit": "inapplicable",
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "Who assigned the bonds: a dictionary with the keys **description** (free text, for example the rule used), **software** (an identifier of the software or rule set), **version** (its version) and **uri** (a URL documenting the assignment), each a string or `null`.",
+            "properties": {
+                "description": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Free-text description of the assignment."
+                },
+                "software": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Identifier of the software or rule set that made the assignment."
+                },
+                "version": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Version of that software or rule set."
+                },
+                "uri": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "A URL documenting the assignment."
+                }
+            }
+        },
+        "shapes_source": {
+            "x-optimade-type": "dictionary",
+            "x-optimade-unit": "inapplicable",
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "Who assigned the shapes, with the keys of `source`; `null` when `source` assigned them or no shapes are assigned.",
+            "properties": {
+                "description": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Free-text description of the assignment."
+                },
+                "software": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Identifier of the software or rule set that made the assignment."
+                },
+                "version": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Version of that software or rule set."
+                },
+                "uri": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "A URL documenting the assignment."
+                }
+            }
+        }
+    },
+    "examples": [
+        {
+            "pairs": [
+                {
+                    "site": 0,
+                    "partner": 1,
+                    "operation_xyz": "x,y,z"
+                }
+            ],
+            "shapes": [
+                "OC6",
+                "OC6"
+            ],
+            "source": {
+                "description": "Distance bonds: 0.5 \u00c5 <= d <= r(a) + r(b) + 0.45 \u00c5 (Cordero et al. 2008 covalent radii), no metal-metal bonds where a non-metal is present, and no metal to non-metal bond longer than r(a) + r(b) across a shared, more electronegative non-metal.",
+                "software": "httk_basic",
+                "version": "2.1.2"
+            }
+        },
+        {
+            "pairs": [
+                {
+                    "site": 0,
+                    "partner": 1,
+                    "operation_xyz": "x,y,z"
+                },
+                {
+                    "site": 0,
+                    "partner": 1,
+                    "operation_xyz": "x-1,y,z"
+                }
+            ],
+            "source": {
+                "description": "Bonds listed in the CIF _geom_bond_ loop"
+            }
+        }
+    ]
+}

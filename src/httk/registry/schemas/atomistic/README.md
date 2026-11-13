@@ -29,15 +29,18 @@ one-value compact form.
 
 ## Published httk property definitions
 
-The remaining thirteen JSON files are the authoritative, supported copies of the
+The remaining eighteen JSON files are the authoritative, supported copies of the
 non-OPTIMADE-standard property definitions that *httk-atomistic* serves. They
 describe which setting a crystal structure is written in, the change of basis
 from the International Tables standard setting to it, how precisely the
-structure's numbers were stated, and the magnetic moments of its sites.
+structure's numbers were stated, the magnetic moments of its sites, and its bond
+network.
 
 They are published definitions taken verbatim from
-[schemas.httk.org](https://schemas.httk.org), not local paraphrases. A client
-following a property's `$id` therefore reaches the authoritative schema.
+[schemas.httk.org](https://schemas.httk.org), not local paraphrases, except
+`bonds.json`, which is built from the same sources but not yet published (see
+Provenance). A client following a published property's `$id` therefore reaches
+the authoritative schema.
 
 | Served as | Definition | `$id` |
 | --- | --- | --- |
@@ -50,6 +53,7 @@ following a property's `$id` therefore reaches the authoritative schema.
 | `_httk_coordinate_precision` | `fractional_coordinate_precision.json` | `…/properties/core/fractional_coordinate_precision` |
 | `_httk_basis_precision` | `length_precision.json` | `…/properties/core/length_precision` |
 | `_httk_site_moments` | `site_moments.json` | `…/properties/magnetism/site_moments` |
+| `_httk_bonds` | `bonds.json` | `…/properties/chemistry/bonds` |
 
 All are under `https://schemas.httk.org/defs/v0.1/properties/`.
 
@@ -58,7 +62,7 @@ All are under `https://schemas.httk.org/defs/v0.1/properties/`.
 OPTIMADE requires a database-specific property to carry a registered prefix in
 its **name**, which is why these are served as `_httk_…`. The definition itself
 does not need to be restated locally: each document is byte-identical to the
-published one, including `$id`. The prefix says “this database chose to serve
+published one (`bonds.json` to the build output), including `$id`. The prefix says “this database chose to serve
 this”, while the `$id` says “this is what it means, as defined elsewhere”.
 
 The definition's own `x-optimade-definition.name` remains the unprefixed name
@@ -68,8 +72,9 @@ rewriting the published payload would defeat the point of pointing at it.
 
 The definitions are loaded at runtime by
 `httk.atomistic.entries.symmetry.setting_definitions()`,
-`httk.atomistic.entries.precision.precision_definitions()`, and
-`httk.atomistic.entries.moments.moment_definitions()`, then merged into the served entry-type
+`httk.atomistic.entries.precision.precision_definitions()`,
+`httk.atomistic.entries.moments.moment_definitions()`, and
+`httk.atomistic.entries.bonds.bond_definitions()`, then merged into the served entry-type
 definition by `httk.atomistic.StructureEntryProvider`. They are packaged through
 the same `httk.registry.schemas.atomistic` package-data entry.
 
@@ -109,6 +114,16 @@ lives at
 `src/defs/v0.1/properties/core/{fractional_coordinate_precision,length_precision}.yaml`
 in the sources repository and is built with `make schemas`.
 
+`bonds.json` is built the same way from
+`src/defs/v0.1/properties/chemistry/bonds.yaml`. It is ahead of schemas.httk.org
+until the maintainer publishes it; it is not in `HTTK_DEFS` until then (`make
+httk-defs` would 404). Its definition sets the response level `should not`, so
+`_httk_bonds` is served only when asked for with `response_fields`. Its four
+keys are all described as required, but readers accept a value without
+`shapes`, `source` or `shapes_source` (read as `null`): the build's
+`--remove-null` drops null-valued keys from the published examples, which
+therefore omit them.
+
 ## License
 
 The OPTIMADE definition is distributed under the MIT License; see
@@ -121,7 +136,7 @@ is AGPL, and from the CC BY 4.0 symmetry datasets under `httk.atomistic/data/`.
 ## Refreshing
 
 Run `make optimade-defs` from the repository root to re-fetch `structures.json`,
-`trajectories.json`, and the OPTIMADE `LICENSE`, and `make httk-defs` to re-fetch the thirteen httk
+`trajectories.json`, and the OPTIMADE `LICENSE`, and `make httk-defs` to re-fetch the seventeen published httk
 property definitions from <https://schemas.httk.org> (the `HTTK_DEFS` list in
 the Makefile names them as `<section>/<name>`; basenames are kept). These are
 the only source tasks that use the network; ordinary builds and tests read the

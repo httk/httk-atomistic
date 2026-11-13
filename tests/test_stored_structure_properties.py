@@ -62,6 +62,7 @@ _STANDARD = {
     "wyckoff_positions",
     "structure_features",
     "_httk_site_moments",
+    "_httk_bonds",
     "_httk_charge",
     "optimization_type",
 }

@@ -154,6 +154,24 @@ def _inv(a: _Op) -> _Op:
     return inverse, tuple(-value for value in _apply(linear, w))
 
 
+def _setting_operations_xyz(spacegroup: Spacegroup, transform: SettingTransform) -> tuple[str, ...]:
+    """Return the symmetry operations of a group in a transformed setting, lattice cosets included.
+
+    Every stored operation ``g`` conjugated into the setting, ``T g T^-1``, times every lattice
+    coset of the transform, wrapped into ``[0, 1)``: in stored operation order, then coset order,
+    the first of operations equal modulo the setting's lattice kept. A transform to a larger cell
+    needs the cosets for the operations to generate every atom of its cell.
+    """
+    operations = (transform.symop_to_setting(value) for value in spacegroup.symmetry_operations)
+    return tuple(
+        dict.fromkeys(
+            AffineOperation(operation.matrix, operation.vector + coset).wrapped().to_xyz()
+            for operation in operations
+            for coset in transform.lattice_cosets()
+        )
+    )
+
+
 @cache
 def _group(spacegroup: Spacegroup) -> tuple[tuple[_Op, ...], frozenset[_Op]]:
     """Return a space group's operations with translations in ``[0, 1)``, as a tuple and a set."""
@@ -748,14 +766,15 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
 
     @property
     def space_group_symmetry_operations_xyz(self) -> tuple[str, ...]:
-        """Expose the active setting's symmetry operations in ``xyz`` notation."""
+        """Expose the active setting's symmetry operations in ``xyz`` notation.
+
+        With the lattice translations of this structure's own cell they generate every atom of the
+        unit cell: an untabulated transform to a larger cell adds its lattice cosets.
+        """
         setting = self.setting()
-        operations = (
-            tuple(self._transform.symop_to_setting(value) for value in self._spacegroup.symmetry_operations)
-            if setting is None
-            else setting.symmetry_operations
-        )
-        return tuple(operation.wrapped().to_xyz() for operation in operations)
+        if setting is None:
+            return _setting_operations_xyz(self._spacegroup, self._transform)
+        return tuple(operation.wrapped().to_xyz() for operation in setting.symmetry_operations)
 
     @property
     def wyckoff_positions(self) -> tuple[str, ...] | None:

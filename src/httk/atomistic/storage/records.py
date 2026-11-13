@@ -54,7 +54,7 @@ from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.classes import _species_class
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
-from httk.atomistic.models.structure.network import BondNetwork, SiteBond
+from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond
 from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
 from httk.atomistic.models.structure.semantics import StructureSymmetry, _stated_symmetry
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
@@ -74,6 +74,7 @@ __all__ = [
     "AssemblyRecord",
     "BareProtostructureRecord",
     "BarePrototypeRecord",
+    "BondSourceRecord",
     "CellRecord",
     "ChemicalCompositionRecord",
     "CompositionAmountRecord",
@@ -101,6 +102,7 @@ __all__ = [
     "SpeciesRecord",
     "SymmetryRecord",
     "TrajectoryRecord",
+    "UnitcellBondNetworkRecord",
     "UnitcellStructureRecord",
     "WyckoffOccupationRecord",
     "WyckoffSiteRecord",
@@ -687,6 +689,140 @@ class SiteBondRecord:
 
 
 @dataclass(frozen=True)
+class BondSourceRecord:
+    """Represent who assigned a bond network or its shapes: the durable form of a :class:`~httk.atomistic.BondSource`.
+
+    A source is provenance: structure records reference it outside their content identity, and
+    equal sources share one row. An unknown source is no record at all, so at least one field is
+    set.
+
+    :param description: Free text, for example the rule used.
+    :param software: An identifier of the software or rule set.
+    :param version: Its version.
+    :param uri: A URL documenting the assignment.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_bond_source",
+        identity_name="atomistic_bond_source",
+    )
+    __httk_canonical_source__: ClassVar = BondSource
+
+    description: str | None = None
+    software: str | None = None
+    version: str | None = None
+    uri: str | None = None
+
+    def __post_init__(self) -> None:
+        if _bond_source(self) is None:  # BondSource checks each field
+            raise ValueError("BondSourceRecord needs at least one field; an unknown source is no record")
+
+    @classmethod
+    def __httk_project__(cls, source: BondSource) -> Mapping[str, object]:
+        """Project a bond source into durable fields.
+
+        :param source: The bond source to project.
+        :return: The projected source fields.
+        """
+        return {
+            "description": source.description,
+            "software": source.software,
+            "version": source.version,
+            "uri": source.uri,
+        }
+
+
+@dataclass(frozen=True)
+class UnitcellBondNetworkRecord:
+    """Represent the bonds and shapes of a unit-cell structure's bond network.
+
+    The durable form of a unit-cell :class:`~httk.atomistic.BondNetwork` without its sources,
+    which the structure record references itself, so equal networks share one row. Each row of
+    ``pairs`` is one bond ``(site, partner, n1, n2, n3)``: the atom at ``sites[site]`` is bonded
+    to the atom at ``sites[partner]`` moved by the lattice translation ``(n1, n2, n3)``.
+
+    :param pairs: The bonds in their normal form, one exact integral row of five per bond; an
+        empty tensor when the structure is known to have no bonds.
+    :param shapes: The assigned bond shapes, one symbol per site with ``""`` for a site without
+        one, or ``None`` when no shapes are assigned.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_unitcell_bond_network",
+        identity_name="atomistic_unitcell_bond_network",
+    )
+    __httk_canonical_source__: ClassVar = BondNetwork
+
+    pairs: Annotated[FracVector, httk.core.storage.markers.Shape(0, 5)]
+    shapes: tuple[str, ...] | None = None
+
+    def __post_init__(self) -> None:
+        pairs = FracVector(self.pairs)
+        if pairs.dim not in ((), (0,)) and (len(pairs.dim) != 2 or pairs.dim[1] != 5):
+            raise ValueError(f"UnitcellBondNetworkRecord pairs must have five columns, got dim {pairs.dim}")
+        rows = _network_rows(pairs)
+        if any(value.denominator != 1 for row in rows for value in row):
+            raise ValueError("UnitcellBondNetworkRecord pairs must be integers")
+        if any(row[0] < 0 or row[1] < 0 for row in rows):
+            raise ValueError("UnitcellBondNetworkRecord site and partner must be non-negative")
+        object.__setattr__(self, "pairs", FracVector(()) if not rows else pairs)
+        if self.shapes is not None:
+            shapes = tuple(self.shapes)
+            if not all(isinstance(value, str) for value in shapes):
+                raise TypeError("UnitcellBondNetworkRecord shapes must contain str values")
+            object.__setattr__(self, "shapes", shapes)
+
+    @classmethod
+    def __httk_project__(cls, network: BondNetwork) -> Mapping[str, object]:
+        """Project a unit-cell bond network into durable fields.
+
+        :param network: The network, with its pairs in the unit-cell normal form.
+        :return: The projected network fields.
+        :raises ValueError: If an operation is not a lattice translation.
+        """
+        if any(bond.operation.matrix != _IDENTITY_MATRIX for bond in network.pairs):
+            raise ValueError("a unit-cell bond operation must be a lattice translation")
+        rows = [[bond.site, bond.partner, *bond.operation.vector.to_fractions()] for bond in network.pairs]
+        return {"pairs": FracVector(rows) if rows else FracVector(()), "shapes": _shapes_record(network.shapes)}
+
+
+def _network_rows(pairs: FracVector) -> list[list[fractions.Fraction]]:
+    """Return the rows of a stored unit-cell bond tensor; none for an empty one."""
+    return [] if pairs.dim in ((), (0,)) else pairs.to_fractions()
+
+
+def _bond_source(record: "BondSourceRecord | None") -> BondSource | None:
+    """Return a stored bond source as a value; ``None`` for no record or one without any field."""
+    if record is None:
+        return None
+    source = BondSource(record.description, record.software, record.version, record.uri)
+    return None if source == BondSource() else source
+
+
+def _bond_source_record(source: BondSource | None) -> BondSourceRecord | None:
+    """Return the durable record of a bond source, or ``None`` when the source is unknown."""
+    return (
+        None if source is None else BondSourceRecord(**cast(dict[str, Any], BondSourceRecord.__httk_project__(source)))
+    )
+
+
+def _source_fields(record: "BondSourceRecord | None") -> tuple[str | None, ...] | None:
+    """Return a source record's fields for an explicit comparison (record equality skips sources)."""
+    return None if record is None else (record.description, record.software, record.version, record.uri)
+
+
+def _cell_pairs_from_record(record: UnitcellBondNetworkRecord) -> tuple[SiteBond, ...]:
+    """Return a stored unit-cell network's bonds as :class:`~httk.atomistic.SiteBond` values."""
+    return tuple(
+        SiteBond(int(row[0]), int(row[1]), AffineOperation(_IDENTITY_MATRIX, row[2:5]))
+        for row in _network_rows(record.pairs)
+    )
+
+
+_IDENTITY_MATRIX = FracVector.eye((3, 3))
+
+
+@dataclass(frozen=True)
 class SymmetryRecord:
     """Represent optional symmetry metadata for a unit-cell structure.
 
@@ -1117,6 +1253,26 @@ def _normalize_common(record: Any, *, nsites: int) -> None:
     object.__setattr__(record, "assemblies", assemblies)
 
 
+def _check_source_fields(record: Any, shapes: tuple[str, ...] | None) -> None:
+    """Check a structure record's bond sources: their type, and that each has what it assigned."""
+    name = type(record).__name__
+    for field_name in ("bonds_source", "shapes_source"):
+        value = getattr(record, field_name)
+        if value is not None and not isinstance(value, BondSourceRecord):
+            raise TypeError(f"{name} {field_name} must be a BondSourceRecord or None")
+    if record.bonds_source is not None and record.bonds is None:
+        raise ValueError(f"{name} bonds_source needs bonds")
+    if record.shapes_source is not None and shapes is None:
+        raise ValueError(f"{name} shapes_source needs shapes; without shapes there is nothing it assigned")
+
+
+def _project_sources(network: BondNetwork | None) -> dict[str, object]:
+    """Project a network's sources onto a structure record's ``bonds_source`` and ``shapes_source``."""
+    if network is None:
+        return {"bonds_source": None, "shapes_source": None}
+    return {"bonds_source": network.source, "shapes_source": network.shapes_source}
+
+
 def _validate_normalized_composition(record: Any) -> None:
     """Reject a root record whose central relation contradicts its native fields.
 
@@ -1204,6 +1360,11 @@ class UnitcellStructureRecord:
     :param chemical_formula_descriptive: The descriptive formula, if stated.
     :param chemical_formula_hill: The Hill formula, if stated.
     :param optimization_type: The optimization provenance, if stated.
+    :param bonds: The bond network's bonds and shapes, or ``None`` when no network is known;
+        ``None`` leaves the content identity unchanged.
+    :param bonds_source: Who assigned the bonds, if known; outside the content identity.
+    :param shapes_source: Who assigned the shapes, if not ``bonds_source``; outside the content
+        identity, and it needs network shapes.
     :param source_file: The verbatim file this structure was read from, when the entry records an input file exactly
         as given; outside content identity while ``None``.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
@@ -1235,6 +1396,9 @@ class UnitcellStructureRecord:
     chemical_formula_descriptive: str | None = None
     chemical_formula_hill: str | None = None
     optimization_type: str | None = None
+    bonds: Annotated[UnitcellBondNetworkRecord | None, IdentitySkipWhenNone()] = None
+    bonds_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
+    shapes_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
     source_file: Annotated[FileRecord | None, IdentitySkipWhenNone()] = None
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
@@ -1285,6 +1449,9 @@ class UnitcellStructureRecord:
             raise TypeError("UnitcellStructureRecord symmetry must be a SymmetryRecord or None")
         if self.source_file is not None and not isinstance(self.source_file, FileRecord):
             raise TypeError("UnitcellStructureRecord source_file must be a FileRecord or None")
+        if self.bonds is not None and not isinstance(self.bonds, UnitcellBondNetworkRecord):
+            raise TypeError("UnitcellStructureRecord bonds must be a UnitcellBondNetworkRecord or None")
+        _check_source_fields(self, None if self.bonds is None else self.bonds.shapes)
         object.__setattr__(self, "species_at_sites", species_at_sites)
 
     @classmethod
@@ -1303,6 +1470,8 @@ class UnitcellStructureRecord:
                 "site_moments_kind": None if structure.site_moments is None else cast(Any, structure.site_moments).kind,
                 "site_moments": None if structure.site_moments is None else _moment_components(structure.site_moments),
                 "site_moments_precision": None if structure.site_moments is None else structure.site_moments.precision,
+                "bonds": structure.bonds,
+                **_project_sources(structure.bonds),
                 "source_file": None,
             }
         )
@@ -1337,6 +1506,10 @@ class FundamentalDomainStructureRecord:
     :param shapes: The supplied bond shapes, one symbol per site with ``""`` for a site without
         one (the baseline decides), or ``None`` when none are supplied; needs ``bonds``, and
         ``None`` leaves the content identity unchanged.
+    :param bonds_source: Who assigned the bonds, if known; outside the content identity, and it
+        needs ``bonds``.
+    :param shapes_source: Who assigned the shapes, if not ``bonds_source``; outside the content
+        identity, and it needs ``shapes``.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
     :param immutable_id: The per-revision immutable id; minted by the store when None.
     :param last_modified: The source modification timestamp, if stated.
@@ -1372,6 +1545,8 @@ class FundamentalDomainStructureRecord:
     optimization_type: str | None = None
     bonds: Annotated[tuple[SiteBondRecord, ...] | None, IdentitySkipWhenNone()] = None
     shapes: Annotated[tuple[str, ...] | None, IdentitySkipWhenNone()] = None
+    bonds_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
+    shapes_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
     last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
@@ -1417,6 +1592,7 @@ class FundamentalDomainStructureRecord:
             if self.bonds is None:
                 raise ValueError("FundamentalDomainStructureRecord shapes need bonds")
             object.__setattr__(self, "shapes", shapes)
+        _check_source_fields(self, self.shapes)
         coordinate_precision = to_precision(self.coordinate_precision)
         object.__setattr__(self, "domain_sites", domain_sites)
         object.__setattr__(self, "coordinate_precision", coordinate_precision)
@@ -1442,6 +1618,7 @@ class FundamentalDomainStructureRecord:
                 "coordinate_precision": structure.coordinate_precision,
                 "bonds": None if structure.bonds is None else structure.bonds.pairs,
                 "shapes": None if structure.bonds is None else _shapes_record(structure.bonds.shapes),
+                **_project_sources(structure.bonds),
             }
         )
         return values
@@ -1572,6 +1749,10 @@ def _shapes_record(shapes: tuple[str | None, ...] | None) -> tuple[str, ...] | N
     return None if shapes is None else tuple(symbol or "" for symbol in shapes)
 
 
+def _shapes_from_record(shapes: tuple[str, ...] | None) -> tuple[str | None, ...] | None:
+    return None if shapes is None else tuple(symbol or None for symbol in shapes)
+
+
 def _site_bonds_from_record(records: Iterable[SiteBondRecord]) -> tuple[SiteBond, ...]:
     return tuple(
         SiteBond(value.site, value.partner, AffineOperation(value.rotation, value.translation)) for value in records
@@ -1612,9 +1793,23 @@ def _domain_structure_from_record(
         if record.bonds is None
         else BondNetwork(
             _site_bonds_from_record(record.bonds),
-            None if record.shapes is None else tuple(symbol or None for symbol in record.shapes),
+            _shapes_from_record(record.shapes),
+            _bond_source(record.bonds_source),
+            _bond_source(record.shapes_source),
         ),
         **_common_constructor_values(record),
+    )
+
+
+def _unitcell_network_from_record(record: UnitcellStructureRecord) -> BondNetwork | None:
+    """Return a unit-cell record's bond network with its sources, as stored (not validated)."""
+    if record.bonds is None:
+        return None
+    return BondNetwork(
+        _cell_pairs_from_record(record.bonds),
+        _shapes_from_record(record.bonds.shapes),
+        _bond_source(record.bonds_source),
+        _bond_source(record.shapes_source),
     )
 
 
@@ -1635,6 +1830,7 @@ def _structure_from_record(
             _cell_from_record(record.cell),
         ),
         symmetry=None if record.symmetry is None else _symmetry_from_record(record.symmetry),
+        bonds=_unitcell_network_from_record(record),
         **_common_constructor_values(record),
     )
 
@@ -1656,14 +1852,29 @@ def validate_structure_record(
     ):
         raise TypeError("validate_structure_record expects an exact root structure record")
     _validate_normalized_composition(record)
+    if record.bonds is None:
+        return
     # the structure validates the bonds and shapes; stored ones must already be in their normal form
-    if not isinstance(record, UnitcellStructureRecord) and record.bonds is not None:
-        structure = _domain_structure_from_record(record)
-        assert structure.bonds is not None
-        if structure.bonds.pairs != _site_bonds_from_record(record.bonds):
-            raise ValueError("FundamentalDomainStructureRecord bonds are not the normalized bond network")
-        if _shapes_record(structure.bonds.shapes) != record.shapes:
-            raise ValueError("FundamentalDomainStructureRecord shapes are not in their normal form")
+    name = type(record).__name__
+    if isinstance(record, UnitcellStructureRecord):
+        network = _structure_from_record(record).bonds
+        assert network is not None
+        stored = record.bonds
+        if network.pairs != _cell_pairs_from_record(stored):
+            raise ValueError(f"{name} bonds are not the normalized bond network")
+        if _shapes_record(network.shapes) != stored.shapes:
+            raise ValueError(f"{name} bond shapes are not in their normal form")
+    else:
+        network = _domain_structure_from_record(record).bonds
+        assert network is not None
+        if network.pairs != _site_bonds_from_record(record.bonds):
+            raise ValueError(f"{name} bonds are not the normalized bond network")
+        if _shapes_record(network.shapes) != record.shapes:
+            raise ValueError(f"{name} shapes are not in their normal form")
+    # record equality skips the sources, so compare them explicitly
+    for field_name, source in (("bonds_source", network.source), ("shapes_source", network.shapes_source)):
+        if _source_fields(_bond_source_record(source)) != _source_fields(getattr(record, field_name)):
+            raise ValueError(f"{name} {field_name} is not in its normal form")
 
 
 def _assembly_record_from_assembly(assembly: Assembly) -> AssemblyRecord:
@@ -1708,6 +1919,14 @@ def _unitcell_record_from_structure(structure: UnitcellStructure) -> UnitcellStr
             mode=composition["mode"],
         )
     )
+    network = structure.bonds
+    values["bonds"] = (
+        None
+        if network is None
+        else UnitcellBondNetworkRecord(**cast(dict[str, Any], UnitcellBondNetworkRecord.__httk_project__(network)))
+    )
+    values["bonds_source"] = None if network is None else _bond_source_record(network.source)
+    values["shapes_source"] = None if network is None else _bond_source_record(network.shapes_source)
     return UnitcellStructureRecord(**values)
 
 
@@ -3174,6 +3393,8 @@ def _domain_structure_record_from_value(
             for bond in structure.bonds.pairs
         )
     )
+    values["bonds_source"] = None if structure.bonds is None else _bond_source_record(structure.bonds.source)
+    values["shapes_source"] = None if structure.bonds is None else _bond_source_record(structure.bonds.shapes_source)
     return record_type(**values)
 
 

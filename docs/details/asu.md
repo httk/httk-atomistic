@@ -198,11 +198,38 @@ retained representative is not an exact orbit point drops it).
 they present, `RecordStructure` that of a fundamental-domain record expanded to its
 unit cell, and `NumericUnitcellStructureView` that of its exact structure.
 `NumericUnitcellStructure`, `PlainStructureView`, the ASE and pymatgen views, trajectory
-frames and the other structure classes have no network (`None`). Unit-cell networks
-are not yet stored: a unit-cell storage record keeps no network (so a
-`RecordStructure` of one gives `None`), and the content identity of a unit-cell
-structure does not depend on its network. Where a carry drops a network, the reason is
-logged at debug level with the context `bonds`.
+frames and the other structure classes have no network (`None`). A unit-cell storage
+record keeps its network (below), and `RecordStructure` of one gives it as stored. Where a
+carry drops a network, the reason is logged at debug level with the context `bonds`.
+
+### Storing networks
+
+The storage records keep the network with its shapes and sources. A fundamental-domain
+or asymmetric-unit record stores its pairs and assigned shapes in its own `bonds` and
+`shapes` fields; a unit-cell record references a
+`UnitcellBondNetworkRecord`, one exact row
+`(site, partner, n1, n2, n3)` per bond in the normal form and the shapes (`""` for a site
+without a symbol), so equal networks share one row. The pairs and shapes are part of the
+content identity; a structure without a network keeps the identity it had before networks
+were stored. The sources are `BondSourceRecord`
+references on the structure record (`bonds_source`, `shapes_source`), outside the content
+identity: a different source never changes a content id. A `shapes_source` equal to the
+`source` is the same provenance and is stored as none. Validation rejects a stored network
+that is not in its normal form, all-`""` shapes, a `bonds_source` without bonds, a
+`shapes_source` without shapes and a `shapes_source` equal to the `bonds_source`.
+
+Because sources are outside the content identity but kept, **re-saving equal content with a
+different source cannot be recorded**: `save`, `replace` and `bulk_ingest` raise
+`EntryMetadataConflictError` on every backend and the stored source stays. A stored
+*unknown* source counts as a different source too: re-saving a networked row with a source
+for the first time raises the same way. That is the case for every networked row of an
+upgraded store (below), whose sources are unknown. To record the new assignment, rebuild the
+store, or save it as an alternative (`alternative_of`).
+
+Stores written by a development version before unit-cell networks were stored reopen with
+`upgrade=True`: the new tables and nullable references are added, and every stored row keeps
+its content id and network, with unknown sources. Stores written with *httk-store* storage
+protocol 2 (the *httk-store* releases up to 2.1.4) need a rebuild in any case.
 
 ### Default bonds from distances
 
@@ -537,6 +564,19 @@ chose, on every record. Operations the structure does state are served as given;
 structure that states only a space-group number or symbol serves `null` operations, since the
 operations of that group in the structure's own cell cannot be derived from the number alone.
 
+`space_group_symmetry_operations_xyz` of an `ASUStructure` or `FundamentalDomainStructure`
+lists the operations of its own setting; with the lattice translations of its cell they
+generate every atom. A tabulated setting lists its own operations. An untabulated transform to
+a larger cell (say a cell doubled along `a`) also multiplies them by the transform's lattice
+cosets, since the conjugated operations alone reach only part of the atoms; operations equal
+modulo the own lattice are listed once, so a transform to a smaller cell (an F cell's
+primitive cell) lists 48 operations where its conjugates are 192. A transform that does not
+keep the point group's integral form (a sheared or doubled cell) gives operations such as
+`x-2*y,-y,z+1/2` or `x+1/2,y,z` with translations and coefficients the OPTIMADE
+symmetry-operation grammar does not allow; they are served as they are, in the grammar of
+{py:meth}`~httk.atomistic.AffineOperation.to_xyz`, because a client needs them to rebuild
+`_httk_bonds`.
+
 The symbols and Wyckoff letters describe **the setting the structure is written in**, as
 OPTIMADE requires. Setting `224:1` therefore stores and serves its own letter `i`, not the
 standard setting's corresponding `j`; rhombohedral settings likewise retain their local
@@ -560,6 +600,26 @@ definition keeps its own `$id`, so a client that follows it reaches the publishe
 A structure in an untabulated setting serves its space-group number and its transform —
 enough to reconstruct it — but `null` for the symbols and Wyckoff letters, which name a
 setting that in that case has no name.
+
+### Serving bond networks
+
+The bond network is served as `_httk_bonds`
+(`https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds`): a dictionary of `pairs`,
+`shapes`, `source` and `shapes_source`, or `null` without a network. It is large, so it is not
+a default response field: ask for it with `response_fields`. Each pair names two served sites
+and an `operation_xyz` that, applied to the served position of `partner`, gives the atom
+bonded to the served position of `site`, without reduction modulo the lattice. A unit cell
+serves its stored coordinates, so the operation is the bond's lattice translation (`x,y+1,z`).
+A fundamental domain serves representative positions in its own setting, which can differ
+from the stored reference atoms by a lattice translation, another orbit member, the setting
+transform or, for a position stated to limited precision, up to three times that precision;
+each bond's operation is corrected for its two sites, so a client rebuilds every bond from the
+served positions, `space_group_symmetry_operations_xyz` and the lattice alone. The operation
+grammar is that of {py:meth}`~httk.atomistic.AffineOperation.to_xyz`: any rational
+translation and coefficient, a superset of the OPTIMADE symmetry-operation grammar and not
+compatible with it. A network that cannot be served is served as `null` with a warning;
+numeric structures and CIF records serve `null`. `OptimadeStructure` reads `_httk_bonds` back
+for `unit_cell` and `molecular_unit_cell` spans; for the other spans it gives `None`.
 
 ## The symmetry tables
 

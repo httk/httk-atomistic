@@ -110,7 +110,8 @@ class BondNetwork:
     :param source: Who assigned the bonds, as a :class:`BondSource` or a mapping of its fields; all
         fields ``None`` is the same as ``None``.
     :param shapes_source: Who assigned the shapes, in the form of ``source``, or ``None`` when
-        ``source`` assigned them; it needs ``shapes``.
+        ``source`` assigned them (a ``shapes_source`` equal to ``source`` becomes ``None``); it
+        needs ``shapes``.
     :raises TypeError: If a value has the wrong type.
     :raises ValueError: If a source mapping has an unknown key, or ``shapes_source`` is given
         without shapes.
@@ -140,6 +141,8 @@ class BondNetwork:
         shapes_source = _source(self.shapes_source, "shapes_source")
         if shapes_source is not None and shapes is None:
             raise ValueError("BondNetwork shapes_source needs shapes; without shapes there is nothing it assigned")
+        if shapes_source == source:  # the same provenance has one spelling: "assigned by source"
+            shapes_source = None
         object.__setattr__(self, "pairs", pairs)
         object.__setattr__(self, "shapes", shapes)
         object.__setattr__(self, "source", source)
