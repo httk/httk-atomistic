@@ -130,6 +130,57 @@ content identity and are stored (as `""` for a site without a symbol); baseline
 shapes are never stored, so a structure without supplied shapes keeps its content
 identity.
 
+### Default bonds from distances
+
+A structure without a network can be given a simple default one:
+{py:func}`~httk.atomistic.distance_bonds` returns
+`ASUStructureView(structure).resolve()` with `bonds` found from distances. Two
+atoms are bonded when their distance lies between 0.5 Å and the sum of their
+covalent radii plus `tolerance` (0.45 Å by default): the radius-sum form used by
+OpenBabel and Jmol, with a 0.5 Å floor (not their exact radii or floor). The radii
+are the single-bond covalent radii of Cordero et al., *Dalton Trans.* 2008,
+2832–2838 (low-spin Mn, Fe and Co; sp3 C). A mixed-occupancy site takes the
+largest radius of its constituents (positive concentration; vacancies and attached
+atoms are ignored), a site with only vacancies gets no bonds, and an element
+without a radius raises `ValueError` naming it.
+
+For an asymmetric-unit input the result has its sites unchanged. Any other input
+(a unit cell, or a P1, primitive or supercell description) is recognised first,
+and the recognised structure is idealised within the recognition tolerance, so a
+contact within that tolerance of its cutoff can fall on either side. To control
+it, recognise yourself: `distance_bonds(ASUStructureView(structure, tolerance=...))`.
+
+On top of the distance rule, two metals are never bonded in a structure that
+contains a non-metal: H, He, B, C, N, O, F, Ne, Si, P, S, Cl, Ar, Ge, As, Se, Br,
+Kr, Sb, Te, I, Xe, At and Rn (the metalloids count as non-metals, so Zintl pairs
+such as Na–Si stay bonded). A mixed site is a metal when all its constituents are,
+so even a dilute non-metal on a mixed site switches this rule on for the whole
+structure; vacancy-only sites do not count. Without a non-metal (intermetallics,
+elements) the distance rule alone applies. The cation radius sums are generous, so
+without this rule the cations of ionic solids bond to each other (rutile TiO₂
+would give Ti 6 O and 10 Ti neighbours; with it, Ti 6 and O 3).
+
+```python
+from httk.atomistic import ASUStructure, Cell, Species, WyckoffSite, distance_bonds
+
+nacl = ASUStructure(
+    Cell([[5.64, 0, 0], [0, 5.64, 0], [0, 0, 5.64]]), 225,
+    [WyckoffSite("a", (), "Na"), WyckoffSite("b", (), "Cl")],
+    [Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))],
+)
+bonded = distance_bonds(nacl)  # Na-Cl at 2.82 Å; Na-Na is metal-metal; Cl-Cl at 3.99 Å is beyond 2.49 Å
+```
+
+This is a heuristic, not a chemical model. Covalent radii suit covalent and
+molecular structures better than ionic ones; the metal rule ignores metal–metal
+bonds in compounds (Re–Re in Re₂Cl₈²⁻ salts, Hg₂²⁺), and anion–anion contacts
+are judged by distance alone. Disordered structures need care:
+pairs closer than 0.5 Å (split positions) are never bonded, but partially
+occupied neighbours are bonded as if both were present. Distances are floats
+computed from the exact structure, so every exact asymmetric-unit re-description of one
+crystal gives the same network except where a distance lies within float noise of its
+cutoff.
+
 ## Any setting, including untabulated ones
 
 A space group can be written in many *settings*, and they are genuinely
