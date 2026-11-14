@@ -62,14 +62,22 @@ outward bond) is not SHAPE's ``PPY-6``, whose coordinates are detected as ``TPR6
 program's coordinates [cosymlib]_ (see also [Casanova2003]_); ``TPRT8`` and ``HBPY9`` are the
 undistorted constructions, which equal SHAPE's ``ETBPY-8`` and ``HBPY-9``.
 
-Some IUPAC shapes are deliberately absent: this measure barely tells each from a shape of the
-table, which its ideal geometry is detected as and which is its *class*.  ``SPY4`` (four-bond
-square pyramid, 11.6 degrees away) is detected as ``SP4``; ``OCF7`` (face-monocapped octahedron,
-SHAPE ``COC-7``, 8.72) as ``TPRS7``; ``SAPR8`` (square antiprism, 9.65) and ``TPRS8``
-(square-face bicapped trigonal prism, 9.12) as ``DD8``; ``OCT8`` (trans-bicapped octahedron,
-3.45) as ``HBPY8``.  ``TPRS7`` is therefore the class of the capped seven-bond arrangements, and
-``DD8`` the class of the non-cubic eight-bond arrangements other than the bipyramid ``HBPY8`` and
-the triangular-face bicapped prism ``TPRT8``.  A supplied absent symbol raises, naming its class.
+The table is what httk *recommends* and what the detector assigns.  Some IUPAC shapes are left out
+of it: this measure barely tells each from a shape of the table, which its ideal geometry is detected
+as and which is its *class*.  ``SPY4`` (four-bond square pyramid, 11.6 degrees away) is detected as
+``SP4``; ``OCF7`` (face-monocapped octahedron, SHAPE ``COC-7``, 8.72) as ``TPRS7``; ``SAPR8``
+(square antiprism, 9.65) and ``TPRS8`` (square-face bicapped trigonal prism, 9.12) as ``DD8``;
+``OCT8`` (trans-bicapped octahedron, 3.45) as ``HBPY8``.  ``TPRS7`` is therefore the class of the
+capped seven-bond arrangements, and ``DD8`` the class of the non-cubic eight-bond arrangements other
+than the bipyramid ``HBPY8`` and the triangular-face bicapped prism ``TPRT8``.
+
+A person or another program can tell such shapes apart, so a supplied symbol may be any of
+``_NAMED_SYMBOLS`` (protonet follow-up 8): every IUPAC polyhedral symbol and the SHAPE labels of
+the table, or ``I<n>`` for any ``n`` of at least 3.  A symbol from the baseline (software
+``httk_basic``) names a class, while a supplied symbol names the shape itself; the network's
+``source`` and ``shapes_source`` tell the two apart.  ``I2`` is never valid (two bonds are ``L2``
+or ``A2``).  The exchange formats (OPTIMADE, CIF) write irregular as the bare ``I``
+(``_exchange_symbols()``, ``_to_exchange``); a reader restores the count (``_from_exchange``).
 The defaults (``_DEFAULTS``) for five, seven and eight bonds are the most frequent shapes on an
 ICSD sample (protonet follow-up 7): ``SPY5``, ``TPRS7`` and ``DD8``.
 
@@ -88,6 +96,7 @@ ICSD sample (protonet follow-up 7): ``SPY5``, ``TPRS7`` and ``DD8``.
    https://github.com/GrupEstructuraElectronicaSimetria/cosymlib.
 """
 
+import functools
 import itertools
 import math
 import re
@@ -183,11 +192,44 @@ _IDEAL: dict[int, dict[str, Sequence[Sequence[float]]]] = {
     },
 }
 
-_KNOWN = frozenset({"L2", "A2"}.union(*_IDEAL.values()))
-# IUPAC shapes deliberately absent from the table -> the table shape their ideal is detected as
-_ABSENT = {"SPY4": "SP4", "OCF7": "TPRS7", "SAPR8": "DD8", "TPRS8": "DD8", "OCT8": "HBPY8"}
+_KNOWN = frozenset({"L2", "A2"}.union(*_IDEAL.values()))  # the detector's table
+# every named symbol a supplied shape may use: the IUPAC polyhedral symbols, then the SHAPE labels of the table
+_NAMED_SYMBOLS = (
+    *("L2", "A2", "TP3", "TPY3", "TS3", "T4", "SP4", "SPY4", "SS4", "TBPY5", "SPY5", "OC6", "TPR6", "PBPY7"),
+    *("OCF7", "TPRS7", "CU8", "SAPR8", "DD8", "HBPY8", "OCT8", "TPRT8", "TPRS8", "TPRS9", "HBPY9"),
+    *("PPY6", "COC12", "ACOC12", "IC12"),
+)
 _SYMBOL = re.compile(r"[A-Z]+([1-9][0-9]*)")
 _IRREGULAR = re.compile(r"I([1-9][0-9]*)")
+
+
+@functools.cache
+def _exchange_symbols() -> tuple[str, ...]:
+    """Return every shape symbol of the exchange formats (OPTIMADE, CIF): ``_NAMED_SYMBOLS``, then ``I``."""
+    return (*_NAMED_SYMBOLS, "I")
+
+
+def _to_exchange(symbol: str) -> str:
+    """Return a shape symbol as the exchange formats write it: ``I`` for ``I<n>``, else unchanged.
+
+    :param symbol: A valid shape symbol.
+    :return: The exchange symbol.
+    """
+    return "I" if _IRREGULAR.fullmatch(symbol) else symbol
+
+
+def _from_exchange(symbol: str, count: int) -> str:
+    """Return the shape symbol of an exchange symbol on a site with ``count`` bonded atoms covered.
+
+    :param symbol: ``I``, ``I<n>`` or a named symbol.
+    :param count: The number of bonded atoms the shape covers.
+    :return: ``I<count>`` for ``I``, else ``symbol``.
+    :raises ValueError: As ``_check_shape`` for the result (an unknown symbol, a number other
+        than ``count``, or fewer than three bonds for ``I``).
+    """
+    result = f"I{count}" if symbol == "I" else symbol
+    _check_shape(result, count)
+    return result
 
 
 def _sorted_angles(vectors: Sequence[Sequence[float]]) -> list[float]:
@@ -258,15 +300,15 @@ def _bond_count(symbol: str) -> int:
 
 
 def _is_known(symbol: str) -> bool:
-    """Return whether ``symbol`` is a symbol of the table or ``I<n>`` with ``n >= 2``.
+    """Return whether ``symbol`` is one of ``_NAMED_SYMBOLS`` or ``I<n>`` with ``n >= 3``.
 
     :param symbol: the shape symbol.
-    :return: ``True`` for a known symbol.
+    :return: ``True`` for a valid symbol.
     """
-    if symbol in _KNOWN:
+    if symbol in _NAMED_SYMBOLS:
         return True
     match = _IRREGULAR.fullmatch(symbol)
-    return match is not None and int(match.group(1)) >= 2
+    return match is not None and int(match.group(1)) >= 3
 
 
 def _written(symbol: str | None) -> str:
@@ -286,11 +328,9 @@ def _check_shape(symbol: str, count: int) -> None:
 
     :param symbol: The shape symbol.
     :param count: The site's bond count.
-    :raises ValueError: If ``symbol`` is unknown (a deliberately absent IUPAC symbol names its
-        class), the site has fewer than two bonds, or the symbol's number is not ``count``.
+    :raises ValueError: If ``symbol`` is unknown (see ``_is_known``), the site has fewer
+        than two bonds, or the symbol's number is not ``count``.
     """
-    if symbol in _ABSENT:
-        raise ValueError(f"{symbol} is not in the shape table; its class is {_ABSENT[symbol]}")
     if not _is_known(symbol):
         raise ValueError(f"unknown shape symbol {symbol!r}")
     if count < 2:

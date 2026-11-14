@@ -10,14 +10,14 @@ import protonet_reference as oracle
 import pytest
 from _protonet_support import random_net, random_shapes, scramble_shaped
 from test_protonet_canonical import _cell_changes, _oracle_net, _random_cell_change
-from test_structure_shapes import _b8
+from test_structure_shapes import _b8, _with
 
 from httk.atomistic import ASUStructure, BondNetwork, Protonetstructure, Protonettype, SiteBond, Species, WyckoffSite
 from httk.atomistic.models.prototype.notation import parse_protonetstructure_label, parse_protonettype_label
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.canonical_classification import canonical_protonetstructure
 from httk.atomistic.symmetry.protonet import _canonical_net, _tables
-from httk.atomistic.symmetry.shapes import _bond_counts
+from httk.atomistic.symmetry.shapes import _bond_counts, _site_shapes
 
 K2AGSBS4 = "A4B2CD_oP32_34_4c_abc_ab_c"
 FRAME = "8I4~1.2_9SS4~3.4_10~1.2.3.4@4"  # S A2 (the default), Ag I4 and SS4, Sb T4
@@ -47,7 +47,7 @@ def test_parse_fills_the_defaults_and_rendering_omits_them() -> None:
         ("8I4~1.2_9SS4~3.4_10T4~1.2.3.4@4", "not a canonical"),  # a written default
         ("8I4~1.2_9XX4~3.4_10~1.2.3.4@4", "unknown shape"),
         ("8I4~1.2_9SS4~3.4_10TBPY5~1.2.3.4@4", "is for 5 bonds, but the site has 4"),
-        ("8I4~1.2_9SS4~3.4_10SPY4~1.2.3.4@4", "SPY4 is not in the shape table; its class is SP4"),
+        ("8I4~1.2_9SS4~3.4_10I2~1.2.3.4@4", "unknown shape symbol 'I2'"),
         ("8I4~1.2_9SS4~3.4_10OC5~1.2.3.4@4", "unknown shape"),
         ("8I4~1.2_9SS4~3.4_10~1.2.3.4@4_5A2", "site with 0 bond"),
         ("8I4~1.2_9SS4~3.4_10~1.2.3_4L2", "site with 1 bond"),
@@ -81,6 +81,34 @@ def test_a_count_without_a_default_writes_its_shape() -> None:
         parse_protonettype_label(f"A2B_aP3_2_i_a__{net.replace('I10', '')}")
     with pytest.raises(ValueError, match="needs a shape"):
         _star(None)
+
+
+def test_a_supplied_shape_outside_the_table_is_written_and_parsed() -> None:
+    # SAPR8 (a square antiprism, which the baseline calls DD8) supplied on diopside's eight-bonded Ca
+    diopside = _b8("diopside")
+    shapes = tuple("SAPR8" if site.species == "Ca" else None for site in diopside.wyckoff_sites)
+    assert shapes.count("SAPR8") == 1 and _site_shapes(diopside)[shapes.index("SAPR8")] == "DD8"
+    supplied = Protonetstructure.from_asu(_with(diopside, shapes))
+    assert supplied.shapes.count("SAPR8") == 1 and "SAPR8" in str(supplied.label)
+    assert parse_protonetstructure_label(str(supplied.label)) == supplied
+    assert supplied != Protonetstructure.from_asu(diopside)
+
+
+def _shells() -> ASUStructure:
+    """Pm-3m, one atom bonded to its lattice translates in nine shells (6, 12, 8, 6, 24, 24, 12, 24, 6): 122 bonds."""
+    shells = [(1, 0, 0), (1, 1, 0), (1, 1, 1), (2, 0, 0), (2, 1, 0), (2, 1, 1), (2, 2, 0), (2, 2, 1), (3, 0, 0)]
+    bonds = [SiteBond(0, 0, AffineOperation(ONE.matrix, t)) for t in shells]
+    return ASUStructure([[3, 0, 0], [0, 3, 0], [0, 0, 3]], 221, [WyckoffSite("a", (), "C")], [C], bonds=bonds)
+
+
+def test_a_site_with_many_bonds_is_irregular_and_its_label_round_trips() -> None:
+    value = Protonetstructure.from_asu(_shells())
+    assert _site_shapes(_shells()) == value.shapes == ("I122",)
+    label = str(value.label)
+    assert label.split("__")[1] == "1I122~1@1@455.1@1@445.1@1@444.1@1@355.1@1@345.1@1@344.1@1@335.1@1@255.1@1@334:C"
+    assert parse_protonetstructure_label(label) == value
+    with pytest.raises(ValueError, match="protonet site 1 has 122 bonds, which have no default shape"):
+        parse_protonetstructure_label(label.replace("I122", ""))
 
 
 # ---------------------------------------------------------------------------------------------

@@ -9,15 +9,18 @@ import pytest
 
 from httk.atomistic.symmetry import shapes
 from httk.atomistic.symmetry.shapes import (
-    _ABSENT,
     _DEFAULTS,
     _IDEAL,
     _IDEAL_ANGLES,
+    _NAMED_SYMBOLS,
     _bond_count,
     _check_shape,
     _detect,
+    _exchange_symbols,
+    _from_exchange,
     _is_known,
     _misfit,
+    _to_exchange,
     _written,
 )
 
@@ -224,11 +227,63 @@ def test_bond_count_and_known() -> None:
     for bad in ("", "T", "4", "t4", "T04", "T4X", "T-4", "T0"):
         with pytest.raises(ValueError, match="not a shape symbol"):
             _bond_count(bad)
-    known = ("L2", "A2", "TS3", "SS4", "SPY5", "PPY6", "TPRS7", "HBPY8", "TPRT8", "HBPY9", "ACOC12", "I2", "I7", "I13")
-    for symbol in known:
+    known = ("L2", "A2", "TS3", "SS4", "SPY5", "PPY6", "TPRS7", "HBPY8", "TPRT8", "HBPY9", "ACOC12", "I3", "I7", "I13")
+    for symbol in (*known, "SAPR8", "SPY4", "I121", "I2000"):
         assert _is_known(symbol)
-    for symbol in ("I0", "I1", "I02", "T5", "XX4", "L-2", "l2", ""):
+    for symbol in ("I0", "I1", "I2", "I02", "I03", "I", "T5", "XX4", "L-2", "l2", "sapr8", ""):
         assert not _is_known(symbol)
+
+
+# --- Follow-up 8: the supplied vocabulary and the exchange symbols. ---
+
+
+def test_supplied_symbols() -> None:
+    assert len(_NAMED_SYMBOLS) == len(set(_NAMED_SYMBOLS)) == 29
+    assert shapes._KNOWN <= set(_NAMED_SYMBOLS)  # the detector's table is part of the vocabulary
+    for symbol in (*_NAMED_SYMBOLS, "I3", "I13", "I121", "I2000"):
+        count = _bond_count(symbol)
+        _check_shape(symbol, count)
+        for wrong in (count - 1, count + 1):
+            with pytest.raises(ValueError, match="bond"):
+                _check_shape(symbol, wrong)
+    for bad, count in (("I2", 2), ("I03", 3), ("X5", 5), ("sapr8", 8)):
+        with pytest.raises(ValueError, match="unknown shape symbol"):
+            _check_shape(bad, count)
+
+
+def test_the_detector_returns_only_its_table_or_irregular() -> None:
+    ideals = [vs for table in _IDEAL.values() for vs in table.values()] + [vs for vs, _, _ in _ABSENT_IDEALS.values()]
+    for vectors in ideals:
+        assert _detect(vectors)[0] in shapes._KNOWN
+    rng = random.Random(8)
+    for n in (13, 40, 122):
+        assert _detect([(rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1)) for _ in range(n)]) == (
+            f"I{n}",
+            None,
+        )
+
+
+def test_exchange_symbols() -> None:
+    assert _exchange_symbols() == (*_NAMED_SYMBOLS, "I")
+    assert _to_exchange("I3") == _to_exchange("I122") == "I"
+    assert _to_exchange("SAPR8") == "SAPR8" and _to_exchange("IC12") == "IC12"
+    assert _from_exchange("I", 3) == "I3" and _from_exchange("I", 122) == "I122"
+    assert (
+        _from_exchange("I6", 6) == "I6"
+        and _from_exchange("SAPR8", 8) == "SAPR8"
+        and _from_exchange("IC12", 12) == "IC12"
+    )
+    for symbol in (*_NAMED_SYMBOLS, "I5", "I13"):
+        assert _from_exchange(_to_exchange(symbol), _bond_count(symbol)) == symbol
+    for symbol, count, message in (
+        ("I5", 6, "is for 5 bonds, but the site has 6"),
+        ("I", 2, "unknown shape symbol 'I2'"),
+        ("I", 1, "unknown shape symbol 'I1'"),
+        ("SAPR8", 6, "is for 8 bonds"),
+        ("X5", 5, "unknown shape symbol"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            _from_exchange(symbol, count)
 
 
 # --- Pinned near pairs (degrees RMS between ideal shapes of one count). ---
@@ -249,7 +304,7 @@ def test_no_other_pair_within_15_degrees() -> None:
     assert near == {("COC12", "ACOC12"), ("COC12", "IC12"), ("TP3", "TPY3"), ("CU8", "HBPY8")}
 
 
-# --- Follow-up 7: the added shapes against SHAPE 2.1's coordinates, and the absent shapes. ---
+# --- Follow-up 7: the added shapes against SHAPE 2.1's coordinates, and the shapes absent from the table. ---
 
 # SHAPE 2.1 reference polyhedra about their central atom (cosymlib ideal_structures_center.yaml at
 # commit 90533c88, vertex minus central atom; ETBPY-8's central atom is at z = 1.5e-8, which is
@@ -295,21 +350,22 @@ def test_existing_ideals_keep_their_detection() -> None:
 
 _TPR = math.degrees(math.atan2(2 / math.sqrt(7), math.sqrt(3 / 7)))
 _SAPR = math.degrees(math.atan2(1.0, 2**-0.75))
+# shape absent from the table -> (ideal bond directions, the class it is detected as, the misfit)
 _ABSENT_IDEALS = {
-    "SPY4": (_ref_ring(4, 100), 11.632878),
-    "OCF7": (_SHAPE_COC7, 8.722937),
-    "SAPR8": (_ref_ring(4, _SAPR) + _ref_ring(4, _SAPR, 45, -1), 9.650191),
-    "TPRS8": (_ref_ring(3, _TPR) + _ref_ring(3, _TPR, 0, -1) + _ref_ring(3, 90, 60)[:2], 9.117421),
-    "OCT8": ([(0, 0, 1), (0, 0, -1)] + _ref_ring(4, 90) + [(1, 1, 1), (-1, -1, -1)], 3.446352),
+    "SPY4": (_ref_ring(4, 100), "SP4", 11.632878),
+    "OCF7": (_SHAPE_COC7, "TPRS7", 8.722937),
+    "SAPR8": (_ref_ring(4, _SAPR) + _ref_ring(4, _SAPR, 45, -1), "DD8", 9.650191),
+    "TPRS8": (_ref_ring(3, _TPR) + _ref_ring(3, _TPR, 0, -1) + _ref_ring(3, 90, 60)[:2], "DD8", 9.117421),
+    "OCT8": ([(0, 0, 1), (0, 0, -1)] + _ref_ring(4, 90) + [(1, 1, 1), (-1, -1, -1)], "HBPY8", 3.446352),
 }
 
 
-@pytest.mark.parametrize("symbol", sorted(_ABSENT))
-def test_absent_shapes_detect_as_and_raise_naming_their_class(symbol: str) -> None:
-    vectors, misfit = _ABSENT_IDEALS[symbol]
-    assert _detect(vectors) == (_ABSENT[symbol], misfit) and not _is_known(symbol)
-    with pytest.raises(ValueError, match=f"^{symbol} is not in the shape table; its class is {_ABSENT[symbol]}$"):
-        _check_shape(symbol, _bond_count(symbol))
+@pytest.mark.parametrize("symbol", sorted(_ABSENT_IDEALS))
+def test_absent_shapes_detect_as_their_class_and_are_accepted_when_supplied(symbol: str) -> None:
+    vectors, cls, misfit = _ABSENT_IDEALS[symbol]
+    assert symbol not in shapes._KNOWN and cls in shapes._KNOWN
+    assert _detect(vectors) == (cls, misfit)
+    _check_shape(symbol, _bond_count(symbol))
 
 
 # --- Cross-check against the inline reference copy. ---

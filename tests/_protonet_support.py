@@ -169,12 +169,13 @@ def scramble_shaped(
 
 
 def random_shapes(tables: Any, sites: Sequence[Site], rows: Sequence[Row], rng: random.Random) -> list[str | None]:
-    """A random valid shape per site of a 0-based net: any known symbol or ``I<n>`` with its bond count."""
+    """A random valid shape per site of a 0-based net: any table symbol with its bond count, or ``I<n>`` for ``n > 2``."""
     from httk.atomistic.symmetry.shapes import _KNOWN, _bond_count, _bond_counts
 
     counts = _bond_counts(tables, [letter_field(tables, letter, "H") for _, letter in sites], rows)
     return [
-        None if n < 2 else rng.choice([s for s in sorted(_KNOWN) if _bond_count(s) == n] + [f"I{n}"]) for n in counts
+        None if n < 2 else rng.choice([s for s in sorted(_KNOWN) if _bond_count(s) == n] + [f"I{n}"] * (n > 2))
+        for n in counts
     ]
 
 

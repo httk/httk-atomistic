@@ -548,7 +548,8 @@ without the hyphen where IUPAC defines one (N. G. Connelly et al. (eds.),
 *Nomenclature of Inorganic Chemistry: IUPAC Recommendations 2005*, section
 IR-9.3.2.1 and Table IR-9.2), the SHAPE program's labels otherwise (M. Llunell et
 al., *SHAPE 2.1 User's Manual*, Universitat de Barcelona, 2013, "List of
-reference shapes"), and `I<n>` for an irregular arrangement of `n` bonds:
+reference shapes"), and `I<n>` for an irregular arrangement of `n` bonds. The
+table below is what *httk₂* recommends and what its baseline detector assigns:
 
 | Symbol | Name | Source | Default for its count |
 |---|---|---|---|
@@ -576,7 +577,7 @@ reference shapes"), and `I<n>` for an irregular arrangement of `n` bonds:
 | `COC12` | cuboctahedron | SHAPE COC-12 | yes |
 | `ACOC12` | anticuboctahedron | SHAPE ACOC-12 | |
 | `IC12` | icosahedron | SHAPE IC-12 | |
-| `I<n>` | irregular, `n` bonds | *httk₂* | |
+| `I<n>` | irregular, `n` bonds, `n` at least 3 | *httk₂* | |
 
 A symbol is written only where it differs from the default of its bond count; a
 missing symbol means the default. Bond counts without a default (1 is never a
@@ -586,7 +587,9 @@ default is the most frequent shape on a sample of ICSD structures. A label is
 read under the net version it was written in: a label from another net version
 must not be parsed across versions, since its unwritten shapes mean other
 defaults (an unwritten eight-bonded site meant `CU8` in net version 6 and means
-`DD8` in net version 7).
+`DD8` from net version 7). Net version 8 widened the supplied vocabulary (below)
+to every IUPAC polyhedral symbol and made `I2` invalid; no label written under
+version 7 changed.
 
 The Source column names where a symbol comes from, not its geometry. The shapes
 that predate net version 7 keep geometries of their own; three of them
@@ -600,12 +603,10 @@ program's own coordinates (D. Casanova et al., *Chem. Eur. J.* 9, 1281 (2003)).
 `TPRT8` and `HBPY9` are the undistorted constructions, which equal SHAPE's
 ETBPY-8 and HBPY-9.
 
-Five IUPAC shapes are deliberately absent, because this measure barely tells
-each from a shape of the table. Its ideal geometry is detected as that shape,
-its *class*, and supplying the absent symbol raises an error that names the
-class (for example `SAPR8 is not in the shape table; its class is DD8`). The
-misfits of `OCF7`, `SAPR8` and `TPRS8` are measured on SHAPE's coordinates
-(COC-7, SAPR-8, BTPR-8); those of `SPY4` and `OCT8`, which SHAPE does not
+Five IUPAC shapes are deliberately absent from the recommended table, because
+this measure barely tells each from a shape of the table. Its ideal geometry is
+detected as that shape, its *class*. The misfits of `OCF7`, `SAPR8` and `TPRS8`
+are measured on SHAPE's coordinates (COC-7, SAPR-8, BTPR-8); those of `SPY4` and `OCT8`, which SHAPE does not
 define, on plain constructions (four bonds at 100 degrees from an axis; an
 octahedron with two opposite faces capped):
 
@@ -617,10 +618,26 @@ octahedron with two opposite faces capped):
 | `TPRS8` | trigonal prism, square-face bicapped (SHAPE BTPR-8) | `DD8` | 9.1 |
 | `OCT8` | octahedron, trans-bicapped | `HBPY8` | 3.4 |
 
+**Supplied shapes.** A person or another program can tell these shapes apart, so
+a supplied symbol may come from a wider vocabulary than the table: every IUPAC
+polyhedral symbol above, absent ones included, the SHAPE labels `PPY6`, `COC12`,
+`ACOC12` and `IC12`, and `I<n>` for any `n` of at least 3. `I2` is never valid,
+since two bonds are always `L2` or `A2`. A symbol the baseline assigns names a *class*: `DD8` from
+the detector covers every non-cubic eight-bond arrangement other than `HBPY8` and
+`TPRT8`, a square antiprism included. A supplied symbol names the shape itself:
+a supplied `SAPR8` is a square antiprism, and a label writes it as `SAPR8`. Two
+sources may therefore label one crystal differently. The network's `source` and
+`shapes_source` tell the two apart: baseline shapes carry the software
+`httk_basic`. The exchange formats, the OPTIMADE `_httk_bonds` property and CIF,
+write an irregular shape as the bare symbol `I`, without its count; a reader
+restores `I<n>` from the number of bonded atoms the shape covers, and also
+accepts `I<n>` when `n` is that number. The rule that a symbol's number equals
+the atoms covered applies to the named symbols.
+
 **Where shapes come from.** A value states them:
 `Protonettype(spacegroup, occupations, net, shapes)` and its `Protonetstructure`
 counterpart take one symbol per site, `None` below two bonds, and require a
-known symbol (or `I<n>`) ending in the site's bond count on every site with two
+supplied-vocabulary symbol ending in the site's bond count on every site with two
 or more bonds. Parsing a label fills in the defaults. A structure's network may
 carry assigned shapes (the `shapes` of its {py:class}`~httk.atomistic.BondNetwork`,
 see {doc}`details/asu`), and `from_asu` with index-tuple bonds takes `shapes=`. Every other site gets the
@@ -1135,7 +1152,7 @@ their content identity. There are three versions, one per family:
 
 A label-rule change therefore bumps all three, while a change to the
 representative or to the net leaves the other families' records untouched. The
-label version is 4, the refined version 9 and the net version 7, since species
+label version is 4, the refined version 9 and the net version 8, since species
 classes replaced species names in every label, the hand is kept in Sohncke
 groups at every level, labels that could not be determined within the time
 budget are stored with an `X` marker, and species-class concentrations are
@@ -1147,7 +1164,9 @@ and cells built from parameters whose rational cosines and sines (0, ±1/2, ±1)
 exact where the others are approximated, with an approximated rhombohedral-axes cell
 built in the symmetric orientation that keeps its threefold axis exactly, and the net version the bond shapes and
 the listing order of the net segment and, since net version 7, the present shape table (`TPRS7`, `TPRT8` and
-`HBPY9` added, `SAPR8` dropped, and `SPY5`, `TPRS7` and `DD8` the defaults for five, seven and eight bonds).
+`HBPY9` added, `SAPR8` dropped, and `SPY5`, `TPRS7` and `DD8` the defaults for five, seven and eight bonds)
+and, since net version 8, the supplied vocabulary (every IUPAC polyhedral symbol accepted when supplied, and `I2`
+invalid).
 Any change that can change a shape the baseline detects (the defaults table, the
 ideal shapes or their order, the thresholds, the misfit rounding, the tie order,
 the metric averaging or the float conversion) is a change of the net rule. The

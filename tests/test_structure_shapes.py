@@ -167,9 +167,12 @@ def _shapes(structure: Any) -> Any:
 
 
 def _irregular(structure: Any) -> tuple[str | None, ...]:
-    """A valid supplied symbol for every shaped site that the baseline never gives a regular site: ``I<n>``."""
+    """A valid supplied symbol for every shaped site: ``I<n>``, which the baseline never gives a regular site.
+
+    Two bonds have no irregular symbol (``I2`` is invalid), so they get ``A2``, which the straight chains do not detect.
+    """
     counts = _structure_bond_counts(structure.spacegroup, structure.wyckoff_sites, structure.bonds.pairs)
-    symbols = tuple(None if count < 2 else f"I{count}" for count in counts)
+    symbols = tuple(None if count < 2 else "A2" if count == 2 else f"I{count}" for count in counts)
     return None if all(symbol is None for symbol in symbols) else symbols
 
 
@@ -446,7 +449,7 @@ def test_a_site_at_a_special_point_of_its_letter_is_refused() -> None:
     with pytest.raises(ValueError, match=message):
         _site_shapes(structure)
     with pytest.raises(ValueError, match=message):
-        ASUStructure(cell, 14, sites, [C], bonds=BondNetwork(bonds, ["I2"]))
+        ASUStructure(cell, 14, sites, [C], bonds=BondNetwork(bonds, ["A2"]))
 
 
 def test_a_structure_without_a_network_has_no_shapes() -> None:

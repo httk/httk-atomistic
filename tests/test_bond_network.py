@@ -363,7 +363,7 @@ def test_the_unit_cell_baseline_refuses_a_zero_length_bond() -> None:
     )
     with pytest.raises(ValueError, match="site 0: a zero-length bond has no direction; supply its shape"):
         _site_shapes(stacked)
-    assert _site_shapes(stacked._with_bonds(BondNetwork(stacked.bonds.pairs, ("I2", None, None))))[0] == "I2"  # type: ignore[union-attr]
+    assert _site_shapes(stacked._with_bonds(BondNetwork(stacked.bonds.pairs, ("A2", None, None))))[0] == "A2"  # type: ignore[union-attr]
 
 
 # ---------------------------------------------------------------------------------------------

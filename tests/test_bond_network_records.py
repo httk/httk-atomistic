@@ -139,8 +139,8 @@ def test_a_unit_cell_record_with_an_invalid_stored_shape_serves_null(caplog: pyt
     nsites = _cell().nsites
     record = replace(_unitcell_record_from_structure(_with(_cell(), ("OC6",) * nsites, SOURCE)), id="x")
     assert _response_value(record, "_httk_bonds", "unitcell")["shapes"] == ["OC6"] * nsites
-    # a symbol a later shape table dropped, or one for the wrong bond count
-    for shape, message in (("SAPR8", "SAPR8 is not in the shape table; its class is DD8"), ("T4", "is for 4 bonds")):
+    # a symbol outside the vocabulary, or one for the wrong bond count
+    for shape, message in (("I2", "unknown shape symbol 'I2'"), ("T4", "is for 4 bonds")):
         stale = replace(record, bonds=replace(record.bonds, shapes=(shape,) + ("OC6",) * (nsites - 1)))
         caplog.clear()
         with caplog.at_level(logging.WARNING, logger="httk.atomistic.storage.stored_properties"):
