@@ -480,8 +480,6 @@ FIXTURE_NORMAL = (
 )
 FIXTURE_EXTENDED = (
     "cod/1509425.cif",
-    # cod/1001844.cif (P1, 32 general sites, 51 rows) is left out: _minimal_numberings does not
-    # finish within minutes (D8), in the oracle as in production
     *(f"structreading/{n}.cif" for n in (12, 14, 47, 129, 139, 148, 166, 194, 221, 225, 227, 229)),
 )
 # The box search of the first brief failed 31 % (34) and 22 % (61) of these draws: 25 draws catch it

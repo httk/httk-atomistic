@@ -1147,9 +1147,10 @@ def _canonical_protostructure_assignments_asu(
     a recognized ASU keeps its measured cell, whose metric then cannot identify the hands. The
     test is exact. A cell built from parameters keeps the right angles and 120° angles its group
     fixes exactly, and an approximated rhombohedral-axes cell is built in its symmetric orientation
-    with exactly equal edges and angles, so among the repository fixtures it fires only for
-    cod/1001844 (P1 as stored, recognized in a higher group), where the mirrored hand's
-    representative wins.
+    with exactly equal edges and angles, so it fires only for a measured cell recognized in a group
+    the cell does not fit exactly. No repository fixture does; the synthetic mirroring test
+    (``test_recognition_commutes_with_mirroring_and_site_order``, a C m crystal measured in P1)
+    does, and there the mirrored hand's representative wins.
     """
     if not isinstance(structure, ASUStructure):
         raise TypeError(f"expected ASUStructure, got {type(structure).__name__}")

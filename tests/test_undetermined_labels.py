@@ -388,11 +388,11 @@ def _clear_net_caches() -> None:
 
 
 def test_a_large_molecule_over_a_short_budget_gets_its_bare_label_with_an_undetermined_net() -> None:
-    # COD 1001844 (P1, 32 sites, 51 bond orbits): its net search takes about 0.1 s with cold caches,
-    # the warm bare part about a millisecond; it finishes within the default budget since the search
-    # fixes. Real deadlines below the measured search time: every result is one of the valid forms, and
-    # a budget the bare part meets but the net search does not gives the bare label with __X.
-    path = str(FIXTURES / "cod" / "1001844.cif")
+    # COD 7218683 (Cu(C9H9BrNO)2 in P2_1/c, 22 sites, 9 bond orbits by the generic cutoffs): its net
+    # search takes about 0.3 s with cold caches, the warm bare part about 10 ms; it finishes within the
+    # default budget. Real deadlines below the measured search time: every result is one of the valid
+    # forms, and a budget the bare part meets but the net search does not gives the bare label with __X.
+    path = str(FIXTURES / "cod" / "7218683.cif")
     loaded = load_structure(path)
     assert loaded is not None
     it, sites, refs, lattice = loaded
@@ -403,7 +403,7 @@ def test_a_large_molecule_over_a_short_budget_gets_its_bare_label_with_an_undete
     rows, _ = raw_rows(tables, sites, refs, lattice, generic_cutoffs(tables, sites, refs, lattice))
     determined = Protonetstructure.from_asu(asu, _bonds(rows))  # also warms the bare caches
     bare = str(classification.canonical_bare_protostructure(asu).label)
-    assert bare == "A12B3C_aP32_1_24a_6a_2a:F-Np-O"
+    assert bare == "A18B18C2D2E2F_mP86_14_9e_9e_e_e_e_a:C-H-Br-N-O-Cu"
     expected = bare.replace(":", "__X:")
     _clear_net_caches()
     start = time.perf_counter()
@@ -415,7 +415,7 @@ def test_a_large_molecule_over_a_short_budget_gets_its_bare_label_with_an_undete
         for budget in budgets:
             _clear_net_caches()
             result = str(classification.canonical_protonetstructure(source, timeout=budget).label)
-            assert result in {str(determined.label), expected, "A12B3C_aP32_1_X__X:F-Np-O"}
+            assert result in {str(determined.label), expected, "A18B18C2D2E2F_mP86_14_X__X:C-H-Br-N-O-Cu"}
             seen.add(result)
         assert expected in seen
     seen = set()
@@ -423,7 +423,7 @@ def test_a_large_molecule_over_a_short_budget_gets_its_bare_label_with_an_undete
         _clear_net_caches()
         with _budget_scope(budget):
             value = Protonetstructure.from_asu(asu, _bonds(rows))
-        assert str(value.label) in {str(determined.label), expected, "A12B3C_aP32_1_X__X:F-Np-O"}
+        assert str(value.label) in {str(determined.label), expected, "A18B18C2D2E2F_mP86_14_X__X:C-H-Br-N-O-Cu"}
         seen.add(str(value.label))
         if not value.determined:
             _assert_round_trips(value)

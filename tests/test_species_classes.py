@@ -199,7 +199,7 @@ def test_class_names_are_safe_inside_labels() -> None:
     assert {occupation.species for occupation in bare.occupations} == {long, third}
 
 
-@pytest.mark.parametrize("name", _profile(ALL, {"disorder/100.cif", "disorder/133.cif", "cod/1001844.cif"}))
+@pytest.mark.parametrize("name", _profile(ALL, {"disorder/100.cif", "disorder/133.cif", "cod/3000362.cif"}))
 def test_every_fixture_species_round_trips(name: str) -> None:
     for species in _load(name).species:
         if "X" in species.chemical_symbols or set(species.chemical_symbols) == {"vacancy"}:

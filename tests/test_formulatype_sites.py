@@ -12,6 +12,7 @@ from httk.core import load
 from httk.atomistic import (
     AnonymousFormula,
     AnonymousFormulaView,
+    ASUStructure,
     BareProtostructure,
     BareProtostructureView,
     BarePrototypeView,
@@ -25,11 +26,12 @@ from httk.atomistic import (
     StructuretypeView,
     UnitcellStructure,
     UnitcellStructureView,
+    WyckoffSite,
 )
 from httk.atomistic.composition import project_composition
 
 FIXTURES = Path(__file__).parent / "fixtures"
-# cod/1001844 and the first five disorder fixtures carry distinct species names for one chemistry,
+# cod/3000362 and the first five disorder fixtures carry distinct species names for one chemistry,
 # which form one species class; disorder/217 and disorder/52 only rename their species.
 NORMAL = (
     "disorder/16.cif",
@@ -43,7 +45,7 @@ NORMAL = (
     "cod/4002853.cif",
     "cod/4002910.cif",
     "cod/4002923.cif",
-    "cod/1001844.cif",
+    "cod/3000362.cif",
     "cod/1000008.cif",
     "cod/1509425.cif",
     "structreading/1.cif",
@@ -115,17 +117,45 @@ def test_formulatype_equals_every_level_anonymous_formula_and_label_prefix(name:
 
 
 def test_equal_chemistry_is_one_class_on_every_path() -> None:
-    # merged: O1 and O2 (both O with two attached H, charge -2) are one class, OH2, so the
-    # structure, its assigned and erased classifications and Structuretype all agree. Because two
-    # declared species merge, the class structure is recognized instead of the declared P1 ASU;
-    # recognition finds C m, as canonical_asu's detect mode does with the named species too.
-    structure = load(FIXTURES / "cod/1001844.cif", repair=True)
+    # merged: a P1 Si-O-Ge structure declared with two O species names, O1 and O2 (both plain O), whose
+    # sites are related by an inversion; one name per element would keep the declared P1 ASU. O1 and
+    # O2 are one class, O, so the structure, its assigned and erased classifications and Structuretype
+    # all agree. Because two declared species merge, the class structure is recognized instead of the
+    # declared P1 ASU: P-1, every class on one general orbit 2i.
+    F = Fraction
+    species = [
+        Species(name, (element,), (1,)) for name, element in (("Si", "Si"), ("O1", "O"), ("O2", "O"), ("Ge", "Ge"))
+    ]
+    points = {
+        "Si": [(F(7, 80), F(3, 100), F(1, 50)), (F(73, 80), F(97, 100), F(49, 50))],
+        "O1": [(F(1, 4), F(1, 50), F(3, 100))],
+        "O2": [(F(3, 4), F(49, 50), F(97, 100))],
+        "Ge": [(F(33, 80), F(1, 100), F(1, 25)), (F(47, 80), F(99, 100), F(24, 25))],
+    }
+    sites = [WyckoffSite("a", point, name) for name, members in points.items() for point in members]
+    structure = ASUStructure([[8, 0, 0], [0, 10, 0], [0, 0, 10]], 1, sites, species)
     assert structure.spacegroup.it_number == 1
-    assert str(FormulatypeView(structure)) == "A12B3C"
-    assert str(BareProtostructureView(structure).label) == "A12B3C_mC64_8_4a10b_2a2b_2a:F-Np-OH2"
-    assert str(BarePrototypeView(BareProtostructureView(structure)).label) == "A12B3C_mC64_8_4a10b_2a2b_2a"
-    assert str(StructuretypeView(structure).anonymous_formula) == "A12B3C"
-    assert str(BarePrototypeView(structure).label) == "A12B3C_mC64_8_4a10b_2a2b_2a"
+    assert str(FormulatypeView(structure)) == "ABC"
+    assert str(BareProtostructureView(structure).label) == "ABC_aP6_2_i_i_i:Ge-O-Si"
+    assert str(BarePrototypeView(BareProtostructureView(structure)).label) == "ABC_aP6_2_i_i_i"
+    assert str(StructuretypeView(structure).anonymous_formula) == "ABC"
+    assert str(BarePrototypeView(structure).label) == "ABC_aP6_2_i_i_i"
+
+
+def test_mixed_species_of_one_chemistry_are_one_class_whose_structure_is_recognized() -> None:
+    # merged: the four mixed V/W sites of W-doped VO2 (declared species V1/W1 to V4/W4, each
+    # V 0.9916 W 0.0084) are one class, V0.992W0.008, so the structure and its assigned and erased
+    # classifications agree. Because declared species merge, the class structure is recognized
+    # instead of the declared P1 ASU: P2_1/c (monoclinic M1 VO2), O on two 4e orbits and V/W on one.
+    # Structuretype merges by element, which a mixed V/W site does not have, so it refuses.
+    structure = load(FIXTURES / "cod/3000362.cif", repair=True)
+    assert structure.spacegroup.it_number == 1
+    assert str(FormulatypeView(structure)) == "A2B"
+    assert str(BareProtostructureView(structure).label) == "A2B_mP12_14_2e_e:O-V0.992W0.008"
+    assert str(BarePrototypeView(BareProtostructureView(structure)).label) == "A2B_mP12_14_2e_e"
+    with pytest.raises(ValueError, match="anonymize"):
+        str(StructuretypeView(structure).anonymous_formula)
+    assert str(BarePrototypeView(structure).label) == "A2B_mP12_14_2e_e"
 
 
 MIXED = Species("FeNi", ("Fe", "Ni"), (Fraction(1, 2), Fraction(1, 2)))

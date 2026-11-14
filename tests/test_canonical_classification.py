@@ -762,7 +762,7 @@ def _sohncke_fixtures() -> list[str]:
         if number is not None and _sohncke(Spacegroup.standard(number)):
             names.append(name)
     # the COD Sohncke fixtures: P1, P2_1, P2_1 2_1 2_1
-    return [*names, "cod/1001844.cif", "cod/4326344.cif", "cod/7219102.cif"]
+    return [*names, "cod/3000362.cif", "cod/4326344.cif", "cod/7219102.cif"]
 
 
 @pytest.mark.extended

@@ -12,7 +12,7 @@ Do not edit or trim them; the tests depend on the exact original content.
 | 4002923 | occupancy that loads without repair |
 | 4002853 | occupancy needing `repair=True` |
 | 4002910 | occupancy needing `repair=True` |
-| 1001844 | bare scalar symmetry operation |
+| 3000362 | W-doped VO₂ declared P1, an author deposition that the depositor released into the public domain (`_cod_depositor_comments`): four mixed V/W sites of one species class, whose class structure is recognized as P2₁/c (labels, distance bonds, protonet label and a broken bond set) |
 | 1509425 | K2AgSbS4 (Pnn2): bonding-net (protonet) canonicalisation |
 | 1539945 | CuCl2 (C2/m): chains along b, a monoclinic net chosen cell-independently |
 | 1535669 | AlCl3 (C2/m): layers containing b, a monoclinic net chosen cell-independently |

@@ -790,7 +790,8 @@ assert Protonetstructure.from_asu(one) == Protonetstructure.from_asu(two)
 ```
 
 When two species share a class whose structure has higher symmetry than declared
-(COD 1001844, declared P1 with two `OH2` sites, whose class structure is `C m`), the
+(COD 3000362, W-doped VO₂ declared P1 with four mixed V/W sites of one class, whose
+class structure is `P2₁/c`), the
 class structure is recognized and every bond pair is matched to its nearest atom
 there; the bonds are kept if the bond set is invariant under the recognized group,
 and otherwise `from_asu` raises `ValueError` naming that group. It raises too when
@@ -992,9 +993,9 @@ symbol, whatever its net.
 ```
 
 No structure known in the fixtures exceeds the default budget any longer: the
-large molecules of the net search (D8), such as the P1 COD 1001844 with 32 sites,
-now finish in well under a second, and are only undetermined under a short
-budget.
+large molecules of the net search (D8) now finish in well under a second, and a
+molecular crystal such as COD 7218683 (22 sites in `P2₁/c`) is only undetermined
+under a short budget.
 
 #### Structures that still get no label
 

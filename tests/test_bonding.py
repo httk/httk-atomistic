@@ -401,7 +401,7 @@ SHARED_LIGAND = {
     "cod/1535669": "Cl2 Cl2 Al6",
     "cod/1539945": "Cl2 Cu4",
     "cod/4002923": "Fe6 F/O2 O0",
-    "cod/1001844": "Np9 Np8 Np9 Np8 Np9 Np8" + " F2" * 23 + " F3 O1 O1",
+    "cod/3000362": "O3 O3 O3 O3 O3 O3 O3 O3 V/W6 V/W6 V/W6 V/W6",  # W-doped VO2, declared P1: V/W-O only
     "cod/7219102": "N4 H1 H1 C3 O1 C4 H1 H1 O1 C4 H1 H1 H1",
     "cod/7218683": "Br1 Cu4 O2 N3 C3 C3 H1 C3 H1 C3 H1 C3 H1 C3 C3 H1 C4 H1 H1 C4 H1 H1",
     "cod/7217843": "F1 N3 O1 O1 O2 C3 C3 H1 C3 H1 C3 C3 C3 H1 C3 H1 C3 H1 C3 C3 C3 C3 C4 H1 H1 C4 H1 H1 H1 C3 C3 H1"

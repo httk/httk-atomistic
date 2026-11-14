@@ -51,7 +51,6 @@ F = fractions.Fraction
 _COD_OCCUPANCY_FIXTURES = {
     name: Path(__file__).parent / "fixtures" / "cod" / f"{name}.cif" for name in ("4002923", "4002853", "4002910")
 }
-_COD_BARE_SYMOP = Path(__file__).parent / "fixtures" / "cod" / "1001844.cif"
 
 
 def _write_cif(
@@ -783,12 +782,6 @@ def test_bare_scalar_symmetry_operation_loads_as_a_single_p1_operation(tmp_path:
 
     assert len(structure.sites) == 1
     assert structure.spacegroup.it_number == 1
-
-
-def test_cod_1001844_with_bare_scalar_symmetry_operation_loads() -> None:
-    structure = load(_COD_BARE_SYMOP)
-
-    assert len(structure.sites) > 0
 
 
 def test_clean_cif_is_unchanged_when_repair_is_disabled(tmp_path: Path) -> None:

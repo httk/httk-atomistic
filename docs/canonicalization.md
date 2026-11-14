@@ -317,8 +317,10 @@ recognition and no upward symmetry search.
     120° angles its group fixes exactly, and a rhombohedral-axes cell whose angle
     has no exact cosine (or whose exact cosines give an irrational `cz²`, e.g. 72°
     or 75°) is built in its symmetric orientation with exactly equal edges and
-    angles, so among the repository fixtures the test fires only for cod/1001844
-    (P1 as stored, recognized in a higher group), where the mirrored hand's
+    angles, so the test fires only for a measured cell recognized in a group the
+    cell does not fit exactly. No repository fixture does; the synthetic mirroring
+    test (`test_asu_recognition.py::test_recognition_commutes_with_mirroring_and_site_order`,
+    a `C m` crystal measured in P1) does, and there the mirrored hand's
     representative wins.
     Other groups remain. Moments are already excluded.
 16. **Build representative operations.** Start with identity. For P1, append all

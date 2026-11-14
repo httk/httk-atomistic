@@ -9,7 +9,6 @@ from typing import Any
 
 import httk.core
 import pytest
-from _protonet_support import load_structure, raw_rows
 from httk.core import FracVector, SurdVector
 from httk.core.storage import content_id
 
@@ -35,6 +34,7 @@ from httk.atomistic import (
     canonical_protonettype,
     canonicalize,
     conventional_cell,
+    distance_bonds,
 )
 from httk.atomistic.entries.structures import StructureEntry
 from httk.atomistic.storage.records import (
@@ -299,23 +299,14 @@ def _primitive_diamond() -> ASUStructure:
     return ASUStructure(basis, 1, sites, [C], bonds=bonds)
 
 
-def _cod_1001844() -> ASUStructure:
-    """COD 1001844 (declared P1; O1 and O2 are one class, whose structure is C m) with its Np-F and Np-O bonds."""
-    path = str(FIXTURES / "cod" / "1001844.cif")
-    loaded = load_structure(path)
-    assert loaded is not None
-    it, sites, refs, lattice = loaded
-    cutoffs = {frozenset(("Np", "F")): 2.6, frozenset(("Np", "O")): 2.6}
-    rows, _ = raw_rows(protonet._tables(it), sites, refs, lattice, cutoffs)
-    cif = httk.core.load(path, repair=True)
-    return ASUStructure(
-        cif.cell,
-        1,
-        [WyckoffSite(site.wyckoff, site.free_params, site.species) for site in cif.wyckoff_sites],
-        cif.species,
-        coordinate_precision=cif.coordinate_precision,
-        bonds=[SiteBond(i, j, AffineOperation(FracVector.eye((3, 3)), g[1:])) for i, j, g in rows],
-    )
+def _cod_3000362() -> ASUStructure:
+    """COD 3000362 (W-doped VO2 declared P1; its four mixed V/W sites are one class, whose structure is P2_1/c).
+
+    Its V-O bonds come from :func:`~httk.atomistic.distance_bonds`.
+    """
+    structure = distance_bonds(httk.core.load(str(FIXTURES / "cod" / "3000362.cif"), repair=True))
+    assert isinstance(structure, ASUStructure)
+    return structure
 
 
 # ---------------------------------------------------------------------------------------------
@@ -610,18 +601,17 @@ def test_a_left_handed_description_gives_the_label_of_the_right_handed_one() -> 
     assert Protonetstructure.from_asu(plain, [(1, 1, k + 1, *n)]) == Protonetstructure.from_asu(right)
 
 
-def test_cod_1001844_is_labelled_in_the_symmetry_of_its_classes() -> None:
-    structure = _cod_1001844()
+def test_cod_3000362_is_labelled_in_the_symmetry_of_its_classes() -> None:
+    structure = _cod_3000362()
     assert structure.spacegroup.it_number == 1
     value = Protonetstructure.from_asu(structure)
-    # the shapes are measured on the recognized C m geometry, whose free parameters are each orbit's
-    # group average (follow-up 5, A3): site 6 is 166.05 degrees there (L2); with the first member's
-    # coordinates it was 162.49 degrees (A2)
-    assert str(value.label) == (
-        "A12B3C_mC64_8_4a10b_2a2b_2a__17~2.3.5.6.8.11.12.13.14_15~1.5.6@3.7.19_16~1.8@1@554.9.10.20"
-        "_18~4.7.9@1@556.10@3@556.11.12@3@556.13@3@556.14@1@656_1L2_6L2_10L2_14L2:F-Np-OH2"
-    )
-    # a bond that only one of two pseudo-symmetric partners has: not invariant under C m
+    # labelled in P2_1/c, the group of its classes: O on two 4e orbits (sites 1 and 2), V/W on one
+    # (site 3). Site 3 lists the six bonds of its octahedron (OC6, the default, so unwritten): three
+    # to site 1 and three to site 2, two of them to copies a cell away (@455: back along a; @544:
+    # back along b and c). Each O has three V/W neighbours: site 1 irregular (I3), site 2 trigonal
+    # planar (TP3, the default, so unwritten)
+    assert str(value.label) == "A2B_mP12_14_2e_e__3~1.1@2.1@3.2.2@2@455.2@4@544_1I3:O-V0.992W0.008"
+    # a bond that only one of its symmetry copies has: not invariant under P2_1/c
     rows = [(b.site, b.partner, b.operation) for b in structure.bonds.pairs]
     broken = ASUStructure(
         structure.cell,
@@ -631,8 +621,51 @@ def test_cod_1001844_is_labelled_in_the_symmetry_of_its_classes() -> None:
         coordinate_precision=structure.coordinate_precision,
         bonds=[SiteBond(i, j, g) for i, j, g in rows[1:]],
     )
-    with pytest.raises(ValueError, match="not invariant under the recognized symmetry IT 8"):
+    with pytest.raises(ValueError, match="not invariant under the recognized symmetry IT 14"):
         Protonetstructure.from_asu(broken)
+
+
+def test_shapes_are_measured_on_the_group_averaged_geometry() -> None:
+    # follow-up 5, A3: a recognized orbit's free parameters are its group average, not one member's
+    # coordinates. A P1 Si-O-Ge chain declared with two O species names, one class, so P-1 is
+    # recognized (the coordinate precision of 1/40 lets the tolerance accept the displacement). Each
+    # O lies 0.2 A off its Si-Ge line, and the two O atoms, inversion images, are displaced the same
+    # way, so their group average lies on the line: the O angle is 180 degrees there (L2, written),
+    # but 162.4 degrees at either member's coordinates (A2, the default, unwritten).
+    from httk.atomistic.symmetry.shapes import _site_shapes
+
+    def chain(first: str, second: str) -> ASUStructure:
+        """The chain with its two O sites declared as species ``first`` and ``second``."""
+        names = dict.fromkeys(("Si", first, second, "Ge"))
+        species = [Species(name, (name.rstrip("12"),), (1,)) for name in names]
+        points = [
+            ((F(7, 80), F(3, 100), F(1, 50)), "Si"),
+            ((F(73, 80), F(97, 100), F(49, 50)), "Si"),
+            ((F(1, 4), F(6, 175), F(31, 700)), first),  # (2, 0.2, 0.3) A, the line's midpoint, + (0, 1/7, 1/7) A
+            ((F(3, 4), F(174, 175), F(689, 700)), second),  # its inversion image, + the same (0, 1/7, 1/7) A
+            ((F(33, 80), F(1, 100), F(1, 25)), "Ge"),
+            ((F(47, 80), F(99, 100), F(24, 25)), "Ge"),
+        ]
+        links = [(0, 2, (0, 0, 0)), (2, 4, (0, 0, 0)), (4, 5, (0, -1, -1)), (5, 3, (0, 0, 0)), (3, 1, (0, 0, 0))]
+        return ASUStructure(
+            [[8, 0, 0], [0, 10, 0], [0, 0, 10]],
+            1,
+            [WyckoffSite("a", point, name) for point, name in points],
+            species,
+            coordinate_precision=F(1, 40),
+            bonds=[SiteBond(i, j, AffineOperation(ONE.matrix, n)) for i, j, n in [*links, (1, 0, (1, 1, 1))]],
+        )
+
+    label = str(Protonetstructure.from_asu(chain("O1", "O2")).label)
+    # the recognition first, so a tolerance change fails here rather than on the shape
+    assert label.startswith("ABC_aP6_2_i_i_i__")
+    # Ge (1) bonds to its inversion image and to O (2); O, linear, to Si (3); Si to its image a cell back
+    assert label == "ABC_aP6_2_i_i_i__1~1@2.2_2L2~3_3~3@2@455:Ge-O-Si"
+    # the contrast: one O species name merges nothing, so the declared P1 ASU is kept and each O is
+    # measured at its own coordinates, bent
+    single = chain("O", "O")
+    assert str(Protonetstructure.from_asu(single).label).startswith("ABC_aP6_1_")
+    assert _site_shapes(single)[2:4] == ("A2", "A2")
 
 
 def test_the_views_and_canonicalisers_read_a_structure_s_network() -> None:
