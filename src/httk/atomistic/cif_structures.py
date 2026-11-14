@@ -45,7 +45,7 @@ from httk.atomistic.models.structure.asu import (
     _reference,
     _ValidatedASUProof,
 )
-from httk.atomistic.models.structure.network import SiteBond
+from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 from httk.atomistic.symmetry.symop_key import symop_key_v1
@@ -60,6 +60,7 @@ __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
 _ALLOW_LARGE_CIF_UNCERTAINTY = "_httk_atomistic_allow_large_cif_uncertainty"
 _OCCUPANCY_ROUNDING_EXCESS = fractions.Fraction(1, 1000)
 _MAX_REPAIR_OCCUPANCY_EXCESS = fractions.Fraction(1, 10)
+_CIF_BOND_SOURCE = BondSource(description="Bonds listed in the CIF _geom_bond_ loop")
 # The symmetry codes of a bond loop: ``n`` or ``n_klm``.
 _SYMMETRY_CODE = re.compile(r"(\d+)(?:_(\d)(\d)(\d))?")
 _TYPE_SYMBOL_SPECIALS = frozenset({"D", "T", "X", "Vac", "Va"})
@@ -845,6 +846,7 @@ def asu_structure_from_cif(
     )
     canonical_species += tuple(species_by_name[name] for name in implicit_species_names)
     row_sites = dict(zip(site_rows, canonical_sites, strict=True))
+    pairs = _cif_bonds(standard, proof.wyckoff_sites, cell, data, row_sites)
     structure = ASUStructure._from_validated_proof(
         cell,
         standard,
@@ -853,7 +855,7 @@ def asu_structure_from_cif(
         transform,
         data.get("coordinate_precision"),
         assemblies,
-        _cif_bonds(standard, proof.wyckoff_sites, cell, data, row_sites),
+        None if pairs is None else BondNetwork(tuple(pairs), source=_CIF_BOND_SOURCE),
     )
     _warn_unbonded_sites(_block_name(data), structure)
     return structure

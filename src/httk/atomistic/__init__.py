@@ -250,7 +250,7 @@ from httk.atomistic.symmetry.paths import (
 )
 from httk.atomistic.symmetry.wyckoff import WyckoffPosition, wyckoff_positions
 
-from .bonding import distance_bonds
+from .bonding import assign_baseline_shapes, distance_bonds
 from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
 from .composition import Assembly, ChemicalComposition
 from .elements import atomic_number, symbol_of
@@ -493,6 +493,7 @@ __all__ = [
     "WyckoffOccupationRecord",
     "WyckoffPosition",
     "WyckoffSite",
+    "assign_baseline_shapes",
     "asu_structure_from_cif",
     "asu_structures_from_cif",
     "atomic_number",

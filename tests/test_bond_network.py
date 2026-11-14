@@ -161,7 +161,7 @@ def test_unit_cell_pairs_have_one_normal_form() -> None:
             single.cell, single.sites, species_at_sites=[C], bonds=[SiteBond(0, 0, T(*n))]
         ).bonds == (BondNetwork((SiteBond(0, 0, T(-1, 0, 0)),)))
     # a larger network, shuffled and with half its bonds reversed, is the P1 domain's normal form
-    cell = UnitcellStructureView(distance_bonds(_rocksalt(F(564, 100)))).unview()
+    cell = UnitcellStructureView(distance_bonds(_rocksalt(F(564, 100)), shapes=False)).unview()
     assert cell.bonds is not None and len(cell.bonds.pairs) == 24
     spelled = [
         SiteBond(b.partner, b.site, b.operation.inverse()) if index % 2 else b

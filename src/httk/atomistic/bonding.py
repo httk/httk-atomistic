@@ -15,6 +15,18 @@ electronegative than either (Pauling electronegativities as compiled by WebEleme
 [WebElementsEN]_, mostly Allred's revised values [Allred1961]_), so the large cations of
 oxo-salts do not bond to the oxo-anion centres.
 
+The network it returns names its rule as its ``source`` (software ``httk_basic``, the installed
+*httk-atomistic* version), and by default it also assigns the baseline shapes;
+:func:`assign_baseline_shapes` adds those to a network that has none.
+
+:func:`distance_bonds` never recognises symmetry itself (an ``ASUStructureView`` input resolves
+its own recognition): a unit cell gets a unit-cell network and an asymmetric unit a network of
+bond orbits. On a measured cell whose metric keeps the group only
+approximately the two routes can label one crystal differently: the unit-cell route assigns each
+atom its own shape and keeps contacts at their measured, float-noisy distances, which recognition
+may then find not invariant and drop, while the asymmetric-unit route
+(``distance_bonds(ASUStructureView(cell, tolerance=...))``) idealises first.
+
 This is a heuristic, not a chemical model: it ignores metal-metal bonds in compounds (Re-Re in
 Re2Cl8(2-) salts, Hg2(2+)), judges anion-anion contacts by distance alone, and the radii fit
 covalent bonds better than ionic ones.
@@ -30,14 +42,19 @@ covalent bonds better than ionic ones.
    Am-Cm J. E. Huheey, E. A. Keiter, R. L. Keiter, *Inorganic Chemistry*, 4th ed., 1993).
 """
 
+import importlib.metadata
 import itertools
 import math
+from collections.abc import Sequence
+from dataclasses import replace
+from fractions import Fraction
+from functools import cache
 
 from httk.core import register_citation
 
-from httk.atomistic.models.structure.api import _without_network
+from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import (
-    ASUStructure,
+    FundamentalDomainStructure,
     _affine,
     _apply,
     _group,
@@ -46,12 +63,20 @@ from httk.atomistic.models.structure.asu import (
     _reference,
 )
 from httk.atomistic.models.structure.asu_view import ASUStructureView
+from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.like import StructureLike
-from httk.atomistic.models.structure.network import BondNetwork, SiteBond
+from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond, _cell_pairs
+from httk.atomistic.models.structure.record import RecordStructure
+from httk.atomistic.models.structure.unitcell import UnitcellStructure
+from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
+from httk.atomistic.models.structure.view import StructureView
+from httk.atomistic.symmetry.shapes import _site_shapes
 
-__all__ = ["distance_bonds"]
+__all__ = ["assign_baseline_shapes", "distance_bonds"]
 
 _MIN_DISTANCE = 0.5  # Å: closer pairs are split or disordered positions, not bonds
+_HTTK_BASIC = "httk_basic"
+_IDENTITY: _Op = (tuple(Fraction(int(r == c)) for r in range(3) for c in range(3)), (Fraction(0),) * 3)
 
 # Å, Cordero et al. 2008, Table 2: C sp3, Mn/Fe/Co low spin
 _COVALENT_RADII = {
@@ -91,9 +116,52 @@ _NON_METALS = frozenset(
     | {"Ar", "Ge", "As", "Se", "Br", "Kr", "Sb", "Te", "I", "Xe", "At", "Rn"}
 )
 
+_BASELINE_DESCRIPTION = (
+    "Baseline bond shapes: the ideal shape whose sorted bond angles fit best (IUPAC and SHAPE symbols), "
+    "I<n> above 15 degrees RMS misfit, L2 from 165 degrees."
+)
+
+
+@cache
+def _distribution_version() -> str | None:
+    """Return the installed *httk-atomistic* version, ``None`` when it is not installed as a distribution."""
+    try:
+        return importlib.metadata.version("httk-atomistic")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+def _distance_description(tolerance: float) -> str:
+    """Return the one-sentence description of the distance rule at ``tolerance``."""
+    return (
+        f"Distance bonds: 0.5 Å <= d <= r(a) + r(b) + {tolerance:g} Å (Cordero et al. 2008 covalent radii), "
+        "no metal-metal bonds where a non-metal is present, and no metal to non-metal bond longer than "
+        "r(a) + r(b) across a shared, more electronegative non-metal."
+    )
+
+
+def _presented(structure: StructureLike) -> FundamentalDomainStructure | UnitcellStructureView:
+    """Return a structure as the kind it is: a fundamental domain, else its unit-cell presentation.
+
+    Raw inputs (paths, streams, records, foreign objects) are adopted into a backend first. An
+    :class:`ASUStructureView` resolves its own recognition, a fundamental-domain record gives its
+    domain, and lazy backends (CIF blocks, datastreams) are resolved; nothing else is recognised.
+    """
+    if not isinstance(structure, (StructureBackend, StructureView)):
+        structure = StructureBackend._select_backend(structure)
+    if isinstance(structure, ASUStructureView):
+        return structure.resolve()
+    if isinstance(structure, RecordStructure) and not structure._is_unitcell:
+        return structure._native
+    resolve = getattr(structure, "resolve", None) if isinstance(structure, StructureBackend) else None
+    resolved: StructureLike = structure if resolve is None else resolve()
+    if isinstance(resolved, FundamentalDomainStructure):
+        return resolved
+    return UnitcellStructureView(resolved)
+
 
 def _site_radii(
-    asu: ASUStructure,
+    species: Sequence[Species], names: Sequence[str]
 ) -> tuple[list[float | None], list[bool | None], list[float | None], list[float | None]]:
     """Return per site its radius, whether it is a metal, and its electronegativity as bond end and as ligand.
 
@@ -106,19 +174,19 @@ def _site_radii(
     every constituent is a non-metal. All are ``None`` for a site without an element.
     """
     constituents = {
-        species.name: [
+        item.name: [
             symbol
-            for symbol, amount in zip(species.chemical_symbols, species.concentration, strict=True)
+            for symbol, amount in zip(item.chemical_symbols, item.concentration, strict=True)
             if amount > 0 and symbol != "vacancy"
         ]
-        for species in asu.species
+        for item in species
     }
     radii: list[float | None] = []
     metals: list[bool | None] = []
     ends: list[float | None] = []
     ligands: list[float | None] = []
-    for number, site in enumerate(asu.wyckoff_sites):
-        elements = constituents[site.species]
+    for number, name in enumerate(names):
+        elements = constituents[name]
         missing = [symbol for symbol in elements if symbol not in _COVALENT_RADII]
         if missing:
             raise ValueError(f"no covalent radius for {', '.join(map(repr, missing))} (site {number})")
@@ -135,25 +203,38 @@ def _site_radii(
     return radii, metals, ends, ligands
 
 
-def distance_bonds(structure: StructureLike, *, tolerance: float = 0.45) -> ASUStructure:
-    """Return a structure's asymmetric unit with the bond network found from interatomic distances.
+def distance_bonds(
+    structure: StructureLike, *, tolerance: float = 0.45, shapes: bool = True
+) -> FundamentalDomainStructure | UnitcellStructure:
+    """Return a structure with the bond network found from interatomic distances, of the kind it was given.
 
-    The result is ``ASUStructureView(structure).resolve()`` with ``bonds`` replaced by the network
-    found and no supplied shapes. For an asymmetric-unit input that is the input itself, sites
-    unchanged; any other input (a unit cell, a P1, primitive or supercell description) is first
-    recognised, and the recognised structure is idealised within the recognition tolerance, so a
-    contact within that tolerance of its cutoff can fall on either side. For control, recognise
-    first: ``distance_bonds(ASUStructureView(structure, tolerance=...))``.
+    The result keeps the input's sites and replaces its ``bonds``. It never recognises symmetry
+    itself; an :class:`~httk.atomistic.ASUStructureView` input resolves its own recognition. A
+    :class:`~httk.atomistic.FundamentalDomainStructure` or :class:`~httk.atomistic.ASUStructure`
+    (an :class:`~httk.atomistic.ASUStructureView` resolved) gives the same class with a network
+    of bond orbits. A unit cell or unit-cell view gives
+    ``UnitcellStructureView(structure).unview()`` with explicit pairs between its sites. Raw
+    inputs (a path, a text stream, a storage record) are first adopted as structures; lazy
+    sources (a CIF block or file, a datastream) are resolved and a fundamental-domain record gives
+    its domain, and then these two rules apply. Any other structure gives
+    ``UnitcellStructureView(structure).unview()``, so a
+    :class:`~httk.atomistic.NumericUnitcellStructure` gives a
+    :class:`~httk.atomistic.UnitcellStructure`. For the network of the recognised asymmetric
+    unit, recognise first: ``distance_bonds(ASUStructureView(structure, tolerance=...))``. On a
+    measured cell whose metric keeps the group only approximately the two routes can label one
+    crystal differently: the unit-cell route assigns each atom its own shape and keeps contacts
+    at their measured distances, the asymmetric-unit route idealises first.
 
     Two atoms *a* and *b* are bonded iff ``0.5 <= d(a, b) <= r(a) + r(b) + tolerance`` (Å), with
     *r* the covalent radii of Cordero et al. (2008). A mixed-occupancy site takes the largest
     radius of its constituents (positive concentration, vacancies and attached atoms ignored); a
     site with no constituent (only vacancies) gets no bonds. Pairs closer than 0.5 Å (split or
-    disordered positions) are never bonded. In a structure with at least one non-metal (H, He, B,
-    C, N, O, F, Ne, Si, P, S, Cl, Ar, Ge, As, Se, Br, Kr, Sb, Te, I, Xe, At, Rn), two metal sites
-    are never bonded; a mixed site is a metal when all its constituents are, so even a dilute
-    non-metal on a mixed site switches this rule on for the whole structure. Without a non-metal
-    (intermetallics, elements) the distance rule alone applies.
+    disordered positions) are never bonded, so coincident sites are never bonded to each other.
+    In a structure with at least one non-metal (H, He, B, C, N, O, F, Ne, Si, P, S, Cl, Ar, Ge,
+    As, Se, Br, Kr, Sb, Te, I, Xe, At, Rn), two metal sites are never bonded; a mixed site is a
+    metal when all its constituents are, so even a dilute non-metal on a mixed site switches this
+    rule on for the whole structure. Without a non-metal (intermetallics, elements) the distance
+    rule alone applies. Along a non-periodic direction of a unit cell, atoms are not repeated.
 
     The bonds so found form the tentative network. A metal does not bond to a non-metal across a
     non-metal ligand they share: a tentative bond between a metal *a* and a non-metal *b* is
@@ -181,8 +262,13 @@ def distance_bonds(structure: StructureLike, *, tolerance: float = 0.45) -> ASUS
     eta-bonded heteroarenes (Fe-C across N).
 
     Distances are floats computed from the exact structure: the network is the same for every
-    exact asymmetric-unit re-description of one crystal, except that a pair within float noise of
-    its cutoff or of its radius sum may fall on either side.
+    exact re-description of one crystal, except that a pair within float noise of its cutoff or
+    of its radius sum may fall on either side.
+
+    The network's ``source`` names the rule: software ``httk_basic``, the installed
+    *httk-atomistic* version and a one-sentence description with ``tolerance``. With ``shapes``
+    (the default) every site of two or more bonds also gets its baseline shape (see
+    :func:`assign_baseline_shapes`), with ``shapes_source`` ``None`` (the same source).
 
     Example::
 
@@ -192,94 +278,190 @@ def distance_bonds(structure: StructureLike, *, tolerance: float = 0.45) -> ASUS
         ...     [WyckoffSite("a", (), "Na"), WyckoffSite("b", (), "Cl")],
         ...     [Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))],
         ... )
-        >>> len(distance_bonds(nacl).bonds.pairs)  # one bond orbit: Na-Cl at 2.82 Å
-        1
+        >>> bonded = distance_bonds(nacl)  # one bond orbit: Na-Cl at 2.82 Å
+        >>> len(bonded.bonds.pairs), bonded.bonds.shapes
+        (1, ('OC6', 'OC6'))
 
-    :param structure: Any structure an :class:`~httk.atomistic.ASUStructureView` accepts.
+    :param structure: Any structure.
     :param tolerance: Å added to the sum of the radii.
-    :return: The asymmetric unit with its distance-based network.
-    :raises ValueError: If a site holds an element without a radius (named in the message), or
-        ``tolerance`` is not a finite number.
+    :param shapes: Whether to assign the baseline shapes as well.
+    :return: The structure, of the kind described above, with its distance-based network.
+    :raises ValueError: If a site holds an element without a radius (named in the message),
+        ``tolerance`` is not a finite number, or (with ``shapes``) the baseline cannot assign a
+        shape, as for a fundamental-domain site at a special point of its own Wyckoff letter; that
+        message says to pass ``shapes=False``.
     """
-    return _distance_bonds(structure, tolerance, True)
+    return _distance_bonds(structure, tolerance, True, shapes)
 
 
-def _distance_bonds(structure: StructureLike, tolerance: float, shared_ligand: bool) -> ASUStructure:
-    """Return :func:`distance_bonds`, or with ``shared_ligand`` false its tentative network."""
+def _distance_bonds(
+    structure: StructureLike, tolerance: float, shared_ligand: bool, shapes: bool = False
+) -> FundamentalDomainStructure | UnitcellStructure:
+    """Return :func:`distance_bonds`, or with ``shared_ligand`` false its tentative network (no source)."""
     if isinstance(tolerance, bool) or not math.isfinite(tolerance):
         raise ValueError(f"tolerance must be a finite number, got {tolerance!r}")
-    asu = ASUStructureView(_without_network(structure)).resolve()  # its network is replaced
-    radii, metals, ends, ligands = _site_radii(asu)
-    has_non_metal = False in metals  # then metal-metal pairs are not bonded
-    spacegroup, sites = asu.spacegroup, asu.wyckoff_sites
-    # the Cartesian metric of the stored coordinates (own = M stored + v, cell rows in Å)
-    basis = asu.cell.basis.to_floats()
-    M = asu.transform.matrix.to_floats()
+    target = _presented(structure)
+    basis = target.cell.basis.to_floats()
     own = [[math.fsum(basis[i][k] * basis[j][k] for k in range(3)) for j in range(3)] for i in range(3)]
-    G = [
-        [math.fsum(M[a][i] * own[a][b] * M[b][j] for a in range(3) for b in range(3)) for j in range(3)]
-        for i in range(3)
-    ]
-    Ginv = _inverse(G)
+    if isinstance(target, FundamentalDomainStructure):
+        spacegroup = target.spacegroup
+        references = [_reference(spacegroup, site) for site in target.wyckoff_sites]
+        names = [site.species for site in target.wyckoff_sites]
+        group = _group(spacegroup)[0]
+        # the Cartesian metric of the stored coordinates (own = M stored + v, cell rows in Å)
+        M = target.transform.matrix.to_floats()
+        G = [
+            [math.fsum(M[a][i] * own[a][b] * M[b][j] for a in range(3) for b in range(3)) for j in range(3)]
+            for i in range(3)
+        ]
+    else:  # the stored coordinates, unwrapped, and no symmetry
+        references = [tuple(Fraction(x) for x in row) for row in target.sites.reduced_coords.to_fractions()]
+        names, group, G = list(target.species_at_sites), (_IDENTITY,), own
+    radii, metals, ends, ligands = _site_radii(target.species, names)
+    found = _found_bonds(references, group, G, target.cell.periodicity, radii, metals, tolerance)
+    if not (shared_ligand and True in metals and False in metals):  # no metal to non-metal bond to drop
+        bonds = [SiteBond(site, partner, _affine(op)) for site, partner, op, _distance in found]
+    else:
+        bonds = _without_shared_ligand_bonds(found, references, radii, metals, ends, ligands)
+    _register_citations(shared_ligand)
+    source = (
+        BondSource(_distance_description(tolerance), _HTTK_BASIC, _distribution_version()) if shared_ligand else None
+    )
+    if isinstance(target, FundamentalDomainStructure):  # a domain normalizes its pairs on first access
+        network = BondNetwork(tuple(bonds), source=source)
+    else:
+        network = BondNetwork(_cell_pairs(bonds, len(references), target.cell.periodicity), source=source)
+    result = target._with_bonds(network)
+    if not shapes:
+        return result
+    try:
+        assigned = _site_shapes(result)
+    except ValueError as error:
+        raise ValueError(f"{error}; pass shapes=False to leave the shapes unassigned") from error
+    return result._with_bonds(replace(network, shapes=assigned))
+
+
+def _found_bonds(
+    references: Sequence[_Point],
+    group: Sequence[_Op],
+    G: Sequence[Sequence[float]],
+    periodicity: Sequence[bool],
+    radii: Sequence[float | None],
+    metals: Sequence[bool | None],
+    tolerance: float,
+) -> list[tuple[int, int, _Op, float]]:
+    """Return the tentative network: ``(site, partner, operation, distance)`` per bond found from a reference atom.
+
+    :param references: Each site's reference atom, exact, in the coordinates the operations act on.
+    :param group: The group operations of those coordinates (the identity alone for a unit cell).
+    :param G: The float Cartesian metric of those coordinates.
+    :param periodicity: The periodic axes; along the others coordinates are not wrapped and no
+        translation is tried.
+    :param radii: Per site its radius, ``None`` for no bonds.
+    :param metals: Per site whether it is a metal.
+    :param tolerance: Å added to the sum of the radii.
+    :return: Each bond from a site's reference atom to ``operation`` applied to the partner's.
+    """
+    has_non_metal = False in metals  # then metal-metal pairs are not bonded
+    Ginv = _inverse([list(row) for row in G])
     # Completeness: a displacement x (stored coordinates) of Cartesian length at most R has
     # |x_k| = |<G^-1 e_k, x>_G| <= |G^-1 e_k|_G R = sqrt((G^-1)_kk) R by Cauchy-Schwarz, so the
     # lattice translations n with |q + n - p|_G <= R lie in p_k - q_k - R s_k <= n_k <= p_k - q_k + R s_k,
     # s_k = sqrt((G^-1)_kk) (widened by 1e-9 against float rounding): every such n is visited.
     reach = [math.sqrt(Ginv[k][k]) * (1 + 1e-9) for k in range(3)]
-    references = [_reference(spacegroup, site) for site in sites]
-    # every atom of the cell (stored coordinates modulo 1) with the group element taking its site's reference atom there
+    # every atom of the cell (periodic coordinates modulo 1) with the group element taking its site's reference atom there
     atoms: list[tuple[int, _Op, tuple[float, ...]]] = []
     for number, reference in enumerate(references):
         if radii[number] is None:
             continue
         seen = set()
-        for W, w in _group(spacegroup)[0]:
+        for W, w in group:
             image = _apply((W, w), reference)
-            wrapped = tuple(x % 1 for x in image)
+            wrapped = tuple(x % 1 if periodic else x for x, periodic in zip(image, periodicity, strict=True))
             if wrapped not in seen:
                 seen.add(wrapped)
                 shift = tuple(t + a - b for t, a, b in zip(w, wrapped, image, strict=True))
                 atoms.append((number, (W, shift), tuple(map(float, wrapped))))
     largest = max((r for r in radii if r is not None), default=0.0)
     R = 2 * largest + tolerance
-    found: list[tuple[int, int, _Op, float]] = []  # the tentative network: site, partner, operation, distance
-    if R >= _MIN_DISTANCE:
-        # Bins of width 1/g_k >= R s_k (with a 1e-6 margin for the float floor) per axis: an atom
-        # within R of a reference atom (any translate) lies in its bin or a neighbouring one, mod g_k.
-        g = [max(1, int(1 / (R * s * (1 + 1e-6)))) for s in reach]
-        bins: dict[tuple[int, ...], list[int]] = {}
-        for index, (_number, _element, q) in enumerate(atoms):
-            bins.setdefault(tuple(int(x * n) % n for x, n in zip(q, g, strict=True)), []).append(index)
-        for site, reference in enumerate(references):
-            r_site = radii[site]
-            if r_site is None:
-                continue
-            p = tuple(map(float, reference))
-            near = [{(int(x % 1 * n) + d) % n for d in (-1, 0, 1)} for x, n in zip(p, g, strict=True)]
-            for key in itertools.product(*near):
-                for index in bins.get(key, ()):
-                    partner, (W, w), q = atoms[index]
-                    r_partner = radii[partner]
-                    assert r_partner is not None
-                    cutoff = r_site + r_partner + tolerance
-                    if cutoff < _MIN_DISTANCE or (has_non_metal and metals[site] and metals[partner]):
-                        continue
-                    delta = [a - b for a, b in zip(q, p, strict=True)]
-                    ranges = [
-                        range(math.ceil(-d - cutoff * s), math.floor(-d + cutoff * s) + 1)
-                        for d, s in zip(delta, reach, strict=True)
-                    ]
-                    for n in itertools.product(*ranges):
-                        x = [d + t for d, t in zip(delta, n, strict=True)]
-                        distance = math.sqrt(max(0.0, sum(x[a] * G[a][b] * x[b] for a in range(3) for b in range(3))))
-                        if _MIN_DISTANCE <= distance <= cutoff:
-                            found.append(
-                                (site, partner, (W, tuple(t + k for t, k in zip(w, n, strict=True))), distance)
-                            )
-    if not (shared_ligand and True in metals and False in metals):  # no metal to non-metal bond to drop
-        bonds = [SiteBond(site, partner, _affine(op)) for site, partner, op, _distance in found]
-    else:
-        bonds = _without_shared_ligand_bonds(found, references, radii, metals, ends, ligands)
+    found: list[tuple[int, int, _Op, float]] = []
+    if R < _MIN_DISTANCE:
+        return found
+    # Bins per axis, of width at least R s_k (with a 1e-6 margin for the float floor): on a periodic
+    # axis g_k bins of width 1/g_k, numbered modulo g_k; on a non-periodic axis unbounded bins of width
+    # R s_k. Two atoms within R of each other have |dx_k| <= R s_k, so floor(x_k / width) differs by
+    # at most one and their bins are equal or adjacent (modulo g_k on a periodic axis).
+    widths = [R * s * (1 + 1e-6) for s in reach]
+    moduli = [max(1, int(1 / w)) if periodic else None for w, periodic in zip(widths, periodicity, strict=True)]
+
+    def binned(x: float, k: int, d: int = 0) -> int:
+        m = moduli[k]
+        return (math.floor(x * m) + d) % m if m is not None else math.floor(x / widths[k]) + d
+
+    bins: dict[tuple[int, ...], list[int]] = {}
+    for index, (_number, _element, q) in enumerate(atoms):
+        bins.setdefault(tuple(binned(x, k) for k, x in enumerate(q)), []).append(index)
+    for site, reference in enumerate(references):
+        r_site = radii[site]
+        if r_site is None:
+            continue
+        p = tuple(map(float, reference))
+        near = [{binned(x, k, d) for d in (-1, 0, 1)} for k, x in enumerate(p)]
+        for key in itertools.product(*near):
+            for index in bins.get(key, ()):
+                partner, (W, w), q = atoms[index]
+                r_partner = radii[partner]
+                assert r_partner is not None
+                cutoff = r_site + r_partner + tolerance
+                if cutoff < _MIN_DISTANCE or (has_non_metal and metals[site] and metals[partner]):
+                    continue
+                delta = [a - b for a, b in zip(q, p, strict=True)]
+                ranges = [
+                    range(math.ceil(-d - cutoff * s), math.floor(-d + cutoff * s) + 1) if periodic else (0,)
+                    for d, s, periodic in zip(delta, reach, periodicity, strict=True)
+                ]
+                for n in itertools.product(*ranges):
+                    x = [d + t for d, t in zip(delta, n, strict=True)]
+                    distance = math.sqrt(max(0.0, sum(x[a] * G[a][b] * x[b] for a in range(3) for b in range(3))))
+                    if _MIN_DISTANCE <= distance <= cutoff:
+                        found.append((site, partner, (W, tuple(t + k for t, k in zip(w, n, strict=True))), distance))
+    return found
+
+
+def assign_baseline_shapes(structure: StructureLike) -> FundamentalDomainStructure | UnitcellStructure:
+    """Return a structure whose bond network has no shapes with its baseline shapes assigned.
+
+    The structure is taken as :func:`distance_bonds` takes it (a fundamental domain stays one,
+    anything else is presented as a unit cell, and symmetry is never recognised by the function itself). Every site of two or more
+    bonds gets the shape whose ideal sorted bond angles fit its own best (IUPAC and SHAPE
+    symbols, ``I<n>`` above 15 degrees RMS misfit, ``L2`` from 165 degrees; see
+    :mod:`httk.atomistic.symmetry.shapes`), and ``shapes_source`` names the baseline (software
+    ``httk_basic``, the installed *httk-atomistic* version); the pairs and ``source`` are kept.
+    When no site gets a shape (no site has two bonds) the structure is returned with its network
+    unchanged.
+
+    :param structure: A structure with a bond network and no shapes.
+    :return: The structure, of the kind :func:`distance_bonds` returns, with the shapes assigned.
+    :raises ValueError: If the structure has no network, its network already has shapes, or the
+        baseline cannot assign a shape (a fundamental-domain site at a special point of its own
+        Wyckoff letter).
+    """
+    target = _presented(structure)
+    result = target.unview() if isinstance(target, UnitcellStructureView) else target
+    network = result.bonds
+    if network is None:
+        raise ValueError("a structure without a bond network has no shapes to assign")
+    if network.shapes is not None:
+        raise ValueError("the bond network already has shapes; baseline shapes are assigned only to a network without")
+    assigned = _site_shapes(result)
+    if all(symbol is None for symbol in assigned):
+        return result
+    source = BondSource(_BASELINE_DESCRIPTION, _HTTK_BASIC, _distribution_version())
+    return result._with_bonds(replace(network, shapes=assigned, shapes_source=source))
+
+
+def _register_citations(shared_ligand: bool) -> None:
+    """Register the radii, and with ``shared_ligand`` the electronegativities, as used."""
     register_citation(
         applies_to="Default bond networks use the covalent radii of Cordero et al.",
         references={
@@ -318,7 +500,6 @@ def _distance_bonds(structure: StructureLike, tolerance: float, shared_ligand: b
                 "bib_type": "article",
             },
         )
-    return asu._with_bonds(BondNetwork(tuple(bonds)))  # normalized on first access
 
 
 def _without_shared_ligand_bonds(

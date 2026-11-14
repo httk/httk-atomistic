@@ -257,7 +257,9 @@ values in `(1, 1.1]` clamp to one, with a warning. Values outside that band rema
 A block with a `_geom_bond_` loop always loads as a structure with that bond network, its
 `bonds` (see {doc}`asu`); there is no option to ask for it. A block without the loop gives
 `bonds=None` (no network known), and a loop without rows gives a network without
-bonds, `BondNetwork(pairs=())`. Only
+bonds, `BondNetwork(pairs=())`. The network's `source` is
+`BondSource(description="Bonds listed in the CIF _geom_bond_ loop")`, with no software or
+version, and it assigns no shapes. Only
 `_geom_bond_atom_site_label_1`, `_geom_bond_atom_site_label_2`,
 `_geom_bond_site_symmetry_1`, `_geom_bond_site_symmetry_2` and `_geom_bond_distance` are
 read; the other columns are ignored.

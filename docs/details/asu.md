@@ -233,9 +233,8 @@ protocol 2 (the *httk-store* releases up to 2.1.4) need a rebuild in any case.
 
 ### Default bonds from distances
 
-A structure without a network can be given a simple default one:
-{py:func}`~httk.atomistic.distance_bonds` returns
-`ASUStructureView(structure).resolve()` with `bonds` found from distances. Two
+{py:func}`~httk.atomistic.distance_bonds` gives a structure a simple default
+network found from distances, in place of any network it has. Two
 atoms are bonded when their distance lies between 0.5 Å and the sum of their
 covalent radii plus `tolerance` (0.45 Å by default): the radius-sum form used by
 OpenBabel and Jmol, with a 0.5 Å floor (not their exact radii or floor). The radii
@@ -245,11 +244,47 @@ largest radius of its constituents (positive concentration; vacancies and attach
 atoms are ignored), a site with only vacancies gets no bonds, and an element
 without a radius raises `ValueError` naming it.
 
-For an asymmetric-unit input the result has its sites unchanged. Any other input
-(a unit cell, or a P1, primitive or supercell description) is recognised first,
-and the recognised structure is idealised within the recognition tolerance, so a
-contact within that tolerance of its cutoff can fall on either side. To control
-it, recognise yourself: `distance_bonds(ASUStructureView(structure, tolerance=...))`.
+The result is the kind of structure given, with its sites unchanged. It never
+recognises symmetry itself; an `ASUStructureView` input resolves its own
+recognition. A fundamental domain or asymmetric unit (an `ASUStructureView` is
+resolved) keeps its class and gets a network of bond orbits. A unit cell or
+`UnitcellStructureView` gives `UnitcellStructureView(structure).unview()` with
+explicit pairs; along a non-periodic direction atoms are neither wrapped nor
+repeated, so a molecule in a non-periodic cell is bonded as given. Raw inputs (a
+path, a text stream, a storage record) are first adopted as structures. Lazy sources
+(`CIFStructure`, a CIF file, `DatastreamStructure`) are resolved, and a
+fundamental-domain or asymmetric-unit record (or its `RecordStructure`) gives its
+domain; then these two rules apply. A unit-cell record gives a unit cell, and any
+other structure, a `NumericUnitcellStructure` included, is presented as a unit cell. For the network of the recognised asymmetric unit, recognise first:
+`distance_bonds(ASUStructureView(structure, tolerance=...))`. The recognised
+structure is idealised within the recognition tolerance, so a contact within that
+tolerance of its cutoff can fall on either side.
+
+The network names its rule as its `source`: software `httk_basic`, version the
+installed *httk-atomistic* version (a development install reports the last
+release), `uri` `None`, and the one-sentence description `Distance bonds: 0.5 Å <=
+d <= r(a) + r(b) + 0.45 Å (Cordero et al. 2008 covalent radii), no metal-metal bonds
+where a non-metal is present, and no metal to non-metal bond longer than r(a) + r(b)
+across a shared, more electronegative non-metal.`, with the `tolerance` given. With
+`shapes=True`, the default, every site with two or more bonds also gets its baseline
+shape (`shapes_source` `None`: the same source); `shapes=False` leaves the shapes
+unassigned. A baseline that cannot assign a shape raises `ValueError` suggesting
+`shapes=False`; that includes a fundamental-domain site placed at a special point of
+its own Wyckoff letter. {py:func}`~httk.atomistic.assign_baseline_shapes` assigns the
+baseline shapes to a network without shapes, from any source: it keeps the pairs and
+`source`, and names the baseline in `shapes_source` (software `httk_basic`, the
+installed version). It refuses a structure without a network or with shapes, and
+returns one where no site has two bonds unchanged. A new version changes the stored
+source, so re-saving an unchanged network into an existing store raises (see
+[Storing networks](#storing-networks)).
+
+**Measured cells.** On a cell whose metric keeps the group only approximately, the
+two routes can label one crystal differently. On the unit cell every atom gets its
+own baseline shape and contacts keep their measured, float-noisy distances, so
+recognition may later find the network not invariant and drop it (logged at debug
+level with the context `bonds`; `ProtonetstructureView` of the cell then raises). The asymmetric-unit route,
+`distance_bonds(ASUStructureView(cell, tolerance=...))`, idealises first. Recognise
+first when the labels matter.
 
 On top of the distance rule, two metals are never bonded in a structure that
 contains a non-metal: H, He, B, C, N, O, F, Ne, Si, P, S, Cl, Ar, Ge, As, Se, Br,
@@ -311,6 +346,7 @@ nacl = ASUStructure(
     [Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))],
 )
 bonded = distance_bonds(nacl)  # Na-Cl at 2.82 Å; Na-Na is metal-metal; Cl-Cl at 3.99 Å is beyond 2.49 Å
+assert bonded.bonds is not None and bonded.bonds.shapes == ("OC6", "OC6")
 ```
 
 This is a heuristic, not a chemical model. Covalent radii suit covalent and
@@ -325,7 +361,7 @@ atom more electronegative than both: the Fe–B bonds of a ferracarborane
 η-bonded heteroarenes (across N). Disordered structures need care:
 pairs closer than 0.5 Å (split positions) are never bonded, but partially
 occupied neighbours are bonded as if both were present. Distances are floats
-computed from the exact structure, so every exact asymmetric-unit re-description of one
+computed from the exact structure, so every exact re-description of one
 crystal gives the same network except where a distance lies within float noise of its
 cutoff or of its radius sum.
 

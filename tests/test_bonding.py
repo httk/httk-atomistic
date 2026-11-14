@@ -1,4 +1,35 @@
-"""Default bond networks from distances (``distance_bonds``)."""
+"""Default bond networks from distances (``distance_bonds``).
+
+Behaviour changes of follow-up 7 (bond sources), each covered here or in ``test_bond_sources.py``:
+
+- ``distance_bonds`` returns the kind of structure it is given and never recognises symmetry
+  itself (an ``ASUStructureView`` input resolves its own recognition): a fundamental domain or
+  asymmetric unit keeps its class and sites, while a unit cell, a unit-cell view or any other
+  non-domain source (a numeric cell, an mCIF structure) gives a ``UnitcellStructure`` with
+  explicit pairs. Before, every input was recognised into an ``ASUStructure``
+  (``test_unitcell_and_asu_descriptions_give_one_network`` now compares the unit-cell route with
+  the domain route).
+- Raw inputs are adopted first: a CIF path, ``pathlib.Path`` or text stream gives the file's
+  asymmetric unit (as before); a fundamental-domain or asymmetric-unit record, or its
+  ``RecordStructure``, gives its domain; a unit-cell record gives a unit cell (before, a record
+  gave its ``ASUStructureView`` resolution).
+- It assigns the baseline shapes by default; ``shapes=False`` leaves them unassigned, the old
+  result (``test_rocksalt_bonds_each_ion_to_six_counterions_only``,
+  ``test_molecular_networks_equal_the_pair_cutoff_ones``). Shapes are content, so the content
+  ids (and equality) of ``distance_bonds`` results change unless ``shapes=False`` is passed.
+- Its network carries a ``source`` (software ``httk_basic``, the installed version, a sentence
+  naming the rule and the tolerance); sources are outside equality and content ids.
+- With shapes, a fundamental-domain site at a special point of its own Wyckoff letter raises
+  ``ValueError`` (with a ``shapes=False`` hint) where the call used to succeed.
+- Unit cells with non-periodic directions get bonds (atoms are not wrapped or repeated along
+  those directions, binned without a modulus); before, recognition refused them.
+- Measured cells: on a cell whose metric keeps the group only approximately, the unit-cell
+  result has per-atom shapes and unidealised contacts, so labelling it (recognition through
+  ``ASUStructureView`` or ``ProtonetstructureView``) may drop the network as not invariant, or
+  raise, where the old (recognised) result labelled; ``distance_bonds(ASUStructureView(cell))``
+  is the old route.
+- New ``assign_baseline_shapes``; CIF ``_geom_bond_`` networks carry a source naming the loop.
+"""
 
 import itertools
 import math
@@ -21,6 +52,7 @@ from httk.atomistic import (
     SiteBond,
     Spacegroup,
     Species,
+    UnitcellStructure,
     UnitcellStructureView,
     WyckoffSite,
     canonical_protonetstructure,
@@ -68,8 +100,10 @@ def test_rocksalt_bonds_each_ion_to_six_counterions_only() -> None:
     nacl = distance_bonds(_rocksalt(F(564, 100)))  # Na-Cl 2.82, Na-Na and Cl-Cl 3.99 Å
     assert _pairs(nacl) == Counter({("Cl", "Na"): 1})
     assert _counts(nacl) == (6, 6)
-    assert nacl.bonds is not None and nacl.bonds.shapes is None
+    assert nacl.bonds is not None and nacl.bonds.shapes == ("OC6", "OC6")  # the baseline, assigned by default
     assert nacl == _rocksalt(F(564, 100))._with_bonds(nacl.bonds)
+    unshaped = distance_bonds(_rocksalt(F(564, 100)), shapes=False).bonds
+    assert unshaped is not None and unshaped.shapes is None and unshaped.pairs == nacl.bonds.pairs
 
 
 def test_diamond_bonds_each_carbon_to_four() -> None:
@@ -115,7 +149,8 @@ def test_an_intermetallic_bonds_by_distance() -> None:
 
 def test_unitcell_and_asu_descriptions_give_one_network() -> None:
     nacl = _rocksalt(F(564, 100))
-    from_cell = distance_bonds(UnitcellStructureView(nacl))
+    from_cell = distance_bonds(UnitcellStructureView(nacl))  # a unit cell with explicit pairs, not recognised
+    assert isinstance(from_cell, UnitcellStructure) and from_cell.bonds is not None
     assert canonical_protonetstructure(from_cell) == canonical_protonetstructure(distance_bonds(nacl))
 
 
@@ -342,7 +377,7 @@ def test_molecular_networks_equal_the_pair_cutoff_ones(entry: str) -> None:
             for op in (tables.operations[g[0]],)
         ],
     )
-    assert distance_bonds(asu).bonds == reference.bonds
+    assert distance_bonds(asu, shapes=False).bonds == reference.bonds
 
 
 # per Wyckoff site, as "element count" in site order: the shared-ligand rule's reference results
