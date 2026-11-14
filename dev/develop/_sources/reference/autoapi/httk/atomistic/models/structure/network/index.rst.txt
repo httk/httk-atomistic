@@ -1,0 +1,148 @@
+httk.atomistic.models.structure.network
+=======================================
+
+.. py:module:: httk.atomistic.models.structure.network
+
+.. autoapi-nested-parse::
+
+   The bond network a structure carries: its bonds, the shapes of its sites and who assigned them.
+
+   Every structure exposes ``bonds``: a :class:`BondNetwork`, or ``None`` when no network is known.
+   On a fundamental domain (:class:`~httk.atomistic.FundamentalDomainStructure`,
+   :class:`~httk.atomistic.ASUStructure`) the pairs and shapes index ``wyckoff_sites`` and each
+   :class:`SiteBond` stands for its bond orbit; on every other structure they index ``sites`` and each
+   bond's operation is a pure lattice translation.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.network.SiteBond
+   httk.atomistic.models.structure.network.BondSource
+   httk.atomistic.models.structure.network.BondNetwork
+
+
+Module Contents
+---------------
+
+.. py:class:: SiteBond
+
+   Represent one bond of a structure's bond network.
+
+   On a fundamental domain the bond is a bond orbit: the reference atom of
+   ``wyckoff_sites[site]`` is bonded to ``operation`` applied to the reference atom of
+   ``wyckoff_sites[partner]``. A reference atom is the first-listed coordinate of the site's
+   Wyckoff position in the structure's stored setting at its free parameters, not reduced modulo
+   one. ``operation`` is an element of the stored setting's space group, lattice translation
+   included. The bond stands for its whole orbit under the group, so any member of the orbit
+   names the same bond.
+
+   On a unit-cell structure ``site`` and ``partner`` index ``sites``, and the atom at
+   ``sites[site]`` (as stored, not wrapped) is bonded to the atom at ``sites[partner]`` moved by
+   ``operation``, a pure lattice translation; the bond stands for itself and its lattice
+   translates.
+
+   :param site: The 0-based index of the first site.
+   :param partner: The 0-based index of the second site.
+   :param operation: The exact operation applied to the partner's atom.
+
+
+   .. py:attribute:: site
+      :type:  int
+
+
+   .. py:attribute:: partner
+      :type:  int
+
+
+   .. py:attribute:: operation
+      :type:  httk.atomistic.symmetry.affine_operation.AffineOperation
+
+
+.. py:class:: BondSource
+
+   Name who assigned a bond network or its shapes; every field is optional.
+
+   A source is provenance: it never enters equality of a :class:`BondNetwork` or the content
+   identity of a structure. An unknown field is ``None``, never ``""`` or only whitespace.
+
+   :param description: Free text, for example the rule used.
+   :param software: An identifier of the software or rule set.
+   :param version: Its version.
+   :param uri: A URL documenting the assignment.
+
+
+   .. py:attribute:: description
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: software
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: version
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: uri
+      :type:  str | None
+      :value: None
+
+
+
+.. py:class:: BondNetwork
+
+   Represent the bond network of a structure: its bonds, optional shapes and their sources.
+
+   ``pairs`` and ``shapes`` are content: they take part in equality, hashing and the structure's
+   content identity. ``source`` and ``shapes_source`` are provenance and take part in neither. A
+   network on its own is not put in a normal form; the structure holding it is (see
+   :attr:`~httk.atomistic.FundamentalDomainStructure.bonds` and
+   :attr:`~httk.atomistic.UnitcellStructure.bonds`).
+
+   :param pairs: The bonds, any sequence of :class:`SiteBond`; empty means the structure is known
+       to have no bonds.
+   :param shapes: One shape symbol or ``None`` (not assigned) per site, or ``None`` when no shapes
+       are assigned; all ``None`` is the same as ``None``. See :mod:`httk.atomistic.symmetry.shapes`
+       for the symbols.
+   :param source: Who assigned the bonds, as a :class:`BondSource` or a mapping of its fields; all
+       fields ``None`` is the same as ``None``.
+   :param shapes_source: Who assigned the shapes, in the form of ``source``, or ``None`` when
+       ``source`` assigned them (a ``shapes_source`` equal to ``source`` becomes ``None``); it
+       needs ``shapes``.
+   :raises TypeError: If a value has the wrong type.
+   :raises ValueError: If a source mapping has an unknown key, or ``shapes_source`` is given
+       without shapes.
+
+
+   .. py:attribute:: pairs
+      :type:  tuple[SiteBond, ...]
+
+
+   .. py:attribute:: shapes
+      :type:  tuple[str | None, ...] | None
+      :value: None
+
+
+
+   .. py:attribute:: source
+      :type:  BondSource | None
+      :value: None
+
+
+
+   .. py:attribute:: shapes_source
+      :type:  BondSource | None
+      :value: None
+
+
+

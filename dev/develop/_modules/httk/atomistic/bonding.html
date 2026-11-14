@@ -1,0 +1,880 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
+
+    <!-- Generated with Sphinx 9.1.1 and Furo 2025.12.19 -->
+        <title>httk.atomistic.bonding - httk-atomistic dev:develop documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_autodoc_typehints.css?v=057ac668" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/selector.css?v=626bada3" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     Development documentation (dev:develop) — built from the GitHub develop branch; content may differ from any release. 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../index.html"><div class="brand">httk-atomistic dev:develop documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
+  
+  <span class="sidebar-brand-text">httk-atomistic dev:develop documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../structures.html">Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../composition.html">Composition and formula families</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prototypes.html">Material-information levels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cif.html">Reading and writing CIF files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../poscar.html">Reading VASP POSCAR / CONTCAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../vasp_outputs.html">Reading VASP output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../doscar.html">VASP total density of states</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../wavecar.html">Reading and writing VASP WAVECAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../wavefunctions.html">Plane-wave wavefunctions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../httk_structure.html">Exact structure files (<code class="docutils literal notranslate"><span class="pre">.httkstruct</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trajectory_jsonl.html">Trajectory JSON Lines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../lammps.html">Reading LAMMPS dumps and data files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../qe.html">Quantum ESPRESSO pw.x files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../abinit.html">ABINIT input and output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cp2k.html">CP2K input and restart files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../asu.html">Asymmetric units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../canonicalization.html">Canonicalization algorithms and reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../subgroups.html">Subgroups and pathfinding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../moments.html">Site moments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../integrations.html">Integrations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../precision.html">Data precision</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../periodicity.html">Periodicity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../lattice-reduction.html">Lattice reduction (Niggli)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../primitive-cells.html">Primitive cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../band-paths.html">Band-structure paths</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../notebooks/examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../notebooks/disorder.html">Disorder, vacancies, and attached species</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Details</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../details/structures.html">Structures in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../details/structural_classes.html">Naming of <em>httk₂</em> structural classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../details/asu.html">Asymmetric units in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../details/cif.html">CIF and mCIF reading in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../details/precision.html">Data precision in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../details/periodicity.html">Periodicity in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/autoapi/index.html">API Reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for httk.atomistic.bonding</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Default bond networks from interatomic distances.</span>
+
+<span class="sd">:func:`distance_bonds` gives a structure that lacks a bond network a simple default one. It uses</span>
+<span class="sd">the radius-sum form of OpenBabel and Jmol (their form, not their exact radii or floor): two atoms</span>
+<span class="sd">are bonded when their distance lies between 0.5 Å and the sum of their covalent radii plus a</span>
+<span class="sd">tolerance (0.45 Å by default). The radii are the single-bond covalent radii of Cordero et al.</span>
+<span class="sd">[Cordero2008]_ (the low-spin values for Mn, Fe and Co, sp3 for C). On top of it, two metals are</span>
+<span class="sd">not bonded in a structure that contains a non-metal (H, He, B, C, N, O, F, Ne, Si, P, S, Cl, Ar,</span>
+<span class="sd">Ge, As, Se, Br, Kr, Sb, Te, I, Xe, At, Rn: the metalloids count as non-metals), so the generous</span>
+<span class="sd">radius sums of cations do not bond the cations of ionic solids to each other.</span>
+
+<span class="sd">Finally, a metal does not bond to a non-metal across a non-metal ligand they share: such a bond</span>
+<span class="sd">longer than the sum of the two radii is dropped when a non-metal bonded to both is more</span>
+<span class="sd">electronegative than either (Pauling electronegativities as compiled by WebElements</span>
+<span class="sd">[WebElementsEN]_, mostly Allred's revised values [Allred1961]_), so the large cations of</span>
+<span class="sd">oxo-salts do not bond to the oxo-anion centres.</span>
+
+<span class="sd">The network it returns names its rule as its ``source`` (software ``httk_basic``, the installed</span>
+<span class="sd">*httk-atomistic* version), and by default it also assigns the baseline shapes;</span>
+<span class="sd">:func:`assign_baseline_shapes` adds those to a network that has none.</span>
+
+<span class="sd">:func:`distance_bonds` never recognises symmetry itself (an ``ASUStructureView`` input resolves</span>
+<span class="sd">its own recognition): a unit cell gets a unit-cell network and an asymmetric unit a network of</span>
+<span class="sd">bond orbits. On a measured cell whose metric keeps the group only</span>
+<span class="sd">approximately the two routes can label one crystal differently: the unit-cell route assigns each</span>
+<span class="sd">atom its own shape and keeps contacts at their measured, float-noisy distances, which recognition</span>
+<span class="sd">may then find not invariant and drop, while the asymmetric-unit route</span>
+<span class="sd">(``distance_bonds(ASUStructureView(cell, tolerance=...))``) idealises first.</span>
+
+<span class="sd">This is a heuristic, not a chemical model: it ignores metal-metal bonds in compounds (Re-Re in</span>
+<span class="sd">Re2Cl8(2-) salts, Hg2(2+)), judges anion-anion contacts by distance alone, and the radii fit</span>
+<span class="sd">covalent bonds better than ionic ones.  It takes no account of occupancy, so on a disordered</span>
+<span class="sd">structure the partially occupied atoms that overlap or sit a few tenths of an angstrom apart are</span>
+<span class="sd">all bonded: per-site bond counts above about 60 come from disorder, not coordination (the</span>
+<span class="sd">largest measured were 1522 on ICSD, a mixed O/Ti site of ICSD 162568, and 203 on carbon-free COD).</span>
+
+<span class="sd">.. [Cordero2008] B. Cordero, V. Gómez, A. E. Platero-Prats, M. Revés, J. Echeverría,</span>
+<span class="sd">   E. Cremades, F. Barragán, S. Alvarez, "Covalent radii revisited", *Dalton Trans.* 2008,</span>
+<span class="sd">   2832-2838, doi:10.1039/b801115j, Table 2.</span>
+<span class="sd">.. [Allred1961] A. L. Allred, "Electronegativity values from thermochemical data",</span>
+<span class="sd">   *J. Inorg. Nucl. Chem.* 17 (1961) 215-221, doi:10.1016/0022-1902(61)80142-5.</span>
+<span class="sd">.. [WebElementsEN] M. Winter, WebElements, "Pauling electronegativity",</span>
+<span class="sd">   https://www.webelements.com/periodicity/eneg_pauling/ (values from Allred 1961, else</span>
+<span class="sd">   L. Pauling, *The Nature of the Chemical Bond*, 3rd ed., 1960, and for the noble gases and</span>
+<span class="sd">   Am-Cm J. E. Huheey, E. A. Keiter, R. L. Keiter, *Inorganic Chemistry*, 4th ed., 1993).</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib.metadata</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">replace</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fractions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fraction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">cache</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_citation</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.species.species</span><span class="w"> </span><span class="kn">import</span> <span class="n">Species</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.asu</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">FundamentalDomainStructure</span><span class="p">,</span>
+    <span class="n">_affine</span><span class="p">,</span>
+    <span class="n">_apply</span><span class="p">,</span>
+    <span class="n">_group</span><span class="p">,</span>
+    <span class="n">_Op</span><span class="p">,</span>
+    <span class="n">_Point</span><span class="p">,</span>
+    <span class="n">_reference</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.asu_view</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASUStructureView</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.backend</span><span class="w"> </span><span class="kn">import</span> <span class="n">StructureBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.like</span><span class="w"> </span><span class="kn">import</span> <span class="n">StructureLike</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.network</span><span class="w"> </span><span class="kn">import</span> <span class="n">BondNetwork</span><span class="p">,</span> <span class="n">BondSource</span><span class="p">,</span> <span class="n">SiteBond</span><span class="p">,</span> <span class="n">_cell_pairs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.record</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecordStructure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.unitcell</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnitcellStructure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.unitcell_view</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnitcellStructureView</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.view</span><span class="w"> </span><span class="kn">import</span> <span class="n">StructureView</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.symmetry.shapes</span><span class="w"> </span><span class="kn">import</span> <span class="n">_site_shapes</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"assign_baseline_shapes"</span><span class="p">,</span> <span class="s2">"distance_bonds"</span><span class="p">]</span>
+
+<span class="n">_MIN_DISTANCE</span> <span class="o">=</span> <span class="mf">0.5</span>  <span class="c1"># Å: closer pairs are split or disordered positions, not bonds</span>
+<span class="n">_HTTK_BASIC</span> <span class="o">=</span> <span class="s2">"httk_basic"</span>
+<span class="n">_IDENTITY</span><span class="p">:</span> <span class="n">_Op</span> <span class="o">=</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">Fraction</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">r</span> <span class="o">==</span> <span class="n">c</span><span class="p">))</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)),</span> <span class="p">(</span><span class="n">Fraction</span><span class="p">(</span><span class="mi">0</span><span class="p">),)</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)</span>
+
+<span class="c1"># Å, Cordero et al. 2008, Table 2: C sp3, Mn/Fe/Co low spin</span>
+<span class="n">_COVALENT_RADII</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"H"</span><span class="p">:</span> <span class="mf">0.31</span><span class="p">,</span> <span class="s2">"He"</span><span class="p">:</span> <span class="mf">0.28</span><span class="p">,</span> <span class="s2">"Li"</span><span class="p">:</span> <span class="mf">1.28</span><span class="p">,</span> <span class="s2">"Be"</span><span class="p">:</span> <span class="mf">0.96</span><span class="p">,</span> <span class="s2">"B"</span><span class="p">:</span> <span class="mf">0.84</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">:</span> <span class="mf">0.76</span><span class="p">,</span> <span class="s2">"N"</span><span class="p">:</span> <span class="mf">0.71</span><span class="p">,</span> <span class="s2">"O"</span><span class="p">:</span> <span class="mf">0.66</span><span class="p">,</span>
+    <span class="s2">"F"</span><span class="p">:</span> <span class="mf">0.57</span><span class="p">,</span> <span class="s2">"Ne"</span><span class="p">:</span> <span class="mf">0.58</span><span class="p">,</span> <span class="s2">"Na"</span><span class="p">:</span> <span class="mf">1.66</span><span class="p">,</span> <span class="s2">"Mg"</span><span class="p">:</span> <span class="mf">1.41</span><span class="p">,</span> <span class="s2">"Al"</span><span class="p">:</span> <span class="mf">1.21</span><span class="p">,</span> <span class="s2">"Si"</span><span class="p">:</span> <span class="mf">1.11</span><span class="p">,</span> <span class="s2">"P"</span><span class="p">:</span> <span class="mf">1.07</span><span class="p">,</span> <span class="s2">"S"</span><span class="p">:</span> <span class="mf">1.05</span><span class="p">,</span>
+    <span class="s2">"Cl"</span><span class="p">:</span> <span class="mf">1.02</span><span class="p">,</span> <span class="s2">"Ar"</span><span class="p">:</span> <span class="mf">1.06</span><span class="p">,</span> <span class="s2">"K"</span><span class="p">:</span> <span class="mf">2.03</span><span class="p">,</span> <span class="s2">"Ca"</span><span class="p">:</span> <span class="mf">1.76</span><span class="p">,</span> <span class="s2">"Sc"</span><span class="p">:</span> <span class="mf">1.70</span><span class="p">,</span> <span class="s2">"Ti"</span><span class="p">:</span> <span class="mf">1.60</span><span class="p">,</span> <span class="s2">"V"</span><span class="p">:</span> <span class="mf">1.53</span><span class="p">,</span> <span class="s2">"Cr"</span><span class="p">:</span> <span class="mf">1.39</span><span class="p">,</span>
+    <span class="s2">"Mn"</span><span class="p">:</span> <span class="mf">1.39</span><span class="p">,</span> <span class="s2">"Fe"</span><span class="p">:</span> <span class="mf">1.32</span><span class="p">,</span> <span class="s2">"Co"</span><span class="p">:</span> <span class="mf">1.26</span><span class="p">,</span> <span class="s2">"Ni"</span><span class="p">:</span> <span class="mf">1.24</span><span class="p">,</span> <span class="s2">"Cu"</span><span class="p">:</span> <span class="mf">1.32</span><span class="p">,</span> <span class="s2">"Zn"</span><span class="p">:</span> <span class="mf">1.22</span><span class="p">,</span> <span class="s2">"Ga"</span><span class="p">:</span> <span class="mf">1.22</span><span class="p">,</span> <span class="s2">"Ge"</span><span class="p">:</span> <span class="mf">1.20</span><span class="p">,</span>
+    <span class="s2">"As"</span><span class="p">:</span> <span class="mf">1.19</span><span class="p">,</span> <span class="s2">"Se"</span><span class="p">:</span> <span class="mf">1.20</span><span class="p">,</span> <span class="s2">"Br"</span><span class="p">:</span> <span class="mf">1.20</span><span class="p">,</span> <span class="s2">"Kr"</span><span class="p">:</span> <span class="mf">1.16</span><span class="p">,</span> <span class="s2">"Rb"</span><span class="p">:</span> <span class="mf">2.20</span><span class="p">,</span> <span class="s2">"Sr"</span><span class="p">:</span> <span class="mf">1.95</span><span class="p">,</span> <span class="s2">"Y"</span><span class="p">:</span> <span class="mf">1.90</span><span class="p">,</span> <span class="s2">"Zr"</span><span class="p">:</span> <span class="mf">1.75</span><span class="p">,</span>
+    <span class="s2">"Nb"</span><span class="p">:</span> <span class="mf">1.64</span><span class="p">,</span> <span class="s2">"Mo"</span><span class="p">:</span> <span class="mf">1.54</span><span class="p">,</span> <span class="s2">"Tc"</span><span class="p">:</span> <span class="mf">1.47</span><span class="p">,</span> <span class="s2">"Ru"</span><span class="p">:</span> <span class="mf">1.46</span><span class="p">,</span> <span class="s2">"Rh"</span><span class="p">:</span> <span class="mf">1.42</span><span class="p">,</span> <span class="s2">"Pd"</span><span class="p">:</span> <span class="mf">1.39</span><span class="p">,</span> <span class="s2">"Ag"</span><span class="p">:</span> <span class="mf">1.45</span><span class="p">,</span> <span class="s2">"Cd"</span><span class="p">:</span> <span class="mf">1.44</span><span class="p">,</span>
+    <span class="s2">"In"</span><span class="p">:</span> <span class="mf">1.42</span><span class="p">,</span> <span class="s2">"Sn"</span><span class="p">:</span> <span class="mf">1.39</span><span class="p">,</span> <span class="s2">"Sb"</span><span class="p">:</span> <span class="mf">1.39</span><span class="p">,</span> <span class="s2">"Te"</span><span class="p">:</span> <span class="mf">1.38</span><span class="p">,</span> <span class="s2">"I"</span><span class="p">:</span> <span class="mf">1.39</span><span class="p">,</span> <span class="s2">"Xe"</span><span class="p">:</span> <span class="mf">1.40</span><span class="p">,</span> <span class="s2">"Cs"</span><span class="p">:</span> <span class="mf">2.44</span><span class="p">,</span> <span class="s2">"Ba"</span><span class="p">:</span> <span class="mf">2.15</span><span class="p">,</span>
+    <span class="s2">"La"</span><span class="p">:</span> <span class="mf">2.07</span><span class="p">,</span> <span class="s2">"Ce"</span><span class="p">:</span> <span class="mf">2.04</span><span class="p">,</span> <span class="s2">"Pr"</span><span class="p">:</span> <span class="mf">2.03</span><span class="p">,</span> <span class="s2">"Nd"</span><span class="p">:</span> <span class="mf">2.01</span><span class="p">,</span> <span class="s2">"Pm"</span><span class="p">:</span> <span class="mf">1.99</span><span class="p">,</span> <span class="s2">"Sm"</span><span class="p">:</span> <span class="mf">1.98</span><span class="p">,</span> <span class="s2">"Eu"</span><span class="p">:</span> <span class="mf">1.98</span><span class="p">,</span> <span class="s2">"Gd"</span><span class="p">:</span> <span class="mf">1.96</span><span class="p">,</span>
+    <span class="s2">"Tb"</span><span class="p">:</span> <span class="mf">1.94</span><span class="p">,</span> <span class="s2">"Dy"</span><span class="p">:</span> <span class="mf">1.92</span><span class="p">,</span> <span class="s2">"Ho"</span><span class="p">:</span> <span class="mf">1.92</span><span class="p">,</span> <span class="s2">"Er"</span><span class="p">:</span> <span class="mf">1.89</span><span class="p">,</span> <span class="s2">"Tm"</span><span class="p">:</span> <span class="mf">1.90</span><span class="p">,</span> <span class="s2">"Yb"</span><span class="p">:</span> <span class="mf">1.87</span><span class="p">,</span> <span class="s2">"Lu"</span><span class="p">:</span> <span class="mf">1.87</span><span class="p">,</span> <span class="s2">"Hf"</span><span class="p">:</span> <span class="mf">1.75</span><span class="p">,</span>
+    <span class="s2">"Ta"</span><span class="p">:</span> <span class="mf">1.70</span><span class="p">,</span> <span class="s2">"W"</span><span class="p">:</span> <span class="mf">1.62</span><span class="p">,</span> <span class="s2">"Re"</span><span class="p">:</span> <span class="mf">1.51</span><span class="p">,</span> <span class="s2">"Os"</span><span class="p">:</span> <span class="mf">1.44</span><span class="p">,</span> <span class="s2">"Ir"</span><span class="p">:</span> <span class="mf">1.41</span><span class="p">,</span> <span class="s2">"Pt"</span><span class="p">:</span> <span class="mf">1.36</span><span class="p">,</span> <span class="s2">"Au"</span><span class="p">:</span> <span class="mf">1.36</span><span class="p">,</span> <span class="s2">"Hg"</span><span class="p">:</span> <span class="mf">1.32</span><span class="p">,</span>
+    <span class="s2">"Tl"</span><span class="p">:</span> <span class="mf">1.45</span><span class="p">,</span> <span class="s2">"Pb"</span><span class="p">:</span> <span class="mf">1.46</span><span class="p">,</span> <span class="s2">"Bi"</span><span class="p">:</span> <span class="mf">1.48</span><span class="p">,</span> <span class="s2">"Po"</span><span class="p">:</span> <span class="mf">1.40</span><span class="p">,</span> <span class="s2">"At"</span><span class="p">:</span> <span class="mf">1.50</span><span class="p">,</span> <span class="s2">"Rn"</span><span class="p">:</span> <span class="mf">1.50</span><span class="p">,</span> <span class="s2">"Fr"</span><span class="p">:</span> <span class="mf">2.60</span><span class="p">,</span> <span class="s2">"Ra"</span><span class="p">:</span> <span class="mf">2.21</span><span class="p">,</span>
+    <span class="s2">"Ac"</span><span class="p">:</span> <span class="mf">2.15</span><span class="p">,</span> <span class="s2">"Th"</span><span class="p">:</span> <span class="mf">2.06</span><span class="p">,</span> <span class="s2">"Pa"</span><span class="p">:</span> <span class="mf">2.00</span><span class="p">,</span> <span class="s2">"U"</span><span class="p">:</span> <span class="mf">1.96</span><span class="p">,</span> <span class="s2">"Np"</span><span class="p">:</span> <span class="mf">1.90</span><span class="p">,</span> <span class="s2">"Pu"</span><span class="p">:</span> <span class="mf">1.87</span><span class="p">,</span> <span class="s2">"Am"</span><span class="p">:</span> <span class="mf">1.80</span><span class="p">,</span> <span class="s2">"Cm"</span><span class="p">:</span> <span class="mf">1.69</span><span class="p">,</span>
+<span class="p">}</span>  <span class="c1"># fmt: skip</span>
+
+<span class="c1"># Pauling electronegativities as compiled by WebElements (Allred 1961, else Pauling 1960, Huheey</span>
+<span class="c1"># 1993); WebElements has no value for He, Ne, Ar, Rn, Pm, Eu, Tb and Yb</span>
+<span class="n">_ELECTRONEGATIVITIES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"H"</span><span class="p">:</span> <span class="mf">2.20</span><span class="p">,</span> <span class="s2">"Li"</span><span class="p">:</span> <span class="mf">0.98</span><span class="p">,</span> <span class="s2">"Be"</span><span class="p">:</span> <span class="mf">1.57</span><span class="p">,</span> <span class="s2">"B"</span><span class="p">:</span> <span class="mf">2.04</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">:</span> <span class="mf">2.55</span><span class="p">,</span> <span class="s2">"N"</span><span class="p">:</span> <span class="mf">3.04</span><span class="p">,</span> <span class="s2">"O"</span><span class="p">:</span> <span class="mf">3.44</span><span class="p">,</span> <span class="s2">"F"</span><span class="p">:</span> <span class="mf">3.98</span><span class="p">,</span>
+    <span class="s2">"Na"</span><span class="p">:</span> <span class="mf">0.93</span><span class="p">,</span> <span class="s2">"Mg"</span><span class="p">:</span> <span class="mf">1.31</span><span class="p">,</span> <span class="s2">"Al"</span><span class="p">:</span> <span class="mf">1.61</span><span class="p">,</span> <span class="s2">"Si"</span><span class="p">:</span> <span class="mf">1.90</span><span class="p">,</span> <span class="s2">"P"</span><span class="p">:</span> <span class="mf">2.19</span><span class="p">,</span> <span class="s2">"S"</span><span class="p">:</span> <span class="mf">2.58</span><span class="p">,</span> <span class="s2">"Cl"</span><span class="p">:</span> <span class="mf">3.16</span><span class="p">,</span> <span class="s2">"K"</span><span class="p">:</span> <span class="mf">0.82</span><span class="p">,</span>
+    <span class="s2">"Ca"</span><span class="p">:</span> <span class="mf">1.00</span><span class="p">,</span> <span class="s2">"Sc"</span><span class="p">:</span> <span class="mf">1.36</span><span class="p">,</span> <span class="s2">"Ti"</span><span class="p">:</span> <span class="mf">1.54</span><span class="p">,</span> <span class="s2">"V"</span><span class="p">:</span> <span class="mf">1.63</span><span class="p">,</span> <span class="s2">"Cr"</span><span class="p">:</span> <span class="mf">1.66</span><span class="p">,</span> <span class="s2">"Mn"</span><span class="p">:</span> <span class="mf">1.55</span><span class="p">,</span> <span class="s2">"Fe"</span><span class="p">:</span> <span class="mf">1.83</span><span class="p">,</span> <span class="s2">"Co"</span><span class="p">:</span> <span class="mf">1.88</span><span class="p">,</span>
+    <span class="s2">"Ni"</span><span class="p">:</span> <span class="mf">1.91</span><span class="p">,</span> <span class="s2">"Cu"</span><span class="p">:</span> <span class="mf">1.90</span><span class="p">,</span> <span class="s2">"Zn"</span><span class="p">:</span> <span class="mf">1.65</span><span class="p">,</span> <span class="s2">"Ga"</span><span class="p">:</span> <span class="mf">1.81</span><span class="p">,</span> <span class="s2">"Ge"</span><span class="p">:</span> <span class="mf">2.01</span><span class="p">,</span> <span class="s2">"As"</span><span class="p">:</span> <span class="mf">2.18</span><span class="p">,</span> <span class="s2">"Se"</span><span class="p">:</span> <span class="mf">2.55</span><span class="p">,</span> <span class="s2">"Br"</span><span class="p">:</span> <span class="mf">2.96</span><span class="p">,</span>
+    <span class="s2">"Kr"</span><span class="p">:</span> <span class="mf">3.00</span><span class="p">,</span> <span class="s2">"Rb"</span><span class="p">:</span> <span class="mf">0.82</span><span class="p">,</span> <span class="s2">"Sr"</span><span class="p">:</span> <span class="mf">0.95</span><span class="p">,</span> <span class="s2">"Y"</span><span class="p">:</span> <span class="mf">1.22</span><span class="p">,</span> <span class="s2">"Zr"</span><span class="p">:</span> <span class="mf">1.33</span><span class="p">,</span> <span class="s2">"Nb"</span><span class="p">:</span> <span class="mf">1.6</span><span class="p">,</span> <span class="s2">"Mo"</span><span class="p">:</span> <span class="mf">2.16</span><span class="p">,</span> <span class="s2">"Tc"</span><span class="p">:</span> <span class="mf">1.9</span><span class="p">,</span>
+    <span class="s2">"Ru"</span><span class="p">:</span> <span class="mf">2.2</span><span class="p">,</span> <span class="s2">"Rh"</span><span class="p">:</span> <span class="mf">2.28</span><span class="p">,</span> <span class="s2">"Pd"</span><span class="p">:</span> <span class="mf">2.20</span><span class="p">,</span> <span class="s2">"Ag"</span><span class="p">:</span> <span class="mf">1.93</span><span class="p">,</span> <span class="s2">"Cd"</span><span class="p">:</span> <span class="mf">1.69</span><span class="p">,</span> <span class="s2">"In"</span><span class="p">:</span> <span class="mf">1.78</span><span class="p">,</span> <span class="s2">"Sn"</span><span class="p">:</span> <span class="mf">1.96</span><span class="p">,</span> <span class="s2">"Sb"</span><span class="p">:</span> <span class="mf">2.05</span><span class="p">,</span>
+    <span class="s2">"Te"</span><span class="p">:</span> <span class="mf">2.1</span><span class="p">,</span> <span class="s2">"I"</span><span class="p">:</span> <span class="mf">2.66</span><span class="p">,</span> <span class="s2">"Xe"</span><span class="p">:</span> <span class="mf">2.6</span><span class="p">,</span> <span class="s2">"Cs"</span><span class="p">:</span> <span class="mf">0.79</span><span class="p">,</span> <span class="s2">"Ba"</span><span class="p">:</span> <span class="mf">0.89</span><span class="p">,</span> <span class="s2">"La"</span><span class="p">:</span> <span class="mf">1.10</span><span class="p">,</span> <span class="s2">"Ce"</span><span class="p">:</span> <span class="mf">1.12</span><span class="p">,</span> <span class="s2">"Pr"</span><span class="p">:</span> <span class="mf">1.13</span><span class="p">,</span>
+    <span class="s2">"Nd"</span><span class="p">:</span> <span class="mf">1.14</span><span class="p">,</span> <span class="s2">"Sm"</span><span class="p">:</span> <span class="mf">1.17</span><span class="p">,</span> <span class="s2">"Gd"</span><span class="p">:</span> <span class="mf">1.20</span><span class="p">,</span> <span class="s2">"Dy"</span><span class="p">:</span> <span class="mf">1.22</span><span class="p">,</span> <span class="s2">"Ho"</span><span class="p">:</span> <span class="mf">1.23</span><span class="p">,</span> <span class="s2">"Er"</span><span class="p">:</span> <span class="mf">1.24</span><span class="p">,</span> <span class="s2">"Tm"</span><span class="p">:</span> <span class="mf">1.25</span><span class="p">,</span> <span class="s2">"Lu"</span><span class="p">:</span> <span class="mf">1.27</span><span class="p">,</span>
+    <span class="s2">"Hf"</span><span class="p">:</span> <span class="mf">1.3</span><span class="p">,</span> <span class="s2">"Ta"</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span> <span class="s2">"W"</span><span class="p">:</span> <span class="mf">2.36</span><span class="p">,</span> <span class="s2">"Re"</span><span class="p">:</span> <span class="mf">1.9</span><span class="p">,</span> <span class="s2">"Os"</span><span class="p">:</span> <span class="mf">2.2</span><span class="p">,</span> <span class="s2">"Ir"</span><span class="p">:</span> <span class="mf">2.20</span><span class="p">,</span> <span class="s2">"Pt"</span><span class="p">:</span> <span class="mf">2.28</span><span class="p">,</span> <span class="s2">"Au"</span><span class="p">:</span> <span class="mf">2.54</span><span class="p">,</span>
+    <span class="s2">"Hg"</span><span class="p">:</span> <span class="mf">2.00</span><span class="p">,</span> <span class="s2">"Tl"</span><span class="p">:</span> <span class="mf">1.62</span><span class="p">,</span> <span class="s2">"Pb"</span><span class="p">:</span> <span class="mf">2.33</span><span class="p">,</span> <span class="s2">"Bi"</span><span class="p">:</span> <span class="mf">2.02</span><span class="p">,</span> <span class="s2">"Po"</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span> <span class="s2">"At"</span><span class="p">:</span> <span class="mf">2.2</span><span class="p">,</span> <span class="s2">"Fr"</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span> <span class="s2">"Ra"</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span>
+    <span class="s2">"Ac"</span><span class="p">:</span> <span class="mf">1.1</span><span class="p">,</span> <span class="s2">"Th"</span><span class="p">:</span> <span class="mf">1.3</span><span class="p">,</span> <span class="s2">"Pa"</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span> <span class="s2">"U"</span><span class="p">:</span> <span class="mf">1.38</span><span class="p">,</span> <span class="s2">"Np"</span><span class="p">:</span> <span class="mf">1.36</span><span class="p">,</span> <span class="s2">"Pu"</span><span class="p">:</span> <span class="mf">1.28</span><span class="p">,</span> <span class="s2">"Am"</span><span class="p">:</span> <span class="mf">1.3</span><span class="p">,</span> <span class="s2">"Cm"</span><span class="p">:</span> <span class="mf">1.3</span><span class="p">,</span>
+<span class="p">}</span>  <span class="c1"># fmt: skip</span>
+
+<span class="c1"># non-metals for the metal-metal rule, the metalloids included (so Zintl pairs such as Na-Si stay bonded)</span>
+<span class="n">_NON_METALS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+    <span class="p">{</span><span class="s2">"H"</span><span class="p">,</span> <span class="s2">"He"</span><span class="p">,</span> <span class="s2">"B"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">,</span> <span class="s2">"N"</span><span class="p">,</span> <span class="s2">"O"</span><span class="p">,</span> <span class="s2">"F"</span><span class="p">,</span> <span class="s2">"Ne"</span><span class="p">,</span> <span class="s2">"Si"</span><span class="p">,</span> <span class="s2">"P"</span><span class="p">,</span> <span class="s2">"S"</span><span class="p">,</span> <span class="s2">"Cl"</span><span class="p">}</span>
+    <span class="o">|</span> <span class="p">{</span><span class="s2">"Ar"</span><span class="p">,</span> <span class="s2">"Ge"</span><span class="p">,</span> <span class="s2">"As"</span><span class="p">,</span> <span class="s2">"Se"</span><span class="p">,</span> <span class="s2">"Br"</span><span class="p">,</span> <span class="s2">"Kr"</span><span class="p">,</span> <span class="s2">"Sb"</span><span class="p">,</span> <span class="s2">"Te"</span><span class="p">,</span> <span class="s2">"I"</span><span class="p">,</span> <span class="s2">"Xe"</span><span class="p">,</span> <span class="s2">"At"</span><span class="p">,</span> <span class="s2">"Rn"</span><span class="p">}</span>
+<span class="p">)</span>
+
+<span class="n">_BASELINE_DESCRIPTION</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">"Baseline bond shapes: the ideal shape whose sorted bond angles fit best (IUPAC and SHAPE symbols), "</span>
+    <span class="s2">"I (irregular) above 15 degrees RMS misfit, L2 from 165 degrees."</span>
+<span class="p">)</span>
+
+
+<span class="nd">@cache</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_distribution_version</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return the installed *httk-atomistic* version, ``None`` when it is not installed as a distribution."""</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">importlib</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">version</span><span class="p">(</span><span class="s2">"httk-atomistic"</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">importlib</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">PackageNotFoundError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_distance_description</span><span class="p">(</span><span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return the one-sentence description of the distance rule at ``tolerance``."""</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"Distance bonds: 0.5 Å &lt;= d &lt;= r(a) + r(b) + </span><span class="si">{</span><span class="n">tolerance</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> Å (Cordero et al. 2008 covalent radii), "</span>
+        <span class="s2">"no metal-metal bonds where a non-metal is present, and no metal to non-metal bond longer than "</span>
+        <span class="s2">"r(a) + r(b) across a shared, more electronegative non-metal."</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_presented</span><span class="p">(</span><span class="n">structure</span><span class="p">:</span> <span class="n">StructureLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FundamentalDomainStructure</span> <span class="o">|</span> <span class="n">UnitcellStructureView</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return a structure as the kind it is: a fundamental domain, else its unit-cell presentation.</span>
+
+<span class="sd">    Raw inputs (paths, streams, records, foreign objects) are adopted into a backend first. An</span>
+<span class="sd">    :class:`ASUStructureView` resolves its own recognition, a fundamental-domain record gives its</span>
+<span class="sd">    domain, and lazy backends (CIF blocks, datastreams) are resolved; nothing else is recognised.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="p">(</span><span class="n">StructureBackend</span><span class="p">,</span> <span class="n">StructureView</span><span class="p">)):</span>
+        <span class="n">structure</span> <span class="o">=</span> <span class="n">StructureBackend</span><span class="o">.</span><span class="n">_select_backend</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">ASUStructureView</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">structure</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">RecordStructure</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">structure</span><span class="o">.</span><span class="n">_is_unitcell</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">structure</span><span class="o">.</span><span class="n">_native</span>
+    <span class="n">resolve</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="s2">"resolve"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">StructureBackend</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">resolved</span><span class="p">:</span> <span class="n">StructureLike</span> <span class="o">=</span> <span class="n">structure</span> <span class="k">if</span> <span class="n">resolve</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">resolve</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resolved</span><span class="p">,</span> <span class="n">FundamentalDomainStructure</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">resolved</span>
+    <span class="k">return</span> <span class="n">UnitcellStructureView</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_site_radii</span><span class="p">(</span>
+    <span class="n">species</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Species</span><span class="p">],</span> <span class="n">names</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Return per site its radius, whether it is a metal, and its electronegativity as bond end and as ligand.</span>
+
+<span class="sd">    The constituents are the symbols with a positive concentration other than ``vacancy``</span>
+<span class="sd">    (attached atoms are ignored); the radius is the largest of theirs, and the site is a metal</span>
+<span class="sd">    when none of them is a non-metal. A site's electronegativity is the largest of its</span>
+<span class="sd">    constituents' as a bond end and the smallest as a shared ligand. A metal end ignores</span>
+<span class="sd">    constituents without a value, and is ``-inf`` (below every value) when none has one; any</span>
+<span class="sd">    other end or ligand is ``None`` when a constituent has no value, and a ligand also unless</span>
+<span class="sd">    every constituent is a non-metal. All are ``None`` for a site without an element.</span>
+<span class="sd">    """</span>
+    <span class="n">constituents</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="p">[</span>
+            <span class="n">symbol</span>
+            <span class="k">for</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">amount</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">chemical_symbols</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">concentration</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">symbol</span> <span class="o">!=</span> <span class="s2">"vacancy"</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">species</span>
+    <span class="p">}</span>
+    <span class="n">radii</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">metals</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">ends</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">ligands</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+        <span class="n">elements</span> <span class="o">=</span> <span class="n">constituents</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">symbol</span> <span class="k">for</span> <span class="n">symbol</span> <span class="ow">in</span> <span class="n">elements</span> <span class="k">if</span> <span class="n">symbol</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_COVALENT_RADII</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"no covalent radius for </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">repr</span><span class="p">,</span><span class="w"> </span><span class="n">missing</span><span class="p">))</span><span class="si">}</span><span class="s2"> (site </span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+        <span class="n">radii</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">max</span><span class="p">((</span><span class="n">_COVALENT_RADII</span><span class="p">[</span><span class="n">symbol</span><span class="p">]</span> <span class="k">for</span> <span class="n">symbol</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">))</span>
+        <span class="n">metals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="ow">not</span> <span class="n">_NON_METALS</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span> <span class="k">if</span> <span class="n">elements</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">_ELECTRONEGATIVITIES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">symbol</span><span class="p">)</span> <span class="k">for</span> <span class="n">symbol</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">]</span>
+        <span class="n">known</span> <span class="o">=</span> <span class="p">[</span><span class="n">value</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">values</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="n">complete</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">known</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">elements</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_NON_METALS</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>  <span class="c1"># a metal end: valueless constituents rank lowest</span>
+            <span class="n">ends</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">known</span><span class="p">,</span> <span class="n">default</span><span class="o">=-</span><span class="n">math</span><span class="o">.</span><span class="n">inf</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ends</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">known</span><span class="p">)</span> <span class="k">if</span> <span class="n">complete</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">ligands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">known</span><span class="p">)</span> <span class="k">if</span> <span class="n">complete</span> <span class="ow">and</span> <span class="n">_NON_METALS</span><span class="o">.</span><span class="n">issuperset</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">radii</span><span class="p">,</span> <span class="n">metals</span><span class="p">,</span> <span class="n">ends</span><span class="p">,</span> <span class="n">ligands</span>
+
+
+<div class="viewcode-block" id="distance_bonds">
+<a class="viewcode-back" href="../../../reference/autoapi/httk/atomistic/index.html#httk.atomistic.bonding.distance_bonds">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">distance_bonds</span><span class="p">(</span>
+    <span class="n">structure</span><span class="p">:</span> <span class="n">StructureLike</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.45</span><span class="p">,</span> <span class="n">shapes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FundamentalDomainStructure</span> <span class="o">|</span> <span class="n">UnitcellStructure</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return a structure with the bond network found from interatomic distances, of the kind it was given.</span>
+
+<span class="sd">    The result keeps the input's sites and replaces its ``bonds``. It never recognises symmetry</span>
+<span class="sd">    itself; an :class:`~httk.atomistic.ASUStructureView` input resolves its own recognition. A</span>
+<span class="sd">    :class:`~httk.atomistic.FundamentalDomainStructure` or :class:`~httk.atomistic.ASUStructure`</span>
+<span class="sd">    (an :class:`~httk.atomistic.ASUStructureView` resolved) gives the same class with a network</span>
+<span class="sd">    of bond orbits. A unit cell or unit-cell view gives</span>
+<span class="sd">    ``UnitcellStructureView(structure).unview()`` with explicit pairs between its sites. Raw</span>
+<span class="sd">    inputs (a path, a text stream, a storage record) are first adopted as structures; lazy</span>
+<span class="sd">    sources (a CIF block or file, a datastream) are resolved and a fundamental-domain record gives</span>
+<span class="sd">    its domain, and then these two rules apply. Any other structure gives</span>
+<span class="sd">    ``UnitcellStructureView(structure).unview()``, so a</span>
+<span class="sd">    :class:`~httk.atomistic.NumericUnitcellStructure` gives a</span>
+<span class="sd">    :class:`~httk.atomistic.UnitcellStructure`. For the network of the recognised asymmetric</span>
+<span class="sd">    unit, recognise first: ``distance_bonds(ASUStructureView(structure, tolerance=...))``. On a</span>
+<span class="sd">    measured cell whose metric keeps the group only approximately the two routes can label one</span>
+<span class="sd">    crystal differently: the unit-cell route assigns each atom its own shape and keeps contacts</span>
+<span class="sd">    at their measured distances, the asymmetric-unit route idealises first.</span>
+
+<span class="sd">    Two atoms *a* and *b* are bonded iff ``0.5 &lt;= d(a, b) &lt;= r(a) + r(b) + tolerance`` (Å), with</span>
+<span class="sd">    *r* the covalent radii of Cordero et al. (2008). A mixed-occupancy site takes the largest</span>
+<span class="sd">    radius of its constituents (positive concentration, vacancies and attached atoms ignored); a</span>
+<span class="sd">    site with no constituent (only vacancies) gets no bonds. Pairs closer than 0.5 Å (split or</span>
+<span class="sd">    disordered positions) are never bonded, so coincident sites are never bonded to each other.</span>
+<span class="sd">    In a structure with at least one non-metal (H, He, B, C, N, O, F, Ne, Si, P, S, Cl, Ar, Ge,</span>
+<span class="sd">    As, Se, Br, Kr, Sb, Te, I, Xe, At, Rn), two metal sites are never bonded; a mixed site is a</span>
+<span class="sd">    metal when all its constituents are, so even a dilute non-metal on a mixed site switches this</span>
+<span class="sd">    rule on for the whole structure. Without a non-metal (intermetallics, elements) the distance</span>
+<span class="sd">    rule alone applies. Along a non-periodic direction of a unit cell, atoms are not repeated.</span>
+
+<span class="sd">    The bonds so found form the tentative network. A metal does not bond to a non-metal across a</span>
+<span class="sd">    non-metal ligand they share: a tentative bond between a metal *a* and a non-metal *b* is</span>
+<span class="sd">    dropped iff ``d(a, b) &gt; r(a) + r(b)`` (it exists only through the tolerance) and some non-metal</span>
+<span class="sd">    *c* tentatively bonded to both is more electronegative than both. All drops are decided on the</span>
+<span class="sd">    tentative network in one pass. Metal-metal and non-metal-non-metal bonds are never dropped.</span>
+<span class="sd">    Electronegativities are Pauling's as compiled by WebElements (Allred 1961, else Pauling 1960</span>
+<span class="sd">    or Huheey et al. 1993). A mixed site is a metal end when all its constituents are metals and a</span>
+<span class="sd">    non-metal ligand when all are non-metals; it counts with its constituents' largest value as</span>
+<span class="sd">    *a* or *b* and their smallest as *c*, so a bond is dropped only when the condition holds for</span>
+<span class="sd">    every constituent with a value. A metal end without a value (Pm, Eu, Tb, Yb) counts as less</span>
+<span class="sd">    electronegative than any non-metal with one: a mixed metal end ignores its constituents</span>
+<span class="sd">    without a value when taking the largest, and counts so when none has one. Any other site with</span>
+<span class="sd">    a constituent without a value (He, Ne, Ar, Rn, or one of those metals beside a non-metal on a</span>
+<span class="sd">    mixed site) never acts as *b* or *c*. No values are invented. This parts the large cations of</span>
+<span class="sd">    oxo-salts from the anion centres (in diopside CaMgSi2O6, Ca from Si: Ca 8 and Si 4 bonds, not</span>
+<span class="sd">    12 and 6).</span>
+
+<span class="sd">    A heuristic: it misses metal-metal bonds in compounds (Re-Re in Re2Cl8(2-) salts, Hg2(2+)) and</span>
+<span class="sd">    judges anion-anion contacts by distance only. The shared-ligand rule cannot part a cation from</span>
+<span class="sd">    an anion centre closer than their radius sum (Cs, Rb and Ba radii are large) or sharing no</span>
+<span class="sd">    more electronegative non-metal; and it drops real metal-ligand bonds longer than the radius</span>
+<span class="sd">    sum that share a cage or ring atom (C, N or S) more electronegative than both, as in</span>
+<span class="sd">    metallacarboranes (Fe-B 2.23-2.38 Å across cage C), thiaboranes (Ir-B across S) and</span>
+<span class="sd">    eta-bonded heteroarenes (Fe-C across N).</span>
+
+<span class="sd">    Distances are floats computed from the exact structure: the network is the same for every</span>
+<span class="sd">    exact re-description of one crystal, except that a pair within float noise of its cutoff or</span>
+<span class="sd">    of its radius sum may fall on either side.</span>
+
+<span class="sd">    The network's ``source`` names the rule: software ``httk_basic``, the installed</span>
+<span class="sd">    *httk-atomistic* version and a one-sentence description with ``tolerance``. With ``shapes``</span>
+<span class="sd">    (the default) every site of two or more bonds also gets its baseline shape (see</span>
+<span class="sd">    :func:`assign_baseline_shapes`), with ``shapes_source`` ``None`` (the same source).</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        &gt;&gt;&gt; from httk.atomistic import ASUStructure, Cell, Species, WyckoffSite, distance_bonds</span>
+<span class="sd">        &gt;&gt;&gt; nacl = ASUStructure(</span>
+<span class="sd">        ...     Cell([[5.64, 0, 0], [0, 5.64, 0], [0, 0, 5.64]]), 225,</span>
+<span class="sd">        ...     [WyckoffSite("a", (), "Na"), WyckoffSite("b", (), "Cl")],</span>
+<span class="sd">        ...     [Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))],</span>
+<span class="sd">        ... )</span>
+<span class="sd">        &gt;&gt;&gt; bonded = distance_bonds(nacl)  # one bond orbit: Na-Cl at 2.82 Å</span>
+<span class="sd">        &gt;&gt;&gt; len(bonded.bonds.pairs), bonded.bonds.shapes</span>
+<span class="sd">        (1, ('OC6', 'OC6'))</span>
+
+<span class="sd">    :param structure: Any structure.</span>
+<span class="sd">    :param tolerance: Å added to the sum of the radii.</span>
+<span class="sd">    :param shapes: Whether to assign the baseline shapes as well.</span>
+<span class="sd">    :return: The structure, of the kind described above, with its distance-based network.</span>
+<span class="sd">    :raises ValueError: If a site holds an element without a radius (named in the message),</span>
+<span class="sd">        ``tolerance`` is not a finite number, or (with ``shapes``) the baseline cannot assign a</span>
+<span class="sd">        shape, as for a fundamental-domain site at a special point of its own Wyckoff letter; that</span>
+<span class="sd">        message says to pass ``shapes=False``.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">_distance_bonds</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">shapes</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_distance_bonds</span><span class="p">(</span>
+    <span class="n">structure</span><span class="p">:</span> <span class="n">StructureLike</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">shared_ligand</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">shapes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FundamentalDomainStructure</span> <span class="o">|</span> <span class="n">UnitcellStructure</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return :func:`distance_bonds`, or with ``shared_ligand`` false its tentative network (no source)."""</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tolerance</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">tolerance</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"tolerance must be a finite number, got </span><span class="si">{</span><span class="n">tolerance</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">_presented</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span>
+    <span class="n">basis</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">basis</span><span class="o">.</span><span class="n">to_floats</span><span class="p">()</span>
+    <span class="n">own</span> <span class="o">=</span> <span class="p">[[</span><span class="n">math</span><span class="o">.</span><span class="n">fsum</span><span class="p">(</span><span class="n">basis</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">basis</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">FundamentalDomainStructure</span><span class="p">):</span>
+        <span class="n">spacegroup</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">spacegroup</span>
+        <span class="n">references</span> <span class="o">=</span> <span class="p">[</span><span class="n">_reference</span><span class="p">(</span><span class="n">spacegroup</span><span class="p">,</span> <span class="n">site</span><span class="p">)</span> <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="n">target</span><span class="o">.</span><span class="n">wyckoff_sites</span><span class="p">]</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">site</span><span class="o">.</span><span class="n">species</span> <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="n">target</span><span class="o">.</span><span class="n">wyckoff_sites</span><span class="p">]</span>
+        <span class="n">group</span> <span class="o">=</span> <span class="n">_group</span><span class="p">(</span><span class="n">spacegroup</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># the Cartesian metric of the stored coordinates (own = M stored + v, cell rows in Å)</span>
+        <span class="n">M</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">to_floats</span><span class="p">()</span>
+        <span class="n">G</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">[</span><span class="n">math</span><span class="o">.</span><span class="n">fsum</span><span class="p">(</span><span class="n">M</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">own</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">b</span><span class="p">]</span> <span class="o">*</span> <span class="n">M</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># the stored coordinates, unwrapped, and no symmetry</span>
+        <span class="n">references</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">Fraction</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">target</span><span class="o">.</span><span class="n">sites</span><span class="o">.</span><span class="n">reduced_coords</span><span class="o">.</span><span class="n">to_fractions</span><span class="p">()]</span>
+        <span class="n">names</span><span class="p">,</span> <span class="n">group</span><span class="p">,</span> <span class="n">G</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">species_at_sites</span><span class="p">),</span> <span class="p">(</span><span class="n">_IDENTITY</span><span class="p">,),</span> <span class="n">own</span>
+    <span class="n">radii</span><span class="p">,</span> <span class="n">metals</span><span class="p">,</span> <span class="n">ends</span><span class="p">,</span> <span class="n">ligands</span> <span class="o">=</span> <span class="n">_site_radii</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">species</span><span class="p">,</span> <span class="n">names</span><span class="p">)</span>
+    <span class="n">found</span> <span class="o">=</span> <span class="n">_found_bonds</span><span class="p">(</span><span class="n">references</span><span class="p">,</span> <span class="n">group</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">target</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">periodicity</span><span class="p">,</span> <span class="n">radii</span><span class="p">,</span> <span class="n">metals</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">shared_ligand</span> <span class="ow">and</span> <span class="kc">True</span> <span class="ow">in</span> <span class="n">metals</span> <span class="ow">and</span> <span class="kc">False</span> <span class="ow">in</span> <span class="n">metals</span><span class="p">):</span>  <span class="c1"># no metal to non-metal bond to drop</span>
+        <span class="n">bonds</span> <span class="o">=</span> <span class="p">[</span><span class="n">SiteBond</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">partner</span><span class="p">,</span> <span class="n">_affine</span><span class="p">(</span><span class="n">op</span><span class="p">))</span> <span class="k">for</span> <span class="n">site</span><span class="p">,</span> <span class="n">partner</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">_distance</span> <span class="ow">in</span> <span class="n">found</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">bonds</span> <span class="o">=</span> <span class="n">_without_shared_ligand_bonds</span><span class="p">(</span><span class="n">found</span><span class="p">,</span> <span class="n">references</span><span class="p">,</span> <span class="n">radii</span><span class="p">,</span> <span class="n">metals</span><span class="p">,</span> <span class="n">ends</span><span class="p">,</span> <span class="n">ligands</span><span class="p">)</span>
+    <span class="n">_register_citations</span><span class="p">(</span><span class="n">shared_ligand</span><span class="p">)</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">BondSource</span><span class="p">(</span><span class="n">_distance_description</span><span class="p">(</span><span class="n">tolerance</span><span class="p">),</span> <span class="n">_HTTK_BASIC</span><span class="p">,</span> <span class="n">_distribution_version</span><span class="p">())</span> <span class="k">if</span> <span class="n">shared_ligand</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">FundamentalDomainStructure</span><span class="p">):</span>  <span class="c1"># a domain normalizes its pairs on first access</span>
+        <span class="n">network</span> <span class="o">=</span> <span class="n">BondNetwork</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">bonds</span><span class="p">),</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">network</span> <span class="o">=</span> <span class="n">BondNetwork</span><span class="p">(</span><span class="n">_cell_pairs</span><span class="p">(</span><span class="n">bonds</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">references</span><span class="p">),</span> <span class="n">target</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">periodicity</span><span class="p">),</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">_with_bonds</span><span class="p">(</span><span class="n">network</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">shapes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">assigned</span> <span class="o">=</span> <span class="n">_site_shapes</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">; pass shapes=False to leave the shapes unassigned"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+    <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">_with_bonds</span><span class="p">(</span><span class="n">replace</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">shapes</span><span class="o">=</span><span class="n">assigned</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_found_bonds</span><span class="p">(</span>
+    <span class="n">references</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Point</span><span class="p">],</span>
+    <span class="n">group</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Op</span><span class="p">],</span>
+    <span class="n">G</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+    <span class="n">periodicity</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span>
+    <span class="n">radii</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">metals</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">_Op</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Return the tentative network: ``(site, partner, operation, distance)`` per bond found from a reference atom.</span>
+
+<span class="sd">    :param references: Each site's reference atom, exact, in the coordinates the operations act on.</span>
+<span class="sd">    :param group: The group operations of those coordinates (the identity alone for a unit cell).</span>
+<span class="sd">    :param G: The float Cartesian metric of those coordinates.</span>
+<span class="sd">    :param periodicity: The periodic axes; along the others coordinates are not wrapped and no</span>
+<span class="sd">        translation is tried.</span>
+<span class="sd">    :param radii: Per site its radius, ``None`` for no bonds.</span>
+<span class="sd">    :param metals: Per site whether it is a metal.</span>
+<span class="sd">    :param tolerance: Å added to the sum of the radii.</span>
+<span class="sd">    :return: Each bond from a site's reference atom to ``operation`` applied to the partner's.</span>
+<span class="sd">    """</span>
+    <span class="n">has_non_metal</span> <span class="o">=</span> <span class="kc">False</span> <span class="ow">in</span> <span class="n">metals</span>  <span class="c1"># then metal-metal pairs are not bonded</span>
+    <span class="n">Ginv</span> <span class="o">=</span> <span class="n">_inverse</span><span class="p">([</span><span class="nb">list</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">G</span><span class="p">])</span>
+    <span class="c1"># Completeness: a displacement x (stored coordinates) of Cartesian length at most R has</span>
+    <span class="c1"># |x_k| = |&lt;G^-1 e_k, x&gt;_G| &lt;= |G^-1 e_k|_G R = sqrt((G^-1)_kk) R by Cauchy-Schwarz, so the</span>
+    <span class="c1"># lattice translations n with |q + n - p|_G &lt;= R lie in p_k - q_k - R s_k &lt;= n_k &lt;= p_k - q_k + R s_k,</span>
+    <span class="c1"># s_k = sqrt((G^-1)_kk) (widened by 1e-9 against float rounding): every such n is visited.</span>
+    <span class="n">reach</span> <span class="o">=</span> <span class="p">[</span><span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">Ginv</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">k</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+    <span class="c1"># every atom of the cell (periodic coordinates modulo 1) with the group element taking its site's reference atom there</span>
+    <span class="n">atoms</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">_Op</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">reference</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">references</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">radii</span><span class="p">[</span><span class="n">number</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">W</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">group</span><span class="p">:</span>
+            <span class="n">image</span> <span class="o">=</span> <span class="n">_apply</span><span class="p">((</span><span class="n">W</span><span class="p">,</span> <span class="n">w</span><span class="p">),</span> <span class="n">reference</span><span class="p">)</span>
+            <span class="n">wrapped</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">x</span> <span class="o">%</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">periodic</span> <span class="k">else</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">periodic</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">periodicity</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">wrapped</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">wrapped</span><span class="p">)</span>
+                <span class="n">shift</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">wrapped</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+                <span class="n">atoms</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">number</span><span class="p">,</span> <span class="p">(</span><span class="n">W</span><span class="p">,</span> <span class="n">shift</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">wrapped</span><span class="p">))))</span>
+    <span class="n">largest</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">radii</span> <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">R</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">largest</span> <span class="o">+</span> <span class="n">tolerance</span>
+    <span class="n">found</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">_Op</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">R</span> <span class="o">&lt;</span> <span class="n">_MIN_DISTANCE</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">found</span>
+    <span class="c1"># Bins per axis, of width at least R s_k (with a 1e-6 margin for the float floor): on a periodic</span>
+    <span class="c1"># axis g_k bins of width 1/g_k, numbered modulo g_k; on a non-periodic axis unbounded bins of width</span>
+    <span class="c1"># R s_k. Two atoms within R of each other have |dx_k| &lt;= R s_k, so floor(x_k / width) differs by</span>
+    <span class="c1"># at most one and their bins are equal or adjacent (modulo g_k on a periodic axis).</span>
+    <span class="n">widths</span> <span class="o">=</span> <span class="p">[</span><span class="n">R</span> <span class="o">*</span> <span class="n">s</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">1e-6</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">reach</span><span class="p">]</span>
+    <span class="n">moduli</span> <span class="o">=</span> <span class="p">[</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">w</span><span class="p">))</span> <span class="k">if</span> <span class="n">periodic</span> <span class="k">else</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">w</span><span class="p">,</span> <span class="n">periodic</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">widths</span><span class="p">,</span> <span class="n">periodicity</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">binned</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">moduli</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">m</span><span class="p">)</span> <span class="o">+</span> <span class="n">d</span><span class="p">)</span> <span class="o">%</span> <span class="n">m</span> <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="n">widths</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">+</span> <span class="n">d</span>
+
+    <span class="n">bins</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="p">(</span><span class="n">_number</span><span class="p">,</span> <span class="n">_element</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">atoms</span><span class="p">):</span>
+        <span class="n">bins</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">binned</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">q</span><span class="p">)),</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">site</span><span class="p">,</span> <span class="n">reference</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">references</span><span class="p">):</span>
+        <span class="n">r_site</span> <span class="o">=</span> <span class="n">radii</span><span class="p">[</span><span class="n">site</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">r_site</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">reference</span><span class="p">))</span>
+        <span class="n">near</span> <span class="o">=</span> <span class="p">[{</span><span class="n">binned</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)}</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">near</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">bins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">()):</span>
+                <span class="n">partner</span><span class="p">,</span> <span class="p">(</span><span class="n">W</span><span class="p">,</span> <span class="n">w</span><span class="p">),</span> <span class="n">q</span> <span class="o">=</span> <span class="n">atoms</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+                <span class="n">r_partner</span> <span class="o">=</span> <span class="n">radii</span><span class="p">[</span><span class="n">partner</span><span class="p">]</span>
+                <span class="k">assert</span> <span class="n">r_partner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="n">cutoff</span> <span class="o">=</span> <span class="n">r_site</span> <span class="o">+</span> <span class="n">r_partner</span> <span class="o">+</span> <span class="n">tolerance</span>
+                <span class="k">if</span> <span class="n">cutoff</span> <span class="o">&lt;</span> <span class="n">_MIN_DISTANCE</span> <span class="ow">or</span> <span class="p">(</span><span class="n">has_non_metal</span> <span class="ow">and</span> <span class="n">metals</span><span class="p">[</span><span class="n">site</span><span class="p">]</span> <span class="ow">and</span> <span class="n">metals</span><span class="p">[</span><span class="n">partner</span><span class="p">]):</span>
+                    <span class="k">continue</span>
+                <span class="n">delta</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
+                <span class="n">ranges</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="nb">range</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="o">-</span><span class="n">d</span> <span class="o">-</span> <span class="n">cutoff</span> <span class="o">*</span> <span class="n">s</span><span class="p">),</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="o">-</span><span class="n">d</span> <span class="o">+</span> <span class="n">cutoff</span> <span class="o">*</span> <span class="n">s</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">periodic</span> <span class="k">else</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span>
+                    <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">periodic</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="n">reach</span><span class="p">,</span> <span class="n">periodicity</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="p">]</span>
+                <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">ranges</span><span class="p">):</span>
+                    <span class="n">x</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="o">+</span> <span class="n">t</span> <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
+                    <span class="n">distance</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">*</span> <span class="n">G</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">b</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="n">b</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))))</span>
+                    <span class="k">if</span> <span class="n">_MIN_DISTANCE</span> <span class="o">&lt;=</span> <span class="n">distance</span> <span class="o">&lt;=</span> <span class="n">cutoff</span><span class="p">:</span>
+                        <span class="n">found</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">site</span><span class="p">,</span> <span class="n">partner</span><span class="p">,</span> <span class="p">(</span><span class="n">W</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">k</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">))),</span> <span class="n">distance</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">found</span>
+
+
+<div class="viewcode-block" id="assign_baseline_shapes">
+<a class="viewcode-back" href="../../../reference/autoapi/httk/atomistic/index.html#httk.atomistic.bonding.assign_baseline_shapes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">assign_baseline_shapes</span><span class="p">(</span><span class="n">structure</span><span class="p">:</span> <span class="n">StructureLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FundamentalDomainStructure</span> <span class="o">|</span> <span class="n">UnitcellStructure</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return a structure whose bond network has no shapes with its baseline shapes assigned.</span>
+
+<span class="sd">    The structure is taken as :func:`distance_bonds` takes it (a fundamental domain stays one,</span>
+<span class="sd">    anything else is presented as a unit cell, and symmetry is never recognised by the function itself). Every site of two or more</span>
+<span class="sd">    bonds gets the shape whose ideal sorted bond angles fit its own best (IUPAC and SHAPE</span>
+<span class="sd">    symbols, ``I`` (irregular) above 15 degrees RMS misfit, ``L2`` from 165 degrees; see</span>
+<span class="sd">    :mod:`httk.atomistic.symmetry.shapes`), and ``shapes_source`` names the baseline (software</span>
+<span class="sd">    ``httk_basic``, the installed *httk-atomistic* version); the pairs and ``source`` are kept.</span>
+<span class="sd">    When no site gets a shape (no site has two bonds) the structure is returned with its network</span>
+<span class="sd">    unchanged.</span>
+
+<span class="sd">    :param structure: A structure with a bond network and no shapes.</span>
+<span class="sd">    :return: The structure, of the kind :func:`distance_bonds` returns, with the shapes assigned.</span>
+<span class="sd">    :raises ValueError: If the structure has no network, its network already has shapes, or the</span>
+<span class="sd">        baseline cannot assign a shape (a fundamental-domain site at a special point of its own</span>
+<span class="sd">        Wyckoff letter).</span>
+<span class="sd">    """</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">_presented</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">unview</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">UnitcellStructureView</span><span class="p">)</span> <span class="k">else</span> <span class="n">target</span>
+    <span class="n">network</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">bonds</span>
+    <span class="k">if</span> <span class="n">network</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"a structure without a bond network has no shapes to assign"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">network</span><span class="o">.</span><span class="n">shapes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"the bond network already has shapes; baseline shapes are assigned only to a network without"</span><span class="p">)</span>
+    <span class="n">assigned</span> <span class="o">=</span> <span class="n">_site_shapes</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">symbol</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">symbol</span> <span class="ow">in</span> <span class="n">assigned</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">BondSource</span><span class="p">(</span><span class="n">_BASELINE_DESCRIPTION</span><span class="p">,</span> <span class="n">_HTTK_BASIC</span><span class="p">,</span> <span class="n">_distribution_version</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">_with_bonds</span><span class="p">(</span><span class="n">replace</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">shapes</span><span class="o">=</span><span class="n">assigned</span><span class="p">,</span> <span class="n">shapes_source</span><span class="o">=</span><span class="n">source</span><span class="p">))</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_register_citations</span><span class="p">(</span><span class="n">shared_ligand</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Register the radii, and with ``shared_ligand`` the electronegativities, as used."""</span>
+    <span class="n">register_citation</span><span class="p">(</span>
+        <span class="n">applies_to</span><span class="o">=</span><span class="s2">"Default bond networks use the covalent radii of Cordero et al."</span><span class="p">,</span>
+        <span class="n">references</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"authors"</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span>
+                <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="n">name</span><span class="p">}</span>
+                <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span>
+                    <span class="s2">"Beatriz Cordero"</span><span class="p">,</span>
+                    <span class="s2">"Verónica Gómez"</span><span class="p">,</span>
+                    <span class="s2">"Ana E. Platero-Prats"</span><span class="p">,</span>
+                    <span class="s2">"Marc Revés"</span><span class="p">,</span>
+                    <span class="s2">"Jorge Echeverría"</span><span class="p">,</span>
+                    <span class="s2">"Eduard Cremades"</span><span class="p">,</span>
+                    <span class="s2">"Flavia Barragán"</span><span class="p">,</span>
+                    <span class="s2">"Santiago Alvarez"</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">),</span>
+            <span class="s2">"title"</span><span class="p">:</span> <span class="s2">"Covalent radii revisited"</span><span class="p">,</span>
+            <span class="s2">"journal"</span><span class="p">:</span> <span class="s2">"Dalton Transactions"</span><span class="p">,</span>
+            <span class="s2">"pages"</span><span class="p">:</span> <span class="s2">"2832-2838"</span><span class="p">,</span>
+            <span class="s2">"year"</span><span class="p">:</span> <span class="s2">"2008"</span><span class="p">,</span>
+            <span class="s2">"doi"</span><span class="p">:</span> <span class="s2">"10.1039/b801115j"</span><span class="p">,</span>
+            <span class="s2">"bib_type"</span><span class="p">:</span> <span class="s2">"article"</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">shared_ligand</span><span class="p">:</span>
+        <span class="n">register_citation</span><span class="p">(</span>
+            <span class="n">applies_to</span><span class="o">=</span><span class="s2">"Default bond networks use Pauling electronegativities, mostly the revised values of Allred"</span><span class="p">,</span>
+            <span class="n">references</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">"authors"</span><span class="p">:</span> <span class="p">({</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"A. L. Allred"</span><span class="p">},),</span>
+                <span class="s2">"title"</span><span class="p">:</span> <span class="s2">"Electronegativity values from thermochemical data"</span><span class="p">,</span>
+                <span class="s2">"journal"</span><span class="p">:</span> <span class="s2">"Journal of Inorganic and Nuclear Chemistry"</span><span class="p">,</span>
+                <span class="s2">"volume"</span><span class="p">:</span> <span class="s2">"17"</span><span class="p">,</span>
+                <span class="s2">"pages"</span><span class="p">:</span> <span class="s2">"215-221"</span><span class="p">,</span>
+                <span class="s2">"year"</span><span class="p">:</span> <span class="s2">"1961"</span><span class="p">,</span>
+                <span class="s2">"doi"</span><span class="p">:</span> <span class="s2">"10.1016/0022-1902(61)80142-5"</span><span class="p">,</span>
+                <span class="s2">"bib_type"</span><span class="p">:</span> <span class="s2">"article"</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_without_shared_ligand_bonds</span><span class="p">(</span>
+    <span class="n">found</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">_Op</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+    <span class="n">references</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_Point</span><span class="p">],</span>
+    <span class="n">radii</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">metals</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">ends</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">ligands</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SiteBond</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Return the tentative bonds less those of a metal and a non-metal across a shared ligand.</span>
+
+<span class="sd">    A bond is found from its first site's reference atom a to b = operation(reference of</span>
+<span class="sd">    partner). The atoms bonded to b are the operation applied to those bonded to the partner's</span>
+<span class="sd">    reference atom, since the operation is a symmetry of the network, so the common neighbours of</span>
+<span class="sd">    a and b are compared exactly. A group element h maps the network onto itself, so the pair</span>
+<span class="sd">    (h a, h b) has the images of these common neighbours (same sites, same electronegativities and</span>
+<span class="sd">    metal classes) and the same distance: the decision is the same for every member of a bond</span>
+<span class="sd">    orbit, and the conditions are symmetric in a and b, so the result stays a union of orbits. All</span>
+<span class="sd">    decisions are made on the tentative network, in one pass.</span>
+<span class="sd">    """</span>
+    <span class="n">neighbours</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">set</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">_Point</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">references</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">site</span><span class="p">,</span> <span class="n">partner</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">_distance</span> <span class="ow">in</span> <span class="n">found</span><span class="p">:</span>
+        <span class="n">neighbours</span><span class="p">[</span><span class="n">site</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">partner</span><span class="p">,</span> <span class="n">_apply</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">references</span><span class="p">[</span><span class="n">partner</span><span class="p">])))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">dropped</span><span class="p">(</span><span class="n">site</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">partner</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">_Op</span><span class="p">,</span> <span class="n">distance</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">r_site</span><span class="p">,</span> <span class="n">r_partner</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">other</span> <span class="o">=</span> <span class="n">radii</span><span class="p">[</span><span class="n">site</span><span class="p">],</span> <span class="n">radii</span><span class="p">[</span><span class="n">partner</span><span class="p">],</span> <span class="n">ends</span><span class="p">[</span><span class="n">site</span><span class="p">],</span> <span class="n">ends</span><span class="p">[</span><span class="n">partner</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">r_site</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">r_partner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">metals</span><span class="p">[</span><span class="n">site</span><span class="p">]</span> <span class="o">==</span> <span class="n">metals</span><span class="p">[</span><span class="n">partner</span><span class="p">]</span> <span class="ow">or</span> <span class="n">distance</span> <span class="o">&lt;=</span> <span class="n">r_site</span> <span class="o">+</span> <span class="n">r_partner</span> <span class="ow">or</span> <span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">other</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">limit</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">end</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">value</span> <span class="o">:=</span> <span class="n">ligands</span><span class="p">[</span><span class="n">ligand</span><span class="p">])</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="n">limit</span> <span class="ow">and</span> <span class="p">(</span><span class="n">ligand</span><span class="p">,</span> <span class="n">_apply</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span> <span class="ow">in</span> <span class="n">neighbours</span><span class="p">[</span><span class="n">site</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">ligand</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">neighbours</span><span class="p">[</span><span class="n">partner</span><span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="n">SiteBond</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">partner</span><span class="p">,</span> <span class="n">_affine</span><span class="p">(</span><span class="n">op</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">site</span><span class="p">,</span> <span class="n">partner</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">distance</span> <span class="ow">in</span> <span class="n">found</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dropped</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">partner</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">distance</span><span class="p">)</span>
+    <span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_inverse</span><span class="p">(</span><span class="n">G</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Return the inverse of a 3x3 matrix (the adjugate over the determinant)."""</span>
+    <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">),</span> <span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">f</span><span class="p">),</span> <span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">=</span> <span class="n">G</span>
+    <span class="n">det</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="p">(</span><span class="n">e</span> <span class="o">*</span> <span class="n">i</span> <span class="o">-</span> <span class="n">f</span> <span class="o">*</span> <span class="n">h</span><span class="p">)</span> <span class="o">-</span> <span class="n">b</span> <span class="o">*</span> <span class="p">(</span><span class="n">d</span> <span class="o">*</span> <span class="n">i</span> <span class="o">-</span> <span class="n">f</span> <span class="o">*</span> <span class="n">g</span><span class="p">)</span> <span class="o">+</span> <span class="n">c</span> <span class="o">*</span> <span class="p">(</span><span class="n">d</span> <span class="o">*</span> <span class="n">h</span> <span class="o">-</span> <span class="n">e</span> <span class="o">*</span> <span class="n">g</span><span class="p">)</span>
+    <span class="n">adjugate</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">[</span><span class="n">e</span> <span class="o">*</span> <span class="n">i</span> <span class="o">-</span> <span class="n">f</span> <span class="o">*</span> <span class="n">h</span><span class="p">,</span> <span class="n">c</span> <span class="o">*</span> <span class="n">h</span> <span class="o">-</span> <span class="n">b</span> <span class="o">*</span> <span class="n">i</span><span class="p">,</span> <span class="n">b</span> <span class="o">*</span> <span class="n">f</span> <span class="o">-</span> <span class="n">c</span> <span class="o">*</span> <span class="n">e</span><span class="p">],</span>
+        <span class="p">[</span><span class="n">f</span> <span class="o">*</span> <span class="n">g</span> <span class="o">-</span> <span class="n">d</span> <span class="o">*</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="o">*</span> <span class="n">i</span> <span class="o">-</span> <span class="n">c</span> <span class="o">*</span> <span class="n">g</span><span class="p">,</span> <span class="n">c</span> <span class="o">*</span> <span class="n">d</span> <span class="o">-</span> <span class="n">a</span> <span class="o">*</span> <span class="n">f</span><span class="p">],</span>
+        <span class="p">[</span><span class="n">d</span> <span class="o">*</span> <span class="n">h</span> <span class="o">-</span> <span class="n">e</span> <span class="o">*</span> <span class="n">g</span><span class="p">,</span> <span class="n">b</span> <span class="o">*</span> <span class="n">g</span> <span class="o">-</span> <span class="n">a</span> <span class="o">*</span> <span class="n">h</span><span class="p">,</span> <span class="n">a</span> <span class="o">*</span> <span class="n">e</span> <span class="o">-</span> <span class="n">b</span> <span class="o">*</span> <span class="n">d</span><span class="p">],</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="p">[[</span><span class="n">value</span> <span class="o">/</span> <span class="n">det</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">row</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">adjugate</span><span class="p">]</span>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, The httk-atomistic AUTHORS
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../_static/documentation_options.js?v=952df46a"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=fd10adb8"></script>
+    <script src="../../../_static/selector.js?v=d8e9b3ce"></script>
+    <script>window.HTTK_DOCS_VERSIONING = {"channel":"dev","version":"dev:develop","versionPathDepth":2};</script>
+    </body>
+</html>

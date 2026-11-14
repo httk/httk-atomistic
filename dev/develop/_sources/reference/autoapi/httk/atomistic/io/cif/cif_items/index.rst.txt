@@ -1,0 +1,316 @@
+httk.atomistic.io.cif.cif_items
+===============================
+
+.. py:module:: httk.atomistic.io.cif.cif_items
+
+.. autoapi-nested-parse::
+
+   The lossless CIF item model: data blocks as ordered, structured syntax.
+
+   A :class:`CIFBlock` holds exactly what a CIF data block says, in written order: data items,
+   loops, comments and save frames, with numbers kept as written
+   (:class:`~httk.core.DecimalScalar`). It knows nothing about structures. What is part of the
+   model follows the content rule of :class:`~httk.atomistic.CIFStructure`.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.io.cif.cif_items.CIFValue
+   httk.atomistic.io.cif.cif_items.CIFDialect
+   httk.atomistic.io.cif.cif_items.CIFItem
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.io.cif.cif_items.CIFComment
+   httk.atomistic.io.cif.cif_items.CIFTextField
+   httk.atomistic.io.cif.cif_items.CIFTable
+   httk.atomistic.io.cif.cif_items.CIFDataItem
+   httk.atomistic.io.cif.cif_items.CIFLoop
+   httk.atomistic.io.cif.cif_items.CIFSaveFrame
+   httk.atomistic.io.cif.cif_items.CIFBlock
+
+
+Module Contents
+---------------
+
+.. py:type:: CIFValue
+   :canonical: str | CIFTextField | httk.core.DecimalScalar | httk.core.DecimalGap | tuple[CIFValue, ...] | CIFTable
+
+
+.. py:type:: CIFDialect
+   :canonical: Literal['cif', 'mcif']
+
+
+.. py:type:: CIFItem
+   :canonical: CIFDataItem | CIFLoop | CIFComment | CIFSaveFrame
+
+
+.. py:class:: CIFComment
+
+   A CIF comment.
+
+   :param text: Everything after ``#``, without trailing whitespace or line breaks.
+   :param inline: Whether the comment shares its line with the preceding token.
+
+
+   .. py:attribute:: text
+      :type:  str
+
+
+   .. py:attribute:: inline
+      :type:  bool
+      :value: False
+
+
+
+.. py:class:: CIFTextField
+
+   A CIF semicolon text field.
+
+   :param text: The raw characters between the delimiters: the rest of the opening ``;`` line,
+       then each following line joined by ``\n``, up to the line break before the closing ``;``.
+       Line folding and prefixes are not decoded.
+
+
+   .. py:attribute:: text
+      :type:  str
+
+
+.. py:class:: CIFTable
+
+   A CIF2 table: unique string keys with values, in written order.
+
+   :param entries: The ``(key, value)`` pairs.
+
+
+   .. py:attribute:: entries
+      :type:  tuple[tuple[str, CIFValue], ...]
+
+
+.. py:class:: CIFDataItem
+
+   A data name with its value.
+
+   :param name: The data name as written, starting with ``_``.
+   :param value: The value.
+   :param comments: Placed comments: ``(0, c)`` between the name and the value, ``(1, c)``
+       inline after the value.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: value
+      :type:  CIFValue
+
+
+   .. py:attribute:: comments
+      :type:  tuple[tuple[int, CIFComment], ...]
+      :value: ()
+
+
+
+.. py:class:: CIFLoop
+
+   A CIF loop: data names and rows of values.
+
+   :param names: The data names as written.
+   :param rows: The rows, each with one value per name; there may be none.
+   :param comments: Placed comments: position ``0`` follows ``loop_``, ``1..n`` the n-th name and
+       ``n+j`` the j-th value, row-major.
+
+
+   .. py:attribute:: names
+      :type:  tuple[str, ...]
+
+
+   .. py:attribute:: rows
+      :type:  tuple[tuple[CIFValue, ...], ...]
+
+
+   .. py:attribute:: comments
+      :type:  tuple[tuple[int, CIFComment], ...]
+      :value: ()
+
+
+
+.. py:class:: CIFSaveFrame
+
+   A CIF save frame; frames may nest.
+
+   :param name: The frame name as written (after ``save_``).
+   :param items: The frame's items in written order.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: items
+      :type:  tuple[CIFItem, ...]
+
+
+   .. py:method:: find(name)
+
+      Return the top-level data item or loop holding ``name`` (caseless).
+
+      :param name: The data name.
+      :return: The data item, or the loop with that column.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name occurs more than once.
+
+
+
+   .. py:method:: value(name)
+
+      Return the value of a top-level data item.
+
+      :param name: The data name (caseless).
+      :return: The value.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name is repeated or is a loop column.
+
+
+
+   .. py:method:: column(name)
+
+      Return one column of a top-level loop.
+
+      :param name: The column's data name (caseless).
+      :return: The column values, one per row.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name is repeated or is not a loop column.
+
+
+
+   .. py:method:: number(name)
+
+      Return the number, or gap, of a top-level data item.
+
+      :param name: The data name (caseless).
+      :return: The number as written; a gap as a gap-valued scalar.
+      :raises ValueError: If the value is not a number or gap.
+
+
+
+   .. py:method:: numbers(*names)
+
+      Return numbers as a vector.
+
+      ``k`` data items give shape ``(k,)``, one loop column ``(rows,)`` and ``k`` columns of
+      one loop ``(rows, k)``.
+
+      :param \*names: The data names (caseless).
+      :return: The numbers as written, gaps included.
+      :raises ValueError: For any other combination, or a value that is not a number or gap.
+
+
+
+.. py:class:: CIFBlock
+
+   One CIF data block, losslessly: its items in written order and the comments around it.
+
+   :param name: The block name as written (after ``data_``).
+   :param items: The block's items in written order; the inline comment on the ``data_`` line,
+       if any, comes first.
+   :param header: The file's header comment lines (the run of comment lines from line 1),
+       carried by every block of the file so a block can be written alone.
+   :param leading: The own-line comments between the header (or the previous block) and the
+       ``data_`` line.
+   :param dialect: ``"cif"`` (CIF1, or full CIF2 when the header's first line is the CIF2 magic
+       code) or ``"mcif"`` (CIF1 plus lists, as the magnetic CIF reader reads it).
+   :raises ValueError: If a value, name or comment placement cannot be written in the block's
+       syntax, such as a table outside CIF2 or a list in CIF1.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: items
+      :type:  tuple[CIFItem, ...]
+
+
+   .. py:attribute:: header
+      :type:  tuple[CIFComment, ...]
+      :value: ()
+
+
+
+   .. py:attribute:: leading
+      :type:  tuple[CIFComment, ...]
+      :value: ()
+
+
+
+   .. py:attribute:: dialect
+      :type:  CIFDialect
+      :value: 'cif'
+
+
+
+   .. py:method:: find(name)
+
+      Return the top-level data item or loop holding ``name`` (caseless).
+
+      :param name: The data name.
+      :return: The data item, or the loop with that column.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name occurs more than once.
+
+
+
+   .. py:method:: value(name)
+
+      Return the value of a top-level data item.
+
+      :param name: The data name (caseless).
+      :return: The value.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name is repeated or is a loop column.
+
+
+
+   .. py:method:: column(name)
+
+      Return one column of a top-level loop.
+
+      :param name: The column's data name (caseless).
+      :return: The column values, one per row.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name is repeated or is not a loop column.
+
+
+
+   .. py:method:: number(name)
+
+      Return the number, or gap, of a top-level data item.
+
+      :param name: The data name (caseless).
+      :return: The number as written; a gap as a gap-valued scalar.
+      :raises ValueError: If the value is not a number or gap.
+
+
+
+   .. py:method:: numbers(*names)
+
+      Return numbers as a vector.
+
+      ``k`` data items give shape ``(k,)``, one loop column ``(rows,)`` and ``k`` columns of
+      one loop ``(rows, k)``.
+
+      :param \*names: The data names (caseless).
+      :return: The numbers as written, gaps included.
+      :raises ValueError: For any other combination, or a value that is not a number or gap.
+
+
+

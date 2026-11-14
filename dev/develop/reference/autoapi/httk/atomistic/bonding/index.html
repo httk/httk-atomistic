@@ -1,0 +1,581 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../../../../../genindex.html"><link rel="search" title="Search" href="../../../../../search.html"><link rel="next" title="httk.atomistic.cif_structures" href="../cif_structures/index.html"><link rel="prev" title="httk.atomistic" href="../index.html">
+
+    <!-- Generated with Sphinx 9.1.1 and Furo 2025.12.19 -->
+        <title>httk.atomistic.bonding - httk-atomistic dev:develop documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx_autodoc_typehints.css?v=057ac668" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/selector.css?v=626bada3" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     Development documentation (dev:develop) — built from the GitHub develop branch; content may differ from any release. 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../../../index.html"><div class="brand">httk-atomistic dev:develop documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../../index.html">
+  
+  <span class="sidebar-brand-text">httk-atomistic dev:develop documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1 current has-children"><a class="reference internal" href="../../../../index.html">Reference</a><input aria-label="Toggle navigation of Reference" checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l2 current has-children"><a class="reference internal" href="../index.html">httk.atomistic</a><input aria-label="Toggle navigation of httk.atomistic" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l3 current current-page"><a class="current reference internal" href="#">httk.atomistic.bonding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cif_structures/index.html">httk.atomistic.cif_structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html">httk.atomistic.cli</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../composition/index.html">httk.atomistic.composition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../data/index.html">httk.atomistic.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../elements/index.html">httk.atomistic.elements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../entries/index.html">httk.atomistic.entries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../integrations/index.html">httk.atomistic.integrations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../io/index.html">httk.atomistic.io</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mcif_structures/index.html">httk.atomistic.mcif_structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../models/index.html">httk.atomistic.models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reduction/index.html">httk.atomistic.reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../storage/index.html">httk.atomistic.storage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../supercell/index.html">httk.atomistic.supercell</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../symmetry/index.html">httk.atomistic.symmetry</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../wavefunction/index.html">httk.atomistic.wavefunction</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../structures.html">Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../composition.html">Composition and formula families</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prototypes.html">Material-information levels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../cif.html">Reading and writing CIF files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../poscar.html">Reading VASP POSCAR / CONTCAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../vasp_outputs.html">Reading VASP output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../doscar.html">VASP total density of states</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../wavecar.html">Reading and writing VASP WAVECAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../wavefunctions.html">Plane-wave wavefunctions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../httk_structure.html">Exact structure files (<code class="docutils literal notranslate"><span class="pre">.httkstruct</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../trajectory_jsonl.html">Trajectory JSON Lines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../lammps.html">Reading LAMMPS dumps and data files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../qe.html">Quantum ESPRESSO pw.x files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../abinit.html">ABINIT input and output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../cp2k.html">CP2K input and restart files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../asu.html">Asymmetric units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../canonicalization.html">Canonicalization algorithms and reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../subgroups.html">Subgroups and pathfinding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../moments.html">Site moments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../integrations.html">Integrations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../precision.html">Data precision</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../periodicity.html">Periodicity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../lattice-reduction.html">Lattice reduction (Niggli)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../primitive-cells.html">Primitive cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../band-paths.html">Band-structure paths</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../notebooks/examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../notebooks/disorder.html">Disorder, vacancies, and attached species</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Details</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../details/structures.html">Structures in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../details/structural_classes.html">Naming of <em>httk₂</em> structural classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../details/asu.html">Asymmetric units in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../details/cif.html">CIF and mCIF reading in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../details/precision.html">Data precision in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../details/periodicity.html">Periodicity in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../index.html">API Reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../../../../../_sources/reference/autoapi/httk/atomistic/bonding/index.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="module-httk.atomistic.bonding">
+<span id="httk-atomistic-bonding"></span><h1>httk.atomistic.bonding<a class="headerlink" href="#module-httk.atomistic.bonding" title="Link to this heading">¶</a></h1>
+<p>Default bond networks from interatomic distances.</p>
+<p><a class="reference internal" href="#httk.atomistic.bonding.distance_bonds" title="httk.atomistic.bonding.distance_bonds"><code class="xref py py-func docutils literal notranslate"><span class="pre">distance_bonds()</span></code></a> gives a structure that lacks a bond network a simple default one. It uses
+the radius-sum form of OpenBabel and Jmol (their form, not their exact radii or floor): two atoms
+are bonded when their distance lies between 0.5 Å and the sum of their covalent radii plus a
+tolerance (0.45 Å by default). The radii are the single-bond covalent radii of Cordero et al.
+<a class="reference internal" href="#cordero2008" id="id1"><span>[Cordero2008]</span></a> (the low-spin values for Mn, Fe and Co, sp3 for C). On top of it, two metals are
+not bonded in a structure that contains a non-metal (H, He, B, C, N, O, F, Ne, Si, P, S, Cl, Ar,
+Ge, As, Se, Br, Kr, Sb, Te, I, Xe, At, Rn: the metalloids count as non-metals), so the generous
+radius sums of cations do not bond the cations of ionic solids to each other.</p>
+<p>Finally, a metal does not bond to a non-metal across a non-metal ligand they share: such a bond
+longer than the sum of the two radii is dropped when a non-metal bonded to both is more
+electronegative than either (Pauling electronegativities as compiled by WebElements
+<a class="reference internal" href="#webelementsen" id="id2"><span>[WebElementsEN]</span></a>, mostly Allred’s revised values <a class="reference internal" href="#allred1961" id="id3"><span>[Allred1961]</span></a>), so the large cations of
+oxo-salts do not bond to the oxo-anion centres.</p>
+<p>The network it returns names its rule as its <code class="docutils literal notranslate"><span class="pre">source</span></code> (software <code class="docutils literal notranslate"><span class="pre">httk_basic</span></code>, the installed
+<em>httk-atomistic</em> version), and by default it also assigns the baseline shapes;
+<a class="reference internal" href="#httk.atomistic.bonding.assign_baseline_shapes" title="httk.atomistic.bonding.assign_baseline_shapes"><code class="xref py py-func docutils literal notranslate"><span class="pre">assign_baseline_shapes()</span></code></a> adds those to a network that has none.</p>
+<p><a class="reference internal" href="#httk.atomistic.bonding.distance_bonds" title="httk.atomistic.bonding.distance_bonds"><code class="xref py py-func docutils literal notranslate"><span class="pre">distance_bonds()</span></code></a> never recognises symmetry itself (an <code class="docutils literal notranslate"><span class="pre">ASUStructureView</span></code> input resolves
+its own recognition): a unit cell gets a unit-cell network and an asymmetric unit a network of
+bond orbits. On a measured cell whose metric keeps the group only
+approximately the two routes can label one crystal differently: the unit-cell route assigns each
+atom its own shape and keeps contacts at their measured, float-noisy distances, which recognition
+may then find not invariant and drop, while the asymmetric-unit route
+(<code class="docutils literal notranslate"><span class="pre">distance_bonds(ASUStructureView(cell,</span> <span class="pre">tolerance=...))</span></code>) idealises first.</p>
+<p>This is a heuristic, not a chemical model: it ignores metal-metal bonds in compounds (Re-Re in
+Re2Cl8(2-) salts, Hg2(2+)), judges anion-anion contacts by distance alone, and the radii fit
+covalent bonds better than ionic ones.  It takes no account of occupancy, so on a disordered
+structure the partially occupied atoms that overlap or sit a few tenths of an angstrom apart are
+all bonded: per-site bond counts above about 60 come from disorder, not coordination (the
+largest measured were 1522 on ICSD, a mixed O/Ti site of ICSD 162568, and 203 on carbon-free COD).</p>
+<div role="list" class="citation-list">
+<div class="citation" id="cordero2008" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">Cordero2008</a><span class="fn-bracket">]</span></span>
+<p>B. Cordero, V. Gómez, A. E. Platero-Prats, M. Revés, J. Echeverría,
+E. Cremades, F. Barragán, S. Alvarez, “Covalent radii revisited”, <em>Dalton Trans.</em> 2008,
+2832-2838, doi:10.1039/b801115j, Table 2.</p>
+</div>
+<div class="citation" id="allred1961" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">Allred1961</a><span class="fn-bracket">]</span></span>
+<p>A. L. Allred, “Electronegativity values from thermochemical data”,
+<em>J. Inorg. Nucl. Chem.</em> 17 (1961) 215-221, doi:10.1016/0022-1902(61)80142-5.</p>
+</div>
+<div class="citation" id="webelementsen" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">WebElementsEN</a><span class="fn-bracket">]</span></span>
+<p>M. Winter, WebElements, “Pauling electronegativity”,
+<a class="reference external" href="https://www.webelements.com/periodicity/eneg_pauling/">https://www.webelements.com/periodicity/eneg_pauling/</a> (values from Allred 1961, else
+L. Pauling, <em>The Nature of the Chemical Bond</em>, 3rd ed., 1960, and for the noble gases and
+Am-Cm J. E. Huheey, E. A. Keiter, R. L. Keiter, <em>Inorganic Chemistry</em>, 4th ed., 1993).</p>
+</div>
+</div>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#httk.atomistic.bonding.distance_bonds" title="httk.atomistic.bonding.distance_bonds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">distance_bonds</span></code></a>(structure, *[, tolerance, shapes])</p></td>
+<td><p>Return a structure with the bond network found from interatomic distances, of the kind it was given.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#httk.atomistic.bonding.assign_baseline_shapes" title="httk.atomistic.bonding.assign_baseline_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">assign_baseline_shapes</span></code></a>(structure)</p></td>
+<td><p>Return a structure whose bond network has no shapes with its baseline shapes assigned.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="httk.atomistic.bonding.distance_bonds">
+<span class="sig-prename descclassname"><span class="pre">httk.atomistic.bonding.</span></span><span class="sig-name descname"><span class="pre">distance_bonds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">structure</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.45</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shapes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../_modules/httk/atomistic/bonding.html#distance_bonds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.atomistic.bonding.distance_bonds" title="Link to this definition">¶</a></dt>
+<dd><p>Return a structure with the bond network found from interatomic distances, of the kind it was given.</p>
+<p>The result keeps the input’s sites and replaces its <code class="docutils literal notranslate"><span class="pre">bonds</span></code>. It never recognises symmetry
+itself; an <a class="reference internal" href="../index.html#httk.atomistic.ASUStructureView" title="httk.atomistic.ASUStructureView"><code class="xref py py-class docutils literal notranslate"><span class="pre">ASUStructureView</span></code></a> input resolves its own recognition. A
+<a class="reference internal" href="../index.html#httk.atomistic.FundamentalDomainStructure" title="httk.atomistic.FundamentalDomainStructure"><code class="xref py py-class docutils literal notranslate"><span class="pre">FundamentalDomainStructure</span></code></a> or <a class="reference internal" href="../index.html#httk.atomistic.ASUStructure" title="httk.atomistic.ASUStructure"><code class="xref py py-class docutils literal notranslate"><span class="pre">ASUStructure</span></code></a>
+(an <a class="reference internal" href="../index.html#httk.atomistic.ASUStructureView" title="httk.atomistic.ASUStructureView"><code class="xref py py-class docutils literal notranslate"><span class="pre">ASUStructureView</span></code></a> resolved) gives the same class with a network
+of bond orbits. A unit cell or unit-cell view gives
+<code class="docutils literal notranslate"><span class="pre">UnitcellStructureView(structure).unview()</span></code> with explicit pairs between its sites. Raw
+inputs (a path, a text stream, a storage record) are first adopted as structures; lazy
+sources (a CIF block or file, a datastream) are resolved and a fundamental-domain record gives
+its domain, and then these two rules apply. Any other structure gives
+<code class="docutils literal notranslate"><span class="pre">UnitcellStructureView(structure).unview()</span></code>, so a
+<a class="reference internal" href="../index.html#httk.atomistic.NumericUnitcellStructure" title="httk.atomistic.NumericUnitcellStructure"><code class="xref py py-class docutils literal notranslate"><span class="pre">NumericUnitcellStructure</span></code></a> gives a
+<a class="reference internal" href="../index.html#httk.atomistic.UnitcellStructure" title="httk.atomistic.UnitcellStructure"><code class="xref py py-class docutils literal notranslate"><span class="pre">UnitcellStructure</span></code></a>. For the network of the recognised asymmetric
+unit, recognise first: <code class="docutils literal notranslate"><span class="pre">distance_bonds(ASUStructureView(structure,</span> <span class="pre">tolerance=...))</span></code>. On a
+measured cell whose metric keeps the group only approximately the two routes can label one
+crystal differently: the unit-cell route assigns each atom its own shape and keeps contacts
+at their measured distances, the asymmetric-unit route idealises first.</p>
+<p>Two atoms <em>a</em> and <em>b</em> are bonded iff <code class="docutils literal notranslate"><span class="pre">0.5</span> <span class="pre">&lt;=</span> <span class="pre">d(a,</span> <span class="pre">b)</span> <span class="pre">&lt;=</span> <span class="pre">r(a)</span> <span class="pre">+</span> <span class="pre">r(b)</span> <span class="pre">+</span> <span class="pre">tolerance</span></code> (Å), with
+<em>r</em> the covalent radii of Cordero et al. (2008). A mixed-occupancy site takes the largest
+radius of its constituents (positive concentration, vacancies and attached atoms ignored); a
+site with no constituent (only vacancies) gets no bonds. Pairs closer than 0.5 Å (split or
+disordered positions) are never bonded, so coincident sites are never bonded to each other.
+In a structure with at least one non-metal (H, He, B, C, N, O, F, Ne, Si, P, S, Cl, Ar, Ge,
+As, Se, Br, Kr, Sb, Te, I, Xe, At, Rn), two metal sites are never bonded; a mixed site is a
+metal when all its constituents are, so even a dilute non-metal on a mixed site switches this
+rule on for the whole structure. Without a non-metal (intermetallics, elements) the distance
+rule alone applies. Along a non-periodic direction of a unit cell, atoms are not repeated.</p>
+<p>The bonds so found form the tentative network. A metal does not bond to a non-metal across a
+non-metal ligand they share: a tentative bond between a metal <em>a</em> and a non-metal <em>b</em> is
+dropped iff <code class="docutils literal notranslate"><span class="pre">d(a,</span> <span class="pre">b)</span> <span class="pre">&gt;</span> <span class="pre">r(a)</span> <span class="pre">+</span> <span class="pre">r(b)</span></code> (it exists only through the tolerance) and some non-metal
+<em>c</em> tentatively bonded to both is more electronegative than both. All drops are decided on the
+tentative network in one pass. Metal-metal and non-metal-non-metal bonds are never dropped.
+Electronegativities are Pauling’s as compiled by WebElements (Allred 1961, else Pauling 1960
+or Huheey et al. 1993). A mixed site is a metal end when all its constituents are metals and a
+non-metal ligand when all are non-metals; it counts with its constituents’ largest value as
+<em>a</em> or <em>b</em> and their smallest as <em>c</em>, so a bond is dropped only when the condition holds for
+every constituent with a value. A metal end without a value (Pm, Eu, Tb, Yb) counts as less
+electronegative than any non-metal with one: a mixed metal end ignores its constituents
+without a value when taking the largest, and counts so when none has one. Any other site with
+a constituent without a value (He, Ne, Ar, Rn, or one of those metals beside a non-metal on a
+mixed site) never acts as <em>b</em> or <em>c</em>. No values are invented. This parts the large cations of
+oxo-salts from the anion centres (in diopside CaMgSi2O6, Ca from Si: Ca 8 and Si 4 bonds, not
+12 and 6).</p>
+<p>A heuristic: it misses metal-metal bonds in compounds (Re-Re in Re2Cl8(2-) salts, Hg2(2+)) and
+judges anion-anion contacts by distance only. The shared-ligand rule cannot part a cation from
+an anion centre closer than their radius sum (Cs, Rb and Ba radii are large) or sharing no
+more electronegative non-metal; and it drops real metal-ligand bonds longer than the radius
+sum that share a cage or ring atom (C, N or S) more electronegative than both, as in
+metallacarboranes (Fe-B 2.23-2.38 Å across cage C), thiaboranes (Ir-B across S) and
+eta-bonded heteroarenes (Fe-C across N).</p>
+<p>Distances are floats computed from the exact structure: the network is the same for every
+exact re-description of one crystal, except that a pair within float noise of its cutoff or
+of its radius sum may fall on either side.</p>
+<p>The network’s <code class="docutils literal notranslate"><span class="pre">source</span></code> names the rule: software <code class="docutils literal notranslate"><span class="pre">httk_basic</span></code>, the installed
+<em>httk-atomistic</em> version and a one-sentence description with <code class="docutils literal notranslate"><span class="pre">tolerance</span></code>. With <code class="docutils literal notranslate"><span class="pre">shapes</span></code>
+(the default) every site of two or more bonds also gets its baseline shape (see
+<a class="reference internal" href="#httk.atomistic.bonding.assign_baseline_shapes" title="httk.atomistic.bonding.assign_baseline_shapes"><code class="xref py py-func docutils literal notranslate"><span class="pre">assign_baseline_shapes()</span></code></a>), with <code class="docutils literal notranslate"><span class="pre">shapes_source</span></code> <code class="docutils literal notranslate"><span class="pre">None</span></code> (the same source).</p>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASUStructure</span><span class="p">,</span> <span class="n">Cell</span><span class="p">,</span> <span class="n">Species</span><span class="p">,</span> <span class="n">WyckoffSite</span><span class="p">,</span> <span class="n">distance_bonds</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nacl</span> <span class="o">=</span> <span class="n">ASUStructure</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">Cell</span><span class="p">([[</span><span class="mf">5.64</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mf">5.64</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">5.64</span><span class="p">]]),</span> <span class="mi">225</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="p">[</span><span class="n">WyckoffSite</span><span class="p">(</span><span class="s2">"a"</span><span class="p">,</span> <span class="p">(),</span> <span class="s2">"Na"</span><span class="p">),</span> <span class="n">WyckoffSite</span><span class="p">(</span><span class="s2">"b"</span><span class="p">,</span> <span class="p">(),</span> <span class="s2">"Cl"</span><span class="p">)],</span>
+<span class="gp">... </span>    <span class="p">[</span><span class="n">Species</span><span class="p">(</span><span class="s2">"Na"</span><span class="p">,</span> <span class="p">(</span><span class="s2">"Na"</span><span class="p">,),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)),</span> <span class="n">Species</span><span class="p">(</span><span class="s2">"Cl"</span><span class="p">,</span> <span class="p">(</span><span class="s2">"Cl"</span><span class="p">,),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,))],</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">bonded</span> <span class="o">=</span> <span class="n">distance_bonds</span><span class="p">(</span><span class="n">nacl</span><span class="p">)</span>  <span class="c1"># one bond orbit: Na-Cl at 2.82 Å</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">bonded</span><span class="o">.</span><span class="n">bonds</span><span class="o">.</span><span class="n">pairs</span><span class="p">),</span> <span class="n">bonded</span><span class="o">.</span><span class="n">bonds</span><span class="o">.</span><span class="n">shapes</span>
+<span class="go">(1, ('OC6', 'OC6'))</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>structure</strong> (<a class="reference internal" href="../models/structure/like/index.html#httk.atomistic.models.structure.like.StructureLike" title="httk.atomistic.models.structure.like.StructureLike"><em>httk.atomistic.models.structure.like.StructureLike</em></a>) – Any structure.</p></li>
+<li><p><strong>tolerance</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Å added to the sum of the radii.</p></li>
+<li><p><strong>shapes</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether to assign the baseline shapes as well.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The structure, of the kind described above, with its distance-based network.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If a site holds an element without a radius (named in the message),
+<code class="docutils literal notranslate"><span class="pre">tolerance</span></code> is not a finite number, or (with <code class="docutils literal notranslate"><span class="pre">shapes</span></code>) the baseline cannot assign a
+shape, as for a fundamental-domain site at a special point of its own Wyckoff letter; that
+message says to pass <code class="docutils literal notranslate"><span class="pre">shapes=False</span></code>.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../models/structure/asu/index.html#httk.atomistic.models.structure.asu.FundamentalDomainStructure" title="httk.atomistic.models.structure.asu.FundamentalDomainStructure">httk.atomistic.models.structure.asu.FundamentalDomainStructure</a> | <a class="reference internal" href="../models/structure/unitcell/index.html#httk.atomistic.models.structure.unitcell.UnitcellStructure" title="httk.atomistic.models.structure.unitcell.UnitcellStructure">httk.atomistic.models.structure.unitcell.UnitcellStructure</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="httk.atomistic.bonding.assign_baseline_shapes">
+<span class="sig-prename descclassname"><span class="pre">httk.atomistic.bonding.</span></span><span class="sig-name descname"><span class="pre">assign_baseline_shapes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">structure</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../_modules/httk/atomistic/bonding.html#assign_baseline_shapes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.atomistic.bonding.assign_baseline_shapes" title="Link to this definition">¶</a></dt>
+<dd><p>Return a structure whose bond network has no shapes with its baseline shapes assigned.</p>
+<p>The structure is taken as <a class="reference internal" href="#httk.atomistic.bonding.distance_bonds" title="httk.atomistic.bonding.distance_bonds"><code class="xref py py-func docutils literal notranslate"><span class="pre">distance_bonds()</span></code></a> takes it (a fundamental domain stays one,
+anything else is presented as a unit cell, and symmetry is never recognised by the function itself). Every site of two or more
+bonds gets the shape whose ideal sorted bond angles fit its own best (IUPAC and SHAPE
+symbols, <code class="docutils literal notranslate"><span class="pre">I</span></code> (irregular) above 15 degrees RMS misfit, <code class="docutils literal notranslate"><span class="pre">L2</span></code> from 165 degrees; see
+<a class="reference internal" href="../symmetry/shapes/index.html#module-httk.atomistic.symmetry.shapes" title="httk.atomistic.symmetry.shapes"><code class="xref py py-mod docutils literal notranslate"><span class="pre">httk.atomistic.symmetry.shapes</span></code></a>), and <code class="docutils literal notranslate"><span class="pre">shapes_source</span></code> names the baseline (software
+<code class="docutils literal notranslate"><span class="pre">httk_basic</span></code>, the installed <em>httk-atomistic</em> version); the pairs and <code class="docutils literal notranslate"><span class="pre">source</span></code> are kept.
+When no site gets a shape (no site has two bonds) the structure is returned with its network
+unchanged.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>structure</strong> (<a class="reference internal" href="../models/structure/like/index.html#httk.atomistic.models.structure.like.StructureLike" title="httk.atomistic.models.structure.like.StructureLike"><em>httk.atomistic.models.structure.like.StructureLike</em></a>) – A structure with a bond network and no shapes.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The structure, of the kind <a class="reference internal" href="#httk.atomistic.bonding.distance_bonds" title="httk.atomistic.bonding.distance_bonds"><code class="xref py py-func docutils literal notranslate"><span class="pre">distance_bonds()</span></code></a> returns, with the shapes assigned.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If the structure has no network, its network already has shapes, or the
+baseline cannot assign a shape (a fundamental-domain site at a special point of its own
+Wyckoff letter).</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../models/structure/asu/index.html#httk.atomistic.models.structure.asu.FundamentalDomainStructure" title="httk.atomistic.models.structure.asu.FundamentalDomainStructure">httk.atomistic.models.structure.asu.FundamentalDomainStructure</a> | <a class="reference internal" href="../models/structure/unitcell/index.html#httk.atomistic.models.structure.unitcell.UnitcellStructure" title="httk.atomistic.models.structure.unitcell.UnitcellStructure">httk.atomistic.models.structure.unitcell.UnitcellStructure</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../cif_structures/index.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">httk.atomistic.cif_structures</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="../index.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">httk.atomistic</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, The httk-atomistic AUTHORS
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">httk.atomistic.bonding</a><ul>
+<li><a class="reference internal" href="#functions">Functions</a></li>
+<li><a class="reference internal" href="#module-contents">Module Contents</a><ul>
+<li><a class="reference internal" href="#httk.atomistic.bonding.distance_bonds"><code class="docutils literal notranslate"><span class="pre">distance_bonds()</span></code></a></li>
+<li><a class="reference internal" href="#httk.atomistic.bonding.assign_baseline_shapes"><code class="docutils literal notranslate"><span class="pre">assign_baseline_shapes()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../../../_static/documentation_options.js?v=952df46a"></script>
+    <script src="../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../../_static/copybutton.js?v=fd10adb8"></script>
+    <script src="../../../../../_static/selector.js?v=d8e9b3ce"></script>
+    <script>window.HTTK_DOCS_VERSIONING = {"channel":"dev","version":"dev:develop","versionPathDepth":2};</script>
+    </body>
+</html>

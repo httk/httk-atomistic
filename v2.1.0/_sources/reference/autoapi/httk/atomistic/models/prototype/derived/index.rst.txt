@@ -1,0 +1,69 @@
+httk.atomistic.models.prototype.derived
+=======================================
+
+.. py:module:: httk.atomistic.models.prototype.derived
+
+.. autoapi-nested-parse::
+
+   Lazy adapters from assigned structures to anonymous prototypes.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.derived.DerivedPrototype
+
+
+Module Contents
+---------------
+
+.. py:class:: DerivedPrototype(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.backend.PrototypeBackend`
+
+
+   Erase assigned Protostructure occupations to anonymous labels lazily.
+
+   A base Protostructure erases to a base Prototype. An explicit refinement carried by the
+   source is preserved: the discriminator verbatim, and the representative by the exact
+   conversion of its :class:`~httk.atomistic.FundamentalDomainStructure` to the anonymous
+   :class:`~httk.atomistic.FundamentalDomainTemplate` that a Prototype representative uses.
+
+
+   .. py:attribute:: kind
+      :value: 'prototype'
+
+
+
+   .. py:method:: resolve()
+
+
+   .. py:property:: spacegroup
+
+
+   .. py:property:: occupations
+
+
+   .. py:property:: representative
+
+      Return an optional retained exact representative.
+
+
+   .. py:property:: discriminator
+
+      Return an optional geometrical-class discriminator.
+
+
+   .. py:method:: unwrap()
+
+      Return the most raw representation possible of this backend, i.e., if it uses a backend with an internal representaion -
+      or if it can (possibly lossly) convert itself into a more raw representation that still would be recognized as a <Something>Like type,
+      that representation will be returned. If this is not possible, the instance itself is returned.
+
+      :return: The backend's most raw available representation.
+
+
+

@@ -1,0 +1,32 @@
+httk.atomistic.models.structure.bonds
+=====================================
+
+.. py:module:: httk.atomistic.models.structure.bonds
+
+.. autoapi-nested-parse::
+
+   Carrying a fundamental domain's bond network through re-descriptions (private).
+
+   Every operation that returns a :class:`~httk.atomistic.FundamentalDomainStructure` from another
+   and only re-describes the same sites carries the network with ``_carried``: given the exact
+   affine map from the source's stored-setting coordinates to the target's, both atoms of every
+   bond are mapped, located exactly in the target's orbits and folded back into a
+   :class:`~httk.atomistic.SiteBond` of the target. ``_matched_bonds`` does the same for a
+   target whose coordinates were snapped by recognition, matching each mapped atom to the nearest
+   target atom. Where the target's group is not the source's, every image of every bond is
+   carried, and the bond set must be invariant under the target's group, which is checked exactly.
+
+   Assigned shapes (``bonds.shapes``) travel with the network: every image of a site with a symbol
+   hands it to the target site it lands on (``_mapped_shapes``). A site without a symbol gives way to
+   one; two different symbols on one target site are a ``_ShapeConflict``, which means "not carried",
+   as a bond set that is not invariant does. The sources of the network are copied unchanged.
+
+   Unit cells reuse the same algebra through a bridge: ``_cell_domain`` presents a unit cell as the
+   P1 fundamental domain of its sites, whose normalized pairs are the unit cell's own. The bridge
+   never expands that domain, so coincident sites never meet its coincidence check; a carry that
+   cannot tell coincident atoms apart raises ``_CoincidentAtoms``, and every bridge path drops the
+   network instead. ``_expanded_network`` gives a fundamental domain's network on its unit cell.
+   Every drop is logged at debug level with the context ``bonds``.
+
+
+

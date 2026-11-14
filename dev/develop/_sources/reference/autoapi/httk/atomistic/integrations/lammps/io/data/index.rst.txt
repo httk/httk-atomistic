@@ -1,0 +1,54 @@
+httk.atomistic.integrations.lammps.io.data
+==========================================
+
+.. py:module:: httk.atomistic.integrations.lammps.io.data
+
+.. autoapi-nested-parse::
+
+   Read and write LAMMPS data files (the ``read_data`` format) as neutral geometry payloads.
+
+   Data files carry no units and no element identities, so the reader takes lengths as Å and
+   resolves species from explicit sources only; see :func:`read_lammps_data`.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.lammps.io.data.read_lammps_data
+
+
+Module Contents
+---------------
+
+.. py:function:: read_lammps_data(source, *, species = None, units = 'metal', precision = None)
+
+   Parse a LAMMPS data file (``read_data`` format, ``atomic`` atom style) into a neutral geometry payload.
+
+   The box gives the cell exactly: orthogonal, restricted triclinic (``xy xz yz``) and
+   general triclinic (``avec``/``bvec``/``cvec`` plus ``abc origin``) headers are read.
+   Atom positions are the wrapped Cartesian coordinates as written, relative to the box
+   origin; image flags are ignored. Atoms are ordered by id. ``Velocities``, bonded
+   sections and unknown header counts are skipped. The ``Atoms`` section must declare
+   ``# atomic`` or, without a style comment, have exactly 5 columns
+   (``id type x y z``); 8 columns (with image flags) need the ``# atomic`` comment.
+
+   Data files carry no units: lengths are taken as Å, which holds for ``metal`` and
+   ``real`` units. Species come, per atom type, from ``species``, then an
+   ``Atom Type Labels`` section, then ``Masses`` line comments (``1 26.98 # Al``), then a
+   ``types: Si O`` list in the first line (as the *httk* writers write it); the element is
+   read from the name, never inferred from a mass. ``Masses`` values are kept as masses.
+   No extension selects this reader: use ``load(path, format="lammps-data")``;
+   ``save`` selects the writer by the ``.lmp`` extension.
+
+   :param source: Filename (optionally compressed), open text stream or iterable of lines.
+   :param species: Species names by type id (mapping) or in type order (sequence).
+   :param units: LAMMPS unit style the file was written for: ``metal`` or ``real``.
+   :param precision: Cartesian coordinate precision in Å, or ``None`` for the digit-derived one.
+   :return: The neutral ``lammps-data`` payload, including the original text in ``raw``.
+   :raises ValueError: If the units are unsupported, the file is malformed or uses an
+       unsupported atom style, or the species of some atom type cannot be determined.
+
+

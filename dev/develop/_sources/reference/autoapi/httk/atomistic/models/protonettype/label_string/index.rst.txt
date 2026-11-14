@@ -1,0 +1,73 @@
+httk.atomistic.models.protonettype.label_string
+===============================================
+
+.. py:module:: httk.atomistic.models.protonettype.label_string
+
+.. autoapi-nested-parse::
+
+   Backend wrapping a raw canonical protonettype label string.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protonettype.label_string.ProtonettypeLabelString
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtonettypeLabelString(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.protonettype.backend.ProtonettypeBackend`
+
+
+   Wrap a canonical protonettype label held as a plain string.
+
+   The string must be a canonical protonettype label (a ``__`` net segment and no ``:``
+   species suffix); anything else is declined. Parsing (which canonicalizes the net once) is eager.
+
+   :param obj: The canonical protonettype label text.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :value: 'protonettype'
+
+
+
+   .. py:method:: resolve()
+
+      Return the parsed canonical value.
+
+
+
+   .. py:property:: spacegroup
+
+      Return the standard-setting space group of the parsed label.
+
+
+   .. py:property:: occupations
+
+      Return the site-ordered occupations of the parsed label.
+
+
+   .. py:property:: net
+
+      Return the net rows of the parsed label.
+
+
+   .. py:property:: shapes
+
+      Return the per-site bond shapes of the parsed label.
+
+
+   .. py:method:: unwrap()
+
+      Return the original label text.
+
+
+

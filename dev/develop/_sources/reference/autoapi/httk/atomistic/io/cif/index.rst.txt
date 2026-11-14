@@ -1,0 +1,453 @@
+httk.atomistic.io.cif
+=====================
+
+.. py:module:: httk.atomistic.io.cif
+
+.. autoapi-nested-parse::
+
+   Read CIF and magnetic CIF files into neutral asymmetric-unit payloads or lossless blocks.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/io/cif/cif_items/index
+   /reference/autoapi/httk/atomistic/io/cif/cif_parser/index
+   /reference/autoapi/httk/atomistic/io/cif/cif_reader/index
+   /reference/autoapi/httk/atomistic/io/cif/cif_tags/index
+   /reference/autoapi/httk/atomistic/io/cif/cif_writer/index
+   /reference/autoapi/httk/atomistic/io/cif/mcif_parser/index
+   /reference/autoapi/httk/atomistic/io/cif/mcif_writer/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.io.cif.CIFDialect
+   httk.atomistic.io.cif.CIFItem
+   httk.atomistic.io.cif.CIFValue
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.io.cif.CIFBlock
+   httk.atomistic.io.cif.CIFComment
+   httk.atomistic.io.cif.CIFDataItem
+   httk.atomistic.io.cif.CIFLoop
+   httk.atomistic.io.cif.CIFSaveFrame
+   httk.atomistic.io.cif.CIFTable
+   httk.atomistic.io.cif.CIFTextField
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.io.cif.read_cif_asus
+   httk.atomistic.io.cif.single_asu_from_cif_file
+   httk.atomistic.io.cif.read_cif
+   httk.atomistic.io.cif.mag_asus_from_mcif_file
+   httk.atomistic.io.cif.read_mcif_asus
+   httk.atomistic.io.cif.single_mag_asu_from_mcif_file
+
+
+Package Contents
+----------------
+
+.. py:class:: CIFBlock
+
+   One CIF data block, losslessly: its items in written order and the comments around it.
+
+   :param name: The block name as written (after ``data_``).
+   :param items: The block's items in written order; the inline comment on the ``data_`` line,
+       if any, comes first.
+   :param header: The file's header comment lines (the run of comment lines from line 1),
+       carried by every block of the file so a block can be written alone.
+   :param leading: The own-line comments between the header (or the previous block) and the
+       ``data_`` line.
+   :param dialect: ``"cif"`` (CIF1, or full CIF2 when the header's first line is the CIF2 magic
+       code) or ``"mcif"`` (CIF1 plus lists, as the magnetic CIF reader reads it).
+   :raises ValueError: If a value, name or comment placement cannot be written in the block's
+       syntax, such as a table outside CIF2 or a list in CIF1.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: items
+      :type:  tuple[CIFItem, ...]
+
+
+   .. py:attribute:: header
+      :type:  tuple[CIFComment, ...]
+      :value: ()
+
+
+
+   .. py:attribute:: leading
+      :type:  tuple[CIFComment, ...]
+      :value: ()
+
+
+
+   .. py:attribute:: dialect
+      :type:  CIFDialect
+      :value: 'cif'
+
+
+
+   .. py:method:: find(name)
+
+      Return the top-level data item or loop holding ``name`` (caseless).
+
+      :param name: The data name.
+      :return: The data item, or the loop with that column.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name occurs more than once.
+
+
+
+   .. py:method:: value(name)
+
+      Return the value of a top-level data item.
+
+      :param name: The data name (caseless).
+      :return: The value.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name is repeated or is a loop column.
+
+
+
+   .. py:method:: column(name)
+
+      Return one column of a top-level loop.
+
+      :param name: The column's data name (caseless).
+      :return: The column values, one per row.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name is repeated or is not a loop column.
+
+
+
+   .. py:method:: number(name)
+
+      Return the number, or gap, of a top-level data item.
+
+      :param name: The data name (caseless).
+      :return: The number as written; a gap as a gap-valued scalar.
+      :raises ValueError: If the value is not a number or gap.
+
+
+
+   .. py:method:: numbers(*names)
+
+      Return numbers as a vector.
+
+      ``k`` data items give shape ``(k,)``, one loop column ``(rows,)`` and ``k`` columns of
+      one loop ``(rows, k)``.
+
+      :param \*names: The data names (caseless).
+      :return: The numbers as written, gaps included.
+      :raises ValueError: For any other combination, or a value that is not a number or gap.
+
+
+
+.. py:class:: CIFComment
+
+   A CIF comment.
+
+   :param text: Everything after ``#``, without trailing whitespace or line breaks.
+   :param inline: Whether the comment shares its line with the preceding token.
+
+
+   .. py:attribute:: text
+      :type:  str
+
+
+   .. py:attribute:: inline
+      :type:  bool
+      :value: False
+
+
+
+.. py:class:: CIFDataItem
+
+   A data name with its value.
+
+   :param name: The data name as written, starting with ``_``.
+   :param value: The value.
+   :param comments: Placed comments: ``(0, c)`` between the name and the value, ``(1, c)``
+       inline after the value.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: value
+      :type:  CIFValue
+
+
+   .. py:attribute:: comments
+      :type:  tuple[tuple[int, CIFComment], ...]
+      :value: ()
+
+
+
+.. py:type:: CIFDialect
+   :canonical: Literal['cif', 'mcif']
+
+
+.. py:type:: CIFItem
+   :canonical: CIFDataItem | CIFLoop | CIFComment | CIFSaveFrame
+
+
+.. py:class:: CIFLoop
+
+   A CIF loop: data names and rows of values.
+
+   :param names: The data names as written.
+   :param rows: The rows, each with one value per name; there may be none.
+   :param comments: Placed comments: position ``0`` follows ``loop_``, ``1..n`` the n-th name and
+       ``n+j`` the j-th value, row-major.
+
+
+   .. py:attribute:: names
+      :type:  tuple[str, ...]
+
+
+   .. py:attribute:: rows
+      :type:  tuple[tuple[CIFValue, ...], ...]
+
+
+   .. py:attribute:: comments
+      :type:  tuple[tuple[int, CIFComment], ...]
+      :value: ()
+
+
+
+.. py:class:: CIFSaveFrame
+
+   A CIF save frame; frames may nest.
+
+   :param name: The frame name as written (after ``save_``).
+   :param items: The frame's items in written order.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: items
+      :type:  tuple[CIFItem, ...]
+
+
+   .. py:method:: find(name)
+
+      Return the top-level data item or loop holding ``name`` (caseless).
+
+      :param name: The data name.
+      :return: The data item, or the loop with that column.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name occurs more than once.
+
+
+
+   .. py:method:: value(name)
+
+      Return the value of a top-level data item.
+
+      :param name: The data name (caseless).
+      :return: The value.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name is repeated or is a loop column.
+
+
+
+   .. py:method:: column(name)
+
+      Return one column of a top-level loop.
+
+      :param name: The column's data name (caseless).
+      :return: The column values, one per row.
+      :raises KeyError: If the name is absent.
+      :raises ValueError: If the name is repeated or is not a loop column.
+
+
+
+   .. py:method:: number(name)
+
+      Return the number, or gap, of a top-level data item.
+
+      :param name: The data name (caseless).
+      :return: The number as written; a gap as a gap-valued scalar.
+      :raises ValueError: If the value is not a number or gap.
+
+
+
+   .. py:method:: numbers(*names)
+
+      Return numbers as a vector.
+
+      ``k`` data items give shape ``(k,)``, one loop column ``(rows,)`` and ``k`` columns of
+      one loop ``(rows, k)``.
+
+      :param \*names: The data names (caseless).
+      :return: The numbers as written, gaps included.
+      :raises ValueError: For any other combination, or a value that is not a number or gap.
+
+
+
+.. py:class:: CIFTable
+
+   A CIF2 table: unique string keys with values, in written order.
+
+   :param entries: The ``(key, value)`` pairs.
+
+
+   .. py:attribute:: entries
+      :type:  tuple[tuple[str, CIFValue], ...]
+
+
+.. py:class:: CIFTextField
+
+   A CIF semicolon text field.
+
+   :param text: The raw characters between the delimiters: the rest of the opening ``;`` line,
+       then each following line joined by ``\n``, up to the line break before the closing ``;``.
+       Line folding and prefixes are not decoded.
+
+
+   .. py:attribute:: text
+      :type:  str
+
+
+.. py:type:: CIFValue
+   :canonical: str | CIFTextField | httk.core.DecimalScalar | httk.core.DecimalGap | tuple[CIFValue, ...] | CIFTable
+
+
+.. py:function:: read_cif_asus(source, *, repair = False)
+
+   Read a CIF and return its asymmetric units as a neutral, tagged payload.
+
+   This is what ``httk.core.load`` returns for a ``.cif`` file: a mapping with
+   ``format`` set to ``"cif"``, ``blocks`` holding one asymmetric-unit mapping per data
+   block that describes a structure, and ``header`` the file's leading comment. The tag
+   lets a consumer dispatch on the file type without knowing which reader
+   produced the payload. When ``repair=True``, the top-level payload also contains
+   ``repair=True`` so downstream adapters can apply compatible repairs.
+
+   Loading never fails on account of a block that is not a structure. CIF is a
+   general-purpose format and a file may hold bibliographic entries, powder patterns, or
+   an incomplete draft alongside — or instead of — anything crystallographic. Blocks
+   without atom sites are simply not structures and are passed over; blocks that have
+   atom sites but cannot be interpreted are collected in ``unparsed``, each with the
+   reason, so that nothing is dropped silently and the failure surfaces when a structure
+   is actually asked for.
+
+   The mapping stays neutral — plain lists, strings, exact numeric text channels, and raw
+   symmetry-operation strings, with no domain objects — so this reader layer need not know
+   about the *httk-atomistic* structure model. Turning it into a structure is
+   ``httk.core.load`` (which returns an ``ASUStructure`` when atomistic support
+   is installed).
+
+   :param source: A filename, open text stream, or iterable of CIF lines.
+   :param repair: Drop malformed auxiliary loops and warn about each repair.
+   :return: A neutral CIF payload containing structural blocks, unparsed block reasons, and the header.
+   :raises ValueError: If the CIF stream contains malformed data that prevents parsing.
+
+
+.. py:function:: single_asu_from_cif_file(source)
+
+   Return the first structural CIF block from :func:`read_cif_asus`.
+
+   :param source: A filename, open text stream, or iterable of CIF lines.
+   :return: The first parsed asymmetric-unit mapping.
+   :raises ValueError: If no structural block is available.
+
+
+.. py:function:: read_cif(source: str | os.PathLike[str] | IO[bytes] | collections.abc.Iterable[str], pragmatic: bool = True, allow_cif2: bool = False, *, repair: bool = False, structural_only: bool = False, lossless: Literal[False] = False) -> tuple[list[tuple[str, dict[str, Any]]], str]
+                 read_cif(source: str | os.PathLike[str] | IO[bytes] | collections.abc.Iterable[str], pragmatic: bool = True, allow_cif2: bool = False, *, repair: bool = False, structural_only: Literal[False] = False, lossless: Literal[True]) -> list[httk.atomistic.io.cif.cif_items.CIFBlock]
+
+   Read CIF text as ``(data_blocks, header)``, or losslessly as :class:`~httk.atomistic.io.cif.CIFBlock` objects.
+
+   Paths are opened through :class:`httk.core.TextstreamFileView`, including compressed
+   CIF files. A binary stream is decoded like a file (UTF-8, with the same Latin-1 fallback
+   under ``repair``). Open streams and iterables are consumed but left open.
+
+   With ``lossless=True`` the result is one :class:`~httk.atomistic.io.cif.CIFBlock` per ``data_`` block, keeping
+   data names, comments, numbers and every item in written order. Its syntax is CIF1, full
+   CIF2 when line 1 is the CIF2 magic code, or the magnetic CIF syntax (CIF1 plus lists,
+   ``dialect="mcif"``) under ``allow_cif2``. What it keeps follows the content rule of
+   :class:`~httk.atomistic.CIFStructure`; under ``pragmatic`` it also joins a bare value
+   followed by more words on its line (as the fast reader joins it) and reads a quote left open
+   at the line end as the rest of the line, opening quote included. Broken syntax raises ``ValueError`` with a line number, including inputs the fast
+   reader tolerates: a value without a data name, a data name without a value, a malformed loop
+   (also under ``repair``), an unterminated text field, and content before the first ``data_``.
+
+   :param source: A filename, open text or binary stream, or iterable of CIF lines.
+   :param pragmatic: Accept selected common deviations from strict CIF tokenization.
+   :param allow_cif2: Parse CIF2 list values in addition to CIF1 data.
+   :param repair: Apply documented, warning-emitting CIF repairs, including malformed
+       auxiliary-loop removal and a Latin-1 fallback for legacy files. Lossless reading applies
+       only the Latin-1 fallback.
+   :param structural_only: Retain only tags consumed by httk's structural adapters (bond loops included) and
+       skip auxiliary CIF1 loops.
+   :param lossless: Return :class:`~httk.atomistic.io.cif.CIFBlock` objects instead of dictionaries.
+   :return: The data blocks and the leading comment header, or the lossless blocks.
+   :raises ValueError: If a loop contains mismatched column value counts, or, when lossless,
+       the CIF syntax is broken.
+   :raises TypeError: If ``lossless`` is combined with ``structural_only``.
+
+
+.. py:function:: mag_asus_from_mcif_file(source, *, error_on_nonmag = False, repair = False)
+
+   Read every mcif data block as a neutral magnetic asymmetric-unit payload.
+
+   :param source: A filename, open text stream, or iterable of mcif lines.
+   :param error_on_nonmag: Reject blocks without usable magnetic moment columns.
+   :param repair: Apply documented, warning-emitting CIF repairs while preserving structural data.
+   :return: Magnetic payloads for the data blocks in the source.
+   :raises ValueError: If the mcif stream or a selected block is invalid.
+
+
+.. py:function:: read_mcif_asus(source, *, repair = False, precision = None)
+
+   Read an mcif into the neutral payload used by the ``.mcif`` loader.
+
+   Magnetic positions and moments remain exact central tokens, symmetry operations remain
+   raw strings, and the result contains no magnetic-domain objects. Blocks without atom
+   sites are skipped; blocks that cannot be interpreted are reported in ``unparsed``.
+
+   :param source: A filename, open text or binary stream, or iterable of mcif lines.
+   :param repair: Apply documented, warning-emitting CIF repairs while preserving structural data.
+   :param precision: Accepted for a uniform ``load(path, precision=...)`` call site across structure
+       formats and validated, but without effect: mcif numbers are read exactly and carry their own
+       digit and standard-uncertainty precision.
+   :return: A neutral mcif payload containing magnetic blocks, unparsed reasons, and the header.
+   :raises ValueError: If the mcif stream contains malformed data that prevents parsing, or
+       ``precision`` is not a finite number greater than zero.
+
+
+.. py:function:: single_mag_asu_from_mcif_file(source, *, error_on_nonmag = False, repair = False)
+
+   Return the first structural mcif block as a neutral magnetic payload.
+
+   :param source: A filename, open text stream, or iterable of mcif lines.
+   :param error_on_nonmag: Reject the selected block without usable magnetic moments.
+   :param repair: Apply documented, warning-emitting CIF repairs while preserving structural data.
+   :return: The first magnetic asymmetric-unit payload.
+   :raises ValueError: If no structural block is available or the selected block is invalid.
+
+

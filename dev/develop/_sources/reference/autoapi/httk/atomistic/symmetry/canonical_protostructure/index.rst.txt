@@ -1,0 +1,75 @@
+httk.atomistic.symmetry.canonical_protostructure
+================================================
+
+.. py:module:: httk.atomistic.symmetry.canonical_protostructure
+
+.. autoapi-nested-parse::
+
+   Anonymous protostructure-first canonicalization of measured crystal structures.
+
+   This convention chooses the anonymous Wyckoff occupation pattern, then its species assignment,
+   and only then the exact geometry. Its finite affine search uses the same tabulated normalizer scope
+   as the legacy canonicalizer, taken in groups 2 to 15 also after the bare canonicalizers' kept cell
+   changes, and does not enumerate an infinite affine normalizer. In groups 3 to 15 the cell is then
+   reduced within the cell changes that keep every letter, so it does not depend on the input cell;
+   in P-1 the cell is the one with the least ``(a·a, b·b, c·c)`` among the cells that keep the
+   canonical letters, found exactly from a Selling-reduced superbase.
+   Public measured structure entry points optionally perform the established upward pseudosymmetry
+   search first.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.canonical_protostructure.canonical_asu_protostructure_assignments
+   httk.atomistic.symmetry.canonical_protostructure.canonical_asu_protostructure
+
+
+Module Contents
+---------------
+
+.. py:function:: canonical_asu_protostructure_assignments(structure, *, tolerance = None, factors = (Fraction(1, 5), 1, 5), lift = False, preserve_chirality = True)
+
+   Recognize and return every tied assignment of the anonymous canonical geometry.
+
+   Recognition uses the established tolerance sweep and deterministic P1 frames. The accepted ASU
+   is then handled exactly. When ``lift`` is true, the anonymous winner is first searched for
+   upward pseudosymmetry. The family keeps the anonymous convention: the geometry is fixed with
+   synthetic class names and the species are assigned after it. :func:`canonical_asu_protostructure`
+   chooses the species by the bare assigned key instead, so it need not be a member. As for the
+   labels, the structure of species classes is recognized: every used species is replaced by its
+   class first, and the results carry the class species.
+
+   :param structure: The measured structure to recognize.
+   :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
+   :param factors: Multipliers for the recognition tolerance sweep.
+   :param lift: Whether to search upward for pseudosymmetry after recognition.
+   :param preserve_chirality: Whether to keep the recognized enantiomorphic group.
+   :return: The tied protostructure-first canonical asymmetric units.
+   :raises ValueError: If the structure is unsupported or no tolerance member fits.
+
+
+.. py:function:: canonical_asu_protostructure(structure, *, tolerance = None, factors = (Fraction(1, 5), 1, 5), lift = False, preserve_chirality = True)
+
+   Return the canonical ASU whose species assignment minimises the bare assigned key.
+
+   The species class names enter the discrete key before any geometry, as in
+   :func:`~httk.atomistic.symmetry.canonical_classification.canonical_bare_protostructure`,
+   so the result need not be a member of :func:`canonical_asu_protostructure_assignments`. As for
+   the labels, the structure of species classes is recognized: every used species is replaced by
+   its class first, so the result carries the class species and its bare label is the canonical
+   bare protostructure label. :func:`~httk.atomistic.symmetry.canonical.canonicalize` instead
+   keeps the source species and recognizes their own symmetry.
+
+   :param structure: The measured structure to recognize.
+   :param tolerance: Base Cartesian recognition tolerance, or ``None`` to derive it.
+   :param factors: Multipliers for the recognition tolerance sweep.
+   :param lift: Whether to search upward for pseudosymmetry after recognition.
+   :param preserve_chirality: Whether to keep the recognized enantiomorphic group.
+   :return: One protostructure-first canonical asymmetric unit.
+   :raises ValueError: If the structure is unsupported or no tolerance member fits.
+
+

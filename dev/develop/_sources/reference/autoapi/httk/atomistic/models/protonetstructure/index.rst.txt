@@ -1,0 +1,349 @@
+httk.atomistic.models.protonetstructure
+=======================================
+
+.. py:module:: httk.atomistic.models.protonetstructure
+
+.. autoapi-nested-parse::
+
+   The assigned-species protonetstructure family: a bare protostructure plus a covalent bonding net.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/protonetstructure/api/index
+   /reference/autoapi/httk/atomistic/models/protonetstructure/backend/index
+   /reference/autoapi/httk/atomistic/models/protonetstructure/bonded/index
+   /reference/autoapi/httk/atomistic/models/protonetstructure/label/index
+   /reference/autoapi/httk/atomistic/models/protonetstructure/label_string/index
+   /reference/autoapi/httk/atomistic/models/protonetstructure/like/index
+   /reference/autoapi/httk/atomistic/models/protonetstructure/protonetstructure/index
+   /reference/autoapi/httk/atomistic/models/protonetstructure/view/index
+   /reference/autoapi/httk/atomistic/models/protonetstructure/view_base/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protonetstructure.ProtonetstructureLike
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protonetstructure.ProtonetstructureAPI
+   httk.atomistic.models.protonetstructure.ProtonetstructureBackend
+   httk.atomistic.models.protonetstructure.Protonetstructure
+   httk.atomistic.models.protonetstructure.ProtonetstructureViewBase
+
+
+Package Contents
+----------------
+
+.. py:class:: ProtonetstructureAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Common interface for standard-setting occupied Wyckoff positions with a bonding net.
+
+   Site ``n`` of the net is ``occupations[n-1]``. Composition and formula derivations use
+   the standard-setting conventional-cell scale.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+      :abstractmethod:
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+      :abstractmethod:
+
+
+      Return the occupied Wyckoff positions in site order.
+
+
+   .. py:property:: net
+      :type: tuple[tuple[int, int, int, int, int, int], ...]
+
+      :abstractmethod:
+
+
+      Return the net rows ``(i, j, k, n1, n2, n3)`` in label order.
+
+
+   .. py:property:: shapes
+      :type: tuple[str | None, ...]
+
+      :abstractmethod:
+
+
+      Return the bond shape symbol per site, ``None`` for a site with fewer than two bonds.
+
+
+   .. py:property:: determined
+      :type: bool
+
+
+      Return whether every part of the label was determined.
+
+      A canonicaliser that runs out of its time budget returns an undetermined value instead,
+      which holds only its label, with ``X`` for the part that is not determined (see
+      :meth:`~httk.atomistic.Protonetstructure.undetermined`). Its other parts raise ``ValueError``
+      when they are not known from the label.
+
+
+   .. py:method:: multiplicities()
+
+      Return tabulated standard-setting multiplicities in site order.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the number of sites in the conventional cell.
+
+
+   .. py:property:: pearson_symbol
+      :type: str
+
+
+      Return the Pearson symbol for the conventional cell.
+
+
+   .. py:property:: formula
+      :type: httk.atomistic.models.formula.formula_view.ChemicalFormulaView
+
+
+      Return a reduced formula at the standard conventional-cell scale.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatype_view.FormulatypeView
+
+
+      Return the Formulatype of the species-class site counts, the label prefix.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.protonetstructure.label.ProtonetstructureLabel
+
+
+      Return the protonetstructure label presentation.
+
+      Classes keep this value's order, which the net's site numbering depends on, so the
+      unsuffixed bare part can differ from the canonical bare protostructure label when
+      classes tie.
+
+
+   .. py:property:: bare_protostructure
+      :type: httk.atomistic.models.bareprotostructure.bareprotostructure.BareProtostructure
+
+
+      Return the canonical bare protostructure of these occupations, without the net.
+
+      This is not a string cut of :attr:`label`: classes there follow the net, so its bare
+      part can differ from the canonical bare protostructure label when classes tie. Of an
+      undetermined value it is the label without ``__X``, so the levels nest.
+
+
+   .. py:property:: protonettype
+      :type: httk.atomistic.models.protonettype.protonettype.Protonettype
+
+
+      Return the anonymous erasure, labelling classes by position.
+
+      Of an undetermined value it is the label without its names.
+
+
+   .. py:property:: protonetstructure
+      :type: Self
+
+
+      Return this protonetstructure value.
+
+
+.. py:class:: ProtonetstructureBackend
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`ProtonetstructureBackend`\ ], :py:obj:`httk.atomistic.models.protonetstructure.api.ProtonetstructureAPI`
+
+
+   Backend root for assigned-species Wyckoff classifications with a covalent bonding net.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+
+.. py:type:: ProtonetstructureLike
+   :canonical: httk.atomistic.models.protonetstructure.backend.ProtonetstructureBackend | httk.atomistic.models.protonetstructure.view_base.ProtonetstructureViewBase | httk.atomistic.models.protonetstructure.protonetstructure.Protonetstructure | httk.atomistic.models.protonetstructure.label.ProtonetstructureLabel | str | httk.atomistic.models.structure.asu.FundamentalDomainStructure
+
+
+.. py:class:: Protonetstructure(spacegroup, occupations, net = (), shapes = None)
+
+   Bases: :py:obj:`httk.atomistic.models.protonetstructure.backend.ProtonetstructureBackend`
+
+
+   Store a bare protostructure together with a symmetric covalent bonding net.
+
+   Site ``n`` is ``occupations[n-1]``. Each class is one contiguous run of a single
+   species class (species of equal chemistry are one class, see
+   :class:`~httk.atomistic.models.protostructure.occupation.WyckoffOccupation`), the runs
+   ordered as for :class:`~httk.atomistic.Protonettype`. Net translations may be any integer
+   vectors. The net is canonicalized as for :class:`~httk.atomistic.Protonettype`, over the
+   equivalent descriptions with the same anonymous bare key; where several give the canonical
+   net, the smallest species-name tuple in class order wins (D3), so species can move between
+   the Wyckoff letters of those descriptions (``Protonetstructure(225, [("a", Na), ("b", Cl)])``
+   gives ``AB_cF8_225_a_b__:Cl-Na``), unlike in :class:`~httk.atomistic.BareProtostructure`.
+   :func:`~httk.atomistic.canonical_protonetstructure` also minimises the bare part; for a
+   canonical bare part the two agree.
+
+   Occupations carry no cell: they are read in a right-handed basis of the standard setting,
+   so in a Sohncke group they name one hand of the crystal.
+
+   :param spacegroup: The standard-setting space group or its IT number.
+   :param occupations: Occupied Wyckoff positions and their species, in site order.
+   :param net: The net rows ``(i, j, k, n1, n2, n3)``, in either direction; stored rows are
+       written from their listing site.
+   :param shapes: The bond shape symbol per site, as for :class:`~httk.atomistic.Protonettype`.
+   :raises ValueError: If the input is malformed, a shape is missing, unknown or has the wrong
+       bond count, or the canonical net needs a translation outside -5..+4, which the notation
+       cannot write (D4).
+   :raises TypeError: If ``shapes`` is a string or holds a value that is neither a string nor ``None``.
+   :raises CanonicalizationLimitError: If the net search exceeds its 120 s deadline, or an
+       enclosing canonicalization budget.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'protonetstructure'
+
+
+
+   .. py:method:: from_asu(asu, bonds = None, *, shapes = None, on_limit = 'undetermined')
+      :classmethod:
+
+
+      Build a value from an ASU structure and its covalent bonds.
+
+      Without ``bonds`` the structure's own bond network (``bonds``)
+      is used, in any setting and either hand: the structure and its network are re-described in a
+      right-handed basis of the standard setting first. With ``bonds``, a bond
+      ``(i, j, k, n1, n2, n3)`` joins the reference atom of ``asu.wyckoff_sites[i-1]`` to
+      general-position operation ``k`` (identity = 1) plus lattice translation ``n`` applied to the
+      reference atom of ``asu.wyckoff_sites[j-1]``, and the structure must be in its space group's
+      standard setting without retained site representatives. A reference atom is the first-listed
+      Wyckoff coordinate at the site's free parameters, not reduced modulo one, so a structure's own
+      network is read whatever representatives its sites retain. The translation ``n`` is any
+      integer vector, so the free parameters need not be reduced into [0, 1). With ``bonds`` the
+      structure's own network and supplied shapes are ignored; ``shapes`` then gives the supplied
+      shapes. Every site with two or more bonds gets a shape: its supplied symbol, else the
+      baseline detector's (:mod:`httk.atomistic.symmetry.shapes`), which is the only use of the
+      geometry. Each bond stands for its whole
+      symmetry orbit, so listing any one member of an orbit is enough and repeats collapse. Which
+      pairs are bonded is the caller's responsibility: ``~`` means a covalent bond of unspecified
+      order, dative bonds counted as covalent. When two species share a class whose structure has
+      higher symmetry than declared, that symmetry is recognized and the bonds are re-expressed in
+      it, which needs the bond set to be invariant under it. The result is the constructor's: the
+      anonymous bare description is kept and the net is canonicalized (see
+      :class:`Protonetstructure`), within 120 s or an enclosing budget. When the net search runs
+      out, the result is undetermined: the canonical bare protostructure label with ``__X`` for the
+      net (``<bare protostructure label>__X:<names>``, see :meth:`undetermined`). The bare part is
+      then canonicalized after the search; under an enclosing budget it is canonicalized before the
+      search, within that budget, and the label is ``<Formulatype>_<Pearson>_<number>_X__X:<names>``
+      if it did not finish.
+
+      :param asu: The structure.
+      :param bonds: The bonds ``(i, j, k, n1, n2, n3)``, or ``None`` for the structure's own network.
+      :param shapes: With ``bonds``, optional supplied shapes, one symbol or ``None`` (the
+          baseline) per entry of ``asu.wyckoff_sites``, validated as for
+          :class:`~httk.atomistic.FundamentalDomainStructure`.
+      :param on_limit: ``"undetermined"`` for the undetermined value when the net search runs out
+          of its budget, or ``"raise"`` to raise
+          :class:`~httk.atomistic.CanonicalizationLimitError` instead.
+      :return: The protonetstructure value.
+      :raises ValueError: If ``bonds`` is omitted and the structure has no bond network, or
+          ``shapes`` is given without ``bonds``; if ``bonds`` is given and the setting is not
+          standard, a site retains a representative, a bond is malformed, out of range or bonds an
+          atom to itself, or a supplied shape is invalid; if the bond set is not invariant under
+          the recognized symmetry of the species classes, or sites with different supplied shapes
+          merge under it; if a site lies at a special point of its own Wyckoff letter (its bond
+          count and shape are undefined, so it is refused even with supplied shapes and even when
+          it has no bonds: give it the special letter); if a site without a supplied shape has a
+          zero-length bond; if the canonical net
+          needs a translation outside -5..+4 (D4); or if ``on_limit`` is unknown.
+      :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the net search runs out of
+          its budget.
+
+
+
+   .. py:method:: undetermined(label)
+      :classmethod:
+
+
+      Return the undetermined protonetstructure of a label in which ``X`` marks what is not determined.
+
+      The canonicalisers return such a value when a part did not finish within its time budget; it
+      holds only its label: ``<Formulatype>_X__X:<names>``,
+      ``<Formulatype>_<Pearson>_<number>_X__X:<names>``, or the determined bare label followed by
+      ``__X:<names>`` when only the net was not determined. Two undetermined values are equal when
+      their labels are; that does not mean their structures are the same.
+
+      :param label: The undetermined label.
+      :return: The undetermined value, with ``determined`` false.
+      :raises ValueError: If ``label`` is not an undetermined protonetstructure label.
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+
+      Return the occupied Wyckoff positions in site order.
+
+
+   .. py:property:: net
+      :type: tuple[tuple[int, int, int, int, int, int], ...]
+
+
+      Return the net rows ``(i, j, k, n1, n2, n3)`` in label order, each from its listing site.
+
+
+   .. py:property:: shapes
+      :type: tuple[str | None, ...]
+
+
+      Return the bond shape symbol per site, ``None`` for a site with fewer than two bonds.
+
+
+.. py:class:: ProtonetstructureViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.protonetstructure.backend.ProtonetstructureBackend`\ ]
+
+
+   Base class for views presenting protonetstructure backends.
+
+

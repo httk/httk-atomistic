@@ -1,0 +1,11 @@
+httk.atomistic.io.cif.mcif_writer
+=================================
+
+.. py:module:: httk.atomistic.io.cif.mcif_writer
+
+.. autoapi-nested-parse::
+
+   Write the neutral mCIF payload produced by the magnetic-structure serializer.
+
+
+

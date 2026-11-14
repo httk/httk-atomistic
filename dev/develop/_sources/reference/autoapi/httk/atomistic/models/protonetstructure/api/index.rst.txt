@@ -1,0 +1,153 @@
+httk.atomistic.models.protonetstructure.api
+===========================================
+
+.. py:module:: httk.atomistic.models.protonetstructure.api
+
+.. autoapi-nested-parse::
+
+   The assigned-species protonetstructure interface.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protonetstructure.api.ProtonetstructureAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtonetstructureAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Common interface for standard-setting occupied Wyckoff positions with a bonding net.
+
+   Site ``n`` of the net is ``occupations[n-1]``. Composition and formula derivations use
+   the standard-setting conventional-cell scale.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+      :abstractmethod:
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+      :abstractmethod:
+
+
+      Return the occupied Wyckoff positions in site order.
+
+
+   .. py:property:: net
+      :type: tuple[tuple[int, int, int, int, int, int], ...]
+
+      :abstractmethod:
+
+
+      Return the net rows ``(i, j, k, n1, n2, n3)`` in label order.
+
+
+   .. py:property:: shapes
+      :type: tuple[str | None, ...]
+
+      :abstractmethod:
+
+
+      Return the bond shape symbol per site, ``None`` for a site with fewer than two bonds.
+
+
+   .. py:property:: determined
+      :type: bool
+
+
+      Return whether every part of the label was determined.
+
+      A canonicaliser that runs out of its time budget returns an undetermined value instead,
+      which holds only its label, with ``X`` for the part that is not determined (see
+      :meth:`~httk.atomistic.Protonetstructure.undetermined`). Its other parts raise ``ValueError``
+      when they are not known from the label.
+
+
+   .. py:method:: multiplicities()
+
+      Return tabulated standard-setting multiplicities in site order.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the number of sites in the conventional cell.
+
+
+   .. py:property:: pearson_symbol
+      :type: str
+
+
+      Return the Pearson symbol for the conventional cell.
+
+
+   .. py:property:: formula
+      :type: httk.atomistic.models.formula.formula_view.ChemicalFormulaView
+
+
+      Return a reduced formula at the standard conventional-cell scale.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatype_view.FormulatypeView
+
+
+      Return the Formulatype of the species-class site counts, the label prefix.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.protonetstructure.label.ProtonetstructureLabel
+
+
+      Return the protonetstructure label presentation.
+
+      Classes keep this value's order, which the net's site numbering depends on, so the
+      unsuffixed bare part can differ from the canonical bare protostructure label when
+      classes tie.
+
+
+   .. py:property:: bare_protostructure
+      :type: httk.atomistic.models.bareprotostructure.bareprotostructure.BareProtostructure
+
+
+      Return the canonical bare protostructure of these occupations, without the net.
+
+      This is not a string cut of :attr:`label`: classes there follow the net, so its bare
+      part can differ from the canonical bare protostructure label when classes tie. Of an
+      undetermined value it is the label without ``__X``, so the levels nest.
+
+
+   .. py:property:: protonettype
+      :type: httk.atomistic.models.protonettype.protonettype.Protonettype
+
+
+      Return the anonymous erasure, labelling classes by position.
+
+      Of an undetermined value it is the label without its names.
+
+
+   .. py:property:: protonetstructure
+      :type: Self
+
+
+      Return this protonetstructure value.
+
+

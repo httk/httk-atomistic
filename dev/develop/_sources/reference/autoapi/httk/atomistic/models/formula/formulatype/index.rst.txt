@@ -1,0 +1,51 @@
+httk.atomistic.models.formula.formulatype
+=========================================
+
+.. py:module:: httk.atomistic.models.formula.formulatype
+
+.. autoapi-nested-parse::
+
+   The canonical anonymous chemical-formula value class.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.formulatype.Formulatype
+
+
+Module Contents
+---------------
+
+.. py:class:: Formulatype
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`, :py:obj:`str`
+
+
+   Store a strictly canonical anonymous formula of site counts per species class.
+
+   The text uses the OPTIMADE anonymous grammar: class site counts reduced by their gcd,
+   largest first, labelled ``A``, ``B``, .... Disorder and partial occupancy do not
+   affect it. :class:`~httk.atomistic.AnonymousFormula` holds the composition-based
+   anonymous formula instead.
+
+   :param formula: The canonical anonymous formula text.
+
+
+   .. py:property:: is_anonymous
+      :type: bool
+
+
+      Return whether the formula uses anonymous labels.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], ...]
+
+
+      Return the anonymous coefficients as exact amounts.
+
+

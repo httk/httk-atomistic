@@ -1,0 +1,130 @@
+httk.atomistic.models.protonettype.api
+======================================
+
+.. py:module:: httk.atomistic.models.protonettype.api
+
+.. autoapi-nested-parse::
+
+   The anonymous protonettype interface.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protonettype.api.ProtonettypeAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtonettypeAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Common interface for anonymous standard-setting Wyckoff prototypes with a bonding net.
+
+   Site ``n`` of the net is ``occupations[n-1]``.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+      :abstractmethod:
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototype.occupation.PrototypeOccupation, ...]
+
+      :abstractmethod:
+
+
+      Return the anonymous Wyckoff occupations in site order.
+
+
+   .. py:property:: net
+      :type: tuple[tuple[int, int, int, int, int, int], ...]
+
+      :abstractmethod:
+
+
+      Return the net rows ``(i, j, k, n1, n2, n3)`` in label order.
+
+
+   .. py:property:: shapes
+      :type: tuple[str | None, ...]
+
+      :abstractmethod:
+
+
+      Return the bond shape symbol per site, ``None`` for a site with fewer than two bonds.
+
+
+   .. py:property:: determined
+      :type: bool
+
+
+      Return whether every part of the label was determined.
+
+      A canonicaliser that runs out of its time budget returns an undetermined value instead,
+      which holds only its label, with ``X`` for the part that is not determined (see
+      :meth:`~httk.atomistic.Protonettype.undetermined`). Its other parts raise ``ValueError``
+      when they are not known from the label.
+
+
+   .. py:method:: multiplicities()
+
+      Return tabulated standard-setting multiplicities in site order.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the number of sites in the conventional cell.
+
+
+   .. py:property:: pearson_symbol
+      :type: str
+
+
+      Return the Pearson symbol for the conventional cell.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatype_view.FormulatypeView
+
+
+      Return the reduced anonymous formula view.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.protonettype.label.ProtonettypeLabel
+
+
+      Return the protonettype label presentation.
+
+
+   .. py:property:: bare_prototype
+      :type: httk.atomistic.models.bareprototype.bareprototype.BarePrototype
+
+
+      Return the bare prototype of these occupations, without the net.
+
+      Of an undetermined value it is the label without ``__X``, so the levels nest.
+
+
+   .. py:property:: protonettype
+      :type: Self
+
+
+      Return this protonettype value.
+
+

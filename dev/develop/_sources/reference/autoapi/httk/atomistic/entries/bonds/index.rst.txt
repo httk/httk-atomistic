@@ -1,0 +1,71 @@
+httk.atomistic.entries.bonds
+============================
+
+.. py:module:: httk.atomistic.entries.bonds
+
+.. autoapi-nested-parse::
+
+   Serve a structure's bond network as the OPTIMADE property ``_httk_bonds``.
+
+   The value states the network in terms of the served sites and the served
+   ``space_group_symmetry_operations_xyz`` of the same entry. Each bond is a row of six integers
+   ``[site, partner, op, t1, t2, t3]``: the atom at the served position of ``site`` is bonded to the
+   served position of ``partner`` moved by operation ``op`` of the served list and then by the lattice
+   translation ``(t1, t2, t3)``. Without a served list ``op`` is 0 and means the identity. A unit cell
+   serves its coordinates as stored, so each bond is the identity followed by its translation. A
+   fundamental domain serves representative positions in its own setting, which can differ from the
+   stored reference atoms by a lattice translation, another orbit member, the setting transform or
+   (for a position stated to limited precision) a little more, so each bond's operation is corrected
+   per site before it is looked up in the served list. The served list holds every operation of the
+   group for the served cell, so the lookup always succeeds; if it ever does not, the network is
+   served as null with a warning. Shapes are served sparsely, as aligned lists of the sites with an
+   assigned shape and their symbols.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.bonds.BOND_PROPERTY_KEYS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.bonds.bond_definitions
+   httk.atomistic.entries.bonds.bond_properties
+
+
+Module Contents
+---------------
+
+.. py:data:: BOND_PROPERTY_KEYS
+   :type:  dict[str, str]
+
+.. py:function:: bond_definitions()
+
+   Load the vendored bond-network property definition.
+
+   The definition sets the response level ``should not``: the value is large and seldom needed,
+   so it is served only when asked for with ``response_fields``.
+
+   :return: The definition keyed by ``_httk_bonds``.
+
+
+.. py:function:: bond_properties(structure, *, entry = None)
+
+   Project a structure's bond network as the ``_httk_bonds`` JSON value.
+
+   A network that cannot be served (an internal inconsistency, or a bond whose operation is not
+   one of the served symmetry operations followed by a lattice translation) gives ``None`` and a
+   warning; the rest of the entry is served as usual.
+
+   :param structure: The structure to project, or ``None`` for an empty entry.
+   :param entry: The entry id named in a warning.
+   :return: The ``_httk_bonds`` value, or ``None`` when no network is known.
+
+

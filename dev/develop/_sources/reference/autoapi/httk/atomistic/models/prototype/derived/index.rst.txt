@@ -1,0 +1,61 @@
+httk.atomistic.models.prototype.derived
+=======================================
+
+.. py:module:: httk.atomistic.models.prototype.derived
+
+.. autoapi-nested-parse::
+
+   Lazy adapters from assigned structures to anonymous prototypes.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.derived.DerivedPrototype
+
+
+Module Contents
+---------------
+
+.. py:class:: DerivedPrototype(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.prototype.backend.PrototypeBackend`
+
+
+   Erase assigned Protostructure occupations to anonymous labels lazily.
+
+   The source discriminator is preserved verbatim. An exact retained representative
+   is converted to an anonymous fundamental-domain template without approximating
+   its geometry.
+
+
+   .. py:attribute:: kind
+      :value: 'prototype'
+
+
+
+   .. py:method:: resolve()
+
+
+   .. py:property:: spacegroup
+
+
+   .. py:property:: occupations
+
+
+   .. py:property:: representative
+
+      Return an optional retained exact representative.
+
+
+   .. py:property:: discriminator
+
+      Return an optional geometrical-class discriminator.
+
+
+   .. py:method:: unwrap()
+
+

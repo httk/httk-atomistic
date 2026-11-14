@@ -1,0 +1,88 @@
+httk.atomistic.models.formula.plain
+===================================
+
+.. py:module:: httk.atomistic.models.formula.plain
+
+.. autoapi-nested-parse::
+
+   Backend wrapping a raw elemental-composition mapping.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.plain.PlainComposition
+
+
+Module Contents
+---------------
+
+.. py:class:: PlainComposition(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Wrap a mapping of real element symbols to composition amounts.
+
+   :param obj: The elemental amount mapping.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], ...]
+
+
+      Return the elemental amounts in canonical symbol order.
+
+
+   .. py:property:: uncertainties
+      :type: tuple[tuple[str, fractions.Fraction | None], ...]
+
+
+      Return the amount precisions in canonical symbol order.
+
+
+   .. py:property:: complete
+      :type: bool
+
+
+      Return whether all represented elemental material is known.
+
+
+   .. py:property:: exact
+      :type: bool
+
+
+      Return whether all elemental amounts are exact.
+
+
+   .. py:property:: normalized
+      :type: bool
+
+
+      Return whether the composition is normalized within precision.
+
+
+   .. py:property:: normalization_status
+      :type: str
+
+
+      Return the composition's normalization status.
+
+
+   .. py:property:: diagnostics
+      :type: tuple[httk.atomistic.models.formula.diagnostics.CompositionDiagnostic, ...]
+
+
+      Return non-fatal diagnostics associated with the composition.
+
+
+   .. py:method:: unwrap()
+
+      Return the original elemental amount mapping.
+
+
+

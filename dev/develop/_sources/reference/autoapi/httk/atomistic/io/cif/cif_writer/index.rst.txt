@@ -1,0 +1,49 @@
+httk.atomistic.io.cif.cif_writer
+================================
+
+.. py:module:: httk.atomistic.io.cif.cif_writer
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.io.cif.cif_writer.is_sequence
+   httk.atomistic.io.cif.cif_writer.write_cif
+
+
+Module Contents
+---------------
+
+.. py:function:: is_sequence(val)
+
+   Report whether a value should be written as a CIF loop or sequence.
+
+   :param val: Value to classify, treating strings as scalar values.
+   :return: ``True`` for iterable non-string values.
+
+
+.. py:function:: write_cif(destination, data, header = None, max_line_length = 80)
+
+   Write CIF ``data`` to a path or open text stream.
+
+   ``data`` is an iterable of ``(block_name, block)`` pairs. A block maps data names to
+   scalar values and uses ``loop_N`` keys to list its loop columns. ``header``, when
+   supplied, is written before the data blocks.
+
+   ``data`` may instead be one :class:`~httk.atomistic.io.cif.CIFBlock` or an iterable of them,
+   as ``read_cif(..., lossless=True)`` returns. They are written losslessly, in the syntax of
+   their dialect and header, with the header (shared by all blocks) once at the top; reading the
+   output back gives equal blocks. ``header`` must then be ``None``; ``max_line_length`` wraps
+   loop rows.
+
+   :param destination: Filename or open text stream receiving the CIF text.
+   :param data: Data-block pairs containing scalar data names and loop columns, or CIF blocks.
+   :param header: Optional text written before the data blocks.
+   :param max_line_length: Maximum preferred line length for emitted values.
+   :raises TypeError: If CIF blocks are mixed with pairs, or given with ``header``.
+   :raises ValueError: If the blocks differ in header or dialect, or a block other than the last
+       ends with an own-line comment.
+
+

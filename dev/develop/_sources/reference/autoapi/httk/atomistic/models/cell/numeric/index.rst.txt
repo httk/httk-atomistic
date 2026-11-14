@@ -1,0 +1,175 @@
+httk.atomistic.models.cell.numeric
+==================================
+
+.. py:module:: httk.atomistic.models.cell.numeric
+
+.. autoapi-nested-parse::
+
+   The NumericCell value: a cell that owns its geometry as plain floats.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.numeric.FloatRows
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.numeric.NumericCell
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.numeric.finite_float
+   httk.atomistic.models.cell.numeric.float_rows
+   httk.atomistic.models.cell.numeric.readonly_array
+   httk.atomistic.models.cell.numeric.float_precision
+
+
+Module Contents
+---------------
+
+.. py:type:: FloatRows
+   :canonical: tuple[tuple[float, ...], ...]
+
+
+.. py:function:: finite_float(value, what)
+
+   Return ``value`` as a finite float with ``-0.0`` normalised to ``0.0``.
+
+   :param value: The real number to convert.
+   :param what: What the value is, for the error message.
+   :return: The canonical float.
+   :raises ValueError: If the value is NaN or infinite.
+
+
+.. py:function:: float_rows(values, what)
+
+   Normalise an N x 3 real array-like into canonical rows of finite floats.
+
+   :param values: The array-like to convert.
+   :param what: What the rows are, for the error message.
+   :return: The rows as nested tuples of floats.
+   :raises ValueError: If the input is not N x 3 or holds a non-finite value.
+
+
+.. py:function:: readonly_array(rows)
+
+   Return ``rows`` as a fresh read-only ``float64`` ndarray.
+
+   :param rows: The values to present.
+   :return: The read-only array.
+
+
+.. py:function:: float_precision(value)
+
+   Return a stated precision as a strictly positive finite float, or ``None``.
+
+   :param value: The precision, or ``None`` when unknown.
+   :return: The precision as a float.
+   :raises ValueError: If the precision is non-finite or not strictly positive.
+
+
+.. py:class:: NumericCell(basis, *, precision = None, periodicity = None)
+
+   A cell that owns its basis as plain floats, an immutable value.
+
+   Where a :class:`~httk.atomistic.Cell` holds its geometry **exactly**, a ``NumericCell`` holds
+   the 3x3 lattice vectors (one per row) as Python floats and returns plain numpy numbers: a
+   read-only ``float64`` :class:`numpy.ndarray` for every vector and a :class:`float` for every
+   scalar. Constructing one from a ``Cell`` (or any cell backend) is the explicit lossy step:
+   ``NumericCell(cell)`` keeps its float basis, precision and periodicity.
+
+   Values are canonical: ``-0.0`` becomes ``0.0`` and non-finite numbers are rejected, so equal
+   values have equal content. Construction **requires numpy** (the ``httk-atomistic[numpy]``
+   extra) and raises :class:`ImportError` eagerly when it is unavailable.
+
+   :param basis: The three cell vectors as a 3x3 real array-like, or a cell to convert.
+   :param precision: The absolute basis precision, if known (default taken from a converted cell).
+   :param periodicity: Flags identifying which basis rows are lattice translations (default all,
+       or taken from a converted cell).
+   :raises ValueError: If the basis is not 3x3, holds a non-finite value or is degenerate.
+
+
+   .. py:property:: basis
+      :type: httk.core.NumericVector
+
+
+      The 3x3 lattice vectors.
+
+      :return: The lattice vectors as a read-only float array.
+
+
+   .. py:property:: precision
+      :type: float | None
+
+
+      The absolute basis precision, or ``None`` if unknown.
+
+      :return: The precision as a floating-point value.
+
+
+   .. py:property:: periodicity
+      :type: tuple[bool, bool, bool]
+
+
+      Which of the three basis rows is a genuine lattice translation.
+
+      :return: Flags identifying the periodic basis rows.
+
+
+   .. py:property:: nperiodic_dimensions
+      :type: int
+
+
+      How many of the three directions are periodic.
+
+      :return: The number of periodic directions.
+
+
+   .. py:property:: lengths
+      :type: httk.core.NumericVector
+
+
+      The three cell-vector lengths.
+
+      :return: The lengths as a read-only float array.
+
+
+   .. py:property:: angles
+      :type: httk.core.NumericVector
+
+
+      The cell angles ``(alpha, beta, gamma)`` in degrees.
+
+      :return: The angles as a read-only float array.
+
+
+   .. py:property:: volume
+      :type: float
+
+
+      The cell volume, the absolute determinant of the basis.
+
+      :return: The volume as a floating-point value.
+      :raises ValueError: If the cell is not periodic in all three directions.
+
+
+   .. py:method:: metric()
+
+      The Gram matrix ``basis * basis^T``.
+
+      :return: The Gram matrix as a read-only float array.
+
+
+

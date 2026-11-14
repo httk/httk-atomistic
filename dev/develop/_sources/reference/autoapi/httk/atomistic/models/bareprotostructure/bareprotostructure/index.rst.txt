@@ -1,0 +1,75 @@
+httk.atomistic.models.bareprotostructure.bareprotostructure
+===========================================================
+
+.. py:module:: httk.atomistic.models.bareprotostructure.bareprotostructure
+
+.. autoapi-nested-parse::
+
+   The immutable assigned-species Wyckoff-only classification value.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprotostructure.bareprotostructure.BareProtostructure
+
+
+Module Contents
+---------------
+
+.. py:class:: BareProtostructure(spacegroup, occupations)
+
+   Bases: :py:obj:`httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend`
+
+
+   Store only standard-setting Wyckoff occupations, without geometrical refinement.
+
+   Occupations carry no cell: they are read in a right-handed basis of the standard setting,
+   so in a Sohncke group they name one hand of the crystal.
+
+   :param spacegroup: The standard-setting space group or its IT number.
+   :param occupations: Occupied Wyckoff positions and their assigned species, each stored as
+       its species class (see
+       :class:`~httk.atomistic.models.protostructure.occupation.WyckoffOccupation`).
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'bare_protostructure'
+
+
+
+   .. py:method:: undetermined(label)
+      :classmethod:
+
+
+      Return the undetermined bare protostructure of a label in which ``X`` marks what is not determined.
+
+      The canonicalisers return such a value when a part did not finish within its time budget; it
+      holds only its label, ``<Formulatype>_X:<names>`` or
+      ``<Formulatype>_<Pearson>_<number>_X:<names>``. Two undetermined values are equal when their
+      labels are; that does not mean their structures are the same.
+
+      :param label: The undetermined label.
+      :return: The undetermined value, with ``determined`` false.
+      :raises ValueError: If ``label`` is not an undetermined bare protostructure label.
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+
+      Return the canonical occupied Wyckoff positions.
+
+

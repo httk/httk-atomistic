@@ -1,0 +1,33 @@
+httk.atomistic.models.moments.crystalaxis_view
+==============================================
+
+.. py:module:: httk.atomistic.models.moments.crystalaxis_view
+
+.. autoapi-nested-parse::
+
+   Crystal-axis class view for site moments.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.crystalaxis_view.CrystalAxisSiteMomentsView
+
+
+Module Contents
+---------------
+
+.. py:class:: CrystalAxisSiteMomentsView(obj, *, cell = None, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.moments.view_base.SiteMomentsViewBase`, :py:obj:`httk.atomistic.models.moments.crystalaxis.CrystalAxisSiteMoments`
+
+
+   A lazy crystal-axis site-moments presentation with an eagerly checked frame hint.
+
+
+   .. py:method:: unview()
+
+

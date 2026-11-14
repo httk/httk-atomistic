@@ -1,0 +1,90 @@
+httk.atomistic.models.protonetstructure.bonded
+==============================================
+
+.. py:module:: httk.atomistic.models.protonetstructure.bonded
+
+.. autoapi-nested-parse::
+
+   Backend labelling a structure that carries a bond network.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protonetstructure.bonded.BondedProtonetstructure
+
+
+Module Contents
+---------------
+
+.. py:class:: BondedProtonetstructure(obj)
+
+   Bases: :py:obj:`httk.atomistic.models.protonetstructure.backend.ProtonetstructureBackend`
+
+
+   Present a structure with a bond network as its protonetstructure, lazily.
+
+   The value is :meth:`Protonetstructure.from_asu <httk.atomistic.Protonetstructure.from_asu>`
+   of the structure and its own network. A view whose unwrapped source is such a structure
+   (``UnitcellStructureView(asu)``) is accepted too, and so is a lazy structure backend whose
+   ``resolve()`` gives one (a :class:`~httk.atomistic.CIFStructure`). A unit cell (or any other
+   unit-cell presentation) with a network is labelled through the asymmetric unit recognition
+   gives it (``ASUStructureView(cell)``), which carries the network when the recognized symmetry
+   keeps it; resolving raises :class:`ValueError` when it does not. As for
+   :class:`~httk.atomistic.BareProtostructureView` of a unit cell, the label is that of the
+   description recognition yields, not canonicalized further. A structure without a network is
+   declined.
+
+   :param obj: The structure with a bond network.
+   :raises ValueError: If ``obj`` is a unit cell that is not periodic in three dimensions, which
+       has no space group to recognize.
+
+
+   .. py:attribute:: kind
+      :value: 'protonetstructure'
+
+
+
+   .. py:method:: resolve()
+
+      Return the protonetstructure of the structure and its network.
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+
+      Return the site-ordered occupations.
+
+
+   .. py:property:: net
+      :type: tuple[tuple[int, int, int, int, int, int], ...]
+
+
+      Return the net rows.
+
+
+   .. py:property:: shapes
+      :type: tuple[str | None, ...]
+
+
+      Return the per-site bond shapes, each supplied or else from the baseline.
+
+
+   .. py:method:: unwrap()
+
+      Return the retained structure.
+
+
+

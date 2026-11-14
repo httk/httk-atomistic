@@ -1,0 +1,577 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../../../../../../genindex.html"><link rel="search" title="Search" href="../../../../../../search.html"><link rel="next" title="httk.atomistic.symmetry.spacegroup" href="../spacegroup/index.html"><link rel="prev" title="httk.atomistic.symmetry.setting_transform" href="../setting_transform/index.html">
+
+    <!-- Generated with Sphinx 9.1.1 and Furo 2025.12.19 -->
+        <title>httk.atomistic.symmetry.shapes - httk-atomistic dev:develop documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx_autodoc_typehints.css?v=057ac668" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/selector.css?v=626bada3" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     Development documentation (dev:develop) — built from the GitHub develop branch; content may differ from any release. 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../../../../index.html"><div class="brand">httk-atomistic dev:develop documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../../../index.html">
+  
+  <span class="sidebar-brand-text">httk-atomistic dev:develop documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1 current has-children"><a class="reference internal" href="../../../../../index.html">Reference</a><input aria-label="Toggle navigation of Reference" checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l2 current has-children"><a class="reference internal" href="../../index.html">httk.atomistic</a><input aria-label="Toggle navigation of httk.atomistic" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../../bonding/index.html">httk.atomistic.bonding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cif_structures/index.html">httk.atomistic.cif_structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cli/index.html">httk.atomistic.cli</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../composition/index.html">httk.atomistic.composition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/index.html">httk.atomistic.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../elements/index.html">httk.atomistic.elements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../entries/index.html">httk.atomistic.entries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../integrations/index.html">httk.atomistic.integrations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../io/index.html">httk.atomistic.io</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../mcif_structures/index.html">httk.atomistic.mcif_structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../models/index.html">httk.atomistic.models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reduction/index.html">httk.atomistic.reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../storage/index.html">httk.atomistic.storage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../supercell/index.html">httk.atomistic.supercell</a></li>
+<li class="toctree-l3 current has-children"><a class="reference internal" href="../index.html">httk.atomistic.symmetry</a><input aria-label="Toggle navigation of httk.atomistic.symmetry" checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../affine_operation/index.html">httk.atomistic.symmetry.affine_operation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../band_paths/index.html">httk.atomistic.symmetry.band_paths</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../canonical/index.html">httk.atomistic.symmetry.canonical</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../canonical_classification/index.html">httk.atomistic.symmetry.canonical_classification</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../canonical_protostructure/index.html">httk.atomistic.symmetry.canonical_protostructure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../comparison_cache/index.html">httk.atomistic.symmetry.comparison_cache</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../comparison_grid/index.html">httk.atomistic.symmetry.comparison_grid</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../lift/index.html">httk.atomistic.symmetry.lift</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../limits/index.html">httk.atomistic.symmetry.limits</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../magnetic/index.html">httk.atomistic.symmetry.magnetic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../paths/index.html">httk.atomistic.symmetry.paths</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../primitive/index.html">httk.atomistic.symmetry.primitive</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../protonet/index.html">httk.atomistic.symmetry.protonet</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../recognition/index.html">httk.atomistic.symmetry.recognition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../setting_transform/index.html">httk.atomistic.symmetry.setting_transform</a></li>
+<li class="toctree-l4 current current-page"><a class="current reference internal" href="#">httk.atomistic.symmetry.shapes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../spacegroup/index.html">httk.atomistic.symmetry.spacegroup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../standardization/index.html">httk.atomistic.symmetry.standardization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../subgroups/index.html">httk.atomistic.symmetry.subgroups</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../symop_key/index.html">httk.atomistic.symmetry.symop_key</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../wyckoff/index.html">httk.atomistic.symmetry.wyckoff</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../xyz/index.html">httk.atomistic.symmetry.xyz</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../wavefunction/index.html">httk.atomistic.wavefunction</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../structures.html">Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../composition.html">Composition and formula families</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../prototypes.html">Material-information levels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../cif.html">Reading and writing CIF files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../poscar.html">Reading VASP POSCAR / CONTCAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../vasp_outputs.html">Reading VASP output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../doscar.html">VASP total density of states</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../wavecar.html">Reading and writing VASP WAVECAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../wavefunctions.html">Plane-wave wavefunctions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../httk_structure.html">Exact structure files (<code class="docutils literal notranslate"><span class="pre">.httkstruct</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../trajectory_jsonl.html">Trajectory JSON Lines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../lammps.html">Reading LAMMPS dumps and data files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../qe.html">Quantum ESPRESSO pw.x files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../abinit.html">ABINIT input and output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../cp2k.html">CP2K input and restart files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../asu.html">Asymmetric units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../canonicalization.html">Canonicalization algorithms and reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../subgroups.html">Subgroups and pathfinding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../moments.html">Site moments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../integrations.html">Integrations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../precision.html">Data precision</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../periodicity.html">Periodicity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../lattice-reduction.html">Lattice reduction (Niggli)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../primitive-cells.html">Primitive cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../band-paths.html">Band-structure paths</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../notebooks/examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../notebooks/disorder.html">Disorder, vacancies, and attached species</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Details</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/structures.html">Structures in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/structural_classes.html">Naming of <em>httk₂</em> structural classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/asu.html">Asymmetric units in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/cif.html">CIF and mCIF reading in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/precision.html">Data precision in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../details/periodicity.html">Periodicity in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../index.html">API Reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../../../../../../_sources/reference/autoapi/httk/atomistic/symmetry/shapes/index.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="module-httk.atomistic.symmetry.shapes">
+<span id="httk-atomistic-symmetry-shapes"></span><h1>httk.atomistic.symmetry.shapes<a class="headerlink" href="#module-httk.atomistic.symmetry.shapes" title="Link to this heading">¶</a></h1>
+<p>Baseline shape detector for the bonds around one atom (private; protonet follow-up 5, part B).</p>
+<p>A site’s <em>shape</em> is the arrangement of the bonds of one of its atoms: the directions from the atom
+to every atom it is bonded to.  The baseline detector looks at directions only, not bond lengths:</p>
+<ol class="arabic simple">
+<li><p>take the angle between every pair of bond directions and sort the angles;</p></li>
+<li><p>for every ideal shape with the same number of bonds, the misfit is the root mean square
+difference between the sorted angles and the ideal shape’s sorted angles (degrees), rounded
+to 1e-6;</p></li>
+<li><p>the shape with the smallest misfit wins (ties: table order); a misfit above
+<code class="docutils literal notranslate"><span class="pre">_IRREGULAR_ABOVE</span></code> gives <code class="docutils literal notranslate"><span class="pre">I</span></code>;</p></li>
+<li><p>two bonds: <code class="docutils literal notranslate"><span class="pre">L2</span></code> if the angle is at least <code class="docutils literal notranslate"><span class="pre">_LINEAR_FROM</span></code>, else <code class="docutils literal notranslate"><span class="pre">A2</span></code>;</p></li>
+<li><p>a bond count without ideal shapes gives <code class="docutils literal notranslate"><span class="pre">I</span></code>; fewer than two bonds give no shape.</p></li>
+</ol>
+<p>This is a port of the workspace reference <code class="docutils literal notranslate"><span class="pre">docs/protonet_followup/shape_reference.py</span></code> and must
+reproduce it exactly (floats: geometry presentation only).  Some ideal shapes lie closer to each
+other than the irregular limit in this measure (<code class="docutils literal notranslate"><span class="pre">COC12</span></code>/<code class="docutils literal notranslate"><span class="pre">ACOC12</span></code> 9.38, <code class="docutils literal notranslate"><span class="pre">COC12</span></code>/<code class="docutils literal notranslate"><span class="pre">IC12</span></code>
+11.70, <code class="docutils literal notranslate"><span class="pre">TP3</span></code>/<code class="docutils literal notranslate"><span class="pre">TPY3</span></code> 13.00, <code class="docutils literal notranslate"><span class="pre">CU8</span></code>/<code class="docutils literal notranslate"><span class="pre">HBPY8</span></code> 14.49 degrees RMS); the closest shape still
+wins deterministically.</p>
+<p>Symbols are IUPAC polyhedral symbols without the hyphen where IUPAC defines one <a class="reference internal" href="#iupac" id="id1"><span>[IUPAC]</span></a>, the
+SHAPE program’s labels otherwise <a class="reference internal" href="#shape" id="id2"><span>[SHAPE]</span></a>, and <code class="docutils literal notranslate"><span class="pre">I</span></code> (irregular) of our own:</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Name</p></th>
+<th class="head"><p>Source</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>L2</p></td>
+<td><p>linear</p></td>
+<td><p>IUPAC L-2</p></td>
+</tr>
+<tr class="row-odd"><td><p>A2</p></td>
+<td><p>angular</p></td>
+<td><p>IUPAC A-2</p></td>
+</tr>
+<tr class="row-even"><td><p>TP3</p></td>
+<td><p>trigonal plane</p></td>
+<td><p>IUPAC TP-3</p></td>
+</tr>
+<tr class="row-odd"><td><p>TPY3</p></td>
+<td><p>trigonal pyramid</p></td>
+<td><p>IUPAC TPY-3</p></td>
+</tr>
+<tr class="row-even"><td><p>TS3</p></td>
+<td><p>T-shape</p></td>
+<td><p>IUPAC TS-3</p></td>
+</tr>
+<tr class="row-odd"><td><p>T4</p></td>
+<td><p>tetrahedron</p></td>
+<td><p>IUPAC T-4</p></td>
+</tr>
+<tr class="row-even"><td><p>SP4</p></td>
+<td><p>square plane</p></td>
+<td><p>IUPAC SP-4</p></td>
+</tr>
+<tr class="row-odd"><td><p>SS4</p></td>
+<td><p>see-saw</p></td>
+<td><p>IUPAC SS-4</p></td>
+</tr>
+<tr class="row-even"><td><p>TBPY5</p></td>
+<td><p>trigonal bipyramid</p></td>
+<td><p>IUPAC TBPY-5</p></td>
+</tr>
+<tr class="row-odd"><td><p>SPY5</p></td>
+<td><p>square pyramid</p></td>
+<td><p>IUPAC SPY-5</p></td>
+</tr>
+<tr class="row-even"><td><p>OC6</p></td>
+<td><p>octahedron</p></td>
+<td><p>IUPAC OC-6</p></td>
+</tr>
+<tr class="row-odd"><td><p>TPR6</p></td>
+<td><p>trigonal prism</p></td>
+<td><p>IUPAC TPR-6</p></td>
+</tr>
+<tr class="row-even"><td><p>PPY6</p></td>
+<td><p>pentagonal pyramid</p></td>
+<td><p>SHAPE PPY-6</p></td>
+</tr>
+<tr class="row-odd"><td><p>PBPY7</p></td>
+<td><p>pentagonal bipyramid</p></td>
+<td><p>IUPAC PBPY-7</p></td>
+</tr>
+<tr class="row-even"><td><p>TPRS7</p></td>
+<td><p>trigonal prism, square-face monocapped</p></td>
+<td><p>IUPAC TPRS-7 (SHAPE: CTPR-7)</p></td>
+</tr>
+<tr class="row-odd"><td><p>CU8</p></td>
+<td><p>cube</p></td>
+<td><p>IUPAC CU-8</p></td>
+</tr>
+<tr class="row-even"><td><p>DD8</p></td>
+<td><p>dodecahedron</p></td>
+<td><p>IUPAC DD-8 (SHAPE: TDD-8)</p></td>
+</tr>
+<tr class="row-odd"><td><p>HBPY8</p></td>
+<td><p>hexagonal bipyramid</p></td>
+<td><p>IUPAC HBPY-8</p></td>
+</tr>
+<tr class="row-even"><td><p>TPRT8</p></td>
+<td><p>trigonal prism, triangular-face bicapped</p></td>
+<td><p>IUPAC TPRT-8 (SHAPE: ETBPY-8)</p></td>
+</tr>
+<tr class="row-odd"><td><p>TPRS9</p></td>
+<td><p>trigonal prism, square-face tricapped</p></td>
+<td><p>IUPAC TPRS-9 (SHAPE: TCTPR-9)</p></td>
+</tr>
+<tr class="row-even"><td><p>HBPY9</p></td>
+<td><p>heptagonal bipyramid</p></td>
+<td><p>IUPAC HBPY-9 (SHAPE: HBPY-9)</p></td>
+</tr>
+<tr class="row-odd"><td><p>COC12</p></td>
+<td><p>cuboctahedron</p></td>
+<td><p>SHAPE COC-12</p></td>
+</tr>
+<tr class="row-even"><td><p>ACOC12</p></td>
+<td><p>anticuboctahedron (triangular
+orthobicupola, J27)</p></td>
+<td><p>SHAPE ACOC-12</p></td>
+</tr>
+<tr class="row-odd"><td><p>IC12</p></td>
+<td><p>icosahedron</p></td>
+<td><p>SHAPE IC-12</p></td>
+</tr>
+<tr class="row-even"><td><p>I</p></td>
+<td><p>irregular, three or more bonds</p></td>
+<td><p>httk</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The shapes that predate follow-up 7 keep the reference’s own geometries (for example the
+trigonal pyramid at 107 degrees between bonds).  Three of them deliberately differ from SHAPE’s
+reference coordinates <a class="reference internal" href="#cosymlib" id="id3"><span>[cosymlib]</span></a>: <code class="docutils literal notranslate"><span class="pre">SPY5</span></code> (square pyramid at 100 degrees between apex and
+base) is 5.04 degrees from SHAPE <code class="docutils literal notranslate"><span class="pre">SPY-5</span></code>; <code class="docutils literal notranslate"><span class="pre">TPRS9</span></code> (prism at 45 degrees from the axis) is 3.28
+degrees from <code class="docutils literal notranslate"><span class="pre">TCTPR-9</span></code>; and <code class="docutils literal notranslate"><span class="pre">PPY6</span></code> (an icosahedron vertex with its five neighbours and one
+outward bond) is not SHAPE’s <code class="docutils literal notranslate"><span class="pre">PPY-6</span></code>, whose coordinates are detected as <code class="docutils literal notranslate"><span class="pre">TPR6</span></code> (14.56).
+<code class="docutils literal notranslate"><span class="pre">TPRS7</span></code> is SHAPE’s reference geometry <code class="docutils literal notranslate"><span class="pre">CTPR-7</span></code>, taken about the central atom from the
+program’s coordinates <a class="reference internal" href="#cosymlib" id="id4"><span>[cosymlib]</span></a> (see also <a class="reference internal" href="#casanova2003" id="id5"><span>[Casanova2003]</span></a>); <code class="docutils literal notranslate"><span class="pre">TPRT8</span></code> and <code class="docutils literal notranslate"><span class="pre">HBPY9</span></code> are the
+undistorted constructions, which equal SHAPE’s <code class="docutils literal notranslate"><span class="pre">ETBPY-8</span></code> and <code class="docutils literal notranslate"><span class="pre">HBPY-9</span></code>.</p>
+<p>The table is what httk <em>recommends</em> and what the detector assigns.  Some IUPAC shapes are left out
+of it: this measure barely tells each from a shape of the table, which its ideal geometry is detected
+as and which is its <em>class</em>.  <code class="docutils literal notranslate"><span class="pre">SPY4</span></code> (four-bond square pyramid, 11.6 degrees away) is detected as
+<code class="docutils literal notranslate"><span class="pre">SP4</span></code>; <code class="docutils literal notranslate"><span class="pre">OCF7</span></code> (face-monocapped octahedron, SHAPE <code class="docutils literal notranslate"><span class="pre">COC-7</span></code>, 8.72) as <code class="docutils literal notranslate"><span class="pre">TPRS7</span></code>; <code class="docutils literal notranslate"><span class="pre">SAPR8</span></code>
+(square antiprism, 9.65) and <code class="docutils literal notranslate"><span class="pre">TPRS8</span></code> (square-face bicapped trigonal prism, 9.12) as <code class="docutils literal notranslate"><span class="pre">DD8</span></code>;
+<code class="docutils literal notranslate"><span class="pre">OCT8</span></code> (trans-bicapped octahedron, 3.45) as <code class="docutils literal notranslate"><span class="pre">HBPY8</span></code>.  <code class="docutils literal notranslate"><span class="pre">TPRS7</span></code> is therefore the class of the
+capped seven-bond arrangements, and <code class="docutils literal notranslate"><span class="pre">DD8</span></code> the class of the non-cubic eight-bond arrangements other
+than the bipyramid <code class="docutils literal notranslate"><span class="pre">HBPY8</span></code> and the triangular-face bicapped prism <code class="docutils literal notranslate"><span class="pre">TPRT8</span></code>.</p>
+<p>A person or another program can tell such shapes apart, so a supplied symbol may be any of
+<code class="docutils literal notranslate"><span class="pre">_NAMED_SYMBOLS</span></code> (protonet follow-up 8): every IUPAC polyhedral symbol and the SHAPE labels of
+the table, or <code class="docutils literal notranslate"><span class="pre">I</span></code> on a site with three or more bonds.  A symbol from the baseline (software
+<code class="docutils literal notranslate"><span class="pre">httk_basic</span></code>) names a class, while a supplied symbol names the shape itself; the network’s
+<code class="docutils literal notranslate"><span class="pre">source</span></code> and <code class="docutils literal notranslate"><span class="pre">shapes_source</span></code> tell the two apart.  <code class="docutils literal notranslate"><span class="pre">I</span></code> is never valid on two bonds (they are
+<code class="docutils literal notranslate"><span class="pre">L2</span></code> or <code class="docutils literal notranslate"><span class="pre">A2</span></code>).  <code class="docutils literal notranslate"><span class="pre">I</span></code> carries no bond count, which follows from the network (protonet
+follow-up 9): <code class="docutils literal notranslate"><span class="pre">_SHAPE_SYMBOLS</span></code> is the one list of symbols, in the code, labels, records and the
+exchange formats (OPTIMADE, CIF) alike, and a former <code class="docutils literal notranslate"><span class="pre">I&lt;n&gt;</span></code> is refused with a message to write
+<code class="docutils literal notranslate"><span class="pre">I</span></code>.
+The defaults (<code class="docutils literal notranslate"><span class="pre">_DEFAULTS</span></code>) for five, seven and eight bonds are the most frequent shapes on an
+ICSD sample (protonet follow-up 7): <code class="docutils literal notranslate"><span class="pre">SPY5</span></code>, <code class="docutils literal notranslate"><span class="pre">TPRS7</span></code> and <code class="docutils literal notranslate"><span class="pre">DD8</span></code>.</p>
+<div role="list" class="citation-list">
+<div class="citation" id="iupac" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">IUPAC</a><span class="fn-bracket">]</span></span>
+<p>N. G. Connelly, T. Damhus, R. M. Hartshorn, A. T. Hutton (eds.), <em>Nomenclature of
+Inorganic Chemistry: IUPAC Recommendations 2005</em>, RSC Publishing, Cambridge, 2005,
+section IR-9.3.2.1 and Table IR-9.2 (p. 176).</p>
+</div>
+<div class="citation" id="shape" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">SHAPE</a><span class="fn-bracket">]</span></span>
+<p>M. Llunell, D. Casanova, J. Cirera, P. Alemany, S. Alvarez, <em>SHAPE: Program for the
+Stereochemical Analysis of Molecular Fragments by Means of Continuous Shape Measures and
+Associated Tools</em>, User’s Manual, Version 2.1, Universitat de Barcelona, March 2013,
+“List of reference shapes” (pp. 7-9).</p>
+</div>
+<div class="citation" id="casanova2003" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id5">Casanova2003</a><span class="fn-bracket">]</span></span>
+<p>D. Casanova, P. Alemany, J. M. Bofill, S. Alvarez, “Shape and symmetry of
+heptacoordinate transition-metal complexes: structural trends”, <em>Chem. Eur. J.</em> 9, 1281-1295
+(2003).</p>
+</div>
+<div class="citation" id="cosymlib" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>cosymlib<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#id3">1</a>,<a role="doc-backlink" href="#id4">2</a>)</span>
+<p>Grup d’Estructura Electrònica i Simetria, cosymlib (MIT licence), file
+<code class="docutils literal notranslate"><span class="pre">cosymlib/shape/ideal_structures_center.yaml</span></code>, commit <code class="docutils literal notranslate"><span class="pre">90533c88</span></code>,
+<a class="reference external" href="https://github.com/GrupEstructuraElectronicaSimetria/cosymlib">https://github.com/GrupEstructuraElectronicaSimetria/cosymlib</a>.</p>
+</div>
+</div>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../spacegroup/index.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">httk.atomistic.symmetry.spacegroup</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="../setting_transform/index.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">httk.atomistic.symmetry.setting_transform</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, The httk-atomistic AUTHORS
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../../../../_static/documentation_options.js?v=952df46a"></script>
+    <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../../../_static/copybutton.js?v=fd10adb8"></script>
+    <script src="../../../../../../_static/selector.js?v=d8e9b3ce"></script>
+    <script>window.HTTK_DOCS_VERSIONING = {"channel":"dev","version":"dev:develop","versionPathDepth":2};</script>
+    </body>
+</html>

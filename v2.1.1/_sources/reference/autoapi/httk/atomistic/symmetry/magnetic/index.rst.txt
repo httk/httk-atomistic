@@ -1,0 +1,73 @@
+httk.atomistic.symmetry.magnetic
+================================
+
+.. py:module:: httk.atomistic.symmetry.magnetic
+
+.. autoapi-nested-parse::
+
+   Finding the magnetic symmetry of a full structure with collinear moments.
+
+   This is the magnetic counterpart of :func:`~httk.atomistic.recognize_asu`: the one place
+   that runs a symmetry search, here spglib's *magnetic* search, and turns its tolerant
+   floating-point answer into an exact :class:`~httk.atomistic.SymopsStructure`. The listed
+   sites are one representative per orbit, snapped exactly onto their site-stabilizer's fixed
+   subspace so that :class:`~httk.atomistic.SymopsStructure`'s exact, dedup-collapsing expansion regenerates
+   the input cell — same sites, species, and per-site moments — within the tolerance.
+
+   Only collinear moments aligned with ``z`` are handled. spglib's collinear magnetic search
+   takes a scalar per site; a non-collinear moment (any ``x`` or ``y`` component beyond the
+   tolerance) is a different problem and is rejected rather than silently projected.
+
+   Moments are handed to spglib as vectors, invoking its axial (non-collinear) magnetic search,
+   so the dataset is already the axial magnetic space group that :class:`~httk.atomistic.SymopsStructure` expands
+   with: the operations are used exactly as returned and the BNS number identifies that same
+   group. spglib's collinear *scalar* search reports a different, larger spin-decoupled group
+   (an index-2 supergroup for a simple antiferromagnet) whose BNS number would not match the
+   operations that actually keep an axial moment invariant, so it is deliberately not used.
+
+   Nothing else in the package searches for magnetic symmetry: the mCIF writer and a plain
+   :class:`~httk.atomistic.UnitcellStructure` stay detection-free, and this is the single
+   bridge across which a tolerance is spent.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.magnetic.find_magnetic_symmetry
+
+
+Module Contents
+---------------
+
+.. py:function:: find_magnetic_symmetry(structure, tolerance = 0.001)
+
+   Find the magnetic symmetry of a collinear structure and return it as symops.
+
+   Runs spglib's magnetic-symmetry search on the full cell, then rebuilds the result as a
+   :class:`~httk.atomistic.SymopsStructure` carrying, in the *input* cell:
+
+   * every magnetic symmetry operation spglib found, each with its ``+1``/``-1``
+     time-reversal flag;
+   * one representative site per orbit, snapped exactly onto its site-stabilizer's fixed
+     subspace so expansion regenerates the orbit and collapses the repeats;
+   * the representatives' Cartesian moments, carried through unchanged;
+   * the Belov–Neronova–Smirnova number of the magnetic space group.
+
+   Expanding the returned structure back to a full cell reproduces ``structure`` — same
+   sites, species, and per-site moments — to within ``tolerance`` and up to reordering.
+
+   Only collinear moments along ``z`` are accepted: every site must have ``x`` and ``y``
+   moment components no larger than ``tolerance``. The moments must be
+   :class:`~httk.atomistic.CartesianSiteMoments`.
+
+   :param structure: The full structure whose magnetic symmetry is sought.
+   :param tolerance: The spglib search symprec, a Cartesian distance in the cell's units.
+   :return: The magnetic symmetry as listed representatives plus operations.
+   :raises ImportError: If the optional spglib dependency is unavailable.
+   :raises ValueError: If the structure is not fully periodic, carries no Cartesian
+       moments, has a non-collinear moment, or spglib finds no magnetic dataset.
+
+

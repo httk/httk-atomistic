@@ -1,0 +1,332 @@
+httk.atomistic.models.protostructure
+====================================
+
+.. py:module:: httk.atomistic.models.protostructure
+
+.. autoapi-nested-parse::
+
+   The assigned-species geometrical-classification family.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/models/protostructure/api/index
+   /reference/autoapi/httk/atomistic/models/protostructure/backend/index
+   /reference/autoapi/httk/atomistic/models/protostructure/label/index
+   /reference/autoapi/httk/atomistic/models/protostructure/like/index
+   /reference/autoapi/httk/atomistic/models/protostructure/occupation/index
+   /reference/autoapi/httk/atomistic/models/protostructure/protostructure/index
+   /reference/autoapi/httk/atomistic/models/protostructure/view/index
+   /reference/autoapi/httk/atomistic/models/protostructure/view_base/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protostructure.ProtostructureLike
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protostructure.ProtostructureAPI
+   httk.atomistic.models.protostructure.ProtostructureBackend
+   httk.atomistic.models.protostructure.WyckoffOccupation
+   httk.atomistic.models.protostructure.Protostructure
+   httk.atomistic.models.protostructure.ProtostructureViewBase
+
+
+Package Contents
+----------------
+
+.. py:class:: ProtostructureAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   The common interface for standard-setting occupied Wyckoff positions.
+
+   Composition and formula derivations from this interface use the standard-setting
+   conventional-cell scale, independently of the setting or transform of a source
+   structure from which a protostructure was recognized.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+      :abstractmethod:
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+      :abstractmethod:
+
+
+      Return the occupied Wyckoff positions in canonical order.
+
+
+   .. py:property:: representative
+      :type: FundamentalDomainStructure | None
+
+
+      Return an optional retained exact representative.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return an optional geometrical-class discriminator.
+
+
+   .. py:method:: similar(other, delta, *, use_numpy = False, cache = None)
+
+      Return whether two protostructures have compatible geometry within ``delta``.
+
+      The base identity (space group, occupations, and any discriminators present on
+      both) must agree; when both sides retain a geometrical representative, their total
+      Cartesian atom travel must not exceed ``delta``. A protostructure-like ``other``
+      (a view, a backend, or a label string) is erased to a value first.
+
+      :param other: The protostructure-like value to compare against.
+      :param delta: The non-negative finite Cartesian travel budget.
+      :param use_numpy: Use temporary NumPy float64 geometry for approximate comparison;
+          requires the ``numpy`` extra and may change ties or near-threshold decisions.
+          Retained representatives and their identities remain exact.
+      :param cache: Optional caller-scoped cache for reusable comparison preparation.
+      :return: Whether the two values are compatible within ``delta``.
+      :raises TypeError: If ``delta`` is not a real number.
+      :raises ValueError: If ``delta`` is negative or non-finite, or either value is undetermined
+          (its geometry is not known).
+
+
+
+   .. py:property:: determined
+      :type: bool
+
+
+      Return whether every part of the label was determined.
+
+      A canonicaliser that runs out of its time budget returns an undetermined value instead,
+      which holds only its label, with ``X`` for the part that is not determined (see
+      :meth:`~httk.atomistic.Protostructure.undetermined`). Its other parts raise ``ValueError``
+      when they are not known from the label.
+
+
+   .. py:method:: multiplicities()
+
+      Return tabulated standard-setting multiplicities for each occupation.
+
+      These are deliberately not multiplicities from a source structure's transform;
+      they define the provenance-independent conventional-cell scale of this value.
+
+      :return: The standard-setting multiplicity for each occupation.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the total number of sites in the standard conventional cell.
+
+      :return: The conventional-cell site count.
+
+
+   .. py:property:: formula
+      :type: httk.atomistic.models.formula.formula_view.ChemicalFormulaView
+
+
+      Return a reduced formula at the standard conventional-cell scale.
+
+      :return: The conventional-cell reduced formula view.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatype_view.FormulatypeView
+
+
+      Return the Formulatype of the species-class site counts, the label prefix.
+
+      Each species class counts its summed conventional multiplicity, whatever its
+      occupancy; ``AnonymousFormulaView(self)`` gives the composition-based formula.
+
+      :return: The site-count anonymous formula view.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.protostructure.label.ProtostructureLabel
+
+
+      Return the httk protostructure label of this protostructure.
+
+      The label's unsuffixed part orders classes by
+      :func:`~httk.atomistic.models.prototype.notation.class_order_key` (largest summed
+      conventional multiplicity first, then sorted Wyckoff letters), so it is the prototype
+      label of the erased anonymous prototype; the suffix lists the class species names.
+      This is NOT an AFLOW label: AFLOW orders classes alphabetically by element (see
+      :attr:`aflow_label`). Any faithful render is *the* protostructure label; the
+      *canonical* protostructure label comes from a normalizer-canonical protostructure.
+
+      :return: The protostructure label view.
+
+
+   .. py:property:: aflow_label
+      :type: str
+
+
+      Return the AFLOW-style label of this protostructure.
+
+      Unlike :attr:`label`, AFLOW orders classes alphabetically by element symbol and
+      reassigns the anonymous symbols in that order, so the unsuffixed prefix depends on
+      the chemistry. Provided for interoperability only.
+
+      :return: The AFLOW-style label text.
+
+
+   .. py:property:: protostructure
+      :type: Self
+
+
+      Return this protostructure value.
+
+
+.. py:class:: ProtostructureBackend
+
+   Bases: :py:obj:`httk.core.Backend`\ [\ :py:obj:`ProtostructureBackend`\ ], :py:obj:`httk.atomistic.models.protostructure.api.ProtostructureAPI`
+
+
+   Backend root for standard-setting assigned-species classification keys.
+
+
+   .. py:attribute:: backend_classes
+      :type:  ClassVar[list[type[httk.core.Backend[Any]]]]
+
+
+.. py:type:: ProtostructureLike
+   :canonical: httk.atomistic.models.protostructure.backend.ProtostructureBackend | httk.atomistic.models.protostructure.view_base.ProtostructureViewBase | httk.atomistic.models.protostructure.protostructure.Protostructure | httk.atomistic.models.bareprototype.view_base.BarePrototypeViewBase | httk.atomistic.models.bareprotostructure.view_base.BareProtostructureViewBase | httk.atomistic.models.prototype.view_base.PrototypeViewBase
+
+
+.. py:class:: WyckoffOccupation
+
+   Store one Wyckoff orbit occupied by one possibly disordered species class.
+
+   The species is stored as its class (see
+   :mod:`httk.atomistic.models.species.classes`): its constituents, their exact
+   concentrations and its attached atoms, named by the class name. The source name, original
+   name, labels, charges, spins, mass and concentration precision are dropped, so species
+   with equal chemistry form one class whatever they were called.
+
+   :param wyckoff: The Wyckoff letter in the standard setting.
+   :param species: The real species occupying the orbit.
+   :raises ValueError: If the species contains the unknown symbol ``X`` or only ``vacancy``.
+
+
+   .. py:attribute:: wyckoff
+      :type:  str
+
+
+   .. py:attribute:: species
+      :type:  httk.atomistic.models.species.species.Species
+
+
+.. py:class:: Protostructure(spacegroup = None, occupations = None, *, representative = None, discriminator = None)
+
+   Bases: :py:obj:`httk.atomistic.models.protostructure.backend.ProtostructureBackend`
+
+
+   Store occupied Wyckoff positions with explicit geometrical-class information.
+
+   At least one of an exact representative or a nonempty discriminator is required.
+   Both participate in equality and content identity. Use ``BareProtostructure`` for
+   the broader Wyckoff-only classification; recognizing a structure yields that level.
+
+   :param spacegroup: The standard-setting space group or its IT number.
+   :param occupations: The occupied Wyckoff positions and their species.
+   :param representative: An optional exact standard-setting class anchor. It is stored in
+       terms of species classes: its sites are renamed to their class names and only the used
+       classes are kept, as for the occupations. When two of its species share a class, the
+       class structure can have more symmetry than the declared one, and the representative
+       becomes the canonical ASU of the class structure
+       (:func:`~httk.atomistic.symmetry.canonical_protostructure.canonical_asu_protostructure`).
+       A left-handed representative is re-described and stored as the same crystal in a
+       right-handed basis, so its Wyckoff letters, and in an enantiomorphic pair its group, read
+       the crystal's hand. An explicit ``spacegroup`` and ``occupations`` must then match that
+       right-handed reading of the crystal, or the base disagrees with the representative.
+       A bond network of the representative is dropped.
+   :param discriminator: An optional external class discriminator.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'protostructure'
+
+
+
+   .. py:method:: undetermined(label)
+      :classmethod:
+
+
+      Return the undetermined protostructure of a label in which ``X`` marks what is not determined.
+
+      The canonicalisers return such a value when a part did not finish within its time budget; it
+      holds only its label (no representative, no discriminator): ``<Formulatype>_X:<names>``,
+      ``<Formulatype>_<Pearson>_<number>_X:<names>``, or the determined bare label when only the
+      geometry was not determined. Two undetermined values are equal when their labels are; that
+      does not mean their structures are the same.
+
+      :param label: The undetermined label.
+      :return: The undetermined value, with ``determined`` false.
+      :raises ValueError: If ``label`` is not an undetermined protostructure label.
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.protostructure.occupation.WyckoffOccupation, ...]
+
+
+      Return the canonical occupied Wyckoff positions.
+
+
+   .. py:property:: representative
+      :type: httk.atomistic.models.structure.asu.FundamentalDomainStructure | None
+
+
+      Return an optional retained exact representative.
+
+
+   .. py:property:: discriminator
+      :type: str | None
+
+
+      Return an optional geometrical-class discriminator.
+
+
+.. py:class:: ProtostructureViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.protostructure.backend.ProtostructureBackend`\ ]
+
+
+   Base class for views presenting protostructure backends.
+
+

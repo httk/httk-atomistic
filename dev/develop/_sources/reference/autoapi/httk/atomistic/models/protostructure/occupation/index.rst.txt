@@ -1,0 +1,45 @@
+httk.atomistic.models.protostructure.occupation
+===============================================
+
+.. py:module:: httk.atomistic.models.protostructure.occupation
+
+.. autoapi-nested-parse::
+
+   An occupied Wyckoff position without coordinates.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protostructure.occupation.WyckoffOccupation
+
+
+Module Contents
+---------------
+
+.. py:class:: WyckoffOccupation
+
+   Store one Wyckoff orbit occupied by one possibly disordered species class.
+
+   The species is stored as its class (see
+   :mod:`httk.atomistic.models.species.classes`): its constituents, their exact
+   concentrations and its attached atoms, named by the class name. The source name, original
+   name, labels, charges, spins, mass and concentration precision are dropped, so species
+   with equal chemistry form one class whatever they were called.
+
+   :param wyckoff: The Wyckoff letter in the standard setting.
+   :param species: The real species occupying the orbit.
+   :raises ValueError: If the species contains the unknown symbol ``X`` or only ``vacancy``.
+
+
+   .. py:attribute:: wyckoff
+      :type:  str
+
+
+   .. py:attribute:: species
+      :type:  httk.atomistic.models.species.species.Species
+
+

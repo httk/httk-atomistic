@@ -1,0 +1,175 @@
+httk.atomistic.bonding
+======================
+
+.. py:module:: httk.atomistic.bonding
+
+.. autoapi-nested-parse::
+
+   Default bond networks from interatomic distances.
+
+   :func:`distance_bonds` gives a structure that lacks a bond network a simple default one. It uses
+   the radius-sum form of OpenBabel and Jmol (their form, not their exact radii or floor): two atoms
+   are bonded when their distance lies between 0.5 Å and the sum of their covalent radii plus a
+   tolerance (0.45 Å by default). The radii are the single-bond covalent radii of Cordero et al.
+   [Cordero2008]_ (the low-spin values for Mn, Fe and Co, sp3 for C). On top of it, two metals are
+   not bonded in a structure that contains a non-metal (H, He, B, C, N, O, F, Ne, Si, P, S, Cl, Ar,
+   Ge, As, Se, Br, Kr, Sb, Te, I, Xe, At, Rn: the metalloids count as non-metals), so the generous
+   radius sums of cations do not bond the cations of ionic solids to each other.
+
+   Finally, a metal does not bond to a non-metal across a non-metal ligand they share: such a bond
+   longer than the sum of the two radii is dropped when a non-metal bonded to both is more
+   electronegative than either (Pauling electronegativities as compiled by WebElements
+   [WebElementsEN]_, mostly Allred's revised values [Allred1961]_), so the large cations of
+   oxo-salts do not bond to the oxo-anion centres.
+
+   The network it returns names its rule as its ``source`` (software ``httk_basic``, the installed
+   *httk-atomistic* version), and by default it also assigns the baseline shapes;
+   :func:`assign_baseline_shapes` adds those to a network that has none.
+
+   :func:`distance_bonds` never recognises symmetry itself (an ``ASUStructureView`` input resolves
+   its own recognition): a unit cell gets a unit-cell network and an asymmetric unit a network of
+   bond orbits. On a measured cell whose metric keeps the group only
+   approximately the two routes can label one crystal differently: the unit-cell route assigns each
+   atom its own shape and keeps contacts at their measured, float-noisy distances, which recognition
+   may then find not invariant and drop, while the asymmetric-unit route
+   (``distance_bonds(ASUStructureView(cell, tolerance=...))``) idealises first.
+
+   This is a heuristic, not a chemical model: it ignores metal-metal bonds in compounds (Re-Re in
+   Re2Cl8(2-) salts, Hg2(2+)), judges anion-anion contacts by distance alone, and the radii fit
+   covalent bonds better than ionic ones.  It takes no account of occupancy, so on a disordered
+   structure the partially occupied atoms that overlap or sit a few tenths of an angstrom apart are
+   all bonded: per-site bond counts above about 60 come from disorder, not coordination (the
+   largest measured were 1522 on ICSD, a mixed O/Ti site of ICSD 162568, and 203 on carbon-free COD).
+
+   .. [Cordero2008] B. Cordero, V. Gómez, A. E. Platero-Prats, M. Revés, J. Echeverría,
+      E. Cremades, F. Barragán, S. Alvarez, "Covalent radii revisited", *Dalton Trans.* 2008,
+      2832-2838, doi:10.1039/b801115j, Table 2.
+   .. [Allred1961] A. L. Allred, "Electronegativity values from thermochemical data",
+      *J. Inorg. Nucl. Chem.* 17 (1961) 215-221, doi:10.1016/0022-1902(61)80142-5.
+   .. [WebElementsEN] M. Winter, WebElements, "Pauling electronegativity",
+      https://www.webelements.com/periodicity/eneg_pauling/ (values from Allred 1961, else
+      L. Pauling, *The Nature of the Chemical Bond*, 3rd ed., 1960, and for the noble gases and
+      Am-Cm J. E. Huheey, E. A. Keiter, R. L. Keiter, *Inorganic Chemistry*, 4th ed., 1993).
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.bonding.distance_bonds
+   httk.atomistic.bonding.assign_baseline_shapes
+
+
+Module Contents
+---------------
+
+.. py:function:: distance_bonds(structure, *, tolerance = 0.45, shapes = True)
+
+   Return a structure with the bond network found from interatomic distances, of the kind it was given.
+
+   The result keeps the input's sites and replaces its ``bonds``. It never recognises symmetry
+   itself; an :class:`~httk.atomistic.ASUStructureView` input resolves its own recognition. A
+   :class:`~httk.atomistic.FundamentalDomainStructure` or :class:`~httk.atomistic.ASUStructure`
+   (an :class:`~httk.atomistic.ASUStructureView` resolved) gives the same class with a network
+   of bond orbits. A unit cell or unit-cell view gives
+   ``UnitcellStructureView(structure).unview()`` with explicit pairs between its sites. Raw
+   inputs (a path, a text stream, a storage record) are first adopted as structures; lazy
+   sources (a CIF block or file, a datastream) are resolved and a fundamental-domain record gives
+   its domain, and then these two rules apply. Any other structure gives
+   ``UnitcellStructureView(structure).unview()``, so a
+   :class:`~httk.atomistic.NumericUnitcellStructure` gives a
+   :class:`~httk.atomistic.UnitcellStructure`. For the network of the recognised asymmetric
+   unit, recognise first: ``distance_bonds(ASUStructureView(structure, tolerance=...))``. On a
+   measured cell whose metric keeps the group only approximately the two routes can label one
+   crystal differently: the unit-cell route assigns each atom its own shape and keeps contacts
+   at their measured distances, the asymmetric-unit route idealises first.
+
+   Two atoms *a* and *b* are bonded iff ``0.5 <= d(a, b) <= r(a) + r(b) + tolerance`` (Å), with
+   *r* the covalent radii of Cordero et al. (2008). A mixed-occupancy site takes the largest
+   radius of its constituents (positive concentration, vacancies and attached atoms ignored); a
+   site with no constituent (only vacancies) gets no bonds. Pairs closer than 0.5 Å (split or
+   disordered positions) are never bonded, so coincident sites are never bonded to each other.
+   In a structure with at least one non-metal (H, He, B, C, N, O, F, Ne, Si, P, S, Cl, Ar, Ge,
+   As, Se, Br, Kr, Sb, Te, I, Xe, At, Rn), two metal sites are never bonded; a mixed site is a
+   metal when all its constituents are, so even a dilute non-metal on a mixed site switches this
+   rule on for the whole structure. Without a non-metal (intermetallics, elements) the distance
+   rule alone applies. Along a non-periodic direction of a unit cell, atoms are not repeated.
+
+   The bonds so found form the tentative network. A metal does not bond to a non-metal across a
+   non-metal ligand they share: a tentative bond between a metal *a* and a non-metal *b* is
+   dropped iff ``d(a, b) > r(a) + r(b)`` (it exists only through the tolerance) and some non-metal
+   *c* tentatively bonded to both is more electronegative than both. All drops are decided on the
+   tentative network in one pass. Metal-metal and non-metal-non-metal bonds are never dropped.
+   Electronegativities are Pauling's as compiled by WebElements (Allred 1961, else Pauling 1960
+   or Huheey et al. 1993). A mixed site is a metal end when all its constituents are metals and a
+   non-metal ligand when all are non-metals; it counts with its constituents' largest value as
+   *a* or *b* and their smallest as *c*, so a bond is dropped only when the condition holds for
+   every constituent with a value. A metal end without a value (Pm, Eu, Tb, Yb) counts as less
+   electronegative than any non-metal with one: a mixed metal end ignores its constituents
+   without a value when taking the largest, and counts so when none has one. Any other site with
+   a constituent without a value (He, Ne, Ar, Rn, or one of those metals beside a non-metal on a
+   mixed site) never acts as *b* or *c*. No values are invented. This parts the large cations of
+   oxo-salts from the anion centres (in diopside CaMgSi2O6, Ca from Si: Ca 8 and Si 4 bonds, not
+   12 and 6).
+
+   A heuristic: it misses metal-metal bonds in compounds (Re-Re in Re2Cl8(2-) salts, Hg2(2+)) and
+   judges anion-anion contacts by distance only. The shared-ligand rule cannot part a cation from
+   an anion centre closer than their radius sum (Cs, Rb and Ba radii are large) or sharing no
+   more electronegative non-metal; and it drops real metal-ligand bonds longer than the radius
+   sum that share a cage or ring atom (C, N or S) more electronegative than both, as in
+   metallacarboranes (Fe-B 2.23-2.38 Å across cage C), thiaboranes (Ir-B across S) and
+   eta-bonded heteroarenes (Fe-C across N).
+
+   Distances are floats computed from the exact structure: the network is the same for every
+   exact re-description of one crystal, except that a pair within float noise of its cutoff or
+   of its radius sum may fall on either side.
+
+   The network's ``source`` names the rule: software ``httk_basic``, the installed
+   *httk-atomistic* version and a one-sentence description with ``tolerance``. With ``shapes``
+   (the default) every site of two or more bonds also gets its baseline shape (see
+   :func:`assign_baseline_shapes`), with ``shapes_source`` ``None`` (the same source).
+
+   Example::
+
+       >>> from httk.atomistic import ASUStructure, Cell, Species, WyckoffSite, distance_bonds
+       >>> nacl = ASUStructure(
+       ...     Cell([[5.64, 0, 0], [0, 5.64, 0], [0, 0, 5.64]]), 225,
+       ...     [WyckoffSite("a", (), "Na"), WyckoffSite("b", (), "Cl")],
+       ...     [Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))],
+       ... )
+       >>> bonded = distance_bonds(nacl)  # one bond orbit: Na-Cl at 2.82 Å
+       >>> len(bonded.bonds.pairs), bonded.bonds.shapes
+       (1, ('OC6', 'OC6'))
+
+   :param structure: Any structure.
+   :param tolerance: Å added to the sum of the radii.
+   :param shapes: Whether to assign the baseline shapes as well.
+   :return: The structure, of the kind described above, with its distance-based network.
+   :raises ValueError: If a site holds an element without a radius (named in the message),
+       ``tolerance`` is not a finite number, or (with ``shapes``) the baseline cannot assign a
+       shape, as for a fundamental-domain site at a special point of its own Wyckoff letter; that
+       message says to pass ``shapes=False``.
+
+
+.. py:function:: assign_baseline_shapes(structure)
+
+   Return a structure whose bond network has no shapes with its baseline shapes assigned.
+
+   The structure is taken as :func:`distance_bonds` takes it (a fundamental domain stays one,
+   anything else is presented as a unit cell, and symmetry is never recognised by the function itself). Every site of two or more
+   bonds gets the shape whose ideal sorted bond angles fit its own best (IUPAC and SHAPE
+   symbols, ``I`` (irregular) above 15 degrees RMS misfit, ``L2`` from 165 degrees; see
+   :mod:`httk.atomistic.symmetry.shapes`), and ``shapes_source`` names the baseline (software
+   ``httk_basic``, the installed *httk-atomistic* version); the pairs and ``source`` are kept.
+   When no site gets a shape (no site has two bonds) the structure is returned with its network
+   unchanged.
+
+   :param structure: A structure with a bond network and no shapes.
+   :return: The structure, of the kind :func:`distance_bonds` returns, with the shapes assigned.
+   :raises ValueError: If the structure has no network, its network already has shapes, or the
+       baseline cannot assign a shape (a fundamental-domain site at a special point of its own
+       Wyckoff letter).
+
+

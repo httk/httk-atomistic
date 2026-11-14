@@ -1,0 +1,21 @@
+httk.atomistic.symmetry.protonet
+================================
+
+.. py:module:: httk.atomistic.symmetry.protonet
+
+.. autoapi-nested-parse::
+
+   Canonical symmetric bonding nets on top of a bare prototype (private).
+
+   An *element* ``(k, n1, n2, n3)`` is operation ``k`` (0-based branch of the standard setting's
+   general Wyckoff position, identity ``0``) followed by the lattice translation ``n``.  A *row*
+   ``(i, j, g)`` bonds the reference atom of site ``i`` to ``g`` applied to the reference atom of
+   site ``j``; the reference atom is the first-listed Wyckoff coordinate at the site's free
+   parameters, not reduced modulo one.  ``_canonical_net`` returns the smallest key (bare key,
+   numbering pattern, listed pairs, codes, shapes) over every equivalent description, numbering
+   and gauge, together with every realisation of it; in groups 3 to 15 the descriptions follow
+   the cells chosen from the net (``_protonet_cells``).  Everything is exact: integers in the search, :class:`~fractions.Fraction`
+   only while the per-space-group tables are built.
+
+
+

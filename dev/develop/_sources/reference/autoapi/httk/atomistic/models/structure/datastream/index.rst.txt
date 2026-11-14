@@ -1,0 +1,175 @@
+httk.atomistic.models.structure.datastream
+==========================================
+
+.. py:module:: httk.atomistic.models.structure.datastream
+
+.. autoapi-nested-parse::
+
+   Lazy structure loading from files, URLs, and open text streams.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.datastream.DatastreamStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: DatastreamStructure(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.backend.StructureBackend`
+
+
+   Represent a structure source parsed only when its data is first accessed.
+
+   Requests are intentionally reader-only: an OPTIMADE-shaped Request is declined so
+   its headers are never lost by replacing it with ``fetch(url)``. Open streams are
+   one-shot sources; a failed parse is not cached, but consumed data cannot be replayed.
+   Network URL strings require core network consent; wrapping a URL in
+   :class:`~httk.core.DatastreamURL` supplies that consent explicitly.
+
+   :param obj: A path, URL, stream, request, or core datastream source.
+   :param \*\*hints: Backend-selection and reader-name hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'datastream'
+
+
+
+   .. py:method:: resolve()
+
+      Resolve and return the memoized native structure.
+
+      :return: The parsed native structure.
+
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.cell.Cell
+
+
+      Expose the source structure's cell.
+
+      :return: The resolved cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.sites.Sites
+
+
+      Expose the source structure's sites.
+
+      :return: The resolved sites.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Expose the source structure's species.
+
+      :return: The resolved distinct species.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Expose the species occupying each resolved site.
+
+      :return: Site species names in site order.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.backend.SiteMomentsBackend | None
+
+
+      Expose optional moments from the resolved structure.
+
+      :return: Site moments, or ``None`` when they are unstated.
+
+
+   .. py:property:: bonds
+      :type: httk.atomistic.models.structure.network.BondNetwork | None
+
+
+      Expose the bond network of the presented unit-cell sites.
+
+      :return: The parsed structure's network, indexing :attr:`sites`, or ``None``.
+
+
+   .. py:property:: charge
+      :type: Any
+
+
+      Expose the resolved structure's assigned charge.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:method:: multiplicities()
+
+      Expose how many unit-cell sites each resolved represented site contributes.
+
+      :return: One multiplicity per represented site.
+
+
+
+   .. py:property:: nsites
+      :type: int | None
+
+
+      Expose the resolved structure's number of represented sites.
+
+
+   .. py:property:: composition
+      :type: httk.atomistic.models.formula.composition.Composition
+
+
+      Expose the resolved structure's elemental composition.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      Expose the resolved structure's descriptive formula, when available.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      Expose the resolved structure's Hill formula, when available.
+
+
+   .. py:property:: structure_features
+      :type: tuple[str, ...] | None
+
+
+      Expose the resolved structure's composition-related features.
+
+
+   .. py:method:: cartesian_site_moments_floats()
+
+      Return the resolved structure's per-site Cartesian moments as float rows, or ``None``.
+
+      :return: The Cartesian moments as float rows, or ``None``.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the original lazy source.
+
+      :return: The path, URL, request, or stream supplied at construction.
+
+
+

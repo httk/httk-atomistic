@@ -1,0 +1,76 @@
+httk.atomistic.models.protonettype.derived
+==========================================
+
+.. py:module:: httk.atomistic.models.protonettype.derived
+
+.. autoapi-nested-parse::
+
+   Anonymous erasure of protonetstructures.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protonettype.derived.DerivedProtonettype
+
+
+Module Contents
+---------------
+
+.. py:class:: DerivedProtonettype(obj)
+
+   Bases: :py:obj:`httk.atomistic.models.protonettype.backend.ProtonettypeBackend`
+
+
+   Retain a protonetstructure source while exposing its anonymous erasure.
+
+   A structure with a bond network (a fundamental domain, or a unit cell through its recognized
+   asymmetric unit) is taken through
+   :class:`~httk.atomistic.models.protonetstructure.bonded.BondedProtonetstructure`.
+
+   Class run ``c`` gets the label ``anonymous_symbol(c)`` by position, so the site
+   numbering and the net are unchanged; tied classes are never reordered by name.
+
+   :param obj: Protonetstructure source.
+
+
+   .. py:attribute:: kind
+      :value: 'protonettype'
+
+
+
+   .. py:method:: resolve()
+
+      Return the standalone anonymous protonettype.
+
+
+
+   .. py:property:: spacegroup
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+
+      Return the anonymous occupations in site order.
+
+
+   .. py:property:: net
+
+      Return the unchanged net rows.
+
+
+   .. py:property:: shapes
+
+      Return the unchanged per-site bond shapes.
+
+
+   .. py:method:: unwrap()
+
+      Return the retained protonetstructure source.
+
+
+

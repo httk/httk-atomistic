@@ -1,0 +1,71 @@
+httk.atomistic.models.protonetstructure.label
+=============================================
+
+.. py:module:: httk.atomistic.models.protonetstructure.label
+
+.. autoapi-nested-parse::
+
+   Eager protonetstructure-label presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protonetstructure.label.ProtonetstructureLabel
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtonetstructureLabel(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.protonetstructure.view_base.ProtonetstructureViewBase`, :py:obj:`str`
+
+
+   Present a protonetstructure as its eager httk label string.
+
+   Values already carry the canonical net of their bare description; the fully
+   canonical label, with a canonical bare part, comes from the canonicaliser. This view
+   renders the given value without further symmetry work.
+
+   :param obj: The protonetstructure-like object to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: spacegroup
+
+      Return the standard-setting space group of the presented protonetstructure.
+
+
+   .. py:property:: occupations
+
+      Return the site-ordered occupations of the presented protonetstructure.
+
+
+   .. py:property:: net
+
+      Return the net rows of the presented protonetstructure.
+
+
+   .. py:property:: shapes
+
+      Return the per-site bond shapes of the presented protonetstructure.
+
+
+   .. py:method:: unview()
+
+      Return the standalone protonetstructure value.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+

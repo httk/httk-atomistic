@@ -1,0 +1,133 @@
+httk.atomistic.models.formula.anonymous_formula_view
+====================================================
+
+.. py:module:: httk.atomistic.models.formula.anonymous_formula_view
+
+.. autoapi-nested-parse::
+
+   Eager composition-based anonymous-formula presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.anonymous_formula_view.AnonymousFormulaView
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.anonymous_formula_view.anonymous_text
+   httk.atomistic.models.formula.anonymous_formula_view.anonymous_amounts
+   httk.atomistic.models.formula.anonymous_formula_view.anonymous_uncertainties
+
+
+Module Contents
+---------------
+
+.. py:function:: anonymous_text(backend)
+
+   Return the anonymous formula text of a backend's amounts.
+
+   Anonymous amounts keep their labels and order; named amounts are relabelled by
+   decreasing amount, ties by element symbol. Either is reduced by the overall gcd.
+
+   :param backend: The chemical-formula backend to render.
+   :return: The anonymous formula text, still to be validated by the parser.
+   :raises ValueError: If the composition is empty or incomplete.
+
+
+.. py:function:: anonymous_amounts(backend)
+
+   Return a backend's amounts under anonymous labels.
+
+   :param backend: The chemical-formula backend to present.
+   :return: The amounts, relabelled by decreasing amount unless already anonymous.
+
+
+.. py:function:: anonymous_uncertainties(backend)
+
+   Return a backend's amount precisions under anonymous labels.
+
+   :param backend: The chemical-formula backend to present.
+   :return: The precisions, relabelled as :func:`anonymous_amounts` relabels amounts.
+
+
+.. py:class:: AnonymousFormulaView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.view_base.ChemicalFormulaViewBase`, :py:obj:`httk.atomistic.models.formula.anonymous_formula.AnonymousFormula`
+
+
+   Present a complete composition as an eager composition-based anonymous formula.
+
+   Element amounts are relabelled ``A``, ``B``, ... by decreasing amount and reduced
+   by their gcd, so partial occupancy and mixed sites contribute fractionally. For the
+   site-count anonymous formula use :class:`~httk.atomistic.FormulatypeView`; a
+   ``FormulatypeView`` of a structural object passed here is re-projected from that
+   object by composition.
+
+   :param obj: The chemical-formula-like object to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: amounts
+
+      Return the presented amounts using anonymous labels.
+
+
+   .. py:property:: uncertainties
+
+      Return the presented amount precisions using anonymous labels.
+
+
+   .. py:property:: complete
+
+      Return whether the presented composition is complete.
+
+
+   .. py:property:: exact
+
+      Return whether the presented amounts are exact.
+
+
+   .. py:property:: normalized
+
+      Return whether the presented composition is normalized.
+
+
+   .. py:property:: normalization_status
+
+      Return the presented composition's normalization status.
+
+
+   .. py:property:: diagnostics
+
+      Return diagnostics associated with the presented composition.
+
+
+   .. py:property:: is_anonymous
+
+      Return whether this formula uses anonymous labels.
+
+
+   .. py:method:: unview()
+
+      Return the presented formula as a standalone value.
+
+      :return: The composition-based anonymous formula value.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
