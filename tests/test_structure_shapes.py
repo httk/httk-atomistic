@@ -86,9 +86,9 @@ B8_SHAPES = {
     "AlCl3": {"Al+3": {"OC6"}, "Cl-1": {"A2"}},
     "AgO": {"Ag+3": {"SP4"}, "Ag+1": {"L2"}, "O-2": {"TPY3"}},
     "CuCl2 2.6": {"Cu+2": {"SP4"}, "Cl-1": {"A2"}},
-    "CuCl2 3.1": {"Cu+2": {"OC6"}, "Cl-1": {"I3"}},
-    "K2AgSbS4": {"S-2": {"A2"}, "Ag+1": {"I4", "SS4"}, "Sb+5": {"T4"}, "K+1": {None}},
-    "diopside": {"Ca": {"DD8"}, "Mg": {"OC6"}, "Si": {"T4"}, "O": {"T4", "I3", "I4"}},
+    "CuCl2 3.1": {"Cu+2": {"OC6"}, "Cl-1": {"I"}},
+    "K2AgSbS4": {"S-2": {"A2"}, "Ag+1": {"I", "SS4"}, "Sb+5": {"T4"}, "K+1": {None}},
+    "diopside": {"Ca": {"DD8"}, "Mg": {"OC6"}, "Si": {"T4"}, "O": {"T4", "I"}},
 }
 # monoclinic cell changes of the B8 groups (their invariance probe)
 CELLS = {
@@ -167,12 +167,12 @@ def _shapes(structure: Any) -> Any:
 
 
 def _irregular(structure: Any) -> tuple[str | None, ...]:
-    """A valid supplied symbol for every shaped site: ``I<n>``, which the baseline never gives a regular site.
+    """A valid supplied symbol for every shaped site: ``I``, which the baseline never gives a regular site.
 
-    Two bonds have no irregular symbol (``I2`` is invalid), so they get ``A2``, which the straight chains do not detect.
+    Two bonds have no irregular symbol (``I`` needs three), so they get ``A2``, which the straight chains do not detect.
     """
     counts = _structure_bond_counts(structure.spacegroup, structure.wyckoff_sites, structure.bonds.pairs)
-    symbols = tuple(None if count < 2 else "A2" if count == 2 else f"I{count}" for count in counts)
+    symbols = tuple(None if count < 2 else "A2" if count == 2 else "I" for count in counts)
     return None if all(symbol is None for symbol in symbols) else symbols
 
 
@@ -301,8 +301,8 @@ def test_the_angle_detector_is_the_reference_detector_after_its_angles() -> None
     assert _detect_angles(2, [165.0]) == ("L2", None)
     assert _detect_angles(2, [164.9999996]) == ("L2", None)  # rounded to 1e-6 first
     assert _detect_angles(2, [164.9999994]) == ("A2", None)
-    assert _detect_angles(10, [60.0] * 45) == ("I10", None)
-    assert _detect_angles(4, [60.0] * 6)[0] == "I4"
+    assert _detect_angles(10, [60.0] * 45) == ("I", None)
+    assert _detect_angles(4, [60.0] * 6)[0] == "I"
 
 
 # ---------------------------------------------------------------------------------------------
@@ -372,15 +372,21 @@ def test_supplied_shapes_are_validated_against_the_bond_counts() -> None:
     assert _counts(structure) == (3, 2)
     ok = _with(structure, ("TPY3", "A2"))
     assert _shapes(ok) == ("TPY3", "A2")
-    assert _shapes(_with(structure, ("I3", None))) == ("I3", None)
+    assert _shapes(_with(structure, ("I", None))) == ("I", None)
     with pytest.raises(ValueError, match="one symbol or None per Wyckoff site"):
         _with(structure, ("TPY3",))
     with pytest.raises(ValueError, match=r"shapes\[0\]: unknown shape symbol 'XX3'"):
         _with(structure, ("XX3", None))
     with pytest.raises(ValueError, match=r"shapes\[1\]: shape 'T4' is for 4 bonds, but the site has 2"):
         _with(structure, (None, "T4"))
-    with pytest.raises(ValueError, match="unknown shape symbol 'I1'"):
-        _with(structure, (None, "I1"))
+    with pytest.raises(ValueError, match=r"shapes\[1\]: unknown shape symbol 'I2'"):
+        _with(structure, (None, "I2"))
+    with pytest.raises(ValueError, match=r"shapes\[0\]: 'I3' is no longer a shape symbol; write 'I' for an irregular"):
+        _with(structure, ("I3", None))
+    with pytest.raises(
+        ValueError, match=r"shapes\[1\]: shape 'I' \(irregular\) needs three or more bonds, but the site has 2"
+    ):
+        _with(structure, (None, "I"))
     with pytest.raises(TypeError, match="str or None"):
         _with(structure, (3, None))
     with pytest.raises(TypeError, match="not a str"):
@@ -434,8 +440,8 @@ def test_coincident_sites_are_two_atoms() -> None:
     assert _counts(bonded) == (7, 7, 4)
     with pytest.raises(ValueError, match="site 0: a zero-length bond has no direction; supply its shape"):
         _site_shapes(bonded)
-    supplied = _coincident(bonded=True, shapes=("I7", "I7", None))
-    assert _site_shapes(supplied)[:2] == ("I7", "I7")
+    supplied = _coincident(bonded=True, shapes=("I", "I", None))
+    assert _site_shapes(supplied)[:2] == ("I", "I")
 
 
 def test_a_site_at_a_special_point_of_its_letter_is_refused() -> None:
@@ -488,9 +494,9 @@ def test_the_exact_baseline_agrees_with_the_reference_detector_on_cartesian_vect
 
 def test_supplied_shapes_skip_the_baseline_for_their_sites() -> None:
     structure = _b8("CuCl2 3.1")
-    supplied = tuple("I6" if site.species == "Cu+2" else None for site in structure.wyckoff_sites)
+    supplied = tuple("I" if site.species == "Cu+2" else None for site in structure.wyckoff_sites)
     result = _site_shapes(_with(structure, supplied))
-    assert result == tuple("I6" if s == "I6" else b for s, b in zip(supplied, _site_shapes(structure), strict=True))
+    assert result == tuple("I" if s == "I" else b for s, b in zip(supplied, _site_shapes(structure), strict=True))
 
 
 @pytest.mark.parametrize("name", ["AgO", "CuCl2 3.1", "diopside", "AlCl3"])
@@ -622,8 +628,8 @@ def test_shapes_of_one_species_follow_their_atoms() -> None:
 
 
 def test_coincident_sites_carry_their_bonds_and_shapes() -> None:
-    source = _coincident(bonded=False, shapes=("OC6", "I6", None))
-    expected = {"Fe": (6, "OC6"), "Mn": (6, "I6"), "O": (4, None)}
+    source = _coincident(bonded=False, shapes=("OC6", "I", None))
+    expected = {"Fe": (6, "OC6"), "Mn": (6, "I"), "O": (4, None)}
     for index, coset in enumerate(protonet._tables(221).cosets[1:4]):
         result = _redescribed(source, coset.action, seed=index)
         assert result.bonds is not None and len(result.bonds.pairs) == 2  # Fe-O and Mn-O
@@ -647,7 +653,7 @@ def _coincident_target(source: ASUStructure, action: AffineOperation, names: lis
 
 def test_carries_that_rename_coincident_sites_or_stack_one_species_fail_loudly() -> None:
     action = protonet._tables(221).cosets[1].action
-    source = _coincident(bonded=False, shapes=(None, "I6", None))
+    source = _coincident(bonded=False, shapes=(None, "I", None))
     oxygen = source.species[2]
     # C: the coincident Fe and Mn renamed (and so changed) on the way
     renamed = [Species("Mn", ("Mn",), (1,), charges=(2,)), Species("Fe", ("Fe",), (1,), charges=(3,)), oxygen]
@@ -660,7 +666,7 @@ def test_carries_that_rename_coincident_sites_or_stack_one_species_fail_loudly()
     fe = source.species[0]
     stacked = _with(
         source,
-        (None, "I6", None),
+        (None, "I", None),
         wyckoff_sites=(*[WyckoffSite("a", (), "Fe")] * 2, source.wyckoff_sites[2]),
         species=[fe, oxygen],
     )
@@ -741,7 +747,7 @@ def test_the_tie_break_key_tells_supplied_shapes_apart() -> None:
     assert _bonds_key(structure) == tuple(
         (b.site, b.partner, *asu_module._op(b.operation)) for b in structure.bonds.pairs
     )
-    keys = [_bonds_key(_with(structure, value)) for value in (("TPY3", None), ("I3", None), ("TPY3", "A2"))]
+    keys = [_bonds_key(_with(structure, value)) for value in (("TPY3", None), ("I", None), ("TPY3", "A2"))]
     assert keys[0][:-1] == keys[1][:-1] == _bonds_key(structure)
     assert keys[0][-1] == (-1, ("TPY3", "")) and keys[2][-1] == (-1, ("TPY3", "A2"))
     # a key with shapes against one with more bonds compares numbers, never a string with a number

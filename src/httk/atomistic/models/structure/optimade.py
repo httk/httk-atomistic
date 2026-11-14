@@ -63,7 +63,6 @@ from httk.atomistic.models.structure.semantics import (
     validate_hill_formula,
 )
 from httk.atomistic.symmetry.affine_operation import AffineOperation
-from httk.atomistic.symmetry.shapes import _cell_bond_counts, _from_exchange
 
 _STRUCTURES_DEFINITION_ID = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 _COORDINATE_SPANS = frozenset(
@@ -104,8 +103,7 @@ _BOND_KEYS = frozenset({"pairs", "shapes", "source", "shapes_source"})
 def _decoded_bond_network(raw: object, nsites: int, operations: tuple[str, ...] | None) -> BondNetwork:
     """Decode the ``_httk_bonds`` dictionary of a unit-cell span into a network.
 
-    The rules the definition states in prose are checked here, and the irregular exchange
-    symbol ``I`` becomes ``I<n>``, ``n`` the bonded atoms of its site. Shapes that the network cannot
+    The rules the definition states in prose are checked here. Shapes that the network cannot
     represent (one over only some of its site's rows, or several on one site) are dropped with a
     warning, and the bonds are kept.
 
@@ -135,12 +133,8 @@ def _decoded_bond_network(raw: object, nsites: int, operations: tuple[str, ...] 
             cover is None or set(cover) == {r for r, row in enumerate(rows) if site in row[:2]}
             for site, cover in zip(sites, covers, strict=True)
         ):
-            # the exchange symbol I becomes I<n>, n the bonded atoms of its site (all of them, here)
-            counts = _cell_bond_counts(nsites, bonds)
-            symbols = dict(zip(sites, shapes["symbols"], strict=True))
-            per_site = tuple(
-                None if site not in symbols else _from_exchange(symbols[site], counts[site]) for site in range(nsites)
-            )
+            symbols = dict(zip(sites, shapes["symbols"], strict=True))  # checked against the counts above
+            per_site = tuple(symbols.get(site) for site in range(nsites))
         else:
             _logger.warning(
                 "the shapes of '_httk_bonds' cover only some bonds of a site or several shapes share a site, "

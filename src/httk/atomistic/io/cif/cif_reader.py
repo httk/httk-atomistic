@@ -126,9 +126,15 @@ _STRUCTURAL_LOOP_PREFIXES = ('atom_site', 'space_group', 'symmetry')
 # warning even without repair, since a bond loop never stops a structure from loading.
 _BOND_COLUMNS = ('atom_site_label_1', 'atom_site_label_2', 'site_symmetry_1', 'site_symmetry_2', 'distance')
 _BOND_LOOP_TAGS = frozenset(f'geom_bond_{name}' for name in _BOND_COLUMNS)
-# The httk items the structure adapter reads besides those: the exact cell companions, and the
-# bond count, bond source, shape loop and shape source of a bond network.
-_HTTK_RETAINED_PREFIXES = ('httk_cell_', 'httk_bonds_', 'httk_shape_', 'httk_shapes_source_')
+# The httk items the structure adapter reads besides those: the exact cell companions, the
+# species column, and the bond count, bond source, shape loop and shape source of a bond network.
+_HTTK_RETAINED_PREFIXES = (
+    'httk_cell_',
+    'httk_atom_site_species',
+    'httk_bonds_',
+    'httk_shape_',
+    'httk_shapes_source_',
+)
 
 
 def _is_consumed_tag(name: str) -> bool:

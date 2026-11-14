@@ -125,15 +125,16 @@ different spellings canonicalize to one value.
 The *bond count* of a site is the number of distinct atoms bonded to one of its
 atoms; two sites at one point are two atoms. The *shape* of a site with two or
 more bonds is the arrangement of those bonds, named by a symbol that ends in the
-bond count: `L2` (linear), `A2` (bent), `TP3`, `T4`, `SP4`, `OC6` and the other
-IUPAC polyhedral symbols without the hyphen, a few SHAPE program labels, and
-`I<n>` for an irregular arrangement of `n` bonds. Sites with fewer than two bonds
-have no shape.
+bond count, `L2` (linear), `A2` (bent), `TP3`, `T4`, `SP4`, `OC6` and the other
+IUPAC polyhedral symbols without the hyphen, and a few SHAPE program labels; or
+`I` for an irregular arrangement of three or more bonds, which has no count. Sites
+with fewer than two bonds have no shape.
 
 A network may carry `shapes`: one symbol or `None` per Wyckoff site, where `None`
 means "not assigned: use the baseline". The constructor raises `ValueError` for a
 length other than the number of sites, an unknown symbol, a symbol on a site with
-fewer than two bonds, or a symbol whose number is not the site's bond count
+fewer than two bonds, `I` on a site with two, a named symbol whose number is not
+the site's bond count, or a former `I<n>` (the message says to write `I`)
 (`TypeError` for a value that is not a string or `None`). Shapes that are all
 `None` are the same as no shapes. A site placed at a
 special point of its own Wyckoff letter (the general letter at an inversion
@@ -142,7 +143,7 @@ centre, say) has no defined bond count: counting or checking shapes on it raises
 
 The *baseline* detector gives the shape of every site without a supplied symbol,
 on demand: it compares the sorted angles between the site's bonds with those of
-the ideal shapes of its bond count and takes the closest, `I<n>` when that is more
+the ideal shapes of its bond count and takes the closest, `I` when that is more
 than 15 degrees away (root mean square), and `L2` from 165 degrees for two bonds.
 Bond lengths are not used. The angles come from the exact metric averaged over the
 point group, each exact squared cosine converted to a float once, so every exact
@@ -360,7 +361,14 @@ atom more electronegative than both: the Fe–B bonds of a ferracarborane
 (2.23–2.38 Å, across the cage C), Ir–B in thiaboranes (across S) and Fe–C to
 η-bonded heteroarenes (across N). Disordered structures need care:
 pairs closer than 0.5 Å (split positions) are never bonded, but partially
-occupied neighbours are bonded as if both were present. Distances are floats
+occupied neighbours are bonded as if both were present. The rule takes no
+account of occupancy, so on a heavily disordered entry the partially occupied
+atoms that overlap or sit a few tenths of an ångström apart are all bonded:
+per-site bond counts above about 60 come from disorder, not coordination. The
+largest measured were 1522 on ICSD (the mixed O/Ti site of ICSD 162568, whose
+other sites have 906, 638, 504 and 438) and 203 on carbon-free COD (COD 1525646);
+on a 20000-entry carbon-containing COD sample the largest was 95. Such a site's
+shape is `I`. Distances are floats
 computed from the exact structure, so every exact re-description of one
 crystal gives the same network except where a distance lies within float noise of its
 cutoff or of its radius sum.
@@ -640,7 +648,7 @@ setting that in that case has no name.
 ### Serving bond networks
 
 The bond network is served as `_httk_bonds`
-(`https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds`, version 0.2.0): a
+(`https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds`, version 0.1.0): a
 dictionary of `pairs`, `shapes`, `source` and `shapes_source`, or `null` without a network. It
 is large, so it is not a default response field: ask for it with `response_fields`, together
 with `space_group_symmetry_operations_xyz`, which it indexes.
@@ -661,10 +669,9 @@ and the lattice alone. A row stands for its bond orbit on a fundamental domain a
 lattice translates on a unit cell.
 
 `shapes` is sparse: `{"sites": [...], "symbols": [...]}` lists only the sites with an
-assigned shape, or is `null` when none is assigned. An irregular shape `I<n>` is served as the
-single symbol `I`, without its count: the count is the number of bonded atoms the shape covers,
-and reading `I` back gives `I<n>` with that number (a matching `I<n>` is accepted too). The
-rule that a symbol's number equals the atoms covered applies to the named symbols. The definition also allows an optional
+assigned shape, or is `null` when none is assigned. An irregular shape is served as `I`, as
+httk holds it. The rule that a symbol's number equals the atoms covered applies to the named
+symbols. The definition also allows an optional
 third list, `pair_rows`, for a shape over only some rows of `pairs` (and then for several
 shapes on one site); httk never serves it, because a network holds one shape per site over all
 of its bonds.

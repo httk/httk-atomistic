@@ -9,6 +9,7 @@ import importlib.resources
 import json
 import logging
 import math
+import os
 from fractions import Fraction as F
 from functools import cache
 from pathlib import Path
@@ -63,7 +64,7 @@ from httk.atomistic.storage.records import (
     _unitcell_record_from_structure,
 )
 from httk.atomistic.symmetry.affine_operation import AffineOperation
-from httk.atomistic.symmetry.shapes import _exchange_symbols
+from httk.atomistic.symmetry.shapes import _SHAPE_SYMBOLS
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BONDS_ID = "https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds"
@@ -258,13 +259,23 @@ def test_the_unit_cell_fast_path_equals_the_structure_path() -> None:
 def test_the_definition_lays_out_rows_and_sparse_shapes() -> None:
     definition = _schema()
     assert set(definition["properties"]) == {"pairs", "shapes", "source", "shapes_source"}
-    assert definition["x-optimade-definition"]["version"] == "0.2.0"
+    assert definition["x-optimade-definition"]["version"] == "0.1.0"
     assert "operation_xyz" not in json.dumps(definition["properties"])
     assert definition["properties"]["pairs"]["items"]["x-optimade-dimensions"]["sizes"] == [6]
     shapes = definition["properties"]["shapes"]
     assert shapes["required"] == ["sites", "symbols"] and set(shapes["properties"]) == {"sites", "symbols", "pair_rows"}
-    assert shapes["properties"]["symbols"]["items"]["enum"] == list(_exchange_symbols())
+    assert shapes["properties"]["symbols"]["items"]["enum"] == list(_SHAPE_SYMBOLS)
     assert all(term in definition["title"] + definition["description"] for term in ("coordination polyhedra", "cages"))
+
+
+def test_the_vendored_definition_is_the_schemas_source_output() -> None:
+    source = os.environ.get("HTTK_TEST_SCHEMAS_SOURCE")
+    if not source:
+        pytest.skip("HTTK_TEST_SCHEMAS_SOURCE is not set")
+    built = Path(source) / "output/defs/v0.1/properties/chemistry/bonds.json"
+    assert built.is_file(), f"run make in {source}"
+    vendored = importlib.resources.files("httk.registry.schemas.atomistic").joinpath("bonds.json").read_bytes()
+    assert built.read_bytes() == vendored
 
 
 ILLUSTRATION = {
@@ -286,7 +297,7 @@ def test_the_definition_accepts_the_illustration_and_rejects_unknown_symbols() -
     validate_property(definition, {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["I"]}})
     for wrong in (
         {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["I2"]}},
-        {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["I5"]}},  # exchange formats write irregular as I
+        {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["I5"]}},  # not in the enum: irregular is plain I
         {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": [None]}},
         {**ILLUSTRATION, "shapes": {"symbols": ["OC6"]}},
         {**ILLUSTRATION, "pairs": [[1, 2, 0, 0, 0, "0"]]},
@@ -299,7 +310,7 @@ def test_the_definition_accepts_the_illustration_and_rejects_unknown_symbols() -
 
 
 def test_an_irregular_shape_is_served_as_i() -> None:
-    cell = _with(UnitcellStructureView(_rocksalt()).unview(), ("I6",) * 8, SOURCE)
+    cell = _with(UnitcellStructureView(_rocksalt()).unview(), ("I",) * 8, SOURCE)
     value = _row(cell)["_httk_bonds"]
     assert value["shapes"] == {"sites": list(range(8)), "symbols": ["I"] * 8}
     _validate(value)
@@ -307,7 +318,7 @@ def test_an_irregular_shape_is_served_as_i() -> None:
         _unitcell_record_from_structure(cell)
     )
     assert stored == value
-    domain = _with(_rocksalt(), ("I6", "OC6"), SOURCE)
+    domain = _with(_rocksalt(), ("I", "OC6"), SOURCE)
     assert bond_properties(domain)["_httk_bonds"]["shapes"] == {"sites": [0, 1], "symbols": ["I", "OC6"]}
 
 
@@ -707,11 +718,12 @@ def test_read_back_resolves_the_definition_id_and_validates() -> None:
     assert OptimadeStructure(_bonds_resource(plain, operations=None)).bonds == expected
 
 
-def test_read_back_turns_i_into_its_count() -> None:
-    read = OptimadeStructure(_bonds_resource({**_pairs(*FAN), "shapes": {"sites": [0, 1], "symbols": ["I", "I4"]}}))
-    assert read.bonds is not None and read.bonds.shapes == ("I4", "I4")
+def test_read_back_keeps_i_and_refuses_a_count() -> None:
+    read = OptimadeStructure(_bonds_resource({**_pairs(*FAN), "shapes": {"sites": [0, 1], "symbols": ["I", "I"]}}))
+    assert read.bonds is not None and read.bonds.shapes == ("I", "I")
     for wrong, message in (
-        ({"sites": [0], "symbols": ["I5"]}, "is for 5 bonds"),
+        ({"sites": [0], "symbols": ["I4"]}, "'I4' is no longer a shape symbol; write 'I' for an irregular"),
+        ({"sites": [0], "symbols": ["I5"]}, "'I5' is no longer a shape symbol"),
         ({"sites": [0], "symbols": ["I"], "pair_rows": [[0, 1]]}, "covers 2 bonded atoms"),
     ):
         with pytest.raises(IncompleteOptimadeResourceError, match=message):
@@ -816,7 +828,7 @@ CHECKED = {
     ),
     "a symbol outside the vocabulary": (
         {"pairs": [list(row) for row in FAN], "shapes": {"sites": [0], "symbols": ["I2"]}},
-        "unknown symbol 'I2'",
+        "shape 0: unknown shape symbol 'I2'",
     ),
     "a count differing from the atoms covered": (
         {"pairs": [list(row) for row in FAN], "shapes": {"sites": [1], "symbols": ["TP3"]}},

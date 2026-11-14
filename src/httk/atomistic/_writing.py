@@ -265,7 +265,7 @@ def _block(
     written_positions: list[FracVector] = []
     attached_hydrogens: list[int] = []
     calc_flags: list[str] = []
-    label_named: list[str | None] = []  # per row, the species the reader names from the row's label
+    row_species: list[str] = []  # per row, the name of its species
     site_rows: list[int] = []  # per site, its first row
     atom_type_masses: dict[str, float] = {}
     has_nondefault_occupancy = False
@@ -280,8 +280,7 @@ def _block(
         written_positions.append(position)
         attached_hydrogens.append(_attached_hydrogen_count(species))
         calc_flags.append(calc_flag)
-        by_label = species.concentration[index] != 1 or attached_hydrogens[-1] > 0 or calc_flag == "dum"
-        label_named.append(species.name if by_label else None)
+        row_species.append(species.name)
         has_nondefault_occupancy |= (
             species.concentration[index] != 1 or species.concentration_precision[index] is not None
         )
@@ -338,7 +337,7 @@ def _block(
         "space_group_nbr": str(spacegroup.it_number),
         "space_group_name_hm": spacegroup.hermann_mauguin,
         "space_group_name_hall": spacegroup.hall_symbol,
-        "label_named": label_named,
+        "row_species": row_species,
         "site_rows": site_rows,
     }
 
@@ -351,37 +350,31 @@ def _add_cif_network(
     One row per bond (per bond orbit on a fundamental domain): the first written row of each end
     site, by its label, and the symmetry code ``n_klm`` of the partner, ``n`` the 1-based index of
     the bond operation in ``operations`` and ``klm`` its lattice translation plus 5. Labels are
-    made unique; a species the reader names from its label (a partially occupied, dummy or
-    attached-hydrogen row) would then read back as several species, so it is refused when a
-    renamed row holds it. Distances are rounded to 5 decimals in the Cartesian frame of
+    made unique; when any label then differs from its row's species name, the block also gets
+    ``species_names`` (``_httk_atom_site_species``), the species name of every row, since the
+    reader would otherwise name a partially occupied, dummy or attached-hydrogen species after
+    its now unique labels. Distances are rounded to 5 decimals in the Cartesian frame of
     ``cell.basis.to_floats()``, which the reader checks them against.
 
-    :param block: The block, changed in place; its private ``label_named`` and ``site_rows`` keys are removed.
+    :param block: The block, changed in place; its private ``row_species`` and ``site_rows`` keys are removed.
     :param structure: The structure the block was made from.
     :param positions: The written position of each site.
     :param operations: The written (wrapped) operations, in their written order.
-    :raises ValueError: If a bond translation is outside -5..+4, or a label-named species sits on
-        several rows.
+    :raises ValueError: If a bond translation is outside -5..+4.
     """
     from httk.atomistic.entries.bonds import _bond_codes
     from httk.atomistic.models.structure.asu import _apply, _op
-    from httk.atomistic.symmetry.shapes import _to_exchange
 
-    label_named = cast(list[str | None], block.pop("label_named"))
+    row_species = cast(list[str], block.pop("row_species"))
     site_rows = cast(list[int], block.pop("site_rows"))
     network = structure.bonds
     if network is None:
         return
     labels = cast(tuple[str, ...], block["labels"])
     unique = _unique_site_labels(list(labels))
-    for old, new, species in zip(labels, unique, label_named, strict=True):
-        if old != new and species is not None:
-            raise ValueError(
-                f"CIF cannot write the bond network: species {species!r} is read back by its site label "
-                "(it is partially occupied, a dummy atom or carries attached hydrogens), but it sits on "
-                "several sites, which need distinct labels"
-            )
     block["labels"] = tuple(unique)
+    if unique != row_species:
+        block["species_names"] = tuple(row_species)
     site_labels = [unique[row] for row in site_rows]
     points = [position.to_fractions() for position in positions]
     basis = structure.cell.basis.to_floats()
@@ -399,10 +392,8 @@ def _add_cif_network(
         code = f"{index + 1}_{t[0] + 5}{t[1] + 5}{t[2] + 5}"
         rows.append((site_labels[bond.site], site_labels[bond.partner], code, f"{distance:.5f}"))
     block["bond_rows"] = rows
-    block["shape_rows"] = [  # the exchange symbol: I<n> is written "I"
-        (site_labels[site], _to_exchange(symbol))
-        for site, symbol in enumerate(network.shapes or ())
-        if symbol is not None
+    block["shape_rows"] = [
+        (site_labels[site], symbol) for site, symbol in enumerate(network.shapes or ()) if symbol is not None
     ]
     block["bonds_source"] = _source_fields(network.source)
     block["shapes_source"] = _source_fields(network.shapes_source)

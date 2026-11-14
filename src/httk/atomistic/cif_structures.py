@@ -18,6 +18,7 @@ import math
 import re
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from decimal import Decimal, InvalidOperation
 from functools import cache
 from typing import Any, NamedTuple
@@ -47,7 +48,7 @@ from httk.atomistic.models.structure.asu import (
 )
 from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond
 from httk.atomistic.symmetry.setting_transform import SettingTransform
-from httk.atomistic.symmetry.shapes import _from_exchange, _structure_bond_counts
+from httk.atomistic.symmetry.shapes import _check_shape, _structure_bond_counts
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 from httk.atomistic.symmetry.symop_key import symop_key_v1
 from httk.atomistic.symmetry.xyz import operation_from_xyz
@@ -532,7 +533,7 @@ def asu_structure_from_cif(
     declared_site_symmetry_orders = data.get("_httk_atomistic_site_symmetry_orders")
 
     species_by_name: dict[str, Species] = {}
-    implicit_species_names: list[str] = []
+    implicit_rows: list[tuple[int, str]] = []  # each dummy row and the name of its row species
     wyckoff_sites: list[WyckoffSite] = []
     site_rows: list[int] = []  # the atom-site row of each entry of wyckoff_sites
     warning_uncertainties: list[Any] = []
@@ -595,8 +596,7 @@ def asu_structure_from_cif(
                 nattached=(attached_count,) if attached_count else None,
             )
         if dummy:
-            if name not in implicit_species_names:
-                implicit_species_names.append(name)
+            implicit_rows.append((index, name))
             continue
 
         if any(value is None for value in exact_position):
@@ -835,17 +835,46 @@ def asu_structure_from_cif(
             f"maximum is {math.sqrt(maximum.to_float()):.6g} Å"
         )
 
-    proof, canonical_species, assemblies, canonical_sites = _deduplicate_wyckoff_sites(
-        standard,
-        transform,
-        wyckoff_sites,
-        species_by_name,
-        [labels[row] for row in site_rows],
-        block_name=_block_name(data),
-        coordinate_precision=data.get("coordinate_precision"),
-        repair=repair,
-    )
-    canonical_species += tuple(species_by_name[name] for name in implicit_species_names)
+    def deduplicated(
+        names: Sequence[str] | None,
+    ) -> tuple[_ValidatedASUProof, tuple[Species, ...], tuple[Assembly, ...] | None, list[int]]:
+        proof, canonical_species, assemblies, canonical_sites = _deduplicate_wyckoff_sites(
+            standard,
+            transform,
+            wyckoff_sites,
+            species_by_name,
+            [labels[row] for row in site_rows],
+            block_name=_block_name(data),
+            coordinate_precision=data.get("coordinate_precision"),
+            repair=repair,
+            species_names=None if names is None else [names[row] for row in site_rows],
+        )
+        if names is None:
+            implicit = {name: species_by_name[name] for _, name in implicit_rows}
+            return proof, canonical_species + tuple(implicit.values()), assemblies, canonical_sites
+        named = {species.name: species for species in canonical_species}
+        for row, name in implicit_rows:
+            _add_named_species(named, replace(species_by_name[name], name=names[row]))
+        # rows of one species with different labels were made unique by the writer: no source name
+        row_labels: dict[str, set[str]] = {}
+        for name, label in zip(names, labels, strict=True):
+            row_labels.setdefault(name, set()).add(label)
+        species = tuple(
+            replace(species, original_name=None) if len(row_labels[species.name]) > 1 else species
+            for species in named.values()
+        )
+        return proof, species, assemblies, canonical_sites
+
+    # ponytail: the fallback reruns the deduplication, so a repair warning of the first pass can
+    # repeat; check the column before deduplicating if that ever matters
+    try:
+        proof, canonical_species, assemblies, canonical_sites = deduplicated(_species_column(data, len(labels)))
+    except _SpeciesColumnMismatch as error:
+        _cif_warning(
+            f"CIF block {_block_name(data)!r}: ignored its _httk_atom_site_species column, {error}; "
+            "named the species from the site labels instead"
+        )
+        proof, canonical_species, assemblies, canonical_sites = deduplicated(None)
     row_sites = dict(zip(site_rows, canonical_sites, strict=True))
     pairs = _cif_bonds(standard, proof.wyckoff_sites, cell, data, row_sites)
     network = _cif_network(standard, proof.wyckoff_sites, data, row_sites, pairs)
@@ -873,11 +902,15 @@ def _deduplicate_wyckoff_sites(
     block_name: str,
     coordinate_precision: Any,
     repair: bool = False,
+    species_names: Sequence[str] | None = None,
 ) -> tuple[_ValidatedASUProof, tuple[Species, ...], tuple[Assembly, ...] | None, list[int]]:
     """Collapse repeated CIF orbits and combine co-located disorder losslessly.
 
     ``labels`` holds the CIF label of each entry of ``sites``. The last value returned is the
-    index of the resulting site of each entry of ``sites``.
+    index of the resulting site of each entry of ``sites``. ``species_names``, the
+    ``_httk_atom_site_species`` value of each entry, names the resulting species instead of the
+    labels; it raises ``_SpeciesColumnMismatch`` where it gives co-located entries different
+    names, one name to different species, or meets a disorder assembly.
     """
     cosets = transform.lattice_cosets()
     identity = transform.is_identity()
@@ -925,6 +958,10 @@ def _deduplicate_wyckoff_sites(
         attachment_values = {(species.attached, species.nattached) for _, species, _ in alternatives}
         stated_masses = [species.mass is not None for _, species, _ in alternatives]
         if len(attachment_values) > 1 or (any(stated_masses) and not all(stated_masses)):
+            # ponytail: a species column does not name assemblies (httk never writes them to CIF); name
+            # each alternative from its row if a writer ever does
+            if species_names is not None:
+                raise _SpeciesColumnMismatch("the co-located rows form a disorder assembly")
             assembly_groups: list[tuple[int, ...]] = []
             probabilities: list[fractions.Fraction] = []
             precisions: list[fractions.Fraction | None] = []
@@ -972,15 +1009,23 @@ def _deduplicate_wyckoff_sites(
                 source = species_by_name[sites[index].species]
                 canonical_of[index] = first + next(k for k, item in enumerate(alternatives) if item[1] == source)
             continue
-        species = _combine_cif_species(source_species, block_name=block_name, repair_overoccupancy=repair)
-        previous = canonical_species.get(species.name)
-        if previous is not None and previous != species:
-            source_labels = ", ".join(repr(labels[index]) for index in members)
-            raise ValueError(
-                f"CIF block {block_name!r} uses site labels {source_labels} to form species name "
-                f"{species.name!r}, but that name already describes a different species"
+        if species_names is not None:
+            given = {species_names[index] for index in members}
+            if len(given) > 1:
+                raise _SpeciesColumnMismatch(f"it gives the co-located rows different names {sorted(given)}")
+            species = _combine_cif_species(
+                source_species, block_name=block_name, repair_overoccupancy=repair, species_name=given.pop()
             )
-        canonical_species.setdefault(species.name, species)
+            _add_named_species(canonical_species, species)
+        else:
+            species = _combine_cif_species(source_species, block_name=block_name, repair_overoccupancy=repair)
+            previous = canonical_species.setdefault(species.name, species)
+            if previous != species:
+                source_labels = ", ".join(repr(labels[index]) for index in members)
+                raise ValueError(
+                    f"CIF block {block_name!r} uses site labels {source_labels} to form species name "
+                    f"{species.name!r}, but that name already describes a different species"
+                )
         representative = source_sites[0]
         for index in members:
             canonical_of[index] = len(canonical)
@@ -1139,9 +1184,9 @@ def _cif_network(
     disagrees with the loop is ignored with a warning. The ``_httk_bonds_source_*`` items, if any,
     are the bond source, else a bond loop gets ``_CIF_BOND_SOURCE``. The shape loop
     (``_httk_shape_atom_site_label``, ``_httk_shape_symbol``) gives at most one shape per site; a
-    loop that names an unknown label, an unknown symbol, a symbol whose number is not the site's
-    bond count or a site twice (the irregular ``I`` takes the count as its number) leaves every shape unassigned with a warning, and so does a loop in
-    a block without bonds. ``_httk_shapes_source_*`` is the shape source of assigned shapes.
+    loop that names an unknown label, an unknown symbol, a named symbol whose number is not the
+    site's bond count, the irregular ``I`` on fewer than three bonds or a site twice leaves every
+    shape unassigned with a warning, and so does a loop in a block without bonds. ``_httk_shapes_source_*`` is the shape source of assigned shapes.
     """
     items = data.get("_httk_atomistic_network") or {}
     block = _block_name(data)
@@ -1194,10 +1239,9 @@ def _cif_shapes(
 ) -> tuple[str | None, ...]:
     """Return one shape symbol or ``None`` per site from the shape loop's label and symbol columns.
 
-    The exchange symbol ``I`` (irregular) becomes ``I<n>``, ``n`` the site's bond count; a named
-    symbol or ``I<n>`` is kept when its number is that count. Raises ``ValueError`` if the columns
-    differ in length, a label names no single atom site, a site is named twice, or a symbol is
-    unknown or does not fit the site's bond count.
+    ``I`` (irregular) needs three or more bonds and a named symbol's number is the site's bond
+    count. Raises ``ValueError`` if the columns differ in length, a label names no single atom
+    site, a site is named twice, or a symbol is unknown or does not fit the site's bond count.
     """
     labels = [labels] if isinstance(labels, str) else list(labels or ())
     symbols = [symbols] if isinstance(symbols, str) else list(symbols or ())
@@ -1210,7 +1254,8 @@ def _cif_shapes(
         site = row_sites[row_of(label.strip())]
         if shapes[site] is not None:
             raise ValueError(f"label {label!r} names a site that already has a shape")
-        shapes[site] = _from_exchange(symbol.strip(), counts[site])  # "I" becomes I<count>
+        shapes[site] = symbol = symbol.strip()
+        _check_shape(symbol, counts[site])
     return tuple(shapes)
 
 
@@ -1298,8 +1343,13 @@ def _combine_cif_species(
     block_name: str,
     repair_overoccupancy: bool = False,
     drop_partial_masses: bool = False,
+    species_name: str | None = None,
 ) -> Species:
-    """Combine the distinct CIF rows for one orbit and make vacancies explicit."""
+    """Combine the distinct CIF rows for one orbit and make vacancies explicit.
+
+    A ``species_name`` (from ``_httk_atom_site_species``) names the result instead of the row
+    labels, which then give no constituent labels either: they are unique per site.
+    """
     distinct: list[tuple[Species, str]] = []
     for source in sources:
         if any(source[0] == previous[0] for previous in distinct):
@@ -1324,7 +1374,7 @@ def _combine_cif_species(
         masses = None if species.mass is None else list(species.mass)
         attached = species.attached
         nattached = species.nattached
-        name = species.name
+        name = species_name or species.name
         original_name = species.original_name
     else:
         attachment_values = {(species.attached, species.nattached) for species, _ in distinct}
@@ -1338,7 +1388,7 @@ def _combine_cif_species(
                 fractions.Fraction | None,
                 fractions.Fraction | None,
                 float | None,
-                str,
+                str | None,
                 str,
             ]
         ] = []
@@ -1347,6 +1397,7 @@ def _combine_cif_species(
                 raise ValueError("internal CIF disorder aggregation expected one constituent per source row")
             source_precisions = species.concentration_precision
             constituent_species_labels = species.labels
+            fallback = None if species_name is not None else source_label
             constituents.append(
                 (
                     species.chemical_symbols[0],
@@ -1354,9 +1405,7 @@ def _combine_cif_species(
                     None if source_precisions is None else source_precisions[0],
                     None if species.charges is None else species.charges[0],
                     None if species.mass is None else species.mass[0],
-                    source_label
-                    if constituent_species_labels is None
-                    else constituent_species_labels[0] or source_label,
+                    fallback if constituent_species_labels is None else constituent_species_labels[0] or fallback,
                     source_label,
                 )
             )
@@ -1365,7 +1414,7 @@ def _combine_cif_species(
                 item[0],
                 item[3] is None,
                 "" if item[3] is None else str(item[3]),
-                item[5],
+                item[5] or "",
                 item[1],
             )
         )
@@ -1400,7 +1449,9 @@ def _combine_cif_species(
         else:
             masses = None
         labels = [item[5] for item in constituents]
-        name = "/".join(item[6] for item in constituents)
+        if not any(labels):
+            labels = None
+        name = species_name or "/".join(item[6] for item in constituents)
         original_name = None
 
     normalized, _, total, width = normalization(tuple(concentrations), tuple(precisions))
@@ -1817,6 +1868,41 @@ def _cif_warning(message: str) -> None:
     logging.getLogger(__name__).warning(message, extra={"context": "cif"})
 
 
+class _SpeciesColumnMismatch(ValueError):
+    """The ``_httk_atom_site_species`` column cannot name the species; the reason is its message."""
+
+
+def _species_column(data: Mapping[str, Any], count: int) -> list[str] | None:
+    """Return the ``_httk_atom_site_species`` value of each atom-site row, or ``None`` without the column.
+
+    :param data: The CIF block payload.
+    :param count: The number of atom-site rows.
+    :return: One species name per row, or ``None``.
+    :raises _SpeciesColumnMismatch: If the column does not give one name per row.
+    """
+    column = data.get("_httk_atomistic_species")
+    if column is None:
+        return None
+    names = [str(name).strip() for name in ([column] if isinstance(column, str) else column)]
+    if len(names) != count or any(name in ("", "?", ".") for name in names):
+        raise _SpeciesColumnMismatch("it does not give one name per atom site")
+    return names
+
+
+def _add_named_species(named: dict[str, Species], species: Species) -> None:
+    """Add a species named by ``_httk_atom_site_species`` to ``named`` unless an equal one is there.
+
+    Species of one name may differ only in ``original_name``, which comes from the unique site labels.
+
+    :param named: The species so far by name, changed in place.
+    :param species: The species to add.
+    :raises _SpeciesColumnMismatch: If ``named`` has a different species of that name.
+    """
+    previous = named.setdefault(species.name, species)
+    if replace(previous, original_name=None) != replace(species, original_name=None):
+        raise _SpeciesColumnMismatch(f"it gives the name {species.name!r} to sites with different species")
+
+
 def _cif_debug(message: str) -> None:
     """Send one low-confidence but unambiguous CIF diagnostic through the report channel."""
     logging.getLogger(__name__).debug(message, extra={"context": "cif"})
@@ -2183,6 +2269,7 @@ def _cif_payload(
                     "_httk_atomistic_symmetry_multiplicities": raw_block.get("atom_site_site_symmetry_multiplicity"),
                     "_httk_atomistic_site_symmetry_orders": raw_block.get("atom_site_site_symmetry_order"),
                     "_httk_atomistic_block_name": name,
+                    "_httk_atomistic_species": raw_block.get("httk_atom_site_species"),
                     "_httk_atomistic_bonds": _bond_columns(raw_block),
                     "_httk_atomistic_network": {
                         name: value

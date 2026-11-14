@@ -338,6 +338,7 @@ network the block carries:
 |---|---|
 | Operation ids | `_space_group_symop_id` 1..n in the operation loop |
 | Unique site labels | `_atom_site_label`; a label that repeats becomes `<label><n>`, a unique one is kept |
+| Species names | `_httk_atom_site_species`, one per atom-site row, when a label is not its species name |
 | Bonds | `_geom_bond_atom_site_label_1`, `_2`, `_geom_bond_site_symmetry_1` (always `.`), `_2` (`n_klm`), `_geom_bond_distance` |
 | A network known to have no bonds | `_httk_bonds_count 0` and no bond loop |
 | Bond source | `_httk_bonds_source_description`, `_software`, `_version`, `_uri` |
@@ -352,20 +353,34 @@ network the block carries:
   distance check.
 - **Shapes.** One row per site with an assigned shape, over all of its bonds; a site without a
   row has none. A site whose occupation is split over several atom-site rows is named by its
-  first row. An irregular shape `I<n>` is written as the single symbol `I`, without its count;
-  reading turns `I` back into `I<n>` with `n` the site's bond count, and also accepts `I<n>`
-  when `n` is that count. The number of a named symbol must equal the site's bond count.
+  first row. The number of a named symbol must equal the site's bond count; the irregular `I`
+  (three or more bonds that match no named shape) carries no number. A former `I<n>` is
+  refused with a message to write `I`.
 - **Sources.** A source that is `None` is not written; an unknown field of a known source is
   written `?`. On reading, the httk source items override the CIF loop's default source, and
   `?` and `.` read as `None`. A network whose source is `None` therefore reads back with the
   default source of a `_geom_bond_` loop.
-- **Labels must keep species names.** The reader names a partially occupied, dummy or
-  attached-hydrogen species after its atom-site label. Unique labels would split such a species
-  into one species per site, so saving a network refuses, with a `ValueError` naming the
-  species, when such a species sits on more than one atom-site row.
+- **Species names.** Without the species column the reader names a partially occupied, dummy
+  or attached-hydrogen species after its atom-site label, and a mixed species after the labels
+  of its rows (`Co/Fe`), so unique labels would split such a species into one species per
+  site. When any written label differs from its row's species name, the block therefore also
+  carries `_httk_atom_site_species`, the species name of every row (all rows of a mixed site
+  give the one name), and the reader names the species from it: a disordered species on many
+  sites keeps its name, bonds and shapes. The column is written only with a network; without
+  one the output is unchanged. With a network it is written for almost every unit cell, since
+  any element on two or more sites gets numbered labels (`Ti1`, `Ti2`). When the column is
+  read, the constituent labels of a mixed species are not restored: they come only from the
+  type symbols, so `Ti/V` written from rows `Ti1` and `V1` reads back with no constituent
+  labels, where a block without the column gives `('Ti', 'V')`. A species whose rows carry
+  different labels gets no `original_name`, since those labels are the writer's numbering; a
+  species whose rows share one label keeps it as `original_name`. Saving a loaded structure
+  again therefore writes the same labels. Sites that give one name must hold the same
+  species, apart from `original_name`, and co-located rows must give one name. A column that
+  breaks this, or does not give one name per row, logs one warning and the reader names the
+  species from the labels as without it.
 - **Reading is forgiving.** `_httk_bonds_count` that disagrees with the bond loop logs a warning
-  and the loop wins. A shape row with an unknown label, an unknown symbol, a named symbol or
-  `I<n>` whose number is not the site's bond count, `I` on a site with fewer than three bonds,
+  and the loop wins. A shape row with an unknown label, an unknown symbol, a named symbol whose
+  number is not the site's bond count, `I` on a site with fewer than three bonds,
   or a site named twice logs one warning and leaves every shape
   unassigned while keeping the bonds. Shape rows in a block without bonds are ignored with a
   warning.
@@ -373,14 +388,16 @@ network the block carries:
 
 A `load(save(structure))` round trip keeps the cell, the space group and setting, the Wyckoff
 sites, the species names and constituents, the bonds, the shapes and both sources; a unit cell
-reads back as a P1 `ASUStructure`, and a renamed label is kept as the species' `original_name`.
+reads back as a P1 `ASUStructure`.
 
 The httk items are defined in a DDLm dictionary, `cif_httk.dic`, which ships with
 *httk-atomistic* in the `httk.atomistic.io.cif` package (also defining the `_httk_*_exact`
 companions). It names a new category with the prefix (`_httk_shape.symbol`), an item added to a
-core category with the prefix on the item (`_atom_site.httk_fract_x_exact`), and gives the names
-httk writes, such as `_httk_shape_symbol`, as aliases. Its shape-symbol enumeration is the
-named shape symbols followed by `I`. Read it with
+core category with the prefix on the item (`_atom_site.httk_fract_x_exact`,
+`_atom_site.httk_species`), and gives the names httk writes, such as `_httk_shape_symbol`, as
+aliases. Its shape-symbol enumeration is the named shape symbols followed by `I`. The
+dictionary is at version 0.1.0 while it is in beta; its version is not changed for edits until
+the definitions are in use. Read it with
 `importlib.resources.files("httk.atomistic.io.cif") / "cif_httk.dic"`.
 
 ## Magnetic CIF

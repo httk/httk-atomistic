@@ -783,6 +783,7 @@ def canonical_net(it_number, sites, rows, class_order="formula", hand=1, shapes=
                         codes=codes,
                         groups=[group_of[c] for c in ordered_classes],
                         shapes=[shapes[s] for s in by_number],
+                        counts=[counts[s] for s in by_number],
                         realisations=[],
                     )
                 if cand == best["cand"]:
@@ -792,9 +793,10 @@ def canonical_net(it_number, sites, rows, class_order="formula", hand=1, shapes=
     return dict(
         cand=best["cand"],
         groups=best["groups"],
-        net=render(best["slots"], best["codes"], best["shapes"]),
+        net=render(best["slots"], best["codes"], best["shapes"], best["counts"]),
         slots=best["slots"],
         shapes=best["shapes"],
+        counts=best["counts"],
         codes=best["codes"],
         classes=min((r["classes"] for r in best["realisations"]), key=lambda names: [str(n) for n in names]),
         realisations=best["realisations"],
@@ -802,11 +804,11 @@ def canonical_net(it_number, sites, rows, class_order="formula", hand=1, shapes=
 
 
 # ---------------------------------------------------------------------------------------------
-# notation:   8I4~1.2_9SS4~3.4_10~1.2.3.4@4
+# notation:   8I~1.2_9SS4~3.4_10~1.2.3.4@4
 #
 #   net     = group { "_" group }
 #   group   = site [ shape ] [ "~" target { "." target } ]      at least one of shape and "~"
-#   shape   = uppercase letters, then the bond count            e.g. OC6, TPRS9, I10
+#   shape   = uppercase letters, then the bond count; or I     e.g. OC6, TPRS9, I (irregular)
 #   target  = site [ "@" operation [ "@" klm ] ]
 #
 #   "~"  a covalent bond of unspecified order (the only bond symbol so far)
@@ -836,9 +838,11 @@ def render_code(e):
     return f"@{e[0] + 1}@{digits[0]}{digits[1]}{digits[2]}"
 
 
-def render(slots, codes, shapes=None):
+def render(slots, codes, shapes=None, counts=None):
     """slots in label order, each (listing site, target).  Without shapes the groups are the runs of
-    equal listing sites; with shapes (per site number) the listing order also places shape-only groups."""
+    equal listing sites; with shapes (per site number) the listing order also places shape-only groups.
+    The listing order takes the bond counts per site number; without ``counts`` they are read from the
+    named shapes (``I`` has no count, so a net with an irregular site needs ``counts``)."""
     targets, order = {}, []
     for (i, j), e in zip(slots, codes):
         if i not in targets:
@@ -848,12 +852,13 @@ def render(slots, codes, shapes=None):
     if shapes is None:
         return "_".join(f"{i}~" + ".".join(targets[i]) for i in order)
     in_row = {x for slot in slots for x in slot}
-    counts = [shape_count(sh) if sh else int(n in in_row) for n, sh in enumerate(shapes, 1)]
+    if counts is None:
+        counts = [shape_count(sh) if sh else int(n in in_row) for n, sh in enumerate(shapes, 1)]
     pos = listing_positions(counts, [(i - 1, j - 1) for i, j in slots], list(range(1, len(shapes) + 1)))
     out = []
     for s in sorted(pos, key=pos.get):
         n, sh = s + 1, shapes[s]
-        written = sh if sh and DEFAULTS.get(shape_count(sh)) != sh else ""
+        written = sh if sh and DEFAULTS.get(counts[s]) != sh else ""
         if n in targets or written:
             out.append(f"{n}{written}" + (("~" + ".".join(targets[n])) if n in targets else ""))
     return "_".join(out)
@@ -871,7 +876,11 @@ def parse(text):
         shape = head[len(number) :]
         if not number or number[0] == "0" or (not sep and not shape) or (sep and not tail):
             raise ValueError(f"malformed group {group!r}")
-        if shape and not (shape.rstrip("0123456789").isalpha() and shape.rstrip("0123456789").isupper()):
+        if (
+            shape
+            and shape != "I"
+            and not (shape.rstrip("0123456789").isalpha() and shape.rstrip("0123456789").isupper())
+        ):
             raise ValueError(f"malformed shape {shape!r}")
         if int(number) in written or any(r[0] == int(number) for r in rows):
             raise ValueError(f"site {number} opens a second group")

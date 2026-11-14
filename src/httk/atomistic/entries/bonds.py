@@ -37,7 +37,7 @@ from httk.atomistic.models.structure.asu import (
 )
 from httk.atomistic.models.structure.network import BondSource
 from httk.atomistic.symmetry.affine_operation import AffineOperation
-from httk.atomistic.symmetry.shapes import _exchange_symbols, _from_exchange, _is_known, _to_exchange
+from httk.atomistic.symmetry.shapes import _check_shape, _is_known, _unknown
 
 __all__ = ["BOND_PROPERTY_KEYS", "bond_definitions", "bond_properties"]
 
@@ -123,7 +123,7 @@ def _network_payload(
     assigned = [(site, symbol) for site, symbol in enumerate(shapes or ()) if symbol is not None]
     return {
         "pairs": [[site, partner, op, *t] for site, partner, op, t in pairs],
-        "shapes": {"sites": [site for site, _ in assigned], "symbols": [_to_exchange(symbol) for _, symbol in assigned]}
+        "shapes": {"sites": [site for site, _ in assigned], "symbols": [symbol for _, symbol in assigned]}
         if assigned
         else None,
         "source": _source_payload(source),
@@ -223,11 +223,10 @@ def _check_bonds_value(
     """Check the rules of an ``_httk_bonds`` value that its JSON schema does not express.
 
     Rows have six integers, name sites in range and an operation in range (0 when none are
-    listed); the shape lists are aligned, name sites in range and known symbols (an exchange
-    symbol, ``I`` included, or ``I<n>`` with ``n >= 3``); each
-    ``pair_rows`` row names its site; a repeated site has disjoint row lists. For a unit-cell
-    span (``cell``) every row also names the identity ``x,y,z``, and each named symbol's number
-    (or ``I<n>``'s ``n``) equals the atoms its shape covers, at least 3 for ``I``: a row
+    listed); the shape lists are aligned, name sites in range and known symbols
+    (``_SHAPE_SYMBOLS``); each ``pair_rows`` row names its site; a repeated site has disjoint row
+    lists. For a unit-cell span (``cell``) every row also names the identity ``x,y,z``, and each
+    named symbol's number equals the atoms its shape covers, at least 3 for ``I``: a row
     ``(i, j, t)`` adds one atom at each end, ``(i, i, t)`` two at ``i``.
 
     :param value: The decoded value, a dictionary.
@@ -277,8 +276,8 @@ def _check_bonds_value(
     for number, (site, symbol, cover) in enumerate(zip(sites, symbols, covers, strict=True)):
         if not 0 <= site < nsites:
             raise ValueError(f"shape {number} names site {site}, outside 0..{nsites - 1}")
-        if symbol not in _exchange_symbols() and not _is_known(symbol):
-            raise ValueError(f"shape {number} has the unknown symbol {symbol!r}")
+        if not _is_known(symbol):
+            raise ValueError(f"shape {number}: {_unknown(symbol)}")
         if cover is None:
             covered = {r for r, row in enumerate(rows) if site in row[:2]}
         else:
@@ -297,7 +296,7 @@ def _check_bonds_value(
                 if j == site:
                     atoms.add((i, *(-x for x in t)))
             try:
-                _from_exchange(symbol, len(atoms))
+                _check_shape(symbol, len(atoms))
             except ValueError as error:
                 raise ValueError(
                     f"shape {number} {symbol!r} of site {site} covers {len(atoms)} bonded atoms: {error}"

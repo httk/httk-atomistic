@@ -5,10 +5,10 @@
 #                                                                            #
 #  Data names that httk (the high-throughput toolkit, httk-atomistic) reads  #
 #  and writes besides those of the CIF core dictionary: exact companions of  #
-#  cell parameters, coordinates and occupancies, and the bond network        #
-#  extras (the count of a known-empty network, the bond source, the shape of #
-#  each site and the shape source). The bonds themselves are the core        #
-#  _geom_bond_ items.                                                        #
+#  cell parameters, coordinates and occupancies, the species of each atom    #
+#  site, and the bond network extras (the count of a known-empty network,    #
+#  the bond source, the shape of each site and the shape source). The bonds  #
+#  themselves are the core _geom_bond_ items.                                #
 #                                                                            #
 #  Naming convention. The CIF1 data names httk writes start with the local   #
 #  prefix: _httk_<category>_<object>, for example                            #
@@ -35,16 +35,17 @@ data_CIF_HTTK
 
     _dictionary.title             CIF_HTTK
     _dictionary.class             Instance
-    _dictionary.version           1.0.0
+    _dictionary.version           0.1.0
     _dictionary.date              2026-11-14
     _dictionary.uri               https://schemas.httk.org/cif/cif_httk.dic
     _dictionary.ddl_conformance   4.2.0
     _dictionary.namespace         CifCore
     _description.text
 ;
-    Local data names of httk: exact companions of standard numeric items and
-    the bond network items (network count, bond source, site shapes and shape
-    source) that accompany the core _geom_bond_ loop.
+    Local data names of httk: exact companions of standard numeric items, the
+    species of each atom site, and the bond network items (network count,
+    bond source, site shapes and shape source) that accompany the core
+    _geom_bond_ loop.
 ;
 
 save_CIF_HTTK_HEAD
@@ -288,6 +289,32 @@ save_atom_site.httk_occupancy_exact
 
 save_
 
+save_atom_site.httk_species
+
+    _definition.id                '_atom_site.httk_species'
+    _alias.definition_id          '_httk_atom_site_species'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The name of the species of the atom site. Atom sites whose rows give
+    one name hold one species: their rows must agree in everything else
+    the rows state (type symbol, occupancy, attached hydrogens and
+    calculation flag), and the rows of one site with several constituents,
+    one row each, all give the species name. httk writes the item together
+    with a _geom_bond_ loop when a site label differs from its species
+    name, since bond and shape rows need a unique label per site. A reader
+    that knows this item names the species from it; any other reader names
+    them as it does without it.
+;
+    _name.category_id             atom_site
+    _name.object_id               httk_species
+    _type.purpose                 Describe
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
 save_HTTK_BONDS
 
     _definition.id                HTTK_BONDS
@@ -462,12 +489,10 @@ save_httk_shape.symbol
     The shape of the bonds around the site: an IUPAC polyhedral symbol
     without its hyphen where IUPAC defines one (OC6 for OC-6, the
     octahedron), a label of the SHAPE program otherwise, or I for an
-    irregular arrangement. The number in a named symbol is the number of
-    atoms bonded to the site, counted over the bonds of the _geom_bond_ loop
-    and their symmetry equivalents. I carries no number: its count is that
-    number of bonds of the site, which must be at least three; httk reads it
-    as I<n> with n that count, and also accepts I<n> written with the
-    matching n.
+    irregular arrangement: three or more bonds whose arrangement matches no
+    named shape. The number in a named symbol is the number of atoms bonded
+    to the site, counted over the bonds of the _geom_bond_ loop and their
+    symmetry equivalents. I carries no number.
 ;
     _name.category_id             httk_shape
     _name.object_id               symbol

@@ -20,8 +20,8 @@ from httk.atomistic.symmetry.protonet import _canonical_net, _tables
 from httk.atomistic.symmetry.shapes import _bond_counts, _site_shapes
 
 K2AGSBS4 = "A4B2CD_oP32_34_4c_abc_ab_c"
-FRAME = "8I4~1.2_9SS4~3.4_10~1.2.3.4@4"  # S A2 (the default), Ag I4 and SS4, Sb T4
-FRAME_SHAPES = ("A2",) * 4 + (None,) * 3 + ("I4", "SS4", "T4")
+FRAME = "8I~1.2_9SS4~3.4_10~1.2.3.4@4"  # S A2 (the default), Ag I and SS4, Sb T4
+FRAME_SHAPES = ("A2",) * 4 + (None,) * 3 + ("I", "SS4", "T4")
 ONE = AffineOperation.identity()
 
 
@@ -44,19 +44,21 @@ def test_parse_fills_the_defaults_and_rendering_omits_them() -> None:
 @pytest.mark.parametrize(
     ("net", "reason"),
     [
-        ("8I4~1.2_9SS4~3.4_10T4~1.2.3.4@4", "not a canonical"),  # a written default
-        ("8I4~1.2_9XX4~3.4_10~1.2.3.4@4", "unknown shape"),
-        ("8I4~1.2_9SS4~3.4_10TBPY5~1.2.3.4@4", "is for 5 bonds, but the site has 4"),
-        ("8I4~1.2_9SS4~3.4_10I2~1.2.3.4@4", "unknown shape symbol 'I2'"),
-        ("8I4~1.2_9SS4~3.4_10OC5~1.2.3.4@4", "unknown shape"),
-        ("8I4~1.2_9SS4~3.4_10~1.2.3.4@4_5A2", "site with 0 bond"),
-        ("8I4~1.2_9SS4~3.4_10~1.2.3_4L2", "site with 1 bond"),
-        ("8I4~1.2_9SS4~3.4_10~1.2.3.4@4_3", "a site number, then a shape"),
-        ("8I4~1.2_9SS4~3.4_10~1.2.3_10~4@4", "opens a second group"),
-        ("8I4~1.2_8~3.4_9SS4~3.4_10~1.2.3.4@4", "opens a second group"),
-        ("8I4~1.2_9SS4~3.4_10~", "invalid protonet destination"),
-        ("8I4~1.2_9SS4~3.4_10~1.2.3.4@4_08A2", "a site number, then a shape"),
-        ("8I4~1.2_9SS4~3.4_10~1.2.3.4@4_11A2", "outside"),
+        ("8I~1.2_9SS4~3.4_10T4~1.2.3.4@4", "not a canonical"),  # a written default
+        ("8I~1.2_9XX4~3.4_10~1.2.3.4@4", "unknown shape"),
+        ("8I~1.2_9SS4~3.4_10TBPY5~1.2.3.4@4", "is for 5 bonds, but the site has 4"),
+        ("8I~1.2_9SS4~3.4_10I2~1.2.3.4@4", "unknown shape symbol 'I2'"),
+        ("8I4~1.2_9SS4~3.4_10~1.2.3.4@4", "'I4' is no longer a shape symbol; write 'I' for an irregular"),
+        ("8I~1.2_9SS4~3.4_10~1.2.3.4@4_1I", "'I' .irregular. needs three or more bonds, but the site has 2"),
+        ("8I~1.2_9SS4~3.4_10OC5~1.2.3.4@4", "unknown shape"),
+        ("8I~1.2_9SS4~3.4_10~1.2.3.4@4_5A2", "site with 0 bond"),
+        ("8I~1.2_9SS4~3.4_10~1.2.3_4L2", "site with 1 bond"),
+        ("8I~1.2_9SS4~3.4_10~1.2.3.4@4_3", "a site number, then a shape"),
+        ("8I~1.2_9SS4~3.4_10~1.2.3_10~4@4", "opens a second group"),
+        ("8I~1.2_8~3.4_9SS4~3.4_10~1.2.3.4@4", "opens a second group"),
+        ("8I~1.2_9SS4~3.4_10~", "invalid protonet destination"),
+        ("8I~1.2_9SS4~3.4_10~1.2.3.4@4_08A2", "a site number, then a shape"),
+        ("8I~1.2_9SS4~3.4_10~1.2.3.4@4_11A2", "outside"),
         ("8i4~1.2_9SS4~3.4_10~1.2.3.4@4", "a site number, then a shape"),
     ],
 )
@@ -72,13 +74,15 @@ def _star(symbol: str | None) -> Protonettype:
 
 
 def test_a_count_without_a_default_writes_its_shape() -> None:
-    value = _star("I10")
+    value = _star("I")
     # site 1's TBPY5 is not the five-bond default (SPY5), so it opens a group of its own
-    net = "2I10~1.1@1@455.1@1@545.1@1@554.1@1@445_1TBPY5"
+    net = "2I~1.1@1@455.1@1@545.1@1@554.1@1@445_1TBPY5"
     assert str(value.label) == f"A2B_aP3_2_i_a__{net}"
     assert parse_protonettype_label(str(value.label)) == value
     with pytest.raises(ValueError, match="no default shape"):
-        parse_protonettype_label(f"A2B_aP3_2_i_a__{net.replace('I10', '')}")
+        parse_protonettype_label(f"A2B_aP3_2_i_a__{net.replace('2I~', '2~')}")
+    with pytest.raises(ValueError, match="'I10' is no longer a shape symbol"):
+        parse_protonettype_label(f"A2B_aP3_2_i_a__{net.replace('2I~', '2I10~')}")
     with pytest.raises(ValueError, match="needs a shape"):
         _star(None)
 
@@ -94,21 +98,38 @@ def test_a_supplied_shape_outside_the_table_is_written_and_parsed() -> None:
     assert supplied != Protonetstructure.from_asu(diopside)
 
 
-def _shells() -> ASUStructure:
-    """Pm-3m, one atom bonded to its lattice translates in nine shells (6, 12, 8, 6, 24, 24, 12, 24, 6): 122 bonds."""
-    shells = [(1, 0, 0), (1, 1, 0), (1, 1, 1), (2, 0, 0), (2, 1, 0), (2, 1, 1), (2, 2, 0), (2, 2, 1), (3, 0, 0)]
-    bonds = [SiteBond(0, 0, AffineOperation(ONE.matrix, t)) for t in shells]
+def _shells(limit: int) -> ASUStructure:
+    """Pm-3m, one atom bonded to every lattice translate of squared length at most ``limit`` (cell edges)."""
+    shells = {
+        (a, b, c) for a in range(5) for b in range(a + 1) for c in range(b + 1) if 0 < a * a + b * b + c * c <= limit
+    }
+    bonds = [SiteBond(0, 0, AffineOperation(ONE.matrix, t)) for t in sorted(shells)]
     return ASUStructure([[3, 0, 0], [0, 3, 0], [0, 0, 3]], 221, [WyckoffSite("a", (), "C")], [C], bonds=bonds)
 
 
-def test_a_site_with_many_bonds_is_irregular_and_its_label_round_trips() -> None:
-    value = Protonetstructure.from_asu(_shells())
-    assert _site_shapes(_shells()) == value.shapes == ("I122",)
+# nine shells (6, 12, 8, 6, 24, 24, 12, 24, 6) give 122 bonds; 21 shells give 388 (about 20 s, extended)
+SHELLS = [
+    (9, 122, "1I~1@1@455.1@1@445.1@1@444.1@1@355.1@1@345.1@1@344.1@1@335.1@1@255.1@1@334:C"),
+    pytest.param(
+        20,
+        388,
+        "1I~1@1@455.1@1@445.1@1@444.1@1@355.1@1@345.1@1@344.1@1@335.1@1@255.1@1@334.1@1@245.1@1@244.1@1@333"
+        ".1@1@235.1@1@234.1@1@155.1@1@145.1@1@233.1@1@144.1@1@225.1@1@224.1@1@135:C",
+        marks=pytest.mark.extended,
+    ),
+]
+
+
+@pytest.mark.parametrize(("limit", "count", "net"), SHELLS)
+def test_a_site_with_many_bonds_is_irregular_and_its_label_round_trips(limit: int, count: int, net: str) -> None:
+    structure = _shells(limit)
+    value = Protonetstructure.from_asu(structure)
+    assert _site_shapes(structure) == value.shapes == ("I",)
     label = str(value.label)
-    assert label.split("__")[1] == "1I122~1@1@455.1@1@445.1@1@444.1@1@355.1@1@345.1@1@344.1@1@335.1@1@255.1@1@334:C"
+    assert label.split("__")[1] == net
     assert parse_protonetstructure_label(label) == value
-    with pytest.raises(ValueError, match="protonet site 1 has 122 bonds, which have no default shape"):
-        parse_protonetstructure_label(label.replace("I122", ""))
+    with pytest.raises(ValueError, match=f"protonet site 1 has {count} bonds, which have no default shape"):
+        parse_protonetstructure_label(label.replace("1I~", "1~"))
 
 
 # ---------------------------------------------------------------------------------------------
@@ -151,11 +172,11 @@ def test_two_net_equivalent_sites_with_different_shapes_give_one_label() -> None
     # the smaller number, and A2 is the two-bond default
     occupations = [("e", "A"), ("e", "A"), ("e", "B")]
     rows = [(1, 3, 1, 0, 0, 0), (1, 3, 2, 0, 0, 0), (2, 3, 1, 0, 0, 0), (2, 3, 2, 0, 0, 0)]
-    first = Protonettype(14, occupations, rows, ("L2", "A2", "I4"))
-    second = Protonettype(14, occupations, rows, ("A2", "L2", "I4"))
-    assert first == second and first.shapes == ("A2", "L2", "I4")
-    assert str(first.label) == "A2B_mP12_14_2e_e__3I4~1.1@2.2.2@2_2L2"
-    assert first != Protonettype(14, occupations, rows, ("A2", "A2", "I4"))
+    first = Protonettype(14, occupations, rows, ("L2", "A2", "I"))
+    second = Protonettype(14, occupations, rows, ("A2", "L2", "I"))
+    assert first == second and first.shapes == ("A2", "L2", "I")
+    assert str(first.label) == "A2B_mP12_14_2e_e__3I~1.1@2.2.2@2_2L2"
+    assert first != Protonettype(14, occupations, rows, ("A2", "A2", "I"))
 
 
 # the reviewer's probes: (it, sites, rows, shapes, preserve_chirality)
@@ -164,7 +185,7 @@ TWINS: dict[str, tuple[Any, ...]] = {
         14,
         [("X", "e"), ("X", "e"), ("Y", "e")],
         [(0, 2, (0, 0, 0, 0)), (0, 2, (1, 0, 0, 0)), (1, 2, (0, 0, 0, 0)), (1, 2, (1, 0, 0, 0))],
-        ["L2", "A2", "I4"],
+        ["L2", "A2", "I"],
         True,
     ),
     "pm-counts-differ": (
@@ -179,7 +200,7 @@ TWINS: dict[str, tuple[Any, ...]] = {
             4,
             [("X", "a"), ("X", "a"), ("Y", "a")],
             [(0, 2, (0, 0, 0, 0)), (0, 2, (1, 0, 0, 0)), (1, 2, (0, 0, 0, 0)), (1, 2, (1, 0, 0, 1))],
-            ["L2", "A2", "I4"],
+            ["L2", "A2", "I"],
             keep,
         )
         for keep in (True, False)
@@ -206,7 +227,7 @@ def _assert_oracle(it: int, sites: Any, rows: Any, shapes: Any, result: Any) -> 
         list(expected["codes"]),
         list(expected["shapes"]),
     )
-    assert oracle.render(result.slots, result.codes, result.shapes) == expected["net"]
+    assert oracle.render(result.slots, result.codes, result.shapes, expected["counts"]) == expected["net"]
 
 
 COUNT_GROUPS = (2, 6, 10, 12, 14, 15, 47, 63, 123, 139, 166, 191, 194, 221, 225, 229)
@@ -314,11 +335,11 @@ B8: dict[str, tuple[str, str]] = {
     "AlCl3": ("A3B_mC16_12_ij_g__3~1.2.2@4:Cl-Al", "3~1.2.2@4"),
     "AgO": ("AB_mP8_14_ab_e__1SP4~3.3@3_3TPY3~2_2L2:Ag-O", "1SP4~3.3@3_3TPY3~2_2L2"),
     "CuCl2 2.6": ("A2B_mC6_12_i_a__2SP4~1@4:Cl-Cu", "2SP4~1@4"),
-    "CuCl2 3.1": ("A2B_mC6_12_i_a__2~1.1@4_1I3:Cl-Cu", "2~1.1@4_1I3"),
-    "K2AgSbS4": (f"{K2AGSBS4}__{FRAME}:S-K-Ag-Sb", "8I4~1.2_9SS4~3.4_10~1.2.3.4@4@554"),
+    "CuCl2 3.1": ("A2B_mC6_12_i_a__2~1.1@4_1I:Cl-Cu", "2~1.1@4_1I"),
+    "K2AgSbS4": (f"{K2AGSBS4}__{FRAME}:S-K-Ag-Sb", "8I~1.2_9SS4~3.4_10~1.2.3.4@4@554"),
     "diopside": (
-        "A6B2CD_mC40_15_3f_f_e_e__5~1.1@2.2.3_6~2.2@2@545.3@2@545_4~1.1@6.2@5.3@2_1I4_3I3:O-Si-Ca-Mg",
-        "5~1.1@2.2.3_6~2.2@2@565.3@2@565_4~1.1@6.2@5@545.3@2_1I4_3I3",
+        "A6B2CD_mC40_15_3f_f_e_e__5~1.1@2.2.3_6~2.2@2@545.3@2@545_4~1.1@6.2@5.3@2_1I_3I:O-Si-Ca-Mg",
+        "5~1.1@2.2.3_6~2.2@2@565.3@2@565_4~1.1@6.2@5@545.3@2_1I_3I",
     ),
 }
 B8_DIFFERS = {"K2AgSbS4", "diopside"}

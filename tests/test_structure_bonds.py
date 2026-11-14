@@ -608,9 +608,9 @@ def test_cod_3000362_is_labelled_in_the_symmetry_of_its_classes() -> None:
     # labelled in P2_1/c, the group of its classes: O on two 4e orbits (sites 1 and 2), V/W on one
     # (site 3). Site 3 lists the six bonds of its octahedron (OC6, the default, so unwritten): three
     # to site 1 and three to site 2, two of them to copies a cell away (@455: back along a; @544:
-    # back along b and c). Each O has three V/W neighbours: site 1 irregular (I3), site 2 trigonal
+    # back along b and c). Each O has three V/W neighbours: site 1 irregular (I), site 2 trigonal
     # planar (TP3, the default, so unwritten)
-    assert str(value.label) == "A2B_mP12_14_2e_e__3~1.1@2.1@3.2.2@2@455.2@4@544_1I3:O-V0.992W0.008"
+    assert str(value.label) == "A2B_mP12_14_2e_e__3~1.1@2.1@3.2.2@2@455.2@4@544_1I:O-V0.992W0.008"
     # a bond that only one of its symmetry copies has: not invariant under P2_1/c
     rows = [(b.site, b.partner, b.operation) for b in structure.bonds.pairs]
     broken = ASUStructure(

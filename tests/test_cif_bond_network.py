@@ -1,7 +1,7 @@
 """Bond networks, shapes and their sources written to CIF by ``save`` and read back by ``load``.
 
 ``load(save(s)) == s`` does not hold for CIF (coordinate precision, a unit cell reading back as
-a P1 ``ASUStructure``, ``Species.original_name`` from unique labels), so the round trips compare
+a P1 ``ASUStructure``, explicit vacancies of partial occupancies), so the round trips compare
 component by component.
 """
 
@@ -34,7 +34,7 @@ from httk.atomistic import (
 from httk.atomistic.cif_structures import _CIF_BOND_SOURCE
 from httk.atomistic.io.cif import CIFDataItem, CIFLoop, CIFSaveFrame, read_cif
 from httk.atomistic.symmetry.affine_operation import AffineOperation
-from httk.atomistic.symmetry.shapes import _exchange_symbols
+from httk.atomistic.symmetry.shapes import _SHAPE_SYMBOLS
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DICTIONARY = importlib.resources.files("httk.atomistic.io.cif") / "cif_httk.dic"
@@ -184,7 +184,7 @@ def test_a_count_that_disagrees_with_the_loop_warns_and_the_loop_wins(
         ("Ti TPR6", "Xx TPR6", "label 'Xx' names no atom site"),
         ("Ti TPR6", "Ti XYZ6", "unknown shape symbol 'XYZ6'"),
         ("Ti TPR6", "Ti SAPR8", "SAPR8"),
-        ("Ti TPR6", "Ti I7", "'I7' is for 7 bonds, but the site has 6"),
+        ("Ti TPR6", "Ti I6", "'I6' is no longer a shape symbol; write 'I' for an irregular"),
         ("O TPY3", "O I2", "unknown shape symbol 'I2'"),
         ("O TPY3", "Ti OC6", "names a site that already has a shape"),
     ],
@@ -222,15 +222,81 @@ def test_a_translation_a_symmetry_code_cannot_hold_raises(tmp_path: Path) -> Non
         save(structure._with_bonds(BondNetwork((far,))), tmp_path / "far.cif")
 
 
-def test_a_label_named_species_on_several_sites_is_refused(tmp_path: Path) -> None:
-    half = Species("Ox", ("O",), (F(1, 2),))
+def _disordered_rutile_cell() -> UnitcellStructure:
+    """The rutile unit cell with a mixed Ti/V species and a partially occupied O, each on several sites.
+
+    The O species is given as CIF reads it back, with its vacancy and occupancy precision explicit.
+    """
+    cell = UnitcellStructureView(_rutile()).unview()
+    assert cell.bonds is not None
+    species = [
+        Species("Ti/V", ("Ti", "V"), (F(1, 2), F(1, 2))),
+        Species("Ox", ("O", "vacancy"), (F(3, 4), F(1, 4)), concentration_precision=(F(1, 100), F(1, 100))),
+    ]
+    names = ["Ti/V" if name == "Ti" else "Ox" for name in cell.species_at_sites]
+    structure = UnitcellStructure(cell.cell, cell.sites.reduced_coords, species, names)
+    return structure._with_bonds(replace(cell.bonds, shapes=("TPR6", "OC6", "TPY3", "TP3", "I", "TP3")))
+
+
+def _bonded_rutile_cell() -> UnitcellStructure:
+    """The plain rutile unit cell, two Ti and four O sites, with its bonds and shapes."""
+    cell = UnitcellStructureView(_rutile()).unview()
+    assert cell.bonds is not None
+    return cell._with_bonds(replace(cell.bonds, shapes=("TPR6", "OC6", "TPY3", "TP3", "TP3", "TP3")))
+
+
+@pytest.mark.parametrize(
+    ("make", "row"),
+    [(_disordered_rutile_cell, "_httk_atom_site_species\nTi1 Ti "), (_bonded_rutile_cell, " O \nO2 O ")],
+)
+def test_a_species_on_several_sites_keeps_its_name_bonds_and_shapes_and_saves_again_unchanged(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, make: Any, row: str
+) -> None:
+    original = make()
+    path = _saved(original, tmp_path)
+    text = path.read_text(encoding="utf-8")
+    assert "_httk_atom_site_species" in text and row in text
+    loaded = UnitcellStructureView(_quietly_loaded(path, caplog)).unview()
+    assert tuple(loaded.species) == tuple(original.species)  # no original_name from the unique labels
+    assert loaded.species_at_sites == original.species_at_sites
+    _assert_same_network(loaded.bonds, original.bonds)
+    assert _saved(loaded, tmp_path, "again.cif").read_text(encoding="utf-8") == text
+    without_network = _saved(original._with_bonds(None), tmp_path, "plain.cif").read_text(encoding="utf-8")
+    assert "_httk_" not in without_network  # without a network no column is written
+
+
+def test_an_attached_hydrogen_species_on_two_sites_and_a_dummy_keep_their_names(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    methyl = Species("CH3", ("C",), (1,), attached=("H",), nattached=(3,))
+    dummy = Species("Xd", ("O",), (F(1, 2),))
     structure = UnitcellStructure(
-        Cell([[3, 0, 0], [0, 3, 0], [0, 0, 3]]), [[0, 0, 0], [F(1, 2), 0, 0]], [half], ["Ox", "Ox"]
+        Cell([[3, 0, 0], [0, 3, 0], [0, 0, 3]]), [[0, 0, 0], [F(1, 2), 0, 0]], [methyl, dummy], ["CH3", "CH3"]
     )
-    bonded = structure._with_bonds(BondNetwork((SiteBond(0, 1, AffineOperation.identity()),)))
-    with pytest.raises(ValueError, match="species 'Ox' is read back by its site label"):
-        save(bonded, tmp_path / "half.cif")
-    save(structure, tmp_path / "plain.cif")  # without a network the labels may repeat
+    original = structure._with_bonds(BondNetwork((SiteBond(0, 1, AffineOperation.identity()),), source=SOURCE))
+    path = _saved(original, tmp_path)
+    assert "3 d CH3 \nCH32 C " in path.read_text(encoding="utf-8")
+    loaded = _quietly_loaded(path, caplog)
+    assert [(s.name, s.attached, s.nattached) for s in loaded.species] == [("CH3", ("H",), (3,)), ("Xd", None, None)]
+    assert loaded.implicit_atoms == ("Xd",)
+    _assert_same_network(loaded.bonds, original.bonds)
+
+
+def test_a_species_column_that_names_different_species_alike_warns_and_is_ignored(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    cell = UnitcellStructureView(_rutile()).unview()
+    path = _saved(cell, tmp_path)
+    text = path.read_text(encoding="utf-8")
+    row = "O1 O 0.1952000000000000 0.8048000000000000 0.5000000000000000 O \n"
+    assert "_httk_atom_site_species" in text and row in text
+    path.write_text(text.replace(row, row.replace(" O \n", " Ti \n")), encoding="utf-8")  # an O site named Ti
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        loaded = UnitcellStructureView(load(path)).unview()
+    assert len(caplog.records) == 1
+    assert "ignored its _httk_atom_site_species column, it gives the name 'Ti' to sites with different" in caplog.text
+    assert loaded.species_at_sites == cell.species_at_sites
+    _assert_same_network(loaded.bonds, cell.bonds)
 
 
 def test_a_standard_bond_loop_keeps_the_cif_source_and_no_shapes() -> None:
@@ -244,6 +310,9 @@ def test_output_without_a_network_is_unchanged(tmp_path: Path) -> None:
     assert "_space_group_symop_id" not in text and "_httk_" not in text and "_geom_bond" not in text
     assert "loop_\n_space_group_symop_operation_xyz\n'-x+1/2,y+1/2,-z+1/2' \n" in text
     assert "Ti Ti 0.0000000000000000" in text
+    bonded = _saved(_rutile(), tmp_path, "bonded.cif").read_text(encoding="utf-8")
+    assert "_httk_atom_site_species" not in bonded  # the labels are the species names
+    assert bonded.startswith(text.split("loop_\n_space_group_symop_operation_xyz")[0])
 
 
 def _dictionary_definitions() -> dict[str, dict[str, Any]]:
@@ -262,11 +331,20 @@ def _dictionary_definitions() -> dict[str, dict[str, Any]]:
     return definitions
 
 
+def test_the_dictionary_is_at_version_0_1_0() -> None:
+    (dictionary,) = read_cif(str(DICTIONARY), lossless=True)
+    versions = [
+        item.value for item in dictionary.items if isinstance(item, CIFDataItem) and item.name == "_dictionary.version"
+    ]
+    assert versions == ["0.1.0"]
+    assert "I<n>" not in DICTIONARY.read_text(encoding="utf-8")
+
+
 def test_the_dictionary_enumerates_every_allowed_shape_symbol() -> None:
     definitions = _dictionary_definitions()
     symbol = definitions["httk_shape.symbol"]
     assert symbol["_definition.id"] == ["_httk_shape.symbol"]
-    assert tuple(symbol["_enumeration_set.state"]) == _exchange_symbols()
+    assert tuple(symbol["_enumeration_set.state"]) == _SHAPE_SYMBOLS
 
 
 def test_the_dictionary_defines_every_item_the_writer_emits(tmp_path: Path) -> None:
@@ -277,11 +355,11 @@ def test_the_dictionary_defines_every_item_the_writer_emits(tmp_path: Path) -> N
     written = {
         line.split()[0].lower() for line in path.read_text(encoding="utf-8").splitlines() if line.startswith("_")
     }
-    for structure in (_rutile(), _rutile()._with_bonds(BondNetwork((), source=SOURCE))):
+    for structure in (_rutile(), _rutile()._with_bonds(BondNetwork((), source=SOURCE)), _disordered_rutile_cell()):
         text = _saved(structure, tmp_path).read_text(encoding="utf-8")
         written |= {line.split()[0].lower() for line in text.splitlines() if line.startswith("_")}
     httk = {name for name in written if name.startswith("_httk_")}
-    assert len(httk) == 21
+    assert len(httk) == 22 and "_httk_atom_site_species" in httk
     defined = set()
     for values in _dictionary_definitions().values():
         defined |= {str(name).lower() for name in values.get("_alias.definition_id", ())}
@@ -311,15 +389,11 @@ def test_an_unknown_count_is_absent_and_a_malformed_one_warns(
     _assert_same_network(loaded.bonds, original.bonds)
 
 
-def test_an_irregular_shape_is_written_as_i_and_reads_back_with_its_count(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_an_irregular_shape_is_written_and_read_as_i(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     rutile = _rutile()
     assert rutile.bonds is not None
-    original = rutile._with_bonds(replace(rutile.bonds, shapes=("I6", "I3")))
+    original = rutile._with_bonds(replace(rutile.bonds, shapes=("I", "I")))
     path = _saved(original, tmp_path)
     text = path.read_text(encoding="utf-8")
-    assert "Ti I \nO I \n" in text and "I6" not in text and "I3" not in text
+    assert "Ti I \nO I \n" in text
     _assert_same_domain(_quietly_loaded(path, caplog), original)
-    path.write_text(text.replace("Ti I \n", "Ti I6 \n"), encoding="utf-8")  # a matching count is accepted
-    _assert_same_network(_quietly_loaded(path, caplog).bonds, original.bonds)

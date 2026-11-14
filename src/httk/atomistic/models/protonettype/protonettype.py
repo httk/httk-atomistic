@@ -189,8 +189,8 @@ class Protonettype(ProtonettypeBackend):
         written from their listing site.
     :param shapes: The bond shape symbol per site (see :mod:`httk.atomistic.symmetry.shapes`),
         ``None`` for a site with fewer than two bonds; every site with two or more bonds needs a
-        known symbol (or ``I<n>``) ending in its bond count. ``None`` for the whole argument only
-        when no site has two or more bonds.
+        known symbol: a named one ending in its bond count, or ``I`` (irregular) on three or more.
+        ``None`` for the whole argument only when no site has two or more bonds.
     :raises ValueError: If the input is malformed, a shape is missing, unknown or has the wrong
         bond count, or the canonical net needs a translation outside -5..+4, which the notation
         cannot write (D4).

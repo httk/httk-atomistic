@@ -558,6 +558,7 @@ def _neutral_cif_block(block: Mapping[str, object], *, exact_companions: bool = 
     for source, target in (
         ("attached_hydrogens", "atom_site_attached_hydrogens"),
         ("calc_flags", "atom_site_calc_flag"),
+        ("species_names", "httk_atom_site_species"),  # with a bond network, when labels are not the names
     ):
         column = block.get(source)
         if column is not None:

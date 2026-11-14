@@ -43,8 +43,8 @@ DISTANCE = BondSource(
     VERSION,
 )
 BASELINE = BondSource(
-    "Baseline bond shapes: the ideal shape whose sorted bond angles fit best (IUPAC and SHAPE symbols), I<n> "
-    "above 15 degrees RMS misfit, L2 from 165 degrees.",
+    "Baseline bond shapes: the ideal shape whose sorted bond angles fit best (IUPAC and SHAPE symbols), I "
+    "(irregular) above 15 degrees RMS misfit, L2 from 165 degrees.",
     "httk_basic",
     VERSION,
 )

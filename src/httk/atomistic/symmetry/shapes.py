@@ -8,9 +8,9 @@ to every atom it is bonded to.  The baseline detector looks at directions only, 
    difference between the sorted angles and the ideal shape's sorted angles (degrees), rounded
    to 1e-6;
 3. the shape with the smallest misfit wins (ties: table order); a misfit above
-   ``_IRREGULAR_ABOVE`` gives ``I<n>``;
+   ``_IRREGULAR_ABOVE`` gives ``I``;
 4. two bonds: ``L2`` if the angle is at least ``_LINEAR_FROM``, else ``A2``;
-5. a bond count without ideal shapes gives ``I<n>``; fewer than two bonds give no shape.
+5. a bond count without ideal shapes gives ``I``; fewer than two bonds give no shape.
 
 This is a port of the workspace reference ``docs/protonet_followup/shape_reference.py`` and must
 reproduce it exactly (floats: geometry presentation only).  Some ideal shapes lie closer to each
@@ -19,7 +19,7 @@ other than the irregular limit in this measure (``COC12``/``ACOC12`` 9.38, ``COC
 wins deterministically.
 
 Symbols are IUPAC polyhedral symbols without the hyphen where IUPAC defines one [IUPAC]_, the
-SHAPE program's labels otherwise [SHAPE]_, and ``I<n>`` (irregular, ``n`` bonds) of our own:
+SHAPE program's labels otherwise [SHAPE]_, and ``I`` (irregular) of our own:
 
 ========  ==========================================  =============================
 Symbol    Name                                        Source
@@ -49,7 +49,7 @@ COC12     cuboctahedron                               SHAPE COC-12
 ACOC12    anticuboctahedron (triangular               SHAPE ACOC-12
           orthobicupola, J27)
 IC12      icosahedron                                 SHAPE IC-12
-I<n>      irregular, n bonds                          httk
+I         irregular, three or more bonds              httk
 ========  ==========================================  =============================
 
 The shapes that predate follow-up 7 keep the reference's own geometries (for example the
@@ -73,11 +73,13 @@ than the bipyramid ``HBPY8`` and the triangular-face bicapped prism ``TPRT8``.
 
 A person or another program can tell such shapes apart, so a supplied symbol may be any of
 ``_NAMED_SYMBOLS`` (protonet follow-up 8): every IUPAC polyhedral symbol and the SHAPE labels of
-the table, or ``I<n>`` for any ``n`` of at least 3.  A symbol from the baseline (software
+the table, or ``I`` on a site with three or more bonds.  A symbol from the baseline (software
 ``httk_basic``) names a class, while a supplied symbol names the shape itself; the network's
-``source`` and ``shapes_source`` tell the two apart.  ``I2`` is never valid (two bonds are ``L2``
-or ``A2``).  The exchange formats (OPTIMADE, CIF) write irregular as the bare ``I``
-(``_exchange_symbols()``, ``_to_exchange``); a reader restores the count (``_from_exchange``).
+``source`` and ``shapes_source`` tell the two apart.  ``I`` is never valid on two bonds (they are
+``L2`` or ``A2``).  ``I`` carries no bond count, which follows from the network (protonet
+follow-up 9): ``_SHAPE_SYMBOLS`` is the one list of symbols, in the code, labels, records and the
+exchange formats (OPTIMADE, CIF) alike, and a former ``I<n>`` is refused with a message to write
+``I``.
 The defaults (``_DEFAULTS``) for five, seven and eight bonds are the most frequent shapes on an
 ICSD sample (protonet follow-up 7): ``SPY5``, ``TPRS7`` and ``DD8``.
 
@@ -96,7 +98,6 @@ ICSD sample (protonet follow-up 7): ``SPY5``, ``TPRS7`` and ``DD8``.
    https://github.com/GrupEstructuraElectronicaSimetria/cosymlib.
 """
 
-import functools
 import itertools
 import math
 import re
@@ -199,37 +200,10 @@ _NAMED_SYMBOLS = (
     *("OCF7", "TPRS7", "CU8", "SAPR8", "DD8", "HBPY8", "OCT8", "TPRT8", "TPRS8", "TPRS9", "HBPY9"),
     *("PPY6", "COC12", "ACOC12", "IC12"),
 )
+# THE list of shape symbols (code, labels, records, the OPTIMADE enum, the CIF dictionary): ``I`` is irregular
+_SHAPE_SYMBOLS = (*_NAMED_SYMBOLS, "I")
 _SYMBOL = re.compile(r"[A-Z]+([1-9][0-9]*)")
-_IRREGULAR = re.compile(r"I([1-9][0-9]*)")
-
-
-@functools.cache
-def _exchange_symbols() -> tuple[str, ...]:
-    """Return every shape symbol of the exchange formats (OPTIMADE, CIF): ``_NAMED_SYMBOLS``, then ``I``."""
-    return (*_NAMED_SYMBOLS, "I")
-
-
-def _to_exchange(symbol: str) -> str:
-    """Return a shape symbol as the exchange formats write it: ``I`` for ``I<n>``, else unchanged.
-
-    :param symbol: A valid shape symbol.
-    :return: The exchange symbol.
-    """
-    return "I" if _IRREGULAR.fullmatch(symbol) else symbol
-
-
-def _from_exchange(symbol: str, count: int) -> str:
-    """Return the shape symbol of an exchange symbol on a site with ``count`` bonded atoms covered.
-
-    :param symbol: ``I``, ``I<n>`` or a named symbol.
-    :param count: The number of bonded atoms the shape covers.
-    :return: ``I<count>`` for ``I``, else ``symbol``.
-    :raises ValueError: As ``_check_shape`` for the result (an unknown symbol, a number other
-        than ``count``, or fewer than three bonds for ``I``).
-    """
-    result = f"I{count}" if symbol == "I" else symbol
-    _check_shape(result, count)
-    return result
+_FORMER_IRREGULAR = re.compile(r"I(?:[3-9]|[1-9][0-9]+)")  # the valid I<n> of follow-ups 5 to 8 (n >= 3)
 
 
 def _sorted_angles(vectors: Sequence[Sequence[float]]) -> list[float]:
@@ -253,8 +227,8 @@ def _detect(vectors: Iterable[Iterable[SupportsFloat]]) -> tuple[str | None, flo
     :param vectors: Cartesian vectors from the atom to each atom it is bonded to, each three
         values convertible with ``float`` (bond lengths do not matter).
     :return: ``(symbol, misfit)``: ``(None, None)`` for fewer than two bonds, ``("L2" | "A2",
-        None)`` for two, ``("I<n>", None)`` for a count without ideal shapes, otherwise the
-        closest ideal symbol (``I<n>`` above the irregular limit) and its misfit in degrees RMS.
+        None)`` for two, ``("I", None)`` for a count without ideal shapes, otherwise the
+        closest ideal symbol (``I`` above the irregular limit) and its misfit in degrees RMS.
     :raises ValueError: if a vector does not have three components or has zero length.
     """
     floats = [tuple(float(x) for x in v) for v in vectors]
@@ -277,38 +251,43 @@ def _detect_angles(count: int, angles: Sequence[float]) -> tuple[str | None, flo
     if count == 2:
         return ("L2" if round(angles[0], 6) >= _LINEAR_FROM else "A2"), None
     if count not in _IDEAL_ANGLES:
-        return f"I{count}", None
+        return "I", None
     best_name, best = "", math.inf
     for name, ideal in _IDEAL_ANGLES[count].items():  # table order breaks ties
         m = _misfit(angles, ideal)
         if m < best:
             best_name, best = name, m
-    return (best_name if best <= _IRREGULAR_ABOVE else f"I{count}"), best
+    return (best_name if best <= _IRREGULAR_ABOVE else "I"), best
 
 
 def _bond_count(symbol: str) -> int:
-    """Return the bond count a shape symbol ends in.
+    """Return the bond count a named shape symbol ends in.
 
-    :param symbol: uppercase letters followed by the bond count, for example ``OC6`` or ``I10``.
+    :param symbol: uppercase letters followed by the bond count, for example ``OC6``.
     :return: the bond count.
-    :raises ValueError: if ``symbol`` is not letters then a number without leading zeros.
+    :raises ValueError: if ``symbol`` is not letters then a number without leading zeros (``I``
+        has no number: its count comes from the network).
     """
     match = _SYMBOL.fullmatch(symbol)
     if match is None:
-        raise ValueError(f"not a shape symbol: {symbol!r}")
+        raise ValueError(f"not a shape symbol with a bond count: {symbol!r}")
     return int(match.group(1))
 
 
 def _is_known(symbol: str) -> bool:
-    """Return whether ``symbol`` is one of ``_NAMED_SYMBOLS`` or ``I<n>`` with ``n >= 3``.
+    """Return whether ``symbol`` is in ``_SHAPE_SYMBOLS``.
 
     :param symbol: the shape symbol.
     :return: ``True`` for a valid symbol.
     """
-    if symbol in _NAMED_SYMBOLS:
-        return True
-    match = _IRREGULAR.fullmatch(symbol)
-    return match is not None and int(match.group(1)) >= 3
+    return symbol in _SHAPE_SYMBOLS
+
+
+def _unknown(symbol: str) -> str:
+    """Return the error message for a symbol that is not in ``_SHAPE_SYMBOLS``: a former ``I<n>`` says to write ``I``."""
+    if _FORMER_IRREGULAR.fullmatch(symbol):
+        return f"{symbol!r} is no longer a shape symbol; write 'I' for an irregular arrangement"
+    return f"unknown shape symbol {symbol!r}"
 
 
 def _written(symbol: str | None) -> str:
@@ -316,11 +295,9 @@ def _written(symbol: str | None) -> str:
 
     :param symbol: the shape symbol, or ``None`` for a site without a shape.
     :return: ``symbol``, or ``""`` where the label omits it.
-    :raises ValueError: if ``symbol`` is not a shape symbol.
     """
-    if symbol is None:
-        return ""
-    return "" if _DEFAULTS.get(_bond_count(symbol)) == symbol else symbol
+    # each default is a named symbol ending in its own count, so membership is "the default of its count"
+    return "" if symbol is None or symbol in _DEFAULTS.values() else symbol
 
 
 def _check_shape(symbol: str, count: int) -> None:
@@ -328,14 +305,18 @@ def _check_shape(symbol: str, count: int) -> None:
 
     :param symbol: The shape symbol.
     :param count: The site's bond count.
-    :raises ValueError: If ``symbol`` is unknown (see ``_is_known``), the site has fewer
-        than two bonds, or the symbol's number is not ``count``.
+    :raises ValueError: If ``symbol`` is unknown (see ``_is_known``; a former ``I<n>`` says to
+        write ``I``), the site has fewer than two bonds, ``I`` is on fewer than three, or a
+        named symbol's number is not ``count``.
     """
     if not _is_known(symbol):
-        raise ValueError(f"unknown shape symbol {symbol!r}")
+        raise ValueError(_unknown(symbol))
     if count < 2:
         raise ValueError(f"shape {symbol!r} given for a site with {count} bond(s); only two or more bonds have a shape")
-    if _bond_count(symbol) != count:
+    if symbol == "I":
+        if count < 3:
+            raise ValueError(f"shape 'I' (irregular) needs three or more bonds, but the site has {count}")
+    elif _bond_count(symbol) != count:
         raise ValueError(f"shape {symbol!r} is for {_bond_count(symbol)} bonds, but the site has {count}")
 
 

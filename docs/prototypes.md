@@ -472,7 +472,7 @@ label      = bare_label "__" net [ ":" name { "-" name } ]
 net        = group { "_" group }                  (may be empty)
 group      = site [ shape ] [ "~" target { "." target } ]   (a shape, bonds, or both)
 site       = digits                               (no leading zero)
-shape      = uppercase letters, then the bond count            e.g. OC6, TPRS9, I10
+shape      = uppercase letters, then the bond count, or I     e.g. OC6, TPRS9, I
 target     = site [ "@" op [ "@" klm ] ]
 klm        = digit digit digit                    (each digit = translation + 5)
 ```
@@ -485,9 +485,9 @@ For K₂AgSbS₄ (COD 1509425) with its Ag-S and Sb-S bonds, where no classes ti
 ```
 A4B2CD                                                                   Formulatype
 A4B2CD_oP32_34_4c_abc_ab_c                                               BarePrototype
-A4B2CD_oP32_34_4c_abc_ab_c__8I4~1.2_9SS4~3.4_10~1.2.3.4@4                Protonettype
+A4B2CD_oP32_34_4c_abc_ab_c__8I~1.2_9SS4~3.4_10~1.2.3.4@4                 Protonettype
 A4B2CD_oP32_34_4c_abc_ab_c:S-K-Ag-Sb                                     BareProtostructure
-A4B2CD_oP32_34_4c_abc_ab_c__8I4~1.2_9SS4~3.4_10~1.2.3.4@4:S-K-Ag-Sb      Protonetstructure
+A4B2CD_oP32_34_4c_abc_ab_c__8I~1.2_9SS4~3.4_10~1.2.3.4@4:S-K-Ag-Sb       Protonetstructure
 ```
 
 **What the parts are.** Everything after `__` describes which atoms are
@@ -499,7 +499,7 @@ one reference atom of that site. Groups are separated by `_`. A group starts
 with a site number, then optionally that site's *shape* (below), then `~` and the
 bonds the site lists. `~` means "is covalently bonded to" (bond order
 unspecified, dative bonds counted as covalent), and `.` separates the
-destinations. So `8I4~1.2` says that site 8 has the shape `I4` and is bonded to
+destinations. So `8I~1.2` says that site 8 has the shape `I` (irregular) and is bonded to
 site 1 and to site 2; it is a list, not a chain. A destination may carry `@n`,
 meaning the bond goes to the copy of that site's reference atom produced by
 symmetry operation number `n` of the space group, not to the reference atom
@@ -521,8 +521,8 @@ shape. So a polyhedron centre lists all its bonds, and its ligands open no
 groups of their own unless they have something left to say.
 
 **How to read it.** Each entry is one symmetry-distinct bond, and all its
-symmetry copies are implied. The example therefore reads: Ag8 (shape `I4`, an
-irregular four-bonded site) bonds to S1 and S2; Ag9 (a see-saw, `SS4`) bonds
+symmetry copies are implied. The example therefore reads: Ag8 (shape `I`, an
+irregular site, here four-bonded) bonds to S1 and S2; Ag9 (a see-saw, `SS4`) bonds
 to S3 and S4; Sb10 (a tetrahedron, the default for four bonds, so not written)
 bonds to S1, S2, S3 and the image of S4 under operation 4 (`x+1/2,-y+1/2,z+1/2`).
 Those eight entries generate all 32 Ag-S and Sb-S bonds in the unit cell. The S
@@ -543,12 +543,13 @@ nets (D7), the cell; the net depends on the coordinates only through the shapes.
 The *shape* of a site with two or more bonds is the arrangement of the bonds
 around one of its atoms: the directions to every atom it is bonded to. All atoms
 of a site have the same shape, and sites with fewer than two bonds have none. A
-shape symbol ends in the bond count. The symbols are the IUPAC polyhedral symbols
+named shape symbol ends in the bond count; the irregular symbol `I` has no count,
+which follows from the net. The symbols are the IUPAC polyhedral symbols
 without the hyphen where IUPAC defines one (N. G. Connelly et al. (eds.),
 *Nomenclature of Inorganic Chemistry: IUPAC Recommendations 2005*, section
 IR-9.3.2.1 and Table IR-9.2), the SHAPE program's labels otherwise (M. Llunell et
 al., *SHAPE 2.1 User's Manual*, Universitat de Barcelona, 2013, "List of
-reference shapes"), and `I<n>` for an irregular arrangement of `n` bonds. The
+reference shapes"), and `I` for an irregular arrangement of three or more bonds. The
 table below is what *httk₂* recommends and what its baseline detector assigns:
 
 | Symbol | Name | Source | Default for its count |
@@ -577,11 +578,12 @@ table below is what *httk₂* recommends and what its baseline detector assigns:
 | `COC12` | cuboctahedron | SHAPE COC-12 | yes |
 | `ACOC12` | anticuboctahedron | SHAPE ACOC-12 | |
 | `IC12` | icosahedron | SHAPE IC-12 | |
-| `I<n>` | irregular, `n` bonds, `n` at least 3 | *httk₂* | |
+| `I` | irregular, three or more bonds | *httk₂* | |
 
 A symbol is written only where it differs from the default of its bond count; a
 missing symbol means the default. Bond counts without a default (1 is never a
-shape; 10, 11, 13 and up) always write theirs. The defaults are one table, and a
+shape; 10, 11, 13 and up) always write theirs, so an irregular site always writes
+`I`: `8I~1.2`, or `3I` for an irregular site that lists no bonds. The defaults are one table, and a
 change to it is a change of the net version. For five, seven and eight bonds the
 default is the most frequent shape on a sample of ICSD structures. A label is
 read under the net version it was written in: a label from another net version
@@ -589,7 +591,9 @@ must not be parsed across versions, since its unwritten shapes mean other
 defaults (an unwritten eight-bonded site meant `CU8` in net version 6 and means
 `DD8` from net version 7). Net version 8 widened the supplied vocabulary (below)
 to every IUPAC polyhedral symbol and made `I2` invalid; no label written under
-version 7 changed.
+version 7 changed. Net version 9 writes irregular as `I` without its count (`I4`
+became `I`), so every label with an irregular site changed; a written `I<n>` is
+refused with a message to write `I`.
 
 The Source column names where a symbol comes from, not its geometry. The shapes
 that predate net version 7 keep geometries of their own; three of them
@@ -621,31 +625,31 @@ octahedron with two opposite faces capped):
 **Supplied shapes.** A person or another program can tell these shapes apart, so
 a supplied symbol may come from a wider vocabulary than the table: every IUPAC
 polyhedral symbol above, absent ones included, the SHAPE labels `PPY6`, `COC12`,
-`ACOC12` and `IC12`, and `I<n>` for any `n` of at least 3. `I2` is never valid,
-since two bonds are always `L2` or `A2`. A symbol the baseline assigns names a *class*: `DD8` from
+`ACOC12` and `IC12`, and `I` on any site of three or more bonds. `I` is never
+valid on two bonds, since two bonds are always `L2` or `A2`. A symbol the baseline assigns names a *class*: `DD8` from
 the detector covers every non-cubic eight-bond arrangement other than `HBPY8` and
 `TPRT8`, a square antiprism included. A supplied symbol names the shape itself:
 a supplied `SAPR8` is a square antiprism, and a label writes it as `SAPR8`. Two
 sources may therefore label one crystal differently. The network's `source` and
 `shapes_source` tell the two apart: baseline shapes carry the software
-`httk_basic`. The exchange formats, the OPTIMADE `_httk_bonds` property and CIF,
-write an irregular shape as the bare symbol `I`, without its count; a reader
-restores `I<n>` from the number of bonded atoms the shape covers, and also
-accepts `I<n>` when `n` is that number. The rule that a symbol's number equals
-the atoms covered applies to the named symbols.
+`httk_basic`. The code, labels, records and the exchange formats (the OPTIMADE
+`_httk_bonds` property and CIF) share one list of symbols, the named ones and
+`I`, and nothing is converted on writing or reading. The rule that a symbol's
+number equals the atoms covered applies to the named symbols; `I` needs three or
+more.
 
 **Where shapes come from.** A value states them:
 `Protonettype(spacegroup, occupations, net, shapes)` and its `Protonetstructure`
 counterpart take one symbol per site, `None` below two bonds, and require a
-supplied-vocabulary symbol ending in the site's bond count on every site with two
-or more bonds. Parsing a label fills in the defaults. A structure's network may
+supplied-vocabulary symbol on every site with two or more bonds: a named one
+ending in the site's bond count, or `I` on three or more. Parsing a label fills in the defaults. A structure's network may
 carry assigned shapes (the `shapes` of its {py:class}`~httk.atomistic.BondNetwork`,
 see {doc}`details/asu`), and `from_asu` with index-tuple bonds takes `shapes=`. Every other site gets the
 *baseline*: the angles between every pair of its bond directions, sorted, are
 compared with the sorted angles of each ideal shape of the same bond count by
 root mean square difference in degrees (rounded to 1e-6), and the closest shape
 wins (ties: table order); above 15 degrees, or for a count without ideal shapes,
-the site is `I<n>`. Two bonds are `L2` from 165 degrees, else `A2`. Bond lengths are not used. CIF `_geom_bond_` networks use the
+the site is `I`. Two bonds are `L2` from 165 degrees, else `A2`. Bond lengths are not used. CIF `_geom_bond_` networks use the
 baseline unless the file carries an httk `_httk_shape_` loop. Some ideal shapes lie closer together than the 15 degree limit in this
 measure, so a slightly distorted polyhedron can be named after its neighbour:
 `COC12`/`ACOC12` 9.4, `COC12`/`IC12` 11.7, `TP3`/`TPY3` 13.0 and `CU8`/`HBPY8`
@@ -766,8 +770,8 @@ bonds = [
 ]
 value = Protonetstructure.from_asu(asu, bonds)
 canonical = canonical_protonetstructure(value)
-assert canonical.label == "A4B2CD_oP32_34_4c_abc_ab_c__8I4~1.2_9SS4~3.4_10~1.2.3.4@4:S-K-Ag-Sb"
-assert value.shapes == ("A2", "A2", "A2", "A2", None, None, None, "I4", "SS4", "T4")
+assert canonical.label == "A4B2CD_oP32_34_4c_abc_ab_c__8I~1.2_9SS4~3.4_10~1.2.3.4@4:S-K-Ag-Sb"
+assert value.shapes == ("A2", "A2", "A2", "A2", None, None, None, "I", "SS4", "T4")
 ```
 
 #### A structure's own bond network
@@ -1151,7 +1155,7 @@ their content identity. There are three versions, one per family:
 
 A label-rule change therefore bumps all three, while a change to the
 representative or to the net leaves the other families' records untouched. The
-label version is 4, the refined version 9 and the net version 8, since species
+label version is 4, the refined version 9 and the net version 9, since species
 classes replaced species names in every label, the hand is kept in Sohncke
 groups at every level, labels that could not be determined within the time
 budget are stored with an `X` marker, and species-class concentrations are
@@ -1165,7 +1169,7 @@ built in the symmetric orientation that keeps its threefold axis exactly, and th
 the listing order of the net segment and, since net version 7, the present shape table (`TPRS7`, `TPRT8` and
 `HBPY9` added, `SAPR8` dropped, and `SPY5`, `TPRS7` and `DD8` the defaults for five, seven and eight bonds)
 and, since net version 8, the supplied vocabulary (every IUPAC polyhedral symbol accepted when supplied, and `I2`
-invalid).
+invalid) and, since net version 9, irregular written as `I` without its count.
 Any change that can change a shape the baseline detects (the defaults table, the
 ideal shapes or their order, the thresholds, the misfit rounding, the tie order,
 the metric averaging or the float conversion) is a change of the net rule. The

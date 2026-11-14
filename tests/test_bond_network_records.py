@@ -143,7 +143,7 @@ def test_a_unit_cell_record_with_an_invalid_stored_shape_serves_null(caplog: pyt
         "symbols": ["OC6"] * nsites,
     }
     # a symbol outside the vocabulary, or one for the wrong bond count
-    for shape, message in (("I2", "unknown shape symbol 'I2'"), ("T4", "is for 4 bonds")):
+    for shape, message in (("I6", "'I6' is no longer a shape symbol; write 'I'"), ("T4", "is for 4 bonds")):
         stale = replace(record, bonds=replace(record.bonds, shapes=(shape,) + ("OC6",) * (nsites - 1)))
         caplog.clear()
         with caplog.at_level(logging.WARNING, logger="httk.atomistic.storage.stored_properties"):
@@ -159,10 +159,13 @@ def test_a_domain_record_with_an_invalid_stored_shape_serves_null(
 
     record = replace(_domain_structure_record_from_value(_with(_domain(kind), ("OC6", "OC6"), SOURCE)), id="x")
     assert _response_value(record, "_httk_bonds", "domain")["shapes"] == {"sites": [0, 1], "symbols": ["OC6"] * 2}
-    stale = replace(record, shapes=("I2", "OC6"))
+    stale = replace(record, shapes=("I6", "OC6"))
     with caplog.at_level(logging.WARNING, logger="httk.atomistic.storage.stored_properties"):
         assert _response_value(stale, "_httk_bonds", "domain") is None
-    assert "the bond network of entry x is served as null: " in caplog.text and "'I2'" in caplog.text
+    assert (
+        "the bond network of entry x is served as null: " in caplog.text
+        and "'I6' is no longer a shape symbol" in caplog.text
+    )
 
 
 def test_shape_states_are_stored_as_in_the_domain_fields() -> None:

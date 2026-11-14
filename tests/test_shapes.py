@@ -13,19 +13,17 @@ from httk.atomistic.symmetry.shapes import (
     _IDEAL,
     _IDEAL_ANGLES,
     _NAMED_SYMBOLS,
+    _SHAPE_SYMBOLS,
     _bond_count,
     _check_shape,
     _detect,
-    _exchange_symbols,
-    _from_exchange,
     _is_known,
     _misfit,
-    _to_exchange,
     _written,
 )
 
 # --- Inline copy of the reference math (workspace docs/protonet_followup/shape_reference.py), verbatim but
-# for formatting and names.  Tests must not depend on the workspace docs, so the reference lives here. ---
+# for formatting, names and irregular written as I without its count (follow-up 9).  Tests must not depend on the workspace docs, so the reference lives here. ---
 
 
 def _ref_unit(v):
@@ -111,13 +109,13 @@ def _ref_detect(vectors):
     if n == 2:
         return ("L2" if round(angles[0], 6) >= 165.0 else "A2"), None
     if n not in _REF_IDEAL_ANGLES:
-        return f"I{n}", None
+        return "I", None
     best_name, best = None, None
     for name, ideal in _REF_IDEAL_ANGLES[n].items():
         m = _ref_misfit(angles, ideal)
         if best is None or m < best:
             best_name, best = name, m
-    return (best_name if best <= 15.0 else f"I{n}"), best
+    return (best_name if best <= 15.0 else "I"), best
 
 
 # --- Reference self-check, ported. ---
@@ -163,7 +161,7 @@ def test_irregular_boundary_is_inclusive() -> None:
     inside, outside = _detect(_bend_t4(lo)), _detect(_bend_t4(hi))
     assert inside[1] is not None and outside[1] is not None
     assert inside[1] <= 15.0 < outside[1]
-    assert inside[0] != "I4" and outside[0] == "I4"
+    assert inside[0] != "I" and outside[0] == "I"  # a distorted tetrahedron is irregular
     # exactly 15.0 after rounding still names a shape
     angles = list(_IDEAL_ANGLES[3]["TP3"])
     shift = 15.0 * math.sqrt(3)  # one of three angles off by 15*sqrt(3) gives RMS 15
@@ -176,8 +174,8 @@ def test_counts_without_ideal_shapes_and_too_few_bonds() -> None:
     rng = random.Random(1)
     for n in (10, 11, 13, 14):
         vectors = [(rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1)) for _ in range(n)]
-        assert _detect(vectors) == (f"I{n}", None)
-    assert _detect([(1, 0, 0)] * 10)[0] == "I10"
+        assert _detect(vectors) == ("I", None)
+    assert _detect([(1, 0, 0)] * 10)[0] == "I"  # ten bonds: no ideal shapes
 
 
 def test_invalid_vectors_raise() -> None:
@@ -215,39 +213,61 @@ def test_defaults_table() -> None:
 def test_written() -> None:
     assert _written(None) == ""
     assert _written("A2") == "" and _written("L2") == "L2"
-    assert _written("T4") == "" and _written("SP4") == "SP4" and _written("I4") == "I4"
-    assert _written("COC12") == "" and _written("IC12") == "IC12" and _written("I10") == "I10"
+    assert _written("T4") == "" and _written("SP4") == "SP4" and _written("I") == "I"
+    assert _written("COC12") == "" and _written("IC12") == "IC12"
     assert _written("SPY5") == "" and _written("TBPY5") == "TBPY5"
     assert _written("TPRS7") == "" and _written("PBPY7") == "PBPY7"
     assert _written("DD8") == "" and _written("CU8") == "CU8" and _written("TPRT8") == "TPRT8"
 
 
 def test_bond_count_and_known() -> None:
-    assert _bond_count("TPRS9") == 9 and _bond_count("I10") == 10 and _bond_count("ACOC12") == 12
-    for bad in ("", "T", "4", "t4", "T04", "T4X", "T-4", "T0"):
+    assert _bond_count("TPRS9") == 9 and _bond_count("ACOC12") == 12
+    for bad in ("", "I", "T", "4", "t4", "T04", "T4X", "T-4", "T0"):
         with pytest.raises(ValueError, match="not a shape symbol"):
             _bond_count(bad)
-    known = ("L2", "A2", "TS3", "SS4", "SPY5", "PPY6", "TPRS7", "HBPY8", "TPRT8", "HBPY9", "ACOC12", "I3", "I7", "I13")
-    for symbol in (*known, "SAPR8", "SPY4", "I121", "I2000"):
+    known = ("L2", "A2", "TS3", "SS4", "SPY5", "PPY6", "TPRS7", "HBPY8", "TPRT8", "HBPY9", "ACOC12", "I")
+    for symbol in (*known, "SAPR8", "SPY4"):
         assert _is_known(symbol)
-    for symbol in ("I0", "I1", "I2", "I02", "I03", "I", "T5", "XX4", "L-2", "l2", "sapr8", ""):
+    for symbol in ("I0", "I1", "I2", "I3", "I10", "I02", "I03", "T5", "XX4", "L-2", "l2", "sapr8", ""):
         assert not _is_known(symbol)
 
 
-# --- Follow-up 8: the supplied vocabulary and the exchange symbols. ---
+# --- Follow-up 8: the supplied vocabulary; follow-up 9: irregular is the single symbol I. ---
 
 
 def test_supplied_symbols() -> None:
     assert len(_NAMED_SYMBOLS) == len(set(_NAMED_SYMBOLS)) == 29
+    assert _SHAPE_SYMBOLS == (*_NAMED_SYMBOLS, "I")  # THE list: the OPTIMADE enum and the CIF dictionary use it
     assert shapes._KNOWN <= set(_NAMED_SYMBOLS)  # the detector's table is part of the vocabulary
-    for symbol in (*_NAMED_SYMBOLS, "I3", "I13", "I121", "I2000"):
+    for symbol in _NAMED_SYMBOLS:
         count = _bond_count(symbol)
         _check_shape(symbol, count)
         for wrong in (count - 1, count + 1):
             with pytest.raises(ValueError, match="bond"):
                 _check_shape(symbol, wrong)
-    for bad, count in (("I2", 2), ("I03", 3), ("X5", 5), ("sapr8", 8)):
-        with pytest.raises(ValueError, match="unknown shape symbol"):
+    for count in (3, 4, 10, 122, 1522):
+        _check_shape("I", count)
+    for count, message in ((2, "needs three or more bonds, but the site has 2"), (1, "only two or more")):
+        with pytest.raises(ValueError, match=message):
+            _check_shape("I", count)
+    # the former valid I<n> (n >= 3) say to write I; I0, I1, I2 and leading zeros never were symbols
+    for bad, count in (("I3", 3), ("I4", 4), ("I9", 9), ("I10", 10), ("I122", 122)):
+        with pytest.raises(
+            ValueError, match=f"^'{bad}' is no longer a shape symbol; write 'I' for an irregular arrangement$"
+        ):
+            _check_shape(bad, count)
+    for bad, count in (
+        ("I0", 3),
+        ("I1", 3),
+        ("I2", 2),
+        ("I02", 3),
+        ("I03", 3),
+        ("X5", 5),
+        ("sapr8", 8),
+        ("I-4", 4),
+        ("i", 4),
+    ):
+        with pytest.raises(ValueError, match=f"^unknown shape symbol '{bad}'$"):
             _check_shape(bad, count)
 
 
@@ -258,32 +278,9 @@ def test_the_detector_returns_only_its_table_or_irregular() -> None:
     rng = random.Random(8)
     for n in (13, 40, 122):
         assert _detect([(rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1)) for _ in range(n)]) == (
-            f"I{n}",
+            "I",
             None,
         )
-
-
-def test_exchange_symbols() -> None:
-    assert _exchange_symbols() == (*_NAMED_SYMBOLS, "I")
-    assert _to_exchange("I3") == _to_exchange("I122") == "I"
-    assert _to_exchange("SAPR8") == "SAPR8" and _to_exchange("IC12") == "IC12"
-    assert _from_exchange("I", 3) == "I3" and _from_exchange("I", 122) == "I122"
-    assert (
-        _from_exchange("I6", 6) == "I6"
-        and _from_exchange("SAPR8", 8) == "SAPR8"
-        and _from_exchange("IC12", 12) == "IC12"
-    )
-    for symbol in (*_NAMED_SYMBOLS, "I5", "I13"):
-        assert _from_exchange(_to_exchange(symbol), _bond_count(symbol)) == symbol
-    for symbol, count, message in (
-        ("I5", 6, "is for 5 bonds, but the site has 6"),
-        ("I", 2, "unknown shape symbol 'I2'"),
-        ("I", 1, "unknown shape symbol 'I1'"),
-        ("SAPR8", 6, "is for 8 bonds"),
-        ("X5", 5, "unknown shape symbol"),
-    ):
-        with pytest.raises(ValueError, match=message):
-            _from_exchange(symbol, count)
 
 
 # --- Pinned near pairs (degrees RMS between ideal shapes of one count). ---
@@ -378,6 +375,7 @@ def test_matches_reference_on_perturbed_ideals() -> None:
     starts += [[tuple(float(x) for x in v) for v in vs] for table in _REF_IDEAL.values() for vs in table.values()]
     starts += [[(1.0, 0.0, 0.0)] * n for n in (10, 11)]
     seen: set[str | None] = set()
+    irregular: set[int] = set()
     for i in range(2000):
         base = starts[i % len(starts)]
         scale = rng.choice((0.02, 0.1, 0.3, 0.6))
@@ -388,5 +386,8 @@ def test_matches_reference_on_perturbed_ideals() -> None:
         expected = _ref_detect(vectors)
         assert _detect(vectors) == expected, vectors
         seen.add(expected[0])
+        if expected[0] == "I":
+            irregular.add(len(vectors))
     # the sample reaches every symbol, both two-bond outcomes and irregular results
-    assert seen >= {"L2", "A2", "I3", "I4", "I6", "I8", "I10", "I11", "I12"} | set(shapes._KNOWN) - {"I2"}
+    assert seen >= {"L2", "A2", "I"} | set(shapes._KNOWN)
+    assert irregular >= {3, 4, 6, 8, 10, 11, 12}

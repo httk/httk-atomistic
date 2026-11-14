@@ -145,7 +145,7 @@ FORM_VERSIONS = {"label": _LABEL_FORM_VERSION, "refined": _REFINED_FORM_VERSION,
 def test_records_carry_their_family_canonical_form_version(build, from_record, family) -> None:
     version = FORM_VERSIONS[family]
     record = build()
-    assert record.canonical_form == version == {"label": 4, "refined": 9, "net": 8}[family]
+    assert record.canonical_form == version == {"label": 4, "refined": 9, "net": 9}[family]
     assert type(record).__httk_project__(from_record(record))["canonical_form"] == version
     type(record).__httk_validate__(record)
     with pytest.raises(TypeError, match="canonical_form must be an integer"):
@@ -192,19 +192,21 @@ def test_record_fields_are_checked() -> None:
         dataclasses.replace(record, shapes=("A2",))
 
 
-SHAPED = ("A2",) * 4 + (None,) * 3 + ("I4", "SS4", "T4")  # the B8 shapes of K2AgSbS4
+SHAPED = ("A2",) * 4 + (None,) * 3 + ("I", "SS4", "T4")  # the B8 shapes of K2AgSbS4
 
 
 def test_records_store_every_shape_and_validate_them() -> None:
     value = _anon(shapes=SHAPED)
     record = _protonettype_record_from_value(value)
-    assert record.shapes == ("A2",) * 4 + ("",) * 3 + ("I4", "SS4", "T4")  # defaults included
+    assert record.shapes == ("A2",) * 4 + ("",) * 3 + ("I", "SS4", "T4")  # defaults included
     assert _protonettype_from_record(record) == value and record.label == str(value.label)
-    assert record.label.endswith("__8I4~1.2_9SS4~3.4_10~1.2.3.4@4")
+    assert record.label.endswith("__8I~1.2_9SS4~3.4_10~1.2.3.4@4")
     ProtonettypeRecord.__httk_validate__(record)
     assert content_id(record) != content_id(_protonettype_record_from_value(_anon()))  # T4 on both Ag sites
     with pytest.raises(ValueError, match="site 8"):
-        _protonettype_from_record(dataclasses.replace(record, shapes=("A2",) * 4 + ("",) * 3 + ("I5", "SS4", "T4")))
+        _protonettype_from_record(dataclasses.replace(record, shapes=("A2",) * 4 + ("",) * 3 + ("TBPY5", "SS4", "T4")))
+    with pytest.raises(ValueError, match="site 8: 'I4' is no longer a shape symbol; write 'I'"):
+        _protonettype_from_record(dataclasses.replace(record, shapes=("A2",) * 4 + ("",) * 3 + ("I4", "SS4", "T4")))
     with pytest.raises(ValueError, match="shapes are missing"):
         _protonettype_from_record(dataclasses.replace(record, shapes=()))
     undetermined = _protonettype_record_from_value(Protonettype.undetermined("A4B2CD_oP32_34_X__X"))

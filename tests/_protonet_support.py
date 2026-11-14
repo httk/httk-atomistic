@@ -169,12 +169,12 @@ def scramble_shaped(
 
 
 def random_shapes(tables: Any, sites: Sequence[Site], rows: Sequence[Row], rng: random.Random) -> list[str | None]:
-    """A random valid shape per site of a 0-based net: any table symbol with its bond count, or ``I<n>`` for ``n > 2``."""
+    """A random valid shape per site of a 0-based net: any table symbol with its bond count, or ``I`` for ``n > 2``."""
     from httk.atomistic.symmetry.shapes import _KNOWN, _bond_count, _bond_counts
 
     counts = _bond_counts(tables, [letter_field(tables, letter, "H") for _, letter in sites], rows)
     return [
-        None if n < 2 else rng.choice([s for s in sorted(_KNOWN) if _bond_count(s) == n] + [f"I{n}"] * (n > 2))
+        None if n < 2 else rng.choice([s for s in sorted(_KNOWN) if _bond_count(s) == n] + ["I"] * (n > 2))
         for n in counts
     ]
 
@@ -333,9 +333,9 @@ def generic_cutoffs(
 
 
 def default_shapes(it_number: int, letters: Sequence[str], rows: Sequence[Sequence[int]]) -> list[str | None]:
-    """The default shape of every site of a 1-based net (``I<n>`` where its bond count has none)."""
+    """The default shape of every site of a 1-based net (``I`` where its bond count has none)."""
     from httk.atomistic.models.protonettype.protonettype import _net_counts
     from httk.atomistic.symmetry.shapes import _DEFAULTS
 
     counts = _net_counts(Spacegroup.standard(it_number), letters, rows, "default_shapes")
-    return [None if count < 2 else _DEFAULTS.get(count, f"I{count}") for count in counts]
+    return [None if count < 2 else _DEFAULTS.get(count, "I") for count in counts]

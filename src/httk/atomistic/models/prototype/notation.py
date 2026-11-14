@@ -98,7 +98,8 @@ _PEARSON = re.compile(r"[a-z][A-Z]([1-9][0-9]*)")
 # lattice points of the conventional cell per centring type; R is tabulated on hexagonal axes
 _LATTICE_POINTS = {"P": 1, "A": 2, "B": 2, "C": 2, "S": 2, "I": 2, "F": 4, "R": 3}
 _NET_TARGET = re.compile(r"([0-9]+)(?:@([0-9]+)(?:@([0-9]{3}))?)?")
-_NET_HEAD = re.compile(r"([1-9][0-9]*)([A-Z]+[1-9][0-9]*)?")  # site number, then an optional shape
+# site number, then an optional shape: letters and the bond count, or I (irregular); I4 is captured to be refused
+_NET_HEAD = re.compile(r"([1-9][0-9]*)([A-Z]+[1-9][0-9]*|I)?")
 _NET_RESERVED = frozenset("-=#$:/\\")
 
 
@@ -481,19 +482,14 @@ def _render_target(row: Sequence[int]) -> str:
     return f"{j}@{k}" if k != 1 else str(j)
 
 
-def _render_net(net: Sequence[Sequence[int]], shapes: Sequence[str | None]) -> str:
-    """Render the net part of a protonet label from its rows and its sites' shapes.
+def _render_net(net: Sequence[Sequence[int]], shapes: Sequence[str | None], counts: Sequence[int]) -> str:
+    """Render the net part of a protonet label from its rows, its sites' shapes and bond counts.
 
-    The listing order comes from the label alone: a site's bond count is its shape's number, else
-    1 if it is in a row, else 0. A site gets a group if it lists a row or its shape differs from
-    the default of its bond count.
+    The listing order follows the bond counts (``_net_counts``; ``I`` carries no count). A site
+    gets a group if it lists a row or its shape differs from the default of its bond count.
     """
-    from httk.atomistic.symmetry.shapes import _bond_count, _written
+    from httk.atomistic.symmetry.shapes import _written
 
-    in_row = {site for row in net for site in row[:2]}
-    counts = [
-        _bond_count(symbol) if symbol is not None else int(site in in_row) for site, symbol in enumerate(shapes, 1)
-    ]
     targets: dict[int, list[str]] = {}
     for row in _label_rows(net, counts):
         targets.setdefault(row[0], []).append(_render_target(row))
@@ -532,13 +528,16 @@ def render_protonet(
     :raises ValueError: If a letter is absent from the setting or a translation cannot be
         written.
     """
+    from httk.atomistic.models.protonettype.protonettype import _net_counts
+
     try:
         multiplicities = [
             sum(spacegroup.wyckoff_position(letter).multiplicity for letter in letters) for letters in class_letters
         ]
     except KeyError as exc:
         raise ValueError(str(exc)) from exc
-    text = _assemble(spacegroup, class_letters, multiplicities) + "__" + _render_net(net, shapes)
+    counts = _net_counts(spacegroup, [letter for letters in class_letters for letter in letters], net, "protonet label")
+    text = _assemble(spacegroup, class_letters, multiplicities) + "__" + _render_net(net, shapes, counts)
     return text if names is None else text + ":" + "-".join(names)
 
 

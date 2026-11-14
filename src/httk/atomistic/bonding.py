@@ -29,7 +29,10 @@ may then find not invariant and drop, while the asymmetric-unit route
 
 This is a heuristic, not a chemical model: it ignores metal-metal bonds in compounds (Re-Re in
 Re2Cl8(2-) salts, Hg2(2+)), judges anion-anion contacts by distance alone, and the radii fit
-covalent bonds better than ionic ones.
+covalent bonds better than ionic ones.  It takes no account of occupancy, so on a disordered
+structure the partially occupied atoms that overlap or sit a few tenths of an angstrom apart are
+all bonded: per-site bond counts above about 60 come from disorder, not coordination (the
+largest measured were 1522 on ICSD, a mixed O/Ti site of ICSD 162568, and 203 on carbon-free COD).
 
 .. [Cordero2008] B. Cordero, V. Gómez, A. E. Platero-Prats, M. Revés, J. Echeverría,
    E. Cremades, F. Barragán, S. Alvarez, "Covalent radii revisited", *Dalton Trans.* 2008,
@@ -118,7 +121,7 @@ _NON_METALS = frozenset(
 
 _BASELINE_DESCRIPTION = (
     "Baseline bond shapes: the ideal shape whose sorted bond angles fit best (IUPAC and SHAPE symbols), "
-    "I<n> above 15 degrees RMS misfit, L2 from 165 degrees."
+    "I (irregular) above 15 degrees RMS misfit, L2 from 165 degrees."
 )
 
 
@@ -434,7 +437,7 @@ def assign_baseline_shapes(structure: StructureLike) -> FundamentalDomainStructu
     The structure is taken as :func:`distance_bonds` takes it (a fundamental domain stays one,
     anything else is presented as a unit cell, and symmetry is never recognised by the function itself). Every site of two or more
     bonds gets the shape whose ideal sorted bond angles fit its own best (IUPAC and SHAPE
-    symbols, ``I<n>`` above 15 degrees RMS misfit, ``L2`` from 165 degrees; see
+    symbols, ``I`` (irregular) above 15 degrees RMS misfit, ``L2`` from 165 degrees; see
     :mod:`httk.atomistic.symmetry.shapes`), and ``shapes_source`` names the baseline (software
     ``httk_basic``, the installed *httk-atomistic* version); the pairs and ``source`` are kept.
     When no site gets a shape (no site has two bonds) the structure is returned with its network

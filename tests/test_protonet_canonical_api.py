@@ -45,10 +45,10 @@ type Bond = tuple[int, int, int, int, int, int]
 K2AGSBS4 = str(Path(__file__).parent / "fixtures" / "cod" / "1509425.cif")
 FRAME = {frozenset(("Sb", "S")): 3.0, frozenset(("Ag", "S")): 3.0}
 FULL_NET = (
-    "5~1.2.3.4_7~1.1@3.2.2@4@554.3@3.4.4@3@554_6I6~1@3.2.3@2_1TPR6~8.10_2TPR6~8@1@556.10@1@556"
-    "_3~9@2.10@3@545_4I5~9@4.10@3@545_8I4_9SS4"
+    "5~1.2.3.4_7~1.1@3.2.2@4@554.3@3.4.4@3@554_6I~1@3.2.3@2_1TPR6~8.10_2TPR6~8@1@556.10@1@556"
+    "_3~9@2.10@3@545_4I~9@4.10@3@545_8I_9SS4"
 )
-FRAME_NET = "8I4~1.2_9SS4~3.4_10~1.2.3.4@4"  # the B8 net of follow-up 5
+FRAME_NET = "8I~1.2_9SS4~3.4_10~1.2.3.4@4"  # the B8 net of follow-up 5
 CUBIC = (5.64, 5.64, 5.64, 90, 90, 90)
 NACL = {frozenset(("Na", "Cl")): 3.0}
 ELEMENT = {"A": "C", "B": "N"}  # the made-up P2_1 classes A and B; the label suffix names their classes C, N
@@ -91,7 +91,7 @@ LABELS = {
     "diamond": "A_cF8_227_a__1~1@14@654:C",
     "wurtzite": "AB_hP4_186_b_b__1~2.2@2:S-Zn",
     "pdse2": "A2B_oP12_61_c_a__2SP4~1.1@3_1TPY3~1@2@545:Se-Pd",
-    "p21-chain": "A2B_mP6_4_2a_a__1I5~1@2.2.2@2.3_2I3~3:N-C",  # renamed: species B and A are classes N and C
+    "p21-chain": "A2B_mP6_4_2a_a__1I~1@2.2.2@2.3_2I~3:N-C",  # renamed: species B and A are classes N and C
 }
 
 
@@ -517,11 +517,11 @@ def test_from_asu_re_describes_a_left_handed_cell_in_a_sohncke_group() -> None:
     asu = ASUStructure(
         Cell([6, 6, 6, 90, 90, 90]), 208, [WyckoffSite("i", (F(1, 7),), "H"), WyckoffSite("b", (), "P")], species
     )
-    assert str(Protonetstructure.from_asu(asu, [(1, 2, 1, 0, 0, 0)]).label) == "A3B_cP16_208_i_b__2I6~1:H-P"
+    assert str(Protonetstructure.from_asu(asu, [(1, 2, 1, 0, 0, 0)]).label) == "A3B_cP16_208_i_b__2I~1:H-P"
     improper = next(action for action in _actions(asu.spacegroup) if action.determinant() < 0)
     left = _apply_action(asu, improper)
     assert left.cell.basis.det().sign() < 0
-    assert str(Protonetstructure.from_asu(left, [(1, 2, 1, 0, 0, 0)]).label) == "A3B_cP16_208_i_b__2I6~1:H-P"
+    assert str(Protonetstructure.from_asu(left, [(1, 2, 1, 0, 0, 0)]).label) == "A3B_cP16_208_i_b__2I~1:H-P"
     # outside the Sohncke groups a left-handed cell is accepted: an improper operation keeps the crystal
     rocksalt = ASUStructure(
         Cell(((-5, 0, 0), (0, 5, 0), (0, 0, 5))),
