@@ -640,22 +640,44 @@ setting that in that case has no name.
 ### Serving bond networks
 
 The bond network is served as `_httk_bonds`
-(`https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds`): a dictionary of `pairs`,
-`shapes`, `source` and `shapes_source`, or `null` without a network. It is large, so it is not
-a default response field: ask for it with `response_fields`. Each pair names two served sites
-and an `operation_xyz` that, applied to the served position of `partner`, gives the atom
-bonded to the served position of `site`, without reduction modulo the lattice. A unit cell
-serves its stored coordinates, so the operation is the bond's lattice translation (`x,y+1,z`).
-A fundamental domain serves representative positions in its own setting, which can differ
-from the stored reference atoms by a lattice translation, another orbit member, the setting
-transform or, for a position stated to limited precision, up to three times that precision;
-each bond's operation is corrected for its two sites, so a client rebuilds every bond from the
-served positions, `space_group_symmetry_operations_xyz` and the lattice alone. The operation
-grammar is that of {py:meth}`~httk.atomistic.AffineOperation.to_xyz`: any rational
-translation and coefficient, a superset of the OPTIMADE symmetry-operation grammar and not
-compatible with it. A network that cannot be served is served as `null` with a warning;
-numeric structures and CIF records serve `null`. `OptimadeStructure` reads `_httk_bonds` back
-for `unit_cell` and `molecular_unit_cell` spans; for the other spans it gives `None`.
+(`https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds`, version 0.2.0): a
+dictionary of `pairs`, `shapes`, `source` and `shapes_source`, or `null` without a network. It
+is large, so it is not a default response field: ask for it with `response_fields`, together
+with `space_group_symmetry_operations_xyz`, which it indexes.
+
+Each bond is a row of six integers `[site, partner, op, t1, t2, t3]`: the atom at the served
+position of `site` is bonded to the served position of `partner` moved by
+`space_group_symmetry_operations_xyz[op]` and then by the lattice translation `(t1, t2, t3)`,
+without reduction modulo the lattice. When no operations are served, `op` is 0 and means the
+identity. A unit cell serves its stored coordinates, so `op` names the identity (0, or the
+index of `x,y,z` in a stated list) and the translation is the bond's own. A fundamental
+domain serves representative positions in its own setting, which can differ from the stored
+reference atoms by a lattice translation, another orbit member, the setting transform or, for
+a position stated to limited precision, up to three times that precision; each bond's
+operation is corrected for its two sites and then looked up, exactly and modulo the lattice,
+in the served list, which holds every operation of the group for the served cell. A client
+therefore rebuilds every bond from the served positions, `space_group_symmetry_operations_xyz`
+and the lattice alone. A row stands for its bond orbit on a fundamental domain and for its
+lattice translates on a unit cell.
+
+`shapes` is sparse: `{"sites": [...], "symbols": [...]}` lists only the sites with an
+assigned shape, or is `null` when none is assigned. An irregular shape `I<n>` is served as the
+single symbol `I`, without its count: the count is the number of bonded atoms the shape covers,
+and reading `I` back gives `I<n>` with that number (a matching `I<n>` is accepted too). The
+rule that a symbol's number equals the atoms covered applies to the named symbols. The definition also allows an optional
+third list, `pair_rows`, for a shape over only some rows of `pairs` (and then for several
+shapes on one site); httk never serves it, because a network holds one shape per site over all
+of its bonds.
+
+A network that cannot be served is served as `null` with a warning, as is a stored record
+whose shapes are no longer valid; numeric structures and CIF records serve `null`.
+`OptimadeStructure` reads `_httk_bonds` back for `unit_cell` and `molecular_unit_cell` spans,
+checking the rules the definition states in prose (rows of six, sites and operations in range,
+an identity operation, aligned shape lists, rows that touch their site, a named symbol's
+number equal to the atoms its shape covers, and at least three for `I`); a violation is an
+`IncompleteOptimadeResourceError`. Shapes it cannot represent, `pair_rows` over only some of a
+site's rows or several shapes on one site, are dropped with a warning and the bonds are kept.
+For the other spans it gives `None`.
 
 ## The symmetry tables
 

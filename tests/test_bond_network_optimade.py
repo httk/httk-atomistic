@@ -1,7 +1,7 @@
 """Serving bond networks as ``_httk_bonds`` and reading them back.
 
 A client must be able to rebuild every bond of a crystal from the served floats alone: the served
-positions, lattice and symmetry operations, and the per-site corrected bond operations.
+positions, lattice and symmetry operations, and the bond rows that index those operations.
 """
 
 import copy
@@ -9,8 +9,6 @@ import importlib.resources
 import json
 import logging
 import math
-import random
-import re
 from fractions import Fraction as F
 from functools import cache
 from pathlib import Path
@@ -44,11 +42,18 @@ from httk.atomistic import (
     distance_bonds,
 )
 from httk.atomistic.entries import bonds as bonds_module
-from httk.atomistic.entries.bonds import BOND_PROPERTY_KEYS, bond_definitions, bond_properties
+from httk.atomistic.entries.bonds import (
+    BOND_PROPERTY_KEYS,
+    _bond_codes,
+    _check_bonds_value,
+    bond_definitions,
+    bond_properties,
+)
 from httk.atomistic.entries.structures import StructureEntry
 from httk.atomistic.models.structure.asu import _affine, _inv, _mul, _op
 from httk.atomistic.models.structure.network import SiteBond
 from httk.atomistic.models.structure.record import RecordStructure
+from httk.atomistic.models.structure.semantics import StructureSymmetry
 from httk.atomistic.storage.records import (
     ASUStructureRecord,
     FundamentalDomainStructureRecord,
@@ -58,6 +63,7 @@ from httk.atomistic.storage.records import (
     _unitcell_record_from_structure,
 )
 from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.shapes import _exchange_symbols
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BONDS_ID = "https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds"
@@ -70,17 +76,28 @@ def _schema() -> dict[str, Any]:
     return json.loads(text)
 
 
-def _pattern() -> re.Pattern[str]:
-    operation = _schema()["properties"]["pairs"]["items"]["properties"]["operation_xyz"]
-    return re.compile(operation["x-undef-pattern"])
-
-
 def _validate(value: Any) -> None:
-    """Validate a served value against ``bonds.json``, its operation pattern included."""
+    """Validate a served value against ``bonds.json``; httk serves rows of six and never ``pair_rows``."""
     jsonschema = pytest.importorskip("jsonschema")
     jsonschema.Draft202012Validator(_schema()).validate(value)
     if value is not None:
-        assert all(_pattern().fullmatch(pair["operation_xyz"]) for pair in value["pairs"])
+        assert all(len(row) == 6 for row in value["pairs"])
+        assert value["shapes"] is None or set(value["shapes"]) == {"sites", "symbols"}
+
+
+def _operations(row: dict[str, Any]) -> list[AffineOperation] | None:
+    served = row["space_group_symmetry_operations_xyz"]
+    return None if served is None else [AffineOperation(xyz) for xyz in served]
+
+
+def _is_cell(row: dict[str, Any]) -> bool:
+    return row["site_coordinate_span"] in ("unit_cell", "molecular_unit_cell")
+
+
+def _row_operation(row: dict[str, Any], pair: list[int]) -> AffineOperation:
+    """The operation of one served row: ``listed[op]`` followed by the translation ``t``."""
+    g = AffineOperation((row["space_group_symmetry_operations_xyz"] or ["x,y,z"])[pair[2]])
+    return AffineOperation(g.matrix, g.vector + FracVector(pair[3:6]))
 
 
 def _load(name: str) -> Any:
@@ -201,6 +218,7 @@ def test_the_served_value_validates_through_the_provider_and_the_store(name: str
     row = _row(structure)
     value = row["_httk_bonds"]
     _validate(value)
+    _check_bonds_value(value, row["nsites"], _operations(row), cell=_is_cell(row))
     assert value == bond_properties(structure)["_httk_bonds"]
     assert value["source"] == bond_properties(structure)["_httk_bonds"]["source"]
     stored = _stored(_record(structure))
@@ -237,33 +255,116 @@ def test_the_unit_cell_fast_path_equals_the_structure_path() -> None:
     assert served["shapes_source"] == {"description": None, "software": "shapes", "version": None, "uri": None}
 
 
-def test_the_pattern_accepts_sheared_operations() -> None:
-    structure = _sheared_monoclinic()
-    assert structure.setting() is None
-    value = bond_properties(structure)["_httk_bonds"]
-    composed = [
-        (AffineOperation(g) * AffineOperation(pair["operation_xyz"])).to_xyz()
-        for g in structure.space_group_symmetry_operations_xyz
-        for pair in value["pairs"]
+def test_the_definition_lays_out_rows_and_sparse_shapes() -> None:
+    definition = _schema()
+    assert set(definition["properties"]) == {"pairs", "shapes", "source", "shapes_source"}
+    assert definition["x-optimade-definition"]["version"] == "0.2.0"
+    assert "operation_xyz" not in json.dumps(definition["properties"])
+    assert definition["properties"]["pairs"]["items"]["x-optimade-dimensions"]["sizes"] == [6]
+    shapes = definition["properties"]["shapes"]
+    assert shapes["required"] == ["sites", "symbols"] and set(shapes["properties"]) == {"sites", "symbols", "pair_rows"}
+    assert shapes["properties"]["symbols"]["items"]["enum"] == list(_exchange_symbols())
+    assert all(term in definition["title"] + definition["description"] for term in ("coordination polyhedra", "cages"))
+
+
+ILLUSTRATION = {
+    "pairs": [[1, 2, 0, 0, 0, 0], [1, 1, 0, 1, 0, 0]],
+    "shapes": {"sites": [1], "symbols": ["OC6"], "pair_rows": [[0]]},
+    "source": None,
+    "shapes_source": None,
+}
+
+
+def test_the_definition_accepts_the_illustration_and_rejects_unknown_symbols() -> None:
+    pytest.importorskip("httk.store")
+    from httk.store.validation import PropertyValidationError, validate_property
+
+    definition = bond_definitions()["_httk_bonds"]
+    validate_property(definition, ILLUSTRATION)
+    validate_property(definition, {**ILLUSTRATION, "shapes": {**ILLUSTRATION["shapes"], "pair_rows": [None]}})
+    validate_property(definition, {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["SAPR8"]}})
+    validate_property(definition, {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["I"]}})
+    for wrong in (
+        {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["I2"]}},
+        {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["I5"]}},  # exchange formats write irregular as I
+        {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": [None]}},
+        {**ILLUSTRATION, "shapes": {"symbols": ["OC6"]}},
+        {**ILLUSTRATION, "pairs": [[1, 2, 0, 0, 0, "0"]]},
+        {**ILLUSTRATION, "pairs": [{"site": 1, "partner": 2, "operation_xyz": "x,y,z"}]},
+        {**ILLUSTRATION, "source": "text"},
+        {**ILLUSTRATION, "shapes_source": 7},
+    ):
+        with pytest.raises(PropertyValidationError):
+            validate_property(definition, wrong)
+
+
+def test_an_irregular_shape_is_served_as_i() -> None:
+    cell = _with(UnitcellStructureView(_rocksalt()).unview(), ("I6",) * 8, SOURCE)
+    value = _row(cell)["_httk_bonds"]
+    assert value["shapes"] == {"sites": list(range(8)), "symbols": ["I"] * 8}
+    _validate(value)
+    stored = stored_property_projections(UnitcellStructureRecord)["_httk_bonds"].response(
+        _unitcell_record_from_structure(cell)
+    )
+    assert stored == value
+    domain = _with(_rocksalt(), ("I6", "OC6"), SOURCE)
+    assert bond_properties(domain)["_httk_bonds"]["shapes"] == {"sites": [0, 1], "symbols": ["I", "OC6"]}
+
+
+@pytest.mark.parametrize("name", SERVED)
+def test_served_values_never_contain_pair_rows(name: str) -> None:
+    value = bond_properties(SERVED[name]())["_httk_bonds"]
+    assert value["shapes"] is None or "pair_rows" not in value["shapes"]
+    assert "pair_rows" not in json.dumps(value)
+
+
+def test_a_structure_without_symmetry_serves_operation_0() -> None:
+    cell = SERVED["a unit cell"]()
+    row = _row(cell)
+    assert row["space_group_symmetry_operations_xyz"] is None
+    assert row["_httk_bonds"]["pairs"] and all(pair[2] == 0 for pair in row["_httk_bonds"]["pairs"])
+    assert row["_httk_bonds"]["shapes"] == {"sites": list(range(8)), "symbols": ["OC6"] * 8}
+
+
+def test_a_unit_cell_with_stated_symmetry_names_its_identity() -> None:
+    plain = SERVED["a unit cell"]()
+    stated = ("-x,-y,-z", "x+1/2,y+1/2,z", "x,y,z", "-x+1/2,-y+1/2,-z")
+    cell = type(plain)(
+        plain.cell,
+        plain.sites,
+        plain.species,
+        plain.species_at_sites,
+        symmetry=StructureSymmetry(space_group_symmetry_operations_xyz=stated),
+        bonds=plain.bonds,
+    )
+    row = _row(cell)
+    assert row["space_group_symmetry_operations_xyz"] == list(stated)
+    value = row["_httk_bonds"]
+    assert all(pair[2] == 2 for pair in value["pairs"])
+    assert [pair[3:] for pair in value["pairs"]] == [
+        pair[3:] for pair in bond_properties(plain)["_httk_bonds"]["pairs"]
     ]
-    assert any(re.search(r"[xyz][-+]([0-9]+\*)?[xyz]", xyz) for xyz in composed)  # sheared terms such as x-2*y
-    assert all(_pattern().fullmatch(xyz) for xyz in composed)
-    examples = _schema()["properties"]["pairs"]["items"]["properties"]["operation_xyz"]["examples"]
-    assert all(_pattern().fullmatch(xyz) for xyz in examples)
-    for wrong in ("x,y", "x+1/0,y,z", "x,y,z+1/01", "x,,z", "x y,y,z"):
-        assert not _pattern().fullmatch(wrong)
+    _validate(value)
+    _check_bonds_value(value, row["nsites"], _operations(row), cell=True)
+    record = _unitcell_record_from_structure(cell)
+    assert stored_property_projections(UnitcellStructureRecord)["_httk_bonds"].response(record) == value
 
 
-def test_the_pattern_accepts_every_to_xyz_spelling() -> None:
-    rng = random.Random(7)
-
-    def rational() -> F:
-        return F(rng.randint(-12, 12), rng.choice((1, 1, 1, 2, 3, 4, 6, 7)))
-
-    for _ in range(30_000):
-        matrix = [[rational() if rng.random() < 0.6 else 0 for _ in range(3)] for _ in range(3)]
-        xyz = AffineOperation(matrix, [rational() for _ in range(3)]).to_xyz()
-        assert _pattern().fullmatch(xyz), xyz
+def test_a_bond_operation_missing_from_the_served_list_raises_and_serves_null(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    structure = _monoclinic()
+    positions = structure._representative_sites().reduced_coords.to_fractions()
+    listed = [AffineOperation(xyz) for xyz in structure.space_group_symmetry_operations_xyz]
+    assert len(_bond_codes(structure, positions, listed)) == len(structure.bonds.pairs)
+    with pytest.raises(ValueError, match="not a served symmetry operation"):
+        _bond_codes(structure, positions, listed[:1])
+    with pytest.raises(ValueError, match="not a served symmetry operation"):
+        _bond_codes(structure, positions, None)
+    monkeypatch.setattr(ASUStructure, "space_group_symmetry_operations_xyz", property(lambda self: ("x,y,z",)))
+    with caplog.at_level(logging.WARNING, logger="httk.atomistic.entries.bonds"):
+        assert _row(structure)["_httk_bonds"] is None
+    assert "is not a served symmetry operation" in caplog.text
 
 
 def test_rows_without_a_servable_network_are_null(caplog: pytest.LogCaptureFixture) -> None:
@@ -297,7 +398,7 @@ def test_a_failing_stored_domain_is_null_and_logs(
     def fail(*_args: object) -> list[str]:
         raise ValueError("deliberate")
 
-    monkeypatch.setattr(bonds_module, "_served_operations", fail)
+    monkeypatch.setattr(bonds_module, "_bond_codes", fail)
     record = _domain_structure_record_from_value(_rocksalt())
     with caplog.at_level(logging.WARNING, logger="httk.atomistic.entries.bonds"):
         assert stored_property_projections(ASUStructureRecord)["_httk_bonds"].response(record) is None
@@ -387,7 +488,11 @@ def _inexact_sites(structure: Any) -> set[int]:
 
 
 def _client_bonds(row: dict[str, Any], inexact: set[int]) -> list[tuple[list[float], float]]:
-    """Expand the served pairs with the served operations and lattice: one Cartesian vector per bond of the cell.
+    """Expand the served rows with the served operations and lattice: one Cartesian vector per bond of the cell.
+
+    Each row ``[site, partner, op, t1, t2, t3]`` bonds the served position of ``site`` to
+    ``listed[op] + t`` applied to the served position of ``partner``, ``listed`` being the served
+    ``space_group_symmetry_operations_xyz`` (``["x,y,z"]`` when it is null).
 
     :param row: The served row.
     :param inexact: The sites whose served position is not exact; their bonds get the error bound of the
@@ -399,11 +504,12 @@ def _client_bonds(row: dict[str, Any], inexact: set[int]) -> list[tuple[list[flo
     operations = [_float_map(xyz) for xyz in (row["space_group_symmetry_operations_xyz"] if symmetric else ["x,y,z"])]
     precision = row["_httk_coordinate_precision"] or 0.0
     bonds: list[tuple[list[float], list[float], float]] = []
-    for pair in value["pairs"]:
-        S = _float_map(pair["operation_xyz"])
-        a, b = positions[pair["site"]], _apply(S, positions[pair["partner"]])
+    listed = [_float_map(xyz) for xyz in (row["space_group_symmetry_operations_xyz"] or ["x,y,z"])]
+    for site, partner, op, *t in value["pairs"]:
+        S = (listed[op][0], [x + n for x, n in zip(listed[op][1], t, strict=True)])
+        a, b = positions[site], _apply(S, positions[partner])
         tolerance = 1e-6
-        if {pair["site"], pair["partner"]} & inexact:
+        if {site, partner} & inexact:
             columns = [_cartesian(basis, [S[0][m][k] for m in range(3)]) for k in range(3)]
             lengths = sum(math.hypot(*column) for column in columns) + sum(math.hypot(*row) for row in basis)
             tolerance = max(tolerance, 3 * precision * lengths)
@@ -461,7 +567,8 @@ def _conjugated(structure: FundamentalDomainStructure) -> list[str]:
 )
 def test_the_served_operations_are_corrected_per_site(name: str) -> None:
     structure = SERVED[name]()
-    served = [pair["operation_xyz"] for pair in bond_properties(structure)["_httk_bonds"]["pairs"]]
+    row = _row(structure)
+    served = [_row_operation(row, pair).to_xyz() for pair in row["_httk_bonds"]["pairs"]]
     assert served != _conjugated(structure)
     if name != "a site served as another orbit member":
         assert len(structure.wyckoff_sites) == 2 and structure.wyckoff_sites[0].free_count == 3
@@ -540,7 +647,17 @@ def test_a_served_unit_cell_reads_back_with_its_network_and_sources(client: Any)
     assert OptimadeStructure(_resource(http, names["plain"])).bonds is None
 
 
-def _bonds_resource(value: object, *, span: str = "unit_cell", name: str = "_httk_bonds") -> OptimadeResource:
+SERVED_OPS = ("-x,-y,-z", "x,y,z")  # the identity is index 1
+_EYE = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
+
+
+def _bonds_resource(
+    value: object,
+    *,
+    span: str = "unit_cell",
+    name: str = "_httk_bonds",
+    operations: tuple[str, ...] | None = SERVED_OPS,
+) -> OptimadeResource:
     attributes = {
         "lattice_vectors": [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         "fractional_site_positions": [[0, 0, 0], [0.5, 0.5, 0.5]],
@@ -551,7 +668,7 @@ def _bonds_resource(value: object, *, span: str = "unit_cell", name: str = "_htt
         "species_at_sites": ["Na", "Cl"],
         "dimension_types": [1, 1, 1],
         "site_coordinate_span": span,
-        "space_group_symmetry_operations_xyz": ["x,y,z"],
+        "space_group_symmetry_operations_xyz": None if operations is None else list(operations),
         name: value,
     }
     properties: dict[str, object] = {key: {} for key in attributes if key != name}
@@ -567,12 +684,16 @@ def _bonds_resource(value: object, *, span: str = "unit_cell", name: str = "_htt
     return OptimadeResource(document, 0, OptimadeSchemaSnapshot("structures", info))
 
 
-def _pairs(*pairs: tuple[int, int, str]) -> dict[str, Any]:
-    return {"pairs": [{"site": i, "partner": j, "operation_xyz": xyz} for i, j, xyz in pairs]}
+def _pairs(*pairs: tuple[int, ...]) -> dict[str, Any]:
+    return {"pairs": [list(pair) for pair in pairs]}
+
+
+# Na bonded to Cl at three translations (identity at index 1 of the served list), then a fourth
+FAN = [(0, 1, 1, 0, 0, 0), (0, 1, 1, -1, 0, 0), (0, 1, 1, 0, -1, 0), (0, 1, 1, 0, 0, -1)]
 
 
 def test_read_back_resolves_the_definition_id_and_validates() -> None:
-    value = {**_pairs((1, 0, "x,y,z"), (0, 1, "x-1,y,z")), "shapes": None, "source": {"software": "x"}}
+    value = {**_pairs((1, 0, 1, 0, 0, 0), (0, 1, 1, -1, 0, 0)), "shapes": None, "source": {"software": "x"}}
     expected = BondNetwork(
         [SiteBond(0, 1, AffineOperation("x,y,z")), SiteBond(0, 1, AffineOperation("x-1,y,z"))], source={"software": "x"}
     )
@@ -581,25 +702,153 @@ def test_read_back_resolves_the_definition_id_and_validates() -> None:
         assert read == expected and read.pairs == expected.pairs and read.source == expected.source
     assert OptimadeStructure(_bonds_resource(None)).bonds is None
     assert OptimadeStructure(_bonds_resource(value, span="fundamental_domain")).bonds is None
+    # without served operations, every row names operation 0, the identity
+    plain = {**_pairs((1, 0, 0, 0, 0, 0), (0, 1, 0, -1, 0, 0)), "source": {"software": "x"}}
+    assert OptimadeStructure(_bonds_resource(plain, operations=None)).bonds == expected
+
+
+def test_read_back_turns_i_into_its_count() -> None:
+    read = OptimadeStructure(_bonds_resource({**_pairs(*FAN), "shapes": {"sites": [0, 1], "symbols": ["I", "I4"]}}))
+    assert read.bonds is not None and read.bonds.shapes == ("I4", "I4")
+    for wrong, message in (
+        ({"sites": [0], "symbols": ["I5"]}, "is for 5 bonds"),
+        ({"sites": [0], "symbols": ["I"], "pair_rows": [[0, 1]]}, "covers 2 bonded atoms"),
+    ):
+        with pytest.raises(IncompleteOptimadeResourceError, match=message):
+            OptimadeStructure(_bonds_resource({**_pairs(*FAN), "shapes": wrong})).bonds  # noqa: B018
+
+
+def test_read_back_decodes_the_full_shape_form() -> None:
+    shapes = {"sites": [0, 1], "symbols": ["T4", "T4"]}
+    expected = BondNetwork([SiteBond(i, j, AffineOperation(_EYE, t)) for i, j, _op, *t in FAN], ("T4", "T4"))
+    for form in (shapes, {**shapes, "pair_rows": None}, {**shapes, "pair_rows": [None, [3, 2, 1, 0]]}):
+        value = {**_pairs(*FAN), "shapes": form, "shapes_source": {"software": "s"}}
+        read = OptimadeStructure(_bonds_resource(value)).bonds
+        assert read == expected and read.shapes_source is not None and read.shapes_source.software == "s"
+    partial = {**_pairs(*FAN), "shapes": {"sites": [0], "symbols": ["T4"]}}
+    assert OptimadeStructure(_bonds_resource(partial)).bonds.shapes == ("T4", None)
+
+
+@pytest.mark.parametrize(
+    "shapes",
+    [
+        {"sites": [0], "symbols": ["L2"], "pair_rows": [[0, 1]]},  # a valid shape over some of the site's bonds
+        {"sites": [0, 0], "symbols": ["L2", "L2"], "pair_rows": [[0, 1], [2, 3]]},  # two shapes on one site
+    ],
+)
+def test_read_back_drops_shapes_it_cannot_represent(shapes: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
+    value = {**_pairs(*FAN), "shapes": shapes, "shapes_source": {"software": "s"}}
+    with caplog.at_level(logging.WARNING, logger="httk.atomistic.models.structure.optimade"):
+        read = OptimadeStructure(_bonds_resource(value)).bonds
+    assert read == BondNetwork([SiteBond(i, j, AffineOperation(_EYE, t)) for i, j, _op, *t in FAN])
+    assert read.shapes is None and read.shapes_source is None
+    assert "the bonds are read without shapes" in caplog.text
 
 
 MALFORMED = {
-    "a non-translation": _pairs((0, 1, "-x,y,z")),
-    "a fractional translation": _pairs((0, 1, "x+1/2,y,z")),
-    "an index out of range": _pairs((0, 2, "x,y,z")),
-    "an unknown key": {**_pairs((0, 1, "x,y,z")), "order": 1},
-    "an unknown pair key": {"pairs": [{"site": 0, "partner": 1, "operation_xyz": "x,y,z", "order": 1}]},
-    "a bad symbol": {**_pairs((0, 1, "x,y,z")), "shapes": ["XX1", None]},
-    "a symbol with the wrong count": {**_pairs((0, 1, "x,y,z")), "shapes": ["L2", None]},
+    "a non-identity operation": _pairs((0, 1, 0, 0, 0, 0)),
+    "an operation out of range": _pairs((0, 1, 2, 0, 0, 0)),
+    "a nonzero operation without served operations": (None, _pairs((0, 1, 1, 0, 0, 0))),
+    "a fractional translation": _pairs((0, 1, 1, 0.5, 0, 0)),  # type: ignore[arg-type]
+    "a short row": _pairs((0, 1, 1, 0, 0)),
+    "an operation string": {"pairs": [{"site": 0, "partner": 1, "operation_xyz": "x,y,z"}]},
+    "an index out of range": _pairs((0, 2, 1, 0, 0, 0)),
+    "an unknown key": {**_pairs((0, 1, 1, 0, 0, 0)), "order": 1},
+    "a bad symbol": {**_pairs(*FAN), "shapes": {"sites": [0], "symbols": ["XX4"]}},
+    "a symbol with the wrong count": {**_pairs(*FAN), "shapes": {"sites": [0], "symbols": ["OC6"]}},
+    "a per-site shape list": {**_pairs(*FAN), "shapes": ["T4", "T4"]},
+    "unaligned shape lists": {**_pairs(*FAN), "shapes": {"sites": [0, 1], "symbols": ["T4"]}},
+    "a null symbol": {**_pairs(*FAN), "shapes": {"sites": [0], "symbols": [None]}},
+    "a shape on a site out of range": {**_pairs(*FAN), "shapes": {"sites": [2], "symbols": ["T4"]}},
+    "an empty shape list": {**_pairs(*FAN), "shapes": {"sites": [], "symbols": []}},
+    "an unknown shapes key": {**_pairs(*FAN), "shapes": {"sites": [0], "symbols": ["T4"], "order": [1]}},
+    "a pair_rows row not touching its site": {
+        **_pairs(*FAN, (1, 1, 1, 1, 0, 0)),
+        "shapes": {"sites": [0], "symbols": ["T4"], "pair_rows": [[0, 1, 2, 4]]},
+    },
+    "a symbol whose number differs from the atoms covered": {
+        **_pairs(*FAN),
+        "shapes": {"sites": [0], "symbols": ["TP3"], "pair_rows": [[0, 1]]},
+    },
+    "a repeated site with overlapping rows": {
+        **_pairs(*FAN),
+        "shapes": {"sites": [0, 0], "symbols": ["A2", "TP3"], "pair_rows": [[0, 1], [1, 2, 3]]},
+    },
     "missing pairs": {"shapes": None},
-    "a non-string operation": _pairs((0, 1, 7)),  # type: ignore[arg-type]
-    "an unknown source key": {**_pairs((0, 1, "x,y,z")), "source": {"author": "x"}},
-    "a self bond": _pairs((0, 0, "x,y,z")),
-    "a division by zero": _pairs((0, 1, "x+1/0,y,z")),
+    "an unknown source key": {**_pairs((0, 1, 1, 0, 0, 0)), "source": {"author": "x"}},
+    "a self bond": _pairs((0, 0, 1, 0, 0, 0)),
 }
 
 
 @pytest.mark.parametrize("label", MALFORMED)
 def test_a_malformed_value_raises(label: str) -> None:
+    case = MALFORMED[label]
+    operations, value = case if isinstance(case, tuple) else (SERVED_OPS, case)
     with pytest.raises(IncompleteOptimadeResourceError, match="_httk_bonds"):
-        OptimadeStructure(_bonds_resource(MALFORMED[label])).bonds  # noqa: B018
+        OptimadeStructure(_bonds_resource(value, operations=operations)).bonds  # noqa: B018
+
+
+IDENTITY_LISTED = [AffineOperation("-x,-y,-z"), AffineOperation("x,y,z")]
+
+CHECKED = {
+    "a row of five": ({"pairs": [[0, 1, 1, 0, 0]]}, "six integers"),
+    "a site out of range": ({"pairs": [[0, 2, 1, 0, 0, 0]]}, "outside 0..1"),
+    "an operation out of range": ({"pairs": [[0, 1, 2, 0, 0, 0]]}, "operation 2, outside 0..1"),
+    "a non-identity operation in a unit cell": ({"pairs": [[0, 1, 0, 0, 0, 0]]}, "not the identity"),
+    "unaligned lists": (
+        {"pairs": [list(row) for row in FAN], "shapes": {"sites": [0], "symbols": ["T4"], "pair_rows": []}},
+        "same length",
+    ),
+    "a pair_rows row not naming its site": (
+        {"pairs": [list(row) for row in FAN], "shapes": {"sites": [1], "symbols": ["A2"], "pair_rows": [[0, 9]]}},
+        r"rows \[9\] that do not name the site",
+    ),
+    "a repeated site with overlapping rows": (
+        {
+            "pairs": [list(row) for row in FAN],
+            "shapes": {"sites": [0, 0], "symbols": ["A2", "A2"], "pair_rows": [[0, 1], [1, 2]]},
+        },
+        "not disjoint",
+    ),
+    "a repeated site with a null entry": (
+        {"pairs": [list(row) for row in FAN], "shapes": {"sites": [0, 0], "symbols": ["T4", "A2"], "pair_rows": None}},
+        "not disjoint",
+    ),
+    "a symbol outside the vocabulary": (
+        {"pairs": [list(row) for row in FAN], "shapes": {"sites": [0], "symbols": ["I2"]}},
+        "unknown symbol 'I2'",
+    ),
+    "a count differing from the atoms covered": (
+        {"pairs": [list(row) for row in FAN], "shapes": {"sites": [1], "symbols": ["TP3"]}},
+        "covers 4 bonded atoms",
+    ),
+}
+
+
+@pytest.mark.parametrize("label", CHECKED)
+def test_the_checker_enforces_each_rule(label: str) -> None:
+    value, message = CHECKED[label]
+    with pytest.raises(ValueError, match=message):
+        _check_bonds_value(value, 2, IDENTITY_LISTED, cell=True)
+
+
+def test_the_checker_counts_atoms_only_for_unit_cells_and_accepts_valid_values() -> None:
+    fan = [list(row) for row in FAN]
+    self_bond = {"pairs": [[0, 0, 1, 1, 0, 0]], "shapes": {"sites": [0], "symbols": ["L2"]}}
+    _check_bonds_value(self_bond, 1, IDENTITY_LISTED, cell=True)  # (i, i, t) brings in two atoms at i
+    with pytest.raises(ValueError, match="covers 2 bonded atoms"):
+        _check_bonds_value({**self_bond, "shapes": {"sites": [0], "symbols": ["OC6"]}}, 1, IDENTITY_LISTED, cell=True)
+    # a symmetric span: rows may name any listed operation, and the count is not checked
+    _check_bonds_value(
+        {"pairs": [[0, 1, 0, 0, 0, 0]], "shapes": {"sites": [0], "symbols": ["OC6"]}}, 2, IDENTITY_LISTED
+    )
+    with pytest.raises(ValueError, match="operation 1, outside 0..0"):
+        _check_bonds_value({"pairs": fan}, 2, None)
+    zeroed = [[i, j, 0, *t] for i, j, _op, *t in fan]
+    _check_bonds_value(
+        {"pairs": zeroed, "shapes": {"sites": [0, 0], "symbols": ["A2", "A2"], "pair_rows": [[0, 1], [2, 3]]}},
+        2,
+        None,
+        cell=True,
+    )
+    _check_bonds_value(ILLUSTRATION, 3, None)

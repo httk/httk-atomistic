@@ -1,11 +1,11 @@
 {
     "$id": "https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds",
     "$schema": "https://schemas.optimade.org/meta/v1.3/optimade/property_definition.json",
-    "title": "Bond network",
+    "title": "Bond network and coordination polyhedra",
     "x-optimade-type": "dictionary",
     "x-optimade-definition": {
         "kind": "property",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "format": "1.3",
         "name": "bonds",
         "label": "bonds_chemistry"
@@ -21,89 +21,179 @@
         "object",
         "null"
     ],
-    "description": "The bond network of a structure: which atoms are bonded to which, optionally the shape of the bonds around the atoms of each site, and who assigned them.\n\nThe network is stated in terms of the served sites of the structure, so a client needs only `fractional_site_positions` (or `cartesian_site_positions` and `lattice_vectors`), `site_coordinate_span` and, for a symmetric span, `space_group_symmetry_operations_xyz`.\nWhat counts as a bond is decided by whoever assigned the network, named in `source`.\n\n**Requirements/Conventions**:\n\n- The value MUST be `null` when no bond network is known, and when `site_coordinate_span` is not one of `unit_cell`, `molecular_unit_cell`, `fundamental_domain`, `molecular_fundamental_domain`, `asymmetric_unit` and `molecular_asymmetric_unit`.\n- Otherwise it MUST be a dictionary with the following keys:\n\n    - **pairs**: REQUIRED; List of dictionaries.\n      The bonds; an empty list means the structure is known to have no bonds.\n      Each dictionary has the keys `site` and `partner`, 0-based indices into the sites of the structure (the order of `species_at_sites` and `fractional_site_positions`), and `operation_xyz`, an affine operation on fractional coordinates.\n      The atom at `fractional_site_positions[site]` is bonded to the atom at the point obtained by applying `operation_xyz` to `fractional_site_positions[partner]`, with no reduction modulo lattice translations.\n      For a `unit_cell` or `molecular_unit_cell` span, `operation_xyz` is a lattice translation `x+n1,y+n2,z+n3` with integers `n1`, `n2`, `n3` (zero along non-periodic directions), and the entry stands for that bond and its translates by every lattice vector.\n      For the four fundamental-domain and asymmetric-unit spans, the entry stands for its orbit: for every operation `g` in `space_group_symmetry_operations_xyz` and every lattice translation `t`, the atom at `g(a) + t` is bonded to the atom at `g(b) + t`, where `a` and `b` are the two atoms the entry names.\n      Each bond, or bond orbit, SHOULD be listed once. An atom is never bonded to itself.\n      Where served positions are stated to limited precision, the operation locates the bonded atom to that precision.\n\n    - **shapes**: REQUIRED; List of strings or `null`, or `null`.\n      One entry per site, in the order of `species_at_sites`, naming the arrangement of the bonds around each atom of that site: a symbol that ends in the number of atoms bonded to one atom of the site.\n      An entry is `null` when the site has no assigned shape: always for a site with fewer than two bonds, and otherwise when the assignment gave it none, in which case a client may determine one itself.\n      The value is `null` when no shapes are assigned.\n\n    - **source**: REQUIRED; Dictionary or `null`.\n      Who assigned the bonds; `null` when unknown.\n\n    - **shapes\\_source**: REQUIRED; Dictionary or `null`.\n      Who assigned the shapes, in the form of `source`; `null` when `source` assigned them or no shapes are assigned.",
+    "description": "The bond network of a structure and the coordination polyhedra of its sites: which atoms are bonded to which, and the shape of the bonds around the atoms of a site, which besides coordination polyhedra also covers linear, bent and planar arrangements; the default assignment of httk gives a shape to every site with two or more bonds.\nThe value also names who assigned the bonds and the shapes.\n\nThe network is stated in terms of the served sites of the structure and the served symmetry operations, so a client needs only `fractional_site_positions` (or `cartesian_site_positions` and `lattice_vectors`), `site_coordinate_span` and `space_group_symmetry_operations_xyz` of the same response.\nWhat counts as a bond is decided by whoever assigned the network, named in `source`.\n\n**Requirements/Conventions**:\n\n- The value MUST be `null` when no bond network is known, and when `site_coordinate_span` is not one of `unit_cell`, `molecular_unit_cell`, `fundamental_domain`, `molecular_fundamental_domain`, `asymmetric_unit` and `molecular_asymmetric_unit`.\n- Otherwise it MUST be a dictionary with the following keys:\n\n    - **pairs**: REQUIRED; List of Lists of 6 Integers.\n      The bonds, one row `[site, partner, op, t1, t2, t3]` per bond, or per bond orbit for a symmetric span; an empty list means the structure is known to have no bonds.\n      `site` and `partner` are 0-based indices into the sites of the structure (the order of `species_at_sites` and `fractional_site_positions`), `op` is a 0-based index into `space_group_symmetry_operations_xyz` of the same entry, and `t1`, `t2`, `t3` are integers.\n\n      - Reading rule: the atom at `fractional_site_positions[site]` is bonded to the atom at `g(fractional_site_positions[partner]) + (t1, t2, t3)`, where `g` is the operation `space_group_symmetry_operations_xyz[op]` applied to fractional coordinates, with no reduction modulo lattice translations.\n        The property can therefore only be read together with `space_group_symmetry_operations_xyz` of the same response, and a client SHOULD request both.\n        That list holds every operation of the space group for the served cell, centring translations included, as the OPTIMADE standard requires; every bond operation MUST be one of its entries followed by a lattice translation, and a network that cannot be stated this way MUST be served as `null`.\n      - When `space_group_symmetry_operations_xyz` is `null` (no symmetry is served, or the structure is not periodic), `op` MUST be 0 and means the identity `x,y,z`.\n      - For a `unit_cell` or `molecular_unit_cell` span, `op` MUST name the entry `x,y,z` of `space_group_symmetry_operations_xyz`, or be 0 when that list is `null`, and the bond's translation is `(t1, t2, t3)` (zero along non-periodic directions); the row stands for that bond and its translates by every lattice vector.\n      - For the four fundamental-domain and asymmetric-unit spans, the row stands for its orbit: for every operation `h` in `space_group_symmetry_operations_xyz` and every lattice translation `t`, the atom at `h(a) + t` is bonded to the atom at `h(b) + t`, where `a` and `b` are the two atoms the row names.\n      - Each bond, or bond orbit, SHOULD be listed once. An atom is never bonded to itself.\n      - Where served positions are stated to limited precision, the row locates the bonded atom to that precision.\n\n    - **shapes**: REQUIRED; Dictionary or `null`.\n      The assigned shapes, each the arrangement of the bonds around one atom of a site: a coordination polyhedron, or a linear, bent or planar arrangement.\n      A dictionary of aligned lists with one entry per assigned shape:\n\n      - **sites**: REQUIRED; List of Integers. The 0-based index of the centre site of each shape.\n      - **symbols**: REQUIRED; List of Strings. The symbol of each shape (see the `symbols` key below).\n      - **pair\\_rows**: OPTIONAL; List of entries that are a List of Integers or `null`, or `null`. The rows of `pairs` each shape covers.\n\n      The lists present MUST have the same length, and `sites` and `symbols` MUST NOT contain `null`.\n      A site that does not appear in `sites` has no assigned shape: always a site with fewer than two bonds, and otherwise a site the assignment gave none, in which case a client may determine one itself.\n      The value is `null` when no shapes are assigned.\n\n      - Coverage rule: a shape whose `pair_rows` entry is `null`, or whose `pair_rows` list is `null` or absent, covers every row of `pairs` that names its site in either column; for a symmetric span every bond of the orbit of such a row at an atom of the site. This is the normal case.\n      - A `pair_rows` entry that is a list of 0-based row indices into `pairs` limits the shape to those rows. Each listed row MUST name the site in one of its two columns. In a symmetric span a row brings in every bond of its orbit at that site.\n      - The number that ends a named symbol MUST equal the number of distinct atoms bonded to one atom of the site through the rows the shape covers. The irregular symbol `I` carries no number: its count is the number of bonded atoms (bonds) the shape covers, at least 3. For a unit-cell span these atoms can be counted from the rows: a row `[i, j, op, t1, t2, t3]` with `i` different from `j` adds one atom at each end, and a row `[i, i, op, t1, t2, t3]` adds two atoms at `i`.\n      - A site MAY appear more than once in `sites` only when the `pair_rows` entries of all its shapes are lists that share no row.\n      - Illustration: a centre site 1 with six bonds forming an octahedron (row 0, a bond orbit of a symmetric span) and a second bond orbit (row 1) that is left out of the shape:\n\n        `\"pairs\": [[1, 2, 0, 0, 0, 0], [1, 1, 0, 1, 0, 0]], \"shapes\": {\"sites\": [1], \"symbols\": [\"OC6\"], \"pair_rows\": [[0]]}`\n\n    - **source**: REQUIRED; Dictionary or `null`.\n      Who assigned the bonds; `null` when unknown.\n\n    - **shapes\\_source**: REQUIRED; Dictionary or `null`.\n      Who assigned the shapes, in the form of `source`; `null` when `source` assigned them or no shapes are assigned.\n\n- Layout rule: each kind of bond is one matrix of integer rows, and no bond is a nested object.\n  Bonds of three or more atoms would get a field of their own (for example `triples`), and attributes of pair bonds would be lists aligned with the rows of `pairs`.\n- Not covered: polyhedra without a central atom (cages).\n  A shape over only some of the bonds of its centre is covered by `pair_rows`.",
     "properties": {
         "pairs": {
             "x-optimade-type": "list",
             "x-optimade-unit": "inapplicable",
             "x-optimade-dimensions": {
                 "names": [
-                    "_httk_dim_bonds"
+                    "_httk_dim_bonds",
+                    "_httk_dim_bond_row"
                 ],
                 "sizes": [
-                    null
+                    null,
+                    6
                 ]
             },
             "type": [
                 "array"
             ],
-            "description": "The bonds, each a dictionary of `site`, `partner` and `operation_xyz`.",
+            "description": "The bonds, each a row `[site, partner, op, t1, t2, t3]` of six integers.",
             "items": {
-                "x-optimade-type": "dictionary",
+                "x-optimade-type": "list",
                 "x-optimade-unit": "inapplicable",
+                "x-optimade-dimensions": {
+                    "names": [
+                        "_httk_dim_bond_row"
+                    ],
+                    "sizes": [
+                        6
+                    ]
+                },
                 "type": [
-                    "object"
+                    "array"
                 ],
                 "description": "One bond, or one bond orbit for a symmetric span.",
-                "properties": {
-                    "site": {
+                "items": {
+                    "x-optimade-type": "integer",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "integer"
+                    ],
+                    "description": "In order, `site` and `partner` (0-based indices into the served sites, at least 0), `op` (a 0-based index into `space_group_symmetry_operations_xyz`, at least 0, and 0 when that list is `null`) and the lattice translation `t1`, `t2`, `t3` (any integers)."
+                }
+            }
+        },
+        "shapes": {
+            "x-optimade-type": "dictionary",
+            "x-optimade-unit": "inapplicable",
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "The assigned shapes as aligned lists, one entry per shape; `null` when no shapes are assigned.",
+            "required": [
+                "sites",
+                "symbols"
+            ],
+            "properties": {
+                "sites": {
+                    "x-optimade-type": "list",
+                    "x-optimade-unit": "inapplicable",
+                    "x-optimade-dimensions": {
+                        "names": [
+                            "_httk_dim_shapes"
+                        ],
+                        "sizes": [
+                            null
+                        ]
+                    },
+                    "type": [
+                        "array"
+                    ],
+                    "description": "The 0-based index of the centre site of each shape.",
+                    "items": {
                         "x-optimade-type": "integer",
                         "x-optimade-unit": "inapplicable",
                         "type": [
                             "integer"
                         ],
-                        "description": "0-based index of the first atom's site in the served site list."
-                    },
-                    "partner": {
-                        "x-optimade-type": "integer",
-                        "x-optimade-unit": "inapplicable",
-                        "type": [
-                            "integer"
+                        "minimum": 0,
+                        "description": "A 0-based index into the served sites."
+                    }
+                },
+                "symbols": {
+                    "x-optimade-type": "list",
+                    "x-optimade-unit": "inapplicable",
+                    "x-optimade-dimensions": {
+                        "names": [
+                            "_httk_dim_shapes"
                         ],
-                        "description": "0-based index of the site whose served position `operation_xyz` is applied to."
+                        "sizes": [
+                            null
+                        ]
                     },
-                    "operation_xyz": {
+                    "type": [
+                        "array"
+                    ],
+                    "description": "The symbol of each shape: the IUPAC polyhedral symbols without the hyphen (`L2` linear, `A2` angular, `TP3` trigonal plane, `TPY3` trigonal pyramid, `TS3` T-shape, `T4` tetrahedron, `SP4` square plane, `SPY4` square pyramid, `SS4` see-saw, `TBPY5` trigonal bipyramid, `SPY5` square pyramid, `OC6` octahedron, `TPR6` trigonal prism, `PBPY7` pentagonal bipyramid, `OCF7` face-monocapped octahedron, `TPRS7` square-face monocapped trigonal prism, `CU8` cube, `SAPR8` square antiprism, `DD8` dodecahedron, `HBPY8` hexagonal bipyramid, `OCT8` trans-bicapped octahedron, `TPRT8` triangular-face bicapped trigonal prism, `TPRS8` square-face bicapped trigonal prism, `TPRS9` square-face tricapped trigonal prism, `HBPY9` heptagonal bipyramid), the SHAPE program's labels without the hyphen where IUPAC has none (`PPY6` pentagonal pyramid, `COC12` cuboctahedron, `ACOC12` anticuboctahedron, `IC12` icosahedron), and `I` for an irregular arrangement of any number of bonds.\nThe number that ends a named symbol MUST equal the number of atoms bonded to one atom of the site through the rows the shape covers; `I` has no number, and its count is the number of bonded atoms (bonds) the shape covers, at least 3.\nAn assignment may use a symbol for a class of similar arrangements rather than the exact shape; `source` and `shapes_source` say who assigned it.",
+                    "items": {
                         "x-optimade-type": "string",
                         "x-optimade-unit": "inapplicable",
                         "type": [
                             "string"
                         ],
-                        "description": "The affine operation as an `x,y,z` triplet in the notation of `space_group_symmetry_operations_xyz` (Jones' faithful representation, IUCr CIF `_space_group_symop.operation_xyz`), generalised: each component is a sum of signed terms, each term either a variable `x`, `y` or `z` optionally preceded by an exact rational coefficient and `*` (for example `2*y`, `1/2*x`), or an exact rational constant, which may be any rational number including integers and values outside [0, 1).\nThis grammar is a superset of, and not compatible with, the OPTIMADE symmetry-operation grammar, which allows only coefficients of one, at most two variables per component and the translations 1/2, 1/3, 2/3, 1/4, 3/4, 1/6 and 5/6.\nThe operation is applied to the served fractional position of `partner`, with no reduction modulo lattice translations.",
-                        "x-undef-pattern": "^[-+]?(([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?)([-+](([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?))*,[-+]?(([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?)([-+](([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?))*,[-+]?(([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?)([-+](([0-9]+(/[1-9][0-9]*)?\\*)?[xyz]|[0-9]+(/[1-9][0-9]*)?))*$",
-                        "examples": [
-                            "x,y,z",
-                            "x,y+1,z",
-                            "-x+3/2,y,-z-1",
-                            "x-y+z,y,z",
-                            "2*y,1/2*x,z"
+                        "description": "A shape symbol.",
+                        "enum": [
+                            "L2",
+                            "A2",
+                            "TP3",
+                            "TPY3",
+                            "TS3",
+                            "T4",
+                            "SP4",
+                            "SPY4",
+                            "SS4",
+                            "TBPY5",
+                            "SPY5",
+                            "OC6",
+                            "TPR6",
+                            "PBPY7",
+                            "OCF7",
+                            "TPRS7",
+                            "CU8",
+                            "SAPR8",
+                            "DD8",
+                            "HBPY8",
+                            "OCT8",
+                            "TPRT8",
+                            "TPRS8",
+                            "TPRS9",
+                            "HBPY9",
+                            "PPY6",
+                            "COC12",
+                            "ACOC12",
+                            "IC12",
+                            "I"
                         ]
                     }
+                },
+                "pair_rows": {
+                    "x-optimade-type": "list",
+                    "x-optimade-unit": "inapplicable",
+                    "x-optimade-dimensions": {
+                        "names": [
+                            "_httk_dim_shapes"
+                        ],
+                        "sizes": [
+                            null
+                        ]
+                    },
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "description": "Optional. Per shape, the 0-based indices of the rows of `pairs` it covers, or `null` for every row that names its site; the whole list may be `null` or absent, which means `null` for every shape.",
+                    "items": {
+                        "x-optimade-type": "list",
+                        "x-optimade-unit": "inapplicable",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "description": "The rows of `pairs` one shape covers, each naming its site in one of its two columns, or `null` for every row that names its site.",
+                        "items": {
+                            "x-optimade-type": "integer",
+                            "x-optimade-unit": "inapplicable",
+                            "type": [
+                                "integer"
+                            ],
+                            "minimum": 0,
+                            "description": "A 0-based index into `pairs`."
+                        }
+                    }
                 }
-            }
-        },
-        "shapes": {
-            "x-optimade-type": "list",
-            "x-optimade-unit": "inapplicable",
-            "x-optimade-dimensions": {
-                "names": [
-                    "dim_sites"
-                ],
-                "sizes": [
-                    null
-                ]
-            },
-            "type": [
-                "array",
-                "null"
-            ],
-            "description": "The bond shape of each site, or `null` per site without an assigned shape.\nThe symbols are the IUPAC polyhedral symbols without the hyphen (`L2` linear, `A2` angular, `TP3` trigonal plane, `TPY3` trigonal pyramid, `TS3` T-shape, `T4` tetrahedron, `SP4` square plane, `SS4` see-saw, `TBPY5` trigonal bipyramid, `SPY5` square pyramid, `OC6` octahedron, `TPR6` trigonal prism, `PBPY7` pentagonal bipyramid, `TPRS7` square-face monocapped trigonal prism, `CU8` cube, `DD8` dodecahedron, `HBPY8` hexagonal bipyramid, `TPRT8` triangular-face bicapped trigonal prism, `TPRS9` square-face tricapped trigonal prism, `HBPY9` heptagonal bipyramid), the SHAPE program's labels without the hyphen where IUPAC has none (`PPY6` pentagonal pyramid, `COC12` cuboctahedron, `ACOC12` anticuboctahedron, `IC12` icosahedron), and `I<n>` for an irregular arrangement of `n` bonds.\nThe number that ends a symbol MUST equal the number of atoms bonded to one atom of the site.",
-            "items": {
-                "x-optimade-type": "string",
-                "x-optimade-unit": "inapplicable",
-                "type": [
-                    "string",
-                    "null"
-                ]
             }
         },
         "source": {
@@ -204,16 +294,25 @@
     "examples": [
         {
             "pairs": [
-                {
-                    "site": 0,
-                    "partner": 1,
-                    "operation_xyz": "x,y,z"
-                }
+                [
+                    0,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
             ],
-            "shapes": [
-                "OC6",
-                "OC6"
-            ],
+            "shapes": {
+                "sites": [
+                    0,
+                    1
+                ],
+                "symbols": [
+                    "OC6",
+                    "OC6"
+                ]
+            },
             "source": {
                 "description": "Distance bonds: 0.5 \u00c5 <= d <= r(a) + r(b) + 0.45 \u00c5 (Cordero et al. 2008 covalent radii), no metal-metal bonds where a non-metal is present, and no metal to non-metal bond longer than r(a) + r(b) across a shared, more electronegative non-metal.",
                 "software": "httk_basic",
@@ -222,19 +321,58 @@
         },
         {
             "pairs": [
-                {
-                    "site": 0,
-                    "partner": 1,
-                    "operation_xyz": "x,y,z"
-                },
-                {
-                    "site": 0,
-                    "partner": 1,
-                    "operation_xyz": "x-1,y,z"
-                }
+                [
+                    0,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                [
+                    0,
+                    1,
+                    0,
+                    -1,
+                    0,
+                    0
+                ]
             ],
             "source": {
                 "description": "Bonds listed in the CIF _geom_bond_ loop"
+            }
+        },
+        {
+            "pairs": [
+                [
+                    1,
+                    2,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                [
+                    1,
+                    1,
+                    0,
+                    1,
+                    0,
+                    0
+                ]
+            ],
+            "shapes": {
+                "sites": [
+                    1
+                ],
+                "symbols": [
+                    "OC6"
+                ],
+                "pair_rows": [
+                    [
+                        0
+                    ]
+                ]
             }
         }
     ]

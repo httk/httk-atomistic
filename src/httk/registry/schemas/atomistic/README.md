@@ -38,9 +38,9 @@ network.
 
 They are published definitions taken verbatim from
 [schemas.httk.org](https://schemas.httk.org), not local paraphrases, except
-`bonds.json`, which is built from the same sources but not yet published (see
-Provenance). A client following a published property's `$id` therefore reaches
-the authoritative schema.
+`bonds.json`, whose vendored version 0.2.0 is built from the same sources but
+not yet published (see Provenance). A client following a published property's
+`$id` therefore reaches the authoritative schema.
 
 | Served as | Definition | `$id` |
 | --- | --- | --- |
@@ -115,9 +115,14 @@ lives at
 in the sources repository and is built with `make schemas`.
 
 `bonds.json` is built the same way from
-`src/defs/v0.1/properties/chemistry/bonds.yaml`. It is ahead of schemas.httk.org
-until the maintainer publishes it; it is not in `HTTK_DEFS` until then (`make
-httk-defs` would 404). Its definition sets the response level `should not`, so
+`src/defs/v0.1/properties/chemistry/bonds.yaml` (`make` in the sources
+repository writes `output/defs/v0.1/properties/chemistry/bonds.json`, copied
+here unchanged). Version 0.1.0 is published (it is on the `main` branch of
+<https://github.com/httk/schemas>); the vendored version 0.2.0, which serves
+`pairs` as integer rows indexing `space_group_symmetry_operations_xyz` and
+`shapes` as sparse lists, is ahead of it until the maintainer publishes it under
+the same `$id`. It is not in `HTTK_DEFS` until then (`make httk-defs` would
+fetch 0.1.0). Its definition sets the response level `should not`, so
 `_httk_bonds` is served only when asked for with `response_fields`. Its four
 keys are all described as required, but readers accept a value without
 `shapes`, `source` or `shapes_source` (read as `null`): the build's

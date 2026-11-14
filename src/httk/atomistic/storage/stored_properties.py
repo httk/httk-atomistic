@@ -318,8 +318,8 @@ def _domain_symmetry_value(record: Any, name: str) -> object:
 def _bonds_value(record: Any, backing: str) -> object:
     """Serve ``_httk_bonds``: a unit-cell record's straight from its rows, a domain's through its structure.
 
-    A unit-cell record whose stored shapes are not valid for their sites (for example a symbol
-    the shape table no longer has) is served as null with a warning, as the domain path does.
+    A record whose stored network cannot be served (for example a shape symbol that is no longer
+    valid for its site) is served as null with a warning.
     """
     from httk.atomistic.entries.bonds import _network_payload, bond_properties
     from httk.atomistic.models.structure.network import SiteBond, _checked_symbols
@@ -335,27 +335,38 @@ def _bonds_value(record: Any, backing: str) -> object:
 
     if record.bonds is None:
         return None
-    if backing != "unitcell":
-        return bond_properties(_domain_structure_from_record(record), entry=record.id)["_httk_bonds"]
-    network = record.bonds
-    bonds = [
-        SiteBond(int(row[0]), int(row[1]), AffineOperation(_IDENTITY_MATRIX, row[2:5]))
-        for row in _network_rows(network.pairs)
-    ]
-    shapes = _shapes_from_record(network.shapes)
-    if shapes is not None:
-        try:
+    try:
+        if backing != "unitcell":
+            return bond_properties(_domain_structure_from_record(record), entry=record.id)["_httk_bonds"]
+        network = record.bonds
+        bonds = [
+            SiteBond(int(row[0]), int(row[1]), AffineOperation(_IDENTITY_MATRIX, row[2:5]))
+            for row in _network_rows(network.pairs)
+        ]
+        shapes = _shapes_from_record(network.shapes)
+        if shapes is not None:
             _checked_symbols(shapes, _cell_bond_counts(len(record.species_at_sites), bonds), "site")
-        except ValueError as error:
-            _logger.warning(
-                "the bond network of entry %s is served as null: %s",
-                record.id or "<unnamed>",
-                error,
-                extra={"context": "serve"},
-            )
-            return None
+        served = _unitcell_symmetry_value(record, "space_group_symmetry_operations_xyz")
+        listed = None if served is None else [AffineOperation(xyz) for xyz in cast(list[str], served)]
+        op = 0 if listed is None else listed.index(AffineOperation.identity())  # the literal x,y,z, stated once
+    except ValueError as error:
+        _logger.warning(
+            "the bond network of entry %s is served as null: %s",
+            record.id or "<unnamed>",
+            error,
+            extra={"context": "serve"},
+        )
+        return None
     return _network_payload(
-        ((bond.site, bond.partner, bond.operation.to_xyz()) for bond in bonds),
+        (
+            (
+                bond.site,
+                bond.partner,
+                op,
+                tuple(int(x) for x in bond.operation.vector.to_fractions()),
+            )
+            for bond in bonds
+        ),
         shapes,
         _bond_source(record.bonds_source),
         _bond_source(record.shapes_source),
