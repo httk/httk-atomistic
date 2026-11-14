@@ -418,7 +418,8 @@ def test_a_declared_asu_whose_species_share_a_class_is_classified_as_the_class_s
     assert str(FormulatypeView(asu)) == "A"
     # the bonds are re-expressed in the class symmetry when it keeps them (follow-up 4, section 2.6)
     assert str(Protonetstructure.from_asu(asu, []).label) == "A_cI2_229_a__:Fe"
-    assert str(Protonetstructure.from_asu(asu, [(1, 2, 1, 0, 0, 0)]).label) == "A_cI2_229_a__1~1@10:Fe"
+    # bcc: eight bonds in a cube, written since DD8 is the eight-bond default
+    assert str(Protonetstructure.from_asu(asu, [(1, 2, 1, 0, 0, 0)]).label) == "A_cI2_229_a__1CU8~1@10:Fe"
     with pytest.raises(ValueError, match="not invariant under the recognized symmetry IT 229"):
         Protonetstructure.from_asu(asu, [(1, 1, 1, 1, 0, 0)])
     # a merge that keeps the space group and cell (AgO) is accepted

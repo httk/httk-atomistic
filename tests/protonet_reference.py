@@ -28,7 +28,8 @@ docs/protonet_followup/protonet_reference.py with only ruff formatting and this 
 Follow-up 5 (shapes) was ported by the P-b implementation agent from the design note
 FU5_SHAPES_NOTE.md: bond counts from exact neighbour points, the listing order (B5) and the
 comparison order (B6), and the net grammar with shapes.  The defaults table follows decision S2
-(two bonds: A2), which settled after the note.
+(two bonds: A2), which settled after the note, and follow-up 7 (five, seven and eight bonds: SPY5,
+TPRS7, DD8).
 """
 
 import math
@@ -816,7 +817,7 @@ def canonical_net(it_number, sites, rows, class_order="formula", hand=1, shapes=
 #   A shape is written only where it differs from the default of its bond count.  Groups follow
 #   the listing order; a site opens a group if it lists a bond or has a written shape.
 # ---------------------------------------------------------------------------------------------
-DEFAULTS = {2: "A2", 3: "TP3", 4: "T4", 5: "TBPY5", 6: "OC6", 7: "PBPY7", 8: "CU8", 9: "TPRS9", 12: "COC12"}
+DEFAULTS = {2: "A2", 3: "TP3", 4: "T4", 5: "SPY5", 6: "OC6", 7: "TPRS7", 8: "DD8", 9: "TPRS9", 12: "COC12"}
 
 
 def shape_count(symbol):

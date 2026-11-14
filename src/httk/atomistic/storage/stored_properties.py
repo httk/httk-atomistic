@@ -11,6 +11,7 @@ its queries compare each rational literal as ``float(literal)``.
 import dataclasses
 import datetime
 import functools
+import logging
 import math
 import re
 from collections import Counter
@@ -38,6 +39,8 @@ from httk.atomistic.entries.precision import PRECISION_PROPERTY_KEYS
 from httk.atomistic.entries.symmetry import SETTING_PROPERTY_KEYS
 from httk.atomistic.models._vector_guards import matmul_floats
 from httk.atomistic.models.formula.notation import anonymous_symbol
+
+_logger = logging.getLogger(__name__)
 
 _ELEMENTS = frozenset(SYMBOLS)
 _ELEMENT_FORMULA_TOKEN = re.compile(r"([A-Z][a-z]?)([1-9][0-9]*)?")
@@ -313,8 +316,13 @@ def _domain_symmetry_value(record: Any, name: str) -> object:
 
 
 def _bonds_value(record: Any, backing: str) -> object:
-    """Serve ``_httk_bonds``: a unit-cell record's straight from its rows, a domain's through its structure."""
+    """Serve ``_httk_bonds``: a unit-cell record's straight from its rows, a domain's through its structure.
+
+    A unit-cell record whose stored shapes are not valid for their sites (for example a symbol
+    the shape table no longer has) is served as null with a warning, as the domain path does.
+    """
     from httk.atomistic.entries.bonds import _network_payload, bond_properties
+    from httk.atomistic.models.structure.network import SiteBond, _checked_symbols
     from httk.atomistic.storage.records import (
         _IDENTITY_MATRIX,
         _bond_source,
@@ -323,18 +331,32 @@ def _bonds_value(record: Any, backing: str) -> object:
         _shapes_from_record,
     )
     from httk.atomistic.symmetry.affine_operation import AffineOperation
+    from httk.atomistic.symmetry.shapes import _cell_bond_counts
 
     if record.bonds is None:
         return None
     if backing != "unitcell":
         return bond_properties(_domain_structure_from_record(record), entry=record.id)["_httk_bonds"]
     network = record.bonds
+    bonds = [
+        SiteBond(int(row[0]), int(row[1]), AffineOperation(_IDENTITY_MATRIX, row[2:5]))
+        for row in _network_rows(network.pairs)
+    ]
+    shapes = _shapes_from_record(network.shapes)
+    if shapes is not None:
+        try:
+            _checked_symbols(shapes, _cell_bond_counts(len(record.species_at_sites), bonds), "site")
+        except ValueError as error:
+            _logger.warning(
+                "the bond network of entry %s is served as null: %s",
+                record.id or "<unnamed>",
+                error,
+                extra={"context": "serve"},
+            )
+            return None
     return _network_payload(
-        (
-            (int(row[0]), int(row[1]), AffineOperation(_IDENTITY_MATRIX, row[2:5]).to_xyz())
-            for row in _network_rows(network.pairs)
-        ),
-        _shapes_from_record(network.shapes),
+        ((bond.site, bond.partner, bond.operation.to_xyz()) for bond in bonds),
+        shapes,
         _bond_source(record.bonds_source),
         _bond_source(record.shapes_source),
     )

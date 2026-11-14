@@ -7,6 +7,7 @@ record, so they never enter a content id and equal networks share one child row.
 
 import contextlib
 import gzip
+import logging
 import os
 import shutil
 import uuid
@@ -130,6 +131,21 @@ def test_a_unit_cell_record_stores_its_network_compactly() -> None:
     assert record.bonds_source == BondSourceRecord("hand-assigned", "test", "1") and record.shapes_source is None
     empty = _unitcell_record_from_structure(cell._with_bonds(BondNetwork(())))
     assert empty.bonds == UnitcellBondNetworkRecord(FracVector(())) and empty.bonds_source is None
+
+
+def test_a_unit_cell_record_with_an_invalid_stored_shape_serves_null(caplog: pytest.LogCaptureFixture) -> None:
+    from httk.atomistic.storage.stored_properties import _response_value
+
+    nsites = _cell().nsites
+    record = replace(_unitcell_record_from_structure(_with(_cell(), ("OC6",) * nsites, SOURCE)), id="x")
+    assert _response_value(record, "_httk_bonds", "unitcell")["shapes"] == ["OC6"] * nsites
+    # a symbol a later shape table dropped, or one for the wrong bond count
+    for shape, message in (("SAPR8", "SAPR8 is not in the shape table; its class is DD8"), ("T4", "is for 4 bonds")):
+        stale = replace(record, bonds=replace(record.bonds, shapes=(shape,) + ("OC6",) * (nsites - 1)))
+        caplog.clear()
+        with caplog.at_level(logging.WARNING, logger="httk.atomistic.storage.stored_properties"):
+            assert _response_value(stale, "_httk_bonds", "unitcell") is None
+        assert "the bond network of entry x is served as null: shapes[0]: " in caplog.text and message in caplog.text
 
 
 def test_shape_states_are_stored_as_in_the_domain_fields() -> None:

@@ -9,10 +9,12 @@ import pytest
 
 from httk.atomistic.symmetry import shapes
 from httk.atomistic.symmetry.shapes import (
+    _ABSENT,
     _DEFAULTS,
     _IDEAL,
     _IDEAL_ANGLES,
     _bond_count,
+    _check_shape,
     _detect,
     _is_known,
     _misfit,
@@ -44,7 +46,6 @@ def _ref_ideal():
     Z, MZ = (0.0, 0.0, 1.0), (0.0, 0.0, -1.0)
     TPY = math.degrees(math.asin(math.sqrt((1 - math.cos(math.radians(107.0))) / 1.5)))
     TPR = math.degrees(math.atan2(2 / math.sqrt(7), math.sqrt(3 / 7)))
-    SAPR = math.degrees(math.atan2(1.0, 2**-0.75))
     G = (1 + math.sqrt(5)) / 2
     ICO = [
         _ref_unit(v)
@@ -55,6 +56,8 @@ def _ref_ideal():
     V0 = ICO[0]
     ADJ = [v for v in ICO if 0.4 < sum(x * y for x, y in zip(v, V0)) < 0.5]
     DDA, DDB = math.radians(36.85), math.radians(69.46)
+    CTPR_A = math.degrees(math.atan2(0.735247575071 * math.sqrt(2), 0.203750780644 + 0.050373370753))
+    CTPR_B = math.degrees(math.atan2(0.660960557032, -0.892328424325 + 0.050373370753))
     ring = _ref_ring
     return {
         3: {"TP3": ring(3, 90), "TPY3": ring(3, TPY), "TS3": [(1, 0, 0), (-1, 0, 0), (0, 1, 0)]},
@@ -63,15 +66,17 @@ def _ref_ideal():
         5: {"TBPY5": [Z, MZ] + ring(3, 90), "SPY5": [Z] + ring(4, 100)},
         6: {"OC6": [Z, MZ] + ring(4, 90), "TPR6": ring(3, TPR) + ring(3, TPR, 0, -1),
             "PPY6": [tuple(a - b for a, b in zip(v, V0)) for v in ADJ] + [V0]},
-        7: {"PBPY7": [Z, MZ] + ring(5, 90)},
+        7: {"PBPY7": [Z, MZ] + ring(5, 90),
+            "TPRS7": [Z] + ring(4, CTPR_A, 45) + ring(2, CTPR_B)},
         8: {"CU8": [(a, b, c) for a in (1, -1) for b in (1, -1) for c in (1, -1)],
-            "SAPR8": ring(4, SAPR) + ring(4, SAPR, 45, -1),
             "DD8": [(math.sin(DDA) * s, 0, math.cos(DDA)) for s in (1, -1)]
                    + [(0, math.sin(DDA) * s, -math.cos(DDA)) for s in (1, -1)]
                    + [(0, math.sin(DDB) * s, math.cos(DDB)) for s in (1, -1)]
                    + [(math.sin(DDB) * s, 0, -math.cos(DDB)) for s in (1, -1)],
-            "HBPY8": [Z, MZ] + ring(6, 90)},
-        9: {"TPRS9": ring(3, 45) + ring(3, 45, 0, -1) + ring(3, 90, 60)},
+            "HBPY8": [Z, MZ] + ring(6, 90),
+            "TPRT8": ring(3, TPR) + ring(3, TPR, 0, -1) + [Z, MZ]},
+        9: {"TPRS9": ring(3, 45) + ring(3, 45, 0, -1) + ring(3, 90, 60),
+            "HBPY9": [Z, MZ] + ring(7, 90)},
         12: {"COC12": [p for a in (1, -1) for b in (1, -1) for p in ((a, b, 0), (a, 0, b), (0, a, b))],
              "ACOC12": ring(6, 90) + ring(3, math.degrees(math.atan2(1 / math.sqrt(3), math.sqrt(2 / 3))), 30)
                        + ring(3, math.degrees(math.atan2(1 / math.sqrt(3), math.sqrt(2 / 3))), 30, -1),
@@ -193,10 +198,10 @@ def test_defaults_table() -> None:
         2: "A2",
         3: "TP3",
         4: "T4",
-        5: "TBPY5",
+        5: "SPY5",
         6: "OC6",
-        7: "PBPY7",
-        8: "CU8",
+        7: "TPRS7",
+        8: "DD8",
         9: "TPRS9",
         12: "COC12",
     }
@@ -209,6 +214,9 @@ def test_written() -> None:
     assert _written("A2") == "" and _written("L2") == "L2"
     assert _written("T4") == "" and _written("SP4") == "SP4" and _written("I4") == "I4"
     assert _written("COC12") == "" and _written("IC12") == "IC12" and _written("I10") == "I10"
+    assert _written("SPY5") == "" and _written("TBPY5") == "TBPY5"
+    assert _written("TPRS7") == "" and _written("PBPY7") == "PBPY7"
+    assert _written("DD8") == "" and _written("CU8") == "CU8" and _written("TPRT8") == "TPRT8"
 
 
 def test_bond_count_and_known() -> None:
@@ -216,7 +224,8 @@ def test_bond_count_and_known() -> None:
     for bad in ("", "T", "4", "t4", "T04", "T4X", "T-4", "T0"):
         with pytest.raises(ValueError, match="not a shape symbol"):
             _bond_count(bad)
-    for symbol in ("L2", "A2", "TS3", "SS4", "SPY5", "PPY6", "HBPY8", "ACOC12", "I2", "I7", "I13"):
+    known = ("L2", "A2", "TS3", "SS4", "SPY5", "PPY6", "TPRS7", "HBPY8", "TPRT8", "HBPY9", "ACOC12", "I2", "I7", "I13")
+    for symbol in known:
         assert _is_known(symbol)
     for symbol in ("I0", "I1", "I02", "T5", "XX4", "L-2", "l2", ""):
         assert not _is_known(symbol)
@@ -227,11 +236,80 @@ def test_bond_count_and_known() -> None:
 
 @pytest.mark.parametrize(
     ("count", "a", "b", "expected"),
-    [(8, "SAPR8", "DD8", 9.65), (12, "COC12", "ACOC12", 9.38), (12, "COC12", "IC12", 11.70),
-     (3, "TP3", "TPY3", 13.00), (8, "CU8", "HBPY8", 14.49)],
+    [(12, "COC12", "ACOC12", 9.38), (12, "COC12", "IC12", 11.70), (3, "TP3", "TPY3", 13.00),
+     (8, "CU8", "HBPY8", 14.49)],
 )  # fmt: skip
 def test_near_pairs(count: int, a: str, b: str, expected: float) -> None:
     assert round(_misfit(_IDEAL_ANGLES[count][a], _IDEAL_ANGLES[count][b]), 2) == expected
+
+
+def test_no_other_pair_within_15_degrees() -> None:
+    near = {(a, b) for table in _IDEAL_ANGLES.values() for a, b in itertools.combinations(table, 2)
+            if _misfit(table[a], table[b]) < 15.0}  # fmt: skip
+    assert near == {("COC12", "ACOC12"), ("COC12", "IC12"), ("TP3", "TPY3"), ("CU8", "HBPY8")}
+
+
+# --- Follow-up 7: the added shapes against SHAPE 2.1's coordinates, and the absent shapes. ---
+
+# SHAPE 2.1 reference polyhedra about their central atom (cosymlib ideal_structures_center.yaml at
+# commit 90533c88, vertex minus central atom; ETBPY-8's central atom is at z = 1.5e-8, which is
+# dropped)
+_SHAPE_CTPR7 = (
+    [(0, 0, 1.07040046758)]
+    + [(a * 0.735247575071, b * 0.735247575071, 0.254124151397) for a in (1, -1) for b in (1, -1)]
+    + [(a * 0.660960557032, 0, -0.841955053572) for a in (1, -1)]
+)
+_SHAPE_ETBPY8 = (
+    [(a * 0.694365079077, 0, 0.801783719423) for a in (1, -1)]
+    + [(a * 0.694365079077, b * 0.694365079077, -0.400891871284) for a in (1, -1) for b in (1, -1)]
+    + [(1.06066015629, 0, 0), (-1.06066015629, 0, 0)]
+)
+_SHAPE_COC7 = [
+    (0, 0, 1.070845406746),
+    (0, -1.046937018035, 0.225017246487),
+    (0.906674032650, 0.523468509017, 0.225017246487),
+    (0.672964536915, -0.388536257092, -0.736795854290),
+    (-0.906674032650, 0.523468509017, 0.225017246487),
+    (-0.672964536915, -0.388536257092, -0.736795854290),
+    (0, 0.777072514184, -0.736795854290),
+]
+
+
+def test_added_shapes_match_shape_geometry() -> None:
+    assert _detect(_SHAPE_CTPR7) == ("TPRS7", 0.0)
+    assert _detect(_SHAPE_ETBPY8) == ("TPRT8", 0.0)
+    assert _detect([(0, 0, 1), (0, 0, -1)] + _ref_ring(7, 90)) == ("HBPY9", 0.0)
+
+
+def test_existing_ideals_keep_their_detection() -> None:
+    # the table before follow-up 7, less the dropped SAPR8: every ideal still detects as itself
+    before = {
+        3: ("TP3", "TPY3", "TS3"), 4: ("T4", "SP4", "SS4"), 5: ("TBPY5", "SPY5"), 6: ("OC6", "TPR6", "PPY6"),
+        7: ("PBPY7",), 8: ("CU8", "DD8", "HBPY8"), 9: ("TPRS9",), 12: ("COC12", "ACOC12", "IC12"),
+    }  # fmt: skip
+    for n, names in before.items():
+        assert tuple(_IDEAL[n])[: len(names)] == names
+        for name in names:
+            assert _detect(_IDEAL[n][name]) == (name, 0.0)
+
+
+_TPR = math.degrees(math.atan2(2 / math.sqrt(7), math.sqrt(3 / 7)))
+_SAPR = math.degrees(math.atan2(1.0, 2**-0.75))
+_ABSENT_IDEALS = {
+    "SPY4": (_ref_ring(4, 100), 11.632878),
+    "OCF7": (_SHAPE_COC7, 8.722937),
+    "SAPR8": (_ref_ring(4, _SAPR) + _ref_ring(4, _SAPR, 45, -1), 9.650191),
+    "TPRS8": (_ref_ring(3, _TPR) + _ref_ring(3, _TPR, 0, -1) + _ref_ring(3, 90, 60)[:2], 9.117421),
+    "OCT8": ([(0, 0, 1), (0, 0, -1)] + _ref_ring(4, 90) + [(1, 1, 1), (-1, -1, -1)], 3.446352),
+}
+
+
+@pytest.mark.parametrize("symbol", sorted(_ABSENT))
+def test_absent_shapes_detect_as_and_raise_naming_their_class(symbol: str) -> None:
+    vectors, misfit = _ABSENT_IDEALS[symbol]
+    assert _detect(vectors) == (_ABSENT[symbol], misfit) and not _is_known(symbol)
+    with pytest.raises(ValueError, match=f"^{symbol} is not in the shape table; its class is {_ABSENT[symbol]}$"):
+        _check_shape(symbol, _bond_count(symbol))
 
 
 # --- Cross-check against the inline reference copy. ---

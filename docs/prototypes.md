@@ -560,17 +560,19 @@ reference shapes"), and `I<n>` for an irregular arrangement of `n` bonds:
 | `T4` | tetrahedron | IUPAC T-4 | yes |
 | `SP4` | square plane | IUPAC SP-4 | |
 | `SS4` | see-saw | IUPAC SS-4 | |
-| `TBPY5` | trigonal bipyramid | IUPAC TBPY-5 | yes |
-| `SPY5` | square pyramid | IUPAC SPY-5 | |
+| `TBPY5` | trigonal bipyramid | IUPAC TBPY-5 | |
+| `SPY5` | square pyramid | IUPAC SPY-5 | yes |
 | `OC6` | octahedron | IUPAC OC-6 | yes |
 | `TPR6` | trigonal prism | IUPAC TPR-6 | |
 | `PPY6` | pentagonal pyramid | SHAPE PPY-6 | |
-| `PBPY7` | pentagonal bipyramid | IUPAC PBPY-7 | yes |
-| `CU8` | cube | IUPAC CU-8 | yes |
-| `SAPR8` | square antiprism | IUPAC SAPR-8 | |
-| `DD8` | dodecahedron | IUPAC DD-8 (SHAPE TDD-8) | |
+| `PBPY7` | pentagonal bipyramid | IUPAC PBPY-7 | |
+| `TPRS7` | trigonal prism, square-face monocapped; the class of the capped seven-bond arrangements | IUPAC TPRS-7 (SHAPE CTPR-7) | yes |
+| `CU8` | cube | IUPAC CU-8 | |
+| `DD8` | dodecahedron; the class of the non-cubic eight-bond arrangements other than `HBPY8` and `TPRT8` | IUPAC DD-8 (SHAPE TDD-8) | yes |
 | `HBPY8` | hexagonal bipyramid | IUPAC HBPY-8 | |
+| `TPRT8` | trigonal prism, triangular-face bicapped | IUPAC TPRT-8 (SHAPE ETBPY-8) | |
 | `TPRS9` | trigonal prism, square-face tricapped | IUPAC TPRS-9 (SHAPE TCTPR-9) | yes |
+| `HBPY9` | heptagonal bipyramid | IUPAC HBPY-9 (SHAPE HBPY-9) | |
 | `COC12` | cuboctahedron | SHAPE COC-12 | yes |
 | `ACOC12` | anticuboctahedron | SHAPE ACOC-12 | |
 | `IC12` | icosahedron | SHAPE IC-12 | |
@@ -579,7 +581,41 @@ reference shapes"), and `I<n>` for an irregular arrangement of `n` bonds:
 A symbol is written only where it differs from the default of its bond count; a
 missing symbol means the default. Bond counts without a default (1 is never a
 shape; 10, 11, 13 and up) always write theirs. The defaults are one table, and a
-change to it is a change of the net version.
+change to it is a change of the net version. For five, seven and eight bonds the
+default is the most frequent shape on a sample of ICSD structures. A label is
+read under the net version it was written in: a label from another net version
+must not be parsed across versions, since its unwritten shapes mean other
+defaults (an unwritten eight-bonded site meant `CU8` in net version 6 and means
+`DD8` in net version 7).
+
+The Source column names where a symbol comes from, not its geometry. The shapes
+that predate net version 7 keep geometries of their own; three of them
+deliberately differ from SHAPE's reference coordinates (cosymlib,
+`cosymlib/shape/ideal_structures_center.yaml`): `SPY5` (100 degrees between apex
+and base) is 5.0 degrees from SHAPE SPY-5, `TPRS9` 3.3 degrees from TCTPR-9, and
+`PPY6` (an icosahedron vertex, its five neighbours and one outward bond) is not
+SHAPE's PPY-6, whose coordinates are detected as `TPR6` (14.6 degrees). `TPRS7`
+is SHAPE's reference geometry CTPR-7, taken about the central atom from the
+program's own coordinates (D. Casanova et al., *Chem. Eur. J.* 9, 1281 (2003)).
+`TPRT8` and `HBPY9` are the undistorted constructions, which equal SHAPE's
+ETBPY-8 and HBPY-9.
+
+Five IUPAC shapes are deliberately absent, because this measure barely tells
+each from a shape of the table. Its ideal geometry is detected as that shape,
+its *class*, and supplying the absent symbol raises an error that names the
+class (for example `SAPR8 is not in the shape table; its class is DD8`). The
+misfits of `OCF7`, `SAPR8` and `TPRS8` are measured on SHAPE's coordinates
+(COC-7, SAPR-8, BTPR-8); those of `SPY4` and `OCT8`, which SHAPE does not
+define, on plain constructions (four bonds at 100 degrees from an axis; an
+octahedron with two opposite faces capped):
+
+| Absent | Name | Class | Misfit to the class |
+|---|---|---|---|
+| `SPY4` | square pyramid, four bonds | `SP4` | 11.6 |
+| `OCF7` | octahedron, face monocapped (SHAPE COC-7) | `TPRS7` | 8.7 |
+| `SAPR8` | square antiprism | `DD8` | 9.7 |
+| `TPRS8` | trigonal prism, square-face bicapped (SHAPE BTPR-8) | `DD8` | 9.1 |
+| `OCT8` | octahedron, trans-bicapped | `HBPY8` | 3.4 |
 
 **Where shapes come from.** A value states them:
 `Protonettype(spacegroup, occupations, net, shapes)` and its `Protonetstructure`
@@ -596,8 +632,8 @@ the site is `I<n>`. Two bonds are `L2` from 165 degrees, else `A2`. Bond lengths
 are not used. CIF `_geom_bond_` networks have no shapes of their own and use the
 baseline. Some ideal shapes lie closer together than the 15 degree limit in this
 measure, so a slightly distorted polyhedron can be named after its neighbour:
-`SAPR8`/`DD8` 9.7, `COC12`/`ACOC12` 9.4, `COC12`/`IC12` 11.7, `TP3`/`TPY3`
-13.0 and `CU8`/`HBPY8` 14.5 degrees. The closest shape still wins
+`COC12`/`ACOC12` 9.4, `COC12`/`IC12` 11.7, `TP3`/`TPY3` 13.0 and `CU8`/`HBPY8`
+14.5 degrees. The closest shape still wins
 deterministically.
 
 **Description independence.** The baseline reads exact quantities: the
@@ -1098,7 +1134,7 @@ their content identity. There are three versions, one per family:
 
 A label-rule change therefore bumps all three, while a change to the
 representative or to the net leaves the other families' records untouched. The
-label version is 4, the refined version 9 and the net version 6, since species
+label version is 4, the refined version 9 and the net version 7, since species
 classes replaced species names in every label, the hand is kept in Sohncke
 groups at every level, labels that could not be determined within the time
 budget are stored with an `X` marker, and species-class concentrations are
@@ -1109,7 +1145,8 @@ members (with both hands competing where the measured cell does not keep the gro
 and cells built from parameters whose rational cosines and sines (0, ±1/2, ±1) are
 exact where the others are approximated, with an approximated rhombohedral-axes cell
 built in the symmetric orientation that keeps its threefold axis exactly, and the net version the bond shapes and
-the listing order of the net segment.
+the listing order of the net segment and, since net version 7, the present shape table (`TPRS7`, `TPRT8` and
+`HBPY9` added, `SAPR8` dropped, and `SPY5`, `TPRS7` and `DD8` the defaults for five, seven and eight bonds).
 Any change that can change a shape the baseline detects (the defaults table, the
 ideal shapes or their order, the thresholds, the misfit rounding, the tie order,
 the metric averaging or the float conversion) is a change of the net rule. The

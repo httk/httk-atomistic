@@ -47,6 +47,7 @@ def test_parse_fills_the_defaults_and_rendering_omits_them() -> None:
         ("8I4~1.2_9SS4~3.4_10T4~1.2.3.4@4", "not a canonical"),  # a written default
         ("8I4~1.2_9XX4~3.4_10~1.2.3.4@4", "unknown shape"),
         ("8I4~1.2_9SS4~3.4_10TBPY5~1.2.3.4@4", "is for 5 bonds, but the site has 4"),
+        ("8I4~1.2_9SS4~3.4_10SPY4~1.2.3.4@4", "SPY4 is not in the shape table; its class is SP4"),
         ("8I4~1.2_9SS4~3.4_10OC5~1.2.3.4@4", "unknown shape"),
         ("8I4~1.2_9SS4~3.4_10~1.2.3.4@4_5A2", "site with 0 bond"),
         ("8I4~1.2_9SS4~3.4_10~1.2.3_4L2", "site with 1 bond"),
@@ -72,7 +73,8 @@ def _star(symbol: str | None) -> Protonettype:
 
 def test_a_count_without_a_default_writes_its_shape() -> None:
     value = _star("I10")
-    net = "2I10~1.1@1@455.1@1@545.1@1@554.1@1@445"
+    # site 1's TBPY5 is not the five-bond default (SPY5), so it opens a group of its own
+    net = "2I10~1.1@1@455.1@1@545.1@1@554.1@1@445_1TBPY5"
     assert str(value.label) == f"A2B_aP3_2_i_a__{net}"
     assert parse_protonettype_label(str(value.label)) == value
     with pytest.raises(ValueError, match="no default shape"):
@@ -278,7 +280,8 @@ def test_random_nets_with_shapes_match_the_oracle(it: int) -> None:
 # ---------------------------------------------------------------------------------------------
 # name -> (canonical net, the brief's B8 net); the exact minimum differs from the brief's prototype,
 # which kept one numbering and its first tied realisation, in two cases (design note section 8):
-# K2AgSbS4's last code is @4 (not @4@554), and diopside's 6~ group takes @2@545 (and 4~ then 2@5)
+# K2AgSbS4's last code is @4 (not @4@554), and diopside's 6~ group takes @2@545 (and 4~ then 2@5).
+# The brief's nets are written with the present defaults (diopside's DD8 Ca site, once written, is now the default).
 B8: dict[str, tuple[str, str]] = {
     "AlCl3": ("A3B_mC16_12_ij_g__3~1.2.2@4:Cl-Al", "3~1.2.2@4"),
     "AgO": ("AB_mP8_14_ab_e__1SP4~3.3@3_3TPY3~2_2L2:Ag-O", "1SP4~3.3@3_3TPY3~2_2L2"),
@@ -286,8 +289,8 @@ B8: dict[str, tuple[str, str]] = {
     "CuCl2 3.1": ("A2B_mC6_12_i_a__2~1.1@4_1I3:Cl-Cu", "2~1.1@4_1I3"),
     "K2AgSbS4": (f"{K2AGSBS4}__{FRAME}:S-K-Ag-Sb", "8I4~1.2_9SS4~3.4_10~1.2.3.4@4@554"),
     "diopside": (
-        "A6B2CD_mC40_15_3f_f_e_e__5DD8~1.1@2.2.3_6~2.2@2@545.3@2@545_4~1.1@6.2@5.3@2_1I4_3I3:O-Si-Ca-Mg",
-        "5DD8~1.1@2.2.3_6~2.2@2@565.3@2@565_4~1.1@6.2@5@545.3@2_1I4_3I3",
+        "A6B2CD_mC40_15_3f_f_e_e__5~1.1@2.2.3_6~2.2@2@545.3@2@545_4~1.1@6.2@5.3@2_1I4_3I3:O-Si-Ca-Mg",
+        "5~1.1@2.2.3_6~2.2@2@565.3@2@565_4~1.1@6.2@5@545.3@2_1I4_3I3",
     ),
 }
 B8_DIFFERS = {"K2AgSbS4", "diopside"}

@@ -14,9 +14,9 @@ to every atom it is bonded to.  The baseline detector looks at directions only, 
 
 This is a port of the workspace reference ``docs/protonet_followup/shape_reference.py`` and must
 reproduce it exactly (floats: geometry presentation only).  Some ideal shapes lie closer to each
-other than the irregular limit in this measure (``SAPR8``/``DD8`` 9.65, ``COC12``/``ACOC12``
-9.38, ``COC12``/``IC12`` 11.70, ``TP3``/``TPY3`` 13.00, ``CU8``/``HBPY8`` 14.49 degrees RMS);
-the closest shape still wins deterministically.
+other than the irregular limit in this measure (``COC12``/``ACOC12`` 9.38, ``COC12``/``IC12``
+11.70, ``TP3``/``TPY3`` 13.00, ``CU8``/``HBPY8`` 14.49 degrees RMS); the closest shape still
+wins deterministically.
 
 Symbols are IUPAC polyhedral symbols without the hyphen where IUPAC defines one [IUPAC]_, the
 SHAPE program's labels otherwise [SHAPE]_, and ``I<n>`` (irregular, ``n`` bonds) of our own:
@@ -38,11 +38,13 @@ OC6       octahedron                                  IUPAC OC-6
 TPR6      trigonal prism                              IUPAC TPR-6
 PPY6      pentagonal pyramid                          SHAPE PPY-6
 PBPY7     pentagonal bipyramid                        IUPAC PBPY-7
+TPRS7     trigonal prism, square-face monocapped      IUPAC TPRS-7 (SHAPE: CTPR-7)
 CU8       cube                                        IUPAC CU-8
-SAPR8     square antiprism                            IUPAC SAPR-8
 DD8       dodecahedron                                IUPAC DD-8 (SHAPE: TDD-8)
 HBPY8     hexagonal bipyramid                         IUPAC HBPY-8
+TPRT8     trigonal prism, triangular-face bicapped    IUPAC TPRT-8 (SHAPE: ETBPY-8)
 TPRS9     trigonal prism, square-face tricapped       IUPAC TPRS-9 (SHAPE: TCTPR-9)
+HBPY9     heptagonal bipyramid                        IUPAC HBPY-9 (SHAPE: HBPY-9)
 COC12     cuboctahedron                               SHAPE COC-12
 ACOC12    anticuboctahedron (triangular               SHAPE ACOC-12
           orthobicupola, J27)
@@ -50,9 +52,26 @@ IC12      icosahedron                                 SHAPE IC-12
 I<n>      irregular, n bonds                          httk
 ========  ==========================================  =============================
 
-The ideal geometries are the reference's own choices where neither source fixes one (for example
-the trigonal pyramid at 107 degrees between bonds, the square pyramid at 100 degrees between apex
-and base, and ``PPY6`` as an icosahedron vertex with its five neighbours and one outward bond).
+The shapes that predate follow-up 7 keep the reference's own geometries (for example the
+trigonal pyramid at 107 degrees between bonds).  Three of them deliberately differ from SHAPE's
+reference coordinates [cosymlib]_: ``SPY5`` (square pyramid at 100 degrees between apex and
+base) is 5.04 degrees from SHAPE ``SPY-5``; ``TPRS9`` (prism at 45 degrees from the axis) is 3.28
+degrees from ``TCTPR-9``; and ``PPY6`` (an icosahedron vertex with its five neighbours and one
+outward bond) is not SHAPE's ``PPY-6``, whose coordinates are detected as ``TPR6`` (14.56).
+``TPRS7`` is SHAPE's reference geometry ``CTPR-7``, taken about the central atom from the
+program's coordinates [cosymlib]_ (see also [Casanova2003]_); ``TPRT8`` and ``HBPY9`` are the
+undistorted constructions, which equal SHAPE's ``ETBPY-8`` and ``HBPY-9``.
+
+Some IUPAC shapes are deliberately absent: this measure barely tells each from a shape of the
+table, which its ideal geometry is detected as and which is its *class*.  ``SPY4`` (four-bond
+square pyramid, 11.6 degrees away) is detected as ``SP4``; ``OCF7`` (face-monocapped octahedron,
+SHAPE ``COC-7``, 8.72) as ``TPRS7``; ``SAPR8`` (square antiprism, 9.65) and ``TPRS8``
+(square-face bicapped trigonal prism, 9.12) as ``DD8``; ``OCT8`` (trans-bicapped octahedron,
+3.45) as ``HBPY8``.  ``TPRS7`` is therefore the class of the capped seven-bond arrangements, and
+``DD8`` the class of the non-cubic eight-bond arrangements other than the bipyramid ``HBPY8`` and
+the triangular-face bicapped prism ``TPRT8``.  A supplied absent symbol raises, naming its class.
+The defaults (``_DEFAULTS``) for five, seven and eight bonds are the most frequent shapes on an
+ICSD sample (protonet follow-up 7): ``SPY5``, ``TPRS7`` and ``DD8``.
 
 .. [IUPAC] N. G. Connelly, T. Damhus, R. M. Hartshorn, A. T. Hutton (eds.), *Nomenclature of
    Inorganic Chemistry: IUPAC Recommendations 2005*, RSC Publishing, Cambridge, 2005,
@@ -61,6 +80,12 @@ and base, and ``PPY6`` as an icosahedron vertex with its five neighbours and one
    Stereochemical Analysis of Molecular Fragments by Means of Continuous Shape Measures and
    Associated Tools*, User's Manual, Version 2.1, Universitat de Barcelona, March 2013,
    "List of reference shapes" (pp. 7-9).
+.. [Casanova2003] D. Casanova, P. Alemany, J. M. Bofill, S. Alvarez, "Shape and symmetry of
+   heptacoordinate transition-metal complexes: structural trends", *Chem. Eur. J.* 9, 1281-1295
+   (2003).
+.. [cosymlib] Grup d'Estructura Electrònica i Simetria, cosymlib (MIT licence), file
+   ``cosymlib/shape/ideal_structures_center.yaml``, commit ``90533c88``,
+   https://github.com/GrupEstructuraElectronicaSimetria/cosymlib.
 """
 
 import itertools
@@ -83,8 +108,9 @@ _LINEAR_FROM = 165.0  # degrees: two bonds at least this far apart are linear (d
 _IRREGULAR_ABOVE = 15.0  # degrees RMS: beyond this no ideal shape is assigned (decision S3)
 # The shape a missing symbol in the label means, per bond count.  One table: a change is a nets
 # version bump.  Two bonds: bent, settled from the follow-up 5 counts (decision S2, Nov 13 2026: 4% of
-# carbon-free COD and 18% of ICSD inorganic two-bonded sites are linear).
-_DEFAULTS = {2: "A2", 3: "TP3", 4: "T4", 5: "TBPY5", 6: "OC6", 7: "PBPY7", 8: "CU8", 9: "TPRS9", 12: "COC12"}
+# carbon-free COD and 18% of ICSD inorganic two-bonded sites are linear).  Five, seven and eight bonds:
+# the most frequent shape on ICSD (follow-up 7, Nov 13 2026).
+_DEFAULTS = {2: "A2", 3: "TP3", 4: "T4", 5: "SPY5", 6: "OC6", 7: "TPRS7", 8: "DD8", 9: "TPRS9", 12: "COC12"}
 
 
 def _unit(v: Sequence[float]) -> tuple[float, ...]:
@@ -108,7 +134,6 @@ def _ring(n: int, polar: float, phase: float = 0.0, sign: int = 1) -> list[tuple
 _Z, _MZ = (0.0, 0.0, 1.0), (0.0, 0.0, -1.0)
 _TPY = math.degrees(math.asin(math.sqrt((1 - math.cos(math.radians(107.0))) / 1.5)))  # three bonds 107 degrees apart
 _TPR = math.degrees(math.atan2(2 / math.sqrt(7), math.sqrt(3 / 7)))  # trigonal prism with square faces
-_SAPR = math.degrees(math.atan2(1.0, 2**-0.75))  # square antiprism, equal edges
 _ACOC = math.degrees(math.atan2(1 / math.sqrt(3), math.sqrt(2 / 3)))
 _G = (1 + math.sqrt(5)) / 2
 _ICO = [
@@ -120,6 +145,10 @@ _ICO = [
 _V0 = _ICO[0]
 _ADJ = [v for v in _ICO if 0.4 < sum(x * y for x, y in zip(v, _V0, strict=True)) < 0.5]
 _DDA, _DDB = math.radians(36.85), math.radians(69.46)  # Hoard-Silverton dodecahedron
+# SHAPE CTPR-7 about its central atom (cosymlib ideal_structures_center.yaml, vertex minus central
+# atom): polar angles from the cap of the capped square face (76.27) and the opposite edge (141.87)
+_CTPR_A = math.degrees(math.atan2(0.735247575071 * math.sqrt(2), 0.203750780644 + 0.050373370753))
+_CTPR_B = math.degrees(math.atan2(0.660960557032, -0.892328424325 + 0.050373370753))
 
 # bond count -> ordered {symbol: ideal bond directions}; the order breaks ties
 _IDEAL: dict[int, dict[str, Sequence[Sequence[float]]]] = {
@@ -136,17 +165,17 @@ _IDEAL: dict[int, dict[str, Sequence[Sequence[float]]]] = {
         # an icosahedron vertex: its five neighbours on the icosahedron and one bond pointing outwards
         "PPY6": [tuple(a - b for a, b in zip(v, _V0, strict=True)) for v in _ADJ] + [_V0],
     },
-    7: {"PBPY7": [_Z, _MZ, *_ring(5, 90)]},
+    7: {"PBPY7": [_Z, _MZ, *_ring(5, 90)], "TPRS7": [_Z, *_ring(4, _CTPR_A, 45), *_ring(2, _CTPR_B)]},
     8: {
         "CU8": [(a, b, c) for a in (1, -1) for b in (1, -1) for c in (1, -1)],
-        "SAPR8": _ring(4, _SAPR) + _ring(4, _SAPR, 45, -1),
         "DD8": [(math.sin(_DDA) * s, 0, math.cos(_DDA)) for s in (1, -1)]
         + [(0, math.sin(_DDA) * s, -math.cos(_DDA)) for s in (1, -1)]
         + [(0, math.sin(_DDB) * s, math.cos(_DDB)) for s in (1, -1)]
         + [(math.sin(_DDB) * s, 0, -math.cos(_DDB)) for s in (1, -1)],
         "HBPY8": [_Z, _MZ, *_ring(6, 90)],
+        "TPRT8": [*_ring(3, _TPR), *_ring(3, _TPR, 0, -1), _Z, _MZ],
     },
-    9: {"TPRS9": _ring(3, 45) + _ring(3, 45, 0, -1) + _ring(3, 90, 60)},
+    9: {"TPRS9": _ring(3, 45) + _ring(3, 45, 0, -1) + _ring(3, 90, 60), "HBPY9": [_Z, _MZ, *_ring(7, 90)]},
     12: {
         "COC12": [p for a in (1, -1) for b in (1, -1) for p in ((a, b, 0), (a, 0, b), (0, a, b))],
         "ACOC12": _ring(6, 90) + _ring(3, _ACOC, 30) + _ring(3, _ACOC, 30, -1),
@@ -155,6 +184,8 @@ _IDEAL: dict[int, dict[str, Sequence[Sequence[float]]]] = {
 }
 
 _KNOWN = frozenset({"L2", "A2"}.union(*_IDEAL.values()))
+# IUPAC shapes deliberately absent from the table -> the table shape their ideal is detected as
+_ABSENT = {"SPY4": "SP4", "OCF7": "TPRS7", "SAPR8": "DD8", "TPRS8": "DD8", "OCT8": "HBPY8"}
 _SYMBOL = re.compile(r"[A-Z]+([1-9][0-9]*)")
 _IRREGULAR = re.compile(r"I([1-9][0-9]*)")
 
@@ -255,9 +286,11 @@ def _check_shape(symbol: str, count: int) -> None:
 
     :param symbol: The shape symbol.
     :param count: The site's bond count.
-    :raises ValueError: If ``symbol`` is unknown, the site has fewer than two bonds, or the
-        symbol's number is not ``count``.
+    :raises ValueError: If ``symbol`` is unknown (a deliberately absent IUPAC symbol names its
+        class), the site has fewer than two bonds, or the symbol's number is not ``count``.
     """
+    if symbol in _ABSENT:
+        raise ValueError(f"{symbol} is not in the shape table; its class is {_ABSENT[symbol]}")
     if not _is_known(symbol):
         raise ValueError(f"unknown shape symbol {symbol!r}")
     if count < 2:
