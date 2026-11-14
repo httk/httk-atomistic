@@ -82,7 +82,10 @@ are not candidates for removal.
 
 CIF decimal text is not first converted to binary floating point. A coordinate written as
 `0.3333` enters the atomistic layer as the exact rational `3333/10000`. A writer-provided
-`_httk_*_exact` companion tag takes precedence over its rounded standard display value.
+`_httk_*_exact` companion tag takes precedence over its rounded standard display value; this
+holds on `load()` for the cell companions (`_httk_cell_length_a_exact` and the other five) as
+for the coordinate and occupancy companions, and a companion that is not a valid exact number
+is an error.
 
 Parenthesized standard uncertainties are retained as precision information. The weaker of
 the final written digit and the stated uncertainty controls the tolerance; `5.6402(3)` is
@@ -259,7 +262,8 @@ A block with a `_geom_bond_` loop always loads as a structure with that bond net
 `bonds=None` (no network known), and a loop without rows gives a network without
 bonds, `BondNetwork(pairs=())`. The network's `source` is
 `BondSource(description="Bonds listed in the CIF _geom_bond_ loop")`, with no software or
-version, and it assigns no shapes. Only
+version, and it assigns no shapes, unless the block carries the httk items of
+[Bond networks, shapes and sources in CIF](#bond-networks-shapes-and-sources-in-cif). Only
 `_geom_bond_atom_site_label_1`, `_geom_bond_atom_site_label_2`,
 `_geom_bond_site_symmetry_1`, `_geom_bond_site_symmetry_2` and `_geom_bond_distance` are
 read; the other columns are ignored.
@@ -302,8 +306,8 @@ read; the other columns are ignored.
 A CIF bond list is the refinement program's choice, not a chemical model: it typically
 lists bonds by distance between atoms the author asked about, often without the bonds to
 hydrogen. The bonds are taken as the file gives them and become the `~` bonds of the
-protonet labels ({doc}`../prototypes`); CIF has no shape item, so the shapes in those labels
-come from the baseline detector (see {doc}`asu`). Missing bonds are not completed, but a network with at
+protonet labels ({doc}`../prototypes`); core CIF has no shape item, so without the httk shape
+loop the shapes in those labels come from the baseline detector (see {doc}`asu`). Missing bonds are not completed, but a network with at
 least one bond that leaves Wyckoff sites without a bond logs one warning naming the block and
 counting those sites per element, such as `17 H sites have no bond in the listed loop`. Sites
 are counted as Wyckoff sites (orbits), not atoms. A site is named by its elements other than
@@ -321,8 +325,63 @@ print(canonical_protonetstructure(structure).label)
 print(ProtonetstructureView(structure).label)
 ```
 
-Bond types and orders, `_chemical_conn_bond_` loops, and writing a network back to CIF are
-not supported.
+Bond types and orders and `_chemical_conn_bond_` loops are not supported.
+
+## Bond networks, shapes and sources in CIF
+
+`httk.core.save(structure, "x.cif")` writes a structure's bond network (its `bonds`, see
+{doc}`asu`) with the core `_geom_bond_` items, and its shapes and both sources with httk items;
+`load()` reads them back. A structure without a network is written exactly as before. With a
+network the block carries:
+
+| Content | Items |
+|---|---|
+| Operation ids | `_space_group_symop_id` 1..n in the operation loop |
+| Unique site labels | `_atom_site_label`; a label that repeats becomes `<label><n>`, a unique one is kept |
+| Bonds | `_geom_bond_atom_site_label_1`, `_2`, `_geom_bond_site_symmetry_1` (always `.`), `_2` (`n_klm`), `_geom_bond_distance` |
+| A network known to have no bonds | `_httk_bonds_count 0` and no bond loop |
+| Bond source | `_httk_bonds_source_description`, `_software`, `_version`, `_uri` |
+| Shapes | a loop of `_httk_shape_atom_site_label` and `_httk_shape_symbol` |
+| Shape source | `_httk_shapes_source_description`, `_software`, `_version`, `_uri` |
+
+- **One row per bond orbit.** A fundamental domain or ASU writes one bond row per bond orbit,
+  a unit cell (written as P1) one per bond. The second atom's code `n_klm` names operation `n`
+  of the block's own list and the lattice translation `(k-5, l-5, m-5)`, so each translation
+  component must lie in −5…+4; a bond outside that range cannot be written, and saving raises
+  `ValueError` naming the bond. Distances are rounded to five decimals and pass the reader's
+  distance check.
+- **Shapes.** One row per site with an assigned shape, over all of its bonds; a site without a
+  row has none. A site whose occupation is split over several atom-site rows is named by its
+  first row. An irregular shape `I<n>` is written as the single symbol `I`, without its count;
+  reading turns `I` back into `I<n>` with `n` the site's bond count, and also accepts `I<n>`
+  when `n` is that count. The number of a named symbol must equal the site's bond count.
+- **Sources.** A source that is `None` is not written; an unknown field of a known source is
+  written `?`. On reading, the httk source items override the CIF loop's default source, and
+  `?` and `.` read as `None`. A network whose source is `None` therefore reads back with the
+  default source of a `_geom_bond_` loop.
+- **Labels must keep species names.** The reader names a partially occupied, dummy or
+  attached-hydrogen species after its atom-site label. Unique labels would split such a species
+  into one species per site, so saving a network refuses, with a `ValueError` naming the
+  species, when such a species sits on more than one atom-site row.
+- **Reading is forgiving.** `_httk_bonds_count` that disagrees with the bond loop logs a warning
+  and the loop wins. A shape row with an unknown label, an unknown symbol, a named symbol or
+  `I<n>` whose number is not the site's bond count, `I` on a site with fewer than three bonds,
+  or a site named twice logs one warning and leaves every shape
+  unassigned while keeping the bonds. Shape rows in a block without bonds are ignored with a
+  warning.
+- **mCIF does not carry networks.** Saving a magnetic structure as mCIF drops its bond network.
+
+A `load(save(structure))` round trip keeps the cell, the space group and setting, the Wyckoff
+sites, the species names and constituents, the bonds, the shapes and both sources; a unit cell
+reads back as a P1 `ASUStructure`, and a renamed label is kept as the species' `original_name`.
+
+The httk items are defined in a DDLm dictionary, `cif_httk.dic`, which ships with
+*httk-atomistic* in the `httk.atomistic.io.cif` package (also defining the `_httk_*_exact`
+companions). It names a new category with the prefix (`_httk_shape.symbol`), an item added to a
+core category with the prefix on the item (`_atom_site.httk_fract_x_exact`), and gives the names
+httk writes, such as `_httk_shape_symbol`, as aliases. Its shape-symbol enumeration is the
+named shape symbols followed by `I`. Read it with
+`importlib.resources.files("httk.atomistic.io.cif") / "cif_httk.dic"`.
 
 ## Magnetic CIF
 
@@ -501,7 +560,7 @@ error `load()` raises. Two deliberate differences: a data name the structure rea
 (the cell, symmetry, atom-site and magnetic names; not the bond-loop names, so a bond loop never
 stops a conversion) may occur only once, also across save frames, where `load()` silently keeps
 the last occurrence; and in a `"cif"` block, a CIF2 list or table as the value of a name the
-structure reader reads (bond-loop names included) raises. Repeated names the structure reader
+structure reader reads (bond-loop and httk network names included) raises. Repeated names the structure reader
 does not consume are kept and ignored.
 
 **Saving.** `httk.core.save(cs, "x.cif")` and `save([cs, ...], "x.cif")` write the blocks

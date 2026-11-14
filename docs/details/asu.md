@@ -155,7 +155,7 @@ after the misfit is rounded to 1e-6 that changes a shape only for a value within
 about 1e-12 of a rounding boundary. A zero-length bond (two coincident sites bonded to each
 other) has no direction; the baseline raises `ValueError` for its site, and a
 supplied symbol for that site avoids it. Networks read from CIF `_geom_bond_`
-loops have no shapes of their own and use the baseline.
+loops use the baseline unless the file carries an httk `_httk_shape_` loop.
 
 Assigned shapes move with their sites wherever the network is carried and are
 dropped wherever it is dropped. Where sites merge (recognition, a cell

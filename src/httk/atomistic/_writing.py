@@ -265,6 +265,8 @@ def _block(
     written_positions: list[FracVector] = []
     attached_hydrogens: list[int] = []
     calc_flags: list[str] = []
+    label_named: list[str | None] = []  # per row, the species the reader names from the row's label
+    site_rows: list[int] = []  # per site, its first row
     atom_type_masses: dict[str, float] = {}
     has_nondefault_occupancy = False
 
@@ -278,6 +280,8 @@ def _block(
         written_positions.append(position)
         attached_hydrogens.append(_attached_hydrogen_count(species))
         calc_flags.append(calc_flag)
+        by_label = species.concentration[index] != 1 or attached_hydrogens[-1] > 0 or calc_flag == "dum"
+        label_named.append(species.name if by_label else None)
         has_nondefault_occupancy |= (
             species.concentration[index] != 1 or species.concentration_precision[index] is not None
         )
@@ -301,6 +305,7 @@ def _block(
             ):
                 raise ValueError("CIF serializer cannot represent this single-constituent species label exactly")
         source_labels = _source_labels(species, indices, label)
+        site_rows.append(len(written_labels))
         for index, source_label in zip(indices, source_labels):
             append_row(species, index, source_label, position, "d")
 
@@ -333,7 +338,79 @@ def _block(
         "space_group_nbr": str(spacegroup.it_number),
         "space_group_name_hm": spacegroup.hermann_mauguin,
         "space_group_name_hall": spacegroup.hall_symbol,
+        "label_named": label_named,
+        "site_rows": site_rows,
     }
+
+
+def _add_cif_network(
+    block: dict[str, object], structure: Any, positions: list[FracVector], operations: tuple[AffineOperation, ...]
+) -> None:
+    """Add the bond network of ``structure``, if it has one, to its CIF ``block`` as made by :func:`_block`.
+
+    One row per bond (per bond orbit on a fundamental domain): the first written row of each end
+    site, by its label, and the symmetry code ``n_klm`` of the partner, ``n`` the 1-based index of
+    the bond operation in ``operations`` and ``klm`` its lattice translation plus 5. Labels are
+    made unique; a species the reader names from its label (a partially occupied, dummy or
+    attached-hydrogen row) would then read back as several species, so it is refused when a
+    renamed row holds it. Distances are rounded to 5 decimals in the Cartesian frame of
+    ``cell.basis.to_floats()``, which the reader checks them against.
+
+    :param block: The block, changed in place; its private ``label_named`` and ``site_rows`` keys are removed.
+    :param structure: The structure the block was made from.
+    :param positions: The written position of each site.
+    :param operations: The written (wrapped) operations, in their written order.
+    :raises ValueError: If a bond translation is outside -5..+4, or a label-named species sits on
+        several rows.
+    """
+    from httk.atomistic.entries.bonds import _bond_codes
+    from httk.atomistic.models.structure.asu import _apply, _op
+    from httk.atomistic.symmetry.shapes import _to_exchange
+
+    label_named = cast(list[str | None], block.pop("label_named"))
+    site_rows = cast(list[int], block.pop("site_rows"))
+    network = structure.bonds
+    if network is None:
+        return
+    labels = cast(tuple[str, ...], block["labels"])
+    unique = _unique_site_labels(list(labels))
+    for old, new, species in zip(labels, unique, label_named, strict=True):
+        if old != new and species is not None:
+            raise ValueError(
+                f"CIF cannot write the bond network: species {species!r} is read back by its site label "
+                "(it is partially occupied, a dummy atom or carries attached hydrogens), but it sits on "
+                "several sites, which need distinct labels"
+            )
+    block["labels"] = tuple(unique)
+    site_labels = [unique[row] for row in site_rows]
+    points = [position.to_fractions() for position in positions]
+    basis = structure.cell.basis.to_floats()
+    rows = []
+    for bond, (index, t) in zip(network.pairs, _bond_codes(structure, points, operations), strict=True):
+        if not all(-5 <= k <= 4 for k in t):
+            raise ValueError(
+                f"CIF cannot write bond {bond.site}-{bond.partner}: its lattice translation {t} is outside "
+                "-5..+4, which a symmetry code n_klm cannot express"
+            )
+        W, w = _op(operations[index])
+        image = _apply((W, tuple(a + k for a, k in zip(w, t, strict=True))), points[bond.partner])
+        r = [float(q - p) for p, q in zip(points[bond.site], image, strict=True)]
+        distance = math.sqrt(sum(sum(r[k] * basis[k][axis] for k in range(3)) ** 2 for axis in range(3)))
+        code = f"{index + 1}_{t[0] + 5}{t[1] + 5}{t[2] + 5}"
+        rows.append((site_labels[bond.site], site_labels[bond.partner], code, f"{distance:.5f}"))
+    block["bond_rows"] = rows
+    block["shape_rows"] = [  # the exchange symbol: I<n> is written "I"
+        (site_labels[site], _to_exchange(symbol))
+        for site, symbol in enumerate(network.shapes or ())
+        if symbol is not None
+    ]
+    block["bonds_source"] = _source_fields(network.source)
+    block["shapes_source"] = _source_fields(network.shapes_source)
+
+
+def _source_fields(source: Any) -> tuple[str | None, ...] | None:
+    """Return the four fields of a bond or shape source, or ``None`` without one."""
+    return None if source is None else (source.description, source.software, source.version, source.uri)
 
 
 def _cif_blocks_payload(obj: Any, dialect: str) -> Mapping[str, object] | None:
@@ -399,31 +476,21 @@ def _cif_payload_from_structure(obj: Any) -> Mapping[str, object]:
         # position; writing the rounded source coordinate with fresh high precision can make
         # the next reader miss the special position and change its Wyckoff orbit.
         positions = [obj._representatives_for_site(site)[0] for site in obj.wyckoff_sites]
-        return {
-            "format": "cif",
-            "blocks": [
-                _block(
-                    obj, positions, operations, spacegroup=setting, labels=[site.species for site in obj.wyckoff_sites]
-                )
-            ],
-        }
+        block = _block(
+            obj, positions, operations, spacegroup=setting, labels=[site.species for site in obj.wyckoff_sites]
+        )
+        _add_cif_network(block, obj, positions, tuple(operation.wrapped() for operation in operations))
+        return {"format": "cif", "blocks": [block]}
 
     structure = UnitcellStructureView(obj)
     _require_cif_projection(structure)
     identity = AffineOperation.identity()
-    labels = list(structure.species_at_sites)
-    return {
-        "format": "cif",
-        "blocks": [
-            _block(
-                structure,
-                list(structure.sites.reduced_coords),
-                (identity,),
-                spacegroup=Spacegroup.standard(1),
-                labels=labels,
-            )
-        ],
-    }
+    positions = list(structure.sites.reduced_coords)
+    block = _block(
+        structure, positions, (identity,), spacegroup=Spacegroup.standard(1), labels=list(structure.species_at_sites)
+    )
+    _add_cif_network(block, structure, positions, (identity,))
+    return {"format": "cif", "blocks": [block]}
 
 
 def _moment_component(value: Any) -> str:

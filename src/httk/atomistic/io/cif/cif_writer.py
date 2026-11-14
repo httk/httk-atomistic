@@ -58,6 +58,13 @@ _cif_simplestring_regex = re.compile(r'^[A-Za-z0-9()][A-Za-z0-9()+-]*$')
 _HTTK_CIF_DECIMAL_DIGITS = 16
 
 
+class _Bare(str):
+    """A value written unquoted as it is, such as the CIF inapplicable marker ``.``."""
+
+
+_INAPPLICABLE = _Bare(".")
+
+
 def _cif_validate_name(name_unfiltered, context=None):
     if context is not None:
         context = context + ": " + name_unfiltered
@@ -136,6 +143,9 @@ def _cif_write_semicolontextfield(f, lines, noteol, max_line_length):
 def _cif_write_data_value(f, orig_data_value, noteol, max_line_length, inloop):
     if orig_data_value is None:
         f.write("?")
+        return True
+    elif isinstance(orig_data_value, _Bare):
+        f.write(orig_data_value)
         return True
     else:
         data_value = str(orig_data_value)
@@ -503,9 +513,13 @@ def _neutral_cif_block(block: Mapping[str, object], *, exact_companions: bool = 
         if source in block:
             raw[target] = block[source]
 
-    symops = cast(Iterable[str], block["symops_xyz"])
-    raw["loop_symops"] = ["space_group_symop_operation_xyz"]
-    raw["space_group_symop_operation_xyz"] = list(symops)
+    symops = list(cast(Iterable[str], block["symops_xyz"]))
+    if block.get("bond_rows") is not None:  # bond symmetry codes name the operations by id
+        raw["loop_symops"] = ["space_group_symop_id", "space_group_symop_operation_xyz"]
+        raw["space_group_symop_id"] = [str(number) for number in range(1, len(symops) + 1)]
+    else:
+        raw["loop_symops"] = ["space_group_symop_operation_xyz"]
+    raw["space_group_symop_operation_xyz"] = symops
 
     positions = list(cast(Iterable[Sequence[object]], block["positions_exact"]))
     symbols = list(cast(Iterable[str], block.get("symbols", ())))
@@ -560,7 +574,45 @@ def _neutral_cif_block(block: Mapping[str, object], *, exact_companions: bool = 
         raw["loop_atom_types"] = ["atom_type_symbol", "atom_type_mass"]
         raw["atom_type_symbol"] = atom_type_symbols
         raw["atom_type_mass"] = atom_type_masses
+    _neutral_cif_network(raw, block)
     return raw
+
+
+def _neutral_cif_network(raw: dict[str, object], block: Mapping[str, object]) -> None:
+    """Add a block's bond network to the low-level writer's block, if it has one.
+
+    ``bond_rows`` holds ``(label_1, label_2, symmetry_code_2, distance)`` per bond; none means an
+    empty network, written as ``_httk_bonds_count 0``. ``bonds_source`` and ``shapes_source`` hold
+    the four source fields (``None`` written ``?``), ``shape_rows`` holds ``(label, symbol)`` pairs.
+    """
+    rows = cast("Sequence[Sequence[str]] | None", block.get("bond_rows"))
+    if rows is None:
+        return
+    if rows:
+        columns = ("atom_site_label_1", "atom_site_label_2", "site_symmetry_1", "site_symmetry_2", "distance")
+        raw["loop_bonds"] = [f"geom_bond_{name}" for name in columns]
+        raw["geom_bond_atom_site_label_1"] = [row[0] for row in rows]
+        raw["geom_bond_atom_site_label_2"] = [row[1] for row in rows]
+        raw["geom_bond_site_symmetry_1"] = [_INAPPLICABLE] * len(rows)
+        raw["geom_bond_site_symmetry_2"] = [_Bare(row[2]) for row in rows]
+        raw["geom_bond_distance"] = [row[3] for row in rows]
+    else:
+        raw["httk_bonds_count"] = 0
+    _neutral_cif_source(raw, "bonds_source", block)
+    shapes = cast("Sequence[Sequence[str]]", block.get("shape_rows", ()))
+    if shapes:
+        raw["loop_shapes"] = ["httk_shape_atom_site_label", "httk_shape_symbol"]
+        raw["httk_shape_atom_site_label"] = [row[0] for row in shapes]
+        raw["httk_shape_symbol"] = [row[1] for row in shapes]
+    _neutral_cif_source(raw, "shapes_source", block)
+
+
+def _neutral_cif_source(raw: dict[str, object], name: str, block: Mapping[str, object]) -> None:
+    """Add the four ``_httk_<name>_*`` items of a source the block holds, if any."""
+    source = cast("Sequence[str | None] | None", block.get(name))
+    if source is not None:
+        for field, value in zip(("description", "software", "version", "uri"), source, strict=True):
+            raw[f"httk_{name}_{field}"] = value
 
 
 def _write_cif_payload(

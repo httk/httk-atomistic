@@ -645,9 +645,8 @@ see {doc}`details/asu`), and `from_asu` with index-tuple bonds takes `shapes=`. 
 compared with the sorted angles of each ideal shape of the same bond count by
 root mean square difference in degrees (rounded to 1e-6), and the closest shape
 wins (ties: table order); above 15 degrees, or for a count without ideal shapes,
-the site is `I<n>`. Two bonds are `L2` from 165 degrees, else `A2`. Bond lengths
-are not used. CIF `_geom_bond_` networks have no shapes of their own and use the
-baseline. Some ideal shapes lie closer together than the 15 degree limit in this
+the site is `I<n>`. Two bonds are `L2` from 165 degrees, else `A2`. Bond lengths are not used. CIF `_geom_bond_` networks use the
+baseline unless the file carries an httk `_httk_shape_` loop. Some ideal shapes lie closer together than the 15 degree limit in this
 measure, so a slightly distorted polyhedron can be named after its neighbour:
 `COC12`/`ACOC12` 9.4, `COC12`/`IC12` 11.7, `TP3`/`TPY3` 13.0 and `CU8`/`HBPY8`
 14.5 degrees. The closest shape still wins

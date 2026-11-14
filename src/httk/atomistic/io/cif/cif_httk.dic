@@ -1,0 +1,611 @@
+#\#CIF_2.0
+##############################################################################
+#                                                                            #
+#  CIF_HTTK: the httk dictionary of local CIF data names                     #
+#                                                                            #
+#  Data names that httk (the high-throughput toolkit, httk-atomistic) reads  #
+#  and writes besides those of the CIF core dictionary: exact companions of  #
+#  cell parameters, coordinates and occupancies, and the bond network        #
+#  extras (the count of a known-empty network, the bond source, the shape of #
+#  each site and the shape source). The bonds themselves are the core        #
+#  _geom_bond_ items.                                                        #
+#                                                                            #
+#  Naming convention. The CIF1 data names httk writes start with the local   #
+#  prefix: _httk_<category>_<object>, for example                            #
+#  _httk_atom_site_fract_x_exact and _httk_shape_symbol. The IUCr reserved-  #
+#  prefix rule is stated for such CIF1 names. The DDLm definitions place the #
+#  prefix as the wwPDB PDBx/mmCIF dictionary does in DDL2 (_atom_site.pdbx_* #
+#  and _pdbx_* categories), a practice borrowed here, not an IUCr DDLm rule: #
+#  a NEW category carries the prefix in its category name                    #
+#  (_httk_shape.symbol, category HTTK_SHAPE), and an item ADDED to an        #
+#  existing core category carries it at the start of its object name         #
+#  (_cell.httk_length_a_exact, category CELL), so that it can share the core #
+#  loop or set. Such DDLm ids do not start with the prefix, which is why     #
+#  every item gives the CIF1 name as _alias.definition_id. COMCIFS DDLm      #
+#  extensions such as cif_ms and cif_pow normally define their own prefixed  #
+#  categories instead. The frame structure follows cif_core.dic and          #
+#  cif_ms.dic of COMCIFS (https://github.com/COMCIFS). This convention is    #
+#  unverified against the IUCr register of reserved prefixes, whose pages    #
+#  could not be fetched; whether 'httk' is registered is for the maintainer  #
+#  to confirm.                                                               #
+#                                                                            #
+##############################################################################
+
+data_CIF_HTTK
+
+    _dictionary.title             CIF_HTTK
+    _dictionary.class             Instance
+    _dictionary.version           1.0.0
+    _dictionary.date              2026-11-14
+    _dictionary.uri               https://schemas.httk.org/cif/cif_httk.dic
+    _dictionary.ddl_conformance   4.2.0
+    _dictionary.namespace         CifCore
+    _description.text
+;
+    Local data names of httk: exact companions of standard numeric items and
+    the bond network items (network count, bond source, site shapes and shape
+    source) that accompany the core _geom_bond_ loop.
+;
+
+save_CIF_HTTK_HEAD
+
+    _definition.id                CIF_HTTK_HEAD
+    _definition.scope             Category
+    _definition.class             Head
+    _definition.update            2026-11-14
+    _description.text
+;
+    The head category of the httk local data names.
+;
+    _name.category_id             CIF_HTTK
+    _name.object_id               CIF_HTTK_HEAD
+
+    _import.get
+        [
+         {'dupl':Ignore  'file':cif_core.dic  'mode':Full
+          'save':CIF_CORE_HEAD}
+        ]
+
+save_
+
+save_cell.httk_length_a_exact
+
+    _definition.id                '_cell.httk_length_a_exact'
+    _alias.definition_id          '_httk_cell_length_a_exact'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The exact value of the cell length a as a rational number, written when
+    the standard decimal of _cell.length_a cannot state it exactly, for
+    example 1/3. It is a decimal or a fraction p/q of integers. A reader
+    that knows this item takes it instead of _cell.length_a; any other
+    reader uses _cell.length_a.
+;
+    _name.category_id             cell
+    _name.object_id               httk_length_a_exact
+    _type.purpose                 Encode
+    _type.source                  Derived
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_cell.httk_length_b_exact
+
+    _definition.id                '_cell.httk_length_b_exact'
+    _alias.definition_id          '_httk_cell_length_b_exact'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The exact value of the cell length b as a rational number, written when
+    the standard decimal of _cell.length_b cannot state it exactly, for
+    example 1/3. It is a decimal or a fraction p/q of integers. A reader
+    that knows this item takes it instead of _cell.length_b; any other
+    reader uses _cell.length_b.
+;
+    _name.category_id             cell
+    _name.object_id               httk_length_b_exact
+    _type.purpose                 Encode
+    _type.source                  Derived
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_cell.httk_length_c_exact
+
+    _definition.id                '_cell.httk_length_c_exact'
+    _alias.definition_id          '_httk_cell_length_c_exact'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The exact value of the cell length c as a rational number, written when
+    the standard decimal of _cell.length_c cannot state it exactly, for
+    example 1/3. It is a decimal or a fraction p/q of integers. A reader
+    that knows this item takes it instead of _cell.length_c; any other
+    reader uses _cell.length_c.
+;
+    _name.category_id             cell
+    _name.object_id               httk_length_c_exact
+    _type.purpose                 Encode
+    _type.source                  Derived
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_cell.httk_angle_alpha_exact
+
+    _definition.id                '_cell.httk_angle_alpha_exact'
+    _alias.definition_id          '_httk_cell_angle_alpha_exact'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The exact value of the cell angle alpha as a rational number, written
+    when the standard decimal of _cell.angle_alpha cannot state it exactly,
+    for example 1/3. It is a decimal or a fraction p/q of integers. A reader
+    that knows this item takes it instead of _cell.angle_alpha; any other
+    reader uses _cell.angle_alpha.
+;
+    _name.category_id             cell
+    _name.object_id               httk_angle_alpha_exact
+    _type.purpose                 Encode
+    _type.source                  Derived
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_cell.httk_angle_beta_exact
+
+    _definition.id                '_cell.httk_angle_beta_exact'
+    _alias.definition_id          '_httk_cell_angle_beta_exact'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The exact value of the cell angle beta as a rational number, written
+    when the standard decimal of _cell.angle_beta cannot state it exactly,
+    for example 1/3. It is a decimal or a fraction p/q of integers. A reader
+    that knows this item takes it instead of _cell.angle_beta; any other
+    reader uses _cell.angle_beta.
+;
+    _name.category_id             cell
+    _name.object_id               httk_angle_beta_exact
+    _type.purpose                 Encode
+    _type.source                  Derived
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_cell.httk_angle_gamma_exact
+
+    _definition.id                '_cell.httk_angle_gamma_exact'
+    _alias.definition_id          '_httk_cell_angle_gamma_exact'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The exact value of the cell angle gamma as a rational number, written
+    when the standard decimal of _cell.angle_gamma cannot state it exactly,
+    for example 1/3. It is a decimal or a fraction p/q of integers. A reader
+    that knows this item takes it instead of _cell.angle_gamma; any other
+    reader uses _cell.angle_gamma.
+;
+    _name.category_id             cell
+    _name.object_id               httk_angle_gamma_exact
+    _type.purpose                 Encode
+    _type.source                  Derived
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_atom_site.httk_fract_x_exact
+
+    _definition.id                '_atom_site.httk_fract_x_exact'
+    _alias.definition_id          '_httk_atom_site_fract_x_exact'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The exact value of the fractional coordinate x of the atom site as a
+    rational number, written when the standard decimal of _atom_site.fract_x
+    cannot state it exactly, for example 1/3. It is a decimal or a fraction
+    p/q of integers. A reader that knows this item takes it instead of
+    _atom_site.fract_x; any other reader uses _atom_site.fract_x.
+;
+    _name.category_id             atom_site
+    _name.object_id               httk_fract_x_exact
+    _type.purpose                 Encode
+    _type.source                  Derived
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_atom_site.httk_fract_y_exact
+
+    _definition.id                '_atom_site.httk_fract_y_exact'
+    _alias.definition_id          '_httk_atom_site_fract_y_exact'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The exact value of the fractional coordinate y of the atom site as a
+    rational number, written when the standard decimal of _atom_site.fract_y
+    cannot state it exactly, for example 1/3. It is a decimal or a fraction
+    p/q of integers. A reader that knows this item takes it instead of
+    _atom_site.fract_y; any other reader uses _atom_site.fract_y.
+;
+    _name.category_id             atom_site
+    _name.object_id               httk_fract_y_exact
+    _type.purpose                 Encode
+    _type.source                  Derived
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_atom_site.httk_fract_z_exact
+
+    _definition.id                '_atom_site.httk_fract_z_exact'
+    _alias.definition_id          '_httk_atom_site_fract_z_exact'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The exact value of the fractional coordinate z of the atom site as a
+    rational number, written when the standard decimal of _atom_site.fract_z
+    cannot state it exactly, for example 1/3. It is a decimal or a fraction
+    p/q of integers. A reader that knows this item takes it instead of
+    _atom_site.fract_z; any other reader uses _atom_site.fract_z.
+;
+    _name.category_id             atom_site
+    _name.object_id               httk_fract_z_exact
+    _type.purpose                 Encode
+    _type.source                  Derived
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_atom_site.httk_occupancy_exact
+
+    _definition.id                '_atom_site.httk_occupancy_exact'
+    _alias.definition_id          '_httk_atom_site_occupancy_exact'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The exact value of the occupancy of the atom site as a rational number,
+    written when the standard decimal of _atom_site.occupancy cannot state
+    it exactly, for example 1/3. It is a decimal or a fraction p/q of
+    integers. A reader that knows this item takes it instead of
+    _atom_site.occupancy; any other reader uses _atom_site.occupancy.
+;
+    _name.category_id             atom_site
+    _name.object_id               httk_occupancy_exact
+    _type.purpose                 Encode
+    _type.source                  Derived
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_HTTK_BONDS
+
+    _definition.id                HTTK_BONDS
+    _definition.scope             Category
+    _definition.class             Set
+    _definition.update            2026-11-14
+    _description.text
+;
+    Items describing the bond network listed in the _geom_bond_ loop of the
+    same data block: whether a network without bonds is known, and who
+    assigned the bonds. Each _geom_bond_ row stands for its whole bond orbit
+    under the operations of the block.
+;
+    _name.category_id             CIF_HTTK_HEAD
+    _name.object_id               HTTK_BONDS
+
+save_
+
+save_httk_bonds.count
+
+    _definition.id                '_httk_bonds.count'
+    _alias.definition_id          '_httk_bonds_count'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The number of rows of the _geom_bond_ loop. Since a CIF loop cannot have
+    zero rows, the value 0 without a _geom_bond_ loop states that the
+    structure is known to have no bonds, while a block with neither states
+    nothing about bonds. httk writes only the value 0; a reader that finds a
+    value that disagrees with the loop keeps the loop.
+;
+    _name.category_id             httk_bonds
+    _name.object_id               count
+    _type.purpose                 Number
+    _type.source                  Derived
+    _type.container               Single
+    _type.contents                Integer
+    _enumeration.range            0:
+    _units.code                   none
+
+save_
+
+save_httk_bonds.source_description
+
+    _definition.id                '_httk_bonds.source_description'
+    _alias.definition_id          '_httk_bonds_source_description'
+    _definition.update            2026-11-14
+    _description.text
+;
+    Free text naming who or what assigned the bonds of the _geom_bond_ loop,
+    for example the rule used. Unknown is '?'. The items are written only
+    when the source is known in part; all four are then given.
+;
+    _name.category_id             httk_bonds
+    _name.object_id               source_description
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_httk_bonds.source_software
+
+    _definition.id                '_httk_bonds.source_software'
+    _alias.definition_id          '_httk_bonds_source_software'
+    _definition.update            2026-11-14
+    _description.text
+;
+    An identifier of the software or rule set that assigned the bonds of the
+    _geom_bond_ loop. Unknown is '?'. The items are written only when the
+    source is known in part; all four are then given.
+;
+    _name.category_id             httk_bonds
+    _name.object_id               source_software
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_httk_bonds.source_version
+
+    _definition.id                '_httk_bonds.source_version'
+    _alias.definition_id          '_httk_bonds_source_version'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The version of that software or rule set. Unknown is '?'. The items are
+    written only when the source is known in part; all four are then given.
+;
+    _name.category_id             httk_bonds
+    _name.object_id               source_version
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_httk_bonds.source_uri
+
+    _definition.id                '_httk_bonds.source_uri'
+    _alias.definition_id          '_httk_bonds_source_uri'
+    _definition.update            2026-11-14
+    _description.text
+;
+    A URI documenting how the bonds of the _geom_bond_ loop were assigned.
+    Unknown is '?'. The items are written only when the source is known in
+    part; all four are then given.
+;
+    _name.category_id             httk_bonds
+    _name.object_id               source_uri
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Uri
+
+save_
+
+save_HTTK_SHAPE
+
+    _definition.id                HTTK_SHAPE
+    _definition.scope             Category
+    _definition.class             Loop
+    _definition.update            2026-11-14
+    _description.text
+;
+    The shapes of atom sites: per listed site, the arrangement of the bonds
+    of the _geom_bond_ loop around it. A site carries at most one shape,
+    over all of its bonds; a site that is not listed has no assigned shape.
+    The loop is meaningful only together with a _geom_bond_ loop.
+;
+    _name.category_id             CIF_HTTK_HEAD
+    _name.object_id               HTTK_SHAPE
+
+    loop_
+      _category_key.name
+         '_httk_shape.atom_site_label'
+
+save_
+
+save_httk_shape.atom_site_label
+
+    _definition.id                '_httk_shape.atom_site_label'
+    _alias.definition_id          '_httk_shape_atom_site_label'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The label of the atom site the shape belongs to. It must match one
+    _atom_site.label of the block. For a site whose occupation is split over
+    several _atom_site_ rows at one position, any one of those labels.
+;
+    _name.category_id             httk_shape
+    _name.object_id               atom_site_label
+    _type.purpose                 Link
+    _type.source                  Related
+    _type.container               Single
+    _type.contents                Code
+    _name.linked_item_id          '_atom_site.label'
+
+save_
+
+save_httk_shape.symbol
+
+    _definition.id                '_httk_shape.symbol'
+    _alias.definition_id          '_httk_shape_symbol'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The shape of the bonds around the site: an IUPAC polyhedral symbol
+    without its hyphen where IUPAC defines one (OC6 for OC-6, the
+    octahedron), a label of the SHAPE program otherwise, or I for an
+    irregular arrangement. The number in a named symbol is the number of
+    atoms bonded to the site, counted over the bonds of the _geom_bond_ loop
+    and their symmetry equivalents. I carries no number: its count is that
+    number of bonds of the site, which must be at least three; httk reads it
+    as I<n> with n that count, and also accepts I<n> written with the
+    matching n.
+;
+    _name.category_id             httk_shape
+    _name.object_id               symbol
+    _type.purpose                 State
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Code
+
+    loop_
+      _enumeration_set.state
+         L2
+         A2
+         TP3
+         TPY3
+         TS3
+         T4
+         SP4
+         SPY4
+         SS4
+         TBPY5
+         SPY5
+         OC6
+         TPR6
+         PBPY7
+         OCF7
+         TPRS7
+         CU8
+         SAPR8
+         DD8
+         HBPY8
+         OCT8
+         TPRT8
+         TPRS8
+         TPRS9
+         HBPY9
+         PPY6
+         COC12
+         ACOC12
+         IC12
+         I
+
+save_
+
+save_HTTK_SHAPES
+
+    _definition.id                HTTK_SHAPES
+    _definition.scope             Category
+    _definition.class             Set
+    _definition.update            2026-11-14
+    _description.text
+;
+    Items naming who assigned the shapes of the HTTK_SHAPE loop, when that
+    differs from the source of the bonds.
+;
+    _name.category_id             CIF_HTTK_HEAD
+    _name.object_id               HTTK_SHAPES
+
+save_
+
+save_httk_shapes.source_description
+
+    _definition.id                '_httk_shapes.source_description'
+    _alias.definition_id          '_httk_shapes_source_description'
+    _definition.update            2026-11-14
+    _description.text
+;
+    Free text naming who or what assigned the shapes of the _httk_shape_
+    loop, for example the rule used. Unknown is '?'. The items are written
+    only when the source is known in part; all four are then given. Without
+    these items the bond source assigned the shapes.
+;
+    _name.category_id             httk_shapes
+    _name.object_id               source_description
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_httk_shapes.source_software
+
+    _definition.id                '_httk_shapes.source_software'
+    _alias.definition_id          '_httk_shapes_source_software'
+    _definition.update            2026-11-14
+    _description.text
+;
+    An identifier of the software or rule set that assigned the shapes of
+    the _httk_shape_ loop. Unknown is '?'. The items are written only when
+    the source is known in part; all four are then given. Without these
+    items the bond source assigned the shapes.
+;
+    _name.category_id             httk_shapes
+    _name.object_id               source_software
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_httk_shapes.source_version
+
+    _definition.id                '_httk_shapes.source_version'
+    _alias.definition_id          '_httk_shapes_source_version'
+    _definition.update            2026-11-14
+    _description.text
+;
+    The version of that software or rule set. Unknown is '?'. The items are
+    written only when the source is known in part; all four are then given.
+    Without these items the bond source assigned the shapes.
+;
+    _name.category_id             httk_shapes
+    _name.object_id               source_version
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_httk_shapes.source_uri
+
+    _definition.id                '_httk_shapes.source_uri'
+    _alias.definition_id          '_httk_shapes_source_uri'
+    _definition.update            2026-11-14
+    _description.text
+;
+    A URI documenting how the shapes of the _httk_shape_ loop were assigned.
+    Unknown is '?'. The items are written only when the source is known in
+    part; all four are then given. Without these items the bond source
+    assigned the shapes.
+;
+    _name.category_id             httk_shapes
+    _name.object_id               source_uri
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Uri
+
+save_

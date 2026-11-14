@@ -17,7 +17,7 @@ import logging
 import math
 import re
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal, InvalidOperation
 from functools import cache
 from typing import Any, NamedTuple
@@ -47,6 +47,7 @@ from httk.atomistic.models.structure.asu import (
 )
 from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond
 from httk.atomistic.symmetry.setting_transform import SettingTransform
+from httk.atomistic.symmetry.shapes import _from_exchange, _structure_bond_counts
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
 from httk.atomistic.symmetry.symop_key import symop_key_v1
 from httk.atomistic.symmetry.xyz import operation_from_xyz
@@ -847,6 +848,7 @@ def asu_structure_from_cif(
     canonical_species += tuple(species_by_name[name] for name in implicit_species_names)
     row_sites = dict(zip(site_rows, canonical_sites, strict=True))
     pairs = _cif_bonds(standard, proof.wyckoff_sites, cell, data, row_sites)
+    network = _cif_network(standard, proof.wyckoff_sites, data, row_sites, pairs)
     structure = ASUStructure._from_validated_proof(
         cell,
         standard,
@@ -855,7 +857,7 @@ def asu_structure_from_cif(
         transform,
         data.get("coordinate_precision"),
         assemblies,
-        None if pairs is None else BondNetwork(tuple(pairs), source=_CIF_BOND_SOURCE),
+        network,
     )
     _warn_unbonded_sites(_block_name(data), structure)
     return structure
@@ -1034,11 +1036,7 @@ def _cif_bonds(
         return None
     count = len(columns["atom_site_label_1"])
     rows = zip(*(columns.get(name) or ["?"] * count for name in _BOND_COLUMNS), strict=True)
-    rows_of: dict[str, list[int]] = {}
-    folded: dict[str, list[int]] = {}
-    for row, label in enumerate(data.get("labels") or data["symbols"]):
-        rows_of.setdefault(label, []).append(row)
-        folded.setdefault(label.casefold(), []).append(row)
+    row_of = _label_resolver(data, row_sites)
     names = data.get("_httk_atomistic_symop_codes") or []  # none: no usable operation list
     operations = dict(zip(names, map(_op, map(operation_from_xyz, data["symops_xyz"])), strict=False))
     references = [_reference(group, site) for site in sites]
@@ -1050,20 +1048,11 @@ def _cif_bonds(
     precisions = _row_coordinate_precisions(data)
 
     def end(label: str, code: str) -> tuple[int, _Op, int]:
-        found = rows_of.get(label) or folded.get(label.casefold(), [])  # exact first, then ignoring case
-        if len(found) != 1 or found[0] not in row_sites:
-            reason = (
-                "names no atom site"
-                if not found
-                else "names several atom sites"
-                if found[1:]
-                else "names a dummy atom site"
-            )
-            raise ValueError(f"label {label!r} {reason}")
-        site = row_sites[found[0]]
-        element = _row_element(group, references[site], [fractions.Fraction(x) for x in positions[found[0]]], metric)
+        row = row_of(label)
+        site = row_sites[row]
+        element = _row_element(group, references[site], [fractions.Fraction(x) for x in positions[row]], metric)
         if code in (".", "?"):
-            return site, element, found[0]
+            return site, element, row
         match = _SYMMETRY_CODE.fullmatch(code)
         if match is None:
             raise ValueError(f"symmetry code {code!r} is not of the form n or n_klm")
@@ -1076,7 +1065,7 @@ def _cif_bonds(
             raise ValueError(f"symmetry code {code!r} names no symmetry operation of the block")
         W, w = operations[match[1]]
         shift = (0, 0, 0) if match[2] is None else tuple(int(match[k]) - 5 for k in (2, 3, 4))
-        return site, _mul((W, tuple(a + b for a, b in zip(w, shift, strict=True))), element), found[0]
+        return site, _mul((W, tuple(a + b for a, b in zip(w, shift, strict=True))), element), row
 
     bonds = []
     for number, (first, second, code1, code2, distance) in enumerate(rows, 1):
@@ -1097,6 +1086,132 @@ def _cif_bonds(
             return None
         bonds.append(bond)
     return bonds
+
+
+def _label_resolver(data: Mapping[str, Any], row_sites: Mapping[int, int]) -> Callable[[str], int]:
+    """Return a function giving the atom-site row a bond or shape label names, matched exactly first, then ignoring case.
+
+    The function raises ``ValueError`` if the label names no row, several rows or a dummy row
+    (one not in ``row_sites``).
+    """
+    rows_of: dict[str, list[int]] = {}
+    folded: dict[str, list[int]] = {}
+    for row, label in enumerate(data.get("labels") or data["symbols"]):
+        rows_of.setdefault(label, []).append(row)
+        folded.setdefault(label.casefold(), []).append(row)
+
+    def row_of(label: str) -> int:
+        found = rows_of.get(label) or folded.get(label.casefold(), [])
+        if len(found) != 1 or found[0] not in row_sites:
+            reason = (
+                "names no atom site"
+                if not found
+                else "names several atom sites"
+                if found[1:]
+                else "names a dummy atom site"
+            )
+            raise ValueError(f"label {label!r} {reason}")
+        return found[0]
+
+    return row_of
+
+
+def _cif_source(items: Mapping[str, Any], prefix: str) -> BondSource | None:
+    """Return the source the ``_<prefix>_{description,software,version,uri}`` items state; ``?`` and ``.`` are unknown."""
+    values = {}
+    for name in ("description", "software", "version", "uri"):
+        value = items.get(f"{prefix}_{name}")
+        text = None if value is None else str(value).strip()
+        values[name] = None if text in (None, "", "?", ".") else text
+    return BondSource(**values)
+
+
+def _cif_network(
+    group: Spacegroup,
+    sites: Sequence[WyckoffSite],
+    data: Mapping[str, Any],
+    row_sites: Mapping[int, int],
+    pairs: list[SiteBond] | None,
+) -> BondNetwork | None:
+    """Return the block's bond network from its bond loop (``pairs``, see :func:`_cif_bonds`) and httk items.
+
+    ``_httk_bonds_count 0`` without a bond loop states a network known to be empty; a count that
+    disagrees with the loop is ignored with a warning. The ``_httk_bonds_source_*`` items, if any,
+    are the bond source, else a bond loop gets ``_CIF_BOND_SOURCE``. The shape loop
+    (``_httk_shape_atom_site_label``, ``_httk_shape_symbol``) gives at most one shape per site; a
+    loop that names an unknown label, an unknown symbol, a symbol whose number is not the site's
+    bond count or a site twice (the irregular ``I`` takes the count as its number) leaves every shape unassigned with a warning, and so does a loop in
+    a block without bonds. ``_httk_shapes_source_*`` is the shape source of assigned shapes.
+    """
+    items = data.get("_httk_atomistic_network") or {}
+    block = _block_name(data)
+    has_loop = data.get("_httk_atomistic_bonds") is not None
+    count = items.get("httk_bonds_count")
+    if count is not None and str(count).strip() in ("?", "."):  # unknown or inapplicable: no count stated
+        count = None
+    if count is not None and (pairs is not None or not has_loop):
+        rows = 0 if pairs is None else len(pairs)
+        try:
+            stated = int(str(count).strip())
+        except ValueError:
+            stated = None
+        if stated != rows:
+            _cif_warning(f"CIF block {block!r}: _httk_bonds_count {count} disagrees with its {rows} bond row(s)")
+        elif pairs is None:
+            pairs = []
+    labels = items.get("httk_shape_atom_site_label")
+    symbols = items.get("httk_shape_symbol")
+    shapes = None
+    if labels is not None or symbols is not None:
+        if not pairs:
+            _cif_warning(f"CIF block {block!r}: ignored its shape loop, the block lists no bonds")
+        else:
+            try:
+                shapes = _cif_shapes(group, sites, data, row_sites, pairs, labels, symbols)
+            except ValueError as error:
+                _cif_warning(f"CIF block {block!r}: left every shape unassigned, its shape loop does not fit: {error}")
+    if pairs is None:
+        return None
+    source = (
+        _cif_source(items, "httk_bonds_source")
+        if any(name.startswith("httk_bonds_source_") for name in items)
+        else _CIF_BOND_SOURCE
+        if has_loop
+        else None
+    )
+    shapes_source = None if shapes is None else _cif_source(items, "httk_shapes_source")
+    return BondNetwork(tuple(pairs), shapes, source, shapes_source)
+
+
+def _cif_shapes(
+    group: Spacegroup,
+    sites: Sequence[WyckoffSite],
+    data: Mapping[str, Any],
+    row_sites: Mapping[int, int],
+    pairs: Sequence[SiteBond],
+    labels: Any,
+    symbols: Any,
+) -> tuple[str | None, ...]:
+    """Return one shape symbol or ``None`` per site from the shape loop's label and symbol columns.
+
+    The exchange symbol ``I`` (irregular) becomes ``I<n>``, ``n`` the site's bond count; a named
+    symbol or ``I<n>`` is kept when its number is that count. Raises ``ValueError`` if the columns
+    differ in length, a label names no single atom site, a site is named twice, or a symbol is
+    unknown or does not fit the site's bond count.
+    """
+    labels = [labels] if isinstance(labels, str) else list(labels or ())
+    symbols = [symbols] if isinstance(symbols, str) else list(symbols or ())
+    if len(labels) != len(symbols):
+        raise ValueError("its columns have different lengths")
+    row_of = _label_resolver(data, row_sites)
+    counts = _structure_bond_counts(group, sites, pairs)
+    shapes: list[str | None] = [None] * len(sites)
+    for label, symbol in zip(labels, symbols, strict=True):
+        site = row_sites[row_of(label.strip())]
+        if shapes[site] is not None:
+            raise ValueError(f"label {label!r} names a site that already has a shape")
+        shapes[site] = _from_exchange(symbol.strip(), counts[site])  # "I" becomes I<count>
+    return tuple(shapes)
 
 
 def _warn_unbonded_sites(block: str, structure: ASUStructure) -> None:
@@ -2069,6 +2184,11 @@ def _cif_payload(
                     "_httk_atomistic_site_symmetry_orders": raw_block.get("atom_site_site_symmetry_order"),
                     "_httk_atomistic_block_name": name,
                     "_httk_atomistic_bonds": _bond_columns(raw_block),
+                    "_httk_atomistic_network": {
+                        name: value
+                        for name, value in raw_block.items()
+                        if name.startswith(("httk_bonds_", "httk_shape"))
+                    },
                     "_httk_atomistic_symop_codes": _symop_codes(raw_block),
                 }
             )
