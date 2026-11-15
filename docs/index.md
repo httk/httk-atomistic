@@ -12,6 +12,7 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 - **Structures**: {doc}`structures`
 - **Composition and formulas**: {doc}`composition`
 - **Material-information levels**: {doc}`prototypes`
+- **Bond networks and bonding-net labels**: [networks on structures](details/asu.md#bond-networks), [net labels, shapes and torsion letters](prototypes.md#bonding-net-labels)
 - **Asymmetric units**: {doc}`asu`
 - **Canonicalization algorithms**: {doc}`canonicalization`
 - **Subgroups and pathfinding**: {doc}`subgroups`

@@ -106,6 +106,14 @@ multiplicity-like tag in a block, httk ignores it and emits one debug-level note
 that block because legacy values are ambiguous between the two conventions. If a
 modern declaration is present as well, the deprecated tag is ignored silently.
 
+### Bond loops
+
+A `_geom_bond_` loop becomes the loaded structure's bond network, checked
+against the stated distances. Saving a structure that has a network
+(`httk.core.save(structure, "x.cif")`) writes the loop, and its bond shapes and
+sources as `_httk_` items of the httk CIF dictionary, which `load()` reads back. Both are described in {doc}`details/cif`,
+sections "Bond loops" and "Bond networks, shapes and sources in CIF".
+
 ## Lower-level API
 
 The runnable {doc}`/examples/parse_cif` walks the lower-level `read_cif`,
