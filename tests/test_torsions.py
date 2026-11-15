@@ -1,4 +1,4 @@
-"""Torsion symbols of bonds in molecular pieces (protonet follow-up 10, part B)."""
+"""Torsion symbols of bonds in molecular pieces (protonet follow-ups 10 and 11)."""
 
 import math
 from fractions import Fraction as F
@@ -62,7 +62,9 @@ def _symbols(structure: Any) -> list[tuple[tuple[str, ...], tuple[str, ...], flo
 
 # (elements, shapes, length, symbol, angle) per bond orbit with a symbol, under the final edges of Part A
 CHECK = {
-    "4131686": [(("C", "N"), ("TP3", "TP3"), 1.424, "c", 39), (("C", "N"), ("TP3", "TP3"), 1.353, "t", 174)],
+    # the 1.424 C-N bond (39 degrees under follow-up 10): its C end is planar (TP3) and its two ring
+    # neighbours tie by count
+    "4131686": [(("C", "N"), ("TP3", "TP3"), 1.353, "t", 174)],
     # the brief lists one orbit per (elements, shapes, length): two orbits share 1.524 (168 and 177 degrees)
     "4134228": [
         (("C", "C"), ("T4", "T4"), 1.524, "t", 168),
@@ -73,9 +75,10 @@ CHECK = {
     "4326344": [],  # the C-N bond: the N end's two methyl carbons tie
     "7217003": [],  # the C-C bond: a phenyl ring's two ortho carbons tie
     "7217521": [],
-    # the 1.365 bond: a refinement at S1 picks D; the 1.405
-    # bond: a phenyl ring's two ortho carbons tie
-    "7217843": [(("C", "O"), ("A2", "TP3"), 1.365, "t", 176)],
+    # the 1.365 C-O bond (176 degrees under follow-up 10, by a refinement at S1): its C end is planar
+    # (TP3) and its two ring neighbours tie by count; the 1.405 bond: a phenyl ring's two ortho
+    # carbons tie
+    "7217843": [],
     "7218683": [],
     "7219077": [],
     "7219102": [(("C", "N"), ("T4", "T4"), 1.480, "t", 166)],
@@ -202,6 +205,7 @@ def test_each_rule_alone_removes_the_symbol(structure: ASUStructure, shapes: Any
 P, P2, P3, P4 = 6, 7, 8, 9
 BRANCH = (H1, (F(5, 8), F(3, 8), Q), (F(5, 8), F(3, 8), F(1, 8)), (F(5, 8), Q, F(1, 8)))
 MIXED = Species("HF", ("H", "F"), (F(1, 2), F(1, 2)))
+BRANCHED = (None, "A2", "TPY3", "T4", "A2", None)  # B has three bonds: refined, as a T4 end is
 
 
 def _branched(depth: int, species: dict[int, Species] | None = None, *, longer_x: bool = False) -> ASUStructure:
@@ -216,23 +220,54 @@ def _branched(depth: int, species: dict[int, Species] | None = None, *, longer_x
 @pytest.mark.parametrize("species", [{}, {P: MIXED}])  # a mixed atom that is not A or D keeps the letter
 def test_a_unique_most_bonded_neighbour_is_the_reference(species: dict[int, Species]) -> None:
     # P has one bond, A two: A wins by count
-    assert _results(_branched(1, species=species))[(B, C_)][:2] == ("g", 90.0)
+    assert _results(_branched(1, species=species), BRANCHED)[(B, C_)][:2] == ("g", 90.0)
 
 
 @pytest.mark.parametrize("species", [{}, {A: MIXED}])  # D1 applies to the chosen A only
 def test_a_tie_by_count_is_broken_at_the_first_shell(species: dict[int, Species]) -> None:
     # A and P have two bonds; S1 is (1,) for A (X) and (2,) for P (P2): P wins
-    assert _results(_branched(3, species=species))[(B, C_)][:2] == ("t", 180.0)
+    assert _results(_branched(3, species=species), BRANCHED)[(B, C_)][:2] == ("t", 180.0)
 
 
 def test_a_tie_by_count_and_first_shell_is_broken_at_the_second_shell() -> None:
     # S1 is (2,) for both (X, P2); S2 is (1,) for A (the atom after X) and (2,) for P (P3): P wins
-    assert _results(_branched(4, longer_x=True))[(B, C_)][:2] == ("t", 180.0)
+    assert _results(_branched(4, longer_x=True), BRANCHED)[(B, C_)][:2] == ("t", 180.0)
 
 
 def test_two_equal_branches_tie_and_give_no_letter() -> None:
     # an isopropyl-like end: A-X and P-P2 have the same signature ((1,), (), ())
-    assert _results(_branched(2))[(B, C_)] == (None, None, "tied reference neighbour")
+    assert _results(_branched(2), BRANCHED)[(B, C_)] == (None, None, "tied reference neighbour")
+
+
+@pytest.mark.parametrize(
+    ("shapes", "letter"),
+    [(("TP3", "TP3"), None), (("TP3", "A2"), None), (("TPY3", "T4"), "t"), (("TPY3", "TPY3"), "t")],
+)
+def test_a_tie_by_count_is_final_at_a_planar_end_outside_a_ring(shapes: tuple[str, str], letter: str | None) -> None:
+    # A and P tie by count at B and P wins at S1 (as in the first-shell test): a substituted double
+    # bond (TP3 at B) keeps the tie, a TPY3 end is refined
+    result = _results(_branched(3), (None, "A2", *shapes, "A2", None))[(B, C_)]
+    if letter is None:
+        assert result == (None, None, "tied reference neighbour")
+    else:
+        assert result[:2] == (letter, 180.0)
+
+
+# the ring B-A-X-R-P-B, with Z on X only: A and P tie by count, and A wins at S1 ((3,) against (2,))
+R, Z = 7, 8
+RING = _chain(
+    extra=(H1, (F(3, 8), F(5, 8), F(1, 8)), (F(1, 8), 3 * Q, Q)),
+    bonds=((B, P, (0, 0, 0)), (P, R, (0, 0, 0)), (R, X, (0, 0, 0)), (X, Z, (0, 0, 0))),
+)
+
+
+def test_a_planar_ring_end_tied_by_count_gives_no_letter() -> None:
+    # follow-up 10 gave t here (A-B-C-D is 90 degrees, on the planar edge)
+    assert _results(RING, (None, "A2", "TP3", "A2", "A2", None))[(B, C_)] == (None, None, "tied reference neighbour")
+
+
+def test_a_tetrahedral_ring_atom_keeps_its_refined_letter() -> None:
+    assert _results(RING, BRANCHED)[(B, C_)][:2] == ("g", 90.0)
 
 
 @pytest.mark.parametrize(

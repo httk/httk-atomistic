@@ -87,7 +87,7 @@ MOLECULAR = {
     # P2_1/c, Z' = 1: a fluorophenyl naphthalimide C20H14FNO3 (V 39, 4 rings, E 42)
     "7217843": (
         42,
-        "A20B14C3DE_mP156_14_20e_14e_3e_e_e__19~20.30.31.32_20~38.33.34_1~2.3.4_2~5.6_3~7.8_4~9.10_5~11.21_6~12.35t_7~11.22_8~38.36_9~12.23_10~38.37_11~24_12~25_13~14.15.26_14~16.27_15~17.35_16~18.39_17~18.28_18~29:C-H-O-N-F",
+        "A20B14C3DE_mP156_14_20e_14e_3e_e_e__19~20.30.31.32_20~38.33.34_1~2.3.4_2~5.6_3~7.8_4~9.10_5~11.21_6~12.35_7~11.22_8~38.36_9~12.23_10~38.37_11~24_12~25_13~14.15.26_14~16.27_15~17.35_16~18.39_17~18.28_18~29:C-H-O-N-F",
     ),
     # P2_1/c: Cu(C9H9BrNO)2, Cu on 2b with the complex on that centre; two phenyl and two chelate
     # rings (V 43, E 46, c 0)
@@ -122,7 +122,7 @@ MOLECULAR = {
     # P-1, Z = 1: C20H16N2O2 on an inversion centre (V 40, 2 rings, E 41, the middle bond, c 1)
     "4131686": (
         21,
-        "A10B8CD_aP40_2_10i_8i_i_i__9~10.15.16.17_3~4.5.2_4~6.11_5~7.12_6~8.13_7~8.19c_8~14_19~10t.18_10~20_1L2~1@2.2_2L2:C-H-N-O",
+        "A10B8CD_aP40_2_10i_8i_i_i__9~10.15.16.17_3~4.5.2_4~6.11_5~7.12_6~8.13_7~8.19_8~14_19~10t.18_10~20_1L2~1@2.2_2L2:C-H-N-O",
     ),
     # P-1, Z' = 1: a triazolo-benzothiadiazine dioxide C16H14N4O2S (V 37, 4 rings, E 40); 113 s before
     # the search fix
@@ -381,6 +381,29 @@ def test_the_parser_rejects_letters_the_net_and_shapes_do_not_allow(old: str, ne
     assert text != SARCOSINE
     with pytest.raises(ValueError, match=message):
         parse_protonetstructure_label(text)
+
+
+BENZAMIDE = MOLECULAR["4131686"][1]  # ..._4~6.11_..._7~8.19_...: C4-C6 a phenyl bond, C8-N19 bonds a phenyl
+
+
+@pytest.mark.parametrize(
+    "text,old,new,message",
+    [
+        ("A_cF8_227_a__1~1@14@654:C", "654", "654t", "periodic piece"),  # diamond
+        (BENZAMIDE, "4~6.11", "4~6c.11", "a ring bond has"),
+        # C8 is planar and its two ring neighbours tie by count: no refinement
+        (BENZAMIDE, "7~8.19", "7~8.19c", "tied reference neighbour"),
+        # the dimethylamino N-C bond: the N end's two methyl carbons tie
+        (MOLECULAR["4326344"][1], "17~22.25.7.8", "17~22.25t.7.8", "tied reference neighbour"),
+    ],
+)
+def test_the_parser_rejects_letters_on_framework_ring_and_tied_bonds(
+    text: str, old: str, new: str, message: str
+) -> None:
+    changed = text.replace(old, new, 1)
+    assert changed != text
+    with pytest.raises(ValueError, match=message):
+        parse_protonetstructure_label(changed)
 
 
 def test_a_site_pair_with_two_orbits_or_two_letters_is_rejected() -> None:

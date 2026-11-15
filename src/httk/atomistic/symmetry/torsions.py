@@ -1,4 +1,4 @@
-"""Torsion symbols of the bonds of molecular pieces (private; protonet follow-up 10, part B).
+"""Torsion symbols of the bonds of molecular pieces (private; protonet follow-ups 10 and 11).
 
 A bond orbit B-C gets a symbol when all of these hold (decided from the net, the shapes and the
 exact coordinates, never from element names):
@@ -15,8 +15,11 @@ The candidates at B are B's other bonded atoms. The one with the most bonds is A
 share the most, the net breaks the tie: each tied candidate X has the signature (S1, S2, S3),
 where Sd is the bond counts, sorted in descending order, of the atoms at graph distance exactly
 d from X once B is removed, and the largest signature, compared as tuples (S1 first; a level that
-is a prefix of another is the smaller), is A. A tie left after that gives no symbol. D is
-chosen likewise at C.
+is a prefix of another is the smaller), is A. At a planar (``TP3``) end a tie by bond count is
+final; refinement applies at ``T4`` and ``TPY3`` ends only (protonet follow-up 11: refined planar
+ends spread flat across the edge). A tie left gives no symbol. D is chosen likewise at C. Rules 1
+to 6 read only the net and the shapes (``_net_judge``), so the label validator checks them with
+the same code.
 
 The symbol classifies the IUPAC torsion magnitude ``|A-B-C-D|`` (0 cis, 180 trans): below the
 pair's edge the pair's low letter, from it ``t``; with A-B-C or B-C-D within 3 degrees of straight,
@@ -26,7 +29,7 @@ re-description and the mirror image give the same symbol.
 """
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from fractions import Fraction
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +38,7 @@ from httk.atomistic.symmetry.shapes import _averaged_metric, _bond_counts, _stab
 if TYPE_CHECKING:
     from httk.atomistic.models.species.species import Species
     from httk.atomistic.models.structure.asu import FundamentalDomainStructure
+    from httk.atomistic.symmetry.protonet import _Element, _GroupTables
 
 # sorted shape pair -> (edge in degrees, letter below it); ``t`` from the edge up
 _TORSION_EDGES = {
@@ -46,12 +50,18 @@ _STRAIGHT = math.sin(math.radians(3.0)) ** 2  # a squared sine at or below this 
 type _Point = tuple[Fraction, Fraction, Fraction]
 type _Atom = tuple[int, tuple[Fraction, ...]]  # (site, point modulo 1) of the translation quotient
 type _Torsion = tuple[str | None, float | None, str | None]
+type _Ends = tuple[int, _Point, _Point, _Point, int, _Point]  # (site of A, A, B, C, site of D, D)
 
 
 def _edge(first: str | None, second: str | None) -> tuple[float, str] | None:
     """Return the ``(edge, low letter)`` of a bond's two shapes, in either order, or ``None``."""
     p, q = first or "", second or ""
     return _TORSION_EDGES.get((min(p, q), max(p, q)))
+
+
+def _atom(site: int, point: Sequence[Fraction]) -> _Atom:
+    """Return the translation-quotient node of the atom of ``site`` at ``point``."""
+    return site, tuple(c % 1 for c in point)
 
 
 def _whole(species: "Species") -> bool:
@@ -86,10 +96,59 @@ def _bond_torsions(structure: "FundamentalDomainStructure", shapes: Sequence[str
     spacegroup, sites = structure.spacegroup, structure.wyckoff_sites
     elements = _standard_elements(spacegroup)
     tables = elements.tables
-    stabilisers = _stabilisers(spacegroup, sites)
     rows = [(bond.site, bond.partner, elements.element(_op(bond.operation))) for bond in structure.bonds.pairs]
-    counts = _bond_counts(tables, stabilisers, rows)
     refs = [(p[0], p[1], p[2]) for p in (_apply(elements.to_standard, _reference(spacegroup, site)) for site in sites)]
+    judge = _net_judge(tables, _stabilisers(spacegroup, sites), refs, rows, shapes)
+    species = {value.name: value for value in structure.species}
+    metric: list[list[Any]] | None = None
+    result: list[_Torsion] = []
+    for a, b, g in rows:
+        ends = judge(a, b, g)
+        if isinstance(ends, str):
+            result.append((None, None, ends))
+            continue
+        site_a, A, B, C, site_d, D = ends
+        if not all(_whole(species[sites[s].species]) for s in (a, b, site_a, site_d)):
+            result.append((None, None, "partial or mixed site"))
+            continue
+        if metric is None:
+            metric = _averaged_metric(structure, tables)
+        tau = _torsion(metric, A, B, C, D)
+        if tau is None:
+            result.append((None, None, "collinear"))
+            continue
+        edge = _edge(shapes[a], shapes[b])
+        assert edge is not None  # the judge checked rule 5
+        result.append((edge[1] if round(tau, 6) < edge[0] else "t", tau, None))
+    return result
+
+
+def _net_judge(
+    tables: "_GroupTables",
+    stabilisers: Sequence[Sequence["_Element"]],
+    refs: Sequence[_Point],
+    rows: Sequence[tuple[int, int, "_Element"]],
+    shapes: Sequence[str | None],
+) -> Callable[[int, int, "_Element"], _Ends | str]:
+    """Return the judge of rules 1 to 6, which read only the net and the shapes.
+
+    The graph is the translation quotient of the atoms grown from ``refs``: a node is a site and a
+    point modulo 1, one node per atom modulo the lattice whenever ``stabilisers[s]`` is exactly the
+    stabiliser of ``refs[s]``, and an edge carries the lattice translation between its atoms, whose
+    sum around a cycle does not depend on which point of its Wyckoff flat each reference atom
+    takes. So the structure's own reference atoms and the generic probe points of the validator
+    give the same answers.
+
+    :param tables: The standard setting's group tables.
+    :param stabilisers: Per site, the elements fixing its reference atom (translations included).
+    :param refs: Per site, its exact reference atom in standard coordinates.
+    :param rows: The bonds ``(site, partner, element)`` as standard-setting elements.
+    :param shapes: The shape per site as used in the label.
+    :return: A function of one bond ``(site, partner, element)`` that returns
+        ``(site of A, A, B, C, site of D, D)`` when the bond passes rules 1 to 6, else the reason it
+        gets no symbol.
+    """
+    counts = _bond_counts(tables, stabilisers, rows)
     # the atoms bonded to each site's reference atom, in standard coordinates (as ``_baseline_shapes``)
     neighbours = [
         {
@@ -99,7 +158,7 @@ def _bond_torsions(structure: "FundamentalDomainStructure", shapes: Sequence[str
             if site == s
             for h in stabilisers[s]
         }
-        for s in range(len(sites))
+        for s in range(len(refs))
     ]
     # the translation quotient: every atom of the cell with its bonded atoms and their translations
     adjacency: dict[_Atom, set[tuple[_Atom, tuple[int, ...]]]] = {}
@@ -107,12 +166,10 @@ def _bond_torsions(structure: "FundamentalDomainStructure", shapes: Sequence[str
         for k in range(tables.nops):
             x = (k, 0, 0, 0)
             p = tables.apply(x, refs[s])
-            edges = adjacency.setdefault((s, tuple(c % 1 for c in p)), set())
+            edges = adjacency.setdefault(_atom(s, p), set())
             for other, q in atoms:
                 q = tables.apply(x, q)
-                edges.add(
-                    ((other, tuple(c % 1 for c in q)), tuple(math.floor(c) - math.floor(d) for c, d in zip(q, p)))
-                )
+                edges.add((_atom(other, q), tuple(math.floor(c) - math.floor(d) for c, d in zip(q, p))))
     finite: dict[_Atom, bool] = {}
 
     def molecular(start: _Atom) -> bool:
@@ -163,59 +220,41 @@ def _bond_torsions(structure: "FundamentalDomainStructure", shapes: Sequence[str
         return tuple(result)
 
     def reference(candidates: list[tuple[int, _Point]], end: _Atom) -> tuple[int, _Point] | None:
-        """Return the unique reference neighbour among an end's candidates (rule 6), or ``None`` on a tie."""
+        """Return the unique reference neighbour among an end's candidates (rule 6), or ``None`` on a tie.
+
+        At a planar (``TP3``) end a tie by bond count is final; the signatures refine it only at
+        ``T4`` and ``TPY3`` ends.
+        """
         top = max(counts[o] for o, _ in candidates)
         tied = [(o, P) for o, P in candidates if counts[o] == top]
-        if len(tied) > 1:
-            keys = [signature((o, tuple(c % 1 for c in P)), end) for o, P in tied]
+        if len(tied) > 1 and shapes[end[0]] != "TP3":
+            keys = [signature(_atom(o, P), end) for o, P in tied]
             tied = [x for x, key in zip(tied, keys, strict=True) if key == max(keys)]
         return tied[0] if len(tied) == 1 else None
 
-    species = {value.name: value for value in structure.species}
-    metric: list[list[Any]] | None = None
-    result: list[_Torsion] = []
-    for a, b, g in rows:
+    def judge(a: int, b: int, g: "_Element") -> _Ends | str:
         B, C = refs[a], tables.apply(g, refs[b])
-        start = (a, tuple(c % 1 for c in B))
+        start, partner = _atom(a, B), _atom(b, C)
         if not molecular(start):
-            result.append((None, None, "periodic piece"))
-            continue
+            return "periodic piece"
         if counts[a] > 4 or counts[b] > 4:  # the brief's rule 2; rule 5 implies it for validated shapes
-            result.append((None, None, "more than four bonds"))
-            continue
+            return "more than four bonds"
         before = [(o, p) for o, p in neighbours[a] if (o, p) != (b, C)]
         after = [(o, q) for o, q in ((o, tables.apply(g, p)) for o, p in neighbours[b]) if (o, q) != (a, B)]
         if not before or not after:
-            result.append((None, None, "terminal atom"))
-            continue
-        most = max(counts[o] for o, _ in before), max(counts[o] for o, _ in after)
-        if 1 in most:
-            result.append((None, None, "end group"))
-            continue
-        partner = (b, tuple(c % 1 for c in C))
+            return "terminal atom"
+        if 1 in (max(counts[o] for o, _ in before), max(counts[o] for o, _ in after)):
+            return "end group"
         if ring(start, partner):
-            result.append((None, None, "ring bond"))
-            continue
-        edge = _edge(shapes[a], shapes[b])
-        if edge is None:
-            result.append((None, None, "shape pair without a letter"))
-            continue
+            return "ring bond"
+        if _edge(shapes[a], shapes[b]) is None:
+            return "shape pair without a letter"
         first, second = reference(before, start), reference(after, partner)
         if first is None or second is None:
-            result.append((None, None, "tied reference neighbour"))
-            continue
-        (site_a, A), (site_d, D) = first, second
-        if not all(_whole(species[sites[s].species]) for s in (a, b, site_a, site_d)):
-            result.append((None, None, "partial or mixed site"))
-            continue
-        if metric is None:
-            metric = _averaged_metric(structure, tables)
-        tau = _torsion(metric, A, B, C, D)
-        if tau is None:
-            result.append((None, None, "collinear"))
-            continue
-        result.append((edge[1] if round(tau, 6) < edge[0] else "t", tau, None))
-    return result
+            return "tied reference neighbour"
+        return first[0], first[1], B, C, second[0], second[1]
+
+    return judge
 
 
 def _torsion(metric: Sequence[Sequence[Any]], A: _Point, B: _Point, C: _Point, D: _Point) -> float | None:

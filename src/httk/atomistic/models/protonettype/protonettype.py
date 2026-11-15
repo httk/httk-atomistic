@@ -147,12 +147,20 @@ def _checked_shapes(shapes: Sequence[str | None] | None, counts: Sequence[int], 
     return checked
 
 
+# why a lettered row is refused, by the reason of ``torsions._net_judge``; rules 2 and 5 are checked before
+_NO_LETTER = {
+    "periodic piece": "a bond of a periodic piece (a framework, chain or layer, not a molecule)",
+    "end group": "an end group (no other neighbour with more than one bond)",
+    "ring bond": "a ring bond",
+    "tied reference neighbour": "a bond with a tied reference neighbour at an end",
+}
+
+
 def _checked_torsions(
     spacegroup: Spacegroup,
     letters: Sequence[str],
     rows: Sequence[tuple[int, int, int, int, int, int]],
     shapes: Sequence[str | None],
-    counts: Sequence[int],
     torsions: Sequence[str | None] | None,
     owner: str,
 ) -> dict[tuple[int, int], str]:
@@ -160,18 +168,19 @@ def _checked_torsions(
 
     A letter is allowed only on a bond the net and shapes can qualify (see
     :mod:`httk.atomistic.symmetry.torsions`): the sorted pair of its two shapes is in the table
-    and the letter is ``t`` or the pair's low letter (rule 5); each end has another bonded atom
-    with more than one bond (rule 4); and the site pair has one bond orbit, every row of it
-    carrying the same letter. Rule 2 (four or fewer bonds) follows from rule 5 once the shapes
-    are validated against the bond counts. Rules 1 (a molecular piece) and 3 (not in a ring), the
-    uniqueness of the reference neighbours, full occupancy and collinear ends are not checked
-    here, as shapes are not checked against geometry.
+    and the letter is ``t`` or the pair's low letter (rule 5); the site pair has one bond orbit,
+    every row of it carrying the same letter; and the bond lies in a molecular piece (rule 1),
+    each end has another bonded atom with more than one bond (rule 4), the bond is not in a ring
+    (rule 3), and each end has a unique reference neighbour (rule 6, a tie by bond count final at
+    a planar end), judged by the same code as the structures' letters on atoms placed at each
+    Wyckoff letter's generic probe point. Rule 2 (four or fewer bonds) follows from rule 5 once the shapes are
+    validated against the bond counts. Full occupancy and collinear ends are not checked here,
+    as they need the structure.
 
     :param spacegroup: The standard-setting space group.
     :param letters: The Wyckoff letter per site, in site order.
     :param rows: The validated net rows ``(i, j, k, n1, n2, n3)``.
     :param shapes: The validated shape per site.
-    :param counts: The bond count per site (``_net_counts``).
     :param torsions: One letter or ``None`` per row, or ``None`` for no letters.
     :param owner: The name in error messages.
     :return: The letter per site pair that has one.
@@ -189,30 +198,23 @@ def _checked_torsions(
         raise TypeError(f"{owner} torsions must contain str or None values")
     if not any(given):
         return {}
-    from httk.atomistic.symmetry.protonet import _key, _tables
-    from httk.atomistic.symmetry.torsions import _edge
+    from httk.atomistic.symmetry.protonet import _tables
+    from httk.atomistic.symmetry.torsions import _edge, _net_judge
 
     tables = _tables(spacegroup.it_number)
     H = [tables.letter(letter).H for letter in letters]
-
-    def atom(site: int, x: Any) -> tuple[int, tuple[int, ...]]:
-        """Key the atom ``x`` applied to the reference atom of 0-based ``site`` by its coset."""
-        return site, min(_key(tables.mul(x, z)) for z in H[site])
-
+    elements = [(i - 1, j - 1, (k - 1, n1, n2, n3)) for i, j, k, n1, n2, n3 in rows]
     orbits: dict[tuple[int, int], set[Any]] = {}
-    reached: list[set[tuple[int, tuple[int, ...]]]] = [set() for _ in letters]  # as ``shapes._bond_counts``
-    for i, j, k, n1, n2, n3 in rows:
-        a, b, g = i - 1, j - 1, (k - 1, n1, n2, n3)
+    for a, b, g in elements:
         if a > b:
             a, b, g = b, a, tables.inv(g)
         orbits.setdefault((a, b), set()).add(tables.canon(H[a], H[b], g, a == b))
-        for site, x, other in ((a, g, b), (b, tables.inv(g), a)):
-            reached[site].update(atom(other, tables.mul(h, x)) for h in H[site])
+    # rules 1, 3, 4 and 6 on the atoms grown from each letter's generic probe point
+    judge = _net_judge(tables, H, [tables.letter(letter).ref for letter in letters], elements, shapes)
     found: dict[tuple[int, int], str] = {}
-    for (i, j, k, n1, n2, n3), letter in zip(rows, given, strict=True):
+    for (i, j, k, n1, n2, n3), (a, b, g), letter in zip(rows, elements, given, strict=True):
         if letter is None:
             continue
-        a, b, g = i - 1, j - 1, (k - 1, n1, n2, n3)
         where = f"{owner} net row {(i, j, k, n1, n2, n3)!r}"
         edge = _edge(shapes[a], shapes[b])
         if edge is None:
@@ -220,14 +222,11 @@ def _checked_torsions(
         allowed = ("t", edge[1])
         if letter not in allowed:
             raise ValueError(f"{where}: torsion letter {letter!r} is not one of {allowed} for its shapes")
-        ends = ((a, atom(b, g)), (b, atom(a, tables.inv(g))))
-        if not all(any(counts[o] > 1 for o, _ in reached[s] - {other}) for s, other in ends):
-            raise ValueError(
-                f"{where}: an end group (no other neighbour with more than one bond) has no torsion letter"
-            )
         pair = (min(i, j), max(i, j))
         if len(orbits[(pair[0] - 1, pair[1] - 1)]) > 1:
             raise ValueError(f"{where}: a site pair with more than one bond orbit has no torsion letter")
+        if isinstance(reason := judge(a, b, g), str):
+            raise ValueError(f"{where}: {_NO_LETTER.get(reason, reason)} has no torsion letter")
         if found.setdefault(pair, letter) != letter:
             raise ValueError(f"{owner} rows of the site pair {pair} have different torsion letters")
     for (i, j, *_), letter in zip(rows, given, strict=True):
@@ -251,7 +250,7 @@ def _assign_net(
     rows = _checked_net(net, len(letters), nops, owner, writable=writable)
     counts = _net_counts(value._spacegroup, letters, rows, owner)
     value._shapes = _checked_shapes(shapes, counts, owner)
-    found = _checked_torsions(value._spacegroup, letters, rows, value._shapes, counts, torsions, owner)
+    found = _checked_torsions(value._spacegroup, letters, rows, value._shapes, torsions, owner)
     value._net = _label_rows(rows, counts)
     value._torsions = tuple(found.get((min(i, j), max(i, j))) for i, j, *_ in value._net)
 
@@ -287,11 +286,11 @@ class Protonettype(ProtonettypeBackend):
         :mod:`httk.atomistic.symmetry.torsions`), ``None`` for a row without one; ``None`` for the
         whole argument when no row has one. A letter is checked against what the net and shapes
         determine: its two shapes form a pair of the torsion table and it is ``t`` or that pair's
-        low letter, at most four bonds at each end, another neighbour with more than one bond at
-        each end, and one bond orbit between its two sites, every row of which carries the same
-        letter. Whether the bond lies in a molecule and outside a ring, whether its reference
-        neighbours are unique, and whether its sites are fully occupied, are not checked, as
-        shapes are not checked against geometry.
+        low letter, at most four bonds at each end, one bond orbit between its two sites, every
+        row of which carries the same letter, a bond in a molecule and outside a ring, another
+        neighbour with more than one bond at each end, and a unique reference neighbour at each
+        end. Whether its sites are fully occupied and whether an end is straight are not checked,
+        as they need the structure.
     :raises ValueError: If the input is malformed, a shape is missing, unknown or has the wrong
         bond count, a torsion letter is not allowed on its row, or the canonical net needs a
         translation outside -5..+4, which the notation cannot write (D4).

@@ -596,7 +596,8 @@ version 7 changed. Net version 9 writes irregular as `I` without its count (`I4`
 became `I`), so every label with an irregular site changed; a written `I<n>` is
 refused with a message to write `I`. Net version 10 adds
 [torsion letters](#torsion-letters) on the qualifying bonds of molecules; a label
-without such a bond did not change.
+without such a bond did not change. Net version 11 makes a tie by bond count final
+at a planar (`TP3`) end, so labels only lose letters, on bonds with such an end.
 
 The Source column names where a symbol comes from, not its geometry. The shapes
 that predate net version 7 keep geometries of their own; three of them
@@ -706,10 +707,15 @@ When several share the most, the net alone breaks the tie: each tied candidate X
 has the signature (S1, S2, S3), where Sd lists the bond counts of the atoms at
 graph distance exactly d from X once B is removed, sorted in descending order,
 and the largest signature, compared as tuples (S1 first; a level that is a prefix of
-another is the smaller), is A. When the end is still
+another is the smaller), is A. At a planar (`TP3`) end a tie by bond count is final;
+refinement applies at `T4` and `TPY3` ends only. When the end is still
 tied, such as an isopropyl or dimethylamino end or the two ortho carbons of a
 phenyl ring, the bond gets no letter: picking the smaller of the two torsions
-would fold τ and 180 - τ. D is chosen likewise at C. Where A-B-C or B-C-D is
+would fold τ and 180 - τ. D is chosen likewise at C. So a ring's twist about the
+bond that joins it is described only when the ring's two atoms beside the bond
+differ in their number of bonds. A known limit: cis and trans at a double bond are
+not marked when the two substituents on one of its atoms have the same number of
+bonds. Where A-B-C or B-C-D is
 within 3 degrees of straight there is no letter. The magnitude comes from the exact coordinates and the group-averaged exact metric,
 converted to a float once and compared after rounding to 1e-6 degrees, so every
 exact re-description and the mirror image give the same letter, and a value on
@@ -733,9 +739,12 @@ parser reads them from the label. Both check each letter against what the net an
 shapes determine: its two shapes are a pair of the table and the letter is `t` or
 the pair's low letter (rule 5), four or fewer bonds at each end (rule 2), another
 neighbour with more than one bond at each end (rule 4), and one bond orbit between
-its two sites, every row of which carries the same letter. Rules 1 and 3, the
-uniqueness of A and D (rule 6), full occupancy, collinear ends and the torsion
-itself are not checked from a label, as shapes are not checked against geometry.
+its two sites, every row of which carries the same letter, and rules 1, 3 and 6:
+a bond of a periodic piece, a ring bond and a bond with a tied end are each refused
+with their own message. The net decides these without coordinates, so the check
+runs the code that gives the letters on atoms placed at each Wyckoff letter's
+generic probe point. Full occupancy, collinear ends and the torsion itself are not
+checked from a label, as they need the structure.
 
 **Relation to CIF.** This is the CIF bond list in compressed form. CIF records
 a bond as two atom labels plus a symmetry code for each
@@ -1227,7 +1236,7 @@ their content identity. There are three versions, one per family:
 
 A label-rule change therefore bumps all three, while a change to the
 representative or to the net leaves the other families' records untouched. The
-label version is 4, the refined version 9 and the net version 10, since species
+label version is 4, the refined version 9 and the net version 11, since species
 classes replaced species names in every label, the hand is kept in Sohncke
 groups at every level, labels that could not be determined within the time
 budget are stored with an `X` marker, and species-class concentrations are
@@ -1241,8 +1250,9 @@ built in the symmetric orientation that keeps its threefold axis exactly, and th
 the listing order of the net segment and, since net version 7, the present shape table (`TPRS7`, `TPRT8` and
 `HBPY9` added, `SAPR8` dropped, and `SPY5`, `TPRS7` and `DD8` the defaults for five, seven and eight bonds)
 and, since net version 8, the supplied vocabulary (every IUPAC polyhedral symbol accepted when supplied, and `I2`
-invalid), since net version 9, irregular written as `I` without its count and, since net version 10,
-the torsion letters of molecular bonds.
+invalid), since net version 9, irregular written as `I` without its count, since net version 10,
+the torsion letters of molecular bonds and, since net version 11, a tie by bond count final at a
+planar (`TP3`) end.
 Any change that can change a shape the baseline detects (the defaults table, the
 ideal shapes or their order, the thresholds, the misfit rounding, the tie order,
 the metric averaging or the float conversion) is a change of the net rule. The
