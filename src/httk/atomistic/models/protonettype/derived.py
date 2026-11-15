@@ -50,7 +50,9 @@ class DerivedProtonettype(ProtonettypeBackend):
         runs = groupby(self._source.occupations, key=lambda o: o.species.name)
         occupations = [(o.wyckoff, anonymous_symbol(index)) for index, (_, run) in enumerate(runs) for o in run]
         # a protonetstructure's net is already canonical as an anonymous net (D3 only picks species)
-        return Protonettype._of(self._source.spacegroup, occupations, self._source.net, self._source.shapes)
+        return Protonettype._of(
+            self._source.spacegroup, occupations, self._source.net, self._source.shapes, self._source.torsions
+        )
 
     def resolve(self) -> Protonettype:
         """Return the standalone anonymous protonettype."""
@@ -75,6 +77,11 @@ class DerivedProtonettype(ProtonettypeBackend):
     def shapes(self):
         """Return the unchanged per-site bond shapes."""
         return self._derived.shapes
+
+    @property
+    def torsions(self):
+        """Return the unchanged per-row torsion letters."""
+        return self._derived.torsions
 
     @property
     def _undetermined(self) -> str | None:

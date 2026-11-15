@@ -121,6 +121,31 @@ def test_validate_rejects_a_non_canonical_net() -> None:
             type(record).__httk_validate__(record)
 
 
+def test_records_round_trip_torsion_letters() -> None:
+    from test_protonet_molecular import MOLECULAR
+
+    value = parse_protonetstructure_label(MOLECULAR["7219855"][1])
+    cases: list[tuple[Any, Any, Any]] = [
+        (value, _protonetstructure_record_from_value, _protonetstructure_from_record),
+        (value.protonettype, _protonettype_record_from_value, _protonettype_from_record),
+    ]
+    for item, to_record, from_record in cases:
+        record = to_record(item)
+        assert len(record.torsions) == len(record.net) and sorted(filter(None, record.torsions)) == ["t"] * 4
+        assert from_record(record) == item and from_record(record).torsions == item.torsions
+        assert record.label == str(item.label) and "@2t." in record.label
+        assert type(record).__httk_project__(item)["torsions"] == record.torsions
+        assert content_id(record) == content_id(item)
+        type(record).__httk_validate__(record)
+        moved = tuple(sorted(record.torsions, reverse=True))
+        with pytest.raises(ValueError):
+            type(record).__httk_validate__(dataclasses.replace(record, torsions=moved))
+        with pytest.raises(ValueError, match="one entry per net row"):
+            dataclasses.replace(record, torsions=record.torsions[1:])
+        with pytest.raises(TypeError, match="torsions must contain str"):
+            dataclasses.replace(record, torsions=(None,) * len(record.net))
+
+
 # every record with a canonical label, how it converts back to a value, and its version family
 CANONICAL_LABEL_RECORDS = [
     (lambda: _bare_prototype_record_from_value(_rocksalt_prototype()), _bare_prototype_from_record, "label"),
@@ -145,7 +170,7 @@ FORM_VERSIONS = {"label": _LABEL_FORM_VERSION, "refined": _REFINED_FORM_VERSION,
 def test_records_carry_their_family_canonical_form_version(build, from_record, family) -> None:
     version = FORM_VERSIONS[family]
     record = build()
-    assert record.canonical_form == version == {"label": 4, "refined": 9, "net": 9}[family]
+    assert record.canonical_form == version == {"label": 4, "refined": 9, "net": 10}[family]
     assert type(record).__httk_project__(from_record(record))["canonical_form"] == version
     type(record).__httk_validate__(record)
     with pytest.raises(TypeError, match="canonical_form must be an integer"):

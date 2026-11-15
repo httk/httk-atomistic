@@ -3586,6 +3586,8 @@ class ProtonettypeRecord:
     :param net: The bonding-net rows in label order.
     :param shapes: The bond shape symbol per site, defaults included, ``""`` for a site with fewer
         than two bonds; ``()`` for an undetermined value.
+    :param torsions: The torsion letter per net row, ``""`` for a row without one; ``()`` for an
+        undetermined value.
     :param undetermined: The label of an undetermined value (``X`` where a part was not
         determined within the canonicalisation budget), which is then all the record stores
         besides the space group, when known; ``None`` for a determined value.
@@ -3606,6 +3608,7 @@ class ProtonettypeRecord:
     occupations: tuple[PrototypeOccupation, ...]
     net: tuple[ProtonetBondRecord, ...]
     shapes: tuple[str, ...] = ()
+    torsions: tuple[str, ...] = ()
     undetermined: Annotated[str | None, IdentitySkipWhenNone()] = None
     canonical_form: int = _NET_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
@@ -3632,11 +3635,12 @@ class ProtonettypeRecord:
         if not value.determined:
             return
         canonical = _protonettype_record_from_value(
-            Protonettype(value.spacegroup, value.occupations, value.net, value.shapes)
+            Protonettype(value.spacegroup, value.occupations, value.net, value.shapes, value.torsions)
         )
         _require_canonical("ProtonettypeRecord", "occupations", record.occupations, canonical.occupations)
         _require_canonical("ProtonettypeRecord", "net rows", _net_rows(record), _net_rows(canonical))
         _require_canonical("ProtonettypeRecord", "shapes", record.shapes, canonical.shapes)
+        _require_canonical("ProtonettypeRecord", "torsions", record.torsions, canonical.torsions)
 
     @classmethod
     def __httk_project__(cls, value: Protonettype) -> Mapping[str, object]:
@@ -3650,6 +3654,7 @@ class ProtonettypeRecord:
                 **fields,
                 "net": (),
                 "shapes": (),
+                "torsions": (),
                 "canonical_form": _NET_FORM_VERSION,
                 "id": None,
                 "immutable_id": None,
@@ -3660,6 +3665,7 @@ class ProtonettypeRecord:
             "occupations": value.occupations,
             "net": _bond_records(value.net),
             "shapes": _net_shapes_record(value.shapes),
+            "torsions": _net_torsions_record(value.torsions),
             "undetermined": None,
             "canonical_form": _NET_FORM_VERSION,
             "id": None,
@@ -3680,6 +3686,8 @@ class ProtonetstructureRecord:
     :param net: The bonding-net rows in label order.
     :param shapes: The bond shape symbol per site, defaults included, ``""`` for a site with fewer
         than two bonds; ``()`` for an undetermined value.
+    :param torsions: The torsion letter per net row, ``""`` for a row without one; ``()`` for an
+        undetermined value.
     :param undetermined: The label of an undetermined value (``X`` where a part was not
         determined within the canonicalisation budget), which is then all the record stores
         besides the space group, when known; ``None`` for a determined value.
@@ -3700,6 +3708,7 @@ class ProtonetstructureRecord:
     occupations: tuple[WyckoffOccupationRecord, ...]
     net: tuple[ProtonetBondRecord, ...]
     shapes: tuple[str, ...] = ()
+    torsions: tuple[str, ...] = ()
     undetermined: Annotated[str | None, IdentitySkipWhenNone()] = None
     canonical_form: int = _NET_FORM_VERSION
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
@@ -3727,11 +3736,12 @@ class ProtonetstructureRecord:
         if not value.determined:
             return
         canonical = _protonetstructure_record_from_value(
-            Protonetstructure(value.spacegroup, value.occupations, value.net, value.shapes)
+            Protonetstructure(value.spacegroup, value.occupations, value.net, value.shapes, value.torsions)
         )
         _require_canonical("ProtonetstructureRecord", "occupations", record.occupations, canonical.occupations)
         _require_canonical("ProtonetstructureRecord", "net rows", _net_rows(record), _net_rows(canonical))
         _require_canonical("ProtonetstructureRecord", "shapes", record.shapes, canonical.shapes)
+        _require_canonical("ProtonetstructureRecord", "torsions", record.torsions, canonical.torsions)
 
     @classmethod
     def __httk_project__(cls, value: Protonetstructure) -> Mapping[str, object]:
@@ -3745,6 +3755,7 @@ class ProtonetstructureRecord:
                 **fields,
                 "net": (),
                 "shapes": (),
+                "torsions": (),
                 "canonical_form": _NET_FORM_VERSION,
                 "id": None,
                 "immutable_id": None,
@@ -3755,6 +3766,7 @@ class ProtonetstructureRecord:
             "occupations": value.occupations,
             "net": _bond_records(value.net),
             "shapes": _net_shapes_record(value.shapes),
+            "torsions": _net_torsions_record(value.torsions),
             "undetermined": None,
             "canonical_form": _NET_FORM_VERSION,
             "id": None,
@@ -3763,7 +3775,7 @@ class ProtonetstructureRecord:
 
 
 def _validate_net_field(record_name: str, record: Any) -> None:
-    """Require a tuple of bond records in a protonet record's ``net`` field and of strings in ``shapes``."""
+    """Require a tuple of bond records in a protonet record's ``net`` and of strings in ``shapes`` and ``torsions``."""
     net = tuple(record.net)
     if not all(_effective_record_type(value) is ProtonetBondRecord for value in net):
         raise TypeError(f"{record_name} net must contain ProtonetBondRecord values")
@@ -3774,11 +3786,27 @@ def _validate_net_field(record_name: str, record: Any) -> None:
     if shapes and len(shapes) != len(record.occupations):
         raise ValueError(f"{record_name} shapes must give one entry per occupation")
     object.__setattr__(record, "shapes", shapes)
+    torsions = tuple(record.torsions)
+    if not all(isinstance(value, str) for value in torsions):
+        raise TypeError(f"{record_name} torsions must contain str values")
+    if torsions and len(torsions) != len(net):
+        raise ValueError(f"{record_name} torsions must give one entry per net row")
+    object.__setattr__(record, "torsions", torsions)
 
 
 def _net_shapes_record(shapes: tuple[str | None, ...]) -> tuple[str, ...]:
     """Return a protonet value's shapes as stored: ``""`` for a site without a shape."""
     return tuple(symbol or "" for symbol in shapes)
+
+
+def _net_torsions_record(torsions: tuple[str | None, ...]) -> tuple[str, ...]:
+    """Return a protonet value's torsion letters as stored: ``""`` for a row without one."""
+    return tuple(letter or "" for letter in torsions)
+
+
+def _net_torsions(record: ProtonettypeRecord | ProtonetstructureRecord) -> tuple[str | None, ...] | None:
+    """Return a protonet record's torsion letters as value letters; ``None`` when none are stored."""
+    return tuple(letter or None for letter in record.torsions) if record.torsions else None
 
 
 def _net_shapes(record: ProtonettypeRecord | ProtonetstructureRecord) -> tuple[str | None, ...] | None:
@@ -3818,6 +3846,7 @@ def _protonet_record_label(
         _net_rows(record),
         [key for key, _ in runs] if named else None,
         shapes=tuple(symbol or None for symbol in record.shapes) or (None,) * len(sites),
+        torsions=_net_torsions(record),
     )
 
 
@@ -3841,7 +3870,11 @@ def _protonettype_from_record(record: ProtonettypeRecord) -> Protonettype:
         return _undetermined_from_record(record, Protonettype, "net", _NET_FORM_VERSION)
     _require_canonical_form(record, "net", _NET_FORM_VERSION)
     return Protonettype._of(
-        _protonet_record_spacegroup(record), tuple(record.occupations), _net_rows(record), _net_shapes(record)
+        _protonet_record_spacegroup(record),
+        tuple(record.occupations),
+        _net_rows(record),
+        _net_shapes(record),
+        _net_torsions(record),
     )
 
 
@@ -3859,6 +3892,7 @@ def _protonettype_record_from_value(value: Protonettype) -> ProtonettypeRecord:
         occupations=tuple(value.occupations),
         net=_bond_records(value.net),
         shapes=_net_shapes_record(value.shapes),
+        torsions=_net_torsions_record(value.torsions),
     )
 
 
@@ -3876,6 +3910,7 @@ def _protonetstructure_from_record(record: ProtonetstructureRecord) -> Protonets
         tuple(WyckoffOccupation(value.wyckoff, _species_from_record(value.species)) for value in record.occupations),
         _net_rows(record),
         _net_shapes(record),
+        _net_torsions(record),
     )
 
 
@@ -3899,6 +3934,7 @@ def _protonetstructure_record_from_value(value: Protonetstructure) -> Protonetst
         ),
         net=_bond_records(value.net),
         shapes=_net_shapes_record(value.shapes),
+        torsions=_net_torsions_record(value.torsions),
     )
 
 

@@ -345,7 +345,7 @@ B8: dict[str, tuple[str, str]] = {
 B8_DIFFERS = {"K2AgSbS4", "diopside"}
 B8_MOLECULAR = {
     # the file's own bond loop
-    "7219102": "8~13.1.2.3_9~13.10.4.5_13~6.7_10~11.12",
+    "7219102": "8~13.1.2.3_9~13t.10.4.5_13~6.7_10~11.12",
     # hydrogen-complete covalent bonds
     "7217521": "9~10.14.1.2_10~15.3.4_11~12.15.5.6_12~13.14.7_13TPY3~14@2.8_14TPY3",
 }

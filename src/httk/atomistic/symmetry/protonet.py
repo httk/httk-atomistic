@@ -5,8 +5,8 @@ general Wyckoff position, identity ``0``) followed by the lattice translation ``
 ``(i, j, g)`` bonds the reference atom of site ``i`` to ``g`` applied to the reference atom of
 site ``j``; the reference atom is the first-listed Wyckoff coordinate at the site's free
 parameters, not reduced modulo one.  ``_canonical_net`` returns the smallest key (bare key,
-numbering pattern, listed pairs, codes, shapes) over every equivalent description, numbering
-and gauge, together with every realisation of it; in groups 3 to 15 the descriptions follow
+numbering pattern, listed pairs, codes, shapes, torsion letters) over every equivalent
+description, numbering and gauge, together with every realisation of it; in groups 3 to 15 the descriptions follow
 the cells chosen from the net (``_protonet_cells``).  Everything is exact: integers in the search, :class:`~fractions.Fraction`
 only while the per-space-group tables are built.
 """
@@ -51,6 +51,7 @@ type _Candidate = tuple[
     tuple[tuple[int, int], ...],  # 3. the listed pairs (listing site, target) in label order
     tuple[tuple[int, int, int, int, int], ...],  # 4. the code keys in label order
     tuple[str, ...],  # 5. the shapes by site number, "" for none
+    tuple[str, ...],  # 6. the torsion letters of the listed pairs in label order, "" for none
 ]
 
 _IDENTITY: _Element = (0, 0, 0, 0)
@@ -1068,6 +1069,7 @@ class _CanonicalNet:
         first, is a search detail that may change between versions: a caller may take the first
         only for what every realisation shares, and otherwise picks by an order-free rule (D3).
     :param shapes: The shape per site number, ``None`` for a site with fewer than two bonds.
+    :param torsions: The torsion letter per slot, ``None`` for none.
     """
 
     it_number: int
@@ -1076,6 +1078,7 @@ class _CanonicalNet:
     codes: tuple[_Element, ...]
     realisations: tuple[_Realisation, ...]
     shapes: tuple[str | None, ...]
+    torsions: tuple[str | None, ...]
 
 
 def _canonical_net(
@@ -1084,6 +1087,7 @@ def _canonical_net(
     rows: Iterable[tuple[int, int, _Element]],
     *,
     shapes: Sequence[str | None] | None = None,
+    torsions: Sequence[str | None] | None = None,
     preserve_chirality: bool = True,
     own_bare: bool = False,
 ) -> _CanonicalNet:
@@ -1095,13 +1099,28 @@ def _canonical_net(
         sites' reference atoms; any lattice translation.
     :param shapes: The shape symbol per site (``None`` for none), carried with the sites; ``None``
         for no shapes at all.
+    :param torsions: One torsion letter or ``None`` per entry of ``rows``; ``None`` for no letters
+        at all. The letters are carried by unordered site pair.
     :param preserve_chirality: Whether to keep the higher enantiomorphic group.
     :param own_bare: Search only the descriptions with the input's own bare key (its sorted class
         letter groups) instead of the smallest one; the constructors' canonicalization.
     :return: The canonical net and its realisations.
-    :raises ValueError: If a row index is out of range or a letter or operation is unknown.
+    :raises ValueError: If a row index is out of range, a letter or operation is unknown, or two
+        rows of one site pair have different torsion letters.
     """
     tables = _tables(it_number)
+    rows = list(rows)
+    letters: dict[tuple[int, int], str] = {}
+    if torsions is not None:
+        torsions = tuple(torsions)
+        if len(torsions) != len(rows):
+            raise ValueError(f"torsions give {len(torsions)} entries for {len(rows)} rows")
+        spelled: dict[tuple[int, int], str | None] = {}
+        for (i, j, _), letter in zip(rows, torsions, strict=True):
+            pair = (min(i, j), max(i, j))
+            if spelled.setdefault(pair, letter) != letter:
+                raise ValueError(f"rows of the site pair {pair} have different torsion letters")
+        letters = {pair: letter for pair, letter in spelled.items() if letter}
     sites = tuple((cls, letter) for cls, letter in sites)
     known = {position.letter for position in tables.spacegroup.wyckoff}
     for _, letter in sites:
@@ -1119,7 +1138,8 @@ def _canonical_net(
     shaped = (None,) * len(sites) if shapes is None else tuple(shapes)
     if len(shaped) != len(sites):
         raise ValueError(f"shapes give {len(shaped)} entries for {len(sites)} sites")
-    return _search(it_number, sites, frozenset(normalised), shaped, preserve_chirality, own_bare)
+    torsion_key = tuple(sorted(letters.items()))
+    return _search(it_number, sites, frozenset(normalised), shaped, torsion_key, preserve_chirality, own_bare)
 
 
 def _class_groups(
@@ -1142,16 +1162,19 @@ def _search(
     sites: tuple[tuple[Hashable, str], ...],
     rows: frozenset[_Row],
     shapes: tuple[str | None, ...],
+    torsions: tuple[tuple[tuple[int, int], str], ...],
     preserve_chirality: bool,
     own_bare: bool = False,
 ) -> _CanonicalNet:
     """Search every cell, coset, class order, numbering and gauge for the smallest net (memoised).
 
-    Candidates compare by the bare key, the numbering pattern, the listed pairs, the codes and
-    the shapes by site number, in that order. Bond counts, and so the listing order of a
-    numbering, are site invariants, computed once on the input description.
+    Candidates compare by the bare key, the numbering pattern, the listed pairs, the codes, the
+    shapes by site number and the torsion letters of the listed pairs, in that order. Bond
+    counts, and so the listing order of a numbering, are site invariants, computed once on the
+    input description.
     """
     tables = _tables(it_number)
+    torsion_of = dict(torsions)
     ordered = sorted(rows)
     counts = _bond_counts(tables, [tables.letter(letter).H for _, letter in sites], ordered)
     pairs = [(a, b) for a, b, _ in ordered]
@@ -1260,7 +1283,14 @@ def _search(
                     continue
                 _, codes, gauge = _exact_codes(tables, letters, pos, moved)
                 step5 = tuple(shapes[s] or "" for s in sorted(range(len(sites)), key=numbers.__getitem__))
-                candidate = (bare_key, pattern, step3, tuple(_key(c) for c in codes), step5)
+                # the letters by input site pair, read back through the listing positions: in a finite
+                # piece two orbits between one site pair (or a site and itself) are both ring bonds, so
+                # a pair with a letter has one row and the letter is a function of the unordered pair
+                site_at = {p: s for s, p in pos.items()}
+                step6 = tuple(
+                    torsion_of.get((min(site_at[p], site_at[q]), max(site_at[p], site_at[q])), "") for p, q in listed
+                )
+                candidate = (bare_key, pattern, step3, tuple(_key(c) for c in codes), step5, step6)
                 if best is None or candidate < best:
                     best, result, realisations = candidate, (step3, codes, [group_of[c] for c in ordered_classes]), {}
                 if candidate == best:
@@ -1276,7 +1306,8 @@ def _search(
     assert result is not None and best is not None
     slots, codes, groups = result
     by_number = tuple(symbol or None for symbol in best[4])
-    return _CanonicalNet(target, tuple(groups), slots, tuple(codes), tuple(realisations.values()), by_number)
+    by_slot = tuple(letter or None for letter in best[5])
+    return _CanonicalNet(target, tuple(groups), slots, tuple(codes), tuple(realisations.values()), by_number, by_slot)
 
 
 def _pregauge(

@@ -56,6 +56,12 @@ class ProtonetstructureAPI(ABC):
         raise NotImplementedError
 
     @property
+    @abstractmethod
+    def torsions(self) -> tuple[str | None, ...]:
+        """Return the torsion letter per net row in label order, ``None`` for a row without one."""
+        raise NotImplementedError
+
+    @property
     def determined(self) -> bool:
         """Return whether every part of the label was determined.
 
@@ -148,4 +154,5 @@ class ProtonetstructureAPI(ABC):
             self.net,
             [name for name, _ in runs],
             shapes=self.shapes,
+            torsions=self.torsions,
         )

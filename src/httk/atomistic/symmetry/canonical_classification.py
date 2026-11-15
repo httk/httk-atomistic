@@ -436,7 +436,15 @@ def _canonical_protonet[V](
     value: Protonettype | Protonetstructure,
     class_of: Sequence[Hashable],
     build: Callable[
-        [int, "_Realisation", list[int], list[tuple[int, int, int, int, int, int]], tuple[str | None, ...]], V
+        [
+            int,
+            "_Realisation",
+            list[int],
+            list[tuple[int, int, int, int, int, int]],
+            tuple[str | None, ...],
+            tuple[str | None, ...],
+        ],
+        V,
     ],
     *,
     assigned: bool,
@@ -446,7 +454,8 @@ def _canonical_protonet[V](
     """Search the canonical net of one value and build the result with ``build``.
 
     ``build`` receives the target group, the realisation, the input sites in new site order, the
-    1-based rows (each from its listing site) and the shapes in new site order; a translation the
+    1-based rows (each from its listing site), the shapes in new site order and the torsion letters
+    per row; a translation the
     notation cannot write is reported as such (D4).
     ``own_bare`` searches only the descriptions with the value's own bare key (the constructors).
 
@@ -463,6 +472,7 @@ def _canonical_protonet[V](
         sites,
         rows,
         shapes=value.shapes,
+        torsions=value.torsions,
         preserve_chirality=preserve_chirality,
         own_bare=own_bare,
     )
@@ -472,7 +482,7 @@ def _canonical_protonet[V](
     order = sorted(range(len(sites)), key=real.number.__getitem__)
     net = [(i, j, g[0] + 1, g[1], g[2], g[3]) for (i, j), g in zip(result.slots, result.codes, strict=True)]
     try:
-        return build(result.it_number, real, order, net, result.shapes)
+        return build(result.it_number, real, order, net, result.shapes, result.torsions)
     except ValueError as exc:
         if all(-5 <= n <= 4 for g in result.codes for n in g[1:]):
             raise
@@ -487,9 +497,11 @@ def _protonettype_net(value: Protonettype, *, preserve_chirality: bool, own_bare
     position = {label: index for index, label in enumerate(dict.fromkeys(labels))}
     class_of = [position[label] for label in labels]
 
-    def build(it_number: int, real: "_Realisation", order: list[int], net: list[Any], shapes: Any) -> Protonettype:
+    def build(
+        it_number: int, real: "_Realisation", order: list[int], net: list[Any], shapes: Any, torsions: Any
+    ) -> Protonettype:
         labels = [(real.letters[s], anonymous_symbol(real.classes.index(class_of[s]))) for s in order]
-        return Protonettype._of(it_number, labels, net, shapes)
+        return Protonettype._of(it_number, labels, net, shapes, torsions)
 
     return _canonical_protonet(
         value, class_of, build, assigned=False, preserve_chirality=preserve_chirality, own_bare=own_bare
@@ -499,9 +511,11 @@ def _protonettype_net(value: Protonettype, *, preserve_chirality: bool, own_bare
 def _protonetstructure_net(value: Protonetstructure, *, preserve_chirality: bool, own_bare: bool) -> Protonetstructure:
     """Return the canonical protonetstructure of one value, without the bare-prototype guard."""
 
-    def build(it_number: int, real: "_Realisation", order: list[int], net: list[Any], shapes: Any) -> Protonetstructure:
+    def build(
+        it_number: int, real: "_Realisation", order: list[int], net: list[Any], shapes: Any, torsions: Any
+    ) -> Protonetstructure:
         occupations = [(real.letters[s], value.occupations[s].species) for s in order]
-        return Protonetstructure._of(it_number, occupations, net, shapes)
+        return Protonetstructure._of(it_number, occupations, net, shapes, torsions)
 
     names = [o.species.name for o in value.occupations]
     return _canonical_protonet(

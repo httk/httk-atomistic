@@ -1041,6 +1041,11 @@ Bonding-net canonical strings additionally depend on these conventions:
   the listed direction (from the end that comes first in the listing order);
 - shapes are compared as strings in site-number order, after the codes; the
   defaults table and the baseline detector are part of the nets version;
+- torsion letters (`c`, `g`, `t`) are compared last, after the shapes, as the
+  letters of the listed rows in slot order. A letter belongs to an unordered
+  site pair (in a molecule, two bond orbits between one site pair are both ring
+  bonds and carry none), so the letters never change which bonds are listed
+  where. The rules and the edges table are part of the nets version;
 - the per-group tables are computed at one exact rational probe point
   (`(13/97, 29/101, 41/103)`), never a float or a structure's own parameters;
 - the set of equivalent descriptions is closed in signature (Wyckoff letter map

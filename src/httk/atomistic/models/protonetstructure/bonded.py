@@ -99,6 +99,11 @@ class BondedProtonetstructure(ProtonetstructureBackend):
         return self._value.shapes
 
     @property
+    def torsions(self) -> tuple[str | None, ...]:
+        """Return the per-row torsion letters, computed from the geometry."""
+        return self._value.torsions
+
+    @property
     def _undetermined(self) -> str | None:
         """Return the undetermined label when the net search ran out, else ``None``."""
         return self._value._undetermined

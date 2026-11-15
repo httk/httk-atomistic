@@ -473,8 +473,9 @@ net        = group { "_" group }                  (may be empty)
 group      = site [ shape ] [ "~" target { "." target } ]   (a shape, bonds, or both)
 site       = digits                               (no leading zero)
 shape      = uppercase letters, then the bond count, or I     e.g. OC6, TPRS9, I
-target     = site [ "@" op [ "@" klm ] ]
+target     = site [ "@" op [ "@" klm ] ] [ torsion ]
 klm        = digit digit digit                    (each digit = translation + 5)
+torsion    = "c" | "g" | "t"                      (molecular bonds only, see below)
 ```
 
 The anonymous levels and the protonetstructure nest as string prefixes; the
@@ -593,7 +594,9 @@ defaults (an unwritten eight-bonded site meant `CU8` in net version 6 and means
 to every IUPAC polyhedral symbol and made `I2` invalid; no label written under
 version 7 changed. Net version 9 writes irregular as `I` without its count (`I4`
 became `I`), so every label with an irregular site changed; a written `I<n>` is
-refused with a message to write `I`.
+refused with a message to write `I`. Net version 10 adds
+[torsion letters](#torsion-letters) on the qualifying bonds of molecules; a label
+without such a bond did not change.
 
 The Source column names where a symbol comes from, not its geometry. The shapes
 that predate net version 7 keep geometries of their own; three of them
@@ -669,6 +672,71 @@ platforms with different C maths libraries may differ in the last bit, which
 after the 1e-6 rounding changes a shape only for a value within about 1e-12 of a
 rounding boundary.
 
+#### Torsion letters
+
+A bond of a molecule can turn: two crystals with the same molecule, net and shapes
+can differ in a conformation, such as an arm trans in one and gauche in the other.
+A bond B-C that qualifies writes one lower-case letter after its target, which
+classifies the torsion magnitude |A-B-C-D| (IUPAC: 0 degrees when A and D are on
+the same side, 180 when opposite). A bond qualifies when all of these hold,
+decided from the net, the shapes and the coordinates, never from element names
+(the rules live in `httk.atomistic.symmetry.torsions`):
+
+1. it lies in a connected piece of the network that repeats in no direction (a
+   molecule; a molecule next to a framework still qualifies);
+2. B and C each have four or fewer bonds;
+3. it is not in a ring;
+4. at each end at least one other bonded atom has more than one bond, so turning
+   a methyl, a carboxylate or a hydroxyl gives no letter;
+5. the shapes of B and C, as used in the label, are a pair of the table (in
+   either order);
+6. each end has a unique reference neighbour, A at B and D at C (below);
+7. B, C, A and D sit on fully occupied, unmixed sites.
+
+| Shapes of B and C | Letter below the edge | From the edge | Edge |
+|---|---|---|---|
+| `T4`-`T4`, `T4`-`TPY3`, `TPY3`-`TPY3`, `A2`-`A2` | `g` (gauche) | `t` (trans) | 120 degrees |
+| `TP3`-`TP3`, `A2`-`TP3` | `c` (cis) | `t` (trans) | 90 degrees |
+
+Every other pair, `A2`-`T4`, `A2`-`TPY3`, `T4`-`TP3` and `TPY3`-`TP3` included, gives no
+letter.
+
+The candidates at B are B's other bonded atoms. The one with the most bonds is A.
+When several share the most, the net alone breaks the tie: each tied candidate X
+has the signature (S1, S2, S3), where Sd lists the bond counts of the atoms at
+graph distance exactly d from X once B is removed, sorted in descending order,
+and the largest signature, compared as tuples (S1 first; a level that is a prefix of
+another is the smaller), is A. When the end is still
+tied, such as an isopropyl or dimethylamino end or the two ortho carbons of a
+phenyl ring, the bond gets no letter: picking the smaller of the two torsions
+would fold τ and 180 - τ. D is chosen likewise at C. Where A-B-C or B-C-D is
+within 3 degrees of straight there is no letter. The magnitude comes from the exact coordinates and the group-averaged exact metric,
+converted to a float once and compared after rounding to 1e-6 degrees, so every
+exact re-description and the mirror image give the same letter, and a value on
+the edge takes the upper class. The letters are always computed from the
+structure (`from_asu`); they are not supplied, and are not written to OPTIMADE
+`_httk_bonds` or CIF. The sign of a gauche torsion is not recorded.
+
+In a finite piece, two bond orbits between one site pair, or between a site and
+itself, are both ring bonds, so a letter is a function of the unordered site
+pair. Among numberings that tie on everything else the canonical net takes the
+smallest sequence of letters in listing order; letters never change which bonds
+are listed where. In sarcosine (COD 7219102,
+`A7B3C2D_oP52_19_7a_3a_2a_a__8~13.1.2.3_9~13t.10.4.5_13~6.7_10~11.12:H-C-O-N`) the
+C-N bond `9~13t` is trans; the methyl C-N bond `8~13` and every bond to a
+hydrogen have no letter. The letter follows the operation and the translation when
+there are any: `11~11@2t`, `23~23@2@455t`.
+
+**Letters in a label.** A value takes them as `torsions`, one letter or `None` per
+net row (`Protonettype(spacegroup, occupations, net, shapes, torsions)`), and the
+parser reads them from the label. Both check each letter against what the net and
+shapes determine: its two shapes are a pair of the table and the letter is `t` or
+the pair's low letter (rule 5), four or fewer bonds at each end (rule 2), another
+neighbour with more than one bond at each end (rule 4), and one bond orbit between
+its two sites, every row of which carries the same letter. Rules 1 and 3, the
+uniqueness of A and D (rule 6), full occupancy, collinear ends and the torsion
+itself are not checked from a label, as shapes are not checked against geometry.
+
 **Relation to CIF.** This is the CIF bond list in compressed form. CIF records
 a bond as two atom labels plus a symmetry code for each
 (`_geom_bond_site_symmetry_1` and `_2`), written `n_klm`: operation number `n`,
@@ -718,6 +786,10 @@ fail. The following also hold.
 - A pair of sites may repeat (`7~1.1@3`, two different bond orbits between the
   same two sites), and `i~i@...` is a bond between symmetry copies of one site
   (diamond: `1~1@14@654`).
+- A target carries at most one torsion letter, after its operation and
+  translation (`9~10t.13`, `4~7@3@545g`), and only one the net and shapes allow
+  (see [torsion letters](#torsion-letters)); a row without a letter has none, there
+  are no defaults.
 - An empty net is written with a trailing `__`: `AB_cF8_225_a_b__`. Sites
   without bonds or a written shape do not appear in the net but keep their number.
 
@@ -1155,7 +1227,7 @@ their content identity. There are three versions, one per family:
 
 A label-rule change therefore bumps all three, while a change to the
 representative or to the net leaves the other families' records untouched. The
-label version is 4, the refined version 9 and the net version 9, since species
+label version is 4, the refined version 9 and the net version 10, since species
 classes replaced species names in every label, the hand is kept in Sohncke
 groups at every level, labels that could not be determined within the time
 budget are stored with an `X` marker, and species-class concentrations are
@@ -1169,13 +1241,15 @@ built in the symmetric orientation that keeps its threefold axis exactly, and th
 the listing order of the net segment and, since net version 7, the present shape table (`TPRS7`, `TPRT8` and
 `HBPY9` added, `SAPR8` dropped, and `SPY5`, `TPRS7` and `DD8` the defaults for five, seven and eight bonds)
 and, since net version 8, the supplied vocabulary (every IUPAC polyhedral symbol accepted when supplied, and `I2`
-invalid) and, since net version 9, irregular written as `I` without its count.
+invalid), since net version 9, irregular written as `I` without its count and, since net version 10,
+the torsion letters of molecular bonds.
 Any change that can change a shape the baseline detects (the defaults table, the
 ideal shapes or their order, the thresholds, the misfit rounding, the tie order,
 the metric averaging or the float conversion) is a change of the net rule. The
 protonet records store the full shape of every site, defaults included, as
 `shapes` (`""` for a site with fewer than two bonds, `()` for an undetermined
-value). Saving requires the family's current version, and turning a record of
+value), and the torsion letter of every net row as `torsions` (`""` for a row
+without one, `()` for an undetermined value); the stored `label` carries the letters. Saving requires the family's current version, and turning a record of
 another version back into a value raises `ValueError` naming the family: its
 canonical form changed, so rebuild the database. Saving a protonet record also checks that its net
 is the canonical one for its bare description; a non-canonical net is rejected,

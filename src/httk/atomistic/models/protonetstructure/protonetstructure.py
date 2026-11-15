@@ -38,10 +38,13 @@ class Protonetstructure(ProtonetstructureBackend):
     :param net: The net rows ``(i, j, k, n1, n2, n3)``, in either direction; stored rows are
         written from their listing site.
     :param shapes: The bond shape symbol per site, as for :class:`~httk.atomistic.Protonettype`.
+    :param torsions: The torsion letter per row of ``net``, ``None`` for none, checked as for
+        :class:`~httk.atomistic.Protonettype`.
     :raises ValueError: If the input is malformed, a shape is missing, unknown or has the wrong
-        bond count, or the canonical net needs a translation outside -5..+4, which the notation
-        cannot write (D4).
-    :raises TypeError: If ``shapes`` is a string or holds a value that is neither a string nor ``None``.
+        bond count, a torsion letter is not allowed on its row, or the canonical net needs a
+        translation outside -5..+4, which the notation cannot write (D4).
+    :raises TypeError: If ``shapes`` or ``torsions`` is a string or holds a value that is neither a
+        string nor ``None``.
     :raises CanonicalizationLimitError: If the net search exceeds its 120 s deadline, or an
         enclosing canonicalization budget.
     """
@@ -55,15 +58,16 @@ class Protonetstructure(ProtonetstructureBackend):
         occupations: Sequence[WyckoffOccupation | tuple[str, Species]],
         net: Sequence[Sequence[int]] = (),
         shapes: Sequence[str | None] | None = None,
+        torsions: Sequence[str | None] | None = None,
     ) -> None:
         from httk.atomistic.symmetry.canonical_classification import _protonetstructure_net
         from httk.atomistic.symmetry.limits import _active, _budget_scope
 
-        self._assign(spacegroup, occupations, net, shapes, writable=False)
+        self._assign(spacegroup, occupations, net, shapes, torsions, writable=False)
         with _budget_scope(120.0 if _active.get() is None else None):  # an enclosing budget governs
             canonical = _protonetstructure_net(self, preserve_chirality=True, own_bare=True)
         self._spacegroup, self._occupations = canonical.spacegroup, canonical.occupations
-        self._net, self._shapes = canonical.net, canonical.shapes
+        self._net, self._shapes, self._torsions = canonical.net, canonical.shapes, canonical.torsions
 
     @classmethod
     def _of(
@@ -72,10 +76,11 @@ class Protonetstructure(ProtonetstructureBackend):
         occupations: Sequence[WyckoffOccupation | tuple[str, Species]],
         net: Sequence[Sequence[int]],
         shapes: Sequence[str | None] | None,
+        torsions: Sequence[str | None] | None = None,
     ) -> Self:
-        """Build from a trusted canonical net and its shapes: validate the structure only, no canonicalization."""
+        """Build from a trusted canonical net, its shapes and torsion letters: validate only, no canonicalization."""
         instance = object.__new__(cls)
-        instance._assign(spacegroup, occupations, net, shapes, writable=True)
+        instance._assign(spacegroup, occupations, net, shapes, torsions, writable=True)
         return instance
 
     def _assign(
@@ -84,6 +89,7 @@ class Protonetstructure(ProtonetstructureBackend):
         occupations: Sequence[WyckoffOccupation | tuple[str, Species]],
         net: Sequence[Sequence[int]],
         shapes: Sequence[str | None] | None,
+        torsions: Sequence[str | None] | None,
         *,
         writable: bool,
     ) -> None:
@@ -93,7 +99,7 @@ class Protonetstructure(ProtonetstructureBackend):
             for value in occupations
         )
         _class_runs(self._spacegroup, [(o.wyckoff, o.species.name) for o in self._occupations], "Protonetstructure")
-        _assign_net(self, net, shapes, "Protonetstructure", writable=writable)
+        _assign_net(self, net, shapes, torsions, "Protonetstructure", writable=writable)
 
     @classmethod
     def from_asu(
@@ -119,7 +125,8 @@ class Protonetstructure(ProtonetstructureBackend):
         structure's own network and supplied shapes are ignored; ``shapes`` then gives the supplied
         shapes. Every site with two or more bonds gets a shape: its supplied symbol, else the
         baseline detector's (:mod:`httk.atomistic.symmetry.shapes`), which is the only use of the
-        geometry. Each bond stands for its whole
+        geometry, together with the torsion letters (:mod:`httk.atomistic.symmetry.torsions`), which
+        are always computed from the geometry. Each bond stands for its whole
         symmetry orbit, so listing any one member of an orbit is enough and repeats collapse. Which
         pairs are bonded is the caller's responsibility: ``~`` means a covalent bond of unspecified
         order, dative bonds counted as covalent. When two species share a class whose structure has
@@ -162,6 +169,7 @@ class Protonetstructure(ProtonetstructureBackend):
         from httk.atomistic.symmetry.limits import CanonicalizationLimitError, _active, _budget_scope, _check_on_limit
         from httk.atomistic.symmetry.protonet import _tables
         from httk.atomistic.symmetry.shapes import _site_shapes, _stabilisers
+        from httk.atomistic.symmetry.torsions import _site_pair_torsions
 
         _check_on_limit(on_limit)
         for index, site in enumerate(asu.wyckoff_sites, 1):
@@ -232,6 +240,10 @@ class Protonetstructure(ProtonetstructureBackend):
         order = sorted(range(len(sites)), key=lambda s: (rank[class_of[sites[s].species]], sites[s].wyckoff))
         site_shapes = _site_shapes(structure)
         number = {old: new for new, old in enumerate(order)}
+        torsion_of = {
+            (min(number[i], number[j]), max(number[i], number[j])): letter
+            for (i, j), letter in _site_pair_torsions(structure, site_shapes).items()
+        }
         rows = set()
         for i, j, g in elements:
             a, b = number[i], number[j]
@@ -240,6 +252,7 @@ class Protonetstructure(ProtonetstructureBackend):
             H = [tables.letter(sites[order[s]].wyckoff).H for s in (a, b)]
             g = tables.canon(H[0], H[1], g, same_site=a == b)
             rows.add((a + 1, b + 1, g[0] + 1, g[1], g[2], g[3]))
+        torsions = [torsion_of.get((min(i, j) - 1, max(i, j) - 1)) for i, j, *_ in sorted(rows)]
         from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
         from httk.atomistic.models.prototype.notation import _with_net_marker
         from httk.atomistic.symmetry.canonical_classification import _canonical_bare, _wyckoff_undetermined
@@ -254,7 +267,9 @@ class Protonetstructure(ProtonetstructureBackend):
             with _budget_scope(None if enclosed else 120.0):
                 if enclosed and on_limit == "undetermined":
                     bare = _canonical_bare(description, prototype=False, preserve_chirality=True)
-                return Protonetstructure(spacegroup, occupations, sorted(rows), [site_shapes[s] for s in order])
+                return Protonetstructure(
+                    spacegroup, occupations, sorted(rows), [site_shapes[s] for s in order], torsions
+                )
         except CanonicalizationLimitError:
             if on_limit == "raise":
                 raise
@@ -318,28 +333,36 @@ class Protonetstructure(ProtonetstructureBackend):
             _unknown(self, "shapes")
         return self._shapes
 
+    @property
+    def torsions(self) -> tuple[str | None, ...]:
+        """Return the torsion letter per net row in label order, ``None`` for a row without one."""
+        if _undetermined(self) is not None:
+            _unknown(self, "torsions")
+        return self._torsions
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Protonetstructure):
             return NotImplemented
         if self._undetermined is not None or other._undetermined is not None:
             return self._undetermined == other._undetermined
-        return (self.spacegroup, self.occupations, self.net, self.shapes) == (
+        return (self.spacegroup, self.occupations, self.net, self.shapes, self.torsions) == (
             other.spacegroup,
             other.occupations,
             other.net,
             other.shapes,
+            other.torsions,
         )
 
     def __hash__(self) -> int:
         if self._undetermined is not None:
             return hash(self._undetermined)
-        return hash((self.spacegroup, self.occupations, self.net, self.shapes))
+        return hash((self.spacegroup, self.occupations, self.net, self.shapes, self.torsions))
 
     def __repr__(self) -> str:
         if self._undetermined is not None:
             return f"Protonetstructure.undetermined({self._undetermined!r})"
         pairs = tuple((o.wyckoff, o.species) for o in self.occupations)
-        return f"Protonetstructure({self.spacegroup.it_number}, {pairs!r}, {self.net!r}, {self.shapes!r})"
+        return f"Protonetstructure({self.spacegroup.it_number}, {pairs!r}, {self.net!r}, {self.shapes!r}, {self.torsions!r})"
 
 
 def _index_bond(

@@ -97,7 +97,8 @@ _GROUP_TOKEN = re.compile(r"(\d*)([a-zA-Z])")
 _PEARSON = re.compile(r"[a-z][A-Z]([1-9][0-9]*)")
 # lattice points of the conventional cell per centring type; R is tabulated on hexagonal axes
 _LATTICE_POINTS = {"P": 1, "A": 2, "B": 2, "C": 2, "S": 2, "I": 2, "F": 4, "R": 3}
-_NET_TARGET = re.compile(r"([0-9]+)(?:@([0-9]+)(?:@([0-9]{3}))?)?")
+# site number, optional operation and translation, then an optional torsion letter
+_NET_TARGET = re.compile(r"([0-9]+)(?:@([0-9]+)(?:@([0-9]{3}))?)?([cgt])?")
 # site number, then an optional shape: letters and the bond count, or I (irregular); I4 is captured to be refused
 _NET_HEAD = re.compile(r"([1-9][0-9]*)([A-Z]+[1-9][0-9]*|I)?")
 _NET_RESERVED = frozenset("-=#$:/\\")
@@ -482,17 +483,24 @@ def _render_target(row: Sequence[int]) -> str:
     return f"{j}@{k}" if k != 1 else str(j)
 
 
-def _render_net(net: Sequence[Sequence[int]], shapes: Sequence[str | None], counts: Sequence[int]) -> str:
-    """Render the net part of a protonet label from its rows, its sites' shapes and bond counts.
+def _render_net(
+    net: Sequence[Sequence[int]],
+    shapes: Sequence[str | None],
+    counts: Sequence[int],
+    torsions: Sequence[str | None] | None = None,
+) -> str:
+    """Render the net part of a protonet label from its rows, its sites' shapes, bond counts and torsion letters.
 
     The listing order follows the bond counts (``_net_counts``; ``I`` carries no count). A site
-    gets a group if it lists a row or its shape differs from the default of its bond count.
+    gets a group if it lists a row or its shape differs from the default of its bond count. A
+    row's torsion letter follows its target.
     """
     from httk.atomistic.symmetry.shapes import _written
 
+    letter_of = dict(zip(map(tuple, net), torsions or (None,) * len(net), strict=True))
     targets: dict[int, list[str]] = {}
     for row in _label_rows(net, counts):
-        targets.setdefault(row[0], []).append(_render_target(row))
+        targets.setdefault(row[0], []).append(_render_target(row) + (letter_of.get(tuple(row)) or ""))
     pos = _listing_positions(counts, [(row[0] - 1, row[1] - 1) for row in net], range(1, len(shapes) + 1))
     groups = []
     for s in sorted(range(len(shapes)), key=pos.__getitem__):
@@ -509,6 +517,7 @@ def render_protonet(
     names: Sequence[str] | None = None,
     *,
     shapes: Sequence[str | None],
+    torsions: Sequence[str | None] | None = None,
 ) -> str:
     """Render a protonettype or protonetstructure label.
 
@@ -524,6 +533,7 @@ def render_protonet(
     :param names: The class species names in class order, or ``None`` for the anonymous
         level.
     :param shapes: The shape symbol per site, ``None`` for a site with fewer than two bonds.
+    :param torsions: The torsion letter per row of ``net``, ``None`` for none; ``None`` for no letters.
     :return: The label text.
     :raises ValueError: If a letter is absent from the setting or a translation cannot be
         written.
@@ -537,18 +547,19 @@ def render_protonet(
     except KeyError as exc:
         raise ValueError(str(exc)) from exc
     counts = _net_counts(spacegroup, [letter for letters in class_letters for letter in letters], net, "protonet label")
-    text = _assemble(spacegroup, class_letters, multiplicities) + "__" + _render_net(net, shapes, counts)
+    text = _assemble(spacegroup, class_letters, multiplicities) + "__" + _render_net(net, shapes, counts, torsions)
     return text if names is None else text + ":" + "-".join(names)
 
 
-def _parse_net(text: str) -> tuple[list[tuple[int, int, int, int, int, int]], dict[int, str]]:
-    """Parse the net part of a protonet label into rows and written shapes, without canonicality checks."""
+def _parse_net(text: str) -> tuple[list[tuple[int, int, int, int, int, int]], dict[int, str], list[str | None]]:
+    """Parse the net part of a protonet label into rows, written shapes and torsion letters, without canonicality checks."""
     if "__" in text:
         raise ValueError("a protonet label has exactly one '__' net segment")
     if _NET_RESERVED.intersection(text):
         raise ValueError(f"protonet net {text!r} uses a reserved character")
     rows: list[tuple[int, int, int, int, int, int]] = []
     written: dict[int, str] = {}
+    torsions: list[str | None] = []
     opened: set[int] = set()
     for group in text.split("_") if text else ():
         head, tilde, targets = group.partition("~")
@@ -565,10 +576,11 @@ def _parse_net(text: str) -> tuple[list[tuple[int, int, int, int, int, int]], di
             target_match = _NET_TARGET.fullmatch(target)
             if target_match is None:
                 raise ValueError(f"invalid protonet destination {target!r} in group {group!r}")
-            j, k, klm = target_match.groups()
+            j, k, klm, letter = target_match.groups()
             n1, n2, n3 = (int(digit) - 5 for digit in klm) if klm else (0, 0, 0)
             rows.append((site, int(j), int(k) if k else 1, n1, n2, n3))
-    return rows, written
+            torsions.append(letter)
+    return rows, written, torsions
 
 
 def _shapes_with_defaults(
@@ -613,9 +625,14 @@ def _shapes_with_defaults(
 def _parse_protonet(
     text: str,
 ) -> tuple[
-    int, list[tuple[str, ...]], list[str] | None, list[tuple[int, int, int, int, int, int]], tuple[str | None, ...]
+    int,
+    list[tuple[str, ...]],
+    list[str] | None,
+    list[tuple[int, int, int, int, int, int]],
+    tuple[str | None, ...],
+    list[str | None],
 ]:
-    """Split a protonet label into IT number, per-class letters, names, net rows and shapes (defaults filled)."""
+    """Split a protonet label into IT number, per-class letters, names, net rows, shapes (defaults filled) and torsions."""
     if not isinstance(text, str):
         raise ValueError("label must be a string")
     bare, sep, rest = text.partition("__")
@@ -628,19 +645,21 @@ def _parse_protonet(
     if bare_names is not None:
         raise ValueError("the ':' species suffix of a protonet label follows the net")
     letters = [tuple(_parse_group(token)) for token in fields[3:]]
-    rows, written = _parse_net(net_text)
+    rows, written, torsions = _parse_net(net_text)
     it_number = _parse_it_number(fields[2])
     shapes = _shapes_with_defaults(
         Spacegroup.standard(it_number), [letter for group in letters for letter in group], rows, written
     )
-    return it_number, letters, suffix.split("-") if colon else None, rows, shapes
+    return it_number, letters, suffix.split("-") if colon else None, rows, shapes, torsions
 
 
 def _protonettype_parts(
     text: str,
-) -> tuple[int, list[tuple[str, str]], list[tuple[int, int, int, int, int, int]], tuple[str | None, ...]]:
-    """Return a protonettype label's IT number, site-ordered occupations, net rows and shapes, without a search."""
-    it_number, letters, names, net, shapes = _parse_protonet(text)
+) -> tuple[
+    int, list[tuple[str, str]], list[tuple[int, int, int, int, int, int]], tuple[str | None, ...], list[str | None]
+]:
+    """Return a protonettype label's IT number, occupations, net rows, shapes and torsions, without a search."""
+    it_number, letters, names, net, shapes, torsions = _parse_protonet(text)
     if names is not None:
         raise ValueError("a protonettype label carries no ':' species suffix")
     return (
@@ -648,20 +667,23 @@ def _protonettype_parts(
         [(letter, anonymous_symbol(index)) for index, group in enumerate(letters) for letter in group],
         net,
         shapes,
+        torsions,
     )
 
 
 def _protonetstructure_parts(
     text: str,
-) -> tuple[int, list[tuple[str, Species]], list[tuple[int, int, int, int, int, int]], tuple[str | None, ...]]:
-    """Return a protonetstructure label's IT number, site-ordered occupations, net rows and shapes, without a search."""
-    it_number, letters, names, net, shapes = _parse_protonet(text)
+) -> tuple[
+    int, list[tuple[str, Species]], list[tuple[int, int, int, int, int, int]], tuple[str | None, ...], list[str | None]
+]:
+    """Return a protonetstructure label's IT number, occupations, net rows, shapes and torsions, without a search."""
+    it_number, letters, names, net, shapes, torsions = _parse_protonet(text)
     if names is None:
         raise ValueError("a protonetstructure label needs a ':' species suffix")
     if len(names) != len(letters):
         raise ValueError(f"label has {len(letters)} class(es) but {len(names)} species name(s)")
     occupations = [(letter, _species_from_class_name(name)) for name, group in zip(names, letters) for letter in group]
-    return it_number, occupations, net, shapes
+    return it_number, occupations, net, shapes, torsions
 
 
 def parse_protonettype_label(text: str) -> "Protonettype":

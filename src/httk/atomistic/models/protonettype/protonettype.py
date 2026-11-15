@@ -147,21 +147,113 @@ def _checked_shapes(shapes: Sequence[str | None] | None, counts: Sequence[int], 
     return checked
 
 
+def _checked_torsions(
+    spacegroup: Spacegroup,
+    letters: Sequence[str],
+    rows: Sequence[tuple[int, int, int, int, int, int]],
+    shapes: Sequence[str | None],
+    counts: Sequence[int],
+    torsions: Sequence[str | None] | None,
+    owner: str,
+) -> dict[tuple[int, int], str]:
+    """Validate a value's torsion letters, one per net row, and return them by 1-based site pair ``(i, j)``, ``i <= j``.
+
+    A letter is allowed only on a bond the net and shapes can qualify (see
+    :mod:`httk.atomistic.symmetry.torsions`): the sorted pair of its two shapes is in the table
+    and the letter is ``t`` or the pair's low letter (rule 5); each end has another bonded atom
+    with more than one bond (rule 4); and the site pair has one bond orbit, every row of it
+    carrying the same letter. Rule 2 (four or fewer bonds) follows from rule 5 once the shapes
+    are validated against the bond counts. Rules 1 (a molecular piece) and 3 (not in a ring), the
+    uniqueness of the reference neighbours, full occupancy and collinear ends are not checked
+    here, as shapes are not checked against geometry.
+
+    :param spacegroup: The standard-setting space group.
+    :param letters: The Wyckoff letter per site, in site order.
+    :param rows: The validated net rows ``(i, j, k, n1, n2, n3)``.
+    :param shapes: The validated shape per site.
+    :param counts: The bond count per site (``_net_counts``).
+    :param torsions: One letter or ``None`` per row, or ``None`` for no letters.
+    :param owner: The name in error messages.
+    :return: The letter per site pair that has one.
+    :raises ValueError: If the letters do not give one per row or a letter is not allowed on its row.
+    :raises TypeError: If ``torsions`` is a string or holds a value that is neither a string nor ``None``.
+    """
+    if torsions is None:
+        return {}
+    if isinstance(torsions, str):
+        raise TypeError(f"{owner} torsions must be a sequence of str or None values, one per net row, not a str")
+    given = tuple(torsions)
+    if len(given) != len(rows):
+        raise ValueError(f"{owner} torsions must give one entry per net row: {len(given)} for {len(rows)} rows")
+    if any(letter is not None and not isinstance(letter, str) for letter in given):
+        raise TypeError(f"{owner} torsions must contain str or None values")
+    if not any(given):
+        return {}
+    from httk.atomistic.symmetry.protonet import _key, _tables
+    from httk.atomistic.symmetry.torsions import _edge
+
+    tables = _tables(spacegroup.it_number)
+    H = [tables.letter(letter).H for letter in letters]
+
+    def atom(site: int, x: Any) -> tuple[int, tuple[int, ...]]:
+        """Key the atom ``x`` applied to the reference atom of 0-based ``site`` by its coset."""
+        return site, min(_key(tables.mul(x, z)) for z in H[site])
+
+    orbits: dict[tuple[int, int], set[Any]] = {}
+    reached: list[set[tuple[int, tuple[int, ...]]]] = [set() for _ in letters]  # as ``shapes._bond_counts``
+    for i, j, k, n1, n2, n3 in rows:
+        a, b, g = i - 1, j - 1, (k - 1, n1, n2, n3)
+        if a > b:
+            a, b, g = b, a, tables.inv(g)
+        orbits.setdefault((a, b), set()).add(tables.canon(H[a], H[b], g, a == b))
+        for site, x, other in ((a, g, b), (b, tables.inv(g), a)):
+            reached[site].update(atom(other, tables.mul(h, x)) for h in H[site])
+    found: dict[tuple[int, int], str] = {}
+    for (i, j, k, n1, n2, n3), letter in zip(rows, given, strict=True):
+        if letter is None:
+            continue
+        a, b, g = i - 1, j - 1, (k - 1, n1, n2, n3)
+        where = f"{owner} net row {(i, j, k, n1, n2, n3)!r}"
+        edge = _edge(shapes[a], shapes[b])
+        if edge is None:
+            raise ValueError(f"{where}: shapes {shapes[a]} and {shapes[b]} give no torsion letter")
+        allowed = ("t", edge[1])
+        if letter not in allowed:
+            raise ValueError(f"{where}: torsion letter {letter!r} is not one of {allowed} for its shapes")
+        ends = ((a, atom(b, g)), (b, atom(a, tables.inv(g))))
+        if not all(any(counts[o] > 1 for o, _ in reached[s] - {other}) for s, other in ends):
+            raise ValueError(
+                f"{where}: an end group (no other neighbour with more than one bond) has no torsion letter"
+            )
+        pair = (min(i, j), max(i, j))
+        if len(orbits[(pair[0] - 1, pair[1] - 1)]) > 1:
+            raise ValueError(f"{where}: a site pair with more than one bond orbit has no torsion letter")
+        if found.setdefault(pair, letter) != letter:
+            raise ValueError(f"{owner} rows of the site pair {pair} have different torsion letters")
+    for (i, j, *_), letter in zip(rows, given, strict=True):
+        if letter is None and (min(i, j), max(i, j)) in found:
+            raise ValueError(f"{owner} rows of the site pair {(min(i, j), max(i, j))} have different torsion letters")
+    return found
+
+
 def _assign_net(
     value: Any,
     net: Sequence[Sequence[int]],
     shapes: Sequence[str | None] | None,
+    torsions: Sequence[str | None] | None,
     owner: str,
     *,
     writable: bool,
 ) -> None:
-    """Validate and store a value's net and shapes, the rows in label order (shared by both levels)."""
+    """Validate and store a value's net, shapes and torsion letters, the rows in label order (both levels)."""
     letters = [o.wyckoff for o in value._occupations]
     nops = len(value._spacegroup.symmetry_operations)
     rows = _checked_net(net, len(letters), nops, owner, writable=writable)
     counts = _net_counts(value._spacegroup, letters, rows, owner)
     value._shapes = _checked_shapes(shapes, counts, owner)
+    found = _checked_torsions(value._spacegroup, letters, rows, value._shapes, counts, torsions, owner)
     value._net = _label_rows(rows, counts)
+    value._torsions = tuple(found.get((min(i, j), max(i, j))) for i, j, *_ in value._net)
 
 
 class Protonettype(ProtonettypeBackend):
@@ -191,10 +283,20 @@ class Protonettype(ProtonettypeBackend):
         ``None`` for a site with fewer than two bonds; every site with two or more bonds needs a
         known symbol: a named one ending in its bond count, or ``I`` (irregular) on three or more.
         ``None`` for the whole argument only when no site has two or more bonds.
+    :param torsions: The torsion letter per row of ``net`` (see
+        :mod:`httk.atomistic.symmetry.torsions`), ``None`` for a row without one; ``None`` for the
+        whole argument when no row has one. A letter is checked against what the net and shapes
+        determine: its two shapes form a pair of the torsion table and it is ``t`` or that pair's
+        low letter, at most four bonds at each end, another neighbour with more than one bond at
+        each end, and one bond orbit between its two sites, every row of which carries the same
+        letter. Whether the bond lies in a molecule and outside a ring, whether its reference
+        neighbours are unique, and whether its sites are fully occupied, are not checked, as
+        shapes are not checked against geometry.
     :raises ValueError: If the input is malformed, a shape is missing, unknown or has the wrong
-        bond count, or the canonical net needs a translation outside -5..+4, which the notation
-        cannot write (D4).
-    :raises TypeError: If ``shapes`` is a string or holds a value that is neither a string nor ``None``.
+        bond count, a torsion letter is not allowed on its row, or the canonical net needs a
+        translation outside -5..+4, which the notation cannot write (D4).
+    :raises TypeError: If ``shapes`` or ``torsions`` is a string or holds a value that is neither a
+        string nor ``None``.
     :raises CanonicalizationLimitError: If the net search exceeds its 120 s deadline, or an
         enclosing canonicalization budget.
     """
@@ -208,15 +310,16 @@ class Protonettype(ProtonettypeBackend):
         occupations: Sequence[PrototypeOccupation | tuple[str, str]],
         net: Sequence[Sequence[int]] = (),
         shapes: Sequence[str | None] | None = None,
+        torsions: Sequence[str | None] | None = None,
     ) -> None:
         from httk.atomistic.symmetry.canonical_classification import _protonettype_net
         from httk.atomistic.symmetry.limits import _active, _budget_scope
 
-        self._assign(spacegroup, occupations, net, shapes, writable=False)
+        self._assign(spacegroup, occupations, net, shapes, torsions, writable=False)
         with _budget_scope(120.0 if _active.get() is None else None):  # an enclosing budget governs
             canonical = _protonettype_net(self, preserve_chirality=True, own_bare=True)
         self._spacegroup, self._occupations = canonical.spacegroup, canonical.occupations
-        self._net, self._shapes = canonical.net, canonical.shapes
+        self._net, self._shapes, self._torsions = canonical.net, canonical.shapes, canonical.torsions
 
     @classmethod
     def _of(
@@ -225,10 +328,11 @@ class Protonettype(ProtonettypeBackend):
         occupations: Sequence[PrototypeOccupation | tuple[str, str]],
         net: Sequence[Sequence[int]],
         shapes: Sequence[str | None] | None,
+        torsions: Sequence[str | None] | None = None,
     ) -> Self:
-        """Build from a trusted canonical net and its shapes: validate the structure only, no canonicalization."""
+        """Build from a trusted canonical net, its shapes and torsion letters: validate only, no canonicalization."""
         instance = object.__new__(cls)
-        instance._assign(spacegroup, occupations, net, shapes, writable=True)
+        instance._assign(spacegroup, occupations, net, shapes, torsions, writable=True)
         return instance
 
     def _assign(
@@ -237,6 +341,7 @@ class Protonettype(ProtonettypeBackend):
         occupations: Sequence[PrototypeOccupation | tuple[str, str]],
         net: Sequence[Sequence[int]],
         shapes: Sequence[str | None] | None,
+        torsions: Sequence[str | None] | None,
         *,
         writable: bool,
     ) -> None:
@@ -247,7 +352,7 @@ class Protonettype(ProtonettypeBackend):
         labels = _class_runs(self._spacegroup, [(o.wyckoff, o.label) for o in self._occupations], "Protonettype")
         if labels != [anonymous_symbol(index) for index in range(len(labels))]:
             raise ValueError("Protonettype class run c must carry the label anonymous_symbol(c)")
-        _assign_net(self, net, shapes, "Protonettype", writable=writable)
+        _assign_net(self, net, shapes, torsions, "Protonettype", writable=writable)
 
     @classmethod
     def from_asu(
@@ -331,25 +436,33 @@ class Protonettype(ProtonettypeBackend):
             _unknown(self, "shapes")
         return self._shapes
 
+    @property
+    def torsions(self) -> tuple[str | None, ...]:
+        """Return the torsion letter per net row in label order, ``None`` for a row without one."""
+        if _undetermined(self) is not None:
+            _unknown(self, "torsions")
+        return self._torsions
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Protonettype):
             return NotImplemented
         if self._undetermined is not None or other._undetermined is not None:
             return self._undetermined == other._undetermined
-        return (self.spacegroup, self.occupations, self.net, self.shapes) == (
+        return (self.spacegroup, self.occupations, self.net, self.shapes, self.torsions) == (
             other.spacegroup,
             other.occupations,
             other.net,
             other.shapes,
+            other.torsions,
         )
 
     def __hash__(self) -> int:
         if self._undetermined is not None:
             return hash(self._undetermined)
-        return hash((self.spacegroup, self.occupations, self.net, self.shapes))
+        return hash((self.spacegroup, self.occupations, self.net, self.shapes, self.torsions))
 
     def __repr__(self) -> str:
         if self._undetermined is not None:
             return f"Protonettype.undetermined({self._undetermined!r})"
         pairs = tuple((o.wyckoff, o.label) for o in self.occupations)
-        return f"Protonettype({self.spacegroup.it_number}, {pairs!r}, {self.net!r}, {self.shapes!r})"
+        return f"Protonettype({self.spacegroup.it_number}, {pairs!r}, {self.net!r}, {self.shapes!r}, {self.torsions!r})"

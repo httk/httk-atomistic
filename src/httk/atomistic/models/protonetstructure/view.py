@@ -23,7 +23,7 @@ class ProtonetstructureView(ProtonetstructureViewBase, Protonetstructure):
 
     _backend: ProtonetstructureBackend
     _resolved_protonetstructure: Protonetstructure | None
-    _DEFERRED_FIELDS = frozenset({"_undetermined", "_spacegroup", "_occupations", "_net", "_shapes"})
+    _DEFERRED_FIELDS = frozenset({"_undetermined", "_spacegroup", "_occupations", "_net", "_shapes", "_torsions"})
 
     def __new__(cls, obj: Any = MISSING, **hints: Any) -> Self:
         if obj is MISSING:  # pickle/copy rebuild an empty instance; __setstate__ restores it
@@ -57,7 +57,9 @@ class ProtonetstructureView(ProtonetstructureViewBase, Protonetstructure):
         elif hasattr(backend, "resolve"):
             resolved = backend.resolve()
         else:
-            resolved = Protonetstructure(backend.spacegroup, backend.occupations, backend.net, backend.shapes)
+            resolved = Protonetstructure(
+                backend.spacegroup, backend.occupations, backend.net, backend.shapes, backend.torsions
+            )
         state = dict(resolved.__dict__)
         state["_resolved_protonetstructure"] = resolved
         object.__getattribute__(self, "__dict__").update(state)

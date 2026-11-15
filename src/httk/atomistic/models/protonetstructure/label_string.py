@@ -69,6 +69,11 @@ class ProtonetstructureLabelString(ProtonetstructureBackend):
         """Return the per-site bond shapes of the parsed label."""
         return self._value.shapes
 
+    @property
+    def torsions(self):
+        """Return the per-row torsion letters of the parsed label."""
+        return self._value.torsions
+
     def unwrap(self) -> str:
         """Return the original label text."""
         return self._raw

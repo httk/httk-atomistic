@@ -33,7 +33,7 @@ LOGGER = "httk.atomistic.cif_structures"
 # is the refinement program's choice: 7219077 and 4134228 list no bonds to H, so their labels
 # differ from the covalent-cutoff labels of test_protonet_molecular.
 NETWORK = {
-    "7219077": (15, 13, "A9B9CD_mC160_15_2e8f_9f_f_f__1~2.20_2~21_4~5.6.7_20~3.7_8~10.5_9~10.6_3~3@3:C-H-N-S"),
+    "7219077": (15, 13, "A9B9CD_mC160_15_2e8f_9f_f_f__1~2.20_2~21_4~5.6.7_20~3.7t_8~10.5_9~10.6_3~3@3:C-H-N-S"),
     "4002910": (
         37,
         11,
@@ -46,7 +46,7 @@ NETWORK = {
     "4134228": (
         13,
         13,
-        "A17B9C3D_mP120_14_17e_9e_3e_e__25~24.28.30_26~27.28.29_27~22.24_18~19.20_19~21_20~22_21~23:H-C-N-O",
+        "A17B9C3D_mP120_14_17e_9e_3e_e__25~24.28.30_26~27.28.29_27~22c.24_18~19t.20t_19~21_20~22t_21~23:H-C-N-O",
     ),
     "7218683": (25, 23, MOLECULAR["7218683"][1]),
     "4002853": (
