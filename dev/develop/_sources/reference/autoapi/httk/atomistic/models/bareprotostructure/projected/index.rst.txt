@@ -1,0 +1,63 @@
+httk.atomistic.models.bareprotostructure.projected
+==================================================
+
+.. py:module:: httk.atomistic.models.bareprotostructure.projected
+
+.. autoapi-nested-parse::
+
+   Projection of refined protostructure values onto their bare classification.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprotostructure.projected.ProjectedBareProtostructure
+
+
+Module Contents
+---------------
+
+.. py:class:: ProjectedBareProtostructure(obj)
+
+   Bases: :py:obj:`httk.atomistic.models.bareprotostructure.backend.BareProtostructureBackend`
+
+
+   Retain a refined or protonetstructure source while exposing its discrete classification.
+
+   A refined source exposes its own occupations. A protonetstructure source exposes the
+   canonical bare protostructure of its occupations: its class order follows the net, so its
+   bare part is not always the canonical bare label.
+
+   :param obj: Refined or protonetstructure classification source.
+
+
+   .. py:attribute:: kind
+      :value: 'bare_protostructure'
+
+
+
+   .. py:method:: resolve()
+
+      Return the standalone bare classification.
+
+
+
+   .. py:property:: spacegroup
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+
+      Return the canonical discrete occupations.
+
+
+   .. py:method:: unwrap()
+
+      Return the retained refined source.
+
+
+

@@ -1,0 +1,53 @@
+httk.atomistic.models.bareprototype.bareprototype
+=================================================
+
+.. py:module:: httk.atomistic.models.bareprototype.bareprototype
+
+.. autoapi-nested-parse::
+
+   The immutable anonymous Wyckoff-only prototype value.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprototype.bareprototype.BarePrototype
+
+
+Module Contents
+---------------
+
+.. py:class:: BarePrototype(spacegroup, occupations)
+
+   Bases: :py:obj:`httk.atomistic.models.bareprototype.backend.BarePrototypeBackend`
+
+
+   Store only standard-setting Wyckoff occupations, without geometrical refinement.
+
+   :param spacegroup: The standard-setting space group or its IT number.
+   :param occupations: Occupied Wyckoff positions and their anonymous labels.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'bare_prototype'
+
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototype.occupation.PrototypeOccupation, ...]
+
+
+      Return canonical anonymous Wyckoff occupations.
+
+

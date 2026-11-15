@@ -1,0 +1,293 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "disorder-00",
+   "metadata": {},
+   "source": [
+    "# Disorder, vacancies, and attached species\n",
+    "\n",
+    "A site in a real material is not always one atom. It can be an alloy site shared\n",
+    "between two elements, a site that is only partly occupied, or an atom carrying\n",
+    "particles whose positions nobody modelled. This notebook walks through how\n",
+    "*httk-atomistic* represents all three, and — the practical part — which of its\n",
+    "representations can carry them and which cannot.\n",
+    "\n",
+    "Every code cell below is taken verbatim from the runnable script\n",
+    "`examples/disorder_and_vacancies.py`. The notebook stores no outputs; run it to\n",
+    "see them, or read the rendered example page\n",
+    "{doc}`../examples/disorder_and_vacancies`, which shows the same script.\n",
+    "\n",
+    "We start with the imports and four species that between them cover the whole\n",
+    "story: a 50/50 Fe/Ni alloy site, a titanium site that is empty one time in ten,\n",
+    "a methyl group, and one ordinary fully ordered oxygen."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "disorder-01",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from httk.core import unwrap\n",
+    "\n",
+    "from httk.atomistic import (\n",
+    "    Species,\n",
+    "    PlainSpeciesView,\n",
+    "    UnitcellStructure,\n",
+    "    PlainStructureView,\n",
+    "    UnitcellStructureView,\n",
+    ")\n",
+    "\n",
+    "CUBIC = [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]\n",
+    "\n",
+    "#: A 50/50 substitutional Fe/Ni alloy site.\n",
+    "FE_NI = Species(name=\"M\", chemical_symbols=(\"Fe\", \"Ni\"), concentration=(0.5, 0.5))\n",
+    "#: A titanium site that is empty one time in ten.\n",
+    "TI_WITH_VACANCY = Species(name=\"Ti\", chemical_symbols=(\"Ti\", \"vacancy\"), concentration=(0.9, 0.1))\n",
+    "#: A carbon carrying three hydrogens whose positions are not modelled.\n",
+    "METHYL = Species(name=\"CH3\", chemical_symbols=(\"C\",), concentration=(1.0,), attached=(\"H\",), nattached=(3,))\n",
+    "#: An ordinary, fully ordered species -- the only kind a primitive triple can hold.\n",
+    "OXYGEN = Species(name=\"O\", chemical_symbols=(\"O\",), concentration=(1.0,))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "disorder-02",
+   "metadata": {},
+   "source": [
+    "## What a `Species` actually says\n",
+    "\n",
+    "A `Species` carries a `name` (its label in the structure — it need *not* be a\n",
+    "chemical symbol), a tuple of `chemical_symbols`, and a matching tuple of\n",
+    "`concentration` values. Read together, those say *what fraction of the time*\n",
+    "each symbol occupies the site:\n",
+    "\n",
+    "- `(\"Fe\", \"Ni\")` at `(0.5, 0.5)` is **substitutional disorder** — a statement\n",
+    "  about an ensemble, not about one atom.\n",
+    "- `(\"Ti\", \"vacancy\")` at `(0.9, 0.1)` is a **partial vacancy**. `\"vacancy\"` is\n",
+    "  one of OPTIMADE's two pseudo-symbols (the other is `\"X\"`, meaning *unknown*),\n",
+    "  and it names the *absence* of an atom.\n",
+    "- `attached=(\"H\",)` with `nattached=(3,)` records **attached particles**: three\n",
+    "  hydrogens bound to the carbon, with no coordinates invented for them. The two\n",
+    "  fields must always be given together and share a length.\n",
+    "\n",
+    "`Species.is_single_element` is the predicate that matters downstream: it is true\n",
+    "only for exactly one *real* element symbol with nothing attached. Watch which of\n",
+    "the four is true."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "disorder-03",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def explain(species: Species) -> None:\n",
+    "    \"\"\"Print what a species says, and whether it survives the trip to an atomic number.\"\"\"\n",
+    "    occupancy = \", \".join(\n",
+    "        f\"{100 * fraction:g}% {symbol}\" for symbol, fraction in zip(species.chemical_symbols, species.concentration)\n",
+    "    )\n",
+    "    attachments = \"\"\n",
+    "    if species.attached is not None and species.nattached is not None:\n",
+    "        attachments = \" + attached \" + \", \".join(\n",
+    "            f\"{count}x{symbol}\" for symbol, count in zip(species.attached, species.nattached)\n",
+    "        )\n",
+    "    print(f\"  {species.name:<4} {occupancy}{attachments}\")\n",
+    "    print(f\"       is_single_element = {species.is_single_element}\")\n",
+    "\n",
+    "\n",
+    "def species_are_richer_than_elements() -> None:\n",
+    "    print(\"What each species says:\")\n",
+    "    for species in (FE_NI, TI_WITH_VACANCY, METHYL, OXYGEN):\n",
+    "        explain(species)\n",
+    "\n",
+    "species_are_richer_than_elements()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "disorder-04",
+   "metadata": {},
+   "source": [
+    "## The Unitcell representation carries all of it\n",
+    "\n",
+    "A `UnitcellStructure` — and any `UnitcellStructureView` over any backend — stores the\n",
+    "`Species` objects themselves, so nothing is lost: the concentrations, the\n",
+    "`vacancy` pseudo-symbol, and the attachments all survive intact.\n",
+    "\n",
+    "Two things worth noticing in the output. First, `unwrap()` on the view returns\n",
+    "the *same object* we put in, not a copy — views present, they do not convert.\n",
+    "Second, `PlainSpeciesView` renders each species as an OPTIMADE species dict\n",
+    "with every field still present; that is unsurprising, since this model is\n",
+    "OPTIMADE's."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "disorder-05",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def disorder_survives_the_simple_representation() -> None:\n",
+    "    \"\"\"The UnitcellStructure, and any UnitcellStructureView, keep every field intact.\"\"\"\n",
+    "    structure = UnitcellStructure(\n",
+    "        cell=CUBIC,\n",
+    "        sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],\n",
+    "        species=[TI_WITH_VACANCY, METHYL],\n",
+    "        species_at_sites=[\"Ti\", \"CH3\"],\n",
+    "    )\n",
+    "\n",
+    "    by_name = {species.name: species for species in structure.species}\n",
+    "    print(\"Unitcell representation (a UnitcellStructure):\")\n",
+    "    print(\"  Ti  chemical_symbols \", by_name[\"Ti\"].chemical_symbols)\n",
+    "    print(\"  Ti  concentration    \", by_name[\"Ti\"].concentration)\n",
+    "    print(\"  CH3 attached         \", by_name[\"CH3\"].attached)\n",
+    "    print(\"  CH3 nattached        \", by_name[\"CH3\"].nattached)\n",
+    "\n",
+    "    # A view over the same structure is the same data seen again, not a lossy copy:\n",
+    "    # unwrap() hands back the original object.\n",
+    "    view = UnitcellStructureView(structure)\n",
+    "    print(\"  round-trips through UnitcellStructureView:\", unwrap(view) is structure)\n",
+    "\n",
+    "    # ...and so does the OPTIMADE species dict, which is where this model comes from.\n",
+    "    print(\"  as OPTIMADE dicts:\")\n",
+    "    for species in structure.species:\n",
+    "        print(\"   \", dict(PlainSpeciesView(species)))\n",
+    "\n",
+    "disorder_survives_the_simple_representation()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "disorder-06",
+   "metadata": {},
+   "source": [
+    "## The primitive representation rejects unsupported species\n",
+    "\n",
+    "The primitive representation is the spglib-style `(lattice, positions, numbers)`\n",
+    "triple that symmetry libraries speak, and `numbers` is a list of bare atomic\n",
+    "numbers. There is no integer that means \"90% Ti\", and none that means \"carbon\n",
+    "plus three hydrogens\".\n",
+    "\n",
+    "`PlainStructureView` does not round, drop, or approximate. It raises\n",
+    "`TypeError` and names the species it could not express, preventing a modelling\n",
+    "statement from being silently converted into a different material. A fully\n",
+    "ordered structure goes through untouched."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "disorder-07",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def the_primitive_representation_refuses() -> None:\n",
+    "    \"\"\"A bare atomic number cannot mean '90% Ti', so conversion raises TypeError.\"\"\"\n",
+    "    print(\"Plain representation (an spglib-style triple):\")\n",
+    "    for label, species in ((\"partial vacancy\", TI_WITH_VACANCY), (\"attached particles\", METHYL), (\"alloy\", FE_NI)):\n",
+    "        structure = UnitcellStructure(\n",
+    "            cell=CUBIC,\n",
+    "            sites=[[0.0, 0.0, 0.0]],\n",
+    "            species=[species],\n",
+    "            species_at_sites=[species.name],\n",
+    "        )\n",
+    "        try:\n",
+    "            PlainStructureView(structure)\n",
+    "        except TypeError as error:\n",
+    "            print(f\"  {label:<19} -> TypeError: {error}\")\n",
+    "        else:  # pragma: no cover - unreachable while the check above holds\n",
+    "            print(f\"  {label:<19} -> unexpectedly accepted\")\n",
+    "\n",
+    "    # A fully ordered structure converts without complaint, of course:\n",
+    "    ordered = UnitcellStructure(cell=CUBIC, sites=[[0.0, 0.0, 0.0]], species=[OXYGEN], species_at_sites=[\"O\"])\n",
+    "    _lattice, _positions, numbers = PlainStructureView(ordered)\n",
+    "    print(\"  fully ordered       -> atomic numbers\", numbers)\n",
+    "\n",
+    "the_primitive_representation_refuses()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "disorder-08",
+   "metadata": {},
+   "source": [
+    "## Checking before you convert\n",
+    "\n",
+    "Since `is_single_element` is exactly the condition the primitive view enforces,\n",
+    "you can ask the question yourself before handing a structure to a symmetry\n",
+    "library, a force field, or anything else that speaks in atomic numbers — and get\n",
+    "back the names of the offending species rather than an exception.\n",
+    "\n",
+    "The rule of thumb: keep disordered structures in the Unitcell representation, and\n",
+    "convert to primitive only at the boundary of a tool that genuinely cannot\n",
+    "represent disorder, where the `TypeError` is precisely the error you want."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "disorder-09",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def guard_before_converting() -> None:\n",
+    "    \"\"\"The idiomatic pre-flight check before handing a structure to an element-only tool.\"\"\"\n",
+    "    mixed = UnitcellStructure(\n",
+    "        cell=CUBIC,\n",
+    "        sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],\n",
+    "        species=[FE_NI, OXYGEN],\n",
+    "        species_at_sites=[\"M\", \"O\"],\n",
+    "    )\n",
+    "    offenders = [species.name for species in mixed.species if not species.is_single_element]\n",
+    "    print(\"Pre-flight check:\")\n",
+    "    print(\"  species that cannot become an atomic number:\", offenders)\n",
+    "    print(\"  safe to convert to a primitive triple:\", not offenders)\n",
+    "\n",
+    "guard_before_converting()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "disorder-10",
+   "metadata": {},
+   "source": [
+    "## Where to go next\n",
+    "\n",
+    "- The {doc}`../structures` guide covers the `UnitcellStructure` model, its component\n",
+    "  families, and the exact numeric layer in reference form.\n",
+    "- {doc}`../examples/serve_structures_as_optimade` shows what happens to a\n",
+    "  disordered structure at the OPTIMADE serving boundary: `structure_features`\n",
+    "  becomes `[\"disorder\"]`, and the derived composition fields serve `null`\n",
+    "  rather than inventing an element count for a half-occupied site.\n",
+    "- {doc}`../examples/build_a_structure` is the runnable tour of the three ways to\n",
+    "  construct a `UnitcellStructure` and of the exact geometry you can read back out."
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.12.3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

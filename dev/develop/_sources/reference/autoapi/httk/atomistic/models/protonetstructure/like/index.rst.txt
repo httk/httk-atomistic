@@ -1,0 +1,26 @@
+httk.atomistic.models.protonetstructure.like
+============================================
+
+.. py:module:: httk.atomistic.models.protonetstructure.like
+
+.. autoapi-nested-parse::
+
+   The accepted-input union for protonetstructures.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protonetstructure.like.ProtonetstructureLike
+
+
+Module Contents
+---------------
+
+.. py:type:: ProtonetstructureLike
+   :canonical: httk.atomistic.models.protonetstructure.backend.ProtonetstructureBackend | httk.atomistic.models.protonetstructure.view_base.ProtonetstructureViewBase | httk.atomistic.models.protonetstructure.protonetstructure.Protonetstructure | httk.atomistic.models.protonetstructure.label.ProtonetstructureLabel | str | httk.atomistic.models.structure.asu.FundamentalDomainStructure
+
+

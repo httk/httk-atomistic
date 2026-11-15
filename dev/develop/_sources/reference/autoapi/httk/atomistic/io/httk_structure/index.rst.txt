@@ -1,0 +1,94 @@
+httk.atomistic.io.httk_structure
+================================
+
+.. py:module:: httk.atomistic.io.httk_structure
+
+.. autoapi-nested-parse::
+
+   The lossless ``httk-structure`` JSON file format for one exact unit-cell structure.
+
+   A ``.httkstruct`` file holds the complete exact state of a
+   :class:`~httk.atomistic.UnitcellStructure`, so ``load(save(s)) == s`` and the reloaded
+   structure has the same content id. It is *httk*-specific: use it to keep a structure
+   exactly (for example as the recorded input of a calculation), and CIF or POSCAR to
+   exchange it with other software. Reading never evaluates or imports anything; the reader
+   is a strict validating parser.
+
+   The document is one JSON object with exactly these members (all required; ``null`` marks
+   an unstated value)::
+
+       format, version (1), cell, sites, species, species_at_sites, site_moments, charge,
+       molecular, assemblies, symmetry, chemical_composition, chemical_formula_descriptive,
+       chemical_formula_hill, optimization_type, immutable_id, last_modified
+
+   * ``cell``: ``unscaled_basis`` (3x3 surds), ``scale`` (surd), ``precision`` (rational),
+     ``periodicity`` (three booleans).
+   * ``sites``: ``reduced_coords`` (Nx3 rationals), ``precision`` (rational).
+   * ``species``: objects with ``name``, ``chemical_symbols``, ``concentration``,
+     ``concentration_precision``, ``mass`` (JSON floats), ``original_name``, ``attached``,
+     ``nattached``, ``charges``, ``spins`` and ``labels``.
+   * ``site_moments``: ``kind`` (``collinear``, ``cartesian`` or ``crystalaxis``),
+     ``moments`` (N surds for collinear, otherwise Nx3) and ``precision``.
+   * ``assemblies``: objects with ``sites_in_groups``, ``group_probabilities`` and
+     ``group_probabilities_precision``.
+   * ``symmetry``: the six :class:`~httk.atomistic.models.structure.semantics.StructureSymmetry`
+     fields; ``chemical_composition``: ``mode`` and ``amounts`` (objects with ``element``,
+     ``amount``, ``precision``); ``last_modified``: ISO 8601 text with a UTC offset.
+
+   Exact numbers are strings in one canonical spelling, so the same structure state gives
+   identical bytes. A *rational* is ``-?N`` or ``-?N/D`` in lowest terms with ``D > 1``
+   (``"0"``, ``"-3"``, ``"173/97"``). A *surd* is a rational, or a sum of at most four terms
+   ordered by increasing radicand, each ``R`` (the rational part, first) or ``R*sqrt(K)`` with
+   a squarefree ``1 < K <= 1000``, joined by their signs (``"1/2*sqrt(3)"``,
+   ``"1-3/2*sqrt(3)"``).
+
+   The reader is a trust boundary, so its limits keep every accepted document cheap to build:
+   a number string has at most 1024 characters (256 in ``cell``), another string at most 1024,
+   a symmetry operation at most 64 and there are at most 192 of them, and a cell whose scale
+   or basis determinant cancels to within ``2**-128`` of its own terms (an exact sign decision
+   then takes time growing with the cancellation depth) is refused. The writer refuses the same.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.io.httk_structure.FORMAT
+   httk.atomistic.io.httk_structure.VERSION
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.io.httk_structure.read_httk_structure
+
+
+Module Contents
+---------------
+
+.. py:data:: FORMAT
+   :value: 'httk-structure'
+
+
+.. py:data:: VERSION
+   :value: 1
+
+
+.. py:function:: read_httk_structure(source)
+
+   Read and validate an ``httk-structure`` file into its JSON document.
+
+   The document is checked completely (members, types, shapes and exact-number spellings)
+   before it is returned; ``httk.core.load`` then builds the
+   :class:`~httk.atomistic.UnitcellStructure`, whose constructors check the remaining
+   semantic consistency.
+
+   :param source: A filename, optionally compressed, or an open text or binary (UTF-8) stream.
+   :return: The validated document, a mapping whose ``format`` is ``"httk-structure"``.
+   :raises ValueError: If the text is not a valid ``httk-structure`` version-1 document.
+
+

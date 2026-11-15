@@ -1,0 +1,173 @@
+httk.atomistic.models.prototype.notation
+========================================
+
+.. py:module:: httk.atomistic.models.prototype.notation
+
+.. autoapi-nested-parse::
+
+   The one home of httk's prototype and protostructure label notation.
+
+   An httk label encodes the information content of an unsuffixed AFLOW-style prototype
+   label: a space group, its occupied Wyckoff letters, and the partition of those
+   occupations into species classes. The grammar is::
+
+       ANON_PEARSON_ITNUMBER_GROUP(_GROUP)*                 # prototype label
+       ANON_PEARSON_ITNUMBER_GROUP(_GROUP)*:NAME(-NAME)*    # protostructure label
+
+   A ``GROUP`` is the concatenation of one species class's Wyckoff letters, sorted
+   alphabetically, a letter occupied ``k >= 2`` times prefixed by the integer ``k``
+   (``2e``); count ``1`` is omitted. ``ANON`` is the anonymous formula built from
+   :func:`~httk.atomistic.models.formula.notation.anonymous_symbol` in group order with
+   per-group summed conventional multiplicities reduced by their overall gcd.
+
+   httk labels are deliberately NOT AFLOW labels. AFLOW orders classes by element symbol
+   (alphabetically) so its unsuffixed prefix still depends on the chemistry; httk orders
+   classes by their Wyckoff letters, so the unsuffixed prefix is element-agnostic and a
+   protostructure label is exactly the prototype label of the erased template followed
+   by ``:`` and the class species names. :func:`render_aflow_label` renders the AFLOW-style
+   variant for interoperability; it has no parser here.
+
+   "Canonicality" terminology: any faithful render of an object is *the* prototype or
+   protostructure label; the *canonical* prototype or protostructure label is the one
+   obtained from a normalizer-canonical object (for example one derived via
+   ``canonical_asu``). The renderer performs no affine-normalizer pass.
+
+   ponytail: the label is canonical only up to the fixed Wyckoff-letter naming of the IT
+   standard setting; two normalizer-equivalent occupation sets can still render to distinct
+   labels. The upgrade path is to vendor the per-Hall affine-normalizer coset data in
+   ``httk.atomistic.data``, induce the Wyckoff-letter permutations it generates, and emit the
+   lexicographic-min label over that orbit. Not needed until labels must match across
+   normalizer-equivalent settings.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.models.prototype.notation.pearson_symbol
+   httk.atomistic.models.prototype.notation.canonical_label_map
+   httk.atomistic.models.prototype.notation.render_prototype_label
+   httk.atomistic.models.prototype.notation.render_protostructure_label
+   httk.atomistic.models.prototype.notation.render_aflow_label
+   httk.atomistic.models.prototype.notation.parse_prototype_label
+   httk.atomistic.models.prototype.notation.parse_protostructure_label
+   httk.atomistic.models.prototype.notation.try_parse_prototype
+   httk.atomistic.models.prototype.notation.try_parse_protostructure
+
+
+Module Contents
+---------------
+
+.. py:function:: pearson_symbol(spacegroup, nsites_conventional)
+
+   Return the Pearson symbol for a setting and its conventional-cell site count.
+
+   The crystal-system letter follows the space group's ``crystal_system``; the centring
+   letter follows its ``centring_type`` with the base-centred variants
+   ``A``, ``B``, ``C``, and ``S`` folded to ``C``; the count is
+   ``nsites_conventional``, except a rhombohedral ``R`` setting (tabulated on hexagonal
+   axes) divides it by three. Calcite (167 with 30 conventional sites) yields ``hR10``.
+
+   :param spacegroup: The standard-setting space group.
+   :param nsites_conventional: The number of sites in the standard conventional cell.
+   :return: The Pearson symbol, such as ``"cF8"``.
+   :raises ValueError: If a rhombohedral count is not divisible by three.
+
+
+.. py:function:: canonical_label_map(class_letters)
+
+   Map input class keys to consecutive anonymous class labels in group order.
+
+   Classes are ordered lexicographically by their sorted Wyckoff-letter sequence
+   (including repetitions); the input key breaks ties deterministically. Two classes
+   with identical letter sequences are interchangeable, so either tie order renders the
+   identical label.
+
+   :param class_letters: For each input class key its sorted Wyckoff letters.
+   :return: A mapping from each input class key to its canonical anonymous label.
+
+
+.. py:function:: render_prototype_label(spacegroup, occupations)
+
+   Render the prototype label of a space group and its class-partitioned Wyckoff letters.
+
+   :param spacegroup: The standard-setting space group.
+   :param occupations: The occupied ``(wyckoff, class-key)`` pairs; the class key names
+       the anonymous species class an occupation belongs to.
+   :return: The prototype label text.
+   :raises ValueError: If any Wyckoff letter is absent from the setting.
+
+
+.. py:function:: render_protostructure_label(spacegroup, occupations)
+
+   Render the httk protostructure label of a space group and its named occupations.
+
+   Classes are ordered by their sorted Wyckoff letters, ties broken by species name. The
+   unsuffixed prefix equals the prototype label of the erased template; the suffix lists
+   the class species names in group order.
+
+   :param spacegroup: The standard-setting space group.
+   :param occupations: The occupied ``(wyckoff, species-name)`` pairs.
+   :return: The protostructure label text.
+   :raises ValueError: If any Wyckoff letter is absent from the setting.
+
+
+.. py:function:: render_aflow_label(spacegroup, occupations)
+
+   Render the AFLOW-style label of a space group and its named occupations.
+
+   Unlike the httk label, classes are ordered by species name alphabetically and the
+   anonymous symbols are reassigned in that order, so the unsuffixed prefix depends on
+   the chemistry. Provided for interoperability only; there is no parser for this form.
+
+   :param spacegroup: The standard-setting space group.
+   :param occupations: The occupied ``(wyckoff, species-name)`` pairs.
+   :return: The AFLOW-style label text.
+   :raises ValueError: If any Wyckoff letter is absent from the setting.
+
+
+.. py:function:: parse_prototype_label(text)
+
+   Parse a strictly canonical prototype label into a prototype.
+
+   Every Wyckoff letter must exist in the resolved standard setting, and the Pearson
+   symbol, reduced anonymous counts, and group ordering must all match their recomputed
+   canonical values; any deviation is rejected. This canonical-string-only stance mirrors
+   :func:`~httk.atomistic.models.formula.notation.parse_anonymous_formula`.
+
+   :param text: The prototype label to parse.
+   :return: The parsed :class:`~httk.atomistic.models.prototype.prototype.Prototype`.
+   :raises ValueError: If ``text`` is not a canonical prototype label.
+
+
+.. py:function:: parse_protostructure_label(text)
+
+   Parse a strictly canonical httk protostructure label into a protostructure.
+
+   The unsuffixed part is validated as for a prototype label; each ``:`` name must be a
+   known element symbol and becomes ``Species(name, (name,), (1,))``. Non-canonical labels
+   are rejected.
+
+   :param text: The protostructure label to parse.
+   :return: The parsed :class:`~httk.atomistic.models.protostructure.protostructure.Protostructure`.
+   :raises ValueError: If ``text`` is not a canonical protostructure label.
+
+
+.. py:function:: try_parse_prototype(text)
+
+   Return the parsed prototype, or ``None`` when *text* is not a canonical one.
+
+   :param text: The label text to test.
+   :return: The parsed prototype, or ``None`` for a non-label string.
+
+
+.. py:function:: try_parse_protostructure(text)
+
+   Return the parsed protostructure, or ``None`` when *text* is not a canonical one.
+
+   :param text: The label text to test.
+   :return: The parsed protostructure, or ``None`` for a non-label string.
+
+

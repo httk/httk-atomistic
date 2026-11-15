@@ -1,0 +1,33 @@
+httk.atomistic.models.moments.cartesian_view
+============================================
+
+.. py:module:: httk.atomistic.models.moments.cartesian_view
+
+.. autoapi-nested-parse::
+
+   Cartesian class view for site moments.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.cartesian_view.CartesianSiteMomentsView
+
+
+Module Contents
+---------------
+
+.. py:class:: CartesianSiteMomentsView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.moments.view_base.SiteMomentsViewBase`, :py:obj:`httk.atomistic.models.moments.cartesian.CartesianSiteMoments`
+
+
+   A lazy Cartesian site-moments presentation of any site-moments backend.
+
+
+   .. py:method:: unview()
+
+

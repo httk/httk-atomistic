@@ -1,0 +1,48 @@
+httk.atomistic.integrations.abinit.io.inputs
+============================================
+
+.. py:module:: httk.atomistic.integrations.abinit.io.inputs
+
+.. autoapi-nested-parse::
+
+   ABINIT input files: the shared variable parser, the structure reader and the geometry writer.
+
+   ABINIT converts lengths with its own Bohr radius, 0.52917720859 Å (CODATA 2006). ABINIT
+   10.0.3 output confirms it: ``xcart 2.565`` Bohr is echoed as ``xangst 1.3573395400``, where
+   the CODATA 2018 value ASE uses would give ``1.3573395451``. Conversion through it is exact.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.abinit.io.inputs.read_abinit_input
+
+
+Module Contents
+---------------
+
+.. py:function:: read_abinit_input(source, *, precision = None)
+
+   Read the structure of an ABINIT input file into a neutral geometry payload.
+
+   The structure variables ``acell`` (with a ``Bohr``/``Angstrom`` unit), ``rprim`` or
+   ``angdeg``, ``scalecart``, ``natom``, ``ntypat``, ``typat``, ``znucl`` and one of
+   ``xred``, ``xcart`` or ``xangst`` are read exactly, with ABINIT's defaults; every other
+   variable is ignored. An ``angdeg`` cell whose ABINIT construction is not exact is given
+   as ``cell_parameters`` (lengths ``acell``, angles ``angdeg``) when the positions are
+   fractional and ``scalecart`` is unity. Species are named by element (``Fe1``, ``Fe2`` when two types share
+   an element).
+
+   :param source: A file path (compressed files are decompressed), a text stream, or an
+       iterable of lines.
+   :param precision: Optional Cartesian precision in Å for the structure built from it.
+   :return: The ``abinit-input`` geometry payload, with the original text in ``raw``.
+   :raises ValueError: If the text is not a supported ABINIT input: malformed values,
+       missing ``znucl``, inconsistent counts, multi-dataset or image structure variables,
+       symmetry-generated atoms, the ``structure`` variable, or ``xcart``/``xangst`` or a
+       non-unit ``scalecart`` with ``angdeg`` angles that have no exact ABINIT frame.
+
+

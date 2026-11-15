@@ -1,0 +1,103 @@
+httk.atomistic.integrations.vasp.io.outputs
+===========================================
+
+.. py:module:: httk.atomistic.integrations.vasp.io.outputs
+
+.. autoapi-nested-parse::
+
+   Lazy directory-level access to a VASP calculation's registered files.
+
+   ``VASPOutputs`` is deliberately not a registered reader: a directory is a
+   container of inputs, not one VASP file.  Payload-returning properties retain no
+   open handles; the lazy OUTCAR and XDATCAR objects are owned and closed here.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.vasp.io.outputs.VASPOutputs
+
+
+Module Contents
+---------------
+
+.. py:class:: VASPOutputs(directory, *, precision = None)
+
+   Lazily resolve standard VASP files in a calculation directory.
+
+   File lookup probes each registered compression suffix after the plain
+   filename. Payload readers are created only when their properties are first
+   accessed. The lazy OUTCAR and XDATCAR children are owned here and closed by
+   :meth:`close`; payload mappings do not retain open handles.
+
+   :param directory: Filesystem directory containing VASP output files.
+   :param precision: Cartesian coordinate precision in Å propagated to the POSCAR/CONTCAR
+       reads (see :func:`~httk.atomistic.integrations.vasp.io.read_poscar`). ``None`` (the
+       default) keeps the digit-derived precision and, on first ``poscar``/``contcar``
+       access, emits the same recommendation warning ``read_poscar`` does — relaxed
+       CONTCAR coordinates are written to full double precision, so without a value the
+       symmetry tolerance comes out unrealistically tight. Validated lazily by the reader.
+
+
+   .. py:property:: closed
+      :type: bool
+
+
+      Whether this directory view has been closed.
+
+
+   .. py:method:: close()
+
+      Close owned lazy file objects; repeated calls are harmless.
+
+
+
+   .. py:property:: poscar
+      :type: dict[str, Any] | None
+
+
+      Return the lazily loaded POSCAR payload, or ``None`` when absent.
+
+      The read uses this object's ``precision`` (warning when it was not supplied).
+
+
+   .. py:property:: contcar
+      :type: dict[str, Any] | None
+
+
+      Return the lazily loaded CONTCAR payload, or ``None`` when absent.
+
+      The read uses this object's ``precision`` (warning when it was not supplied).
+
+
+   .. py:property:: outcar
+      :type: httk.atomistic.integrations.vasp.io.outcar.OutcarFile | None
+
+
+      Return the owned lazy OUTCAR reader, or ``None`` when absent.
+
+
+   .. py:property:: xdatcar
+      :type: httk.atomistic.integrations.vasp.io.xdatcar.XdatcarFile | None
+
+
+      Return the owned lazy XDATCAR reader, or ``None`` when absent.
+
+
+   .. py:property:: oszicar
+      :type: dict[str, Any] | None
+
+
+      Return the lazily loaded OSZICAR payload, or ``None`` when absent.
+
+
+   .. py:property:: potcar
+      :type: dict[str, Any] | None
+
+
+      Return the lazily loaded POTCAR summary, or ``None`` when absent.
+
+

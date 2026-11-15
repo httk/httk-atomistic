@@ -1,0 +1,30 @@
+httk.atomistic.models.protonetstructure.view_base
+=================================================
+
+.. py:module:: httk.atomistic.models.protonetstructure.view_base
+
+.. autoapi-nested-parse::
+
+   The abstract protonetstructure view base.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protonetstructure.view_base.ProtonetstructureViewBase
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtonetstructureViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.protonetstructure.backend.ProtonetstructureBackend`\ ]
+
+
+   Base class for views presenting protonetstructure backends.
+
+

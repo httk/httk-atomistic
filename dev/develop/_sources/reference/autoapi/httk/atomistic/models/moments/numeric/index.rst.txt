@@ -1,0 +1,80 @@
+httk.atomistic.models.moments.numeric
+=====================================
+
+.. py:module:: httk.atomistic.models.moments.numeric
+
+.. autoapi-nested-parse::
+
+   The NumericSiteMoments value: per-site magnetic moments owned as plain floats.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.numeric.NumericSiteMoments
+
+
+Module Contents
+---------------
+
+.. py:class:: NumericSiteMoments(moments, *, precision = None)
+
+   Per-site magnetic moments owned as plain floats, in Bohr magnetons, an immutable value.
+
+   A 1-D input (including an empty one) holds signed collinear scalars, kind ``"collinear"``;
+   an N x 3 input (including a ``(0, 3)`` array) holds Cartesian vectors, kind
+   ``"cartesian"``. Constructing one from an exact site-moments value is the explicit lossy
+   step: collinear moments stay collinear, while Cartesian and crystal-axis moments become
+   Cartesian floats; the source's precision is kept unless ``precision`` is given.
+
+   Values are canonical: ``-0.0`` becomes ``0.0`` and non-finite numbers are rejected.
+   Equality and hashing use the kind and values; the precision does not take part.
+   Construction **requires numpy** and raises :class:`ImportError` eagerly when it is
+   unavailable.
+
+   :param moments: A 1-D (collinear) or N x 3 (Cartesian) real array-like, or site moments to
+       convert.
+   :param precision: How precisely the moments were stated, if known.
+   :raises ValueError: If the moments are neither 1-D nor N x 3, or hold a non-finite value.
+
+
+   .. py:property:: kind
+      :type: str
+
+
+      Which representation this is, ``"collinear"`` or ``"cartesian"``.
+
+      :return: The moments kind.
+
+
+   .. py:property:: moments
+      :type: httk.core.NumericVector
+
+
+      The moments as stored, as N scalars (collinear) or N x 3 vectors (Cartesian).
+
+      :return: The moments as a read-only float array.
+
+
+   .. py:property:: cartesian_moments
+      :type: httk.core.NumericVector
+
+
+      The N x 3 Cartesian moments.
+
+      :return: The moments as a read-only float array.
+      :raises ValueError: If the moments are collinear, which carry no axis.
+
+
+   .. py:property:: precision
+      :type: float | None
+
+
+      How precisely the moments were stated, or ``None`` if unknown.
+
+      :return: The precision as a floating-point value.
+
+

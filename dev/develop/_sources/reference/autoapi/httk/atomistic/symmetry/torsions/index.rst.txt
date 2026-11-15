@@ -1,0 +1,38 @@
+httk.atomistic.symmetry.torsions
+================================
+
+.. py:module:: httk.atomistic.symmetry.torsions
+
+.. autoapi-nested-parse::
+
+   Torsion symbols of the bonds of molecular pieces (private; protonet follow-ups 10 and 11).
+
+   A bond orbit B-C gets a symbol when all of these hold (decided from the net, the shapes and the
+   exact coordinates, never from element names):
+
+   1. it lies in a piece of the network that repeats in no direction (a molecule);
+   2. B and C each have four or fewer bonds;
+   3. it is not in a ring;
+   4. at each end at least one other bonded atom has more than one bond (not an end group);
+   5. the sorted pair of the shapes of B and C, as used in the label, is a key of ``_TORSION_EDGES``;
+   6. each end has a unique reference neighbour (A at B, D at C, below);
+   7. (decision D1) B, C, A and D sit on fully occupied, unmixed sites.
+
+   The candidates at B are B's other bonded atoms. The one with the most bonds is A; when several
+   share the most, the net breaks the tie: each tied candidate X has the signature (S1, S2, S3),
+   where Sd is the bond counts, sorted in descending order, of the atoms at graph distance exactly
+   d from X once B is removed, and the largest signature, compared as tuples (S1 first; a level that
+   is a prefix of another is the smaller), is A. At a planar (``TP3``) end a tie by bond count is
+   final; refinement applies at ``T4`` and ``TPY3`` ends only (protonet follow-up 11: refined planar
+   ends spread flat across the edge). A tie left gives no symbol. D is chosen likewise at C. Rules 1
+   to 6 read only the net and the shapes (``_net_judge``), so the label validator checks them with
+   the same code.
+
+   The symbol classifies the IUPAC torsion magnitude ``|A-B-C-D|`` (0 cis, 180 trans): below the
+   pair's edge the pair's low letter, from it ``t``; with A-B-C or B-C-D within 3 degrees of straight,
+   no symbol. The magnitude comes from dot products of the exact standard-setting bond vectors under
+   the group-averaged exact metric (as the shapes' angles), converted to a float once, so every exact
+   re-description and the mirror image give the same symbol.
+
+
+

@@ -1,0 +1,20 @@
+httk.atomistic.integrations.qe
+==============================
+
+.. py:module:: httk.atomistic.integrations.qe
+
+.. autoapi-nested-parse::
+
+   Quantum ESPRESSO structure files: ``pw.x`` inputs and outputs (see :mod:`.io`).
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/atomistic/integrations/qe/io/index
+
+

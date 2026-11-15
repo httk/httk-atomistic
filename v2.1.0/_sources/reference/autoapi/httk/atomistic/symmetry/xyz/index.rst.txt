@@ -1,0 +1,61 @@
+httk.atomistic.symmetry.xyz
+===========================
+
+.. py:module:: httk.atomistic.symmetry.xyz
+
+.. autoapi-nested-parse::
+
+   Exact parsers for crystallographic coordinate-operation notation.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.xyz.parse_linear_expression
+   httk.atomistic.symmetry.xyz.operation_from_xyz
+   httk.atomistic.symmetry.xyz.operation_from_xyzt
+
+
+Module Contents
+---------------
+
+.. py:function:: parse_linear_expression(expression, allowed_vars = _SUPERSPACE_VARS)
+
+   Parse one superspace linear expression into integer coefficients and a translation.
+
+   The parser accepts the six superspace variables ``x1`` through ``x6`` by default and
+   preserves an exact rational translation.
+
+   :param expression: The linear expression to parse.
+   :param allowed_vars: The variable names accepted in ``expression``.
+   :return: The integer coefficients in ``allowed_vars`` and the exact translation.
+   :raises ValueError: If the expression is empty, malformed, or has a non-integer
+       variable coefficient.
+
+
+.. py:function:: operation_from_xyz(operation)
+
+   Parse an exact three-coordinate crystallographic operation.
+
+   :param operation: The comma-separated ``x,y,z`` operation string.
+   :return: The exact affine operation.
+   :raises ValueError: If the operation does not contain three valid coordinate
+       expressions.
+
+
+.. py:function:: operation_from_xyzt(operation)
+
+   Parse an exact magnetic operation and return its time-reversal flag.
+
+   The first three comma-separated fields use crystallographic ``x,y,z`` grammar; the
+   fourth field must be ``+1`` or ``-1``.
+
+   :param operation: The comma-separated ``x,y,z,time-reversal`` operation string.
+   :return: The affine operation and its time-reversal sign.
+   :raises ValueError: If the operation does not contain three coordinate expressions and
+       a valid time-reversal flag.
+
+

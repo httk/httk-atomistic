@@ -1,0 +1,40 @@
+httk.atomistic.integrations.abinit.io.outputs
+=============================================
+
+.. py:module:: httk.atomistic.integrations.abinit.io.outputs
+
+.. autoapi-nested-parse::
+
+   ABINIT main output files (``.abo``) read as geometry trajectories.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.abinit.io.outputs.read_abinit_output
+
+
+Module Contents
+---------------
+
+.. py:function:: read_abinit_output(source, *, precision = None)
+
+   Read the geometries an ABINIT main output echoes into a neutral frames payload.
+
+   The ``-outvars:`` echo of the preprocessed input variables is the first frame; the echo
+   after computation is a second frame only when its geometry differs. Only ``acell``,
+   ``rprim``, ``xred`` (else ``xcart``), ``natom``, ``ntypat``, ``typat`` and ``znucl`` are
+   read; the rounded ``xangst`` echo never is. Per-iteration relaxation geometries are not
+   read.
+
+   :param source: A file path (compressed files are decompressed), a text stream, or an
+       iterable of lines.
+   :param precision: Optional Cartesian precision in Å for every frame.
+   :return: ``{"format": "abinit-output", "frames": [geometry payloads]}``.
+   :raises ValueError: If the text has no preprocessed-variables echo, is a multi-dataset
+       output, or echoes an unsupported geometry.
+
+

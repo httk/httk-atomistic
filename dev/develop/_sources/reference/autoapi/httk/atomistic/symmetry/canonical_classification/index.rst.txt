@@ -1,0 +1,199 @@
+httk.atomistic.symmetry.canonical_classification
+================================================
+
+.. py:module:: httk.atomistic.symmetry.canonical_classification
+
+.. autoapi-nested-parse::
+
+   Exact canonicalization for the structural-classification value families.
+
+   Input conversion follows the corresponding View contract and can recognize a
+   structure-like source. Materialized bare values use occupations alone. A refined representative
+   uses its exact geometric terminal, so projecting it to a bare value can require a
+   separate bare canonicalization pass.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.canonical_classification.canonical_bare_protostructure
+   httk.atomistic.symmetry.canonical_classification.canonical_bare_prototype
+   httk.atomistic.symmetry.canonical_classification.canonical_protonettype
+   httk.atomistic.symmetry.canonical_classification.canonical_protonetstructure
+   httk.atomistic.symmetry.canonical_classification.canonical_protostructure
+   httk.atomistic.symmetry.canonical_classification.canonical_prototype
+
+
+Module Contents
+---------------
+
+.. py:function:: canonical_bare_protostructure(obj, *, preserve_chirality = True, timeout = 120.0, on_limit = 'undetermined')
+
+   Return the finite-action canonical assigned bare classification.
+
+   :param obj: A bare-protostructure-like value, converted through its View;
+       structure-like inputs may require symmetry recognition.
+   :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+       (improper) description is then used, so a crystal and its mirror image can get different
+       labels. With ``False`` mirror descriptions are allowed and the higher member of an
+       enantiomorphic pair maps to the lower one, so both hands get one label.
+   :param timeout: Cooperative seconds for the whole call, shared by its stages; ``None``
+       disables the deadline (an enclosing budget still applies). The 120 s default is new:
+       this function used to run without a deadline.
+   :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+       an undetermined value whose label has ``X`` in place of that stage's part and everything
+       after it (``<Formulatype>_X:<names>``, or
+       ``<Formulatype>_<Pearson>_<number>_X:<names>``), keeping every part already determined; ``"raise"`` raises
+       :class:`~httk.atomistic.CanonicalizationLimitError`.
+   :return: A standalone canonical bare protostructure.
+   :raises ValueError: If ``on_limit`` is unknown or the input is invalid.
+   :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+       partial result is returned.
+
+
+.. py:function:: canonical_bare_prototype(obj, *, preserve_chirality = True, timeout = 120.0, on_limit = 'undetermined')
+
+   Return the finite-action canonical anonymous bare classification.
+
+   :param obj: A bare-prototype-like value, converted through its View;
+       structure-like inputs may require symmetry recognition.
+   :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+       (improper) description is then used, so a crystal and its mirror image can get different
+       labels. With ``False`` mirror descriptions are allowed and the higher member of an
+       enantiomorphic pair maps to the lower one, so both hands get one label.
+   :param timeout: Cooperative seconds for the whole call, shared by its stages; ``None``
+       disables the deadline (an enclosing budget still applies). The 120 s default is new:
+       this function used to run without a deadline.
+   :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+       an undetermined value whose label has ``X`` in place of that stage's part and everything
+       after it (``<Formulatype>_X``, or ``<Formulatype>_<Pearson>_<number>_X``), keeping every
+       part already determined; ``"raise"`` raises
+       :class:`~httk.atomistic.CanonicalizationLimitError`.
+   :return: A standalone canonical bare prototype.
+   :raises ValueError: If ``on_limit`` is unknown or the input is invalid.
+   :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+       partial result is returned.
+
+
+.. py:function:: canonical_protonettype(obj, *, preserve_chirality = True, timeout = 120.0, on_limit = 'undetermined')
+
+   Return the exact canonical anonymous bare prototype with its canonical bonding net.
+
+   The net is minimised over every equivalent description, site numbering and choice of
+   reference atoms; classes that tie in count and letters are ordered by the net.
+   In monoclinic groups the descriptions include cells chosen from the net, so no net depends
+   on the cell. In P-1 only nets that are not periodic in any direction are independent of
+   the cell; P-1 and P1 nets with any periodic component are canonical only relative to the
+   cell httk's standardisation chooses (D7).
+
+   :param obj: A protonettype-like value, converted through its View.
+   :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+       (improper) description is then used, so a crystal and its mirror image can get different
+       labels. With ``False`` mirror descriptions are allowed and the higher member of an
+       enantiomorphic pair maps to the lower one, so both hands get one label.
+   :param timeout: Cooperative seconds for the whole call, shared by its stages: the bare part
+       first, then the net search with what remains. ``None`` disables the deadline (an
+       enclosing budget still applies).
+   :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+       an undetermined value whose label has ``X`` in place of that stage's part and everything
+       after it (``<bare prototype label>__X`` when only the net is not determined,
+       else ``<Formulatype>_<Pearson>_<number>_X__X``), keeping every part already determined; ``"raise"`` raises
+       :class:`~httk.atomistic.CanonicalizationLimitError`.
+   :return: A standalone canonical protonettype.
+   :raises ValueError: If ``on_limit`` is unknown, the input is invalid, the canonical net needs a
+       translation outside -5..+4 that the notation cannot write, or the net search and the bare
+       canonicalization disagree on the bare prototype.
+   :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+       partial result is returned.
+
+
+.. py:function:: canonical_protonetstructure(obj, *, preserve_chirality = True, timeout = 120.0, on_limit = 'undetermined')
+
+   Return the exact canonical assigned bare protostructure with its canonical bonding net.
+
+   The net is chosen before the species (D3): it is canonicalized anonymously, and only
+   descriptions giving the identical net are told apart by the species-name tuple in class
+   order, smallest first. With tied classes the result's bare part can therefore differ from
+   :func:`canonical_bare_protostructure`.
+   In monoclinic groups the descriptions include cells chosen from the net, so no net depends
+   on the cell. In P-1 only nets that are not periodic in any direction are independent of
+   the cell; P-1 and P1 nets with any periodic component are canonical only relative to the
+   cell httk's standardisation chooses (D7).
+
+   :param obj: A protonetstructure-like value, converted through its View.
+   :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+       (improper) description is then used, so a crystal and its mirror image can get different
+       labels. With ``False`` mirror descriptions are allowed and the higher member of an
+       enantiomorphic pair maps to the lower one, so both hands get one label.
+   :param timeout: Cooperative seconds for the whole call, shared by its stages: the bare part
+       first, then the net search with what remains. ``None`` disables the deadline (an
+       enclosing budget still applies).
+   :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+       an undetermined value whose label has ``X`` in place of that stage's part and everything
+       after it (``<bare protostructure label>__X:<names>``, with the canonical
+       bare protostructure label, when only the net is not determined, else
+       ``<Formulatype>_<Pearson>_<number>_X__X:<names>``), keeping every part already determined; ``"raise"`` raises
+       :class:`~httk.atomistic.CanonicalizationLimitError`.
+   :return: A standalone canonical protonetstructure.
+   :raises ValueError: If ``on_limit`` is unknown, the input is invalid, the canonical net needs a
+       translation outside -5..+4 that the notation cannot write, or the net search and the bare
+       canonicalization disagree on the anonymous bare prototype.
+   :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+       partial result is returned.
+
+
+.. py:function:: canonical_protostructure(obj, *, preserve_chirality = True, timeout = 120.0, on_limit = 'undetermined')
+
+   Return the exact canonical assigned refined classification.
+
+   :param obj: A protostructure-like value.
+   :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+       (improper) description is then used, so a crystal and its mirror image can get different
+       labels. With ``False`` mirror descriptions are allowed and the higher member of an
+       enantiomorphic pair maps to the lower one, so both hands get one label.
+       The representative is right-handed; with ``True`` it is the crystal itself, with ``False``
+       it can be its mirror image.
+   :param timeout: Cooperative seconds for the whole call, shared by its stages; ``None``
+       disables the deadline (an enclosing budget still applies). The 120 s default is new:
+       this function used to run without a deadline.
+   :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+       an undetermined value whose label has ``X`` in place of that stage's part and everything
+       after it (the canonical bare protostructure label itself, as an undetermined value
+       without representative, when only the geometry is not determined, else
+       ``<Formulatype>_<Pearson>_<number>_X:<names>``), keeping every part already determined; ``"raise"`` raises
+       :class:`~httk.atomistic.CanonicalizationLimitError`.
+   :return: A standalone canonical protostructure.
+   :raises ValueError: If ``on_limit`` is unknown or the input is invalid.
+   :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+       partial result is returned.
+
+
+.. py:function:: canonical_prototype(obj, *, preserve_chirality = True, timeout = 120.0, on_limit = 'undetermined')
+
+   Return the exact canonical anonymous refined classification.
+
+   :param obj: A prototype-like value.
+   :param preserve_chirality: Whether the label keeps the hand: in a Sohncke group no mirror
+       (improper) description is then used, so a crystal and its mirror image can get different
+       labels. With ``False`` mirror descriptions are allowed and the higher member of an
+       enantiomorphic pair maps to the lower one, so both hands get one label.
+       The representative is right-handed; with ``True`` it is the crystal itself, with ``False``
+       it can be its mirror image.
+   :param timeout: Cooperative seconds for the whole call, shared by its stages; ``None``
+       disables the deadline (an enclosing budget still applies). The 120 s default is new:
+       this function used to run without a deadline.
+   :param on_limit: What to do when a stage runs out of the budget: ``"undetermined"`` returns
+       an undetermined value whose label has ``X`` in place of that stage's part and everything
+       after it (the canonical bare prototype label itself, as an undetermined value
+       without representative, when only the geometry is not determined, else
+       ``<Formulatype>_<Pearson>_<number>_X``), keeping every part already determined; ``"raise"`` raises
+       :class:`~httk.atomistic.CanonicalizationLimitError`.
+   :return: A standalone canonical prototype.
+   :raises ValueError: If ``on_limit`` is unknown or the input is invalid.
+   :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the budget runs out; no
+       partial result is returned.
+
+

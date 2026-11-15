@@ -1,0 +1,78 @@
+httk.atomistic.models.sites.sites
+=================================
+
+.. py:module:: httk.atomistic.models.sites.sites
+
+.. autoapi-nested-parse::
+
+   The Sites class for httk-atomistic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.sites.Sites
+
+
+Module Contents
+---------------
+
+.. py:class:: Sites(reduced_coords, precision = None)
+
+   Bases: :py:obj:`httk.atomistic.models.sites.backend.SitesBackend`
+
+
+   The sites of a crystal structure: the Nx3 matrix of reduced coordinates, held **exactly**.
+
+   Reduced (fractional) coordinates are the symmetry-native frame: point-group operations are
+   integer matrices and translations are rationals, so no radicals ever appear. They are therefore
+   stored as an exact rational :class:`~httk.core.FracVector` of shape ``(N, 3)``. A Sites object
+   is iterable and indexable over its length-3 coordinate rows (each a ``FracVector``), with
+   ``len`` giving the number of sites.
+
+   Inputs embed exactly: rationals (and rational-valued floats), rational strings, and numpy arrays
+   all land on their exact rational value. An irrational :class:`~httk.core.SurdVector` input is
+   rejected; the exact Cartesian frame — where radicals belong — is obtained instead via
+   :meth:`~httk.atomistic.UnitcellStructure.cartesian_sites`.
+
+   :param reduced_coords: The reduced coordinates, one site per row.
+   :param precision: The fractional precision carried from the source, if known.
+
+
+   .. py:property:: reduced_coords
+      :type: httk.core.FracVector
+
+
+      The Nx3 reduced site coordinates as an exact ``FracVector`` (one site per row).
+
+
+   .. py:property:: precision
+      :type: fractions.Fraction | None
+
+
+      How precisely these coordinates were stated, in fractional units, or ``None``.
+
+      Fractional and therefore dimensionless: reduced coordinates are fractions of a cell
+      edge, and a ``Sites`` carries no cell to convert with. Use
+      :meth:`~httk.atomistic.UnitcellStructure.cartesian_precision` for the corresponding length,
+      which is the number an interatomic tolerance or an spglib ``symprec`` actually
+      wants.
+
+      It is the *coarsest* precision among the coordinates, since a structure is only as
+      precisely stated as its least precisely stated number. ``None`` means unknown.
+
+      :return: The fractional precision, or ``None`` when unknown.
+
+
+   .. py:method:: numeric()
+
+      Return a plain-numpy presentation of these sites.
+
+      :return: The numpy-backed presentation.
+      :raises ImportError: If numpy is unavailable.
+
+
+

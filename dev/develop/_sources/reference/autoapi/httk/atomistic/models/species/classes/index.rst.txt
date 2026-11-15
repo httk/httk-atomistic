@@ -1,0 +1,29 @@
+httk.atomistic.models.species.classes
+=====================================
+
+.. py:module:: httk.atomistic.models.species.classes
+
+.. autoapi-nested-parse::
+
+   Species classes: the chemistry-only identity of a species in the classification families.
+
+   Two species are in the same class when they have the same key: the concentration of each
+   constituent symbol other than ``vacancy``, summed exactly and rounded to three decimals half up
+   (a symbol that rounds to 0 is dropped; the vacancy is the remainder), and the count of each
+   attached symbol. Name, original name, labels, charges, spins, mass and concentration precision
+   are not part of the key. The class name is derived from the key alone and parses back to it::
+
+       name   = head { attach }
+       head   = SYM                      one constituent at rounded concentration 1
+              | SYM frac { SYM frac }    otherwise; symbols alphabetical, vacancy omitted
+       frac   = shortest decimal of the rounded value, always with ".", at most three places
+       attach = SYM count                count >= 1, always written; symbols alphabetical
+
+   for example ``Ti``, ``Bi0.5Na0.5``, ``Li0.76``, ``Li0.333``, ``OH2``, ``K0.5Na0.5C1H3``. A name
+   never contains ``/``. The rounded constituents may sum to slightly more than 1 (0.4995 and 0.5005
+   round to 0.5 and 0.501); such a class has no vacancy, and :class:`~httk.atomistic.Species` accepts it. A species
+   containing the unknown symbol ``X`` (a dummy template species or an unknown site) is not reduced:
+   its class is its own name.
+
+
+

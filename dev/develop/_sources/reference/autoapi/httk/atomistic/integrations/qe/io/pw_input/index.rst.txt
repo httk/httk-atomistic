@@ -1,0 +1,82 @@
+httk.atomistic.integrations.qe.io.pw_input
+==========================================
+
+.. py:module:: httk.atomistic.integrations.qe.io.pw_input
+
+.. autoapi-nested-parse::
+
+   Read and write the geometry of Quantum ESPRESSO ``pw.x`` input files.
+
+   The reader interprets only the geometry of an input: the ``&system`` keys ``ibrav``,
+   ``celldm(1..6)``, ``A``, ``B``, ``C``, ``cosAB``, ``cosAC``, ``cosBC``, ``nat`` and ``ntyp``
+   and the cards ``ATOMIC_SPECIES``, ``CELL_PARAMETERS`` and ``ATOMIC_POSITIONS``. Every other
+   namelist and card is parsed (namelists) or delimited (cards) and otherwise skipped. Lengths in
+   Bohr are converted to Å with *Quantum ESPRESSO*'s own constant, ``BOHR_RADIUS_ANGS =
+   0.52917720859`` (CODATA 2006, ``Modules/constants.f90`` of QE 7.x), recorded as
+   :data:`BOHR_ANGSTROM`.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.qe.io.pw_input.FORMAT
+   httk.atomistic.integrations.qe.io.pw_input.BOHR_ANGSTROM
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.integrations.qe.io.pw_input.read_pw_input
+
+
+Module Contents
+---------------
+
+.. py:data:: FORMAT
+   :value: 'qe-pw-input'
+
+
+.. py:data:: BOHR_ANGSTROM
+   :value: '0.52917720859'
+
+
+   The Bohr radius in Å used by *Quantum ESPRESSO* 7.x (CODATA 2006).
+
+.. py:function:: read_pw_input(source, *, precision = None)
+
+   Parse the geometry of a Quantum ESPRESSO ``pw.x`` input file into a neutral payload.
+
+   Supported: ``ibrav = 0`` with ``CELL_PARAMETERS {alat|bohr|angstrom}`` and every lattice
+   of QE's INPUT_PW ``ibrav`` table (1, 2, 3, -3, 4, 5, -5, 6, 7, 8, 9, -9, 91, 10, 11, 12,
+   -12, 13, -13, 14), built exactly from ``celldm(1..6)`` (Bohr) or ``A, B, C, cosAB, cosAC,
+   cosBC`` (Å), and ``ATOMIC_POSITIONS {alat|bohr|angstrom|crystal}`` (no option means
+   ``alat``; trailing ``if_pos`` columns are ignored). The lattice parameter alat is
+   ``celldm(1)`` or ``A``; for ``CELL_PARAMETERS bohr|angstrom`` it is the length of the
+   first vector, and a ``CELL_PARAMETERS`` card without option is ``alat`` when a lattice
+   parameter is given and ``bohr`` otherwise, as INPUT_PW documents. Species names, element
+   symbols (by QE's label rule: an element symbol optionally followed by digits or by
+   ``_x``/``-x``, at most 3 characters) and masses come from ``ATOMIC_SPECIES``. Decimal
+   tokens are kept as strings; values scaled by alat or built from the ``ibrav`` table are
+   exact numbers (surds where the table has square roots) whose ``cell_precision`` /
+   ``positions_precision`` is that of the tokens and the alat token. Square roots are
+   attempted with bounded effort only: one not exactly representable from the given digits
+   is a rational approximation whose error bound is added to the claimed precision, and
+   ``|a1|`` is computed only when an alat-unit card needs it.
+
+   :param source: A filename (compressed files are decompressed), open text stream, or
+       iterable of lines.
+   :param precision: Cartesian coordinate precision as a length in Å, or ``None`` to derive
+       it from the written digits. Must be a finite number greater than zero when given.
+   :return: A ``qe-pw-input`` geometry payload with the original text in ``raw``.
+   :raises ValueError: If the input is malformed or not UTF-8, or uses an unsupported or
+       ambiguous construct: ``space_group``/``crystal_sg``, an unsupported ``ibrav``, both
+       ``celldm`` and ``A``-style parameters, a lattice parameter together with
+       ``CELL_PARAMETERS bohr|angstrom``, ``CELL_PARAMETERS`` with ``ibrav`` other than 0,
+       algebraic expressions, or a species label that names no element.
+
+

@@ -1,0 +1,80 @@
+httk.atomistic.models.formula.sites
+===================================
+
+.. py:module:: httk.atomistic.models.formula.sites
+
+.. autoapi-nested-parse::
+
+   Formula backend counting the sites each species class occupies.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.sites.SiteCountFormula
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.sites.composition_source
+
+
+Module Contents
+---------------
+
+.. py:class:: SiteCountFormula(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Count the sites each species class of a structural object occupies.
+
+   A Wyckoff-family object's classes are its label classes (occupation labels, or
+   species class names once assigned), counted by summed conventional Wyckoff multiplicity
+   exactly as its label prefix counts them. A structure's or structuretype's classes are
+   its species classes (equal chemistry, whatever the names; a species with ``X`` is its own
+   class), counted over the sites of the represented cell. Disorder and
+   partial occupancy do not affect the counts. This backend is not part of formula
+   dispatch; :class:`~httk.atomistic.FormulatypeView` selects it for structural sources.
+
+   :param obj: The structure, structuretype, prototype or protostructure to count.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: is_anonymous
+      :type: bool
+
+
+      Return whether the counts use anonymous labels.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], ...]
+
+
+      Return the per-cell class site counts, largest first, under anonymous labels, not gcd-reduced.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw structural object behind the counts.
+
+      :return: The unwrapped source object.
+
+
+
+.. py:function:: composition_source(backend)
+
+   Return the structural object a composition backend projects, if any.
+
+   :param backend: The chemical-formula backend to inspect.
+   :return: The structure or Wyckoff-family backend behind a structure or Wyckoff
+       composition, or ``None`` for any other backend.
+
+

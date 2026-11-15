@@ -1,0 +1,87 @@
+httk.atomistic.storage.cif_record
+=================================
+
+.. py:module:: httk.atomistic.storage.cif_record
+
+.. autoapi-nested-parse::
+
+   The storage record of a :class:`~httk.atomistic.CIFStructure`.
+
+   The block is stored as one canonical JSON document, so equal blocks have equal content ids and
+   the stored text cannot be queried by data name. Serving never converts the block: every standard
+   structure property is null and ``structure_features`` is ``[]``.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.storage.cif_record.CIFStructureRecord
+
+
+Module Contents
+---------------
+
+.. py:class:: CIFStructureRecord
+
+   Store a :class:`~httk.atomistic.CIFStructure` losslessly.
+
+   Two records are equal, and have equal content ids, exactly when their blocks are equal
+   under the content rule of :class:`~httk.atomistic.CIFStructure`.
+
+   :param block_name: The block name as written.
+   :param dialect: ``"cif"`` or ``"mcif"``.
+   :param content_json: The block's header, leading comments and items as canonical JSON.
+   :param canonical_form: The version of that JSON form the record was built with.
+   :param id: The human-readable entry id shared by all revisions; minted by the store when None.
+   :param immutable_id: The per-revision immutable id; minted by the store when None.
+   :param last_modified: The source modification timestamp, if stated.
+
+
+   .. py:attribute:: block_name
+      :type:  str
+
+
+   .. py:attribute:: dialect
+      :type:  str
+
+
+   .. py:attribute:: content_json
+      :type:  str
+
+
+   .. py:attribute:: canonical_form
+      :type:  int
+      :value: 1
+
+
+
+   .. py:attribute:: id
+      :type:  Annotated[str | None, IdentitySkip(), Indexed()]
+      :value: None
+
+
+
+   .. py:attribute:: immutable_id
+      :type:  Annotated[str | None, IdentitySkip(), Unique()]
+      :value: None
+
+
+
+   .. py:attribute:: last_modified
+      :type:  Annotated[datetime.datetime | None, IdentitySkip()]
+      :value: None
+
+
+
+   .. py:property:: type
+      :type: str
+
+
+      Expose the OPTIMADE entry type.
+
+      :return: ``structures``.
+
+

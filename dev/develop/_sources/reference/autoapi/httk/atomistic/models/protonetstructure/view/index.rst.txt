@@ -1,0 +1,54 @@
+httk.atomistic.models.protonetstructure.view
+============================================
+
+.. py:module:: httk.atomistic.models.protonetstructure.view
+
+.. autoapi-nested-parse::
+
+   Lazy protonetstructure presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.protonetstructure.view.ProtonetstructureView
+
+
+Module Contents
+---------------
+
+.. py:class:: ProtonetstructureView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.protonetstructure.view_base.ProtonetstructureViewBase`, :py:obj:`httk.atomistic.models.protonetstructure.protonetstructure.Protonetstructure`
+
+
+   Present a protonetstructure source as a lazy protonetstructure value.
+
+   Existing values, canonical label strings and fundamental-domain structures with a bond
+   network (see :meth:`~httk.atomistic.Protonetstructure.from_asu`) are accepted; a structure without a network
+   is not, since no bonds are recognized.
+   ``unview()`` materializes a standalone value.
+
+   :param obj: Protonetstructure-like source.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the presented protonetstructure as a standalone value.
+
+      :return: The protonetstructure value.
+
+
+

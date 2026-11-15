@@ -1,0 +1,60 @@
+httk.atomistic.models.formula.formulatype_string
+================================================
+
+.. py:module:: httk.atomistic.models.formula.formulatype_string
+
+.. autoapi-nested-parse::
+
+   Backend wrapping a raw canonical anonymous formula string.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.formulatype_string.FormulatypeString
+
+
+Module Contents
+---------------
+
+.. py:class:: FormulatypeString(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Wrap a canonical anonymous formula held as a plain string.
+
+   Raw anonymous text has no site-count or composition meaning of its own, so this one
+   backend serves both :class:`~httk.atomistic.FormulatypeView` and
+   :class:`~httk.atomistic.AnonymousFormulaView`; ``AnonymousFormulaString`` is its
+   package-internal alias. The two formulas share this grammar but mean different
+   things: ``A3B2`` as a formulatype counts the sites each species class occupies, while
+   as an anonymous formula it is the composition, which weights each site by its occupancy.
+
+   :param obj: The canonical anonymous formula text.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: is_anonymous
+      :type: bool
+
+
+      Return whether the formula uses anonymous labels.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], ...]
+
+
+      Return the anonymous coefficients as exact amounts.
+
+
+   .. py:method:: unwrap()
+
+      Return the original formula text.
+
+
+

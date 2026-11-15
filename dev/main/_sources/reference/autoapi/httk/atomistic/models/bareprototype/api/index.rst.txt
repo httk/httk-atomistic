@@ -1,0 +1,89 @@
+httk.atomistic.models.bareprototype.api
+=======================================
+
+.. py:module:: httk.atomistic.models.bareprototype.api
+
+.. autoapi-nested-parse::
+
+   The anonymous Wyckoff-only prototype interface.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprototype.api.BarePrototypeAPI
+
+
+Module Contents
+---------------
+
+.. py:class:: BarePrototypeAPI
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Common interface for anonymous standard-setting Wyckoff prototypes.
+
+
+   .. py:property:: spacegroup
+      :type: httk.atomistic.symmetry.spacegroup.Spacegroup
+
+      :abstractmethod:
+
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+      :type: tuple[httk.atomistic.models.prototype.occupation.PrototypeOccupation, ...]
+
+      :abstractmethod:
+
+
+      Return canonical anonymous Wyckoff occupations.
+
+
+   .. py:method:: multiplicities()
+
+      Return tabulated standard-setting multiplicities.
+
+
+
+   .. py:property:: nsites_conventional
+      :type: int
+
+
+      Return the number of sites in the conventional cell.
+
+
+   .. py:property:: pearson_symbol
+      :type: str
+
+
+      Return the Pearson symbol for the conventional cell.
+
+
+   .. py:property:: anonymous_formula
+      :type: httk.atomistic.models.formula.formulatype_view.FormulatypeView
+
+
+      Return the reduced anonymous formula view.
+
+
+   .. py:property:: label
+      :type: httk.atomistic.models.bareprototype.label.BarePrototypeLabel
+
+
+      Return the canonical Wyckoff label presentation.
+
+
+   .. py:property:: bare_prototype
+      :type: Self
+
+
+      Return this bare prototype value.
+
+

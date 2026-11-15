@@ -1,0 +1,61 @@
+httk.atomistic.io.cif.cif_reader
+================================
+
+.. py:module:: httk.atomistic.io.cif.cif_reader
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.io.cif.cif_reader.logger
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.io.cif.cif_reader.read_cif
+
+
+Module Contents
+---------------
+
+.. py:data:: logger
+
+.. py:function:: read_cif(source: str | os.PathLike[str] | IO[bytes] | collections.abc.Iterable[str], pragmatic: bool = True, allow_cif2: bool = False, *, repair: bool = False, structural_only: bool = False, lossless: Literal[False] = False) -> tuple[list[tuple[str, dict[str, Any]]], str]
+                 read_cif(source: str | os.PathLike[str] | IO[bytes] | collections.abc.Iterable[str], pragmatic: bool = True, allow_cif2: bool = False, *, repair: bool = False, structural_only: Literal[False] = False, lossless: Literal[True]) -> list[httk.atomistic.io.cif.cif_items.CIFBlock]
+
+   Read CIF text as ``(data_blocks, header)``, or losslessly as :class:`~httk.atomistic.io.cif.CIFBlock` objects.
+
+   Paths are opened through :class:`httk.core.TextstreamFileView`, including compressed
+   CIF files. A binary stream is decoded like a file (UTF-8, with the same Latin-1 fallback
+   under ``repair``). Open streams and iterables are consumed but left open.
+
+   With ``lossless=True`` the result is one :class:`~httk.atomistic.io.cif.CIFBlock` per ``data_`` block, keeping
+   data names, comments, numbers and every item in written order. Its syntax is CIF1, full
+   CIF2 when line 1 is the CIF2 magic code, or the magnetic CIF syntax (CIF1 plus lists,
+   ``dialect="mcif"``) under ``allow_cif2``. What it keeps follows the content rule of
+   :class:`~httk.atomistic.CIFStructure`; under ``pragmatic`` it also joins a bare value
+   followed by more words on its line (as the fast reader joins it) and reads a quote left open
+   at the line end as the rest of the line, opening quote included. Broken syntax raises ``ValueError`` with a line number, including inputs the fast
+   reader tolerates: a value without a data name, a data name without a value, a malformed loop
+   (also under ``repair``), an unterminated text field, and content before the first ``data_``.
+
+   :param source: A filename, open text or binary stream, or iterable of CIF lines.
+   :param pragmatic: Accept selected common deviations from strict CIF tokenization.
+   :param allow_cif2: Parse CIF2 list values in addition to CIF1 data.
+   :param repair: Apply documented, warning-emitting CIF repairs, including malformed
+       auxiliary-loop removal and a Latin-1 fallback for legacy files. Lossless reading applies
+       only the Latin-1 fallback.
+   :param structural_only: Retain only tags consumed by httk's structural adapters (bond loops included) and
+       skip auxiliary CIF1 loops.
+   :param lossless: Return :class:`~httk.atomistic.io.cif.CIFBlock` objects instead of dictionaries.
+   :return: The data blocks and the leading comment header, or the lossless blocks.
+   :raises ValueError: If a loop contains mismatched column value counts, or, when lossless,
+       the CIF syntax is broken.
+   :raises TypeError: If ``lossless`` is combined with ``structural_only``.
+
+

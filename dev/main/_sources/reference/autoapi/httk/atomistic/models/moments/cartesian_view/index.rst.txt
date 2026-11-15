@@ -1,0 +1,44 @@
+httk.atomistic.models.moments.cartesian_view
+============================================
+
+.. py:module:: httk.atomistic.models.moments.cartesian_view
+
+.. autoapi-nested-parse::
+
+   Cartesian class view for site moments.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.cartesian_view.CartesianSiteMomentsView
+
+
+Module Contents
+---------------
+
+.. py:class:: CartesianSiteMomentsView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.moments.view_base.SiteMomentsViewBase`, :py:obj:`httk.atomistic.models.moments.cartesian.CartesianSiteMoments`
+
+
+   A lazy Cartesian site-moments presentation of any site-moments backend.
+
+
+   .. py:method:: unview()
+
+      Return the view's presented representation as a plain, non-View instance.
+
+      Concrete views that mimic a value type override this to shed the httk wrapper; the result
+      may alias the view's storage (no copy is promised). The default raises ``TypeError``,
+      which is the correct behavior for views that only adapt an interface and have no faithful
+      standalone value.
+
+      :return: The presented value as a plain, non-View instance.
+      :raises TypeError: If this interface-only view has no standalone plain value.
+
+
+

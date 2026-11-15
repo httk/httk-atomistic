@@ -1,0 +1,80 @@
+httk.atomistic.models.structuretype.view
+========================================
+
+.. py:module:: httk.atomistic.models.structuretype.view
+
+.. autoapi-nested-parse::
+
+   Lazy structuretype presentation view.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structuretype.view.StructuretypeView
+
+
+Module Contents
+---------------
+
+.. py:class:: StructuretypeView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structuretype.view_base.StructuretypeViewBase`, :py:obj:`httk.atomistic.models.structuretype.structuretype.Structuretype`
+
+
+   Present a structuretype or ordinary structure lazily as a structuretype.
+
+   :param obj: The structuretype-like or structure-like object to present.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: periodicity
+
+      Return the presented periodic directions.
+
+
+   .. py:property:: nperiodic_dimensions
+
+      Return the number of presented periodic directions.
+
+
+   .. py:property:: nsites
+
+      Return the number of presented sites.
+
+
+   .. py:method:: cartesian_sites()
+
+      Return the exact Cartesian presented site positions.
+
+
+
+   .. py:property:: coordinate_precision
+
+      Return the presented coordinate precision.
+
+
+   .. py:property:: basis_precision
+
+      Return the presented basis precision.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the presented structure as a standalone value.
+
+      :return: The structuretype value.
+
+
+
