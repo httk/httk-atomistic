@@ -10,4 +10,5 @@ register_cli_command(
     "symmetry",
     "httk.atomistic.cli:command",
     "inspect and canonicalize a structure's symmetry",
+    section="Data",
 )
