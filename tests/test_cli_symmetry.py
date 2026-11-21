@@ -266,18 +266,19 @@ def test_normalize_chirality_flag_threads_to_both_branches(cif: Path, monkeypatc
     monkeypatch.setattr(cli, "canonicalize", spy_canonicalize)
 
     # --normalize-chirality asks for the lower member -> preserve_chirality=False in both branches.
-    assert _run(["canonicalize", "--exact", "--normalize-chirality", str(cif)]) == 0  # exact -> canonicalize
+    # declared -> canonicalize(symmetry="declared")
+    assert _run(["canonicalize", "--symmetry", "declared", "--normalize-chirality", str(cif)]) == 0
     assert calls["exact"] is False
     assert _run(["canonicalize", "--normalize-chirality", str(cif)]) == 0  # default -> canonical_asu
     assert calls["default"] is False
     # Flag absent -> default preserves the recognized group.
-    assert _run(["canonicalize", "--exact", str(cif)]) == 0
+    assert _run(["canonicalize", "--symmetry", "declared", str(cif)]) == 0
     assert calls["exact"] is True
 
 
 def test_canonicalize_exact_roundtrip(cif: Path, tmp_path: Path, capsys) -> None:
     out_path = tmp_path / "canon.cif"
-    assert _run(["canonicalize", "--exact", "-o", str(out_path), str(cif)]) == 0
+    assert _run(["canonicalize", "--symmetry", "declared", "-o", str(out_path), str(cif)]) == 0
     assert f"saved: {out_path}" in capsys.readouterr().out
     reloaded = load(str(out_path))
     assert isinstance(reloaded, ASUStructure)
@@ -292,7 +293,7 @@ def test_canonicalize_batch_out_dir(tmp_path: Path, capsys) -> None:
     save(_rocksalt(), str(second))
     out_dir = tmp_path / "canonical"
 
-    assert _run(["canonicalize", "--exact", "--out-dir", str(out_dir), str(first), str(second)]) == 0
+    assert _run(["canonicalize", "--symmetry", "declared", "--out-dir", str(out_dir), str(first), str(second)]) == 0
     assert (out_dir / first.name).is_file()
     assert (out_dir / second.name).is_file()
     assert capsys.readouterr().out.count("saved:") == 2
@@ -303,24 +304,24 @@ def test_single_output_rejects_multiple_inputs(cif: Path, tmp_path: Path, capsys
     assert "requires exactly one FILE" in capsys.readouterr().err
 
 
-def test_rerepresent(cif: Path, capsys) -> None:
-    assert _run(["rerepresent", "--target", "166", str(cif)]) == 0
+def test_represent(cif: Path, capsys) -> None:
+    assert _run(["represent", "--target", "166", str(cif)]) == 0
     out = capsys.readouterr().out
     assert "re-represented in IT 166" in out
     assert "IT 166" in out
 
 
-def test_rerepresent_save_poscar(cif: Path, tmp_path: Path, capsys) -> None:
+def test_represent_save_poscar(cif: Path, tmp_path: Path, capsys) -> None:
     # A trigonal rerepresentation has an irrational cell that CIF cannot write exactly, but POSCAR
-    # (float cell) saves it, proving the -o wiring for rerepresent.
+    # (float cell) saves it, proving the -o wiring for represent.
     out_path = tmp_path / "trigonal.POSCAR"
-    assert _run(["rerepresent", "--target", "166", "-o", str(out_path), str(cif)]) == 0
+    assert _run(["represent", "--target", "166", "-o", str(out_path), str(cif)]) == 0
     assert f"saved: {out_path}" in capsys.readouterr().out
     assert out_path.is_file()
 
 
-def test_representations_count_and_letters(cif: Path, capsys) -> None:
-    assert _run(["representations", "--target", "166", str(cif)]) == 0
+def test_represent_all_count_and_letters(cif: Path, capsys) -> None:
+    assert _run(["represent", "--all", "--target", "166", str(cif)]) == 0
     out = capsys.readouterr().out
     assert "representations in IT 166: 2" in out
     # Both letter assignments of the deterministic pair are present.
@@ -328,13 +329,21 @@ def test_representations_count_and_letters(cif: Path, capsys) -> None:
     assert "b  Na" in out
 
 
+def test_represent_all_rejects_output(cif: Path, tmp_path: Path, capsys) -> None:
+    out_path = tmp_path / "all.POSCAR"
+    assert _run(["represent", "--all", "--target", "166", "-o", str(out_path), str(cif)]) == 2
+    assert _run(["represent", "--all", "--target", "166", "--out-dir", str(tmp_path / "all"), str(cif)]) == 2
+    assert "not allowed with argument" in capsys.readouterr().err
+    assert not out_path.exists()
+
+
 def test_unrelated_target_errors(cif: Path, capsys) -> None:
-    assert _run(["representations", "--target", "191", str(cif)]) == 1
+    assert _run(["represent", "--all", "--target", "191", str(cif)]) == 1
     assert "unrelated" in capsys.readouterr().err
 
 
 def test_exact_on_unitcell_errors(poscar: Path, capsys) -> None:
-    assert _run(["canonicalize", "--exact", str(poscar)]) == 1
+    assert _run(["canonicalize", "--symmetry", "declared", str(poscar)]) == 1
     assert "requires an input with declared symmetry" in capsys.readouterr().err
 
 
@@ -383,7 +392,7 @@ def test_module_reports_repair_warning_to_stderr() -> None:
     assert merged.stdout.index("dropped malformed auxiliary loop") < merged.stdout.index("input: ASUStructure")
 
 
-def test_declared_option_matches_exact_alias(cif: Path, monkeypatch, capsys) -> None:
+def test_declared_option_threads_timeout(cif: Path, monkeypatch, capsys) -> None:
     from httk.atomistic import cli
 
     calls = []
@@ -399,6 +408,11 @@ def test_declared_option_matches_exact_alias(cif: Path, monkeypatch, capsys) -> 
     assert calls[0]["timeout"] is None
 
 
+def test_canonicalize_rejects_removed_exact_alias(cif: Path, capsys) -> None:
+    assert _run(["canonicalize", "--exact", str(cif)]) == 2
+    assert "unrecognized arguments: --exact" in capsys.readouterr().err
+
+
 def test_incomplete_search_never_saves_canonical_output(cif: Path, tmp_path: Path, monkeypatch, capsys) -> None:
     from httk.atomistic import SupergroupSearchResult, cli
     from httk.atomistic.symmetry.lift import LiftResult
@@ -411,17 +425,17 @@ def test_incomplete_search_never_saves_canonical_output(cif: Path, tmp_path: Pat
         lambda *args, **kwargs: SupergroupSearchResult((candidate,), False, ("deadline_exceeded",), 1),
     )
     target = tmp_path / "partial.cif"
-    assert _run(["search-supergroups", "-o", str(target), str(cif)]) == 1
+    assert _run(["supergroups", "-o", str(target), str(cif)]) == 1
     assert not target.exists()
     captured = capsys.readouterr()
     assert "search complete: False" in captured.out
     assert "deadline_exceeded" in captured.out
     assert "cannot save" in captured.err
-    assert _run(["search-supergroups", str(cif)]) == 1
+    assert _run(["supergroups", str(cif)]) == 1
 
 
 def test_canonicalize_deadline_is_reported_without_traceback(cif: Path, capsys) -> None:
-    assert _run(["canonicalize", "--exact", "--timeout", "0.000000000001", str(cif)]) == 1
+    assert _run(["canonicalize", "--symmetry", "declared", "--timeout", "0.000000000001", str(cif)]) == 1
     captured = capsys.readouterr()
     assert "deadline exceeded" in captured.err
     assert "Traceback" not in captured.err

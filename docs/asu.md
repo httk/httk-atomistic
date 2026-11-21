@@ -131,14 +131,15 @@ The same operations are available as `httk symmetry`, taking a structure file
 $ httk symmetry info nacl.cif other.cif                    # inspect one or more structures
 $ httk symmetry info --recognize measured.poscar           # also recognize symmetry from the geometry
 $ httk symmetry canonicalize -o out.cif nacl.cif           # save one canonical form
-$ httk symmetry canonicalize --exact --out-dir canonical/ *.cif  # save a batch by input basename
-$ httk symmetry representations --target 166 nacl.cif      # list distinct forms in a related group
+$ httk symmetry canonicalize --symmetry declared --out-dir canonical/ *.cif  # save a batch by input basename
+$ httk symmetry represent --target 166 nacl.cif           # re-represent in a related group
+$ httk symmetry represent --all --target 166 nacl.cif     # list distinct forms in a related group
 ```
 
 `canonicalize` defaults to recognition from geometry. `--symmetry declared`
-(or `--exact`) uses the declared ASU without recognition or upward search.
+uses the declared ASU without recognition or upward search.
 `--timeout SECONDS` sets a cooperative limit; `--timeout none` disables it.
-Use `httk symmetry search-supergroups FILE --timeout 30 --max-states 1000` for
+Use `httk symmetry supergroups FILE --timeout 30 --max-states 1000` for
 explicit exploration. An incomplete search reports its reasons, exits nonzero,
 and cannot be saved as a canonical result.
 

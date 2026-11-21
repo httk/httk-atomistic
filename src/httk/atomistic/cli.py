@@ -3,8 +3,9 @@
 The subcommands are thin wrappers over the public symmetry API
 (:func:`~httk.atomistic.canonical_asu`, :func:`~httk.atomistic.canonicalize`,
 :func:`~httk.atomistic.rerepresent`, :func:`~httk.atomistic.list_representations`,
-:func:`~httk.atomistic.recognize_asu`): they load a file, run one operation, print a
-human-readable report on stdout, and optionally save the resulting structure.
+:func:`~httk.atomistic.search_supergroups`, :func:`~httk.atomistic.recognize_asu`): they
+load a file, run one operation, print a human-readable report on stdout, and optionally
+save the resulting structure.
 Inputs are loaded with ``repair=True`` where the format supports it; repair warnings
 are reported on stderr through the ``httk`` logging channel before the report.
 """
@@ -193,8 +194,8 @@ def _handle_canonicalize(arguments: argparse.Namespace, context: CLIContext, pro
     return 0
 
 
-def _handle_search_supergroups(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
-    source = _require_asu(_load(arguments.file), "search-supergroups")
+def _handle_supergroups(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
+    source = _require_asu(_load(arguments.file), "supergroups")
     result = search_supergroups(
         source,
         tolerance=arguments.tolerance,
@@ -223,26 +224,22 @@ def _timeout_argument(value: str) -> float | None:
     return None if value.lower() == "none" else float(value)
 
 
-def _handle_rerepresent(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
+def _handle_represent(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
     loaded = _load(arguments.file)
-    asu = _require_asu(loaded, "rerepresent")
+    asu = _require_asu(loaded, "represent")
+    if arguments.all:
+        representations = list_representations(asu, arguments.target, tolerance=arguments.tolerance)
+        print(f"representations in IT {arguments.target}: {len(representations)}")
+        for index, representation in enumerate(representations):
+            print(f"[{index}]")
+            _print_structure(representation)
+        return 0
     result = rerepresent(asu, arguments.target, tolerance=arguments.tolerance)
     print(f"re-represented in IT {arguments.target}:")
     _print_structure(result)
     destination = _destination(arguments)
     if destination is not None:
         _save(result, destination)
-    return 0
-
-
-def _handle_representations(arguments: argparse.Namespace, context: CLIContext, prog: str) -> int:
-    loaded = _load(arguments.file)
-    asu = _require_asu(loaded, "representations")
-    representations = list_representations(asu, arguments.target, tolerance=arguments.tolerance)
-    print(f"representations in IT {arguments.target}: {len(representations)}")
-    for index, representation in enumerate(representations):
-        print(f"[{index}]")
-        _print_structure(representation)
     return 0
 
 
@@ -261,7 +258,7 @@ def _add_tolerance(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _add_output(parser: argparse.ArgumentParser) -> None:
+def _add_output(parser: argparse.ArgumentParser) -> argparse._MutuallyExclusiveGroup:
     output = parser.add_mutually_exclusive_group()
     output.add_argument("-o", "--out", metavar="OUT", help="save one resulting structure to OUT")
     output.add_argument(
@@ -269,6 +266,7 @@ def _add_output(parser: argparse.ArgumentParser) -> None:
         metavar="DIR",
         help="save each result under its input basename in DIR",
     )
+    return output
 
 
 def _add_target(parser: argparse.ArgumentParser) -> None:
@@ -303,19 +301,11 @@ def build_parser(program: str) -> argparse.ArgumentParser:
     canon.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to canonicalize")
     _add_output(canon)
     _add_tolerance(canon)
-    selection = canon.add_mutually_exclusive_group()
-    selection.add_argument(
+    canon.add_argument(
         "--symmetry",
         choices=("detect", "declared"),
         default="detect",
-        help="recognize symmetry or retain a declared exact ASU",
-    )
-    selection.add_argument(
-        "--exact",
-        dest="symmetry",
-        action="store_const",
-        const="declared",
-        help="alias for --symmetry declared; no upward search",
+        help="recognize symmetry or retain a declared exact ASU (no upward search)",
     )
     canon.add_argument(
         "--timeout",
@@ -330,7 +320,7 @@ def build_parser(program: str) -> argparse.ArgumentParser:
     )
     canon.set_defaults(handler=_handle_canonicalize, help_parser=canon)
 
-    search = subparsers.add_parser("search-supergroups", help="explicitly explore higher symmetry with limits")
+    search = subparsers.add_parser("supergroups", help="explicitly explore higher symmetry with limits")
     search.add_argument("files", metavar="FILE", nargs="+")
     _add_tolerance(search)
     _add_output(search)
@@ -340,20 +330,16 @@ def build_parser(program: str) -> argparse.ArgumentParser:
     search.add_argument("--max-states", type=int, default=10000, help="maximum discovered states (default 10000)")
     search.add_argument("--all-paths", action="store_true", help="retain distinct routes to the same state")
     search.add_argument("--normalize-chirality", action="store_true")
-    search.set_defaults(handler=_handle_search_supergroups, help_parser=search)
+    search.set_defaults(handler=_handle_supergroups, help_parser=search)
 
-    rerep = subparsers.add_parser("rerepresent", help="re-represent a structure in a target space group")
-    rerep.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to re-represent")
-    _add_target(rerep)
-    _add_output(rerep)
-    _add_tolerance(rerep)
-    rerep.set_defaults(handler=_handle_rerepresent, help_parser=rerep)
-
-    reps = subparsers.add_parser("representations", help="list a structure's representations in a target group")
-    reps.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to enumerate")
-    _add_target(reps)
-    _add_tolerance(reps)
-    reps.set_defaults(handler=_handle_representations, help_parser=reps)
+    represent = subparsers.add_parser("represent", help="re-represent a structure in a target space group")
+    represent.add_argument("files", metavar="FILE", nargs="+", help="one or more structure files to re-represent")
+    _add_target(represent)
+    _add_output(represent).add_argument(
+        "--all", action="store_true", help="list every distinct representation instead of one (cannot be saved)"
+    )
+    _add_tolerance(represent)
+    represent.set_defaults(handler=_handle_represent, help_parser=represent)
 
     return parser
 
