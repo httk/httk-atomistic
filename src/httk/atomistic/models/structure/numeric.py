@@ -120,7 +120,7 @@ class NumericUnitcellStructure:
         keywords are given alongside a structure to convert.
     """
 
-    __httk_storage_record__: ClassVar[type[Any]]
+    __httk_storage_record__: ClassVar  # bare: a member named `type` shadows the builtin under 3.14 deferred annotations
     _cell: NumericCell
     _sites: NumericSites
     _species: tuple[Species, ...]
