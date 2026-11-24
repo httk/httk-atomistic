@@ -126,14 +126,25 @@ _STRUCTURAL_LOOP_PREFIXES = ('atom_site', 'space_group', 'symmetry')
 # warning even without repair, since a bond loop never stops a structure from loading.
 _BOND_COLUMNS = ('atom_site_label_1', 'atom_site_label_2', 'site_symmetry_1', 'site_symmetry_2', 'distance')
 _BOND_LOOP_TAGS = frozenset(f'geom_bond_{name}' for name in _BOND_COLUMNS)
+# The torsion-loop columns read by the structure adapter, with the httk symbol column; not
+# protected either, like the bond loop.
+_TORSION_COLUMNS = (
+    *(f'geom_torsion_atom_site_label_{k}' for k in range(1, 5)),
+    *(f'geom_torsion_site_symmetry_{k}' for k in range(1, 5)),
+    'geom_torsion',
+    'httk_geom_torsion_symbol',
+)
+_NETWORK_LOOP_TAGS = _BOND_LOOP_TAGS | frozenset(_TORSION_COLUMNS)
 # The httk items the structure adapter reads besides those: the exact cell companions, the
-# species column, and the bond count, bond source, shape loop and shape source of a bond network.
+# species column, and the bond count, bond source, shape loop, shape source and torsion source
+# of a bond network.
 _HTTK_RETAINED_PREFIXES = (
     'httk_cell_',
     'httk_atom_site_species',
     'httk_bonds_',
     'httk_shape_',
     'httk_shapes_source_',
+    'httk_torsions_source_',
 )
 
 
@@ -146,7 +157,7 @@ def _is_consumed_tag(name: str) -> bool:
 
 
 def _is_retained_tag(name: str) -> bool:
-    return _is_consumed_tag(name) or name in _BOND_LOOP_TAGS or name.startswith(_HTTK_RETAINED_PREFIXES)
+    return _is_consumed_tag(name) or name in _NETWORK_LOOP_TAGS or name.startswith(_HTTK_RETAINED_PREFIXES)
 
 
 def _is_repairable_loop(header: list[str]) -> bool:
@@ -256,13 +267,13 @@ def _validate_loop_counts(
 ) -> bool:
     """Apply the common strict/repair policy to CIF loop column counts.
 
-    Structure loading (``structural_only``) drops a malformed bond loop even in strict mode.
+    Structure loading (``structural_only``) drops a malformed bond or torsion loop even in strict mode.
     """
     if len(set(counts.values())) > 1:
         rendered_counts = ", ".join(f"{name}={count}" for name, count in counts.items())
         message = f"CIF loop with {len(header)} columns has mismatched value counts: {rendered_counts}"
         if _is_repairable_loop(header):
-            if repair or (structural_only and not _BOND_LOOP_TAGS.isdisjoint(header)):
+            if repair or (structural_only and not _NETWORK_LOOP_TAGS.isdisjoint(header)):
                 logger.warning(
                     "CIF block %r: dropped malformed auxiliary loop starting with _%s",
                     block_name,

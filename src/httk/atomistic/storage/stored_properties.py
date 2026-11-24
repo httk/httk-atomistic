@@ -316,7 +316,7 @@ def _domain_symmetry_value(record: Any, name: str) -> object:
 
 
 def _bonds_value(record: Any, backing: str) -> object:
-    """Serve ``_httk_bonds``: a unit-cell record's straight from its rows, a domain's through its structure.
+    """Serve ``_httk_bonds``: a unit-cell record's straight from its rows (torsions included), a domain's through its structure.
 
     Both serve the stored dimensions, so the served value is the one the filters read: ``null``
     for a row written before the dimensions were stored.
@@ -325,7 +325,7 @@ def _bonds_value(record: Any, backing: str) -> object:
     valid for its site) is served as null with a warning.
     """
     from httk.atomistic.entries.bonds import _network_payload, bond_properties
-    from httk.atomistic.models.structure.network import SiteBond, _checked_symbols
+    from httk.atomistic.models.structure.network import SiteBond, _checked_symbols, _shift
     from httk.atomistic.storage.records import (
         _IDENTITY_MATRIX,
         _bond_source,
@@ -333,6 +333,7 @@ def _bonds_value(record: Any, backing: str) -> object:
         _mask_dimensions,
         _network_rows,
         _shapes_from_record,
+        _torsions_from_record,
     )
     from httk.atomistic.symmetry.affine_operation import AffineOperation
     from httk.atomistic.symmetry.shapes import _cell_bond_counts
@@ -357,6 +358,16 @@ def _bonds_value(record: Any, backing: str) -> object:
         served = _unitcell_symmetry_value(record, "space_group_symmetry_operations_xyz")
         listed = None if served is None else [AffineOperation(xyz) for xyz in cast(list[str], served)]
         op = 0 if listed is None else listed.index(AffineOperation.identity())  # the literal x,y,z, stated once
+        torsions = _torsions_from_record(network.torsions)
+        periodicity = record.cell.periodicity
+        atoms = [
+            [
+                value
+                for site, operation in zip(row.sites, row.operations, strict=True)
+                for value in (site, op, *_shift(row, operation, periodicity))
+            ]
+            for row in torsions or ()
+        ]
     except ValueError as error:
         _logger.warning(
             "the bond network of entry %s is served as null: %s",
@@ -379,6 +390,9 @@ def _bonds_value(record: Any, backing: str) -> object:
         _bond_source(record.bonds_source),
         _bond_source(record.shapes_source),
         _mask_dimensions(record.bonds_dimensions_mask),
+        torsions,
+        atoms,
+        _bond_source(record.torsions_source),
     )
 
 

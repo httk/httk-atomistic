@@ -327,6 +327,50 @@ print(ProtonetstructureView(structure).label)
 
 Bond types and orders and `_chemical_conn_bond_` loops are not supported.
 
+## Torsion loops
+
+A `_geom_torsion_` loop becomes the `torsions` of the loaded structure's bond network (see
+[Torsions](asu.md#torsions)), one statement per row: the four atoms
+`_geom_torsion_atom_site_label_1` to `_4` with `_geom_torsion_site_symmetry_1` to `_4`, the
+signed angle `_geom_torsion` with its standard uncertainty in parentheses as `uncertainty`, and
+the symbol of the httk column `_httk_geom_torsion_symbol` (DDLm `_geom_torsion.httk_symbol`), if
+present. `_geom_torsion_publ_flag` and other columns are not read. The network's
+`torsions_source` is given by the `_httk_torsions_source_description`, `_software`, `_version`
+and `_uri` items, if any, else it is
+`BondSource(description="Torsion angles listed in the CIF _geom_torsion loop")`. Torsions read
+from a file are never completed with baseline statements.
+
+- **Atoms are located as bond ends.** Each atom's label and symmetry code are resolved as in
+  [Bond loops](#bond-loops), every atom with its own code: `.`, `?` or a missing column is the
+  atom as listed (atom 2 need not be `.`). The statements are then put in their normal form.
+- **Angles are checked against the geometry.** Each stated angle must equal the signed torsion
+  of the four atoms in the loaded structure within `max(3 su, 1°)`, compared around the
+  circle (179° and −179° are 2° apart); a stated angle where the geometry gives none (A-B-C or
+  B-C-D straight, such as through an atom on an inversion centre) does not. The sign is
+  checked: a row whose angle has the wrong sign is dropped.
+- **A bad row is dropped alone.** A label that names no single atom site, a code that cannot
+  be resolved, a row that is no valid statement (an angle that is not a finite number, a
+  signed symbol that disagrees with the angle, a row with neither angle nor symbol, one atom
+  named twice), an angle that disagrees with the geometry, and rows of one torsion orbit that
+  disagree (all of them) are dropped. One warning names the block and the number of dropped
+  rows; the other rows and the bonds are kept, and the load never fails because of torsions.
+  Torsion columns of different lengths ignore the whole loop with a warning, and a torsion
+  loop whose value count does not fit its columns is dropped with a warning even without
+  `repair=True`.
+- **No torsions without a network.** A torsion loop in a block without a bond network (no
+  `_geom_bond_` loop and no `_httk_bonds_count 0`) is ignored, with a debug-level log.
+
+Saving writes the network's statements as a `_geom_torsion_` loop, one row per statement (per
+torsion orbit on a fundamental domain): each atom's code is `.` for the identity without a
+translation and `n_klm` otherwise, as for bonds, so every translation component must lie in
+−5…+4 or saving raises `ValueError`; the angle is written with all the digits of its value and
+the uncertainty in units of the last digit (`-62.30(15)`), so both read back exactly, and `?`
+when the statement has none; the symbol column is written only when a statement has a symbol
+(`?` in the rows without one). The `_httk_torsions_source_*` items are written whenever the
+torsions or the bonds have a source. A cell whose basis is left-handed is written with every
+angle and signed symbol negated: CIF carries only the cell parameters, from which a reader
+builds a right-handed cell, the mirror image, whose geometry the negated angles describe.
+
 ## Bond networks, shapes and sources in CIF
 
 `httk.core.save(structure, "x.cif")` writes a structure's bond network (its `bonds`, see
@@ -344,6 +388,8 @@ network the block carries:
 | Bond source | `_httk_bonds_source_description`, `_software`, `_version`, `_uri` |
 | Shapes | a loop of `_httk_shape_atom_site_label` and `_httk_shape_symbol` |
 | Shape source | `_httk_shapes_source_description`, `_software`, `_version`, `_uri` |
+| Torsions | `_geom_torsion_atom_site_label_1` … `_4`, `_geom_torsion_site_symmetry_1` … `_4`, `_geom_torsion`, `_httk_geom_torsion_symbol` (see [Torsion loops](#torsion-loops)) |
+| Torsion source | `_httk_torsions_source_description`, `_software`, `_version`, `_uri` |
 
 - **One row per bond orbit.** A fundamental domain or ASU writes one bond row per bond orbit,
   a unit cell (written as P1) one per bond. The second atom's code `n_klm` names operation `n`
@@ -387,14 +433,14 @@ network the block carries:
 - **mCIF does not carry networks.** Saving a magnetic structure as mCIF drops its bond network.
 
 A `load(save(structure))` round trip keeps the cell, the space group and setting, the Wyckoff
-sites, the species names and constituents, the bonds, the shapes and both sources; a unit cell
-reads back as a P1 `ASUStructure`.
+sites, the species names and constituents, the bonds, the shapes, the torsions and all three
+sources; a unit cell reads back as a P1 `ASUStructure`.
 
 The httk items are defined in a DDLm dictionary, `cif_httk.dic`, which ships with
 *httk-atomistic* in the `httk.atomistic.io.cif` package (also defining the `_httk_*_exact`
 companions). It names a new category with the prefix (`_httk_shape.symbol`), an item added to a
 core category with the prefix on the item (`_atom_site.httk_fract_x_exact`,
-`_atom_site.httk_species`), and gives the names httk writes, such as `_httk_shape_symbol`, as
+`_atom_site.httk_species`, `_geom_torsion.httk_symbol`), and gives the names httk writes, such as `_httk_shape_symbol`, as
 aliases. Its shape-symbol enumeration is the named shape symbols followed by `I`. The
 dictionary is at version 0.1.0 while it is in beta; its version is not changed for edits until
 the definitions are in use. Read it with

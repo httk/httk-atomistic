@@ -60,7 +60,7 @@ from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.models.structure.datastream import DatastreamStructure
 from httk.atomistic.models.structure.like import StructureLike
 from httk.atomistic.models.structure.modulated import ModulatedStructure
-from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond
+from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond, SiteTorsion
 from httk.atomistic.models.cell.numeric import NumericCell
 from httk.atomistic.models.sites.numeric import NumericSites
 from httk.atomistic.models.moments.numeric import NumericSiteMoments
@@ -250,7 +250,7 @@ from httk.atomistic.symmetry.paths import (
 )
 from httk.atomistic.symmetry.wyckoff import WyckoffPosition, wyckoff_positions
 
-from .bonding import assign_baseline_shapes, distance_bonds, site_bonds_dimensions
+from .bonding import assign_baseline_shapes, assign_baseline_torsions, distance_bonds, site_bonds_dimensions
 from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
 from .composition import Assembly, ChemicalComposition
 from .elements import atomic_number, symbol_of
@@ -459,6 +459,7 @@ __all__ = [
     "SettingTransform",
     "SiteBond",
     "SiteMomentsLike",
+    "SiteTorsion",
     "Sites",
     "SitesLike",
     "SitesView",
@@ -494,6 +495,7 @@ __all__ = [
     "WyckoffPosition",
     "WyckoffSite",
     "assign_baseline_shapes",
+    "assign_baseline_torsions",
     "asu_structure_from_cif",
     "asu_structures_from_cif",
     "atomic_number",

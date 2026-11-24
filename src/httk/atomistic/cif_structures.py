@@ -26,7 +26,7 @@ from typing import Any, NamedTuple
 from httk.core import FracVector, decimal_precision
 
 from httk.atomistic.elements import SYMBOLS
-from httk.atomistic.io.cif.cif_reader import _BOND_COLUMNS
+from httk.atomistic.io.cif.cif_reader import _BOND_COLUMNS, _TORSION_COLUMNS
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import CellParams
 from httk.atomistic.models.cell.view import CellView
@@ -40,13 +40,20 @@ from httk.atomistic.models.structure.asu import (
     _group,
     _inv,
     _mul,
+    _normalized_torsions,
     _Op,
     _op,
     _Point,
     _reference,
     _ValidatedASUProof,
 )
-from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond
+from httk.atomistic.models.structure.network import (
+    BondNetwork,
+    BondSource,
+    SiteBond,
+    SiteTorsion,
+    _agreeing_torsions,
+)
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.shapes import _check_shape, _structure_bond_counts
 from httk.atomistic.symmetry.spacegroup import Spacegroup, wyckoff_letter_map
@@ -63,6 +70,7 @@ _ALLOW_LARGE_CIF_UNCERTAINTY = "_httk_atomistic_allow_large_cif_uncertainty"
 _OCCUPANCY_ROUNDING_EXCESS = fractions.Fraction(1, 1000)
 _MAX_REPAIR_OCCUPANCY_EXCESS = fractions.Fraction(1, 10)
 _CIF_BOND_SOURCE = BondSource(description="Bonds listed in the CIF _geom_bond_ loop")
+_CIF_TORSION_SOURCE = BondSource(description="Torsion angles listed in the CIF _geom_torsion loop")
 # The symmetry codes of a bond loop: ``n`` or ``n_klm``.
 _SYMMETRY_CODE = re.compile(r"(\d+)(?:_(\d)(\d)(\d))?")
 _TYPE_SYMBOL_SPECIALS = frozenset({"D", "T", "X", "Vac", "Va"})
@@ -889,7 +897,7 @@ def asu_structure_from_cif(
         network,
     )
     _warn_unbonded_sites(_block_name(data), structure)
-    return structure
+    return _cif_torsions(structure, data, row_sites)
 
 
 def _deduplicate_wyckoff_sites(
@@ -1081,16 +1089,58 @@ def _cif_bonds(
         return None
     count = len(columns["atom_site_label_1"])
     rows = zip(*(columns.get(name) or ["?"] * count for name in _BOND_COLUMNS), strict=True)
+    references = [_reference(group, site) for site in sites]
+    metric = _float_metric(cell)
+    end = _atom_resolver(group, sites, data, row_sites, metric)
+    # one unit in the last written digit of each row's coarsest coordinate, times |a| + |b| + |c|
+    span = sum(math.sqrt(metric[i][i]) for i in range(3))
+    precisions = _row_coordinate_precisions(data)
+
+    bonds = []
+    for number, (first, second, code1, code2, distance) in enumerate(rows, 1):
+        try:
+            site, A1, row1 = end(first.strip(), code1.strip())
+            partner, A2, row2 = end(second.strip(), code2.strip())
+            coordinates = (precisions[row1] + precisions[row2]) * span
+            _check_bond_distance(
+                _apply(A1, references[site]), _apply(A2, references[partner]), distance, metric, coordinates
+            )
+            bond = SiteBond(site, partner, _affine(_mul(_inv(A1), A2)))
+            _checked_bonds(group, sites, [bond])
+        except (ValueError, ArithmeticError) as error:  # never fail the load for a bond loop
+            _cif_warning(
+                f"CIF block {block!r}: ignored its bond loop, row {number} "
+                f"({first} {second} {code1} {code2} {distance}): {error}"
+            )
+            return None
+        bonds.append(bond)
+    return bonds
+
+
+def _float_metric(cell: Cell) -> list[list[float]]:
+    """Return the metric tensor of a cell in floating point."""
+    basis = cell.basis.to_floats()
+    return [[sum(a * b for a, b in zip(u, v, strict=True)) for v in basis] for u in basis]
+
+
+def _atom_resolver(
+    group: Spacegroup, sites: Sequence[WyckoffSite], data: Mapping[str, Any], row_sites: Mapping[int, int], metric: Any
+) -> Callable[[str, str], tuple[int, _Op, int]]:
+    """Return a function resolving an atom of a bond or torsion row, given by its label and symmetry code.
+
+    The function returns the atom's site (an index into ``sites``, in the setting ``group``),
+    the group element that moves the site's reference atom onto the atom, and the atom-site row
+    the label names. The atom is the row's atom (the loaded orbit point nearest the coordinate
+    the row wrote) moved by the code: ``n_klm`` is operation ``n`` of the block followed by the
+    translation ``(k-5, l-5, m-5)``, ``n`` has no translation, and ``.`` and ``?`` are the row's
+    atom. It raises ``ValueError`` if the label names no single atom site or the code cannot be
+    resolved.
+    """
     row_of = _label_resolver(data, row_sites)
     names = data.get("_httk_atomistic_symop_codes") or []  # none: no usable operation list
     operations = dict(zip(names, map(_op, map(operation_from_xyz, data["symops_xyz"])), strict=False))
     references = [_reference(group, site) for site in sites]
-    basis = cell.basis.to_floats()
-    metric = [[sum(a * b for a, b in zip(u, v, strict=True)) for v in basis] for u in basis]
     positions = data["positions_exact"]
-    # one unit in the last written digit of each row's coarsest coordinate, times |a| + |b| + |c|
-    span = sum(math.sqrt(metric[i][i]) for i in range(3))
-    precisions = _row_coordinate_precisions(data)
 
     def end(label: str, code: str) -> tuple[int, _Op, int]:
         row = row_of(label)
@@ -1112,25 +1162,85 @@ def _cif_bonds(
         shift = (0, 0, 0) if match[2] is None else tuple(int(match[k]) - 5 for k in (2, 3, 4))
         return site, _mul((W, tuple(a + b for a, b in zip(w, shift, strict=True))), element), row
 
-    bonds = []
-    for number, (first, second, code1, code2, distance) in enumerate(rows, 1):
+    return end
+
+
+def _cif_torsions(structure: ASUStructure, data: Mapping[str, Any], row_sites: Mapping[int, int]) -> ASUStructure:
+    """Return ``structure`` with the block's ``_geom_torsion_`` loop as the torsions of its bond network.
+
+    Each row's four atoms are resolved as the bond ends of :func:`_cif_bonds`; the angle and its
+    standard uncertainty are ``_geom_torsion``, the symbol ``_httk_geom_torsion_symbol``.
+    ``_geom_torsion_publ_flag`` is not read. A row is dropped when a label or code cannot be
+    resolved, it is no valid :class:`~httk.atomistic.SiteTorsion` of the structure, its angle
+    differs from the signed torsion of the loaded structure's geometry by more than
+    ``max(3 su, 1)`` degrees (circularly; a stated angle where the geometry gives none, A-B-C or
+    B-C-D straight, differs), or its normal form coincides with another row's with different
+    data. One warning names the block and the number of dropped rows; the bonds are kept. The
+    ``_httk_torsions_source_*`` items, if any, are the torsion source, else
+    ``_CIF_TORSION_SOURCE``. A block without a bond network ignores the loop with a debug log, and
+    torsion columns of different lengths ignore it with a warning.
+    """
+    from httk.atomistic.io.cif.cif_parser import parse_cif_float
+    from httk.atomistic.models.structure.bonds import _signed_torsions
+
+    columns = data.get("_httk_atomistic_torsions")
+    if columns is None:
+        return structure
+    block = _block_name(data)
+    network = structure.bonds
+    if network is None:
+        _cif_debug(f"CIF block {block!r}: ignored its torsion loop, the block has no bond network")
+        return structure
+    if len({len(values) for values in columns.values()}) > 1:
+        _cif_warning(f"CIF block {block!r}: ignored its torsion loop, the torsion columns have different lengths")
+        return structure
+    count = len(columns["geom_torsion_atom_site_label_1"])
+    group, sites = structure.spacegroup, structure.wyckoff_sites
+    end = _atom_resolver(group, sites, data, row_sites, _float_metric(structure.cell))
+    statements: list[SiteTorsion | None] = []
+    for row in zip(*(columns.get(name) or ["?"] * count for name in _TORSION_COLUMNS), strict=True):
+        labels, codes, angle_token, symbol = row[:4], row[4:8], row[8], row[9].strip()
         try:
-            site, A1, row1 = end(first.strip(), code1.strip())
-            partner, A2, row2 = end(second.strip(), code2.strip())
-            coordinates = (precisions[row1] + precisions[row2]) * span
-            _check_bond_distance(
-                _apply(A1, references[site]), _apply(A2, references[partner]), distance, metric, coordinates
+            atoms = [end(label.strip(), code.strip()) for label, code in zip(labels, codes, strict=True)]
+            angle, meta = parse_cif_float(angle_token, meta=True)
+            statement = SiteTorsion(
+                tuple(site for site, _element, _row in atoms),  # type: ignore[arg-type]
+                tuple(_affine(element) for _site, element, _row in atoms),  # type: ignore[arg-type]
+                None if symbol in ("?", ".") else symbol,
+                angle,
+                None if meta["esd"] is None else float(meta["esd"]),
             )
-            bond = SiteBond(site, partner, _affine(_mul(_inv(A1), A2)))
-            _checked_bonds(group, sites, [bond])
-        except (ValueError, ArithmeticError) as error:  # never fail the load for a bond loop
-            _cif_warning(
-                f"CIF block {block!r}: ignored its bond loop, row {number} "
-                f"({first} {second} {code1} {code2} {distance}): {error}"
-            )
-            return None
-        bonds.append(bond)
-    return bonds
+            _normalized_torsions(group, sites, [statement])  # valid for the structure
+        except (ValueError, ArithmeticError):
+            statement = None
+        statements.append(statement)
+    valid = [statement for statement in statements if statement is not None]
+    computed = iter(_signed_torsions(structure, valid))
+    for index, statement in enumerate(statements):
+        if statement is None:
+            continue
+        geometry = next(computed)
+        if statement.angle is None:
+            continue
+        tolerance = max(3 * (statement.uncertainty or 0.0), 1.0)
+        if geometry is None or abs((statement.angle - geometry + 180) % 360 - 180) > tolerance:
+            statements[index] = None
+    torsions, dropped = _agreeing_torsions(statements, lambda rows: _normalized_torsions(group, sites, rows))
+    if dropped:
+        _cif_warning(
+            f"CIF block {block!r}: dropped {dropped} of the {count} rows of its torsion loop: a label or "
+            "symmetry code that cannot be resolved, a statement that is not valid, an angle that disagrees "
+            "with the geometry, or a conflict with another row; the bonds are kept"
+        )
+    if torsions is None:
+        return structure
+    items = data.get("_httk_atomistic_network") or {}
+    source = (
+        _cif_source(items, "httk_torsions_source")
+        if any(name.startswith("httk_torsions_source_") for name in items)
+        else _CIF_TORSION_SOURCE
+    )
+    return structure._with_bonds(replace(network, torsions=torsions, torsions_source=source))
 
 
 def _label_resolver(data: Mapping[str, Any], row_sites: Mapping[int, int]) -> Callable[[str], int]:
@@ -2270,11 +2380,12 @@ def _cif_payload(
                     "_httk_atomistic_site_symmetry_orders": raw_block.get("atom_site_site_symmetry_order"),
                     "_httk_atomistic_block_name": name,
                     "_httk_atomistic_species": raw_block.get("httk_atom_site_species"),
-                    "_httk_atomistic_bonds": _bond_columns(raw_block),
+                    "_httk_atomistic_bonds": _loop_columns(raw_block, _BOND_COLUMNS, "geom_bond_"),
+                    "_httk_atomistic_torsions": _loop_columns(raw_block, _TORSION_COLUMNS),
                     "_httk_atomistic_network": {
                         name: value
                         for name, value in raw_block.items()
-                        if name.startswith(("httk_bonds_", "httk_shape"))
+                        if name.startswith(("httk_bonds_", "httk_shape", "httk_torsions_source_"))
                     },
                     "_httk_atomistic_symop_codes": _symop_codes(raw_block),
                 }
@@ -2287,14 +2398,14 @@ def _cif_payload(
     return {**payload, _ALLOW_LARGE_CIF_UNCERTAINTY: True}
 
 
-def _bond_columns(block: Mapping[str, Any]) -> dict[str, list[str]] | None:
-    """The bond-loop columns this reader uses, or ``None`` without ``_geom_bond_atom_site_label_1``."""
-    if "geom_bond_atom_site_label_1" not in block:
+def _loop_columns(block: Mapping[str, Any], names: Sequence[str], prefix: str = "") -> dict[str, list[str]] | None:
+    """The columns ``prefix + name`` of a bond or torsion loop that the block has, or ``None`` without the first."""
+    if f"{prefix}{names[0]}" not in block:
         return None
     return {
         name: [value] if isinstance(value, str) else list(value)
-        for name in _BOND_COLUMNS
-        if (value := block.get(f"geom_bond_{name}")) is not None
+        for name in names
+        if (value := block.get(f"{prefix}{name}")) is not None
     }
 
 

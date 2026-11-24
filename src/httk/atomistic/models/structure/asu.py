@@ -44,7 +44,20 @@ from httk.atomistic.models.species.like import SpeciesLike
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.species.view import SpeciesView
 from httk.atomistic.models.structure.backend import StructureBackend
-from httk.atomistic.models.structure.network import BondNetwork, SiteBond, _bond_network, _checked_symbols
+from httk.atomistic.models.structure.network import (
+    _DISTINCT,
+    BondNetwork,
+    SiteBond,
+    SiteTorsion,
+    _bond_network,
+    _checked_symbols,
+    _four,
+    _merged_torsions,
+    _mirrored_torsion,
+    _RowKey,
+    _TorsionConflict,
+    _unsigned_torsion,
+)
 from httk.atomistic.models.structure.semantics import StructureSemanticsMixin, initialize_semantics
 from httk.atomistic.models.structure.unitcell import _check_referenced_species_concentrations
 from httk.atomistic.symmetry._periodicity_guard import require_full_periodicity
@@ -140,10 +153,16 @@ def _mul(a: _Op, b: _Op) -> _Op:
     return W, _apply(a, b[1])
 
 
+def _det[N: (int, fractions.Fraction)](W: Sequence[N]) -> N:
+    """Return the determinant of a row-major 3x3 matrix."""
+    (p, q, r), (s, t, u), (v, x, y) = W[0:3], W[3:6], W[6:9]
+    return p * (t * y - u * x) - q * (s * y - u * v) + r * (s * x - t * v)
+
+
 def _inv(a: _Op) -> _Op:
     W, w = a
     (p, q, r), (s, t, u), (v, x, y) = W[0:3], W[3:6], W[6:9]
-    det = p * (t * y - u * x) - q * (s * y - u * v) + r * (s * x - t * v)
+    det = _det(W)
     adjugate = (
         *(t * y - u * x, r * x - q * y, q * u - r * t),
         *(u * v - s * y, p * y - r * v, r * s - p * u),
@@ -301,6 +320,87 @@ def _normalized_bonds(
     return tuple(
         SiteBond(i, j, _affine(elements.operation((key[1], key[2], key[3], key[4])))) for i, j, key in sorted(canonical)
     )
+
+
+def _normalized_torsions(
+    spacegroup: Spacegroup, sites: Sequence[WyckoffSite], torsions: Sequence[SiteTorsion] | None
+) -> tuple[SiteTorsion, ...] | None:
+    """Validate torsion statements and replace each by the least member of its orbit, sorted and deduplicated.
+
+    A statement is moved by a group element ``x`` that brings atom B to its reference atom with
+    the identity; every other atom's element is then the least member of its coset ``g H``, with
+    ``H`` the stabilizer of the atom's reference atom. The least key ``(sites, element keys)``
+    over the stabilizer of B's reference atom and both orientations (A-B-C-D and D-C-B-A) is kept,
+    elements compared as in :func:`_normalized_bonds`. An improper ``x`` (determinant -1) turns
+    the statement into its mirror image (:func:`~httk.atomistic.models.structure.network._mirrored_torsion`);
+    where both a proper and an improper ``x`` give the least key, the statement equals its own
+    mirror image and takes ``|angle|`` and the unsigned symbol.
+
+    :param spacegroup: The stored setting.
+    :param sites: The Wyckoff sites.
+    :param torsions: The statements, or ``None``.
+    :return: The normalized statements, or ``None`` when there are none.
+    :raises ValueError: If a statement refers to a site out of range, an operation is not an
+        element of the group, it names one atom twice where atoms must differ, or two statements
+        of one orbit differ (a ``_TorsionConflict``).
+    """
+    if torsions is None:
+        return None
+    from httk.atomistic.symmetry.protonet import _key
+
+    elements = _standard_elements(spacegroup)
+    tables = elements.tables
+    references = [_reference(spacegroup, site) for site in sites]
+    charts: dict[int, dict[_Point, list[tuple[int, _Point]]]] = {}
+    least_elements: dict[tuple[int, _Point], _Element] = {}
+
+    def least(site: int, point: _Point) -> _Element:
+        """Return the least element moving the reference atom of ``site`` onto a standard-setting ``point``."""
+        if (site, point) not in least_elements:
+            if site not in charts:  # per orbit point modulo the lattice: the operations reaching it, unreduced
+                charts[site] = {}
+                standard = _apply(elements.to_standard, references[site])
+                for k in range(tables.nops):
+                    image = tables.apply((k, 0, 0, 0), standard)  # type: ignore[arg-type]
+                    charts[site].setdefault(tuple(x % 1 for x in image), []).append((k, image))
+            shifts = (
+                (k, [int(p - q) for p, q in zip(point, image, strict=True)])
+                for k, image in charts[site][tuple(x % 1 for x in point)]
+            )
+            least_elements[(site, point)] = min(((k, n[0], n[1], n[2]) for k, n in shifts), key=_key)
+        return least_elements[(site, point)]
+
+    rows: list[tuple[_RowKey, SiteTorsion]] = []
+    for row in torsions:
+        if not all(site < len(sites) for site in row.sites):
+            raise ValueError(f"{row!r} refers to a site outside 0..{len(sites) - 1}")
+        ops = [_op(operation) for operation in row.operations]
+        if not all(_in_group(spacegroup, op) for op in ops):
+            raise ValueError(f"{row!r}: an operation is not an element of {spacegroup.setting}")
+        atoms = [(site, _apply(op, references[site])) for site, op in zip(row.sites, ops, strict=True)]
+        if any(atoms[i] == atoms[j] for i, j in _DISTINCT):
+            raise ValueError(f"{row!r} names one atom twice")
+        points = [_apply(elements.to_standard, point) for _site, point in atoms]
+        order = min(row.sites, row.sites[::-1])  # the key starts with the sites
+        candidates: list[tuple[_Element, list[_Point], list[_Element]]] = []  # (x, the atoms, their least elements)
+        for sites_in_order, chosen in ((row.sites, points), (row.sites[::-1], points[::-1])):
+            if sites_in_order == order:
+                back = tables.inv(least(order[1], chosen[1]))  # brings atom B to its reference atom
+                candidates.extend(
+                    (tables.mul(h, back), chosen, [(0, 0, 0, 0)] * 4) for h in elements.stabilizer(references[order[1]])
+                )
+        for index in (0, 2, 3):  # atom B has the identity in every candidate: compare A, then C, then D
+            for x, chosen, moved in candidates:
+                moved[index] = least(order[index], tables.apply(x, chosen[index]))  # type: ignore[arg-type]
+            lowest = min(_key(moved[index]) for _x, _chosen, moved in candidates)
+            candidates = [candidate for candidate in candidates if _key(candidate[2][index]) == lowest]
+        signs = {1 if _det(tables.Wi[x[0]]) > 0 else -1 for x, _chosen, _moved in candidates}
+        moved = candidates[0][2]
+        key = (order, tuple(_key(e) for e in moved))
+        operations = _four(_affine(elements.operation(e)) for e in moved)
+        normal = replace(row, sites=order, operations=operations)
+        rows.append((key, _unsigned_torsion(normal) if len(signs) == 2 else _mirrored_torsion(normal, signs.pop())))
+    return _merged_torsions(rows)
 
 
 def _checked_shapes(
@@ -540,7 +640,8 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             sites = self._wyckoff_sites
             pairs = _normalized_bonds(self._spacegroup, sites, _checked_bonds(self._spacegroup, sites, network.pairs))
             _checked_shapes(self._spacegroup, sites, pairs, network.shapes)
-            network = replace(network, pairs=pairs)
+            torsions = _normalized_torsions(self._spacegroup, sites, network.torsions)
+            network = replace(network, pairs=pairs, torsions=torsions)
         self._network = network
 
     def _with_bonds(self, network: BondNetwork | None) -> Self:
@@ -629,18 +730,29 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
     def bonds(self) -> BondNetwork | None:
         """Expose the bond network, or ``None`` when no network is known.
 
-        Its pairs and shapes index :attr:`wyckoff_sites`; the pairs hold one least orbit member per
-        bond orbit, and no pairs mean that the structure is known to have no bonds.
+        Its pairs, shapes and torsions index :attr:`wyckoff_sites`; the pairs hold one least orbit
+        member per bond orbit, and no pairs mean that the structure is known to have no bonds. The
+        torsions hold one least orbit member per torsion orbit (see :class:`~httk.atomistic.SiteTorsion`): atom B
+        at its reference atom with the identity, every other atom's operation the least of its
+        coset, the least of a statement and its reversal, sorted by sites and operations; an
+        improper operation that maps a statement onto itself or its reversal makes it unsigned.
         """
         return None if self._network is None else self._canonical_network
 
     @cached_property
     def _canonical_network(self) -> BondNetwork:
         # constructed networks are already normal; carried ones (``_with_bonds``) are normalized on first use
-        assert self._network is not None
-        return replace(
-            self._network, pairs=_normalized_bonds(self._spacegroup, self._wyckoff_sites, self._network.pairs)
-        )
+        network = self._network
+        assert network is not None
+        pairs = _normalized_bonds(self._spacegroup, self._wyckoff_sites, network.pairs)
+        try:
+            torsions = _normalized_torsions(self._spacegroup, self._wyckoff_sites, network.torsions)
+        except _TorsionConflict as error:  # orbits merged by a carry: the torsions go, the rest stays
+            from httk.atomistic.models.structure.bonds import _dropped
+
+            _dropped(f"torsion conflict: {error}", "torsions")
+            return replace(network, pairs=pairs, torsions=None, torsions_source=None)
+        return replace(network, pairs=pairs, torsions=torsions)
 
     @property
     def domain_sites(self) -> tuple[WyckoffSite, ...]:

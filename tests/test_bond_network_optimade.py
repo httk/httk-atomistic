@@ -6,6 +6,7 @@ positions, lattice and symmetry operations, and the bond rows that index those o
 
 import copy
 import importlib.resources
+import itertools
 import json
 import logging
 import math
@@ -26,6 +27,7 @@ from httk.core.optimade import (
 )
 from httk.core.storage import stored_property_projections
 from test_bond_network_records import RECORDS, SHAPES_SOURCE, SOURCE, _rocksalt, _with
+from test_bond_network_torsions import FIXTURE_DOMAINS, _with_torsions
 
 from httk.atomistic import (
     ASUStructure,
@@ -53,7 +55,7 @@ from httk.atomistic.entries.bonds import (
 )
 from httk.atomistic.entries.structures import StructureEntry
 from httk.atomistic.models.structure.asu import _affine, _inv, _mul, _op
-from httk.atomistic.models.structure.network import SiteBond
+from httk.atomistic.models.structure.network import _TORSION_SYMBOLS, BondSource, SiteBond, SiteTorsion
 from httk.atomistic.models.structure.record import RecordStructure
 from httk.atomistic.models.structure.semantics import StructureSymmetry
 from httk.atomistic.storage.records import (
@@ -175,7 +177,19 @@ SERVED = {
     "a supercell transform": _supercell_monoclinic,
     "an untabulated sheared transform": _sheared_monoclinic,
     "a unit cell": lambda: _with(UnitcellStructureView(_rocksalt()).unview(), ("OC6",) * 8, SOURCE, SHAPES_SOURCE),
+    # with torsion statements, each with its signed angle from the geometry
+    "torsions on a Sohncke domain (cod/7219102)": FIXTURE_DOMAINS["sarcosine (Sohncke)"],
+    "torsions on a centrosymmetric domain (diopside)": FIXTURE_DOMAINS["diopside (C2/c)"],
+    "torsions through a transform with determinant -1": FIXTURE_DOMAINS[
+        "sarcosine with a and b swapped (transform det -1)"
+    ],
+    "torsions in a tabulated non-standard setting": lambda: _with_torsions(_monoclinic_setting()),
+    "torsions with sites served as other orbit members": lambda: _with_torsions(_other_member()),
+    "torsions in a supercell transform": lambda: _with_torsions(_supercell_monoclinic()),
+    "torsions in an untabulated sheared transform": lambda: _with_torsions(_sheared_monoclinic()),
+    "torsions on a unit cell": lambda: UnitcellStructureView(FIXTURE_DOMAINS["sarcosine (Sohncke)"]()).unview(),
 }
+TORSIONS = [name for name in SERVED if name.startswith("torsions")]
 
 
 def _row(structure: Any) -> dict[str, Any]:
@@ -223,6 +237,17 @@ def test_the_served_value_validates_through_the_provider_and_the_store(name: str
     _check_bonds_value(value, row["nsites"], _operations(row), cell=_is_cell(row))
     assert value == bond_properties(structure)["_httk_bonds"]
     assert value["source"] == bond_properties(structure)["_httk_bonds"]["source"]
+    if structure.bonds.torsions is None:  # a network without torsions serves the two new keys as null
+        assert value["torsions"] is None and value["torsions_source"] is None
+    else:
+        assert value["torsions"]["angles"] == [row.angle for row in structure.bonds.torsions]
+        source = structure.bonds.torsions_source or structure.bonds.source
+        assert source is not None and value["torsions_source"] == {
+            "description": source.description,
+            "software": source.software,
+            "version": source.version,
+            "uri": source.uri,
+        }
     stored = _stored(_record(structure))
     _validate(stored)
     assert stored == value
@@ -259,7 +284,15 @@ def test_the_unit_cell_fast_path_equals_the_structure_path() -> None:
 
 def test_the_definition_lays_out_rows_and_sparse_shapes() -> None:
     definition = _schema()
-    assert set(definition["properties"]) == {"pairs", "shapes", "source", "shapes_source", "dimensions"}
+    assert set(definition["properties"]) == {
+        "pairs",
+        "shapes",
+        "source",
+        "shapes_source",
+        "dimensions",
+        "torsions",
+        "torsions_source",
+    }
     assert definition["x-optimade-requirements"]["query-support"] == "partial"
     assert definition["properties"]["dimensions"]["items"]["maximum"] == 3
     assert definition["x-optimade-definition"]["version"] == "0.1.0"
@@ -269,6 +302,19 @@ def test_the_definition_lays_out_rows_and_sparse_shapes() -> None:
     assert shapes["required"] == ["sites", "symbols"] and set(shapes["properties"]) == {"sites", "symbols", "pair_rows"}
     assert shapes["properties"]["symbols"]["items"]["enum"] == list(_SHAPE_SYMBOLS)
     assert all(term in definition["title"] + definition["description"] for term in ("coordination polyhedra", "cages"))
+    torsions = definition["properties"]["torsions"]
+    assert torsions["required"] == ["atoms", "symbols", "angles", "angle_uncertainties"]
+    assert torsions["properties"]["atoms"]["items"]["x-optimade-dimensions"]["sizes"] == [20]
+    assert set(torsions["properties"]["symbols"]["items"]["enum"]) == {*_TORSION_SYMBOLS, None}
+    assert [torsions["properties"][key]["items"]["x-optimade-unit"] for key in ("angles", "angle_uncertainties")] == [
+        "degree",
+        "degree",
+    ]
+    assert [unit["$id"] for unit in definition["x-optimade-unit-definitions"]] == [
+        "https://schemas.optimade.org/defs/v1.2/units/si/general/degree"
+    ]
+    for term in ("_geom_torsion_atom_site_label_k", "_httk_geom_torsion_symbol", "Klyne-Prelog", "improper"):
+        assert term in definition["description"]
 
 
 def test_the_vendored_definition_is_the_schemas_source_output() -> None:
@@ -289,6 +335,18 @@ ILLUSTRATION = {
 }
 
 
+# two statements on a unit cell of two sites: A-B-C-D with C, D in the next cell along a, and one along c
+STATED = {
+    "atoms": [
+        [0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0],
+        [0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1],
+    ],
+    "symbols": ["-sc", "none"],
+    "angles": [-60.5, None],
+    "angle_uncertainties": [0.5, None],
+}
+
+
 def test_the_definition_accepts_the_illustration_and_rejects_unknown_symbols() -> None:
     pytest.importorskip("httk.store")
     from httk.store.validation import PropertyValidationError, validate_property
@@ -298,6 +356,17 @@ def test_the_definition_accepts_the_illustration_and_rejects_unknown_symbols() -
     validate_property(definition, {**ILLUSTRATION, "shapes": {**ILLUSTRATION["shapes"], "pair_rows": [None]}})
     validate_property(definition, {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["SAPR8"]}})
     validate_property(definition, {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["I"]}})
+    stated = {**ILLUSTRATION, "torsions": STATED, "torsions_source": {"software": "x"}}
+    validate_property(definition, stated)
+    validate_property(definition, {**stated, "torsions": {**STATED, "symbols": None, "angle_uncertainties": None}})
+    for wrong in (
+        {**STATED, "symbols": ["G", None]},
+        {**STATED, "angles": [200.0, None]},
+        {**STATED, "angle_uncertainties": [0.0, None]},
+        {key: value for key, value in STATED.items() if key != "symbols"},
+    ):
+        with pytest.raises(PropertyValidationError):
+            validate_property(definition, {**stated, "torsions": wrong})
     for wrong in (
         {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["I2"]}},
         {**ILLUSTRATION, "shapes": {"sites": [1], "symbols": ["I5"]}},  # not in the enum: irregular is plain I
@@ -569,6 +638,34 @@ def test_a_client_rebuilds_every_bond_from_the_served_floats(name: str) -> None:
         got.pop(best)
 
 
+def _signed_dihedral(points: list[list[float]]) -> float:
+    """The IUPAC torsion A-B-C-D of four Cartesian points, in degrees."""
+
+    def cross(u: list[float], v: list[float]) -> list[float]:
+        return [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+
+    b1, b2, b3 = ([q - p for p, q in zip(u, v, strict=True)] for u, v in itertools.pairwise(points))
+    y = math.hypot(*b2) * sum(x * c for x, c in zip(b1, cross(b2, b3), strict=True))
+    return math.degrees(math.atan2(y, sum(x * c for x, c in zip(cross(b1, b2), cross(b2, b3), strict=True))))
+
+
+@pytest.mark.parametrize("name", TORSIONS)
+def test_a_client_rebuilds_every_signed_torsion_from_the_served_floats(name: str) -> None:
+    # each atom [site, op, t1, t2, t3] is listed[op] + t applied to the served position of site; the angle
+    # computed from the served lattice is the served one, sign included
+    row = _row(SERVED[name]())
+    basis, positions, value = row["lattice_vectors"], row["fractional_site_positions"], row["_httk_bonds"]
+    listed = [_float_map(xyz) for xyz in (row["space_group_symmetry_operations_xyz"] or ["x,y,z"])]
+    assert value["torsions"] is not None and value["torsions"]["angles"] is not None
+    for atoms, angle in zip(value["torsions"]["atoms"], value["torsions"]["angles"], strict=True):
+        points = []
+        for site, op, *t in (atoms[k : k + 5] for k in range(0, 20, 5)):
+            W, w = listed[op]
+            points.append(_cartesian(basis, _apply((W, [x + n for x, n in zip(w, t, strict=True)]), positions[site])))
+        difference = abs(_signed_dihedral(points) - angle)
+        assert min(difference, 360 - difference) < 1e-6, (name, atoms, angle)
+
+
 def _conjugated(structure: FundamentalDomainStructure) -> list[str]:
     """Each bond's operation merely written in the own setting, ``T o b o T^-1``, with no per-site correction."""
     assert structure.bonds is not None
@@ -726,6 +823,10 @@ def _pairs(*pairs: tuple[int, ...]) -> dict[str, Any]:
 FAN = [(0, 1, 1, 0, 0, 0), (0, 1, 1, -1, 0, 0), (0, 1, 1, 0, -1, 0), (0, 1, 1, 0, 0, -1)]
 
 
+def _stated_value(**torsions: Any) -> dict[str, Any]:
+    return {**_pairs(*FAN), "torsions": {**STATED, **torsions}, "torsions_source": {"software": "t"}}
+
+
 def test_read_back_resolves_the_definition_id_and_validates() -> None:
     value = {**_pairs((1, 0, 1, 0, 0, 0), (0, 1, 1, -1, 0, 0)), "shapes": None, "source": {"software": "x"}}
     expected = BondNetwork(
@@ -822,6 +923,22 @@ MALFORMED = {
     "a dimension above 3": {**_pairs((0, 1, 1, 0, 0, 0)), "dimensions": [4]},
     "a repeated dimension": {**_pairs((0, 1, 1, 0, 0, 0)), "dimensions": [0, 0]},
     "a non-integer dimension": {**_pairs((0, 1, 1, 0, 0, 0)), "dimensions": ["3"]},
+    "a torsion row of 19": _stated_value(atoms=[STATED["atoms"][0][:19], STATED["atoms"][1]]),
+    "a torsion atom with a non-identity operation": _stated_value(atoms=[[0, 0] + STATED["atoms"][0][2:]] * 2),
+    "a torsion atom on a site out of range": _stated_value(atoms=[[2] + STATED["atoms"][0][1:]] * 2),
+    "an unknown torsion symbol": _stated_value(symbols=["gauche", None]),
+    "a torsion angle above 180": _stated_value(angles=[181.0, None]),
+    "a torsion angle as text": _stated_value(angles=["-60.5", None]),
+    "an uncertainty without an angle": _stated_value(angle_uncertainties=[0.5, 0.5]),
+    "a negative uncertainty": _stated_value(angle_uncertainties=[-0.5, None]),
+    "unaligned torsion lists": _stated_value(symbols=["-sc"]),
+    "a torsions dictionary without symbols": {
+        **_pairs(*FAN),
+        "torsions": {key: value for key, value in STATED.items() if key != "symbols"},
+    },
+    "an empty torsion list": _stated_value(atoms=[], symbols=None, angles=None, angle_uncertainties=None),
+    "a torsions_source as text": {**_stated_value(), "torsions_source": "hand"},
+    "a torsions_source without torsions": {**_pairs(*FAN), "torsions": None, "torsions_source": {"software": "t"}},
 }
 
 
@@ -867,6 +984,17 @@ CHECKED = {
         {"pairs": [list(row) for row in FAN], "shapes": {"sites": [1], "symbols": ["TP3"]}},
         "covers 4 bonded atoms",
     ),
+    "a torsion row of 19": ({"pairs": [], "torsions": {**STATED, "atoms": [[0] * 19] * 2}}, "20 integers, not 19"),
+    "a torsion atom with a non-identity operation in a unit cell": (
+        {"pairs": [], "torsions": {**STATED, "atoms": [[0] * 20] * 2}},
+        "operation 0, which is not the identity",
+    ),
+    "unaligned torsion lists": ({"pairs": [], "torsions": {**STATED, "angles": [1.0]}}, "same length"),
+    "an unknown torsion key": ({"pairs": [], "torsions": {**STATED, "order": None}}, "must have the keys"),
+    "an uncertainty without an angle": (
+        {"pairs": [], "torsions": {**STATED, "angle_uncertainties": [0.5, 0.5]}},
+        "torsion 1: an uncertainty must be positive and needs an angle",
+    ),
 }
 
 
@@ -897,3 +1025,93 @@ def test_the_checker_counts_atoms_only_for_unit_cells_and_accepts_valid_values()
         cell=True,
     )
     _check_bonds_value(ILLUSTRATION, 3, None)
+
+
+# ---------------------------------------------------------------------------------------------
+# torsion statements: reading back
+# ---------------------------------------------------------------------------------------------
+def test_human_torsions_on_a_unit_cell_survive_serving_reading_and_storing() -> None:
+    """Statements of every kind: served, read back, stored and fetched, equal with their source at every step."""
+    pytest.importorskip("httk.serve.optimade")
+    pytest.importorskip("httk.store")
+    pytest.importorskip("starlette")
+    from httk.serve.optimade import adapter_from_stores, create_asgi_app
+    from httk.store import Backend, EntryIdScheme, SqlStore
+    from httk.store.backend.sql import StoredEntrySource
+    from starlette.testclient import TestClient
+    from test_torsion_records import TORSIONS_SOURCE, _cell_rows, _stated
+
+    from httk.atomistic.storage.records import _structure_from_record
+
+    cell = _stated(UnitcellStructureView(_rocksalt()).unview(), _cell_rows())
+    expected = cell.bonds
+    assert {row.symbol for row in expected.torsions} == {"g", None, "-sc", "none"}
+    ids = EntryIdScheme("httk.test", "1")
+
+    def steps(network: BondNetwork | None) -> tuple[object, ...]:
+        assert network is not None
+        return network, network.torsions, network.torsions_source
+
+    with Backend.sqlite() as database:
+        served = SqlStore(database, entry_ids=ids, entry_records=RECORDS)
+        served.save(cell)
+        adapter = adapter_from_stores([StoredEntrySource(served, StructureEntry, "bonds")])
+        with TestClient(create_asgi_app(adapter, baseurl="http://testserver"), base_url="http://testserver") as http:
+            (item,) = http.get("/v1/structures").json()["data"]
+            read = OptimadeStructure(_resource(http, item["id"]))
+            assert steps(read.bonds) == steps(expected)
+    view = UnitcellStructureView(read).unview()
+    assert steps(view.bonds) == steps(expected) and view.bonds.torsions_source == TORSIONS_SOURCE
+    with Backend.sqlite() as database:
+        again = SqlStore(database, entry_ids=ids, entry_records=RECORDS)
+        back = _structure_from_record(again.fetch(UnitcellStructureRecord, again.save(view), eager=True))
+    assert steps(back.bonds) == steps(expected)
+
+
+def test_read_back_decodes_torsion_statements() -> None:
+    read = OptimadeStructure(_bonds_resource(_stated_value())).bonds
+    assert read is not None and read.torsions_source == BondSource(software="t")
+    a = (AffineOperation("x,y,z"), AffineOperation("x,y,z"), AffineOperation("x+1,y,z"), AffineOperation("x+1,y,z"))
+    b = (*a[:2], AffineOperation("x,y,z+1"), AffineOperation("x,y,z+1"))
+    assert set(read.torsions) == {SiteTorsion((0, 1, 0, 1), a, "-sc", -60.5, 0.5), SiteTorsion((0, 1, 0, 1), b, "none")}
+    # null columns, and a statement in another spelling (reversed, moved by (1, 0, 1)) is the same statement
+    other = [[1, 1, 1, 0, 2, 0, 1, 1, 0, 2, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1]]
+    spelled = _stated_value(atoms=other, symbols=["none"], angles=None, angle_uncertainties=None)
+    read = OptimadeStructure(_bonds_resource(spelled)).bonds
+    assert read is not None and read.torsions == (SiteTorsion((0, 1, 0, 1), b, "none"),)
+    assert OptimadeStructure(_bonds_resource({**_pairs(*FAN), "torsions": None})).bonds.torsions is None
+
+
+def test_read_back_drops_torsion_statements_it_cannot_keep(caplog: pytest.LogCaptureFixture) -> None:
+    keep, conflict = STATED["atoms"]
+    moved = [x + 1 if k % 5 == 2 else x for k, x in enumerate(conflict)]  # the second statement, moved by a
+    atoms = [
+        keep,
+        conflict,
+        moved,  # the same statement as the one before, with another angle: both are dropped
+        keep[:5] + keep[5:10] + keep[:5] + keep[15:],  # A is C
+        [0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0],  # +sc with a negative angle
+        [0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 2, 1, 1, 0, 0, 2],  # neither symbol nor angle
+    ]
+    value = _stated_value(
+        atoms=atoms,
+        symbols=["-sc", None, None, "t", "+sc", None],
+        angles=[-60.5, 10.0, 20.0, 180.0, -60.0, None],
+        angle_uncertainties=[0.5, None, None, None, None, None],
+    )
+    with caplog.at_level(logging.WARNING, logger="httk.atomistic.models.structure.optimade"):
+        read = OptimadeStructure(_bonds_resource(value)).bonds
+    a = (AffineOperation("x,y,z"), AffineOperation("x,y,z"), AffineOperation("x+1,y,z"), AffineOperation("x+1,y,z"))
+    assert read is not None and len(read.pairs) == len(FAN)
+    assert read.torsions == (SiteTorsion((0, 1, 0, 1), a, "-sc", -60.5, 0.5),)
+    assert read.torsions_source == BondSource(software="t")
+    (warning,) = [record for record in caplog.records if "torsion" in record.getMessage()]
+    assert "5 of the 6 torsion statements" in warning.getMessage() and getattr(warning, "context", None) == "bonds"
+    # when none is left, the source goes too, and the bonds stay
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="httk.atomistic.models.structure.optimade"):
+        read = OptimadeStructure(
+            _bonds_resource({**value, "torsions": {**value["torsions"], "atoms": [conflict, moved] * 3}})
+        ).bonds
+    assert read is not None and len(read.pairs) == len(FAN) and read.torsions is None and read.torsions_source is None
+    assert "6 of the 6 torsion statements" in caplog.text

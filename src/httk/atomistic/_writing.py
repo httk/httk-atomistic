@@ -356,14 +356,22 @@ def _add_cif_network(
     its now unique labels. Distances are rounded to 5 decimals in the Cartesian frame of
     ``cell.basis.to_floats()``, which the reader checks them against.
 
+    With torsion statements, one ``torsion_rows`` row per statement (per torsion orbit on a
+    fundamental domain): the four labels, the four atoms' symmetry codes (``.`` for the
+    identity without a translation), the angle with its uncertainty in CIF notation
+    (:func:`_cif_angle`) and the symbol. The angles and signed symbols are negated when the
+    cell basis is left-handed, since the reader rebuilds a right-handed cell from the cell
+    parameters, which is the mirror image.
+
     :param block: The block, changed in place; its private ``row_species`` and ``site_rows`` keys are removed.
     :param structure: The structure the block was made from.
     :param positions: The written position of each site.
     :param operations: The written (wrapped) operations, in their written order.
-    :raises ValueError: If a bond translation is outside -5..+4.
+    :raises ValueError: If a bond or torsion translation is outside -5..+4.
     """
-    from httk.atomistic.entries.bonds import _bond_codes
+    from httk.atomistic.entries.bonds import _bond_codes, _torsion_codes
     from httk.atomistic.models.structure.asu import _apply, _op
+    from httk.atomistic.models.structure.network import _mirrored_torsion
 
     row_species = cast(list[str], block.pop("row_species"))
     site_rows = cast(list[int], block.pop("site_rows"))
@@ -397,6 +405,49 @@ def _add_cif_network(
     ]
     block["bonds_source"] = _source_fields(network.source)
     block["shapes_source"] = _source_fields(network.shapes_source)
+    if network.torsions is None:
+        return
+    # the reader rebuilds a right-handed cell from the cell parameters, the mirror image of a left-handed one
+    handedness = structure.cell.basis.det().sign()
+    identity = _op(AffineOperation.identity())
+    torsion_rows = []
+    for row, atoms in zip(network.torsions, _torsion_codes(structure, points, operations), strict=True):
+        codes = []
+        for index, *shift in (atoms[k + 1 : k + 5] for k in range(0, 20, 5)):
+            if not all(-5 <= n <= 4 for n in shift):
+                raise ValueError(
+                    f"CIF cannot write the torsion of sites {row.sites}: the lattice translation {tuple(shift)} of an "
+                    "atom is outside -5..+4, which a symmetry code n_klm cannot express"
+                )
+            identical = not any(shift) and _op(operations[index]) == identity
+            codes.append("." if identical else f"{index + 1}_{shift[0] + 5}{shift[1] + 5}{shift[2] + 5}")
+        row = _mirrored_torsion(row, handedness)
+        names = [site_labels[site] for site in row.sites]
+        torsion_rows.append((*names, *codes, _cif_angle(row.angle, row.uncertainty), row.symbol))
+    block["torsion_rows"] = torsion_rows
+    # written also when it is the bond source, since a torsion loop without the items reads with its own default
+    block["torsions_source"] = _source_fields(network.torsions_source or network.source)
+
+
+def _cif_angle(angle: float | None, uncertainty: float | None) -> str | None:
+    """Return an angle as a CIF number with its standard uncertainty in parentheses, or ``None`` without an angle.
+
+    The value is written with the digits of its shortest round-trip representation, padded to the
+    last digit of the uncertainty's, which the parenthesized integer counts (``-62.30(15)`` for
+    -62.3 and 0.15), so the reader recovers both floats exactly.
+
+    :param angle: The angle in degrees, or ``None``.
+    :param uncertainty: Its standard uncertainty, or ``None``.
+    :return: The CIF token, or ``None`` (written ``?``).
+    """
+    if angle is None:
+        return None
+    value = Decimal(repr(angle))
+    if uncertainty is None:
+        return f"{value:f}"
+    su = Decimal(repr(uncertainty))
+    exponent = min(int(value.as_tuple().exponent), int(su.as_tuple().exponent))
+    return f"{value.quantize(Decimal(1).scaleb(exponent)):f}({int(su.scaleb(-exponent))})"
 
 
 def _source_fields(source: Any) -> tuple[str | None, ...] | None:

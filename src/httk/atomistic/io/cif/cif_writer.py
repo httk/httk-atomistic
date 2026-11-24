@@ -514,7 +514,7 @@ def _neutral_cif_block(block: Mapping[str, object], *, exact_companions: bool = 
             raw[target] = block[source]
 
     symops = list(cast(Iterable[str], block["symops_xyz"]))
-    if block.get("bond_rows") is not None:  # bond symmetry codes name the operations by id
+    if block.get("bond_rows") is not None or block.get("torsion_rows"):  # symmetry codes name the operations by id
         raw["loop_symops"] = ["space_group_symop_id", "space_group_symop_operation_xyz"]
         raw["space_group_symop_id"] = [str(number) for number in range(1, len(symops) + 1)]
     else:
@@ -585,6 +585,9 @@ def _neutral_cif_network(raw: dict[str, object], block: Mapping[str, object]) ->
     ``bond_rows`` holds ``(label_1, label_2, symmetry_code_2, distance)`` per bond; none means an
     empty network, written as ``_httk_bonds_count 0``. ``bonds_source`` and ``shapes_source`` hold
     the four source fields (``None`` written ``?``), ``shape_rows`` holds ``(label, symbol)`` pairs.
+    ``torsion_rows`` holds ``(label_1, .., label_4, symmetry_code_1, .., symmetry_code_4, angle,
+    symbol)`` per torsion statement (angle and symbol ``None`` when absent), and
+    ``torsions_source`` its source; the symbol column is written only when a row has a symbol.
     """
     rows = cast("Sequence[Sequence[str]] | None", block.get("bond_rows"))
     if rows is None:
@@ -606,6 +609,16 @@ def _neutral_cif_network(raw: dict[str, object], block: Mapping[str, object]) ->
         raw["httk_shape_atom_site_label"] = [row[0] for row in shapes]
         raw["httk_shape_symbol"] = [row[1] for row in shapes]
     _neutral_cif_source(raw, "shapes_source", block)
+    torsions = cast("Sequence[Sequence[str | None]]", block.get("torsion_rows", ()))
+    if torsions:
+        labels = [f"geom_torsion_atom_site_label_{k}" for k in range(1, 5)]
+        codes = [f"geom_torsion_site_symmetry_{k}" for k in range(1, 5)]
+        symbols = ["httk_geom_torsion_symbol"] if any(row[9] is not None for row in torsions) else []
+        raw["loop_torsions"] = [*labels, *codes, "geom_torsion", *symbols]
+        for index, name in enumerate([*labels, *codes, "geom_torsion", *symbols]):
+            # codes, angles and symbols are written bare: '.', '3_655', '-62.3(4)', '+sc'; None is '?'
+            raw[name] = [value if (value := row[index]) is None or index < 4 else _Bare(value) for row in torsions]
+    _neutral_cif_source(raw, "torsions_source", block)
 
 
 def _neutral_cif_source(raw: dict[str, object], name: str, block: Mapping[str, object]) -> None:

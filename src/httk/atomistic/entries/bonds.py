@@ -13,11 +13,16 @@ per site before it is looked up in the served list. The served list holds every 
 group for the served cell, so the lookup always succeeds; if it ever does not, the network is
 served as null with a warning. Shapes are served sparsely, as aligned lists of the sites with an
 assigned shape and their symbols. ``dimensions`` is the structure's
-:attr:`~httk.atomistic.models.structure.StructureAPI.bonds_dimensions`, as a list.
+:attr:`~httk.atomistic.models.structure.StructureAPI.bonds_dimensions`, as a list. Torsion
+statements are served as aligned lists: per statement 20 integers, ``[site, op, t1, t2, t3]`` for
+each of its four atoms, found as a bond's partner is, and its symbol, angle and uncertainty. Each
+atom keeps its own code; no atom is moved onto the identity, which could apply an improper served
+operation and negate the angle.
 """
 
 import logging
 from collections.abc import Iterable, Mapping, Sequence
+from decimal import Decimal
 from fractions import Fraction
 from functools import cache
 from typing import Any
@@ -37,7 +42,7 @@ from httk.atomistic.models.structure.asu import (
     _op,
     _reference,
 )
-from httk.atomistic.models.structure.network import BondSource
+from httk.atomistic.models.structure.network import _TORSION_SYMBOLS, BondSource, SiteTorsion
 from httk.atomistic.symmetry.affine_operation import AffineOperation
 from httk.atomistic.symmetry.shapes import _check_shape, _is_known, _unknown
 
@@ -86,7 +91,9 @@ def bond_properties(structure: Any, *, entry: str | None = None) -> dict[str, An
             if isinstance(structure, FundamentalDomainStructure)
             else structure.sites.reduced_coords.to_fractions()
         )
-        codes = _bond_codes(structure, positions, None if served is None else [AffineOperation(xyz) for xyz in served])
+        listed = None if served is None else [AffineOperation(xyz) for xyz in served]
+        codes = _bond_codes(structure, positions, listed)
+        atoms = _torsion_codes(structure, positions, listed)
         dimensions = _bonds_dimensions(structure)
     except ValueError as error:
         _logger.warning(
@@ -102,6 +109,9 @@ def bond_properties(structure: Any, *, entry: str | None = None) -> dict[str, An
         network.source,
         network.shapes_source,
         dimensions,
+        network.torsions,
+        atoms,
+        network.torsions_source,
     )
     return values
 
@@ -123,9 +133,18 @@ def _network_payload(
     source: BondSource | None,
     shapes_source: BondSource | None,
     dimensions: Sequence[int] | None,
+    torsions: Sequence[SiteTorsion] | None,
+    atoms: Sequence[Sequence[int]],
+    torsions_source: BondSource | None,
 ) -> dict[str, Any]:
-    """Return the ``_httk_bonds`` dictionary of served pairs ``(site, partner, op, translation)``, per-site shapes and dimensions."""
+    """Return the ``_httk_bonds`` dictionary of served pairs ``(site, partner, op, translation)``, per-site shapes,
+    dimensions and torsions (the served ``atoms`` row of each statement; a column is null when no statement has a value).
+    """
     assigned = [(site, symbol) for site, symbol in enumerate(shapes or ()) if symbol is not None]
+
+    def column(values: list[Any]) -> list[Any] | None:
+        return None if all(value is None for value in values) else values
+
     return {
         "pairs": [[site, partner, op, *t] for site, partner, op, t in pairs],
         "shapes": {"sites": [site for site, _ in assigned], "symbols": [symbol for _, symbol in assigned]}
@@ -134,6 +153,15 @@ def _network_payload(
         "source": _source_payload(source),
         "shapes_source": _source_payload(shapes_source),
         "dimensions": None if dimensions is None else list(dimensions),
+        "torsions": None
+        if not torsions
+        else {
+            "atoms": [list(row) for row in atoms],
+            "symbols": column([row.symbol for row in torsions]),
+            "angles": column([row.angle for row in torsions]),
+            "angle_uncertainties": column([row.uncertainty for row in torsions]),
+        },
+        "torsions_source": _source_payload(torsions_source),
     }
 
 
@@ -156,13 +184,9 @@ def _bond_codes(
 ) -> list[tuple[int, tuple[int, int, int]]]:
     """Return each bond's operation on the given positions as an index into ``operations`` and a lattice translation.
 
-    Per site, find the map ``A`` that takes the site's stored atom onto its given position:
-    exactly, or within three times the coordinate precision for a position stated to limited
-    precision. On a fundamental domain ``A = t o T o g`` (``g`` a stored group element, ``T`` the
-    setting transform, ``t`` a lattice coset of ``T`` plus a lattice translation) and the stored
-    atom is the reference atom; on a unit cell ``A`` is a lattice translation of the stored
-    coordinates. A bond ``(i, j, b)`` then has the operation ``A_i o b o A_j^-1`` on the given
-    positions, which takes the position of ``j`` to the atom bonded to the position of ``i``.
+    Per site, find the map ``A`` that takes the site's stored atom onto its given position
+    (:func:`_site_maps`). A bond ``(i, j, b)`` then has the operation ``A_i o b o A_j^-1`` on the
+    given positions, which takes the position of ``j`` to the atom bonded to the position of ``i``.
     That operation is the first entry of ``operations`` equal to it modulo a lattice translation,
     followed by that translation.
 
@@ -174,6 +198,71 @@ def _bond_codes(
     :raises ValueError: If the structure has no network, a position is not (within tolerance) an
         atom of its site, or a bond operation is not a listed operation followed by a lattice
         translation.
+    """
+    maps = _site_maps(structure, positions)
+    network = structure.bonds
+    if network is None:
+        raise ValueError("the structure has no bond network")
+    listed = _listed(operations)
+    return [
+        _code(
+            listed,
+            _mul(_mul(maps[bond.site], _op(bond.operation)), _inv(maps[bond.partner])),
+            f"bond {bond.site}-{bond.partner}",
+        )
+        for bond in network.pairs
+    ]
+
+
+def _torsion_codes(
+    structure: Any, positions: Sequence[Sequence[Fraction]], operations: Sequence[AffineOperation] | None
+) -> list[list[int]]:
+    """Return each torsion statement's four atoms on the given positions as a row ``[site, op, t1, t2, t3]`` per atom.
+
+    Each atom is served on its own (no atom is moved to the identity): atom ``(s, g)`` is the stored
+    atom ``g(x_s)``, written in the served coordinates as ``T(g(x_s))`` (``T`` the setting
+    transform of a domain, the identity on a unit cell), which is ``T o g o A_s^-1`` applied to
+    the given position of ``s`` (``A_s`` from :func:`_site_maps`). That operation is looked up as
+    in :func:`_bond_codes`. The served atoms are the stored atoms under the same lattice vectors,
+    so the signs of the angles are unchanged.
+
+    :param structure: The structure, with a bond network.
+    :param positions: One exact fractional position per site (per Wyckoff site of a domain).
+    :param operations: The listed operations the indices refer to, or ``None`` when none are listed.
+    :return: Per statement, the 20 integers of its four atoms; none when the network has no torsions.
+    :raises ValueError: As :func:`_bond_codes`.
+    """
+    network = structure.bonds
+    if network is None or network.torsions is None:
+        return []
+    maps = _site_maps(structure, positions)
+    frame = _op(structure.transform.operation) if isinstance(structure, FundamentalDomainStructure) else _IDENTITY
+    listed = _listed(operations)
+    rows = []
+    for row in network.torsions:
+        atoms: list[int] = []
+        for site, operation in zip(row.sites, row.operations, strict=True):
+            index, t = _code(
+                listed, _mul(_mul(frame, _op(operation)), _inv(maps[site])), f"torsion atom of site {site}"
+            )
+            atoms.extend((site, index, *t))
+        rows.append(atoms)
+    return rows
+
+
+def _site_maps(structure: Any, positions: Sequence[Sequence[Fraction]]) -> list[_Op]:
+    """Return per site the map ``A`` that takes the site's stored atom onto its given position.
+
+    The map is exact, or within three times the coordinate precision for a position stated to
+    limited precision. On a fundamental domain ``A = t o T o g`` (``g`` a stored group element,
+    ``T`` the setting transform, ``t`` a lattice coset of ``T`` plus a lattice translation) and
+    the stored atom is the reference atom; on a unit cell ``A`` is a lattice translation of the
+    stored coordinates.
+
+    :param structure: The structure.
+    :param positions: One exact fractional position per site (per Wyckoff site of a domain).
+    :return: One map per site.
+    :raises ValueError: If a position is not (within tolerance) an atom of its site.
     """
     if isinstance(structure, FundamentalDomainStructure):
         transform = _op(structure.transform.operation)
@@ -198,23 +287,92 @@ def _bond_codes(
         if error > tolerance:
             raise ValueError(f"served position {number} is {float(error):g} from an atom of its site")
         maps.append(_mul((_IDENTITY[0], translation), moved))
-    network = structure.bonds
-    if network is None:
-        raise ValueError("the structure has no bond network")
-    listed = _listed(operations)
-    codes = []
-    for bond in network.pairs:
-        W, w = _mul(_mul(maps[bond.site], _op(bond.operation)), _inv(maps[bond.partner]))
-        found = listed.get((W, tuple(x % 1 for x in w)))
-        if found is None:
-            raise ValueError(
-                f"the operation {_affine((W, w)).to_xyz()} of bond {bond.site}-{bond.partner} is not a served "
-                "symmetry operation followed by a lattice translation"
-            )
-        index, start = found
-        t1, t2, t3 = (int(x - y) for x, y in zip(w, start, strict=True))
-        codes.append((index, (t1, t2, t3)))
-    return codes
+    return maps
+
+
+def _code(
+    listed: dict[_Op, tuple[int, tuple[Fraction, ...]]], operation: _Op, what: str
+) -> tuple[int, tuple[int, int, int]]:
+    """Return an operation as the index of the first listed entry equal to it modulo a lattice translation, and that translation.
+
+    :param listed: The listed operations, as :func:`_listed` indexes them.
+    :param operation: The operation on the served positions.
+    :param what: What the operation belongs to, for the error message.
+    :return: The 0-based index and the lattice translation.
+    :raises ValueError: If no listed entry is equal to it modulo a lattice translation.
+    """
+    W, w = operation
+    found = listed.get((W, tuple(x % 1 for x in w)))
+    if found is None:
+        raise ValueError(
+            f"the operation {_affine(operation).to_xyz()} of {what} is not a served symmetry operation followed by "
+            "a lattice translation"
+        )
+    index, start = found
+    t1, t2, t3 = (int(x - y) for x, y in zip(w, start, strict=True))
+    return index, (t1, t2, t3)
+
+
+def _check_torsions(torsions: object, nsites: int, count: int, identity: int | None, *, cell: bool) -> None:
+    """Check the JSON shape of an ``_httk_bonds`` ``torsions`` dictionary.
+
+    Its keys are ``atoms``, ``symbols``, ``angles`` and ``angle_uncertainties``. ``atoms`` is a
+    non-empty list of rows of 20 integers ``[site, op, t1, t2, t3]`` per atom with sites in range
+    and operations in range (``identity`` for a unit-cell span); each other
+    key is null or a list aligned with ``atoms`` of a symbol (``_TORSION_SYMBOLS``), an angle in
+    [-180, 180], or a positive uncertainty of a row with an angle, or null.
+
+    :param torsions: The decoded ``torsions`` value, not null.
+    :param nsites: The number of served sites.
+    :param count: The number of served operations (1 when none are served).
+    :param identity: The index of the served identity, or ``None`` when none is served.
+    :param cell: Whether the value is of a unit-cell span.
+    :raises TypeError: If a value has the wrong JSON type.
+    :raises ValueError: If a rule is violated.
+    """
+    if not isinstance(torsions, Mapping):
+        raise TypeError("'torsions' must be a dictionary or null")
+    keys = {"atoms", "symbols", "angles", "angle_uncertainties"}
+    if set(torsions) != keys:
+        raise ValueError(f"'torsions' must have the keys {sorted(keys)}, not {sorted(map(str, torsions))}")
+    atoms = torsions["atoms"]
+    if not isinstance(atoms, list | tuple):
+        raise TypeError("'torsions' 'atoms' must be a list")
+    if not atoms:
+        raise ValueError("'torsions' must be null when there are no statements")
+    for number, row in enumerate(atoms):
+        row = _integers(row, f"'torsions' 'atoms'[{number}]")
+        if len(row) != 20:
+            raise ValueError(f"'torsions' 'atoms'[{number}] must have 20 integers, not {len(row)}")
+        for site, op in zip(row[0::5], row[1::5], strict=True):
+            if not 0 <= site < nsites:
+                raise ValueError(f"'torsions' 'atoms'[{number}] names a site outside 0..{nsites - 1}")
+            if not 0 <= op < count:
+                raise ValueError(f"'torsions' 'atoms'[{number}] names operation {op}, outside 0..{count - 1}")
+            if cell and op != identity:
+                raise ValueError(
+                    f"'torsions' 'atoms'[{number}] names operation {op}, which is not the identity of a unit cell"
+                )
+    columns = {}
+    for key in ("symbols", "angles", "angle_uncertainties"):
+        column = torsions[key]
+        if column is not None and not isinstance(column, list | tuple):
+            raise TypeError(f"'torsions' {key!r} must be a list or null")
+        if column is not None and len(column) != len(atoms):
+            raise ValueError("the lists of 'torsions' must have the same length")
+        columns[key] = [None] * len(atoms) if column is None else column
+    for number, (symbol, angle, uncertainty) in enumerate(
+        zip(columns["symbols"], columns["angles"], columns["angle_uncertainties"], strict=True)
+    ):
+        if symbol is not None and symbol not in _TORSION_SYMBOLS:
+            raise ValueError(f"torsion {number}: unknown symbol {symbol!r}")
+        for name, x in (("angle", angle), ("uncertainty", uncertainty)):
+            if x is not None and (isinstance(x, bool) or not isinstance(x, int | float | Decimal)):
+                raise TypeError(f"torsion {number}: the {name} must be a number or null")
+        if angle is not None and not -180 <= angle <= 180:
+            raise ValueError(f"torsion {number}: the angle {angle!r} is outside [-180, 180]")
+        if uncertainty is not None and (angle is None or not uncertainty > 0):
+            raise ValueError(f"torsion {number}: an uncertainty must be positive and needs an angle")
 
 
 def _integers(value: object, name: str) -> list[int]:
@@ -231,7 +389,8 @@ def _check_bonds_value(
     Rows have six integers, name sites in range and an operation in range (0 when none are
     listed); the shape lists are aligned, name sites in range and known symbols
     (``_SHAPE_SYMBOLS``); each ``pair_rows`` row names its site; a repeated site has disjoint row
-    lists; ``dimensions``, when given, is null or distinct integers from 0 to 3 in increasing order.
+    lists; ``dimensions``, when given, is null or distinct integers from 0 to 3 in increasing order;
+    ``torsions`` is null or as :func:`_check_torsions` checks it.
     For a unit-cell span (``cell``) every row also names the identity ``x,y,z``, and each
     named symbol's number equals the atoms its shape covers, at least 3 for ``I``: a row
     ``(i, j, t)`` adds one atom at each end, ``(i, i, t)`` two at ``i``.
@@ -259,6 +418,8 @@ def _check_bonds_value(
             raise ValueError(f"pairs[{number}] names operation {row[2]}, outside 0..{count - 1}")
         if cell and row[2] != identity:
             raise ValueError(f"pairs[{number}] names operation {row[2]}, which is not the identity of a unit cell")
+    if value.get("torsions") is not None:
+        _check_torsions(value["torsions"], nsites, count, identity, cell=cell)
     if value.get("dimensions") is not None:
         dimensions = _integers(value["dimensions"], "'dimensions'")
         if dimensions != sorted(set(dimensions)) or not all(0 <= x <= 3 for x in dimensions):

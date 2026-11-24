@@ -54,7 +54,7 @@ from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.classes import _species_class
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainStructure, WyckoffSite
-from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond
+from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond, SiteTorsion
 from httk.atomistic.models.structure.numeric import NumericUnitcellStructure
 from httk.atomistic.models.structure.semantics import StructureSymmetry, _stated_symmetry
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
@@ -75,6 +75,7 @@ __all__ = [
     "BareProtostructureRecord",
     "BarePrototypeRecord",
     "BondSourceRecord",
+    "BondTorsionsRecord",
     "CellRecord",
     "ChemicalCompositionRecord",
     "CompositionAmountRecord",
@@ -733,8 +734,108 @@ class BondSourceRecord:
 
 
 @dataclass(frozen=True)
+class BondTorsionsRecord:
+    """Represent the torsion statements of a bond network, as aligned columns with one entry per statement.
+
+    The durable form of the ``torsions`` of a :class:`~httk.atomistic.BondNetwork`, in the
+    normal form of the structure that holds it, for both a unit cell and a fundamental domain:
+    each row of ``atoms`` gives, for atoms A, B, C and D in turn, the site index, the nine entries
+    of the rotation (row-major) and the three of the translation of the atom's operation (see
+    :class:`~httk.atomistic.SiteTorsion`); on a unit cell every rotation is the identity. Its
+    own table keeps a network record without torsions, and a store written before torsions, as
+    it was.
+
+    :param atoms: The atoms of the statements, one exact row of 52 values (13 per atom) each.
+    :param symbols: The symbol of each statement, or ``None`` where it has none.
+    :param angles: The signed angle of each statement in degrees, or ``None`` where it has none.
+    :param uncertainties: The standard uncertainty of each angle in degrees, or ``None``.
+    """
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="atomistic_bond_torsions",
+        identity_name="atomistic_bond_torsions",
+    )
+
+    atoms: Annotated[FracVector, httk.core.storage.markers.Shape(0, 52)]
+    symbols: tuple[str | None, ...]
+    angles: tuple[float | None, ...]
+    uncertainties: tuple[float | None, ...]
+
+    def __post_init__(self) -> None:
+        atoms = FracVector(self.atoms)
+        if len(atoms.dim) != 2 or atoms.dim[1] != 52:
+            raise ValueError(f"BondTorsionsRecord atoms must have 52 columns and at least one row, got dim {atoms.dim}")
+        sites = [row[k] for row in atoms.to_fractions() for k in range(0, 52, 13)]
+        if any(site.denominator != 1 or site < 0 for site in sites):
+            raise ValueError("BondTorsionsRecord site indices must be non-negative integers")
+        symbols = tuple(self.symbols)
+        if not all(symbol is None or isinstance(symbol, str) for symbol in symbols):
+            raise TypeError("BondTorsionsRecord symbols must contain str values or None")
+        angles, uncertainties = (
+            tuple(_optional_float(value, f"BondTorsionsRecord {name}") for value in getattr(self, name))
+            for name in ("angles", "uncertainties")
+        )
+        if not len(symbols) == len(angles) == len(uncertainties) == atoms.dim[0]:
+            raise ValueError("BondTorsionsRecord columns must have one entry per row of atoms")
+        object.__setattr__(self, "atoms", atoms)
+        object.__setattr__(self, "symbols", symbols)
+        object.__setattr__(self, "angles", angles)
+        object.__setattr__(self, "uncertainties", uncertainties)
+
+
+def _torsions_record(network: BondNetwork | None) -> BondTorsionsRecord | None:
+    """Return the durable record of a network's torsion statements, or ``None`` when it has none."""
+    if network is None or network.torsions is None:
+        return None
+    rows = network.torsions
+    return BondTorsionsRecord(
+        FracVector(
+            [
+                [
+                    value
+                    for site, operation in zip(row.sites, row.operations, strict=True)
+                    for value in (
+                        site,
+                        *itertools.chain(*operation.matrix.to_fractions()),
+                        *operation.vector.to_fractions(),
+                    )
+                ]
+                for row in rows
+            ]
+        ),
+        tuple(row.symbol for row in rows),
+        tuple(row.angle for row in rows),
+        tuple(row.uncertainty for row in rows),
+    )
+
+
+def _torsions_from_record(record: BondTorsionsRecord | None) -> tuple[SiteTorsion, ...] | None:
+    """Return stored torsion statements as :class:`~httk.atomistic.SiteTorsion` values, or ``None``."""
+    if record is None:
+        return None
+    rows = record.atoms.to_fractions()
+    return tuple(
+        SiteTorsion(
+            (int(row[0]), int(row[13]), int(row[26]), int(row[39])),
+            (_operation(row[1:13]), _operation(row[14:26]), _operation(row[27:39]), _operation(row[40:52])),
+            symbol,
+            angle,
+            uncertainty,
+        )
+        for row, symbol, angle, uncertainty in zip(
+            rows, record.symbols, record.angles, record.uncertainties, strict=True
+        )
+    )
+
+
+def _operation(values: list[fractions.Fraction]) -> AffineOperation:
+    """Return the operation of 12 stored values: a row-major rotation, then the translation."""
+    return AffineOperation([values[0:3], values[3:6], values[6:9]], values[9:12])
+
+
+@dataclass(frozen=True)
 class UnitcellBondNetworkRecord:
-    """Represent the bonds and shapes of a unit-cell structure's bond network.
+    """Represent the bonds, shapes and torsions of a unit-cell structure's bond network.
 
     The durable form of a unit-cell :class:`~httk.atomistic.BondNetwork` without its sources,
     which the structure record references itself, so equal networks share one row. Each row of
@@ -745,6 +846,8 @@ class UnitcellBondNetworkRecord:
         empty tensor when the structure is known to have no bonds.
     :param shapes: The assigned bond shapes, one symbol per site with ``""`` for a site without
         one, or ``None`` when no shapes are assigned.
+    :param torsions: The torsion statements, or ``None`` when none are stated; ``None`` leaves the
+        content identity unchanged.
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
@@ -755,6 +858,7 @@ class UnitcellBondNetworkRecord:
 
     pairs: Annotated[FracVector, httk.core.storage.markers.Shape(0, 5)]
     shapes: tuple[str, ...] | None = None
+    torsions: Annotated[BondTorsionsRecord | None, IdentitySkipWhenNone()] = None
 
     def __post_init__(self) -> None:
         pairs = FracVector(self.pairs)
@@ -771,6 +875,8 @@ class UnitcellBondNetworkRecord:
             if not all(isinstance(value, str) for value in shapes):
                 raise TypeError("UnitcellBondNetworkRecord shapes must contain str values")
             object.__setattr__(self, "shapes", shapes)
+        if self.torsions is not None and not isinstance(self.torsions, BondTorsionsRecord):
+            raise TypeError("UnitcellBondNetworkRecord torsions must be a BondTorsionsRecord or None")
 
     @classmethod
     def __httk_project__(cls, network: BondNetwork) -> Mapping[str, object]:
@@ -783,7 +889,11 @@ class UnitcellBondNetworkRecord:
         if any(bond.operation.matrix != _IDENTITY_MATRIX for bond in network.pairs):
             raise ValueError("a unit-cell bond operation must be a lattice translation")
         rows = [[bond.site, bond.partner, *bond.operation.vector.to_fractions()] for bond in network.pairs]
-        return {"pairs": FracVector(rows) if rows else FracVector(()), "shapes": _shapes_record(network.shapes)}
+        return {
+            "pairs": FracVector(rows) if rows else FracVector(()),
+            "shapes": _shapes_record(network.shapes),
+            "torsions": _torsions_record(network),
+        }
 
 
 def _network_rows(pairs: FracVector) -> list[list[fractions.Fraction]]:
@@ -1253,10 +1363,10 @@ def _normalize_common(record: Any, *, nsites: int) -> None:
     object.__setattr__(record, "assemblies", assemblies)
 
 
-def _check_source_fields(record: Any, shapes: tuple[str, ...] | None) -> None:
+def _check_source_fields(record: Any, shapes: tuple[str, ...] | None, torsions: BondTorsionsRecord | None) -> None:
     """Check a structure record's bond sources and dimensions: their type, and that each has what it describes."""
     name = type(record).__name__
-    for field_name in ("bonds_source", "shapes_source"):
+    for field_name in ("bonds_source", "shapes_source", "torsions_source"):
         value = getattr(record, field_name)
         if value is not None and not isinstance(value, BondSourceRecord):
             raise TypeError(f"{name} {field_name} must be a BondSourceRecord or None")
@@ -1264,6 +1374,8 @@ def _check_source_fields(record: Any, shapes: tuple[str, ...] | None) -> None:
         raise ValueError(f"{name} bonds_source needs bonds")
     if record.shapes_source is not None and shapes is None:
         raise ValueError(f"{name} shapes_source needs shapes; without shapes there is nothing it assigned")
+    if record.torsions_source is not None and torsions is None:
+        raise ValueError(f"{name} torsions_source needs torsions; without torsions there is nothing it assigned")
     mask = record.bonds_dimensions_mask
     if mask is not None:
         if not isinstance(mask, int) or isinstance(mask, bool):
@@ -1285,10 +1397,14 @@ def _mask_dimensions(mask: int | None) -> tuple[int, ...] | None:
 
 
 def _project_sources(network: BondNetwork | None) -> dict[str, object]:
-    """Project a network's sources onto a structure record's ``bonds_source`` and ``shapes_source``."""
+    """Project a network's sources onto a structure record's ``bonds_source``, ``shapes_source`` and ``torsions_source``."""
     if network is None:
-        return {"bonds_source": None, "shapes_source": None}
-    return {"bonds_source": network.source, "shapes_source": network.shapes_source}
+        return {"bonds_source": None, "shapes_source": None, "torsions_source": None}
+    return {
+        "bonds_source": network.source,
+        "shapes_source": network.shapes_source,
+        "torsions_source": network.torsions_source,
+    }
 
 
 def _validate_normalized_composition(record: Any) -> None:
@@ -1388,6 +1504,8 @@ class UnitcellStructureRecord:
     :param bonds_source: Who assigned the bonds, if known; outside the content identity.
     :param shapes_source: Who assigned the shapes, if not ``bonds_source``; outside the content
         identity, and it needs network shapes.
+    :param torsions_source: Who assigned the torsions, if not ``bonds_source``; outside the content
+        identity, and it needs network torsions.
     :param source_file: The verbatim file this structure was read from, when the entry records an input file exactly
         as given; outside content identity while ``None``.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
@@ -1423,6 +1541,7 @@ class UnitcellStructureRecord:
     bonds_dimensions_mask: Annotated[int | None, IdentitySkip()] = None
     bonds_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
     shapes_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
+    torsions_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
     source_file: Annotated[FileRecord | None, IdentitySkipWhenNone()] = None
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
@@ -1475,7 +1594,11 @@ class UnitcellStructureRecord:
             raise TypeError("UnitcellStructureRecord source_file must be a FileRecord or None")
         if self.bonds is not None and not isinstance(self.bonds, UnitcellBondNetworkRecord):
             raise TypeError("UnitcellStructureRecord bonds must be a UnitcellBondNetworkRecord or None")
-        _check_source_fields(self, None if self.bonds is None else self.bonds.shapes)
+        _check_source_fields(
+            self,
+            None if self.bonds is None else self.bonds.shapes,
+            None if self.bonds is None else self.bonds.torsions,
+        )
         object.__setattr__(self, "species_at_sites", species_at_sites)
 
     @classmethod
@@ -1540,6 +1663,10 @@ class FundamentalDomainStructureRecord:
         needs ``bonds``.
     :param shapes_source: Who assigned the shapes, if not ``bonds_source``; outside the content
         identity, and it needs ``shapes``.
+    :param torsions: The torsion statements, one least orbit member per torsion orbit, or ``None``
+        when none are stated; needs ``bonds``, and ``None`` leaves the content identity unchanged.
+    :param torsions_source: Who assigned the torsions, if not ``bonds_source``; outside the content
+        identity, and it needs ``torsions``.
     :param id: The human-readable entry id shared by all revisions; minted by the store when None.
     :param immutable_id: The per-revision immutable id; minted by the store when None.
     :param last_modified: The source modification timestamp, if stated.
@@ -1578,6 +1705,8 @@ class FundamentalDomainStructureRecord:
     bonds_dimensions_mask: Annotated[int | None, IdentitySkip()] = None
     bonds_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
     shapes_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
+    torsions: Annotated[BondTorsionsRecord | None, IdentitySkipWhenNone()] = None
+    torsions_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
     immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
     last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
@@ -1623,7 +1752,12 @@ class FundamentalDomainStructureRecord:
             if self.bonds is None:
                 raise ValueError("FundamentalDomainStructureRecord shapes need bonds")
             object.__setattr__(self, "shapes", shapes)
-        _check_source_fields(self, self.shapes)
+        if self.torsions is not None:
+            if not isinstance(self.torsions, BondTorsionsRecord):
+                raise TypeError("FundamentalDomainStructureRecord torsions must be a BondTorsionsRecord or None")
+            if self.bonds is None:
+                raise ValueError("FundamentalDomainStructureRecord torsions need bonds")
+        _check_source_fields(self, self.shapes, self.torsions)
         coordinate_precision = to_precision(self.coordinate_precision)
         object.__setattr__(self, "domain_sites", domain_sites)
         object.__setattr__(self, "coordinate_precision", coordinate_precision)
@@ -1649,6 +1783,7 @@ class FundamentalDomainStructureRecord:
                 "coordinate_precision": structure.coordinate_precision,
                 "bonds": None if structure.bonds is None else structure.bonds.pairs,
                 "shapes": None if structure.bonds is None else _shapes_record(structure.bonds.shapes),
+                "torsions": _torsions_record(structure.bonds),
                 "bonds_dimensions_mask": _dimensions_mask(structure.bonds_dimensions),
                 **_project_sources(structure.bonds),
             }
@@ -1828,6 +1963,8 @@ def _domain_structure_from_record(
             _shapes_from_record(record.shapes),
             _bond_source(record.bonds_source),
             _bond_source(record.shapes_source),
+            _torsions_from_record(record.torsions),
+            _bond_source(record.torsions_source),
         ),
         **_common_constructor_values(record),
     )
@@ -1842,6 +1979,8 @@ def _unitcell_network_from_record(record: UnitcellStructureRecord) -> BondNetwor
         _shapes_from_record(record.bonds.shapes),
         _bond_source(record.bonds_source),
         _bond_source(record.shapes_source),
+        _torsions_from_record(record.bonds.torsions),
+        _bond_source(record.torsions_source),
     )
 
 
@@ -1902,8 +2041,15 @@ def validate_structure_record(
         raise ValueError(f"{name} bonds are not the normalized bond network")
     elif _shapes_record(network.shapes) != record.shapes:
         raise ValueError(f"{name} shapes are not in their normal form")
+    torsions = record.bonds.torsions if isinstance(record, UnitcellStructureRecord) else record.torsions
+    if network.torsions != _torsions_from_record(torsions):
+        raise ValueError(f"{name} torsions are not in their normal form")
     # record equality skips the sources, so compare them explicitly
-    for field_name, source in (("bonds_source", network.source), ("shapes_source", network.shapes_source)):
+    for field_name, source in (
+        ("bonds_source", network.source),
+        ("shapes_source", network.shapes_source),
+        ("torsions_source", network.torsions_source),
+    ):
         if _source_fields(_bond_source_record(source)) != _source_fields(getattr(record, field_name)):
             raise ValueError(f"{name} {field_name} is not in its normal form")
     if record.bonds_dimensions_mask != _dimensions_mask(structure.bonds_dimensions):
@@ -1960,6 +2106,7 @@ def _unitcell_record_from_structure(structure: UnitcellStructure) -> UnitcellStr
     )
     values["bonds_source"] = None if network is None else _bond_source_record(network.source)
     values["shapes_source"] = None if network is None else _bond_source_record(network.shapes_source)
+    values["torsions_source"] = None if network is None else _bond_source_record(network.torsions_source)
     return UnitcellStructureRecord(**values)
 
 
@@ -3428,6 +3575,9 @@ def _domain_structure_record_from_value(
     )
     values["bonds_source"] = None if structure.bonds is None else _bond_source_record(structure.bonds.source)
     values["shapes_source"] = None if structure.bonds is None else _bond_source_record(structure.bonds.shapes_source)
+    values["torsions_source"] = (
+        None if structure.bonds is None else _bond_source_record(structure.bonds.torsions_source)
+    )
     return record_type(**values)
 
 

@@ -7,7 +7,7 @@ from .cif import CIFStructure, read_cif_structures
 from .comparison import same_crystal
 from .datastream import DatastreamStructure
 from .like import StructureLike
-from .network import BondNetwork, BondSource, SiteBond
+from .network import BondNetwork, BondSource, SiteBond, SiteTorsion
 from .numeric import NumericUnitcellStructure
 from .numeric_view import NumericUnitcellStructureView
 from .optimade import OptimadeStructure
@@ -43,6 +43,7 @@ __all__ = [
     "PlainStructureView",
     "RecordStructure",
     "SiteBond",
+    "SiteTorsion",
     "StructureAPI",
     "StructureBackend",
     "StructureLike",

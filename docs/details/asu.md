@@ -27,7 +27,7 @@ the cell.
 | `transform` | the transform from that stored setting to the structure's own coordinates; normally identity |
 | `wyckoff_sites` | one {py:class}`~httk.atomistic.WyckoffSite` per orbit: a Wyckoff letter, its free parameters, and a species name |
 | `species` | the species the sites name |
-| `bonds` | the optional bond network, a {py:class}`~httk.atomistic.BondNetwork` (one {py:class}`~httk.atomistic.SiteBond` per bond orbit, optional shapes, sources), or `None` |
+| `bonds` | the optional bond network, a {py:class}`~httk.atomistic.BondNetwork` (one {py:class}`~httk.atomistic.SiteBond` per bond orbit, optional shapes and torsions, sources), or `None` |
 
 An `WyckoffSite` carries a bare Wyckoff letter (`"e"`, not `"4e"`) and one exact
 value per degree of freedom — none at all for a fixed position such as an
@@ -41,7 +41,8 @@ Every structure exposes `bonds`: a {py:class}`~httk.atomistic.BondNetwork`, or
 `None` when no network is known (the default of every way of building one). A
 network holds `pairs`, the bonds (none means the structure is known to have no
 bonds); `shapes`, one shape symbol or `None` per site, or `None` when no shapes are
-assigned (below); and `source` and `shapes_source`, a
+assigned (below); `torsions`, torsion statements or `None` (see [Torsions](#torsions));
+and `source`, `shapes_source` and `torsions_source`, a
 {py:class}`~httk.atomistic.BondSource` each (free-text `description`, `software`,
 `version`, `uri`, every field a string or `None`), naming who assigned the bonds
 and the shapes (`shapes_source` `None`: the same as `source`). The pairs and the
@@ -84,7 +85,7 @@ cell has and the old one lacks is checked too); otherwise the network is dropped
 | `canonicalize` / `canonical_asu` (both `symmetry` modes), `canonical_asu_protostructure` and `canonical_asu_protostructure_assignments` (without `lift=True`) | carried when invariant |
 | re-describing a left-handed cell right-handed, the mirror image and `normalize_chirality`, the affine-normalizer actions, origin shifts and the orientation of the canonical cell | carried |
 | cell reductions of a domain (a P1 supercell to its primitive cell) | carried when invariant under the translations given up |
-| reducing species to their classes, renaming and reordering sites; CIF reading, which reads `_geom_bond_` loops into the network (see {doc}`cif`) | carried |
+| reducing species to their classes, renaming and reordering sites; CIF reading, which reads `_geom_bond_` and `_geom_torsion_` loops into the network (see {doc}`cif`) | carried |
 | domain to unit cell: `UnitcellStructureView` of a domain and its `unview()`, and the `sites` that `CIFStructure`, `DatastreamStructure` and `RecordStructure` present (below) | carried |
 | unit cell to domain by recognition: `recognize_asu`, `ASUStructureView`, `conventional_cell` and `primitive_cell` of a unit cell, and the canonicalizers above given a unit cell | carried when invariant |
 | supercells: `build_supercell`, `orthogonal_supercell` and `cubic_supercell` (any input, presented as a unit cell first) | carried |
@@ -96,7 +97,7 @@ cell has and the old one lacks is checked too); otherwise the network is dropped
 | coincident sites that cannot be told apart: two sites of one species at one point wherever a unit-cell network is carried, and any coincident sites of a unit cell given to the canonicalizers, whose anonymous frames rename the species | dropped |
 | `interpolate_structures` | dropped on the frames between the end points (new geometry); the end points keep theirs |
 | templates and anonymization (`FundamentalDomainTemplate`, `Structuretype`) and the representatives of `Protostructure` and `Prototype` | dropped (atoms substituted; no identity depends on bonds) |
-| adding, removing or substituting atoms; the ASE and pymatgen bridges; file writers (CIF writes no `_geom_bond_` loop); trajectory frames | dropped, or not represented |
+| adding, removing or substituting atoms; the ASE and pymatgen bridges; file writers other than CIF (which writes the bond and torsion loops, see {doc}`cif`); trajectory frames | dropped, or not represented |
 
 Lifts are the one deviation from the rule: a lift describes the same atoms, idealized, yet it
 still drops the network; carrying it by matching atoms, as recognition does, is left to a later
@@ -104,7 +105,10 @@ version.
 
 Assigned shapes (below) and the sources are carried and dropped with the network; sites with
 different assigned shapes that merge drop both, as a bond set that is not
-invariant does (`Protonetstructure.from_asu` raises instead).
+invariant does (`Protonetstructure.from_asu` raises instead). Torsion statements (below) are
+carried by every route of the table that carries the network and dropped with it; where
+statements that differ land on one torsion orbit, only the torsions and `torsions_source` are
+dropped, and the pairs and shapes are kept.
 
 Through recognition (`recognize_asu`, `ASUStructureView`, `canonicalize` with
 `symmetry="detect"` and `canonical_asu_protostructure`, from a domain or a unit cell) every
@@ -168,11 +172,108 @@ content identity and are stored (as `""` for a site without a symbol); baseline
 shapes are never stored, so a structure without assigned shapes keeps its content
 identity.
 
+### Torsions
+
+A network may carry `torsions`, torsion statements modelled on CIF's `_geom_torsion_` loop:
+a tuple of {py:class}`~httk.atomistic.SiteTorsion`, or `None` when none are stated (an empty
+tuple is `None`), with `torsions_source` naming who assigned them (`None`: the same as
+`source`). A statement names four atoms A, B, C and D by `sites` and `operations`, each read
+as the partner of a `SiteBond`: on a fundamental domain atom `k` is `operations[k]` applied
+to the reference atom of `wyckoff_sites[sites[k]]` and the statement stands for its orbit
+under the group; on a unit cell it is the atom at `sites[sites[k]]` moved by the lattice
+translation `operations[k]`. It gives a `symbol`, a signed `angle` in degrees, or both, and
+optionally the `uncertainty` of the angle (a standard uncertainty in degrees). Any bond may
+carry statements, and B-C need not be a bond of the network.
+
+| `symbol` | meaning |
+| --- | --- |
+| `c`, `g`, `t` | the protonet torsion letters cis, gauche and trans (see {doc}`/prototypes`) |
+| `sp`, `sc`, `ac`, `ap` | the Klyne-Prelog ranges synperiplanar, synclinal, anticlinal and antiperiplanar: 0 to 30, 30 to 90, 90 to 150 and 150 to 180 degrees in magnitude |
+| `+sc`, `-sc`, `+ac`, `-ac` | the signed Klyne-Prelog ranges |
+| `none` | the bond B-C deliberately has no torsion class: it gets no protonet letter |
+
+The angle follows the IUPAC (Klyne-Prelog) convention: viewed along B to C, it is positive
+when the bond A-B turns clockwise, by less than 180 degrees, to eclipse the bond C-D. It
+describes the Cartesian handedness of the four atoms as named, so reversing them (D-C-B-A)
+keeps it, and the mirror image negates it: a statement's image under an improper group
+element (determinant -1) has the opposite angle and signed symbol, and so does every
+statement under a re-description that changes the Cartesian handedness of the coordinates
+(a left-handed basis, or a setting transform with determinant -1, against a right-handed
+one). The constructor raises `ValueError` for other than four sites and operations, an
+operation outside the group (a fundamental domain) or other than a lattice translation (a
+unit cell), a site index out of range, one atom named twice where atoms must differ
+(consecutive atoms, A and C, B and D), an unknown symbol, an angle that is not finite or lies
+outside [-180, 180] (-180 is read as 180 and -0 as 0), an uncertainty that is not positive or
+has no angle, a statement with neither symbol nor angle, and a signed symbol whose sign
+disagrees with the angle (0 and 180 agree with both); the Klyne-Prelog ranges are not checked
+against the angle.
+
+The statements are put in a normal form, so equal statements in any spelling compare equal
+and repeats collapse. On a unit cell a statement is translated so that atom B has the
+translation 0, and the smaller of it and its reversal by `(sites, (n·n, n) per atom)` is
+kept, sorted by that key. On a fundamental domain a group element brings atom B to its
+reference atom with the identity, every other atom's operation is the least of its coset,
+and the least of the statement and its reversal over the site-symmetry group of B is kept,
+sorted by sites and operations (the unit-cell form is the P1 case). An improper element
+that maps a statement onto itself or its reversal makes it its own mirror image: it keeps
+`|angle|` and the unsigned symbol. Two statements of one orbit with different symbols,
+angles or uncertainties raise `ValueError` (*conflicting torsion statements*). Torsions take
+part in equality; `torsions_source` is provenance, like the other sources. Storage records keep
+both (see [Storing networks](#storing-networks)), and OPTIMADE serves them as
+`_httk_bonds.torsions` and `_httk_bonds.torsions_source` (see
+[Serving bond networks](#serving-bond-networks)).
+
+**Baseline torsions.** {py:func}`~httk.atomistic.distance_bonds` (with `torsions=True`, the
+default) and {py:func}`~httk.atomistic.assign_baseline_torsions` give every bond orbit that
+the protonet torsion rules give a letter (see {doc}`/prototypes`) one statement: the rules'
+reference atoms A-B-C-D, the letter as `symbol`, and the signed angle from the exact
+geometry rounded to 0.01 degrees, never across the letter's edge (a `g` at 119.996 degrees is
+stored as 119.99, a `t` stays at 120 or above), without an uncertainty. The rules read the
+shapes the network has, or else baseline shapes that are not stored. A structure that is not
+periodic in three directions gets no statements from `distance_bonds`, and
+`assign_baseline_torsions` refuses it; a unit cell is judged as the P1 fundamental domain of
+its sites. Both name the baseline in `torsions_source`: software `httk_basic`, the installed
+version, and the description `Baseline torsions: the protonet torsion letter (c, g or t) of
+every bond the letter rules qualify, with the signed IUPAC torsion angle of the reference atoms
+A-B-C-D rounded to 0.01 degrees.` `assign_baseline_torsions` keeps the pairs, shapes and their
+sources; it refuses a structure without a network or whose network has torsions (and one
+whose baseline shapes cannot be computed), and returns one where no bond gets a letter unchanged. As for the shapes, `math.acos` may differ
+in the last bit between platforms, which changes a stored angle only within about 1e-13
+degrees of a rounding boundary.
+
+`Protonetstructure.from_asu` takes a bond's letter from the statements on its reference atoms
+before it computes one, and a `none` statement removes it (see {doc}`/prototypes`):
+
+```python
+from dataclasses import replace
+from fractions import Fraction as F
+
+from httk.atomistic import (
+    AffineOperation, ASUStructure, Protonetstructure, SiteBond, Species, WyckoffSite,
+    assign_baseline_torsions,
+)
+
+q = F(1, 4)  # the chain X-A-B-C-D-Y in P1, every bond angle 90 degrees
+points = [(q, 3 * q, q), (q, 2 * q, q), (2 * q, 2 * q, q), (2 * q, 2 * q, 2 * q), (2 * q, 3 * q, 2 * q),
+          (2 * q, 3 * q, 3 * q)]
+one = AffineOperation.identity()
+chain = ASUStructure([[4, 0, 0], [0, 5, 0], [0, 0, 6]], 1, [WyckoffSite("a", p, "C") for p in points],
+                     [Species("C", ("C",), (1,))], bonds=[SiteBond(i, i + 1, one) for i in range(5)])
+stated = assign_baseline_torsions(chain)
+(row,) = stated.bonds.torsions
+assert (row.sites, row.symbol, row.angle) == ((1, 2, 3, 4), "g", -90.0)  # gauche, A-B-C-D left-handed
+assert str(Protonetstructure.from_asu(stated).label) == "A_aP6_1_6a__1~2g.3_2~4_3~5_4~6:C"
+network = replace(stated.bonds, torsions=[replace(row, symbol="t", angle=None)])  # a statement by hand
+trans = ASUStructure(chain.cell, 1, chain.wyckoff_sites, chain.species, bonds=network)
+assert str(Protonetstructure.from_asu(trans).label) == "A_aP6_1_6a__1~2t.3_2~4_3~5_4~6:C"
+```
+
 ### Networks on unit cells
 
 A {py:class}`~httk.atomistic.UnitcellStructure` takes `bonds=` in the same three
-forms, between its explicit sites and without symmetry: the pairs and shapes index
-`sites`, and the operation of each {py:class}`~httk.atomistic.SiteBond` must be a
+forms, between its explicit sites and without symmetry: the pairs and shapes (and the
+torsions, see [Torsions](#torsions)) index `sites`, and the operation of each
+{py:class}`~httk.atomistic.SiteBond` must be a
 lattice translation `n` (zero along a non-periodic direction): the atom at
 `sites[site]`, as stored and not wrapped, is bonded to the atom at `sites[partner]`
 moved by `n`, and the bond stands for itself and its lattice translates. A
@@ -205,7 +306,7 @@ carry drops a network, the reason is logged at debug level with the context `bon
 
 ### Storing networks
 
-The storage records keep the network with its shapes and sources. A fundamental-domain
+The storage records keep the network with its shapes, torsions and sources. A fundamental-domain
 or asymmetric-unit record stores its pairs and assigned shapes in its own `bonds` and
 `shapes` fields; a unit-cell record references a
 `UnitcellBondNetworkRecord`, one exact row
@@ -224,6 +325,19 @@ identity, as the integer `bonds_dimensions_mask` with bit `d` set when dimension
 present (0 for a network without bonds); validation rejects a mask that differs from the
 network's.
 
+Torsions are stored in a `BondTorsionsRecord` of their own: aligned columns with one entry per
+statement, in its normal form. `atoms` holds per statement, for A, B, C and D in turn, the site
+index, the nine entries of the rotation (row-major) and the three of the translation of the
+atom's operation, so one record class serves both kinds of structure (on a unit cell every
+rotation is the identity); `symbols`, `angles` and `uncertainties` hold the symbol and the
+floats of each statement, `None` where it has none. A unit-cell network record references it as
+`torsions`, and so does a fundamental-domain or asymmetric-unit record. The torsions are part of
+the content identity, so equal networks with equal torsions share one network row; a structure
+without torsions (`torsions` `None`) keeps the content id it had before torsions were stored.
+`torsions_source` is a `BondSourceRecord` reference on the structure record, outside the content
+identity like the other sources. Validation rejects stored torsions that are not in their normal
+form, a `torsions_source` without torsions and a `torsions_source` equal to the `bonds_source`.
+
 Because sources are outside the content identity but kept, **re-saving equal content with a
 different source cannot be recorded**: `save`, `replace` and `bulk_ingest` raise
 `EntryMetadataConflictError` on every backend and the stored source stays. A stored
@@ -235,6 +349,9 @@ store, or save it as an alternative (`alternative_of`).
 Stores written by a development version before unit-cell networks were stored reopen with
 `upgrade=True`: the new tables and nullable references are added, and every stored row keeps
 its content id and network, with unknown sources. The same holds for stores written before
+torsions were stored: the upgrade adds the `BondTorsionsRecord` table and the nullable
+`torsions` and `torsions_source` references, and every stored row keeps its content id and reads
+back without torsions. The same holds for stores written before
 the dimensions were stored: the upgrade adds the nullable column, and rows written before it
 serve `dimensions` as `null` and match `IS UNKNOWN` until the store is rebuilt. Re-saving such
 a row cannot fill it: the value is outside the content identity, so, as with sources, a
@@ -279,9 +396,13 @@ where a non-metal is present, and no metal to non-metal bond longer than r(a) + 
 across a shared, more electronegative non-metal.`, with the `tolerance` given. With
 `shapes=True`, the default, every site with two or more bonds also gets its baseline
 shape (`shapes_source` `None`: the same source); `shapes=False` leaves the shapes
+unassigned. With `torsions=True`, the default, a structure periodic in three directions
+also gets its baseline torsions (see [Torsions](#torsions)), read with the network's shapes or,
+with `shapes=False`, with baseline shapes that are not stored; `torsions=False` leaves them
 unassigned. A baseline that cannot assign a shape raises `ValueError` suggesting
 `shapes=False`; that includes a fundamental-domain site placed at a special point of
-its own Wyckoff letter. {py:func}`~httk.atomistic.assign_baseline_shapes` assigns the
+its own Wyckoff letter. With `shapes=False` such a structure gets no torsions either (logged at
+debug level with the context `bonds`). {py:func}`~httk.atomistic.assign_baseline_shapes` assigns the
 baseline shapes to a network without shapes, from any source: it keeps the pairs and
 `source`, and names the baseline in `shapes_source` (software `httk_basic`, the
 installed version). It refuses a structure without a network or with shapes, and
@@ -697,8 +818,8 @@ setting that in that case has no name.
 
 The bond network is served as `_httk_bonds`
 (`https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds`, version 0.1.0): a
-dictionary of `pairs`, `shapes`, `source`, `shapes_source` and `dimensions`, or `null` without
-a network. It is large, so it is not a default response field: ask for it with
+dictionary of `pairs`, `shapes`, `source`, `shapes_source`, `dimensions`, `torsions` and
+`torsions_source`, or `null` without a network. It is large, so it is not a default response field: ask for it with
 `response_fields`, together with `space_group_symmetry_operations_xyz`, which it indexes.
 
 `dimensions` is the structure's `bonds_dimensions` as a list (see
@@ -732,6 +853,21 @@ third list, `pair_rows`, for a shape over only some rows of `pairs` (and then fo
 shapes on one site); httk never serves it, because a network holds one shape per site over all
 of its bonds.
 
+`torsions` is `null` without torsion statements, or aligned lists with one entry per statement
+(see [Torsions](#torsions)): `atoms`, a row of 20 integers `[site, op, t1, t2, t3]` for A, B, C
+and D in turn, each atom read as the bonded atom of a row of `pairs`, with its own operation and
+translation; `symbols`; `angles`, signed, in degrees; and `angle_uncertainties`. Each of the last
+three is `null` when no statement has a value in it. The rows are absolute: each atom's stored
+atom is written in the served coordinates and its operation looked up in the served list as a
+bond's is, and no atom is moved onto the identity (on a fundamental domain that move could be an
+improper served operation, which would negate the angle). The served atoms are the stored atoms
+under the same lattice vectors, so a client that rebuilds the four atoms from the served
+positions, `space_group_symmetry_operations_xyz` and `lattice_vectors` computes the served signed
+angle. A row stands for its orbit on a fundamental domain, whose images under improper operations
+have the opposite sign, and for its lattice translates on a unit cell. `torsions_source` is
+served as `shapes_source` is, and a stored record serves its stored statements. Torsions cannot
+be filtered.
+
 A network that cannot be served is served as `null` with a warning, as is a stored record
 whose shapes are no longer valid; numeric structures and CIF records serve `null`.
 `OptimadeStructure` reads `_httk_bonds` back for `unit_cell` and `molecular_unit_cell` spans,
@@ -741,7 +877,16 @@ number equal to the atoms its shape covers, and at least three for `I`); a viola
 `IncompleteOptimadeResourceError`. Shapes it cannot represent, `pair_rows` over only some of a
 site's rows or several shapes on one site, are dropped with a warning and the bonds are kept.
 For the other spans it gives `None`. It checks that `dimensions` is `null` or distinct integers
-from 0 to 3 in increasing order and otherwise ignores it: the structure derives its own.
+from 0 to 3 in increasing order and otherwise ignores it: the structure derives its own. It
+checks the shape of `torsions` (the four keys, aligned lists, rows of 20 integers, sites and
+operations in range, identity operations, known symbols, angles in [-180, 180], and positive
+uncertainties only with an angle), and a violation is an `IncompleteOptimadeResourceError`. It
+then puts the statements in their normal form itself, before the structure is built, so reading
+never fails on a statement: one that is no valid statement for the cell (a signed symbol whose
+sign disagrees with the angle, one atom named twice, neither symbol nor angle, a translation
+along a non-periodic direction) is dropped, and so are statements of one atom quadruple with
+different data. One warning (context `bonds`) counts the dropped statements; the bonds and the
+other statements are kept, and `torsions_source` is dropped when no statement is left.
 
 ## The symmetry tables
 

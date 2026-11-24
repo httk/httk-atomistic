@@ -302,7 +302,10 @@ class UnitcellStructure(StructureSemanticsMixin, StructureBackend):
         ``sites[partner]`` moved by ``n``, and the bond stands for itself and its lattice
         translates. The pairs are in normal form: each bond once, oriented ``site <= partner`` (a
         bond of a site to a translate of itself with the lexicographically smaller of ``n`` and
-        ``-n``), sorted by ``(site, partner, n.n, n)``.
+        ``-n``), sorted by ``(site, partner, n.n, n)``. Torsion statements (see
+        :class:`~httk.atomistic.SiteTorsion`) are in normal form too: atom B untranslated, the
+        smaller of a statement and its reversal by ``(sites, (n.n, n) per atom)``, each once, sorted
+        by that key.
 
         :return: The network, or ``None`` when no network is known.
         """

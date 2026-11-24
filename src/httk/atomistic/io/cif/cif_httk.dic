@@ -7,8 +7,9 @@
 #  and writes besides those of the CIF core dictionary: exact companions of  #
 #  cell parameters, coordinates and occupancies, the species of each atom    #
 #  site, and the bond network extras (the count of a known-empty network,    #
-#  the bond source, the shape of each site and the shape source). The bonds  #
-#  themselves are the core _geom_bond_ items.                                #
+#  the bond source, the shape of each site and the shape source, the symbol  #
+#  of each torsion and the torsion source). The bonds and torsions           #
+#  themselves are the core _geom_bond_ and _geom_torsion_ items.             #
 #                                                                            #
 #  Naming convention. The CIF1 data names httk writes start with the local   #
 #  prefix: _httk_<category>_<object>, for example                            #
@@ -44,8 +45,8 @@ data_CIF_HTTK
 ;
     Local data names of httk: exact companions of standard numeric items, the
     species of each atom site, and the bond network items (network count,
-    bond source, site shapes and shape source) that accompany the core
-    _geom_bond_ loop.
+    bond source, site shapes and shape source, torsion symbols and torsion
+    source) that accompany the core _geom_bond_ and _geom_torsion_ loops.
 ;
 
 save_CIF_HTTK_HEAD
@@ -312,6 +313,50 @@ save_atom_site.httk_species
     _type.source                  Assigned
     _type.container               Single
     _type.contents                Text
+
+save_
+
+save_geom_torsion.httk_symbol
+
+    _definition.id                '_geom_torsion.httk_symbol'
+    _alias.definition_id          '_httk_geom_torsion_symbol'
+    _definition.update            2026-11-24
+    _description.text
+;
+    A class of the torsion angle of the _geom_torsion_ row, for the atoms
+    named in the row's order. httk writes the item in the _geom_torsion_
+    loop when a row has a symbol, '?' in rows without one; a row may give a
+    symbol without an angle (_geom_torsion '?'). A signed symbol agrees in
+    sign with the row's angle (0 and 180 agree with both); the magnitude
+    ranges of the Klyne-Prelog symbols are not checked against the angle.
+    Like the angle, a signed symbol describes the Cartesian handedness of
+    the atoms, so the image of a row under an improper symmetry operation
+    has the opposite sign. httk reads c, g and t, and the Klyne-Prelog
+    ranges, into the torsion letters of its bonding-net labels, and none
+    states that the bond between atoms 2 and 3 deliberately has none.
+;
+    _name.category_id             geom_torsion
+    _name.object_id               httk_symbol
+    _type.purpose                 State
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Code
+
+    loop_
+      _enumeration_set.state
+      _enumeration_set.detail
+         c      'cis, the httk torsion letter'
+         g      'gauche, the httk torsion letter'
+         t      'trans, the httk torsion letter'
+         sp     'synperiplanar: 0 to 30 degrees in magnitude'
+         sc     'synclinal: 30 to 90 degrees in magnitude'
+         ac     'anticlinal: 90 to 150 degrees in magnitude'
+         ap     'antiperiplanar: 150 to 180 degrees in magnitude'
+         +sc    'synclinal with a positive angle'
+         -sc    'synclinal with a negative angle'
+         +ac    'anticlinal with a positive angle'
+         -ac    'anticlinal with a negative angle'
+         none   'the bond of atoms 2 and 3 deliberately has no torsion class'
 
 save_
 
@@ -627,6 +672,117 @@ save_httk_shapes.source_uri
     assigned the shapes.
 ;
     _name.category_id             httk_shapes
+    _name.object_id               source_uri
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Uri
+
+save_
+
+save_HTTK_TORSIONS
+
+    _definition.id                HTTK_TORSIONS
+    _definition.scope             Category
+    _definition.class             Set
+    _definition.update            2026-11-24
+    _description.text
+;
+    Items naming who assigned the torsions of the _geom_torsion_ loop, when
+    that differs from the source of the bonds.
+;
+    _name.category_id             CIF_HTTK_HEAD
+    _name.object_id               HTTK_TORSIONS
+
+save_
+
+save_httk_torsions.source_description
+
+    _definition.id                '_httk_torsions.source_description'
+    _alias.definition_id          '_httk_torsions_source_description'
+    _definition.update            2026-11-24
+    _description.text
+;
+    Free text naming who or what assigned the torsions of the _geom_torsion_
+    loop, for example the rule used.
+    Unknown is '?'. httk writes the items, all four, when the torsions or
+    the bonds have a source (the bond source when the torsions have none of
+    their own). Without these items the torsion source is the file's
+    _geom_torsion_ loop itself: httk reads it as the description 'Torsion
+    angles listed in the CIF _geom_torsion loop'.
+;
+    _name.category_id             httk_torsions
+    _name.object_id               source_description
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_httk_torsions.source_software
+
+    _definition.id                '_httk_torsions.source_software'
+    _alias.definition_id          '_httk_torsions_source_software'
+    _definition.update            2026-11-24
+    _description.text
+;
+    An identifier of the software or rule set that assigned the torsions of
+    the _geom_torsion_ loop.
+    Unknown is '?'. httk writes the items, all four, when the torsions or
+    the bonds have a source (the bond source when the torsions have none of
+    their own). Without these items the torsion source is the file's
+    _geom_torsion_ loop itself: httk reads it as the description 'Torsion
+    angles listed in the CIF _geom_torsion loop'.
+;
+    _name.category_id             httk_torsions
+    _name.object_id               source_software
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_httk_torsions.source_version
+
+    _definition.id                '_httk_torsions.source_version'
+    _alias.definition_id          '_httk_torsions_source_version'
+    _definition.update            2026-11-24
+    _description.text
+;
+    The version of that software or rule set.
+    Unknown is '?'. httk writes the items, all four, when the torsions or
+    the bonds have a source (the bond source when the torsions have none of
+    their own). Without these items the torsion source is the file's
+    _geom_torsion_ loop itself: httk reads it as the description 'Torsion
+    angles listed in the CIF _geom_torsion loop'.
+;
+    _name.category_id             httk_torsions
+    _name.object_id               source_version
+    _type.purpose                 Audit
+    _type.source                  Assigned
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_httk_torsions.source_uri
+
+    _definition.id                '_httk_torsions.source_uri'
+    _alias.definition_id          '_httk_torsions_source_uri'
+    _definition.update            2026-11-24
+    _description.text
+;
+    A URI documenting how the torsions of the _geom_torsion_ loop were
+    assigned.
+    Unknown is '?'. httk writes the items, all four, when the torsions or
+    the bonds have a source (the bond source when the torsions have none of
+    their own). Without these items the torsion source is the file's
+    _geom_torsion_ loop itself: httk reads it as the description 'Torsion
+    angles listed in the CIF _geom_torsion loop'.
+;
+    _name.category_id             httk_torsions
     _name.object_id               source_uri
     _type.purpose                 Audit
     _type.source                  Assigned

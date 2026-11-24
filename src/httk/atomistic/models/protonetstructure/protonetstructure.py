@@ -125,10 +125,14 @@ class Protonetstructure(ProtonetstructureBackend):
         structure's own network and supplied shapes are ignored; ``shapes`` then gives the supplied
         shapes. Every site with two or more bonds gets a shape: its supplied symbol, else the
         baseline detector's (:mod:`httk.atomistic.symmetry.shapes`), which is the only use of the
-        geometry, together with the torsion letters (:mod:`httk.atomistic.symmetry.torsions`), which
-        are always computed from the geometry. Each bond stands for its whole
-        symmetry orbit, so listing any one member of an orbit is enough and repeats collapse. Which
-        pairs are bonded is the caller's responsibility: ``~`` means a covalent bond of unspecified
+        geometry, together with the torsion letters (:mod:`httk.atomistic.symmetry.torsions`). A
+        bond's letter comes from the network's torsion statements (``torsions``, see
+        :class:`~httk.atomistic.SiteTorsion`) where one on its reference atoms determines it, a
+        ``none`` statement on the bond leaves it without a letter, and otherwise the letter is
+        computed from the geometry; bonds given as index tuples have no statements. Each bond
+        stands for its whole symmetry orbit, so listing any one member of an orbit is enough and
+        repeats collapse. Which pairs are bonded is the caller's responsibility: ``~`` means a
+        covalent bond of unspecified
         order, dative bonds counted as covalent. When two species share a class whose structure has
         higher symmetry than declared, that symmetry is recognized and the bonds are re-expressed in
         it, which needs the bond set to be invariant under it. The result is the constructor's: the
@@ -157,7 +161,8 @@ class Protonetstructure(ProtonetstructureBackend):
             merge under it; if a site lies at a special point of its own Wyckoff letter (its bond
             count and shape are undefined, so it is refused even with supplied shapes and even when
             it has no bonds: give it the special letter); if a site without a supplied shape has a
-            zero-length bond; if the canonical net
+            zero-length bond; if a ``none`` torsion statement and a letter-determining one, or two
+            letter-determining statements that disagree, are on one bond; if the canonical net
             needs a translation outside -5..+4 (D4); or if ``on_limit`` is unknown.
         :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the net search runs out of
             its budget.

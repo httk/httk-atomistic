@@ -52,7 +52,14 @@ from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
 from httk.atomistic.models.sites.sites import Sites
 from httk.atomistic.models.species.species import Species
 from httk.atomistic.models.structure.backend import StructureBackend
-from httk.atomistic.models.structure.network import BondNetwork, SiteBond, _checked_cell_network
+from httk.atomistic.models.structure.network import (
+    BondNetwork,
+    SiteBond,
+    SiteTorsion,
+    _agreeing_torsions,
+    _cell_torsions,
+    _checked_cell_network,
+)
 from httk.atomistic.models.structure.semantics import (
     _ELEMENTS,
     _FORMULA_TOKEN,
@@ -97,20 +104,25 @@ def _is_definition_iri(value: object) -> bool:
         return False
 
 
-_BOND_KEYS = frozenset({"pairs", "shapes", "source", "shapes_source", "dimensions"})
+_BOND_KEYS = frozenset({"pairs", "shapes", "source", "shapes_source", "dimensions", "torsions", "torsions_source"})
 
 
-def _decoded_bond_network(raw: object, nsites: int, operations: tuple[str, ...] | None) -> BondNetwork:
+def _decoded_bond_network(
+    raw: object, nsites: int, operations: tuple[str, ...] | None, periodicity: tuple[bool, ...]
+) -> BondNetwork:
     """Decode the ``_httk_bonds`` dictionary of a unit-cell span into a network.
 
     The rules the definition states in prose are checked here. ``dimensions`` is checked and
     ignored: a structure derives it from the pairs. Shapes that the network cannot
     represent (one over only some of its site's rows, or several on one site) are dropped with a
-    warning, and the bonds are kept.
+    warning, and the bonds are kept. Torsion statements are put in their normal form here; one that
+    is not a valid statement for the cell, or that conflicts with another, is dropped, with one
+    warning for all of them, and the bonds are kept.
 
     :param raw: The decoded JSON value.
     :param nsites: The number of served sites.
     :param operations: The served ``space_group_symmetry_operations_xyz``, or ``None``.
+    :param periodicity: The cell's periodic directions.
     :return: The network, with its sources (validated against the cell by the caller).
     :raises TypeError: If a value has the wrong JSON type.
     :raises ValueError: If a key is missing or unknown, or a rule of the definition is violated.
@@ -123,7 +135,7 @@ def _decoded_bond_network(raw: object, nsites: int, operations: tuple[str, ...] 
     _check_bonds_value(raw, nsites, listed, cell=True)
     rows = raw["pairs"]
     bonds = tuple(SiteBond(i, j, AffineOperation(_EYE, t)) for i, j, _op, *t in rows)
-    for key in ("source", "shapes_source"):
+    for key in ("source", "shapes_source", "torsions_source"):
         if raw.get(key) is not None and not isinstance(raw.get(key), Mapping):
             raise TypeError(f"{key!r} must be a dictionary or null")
     shapes, shapes_source = raw.get("shapes"), raw.get("shapes_source")
@@ -143,7 +155,47 @@ def _decoded_bond_network(raw: object, nsites: int, operations: tuple[str, ...] 
                 extra={"context": "bonds"},
             )
             shapes_source = None
-    return BondNetwork(bonds, per_site, raw.get("source"), shapes_source)
+    torsions, torsions_source = raw.get("torsions"), raw.get("torsions_source")
+    if torsions is not None:
+        torsions = _decoded_torsions(torsions, nsites, periodicity)
+        torsions_source = None if torsions is None else torsions_source
+    return BondNetwork(bonds, per_site, raw.get("source"), shapes_source, torsions, torsions_source)
+
+
+def _decoded_torsions(
+    raw: Mapping[str, Any], nsites: int, periodicity: tuple[bool, ...]
+) -> tuple[SiteTorsion, ...] | None:
+    """Return the normalized statements of a shape-checked ``torsions`` dictionary of a unit-cell span.
+
+    A row that is no valid :class:`~httk.atomistic.SiteTorsion` for the cell (for example a
+    signed symbol that disagrees with the angle, or one atom named twice) is dropped, and so are
+    rows whose normal forms coincide with different data; one warning names how many were dropped.
+
+    :param raw: The ``torsions`` dictionary, checked by ``_check_bonds_value``.
+    :param nsites: The number of served sites.
+    :param periodicity: The cell's periodic directions.
+    :return: The statements in their unit-cell normal form, or ``None`` when none is left.
+    """
+    atoms = raw["atoms"]
+    columns = [raw[key] or [None] * len(atoms) for key in ("symbols", "angles", "angle_uncertainties")]
+    statements: list[SiteTorsion | None] = []
+    for row, symbol, angle, uncertainty in zip(atoms, *columns, strict=True):
+        try:
+            operations = tuple(AffineOperation(_EYE, row[k + 2 : k + 5]) for k in range(0, 20, 5))
+            angle, uncertainty = (None if x is None else float(x) for x in (angle, uncertainty))  # JSON reads Decimal
+            statements.append(SiteTorsion(tuple(row[0::5]), operations, symbol, angle, uncertainty))  # type: ignore[arg-type]
+        except ValueError:
+            statements.append(None)
+    torsions, dropped = _agreeing_torsions(statements, lambda rows: _cell_torsions(rows, nsites, periodicity))
+    if dropped:
+        _logger.warning(
+            "%d of the %d torsion statements of '_httk_bonds' are not valid for the cell or conflict with "
+            "another statement and are dropped; the bonds are kept",
+            dropped,
+            len(atoms),
+            extra={"context": "bonds"},
+        )
+    return torsions
 
 
 @dataclass(frozen=True, init=False)
@@ -1221,7 +1273,8 @@ class OptimadeStructure(StructureBackend):
         under ``_httk_bonds``, and is validated as a unit-cell structure validates its network. The
         rows index the resource's ``space_group_symmetry_operations_xyz`` and must name its identity.
         Shapes over only some of a site's bonds, or several shapes on one site, cannot be
-        represented: they are dropped with a warning and the bonds are kept.
+        represented: they are dropped with a warning and the bonds are kept. Torsion statements
+        that are not valid for the cell, or conflict with each other, are dropped in the same way.
 
         :return: The network, or ``None`` when absent, null, or for any span other than
             ``unit_cell`` and ``molecular_unit_cell`` (reading a symmetric span is not supported).
@@ -1239,8 +1292,9 @@ class OptimadeStructure(StructureBackend):
             return None
         try:
             nsites = len(self.species_at_sites)
-            network = _decoded_bond_network(raw, nsites, self.space_group_symmetry_operations_xyz)
-            return _checked_cell_network(network, nsites, self.cell.periodicity)
+            periodicity = self.cell.periodicity
+            network = _decoded_bond_network(raw, nsites, self.space_group_symmetry_operations_xyz, periodicity)
+            return _checked_cell_network(network, nsites, periodicity)
         except (TypeError, ValueError, ArithmeticError) as exc:
             if isinstance(exc, IncompleteOptimadeResourceError):
                 raise

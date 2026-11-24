@@ -14,6 +14,13 @@ hands it to the target site it lands on (``_mapped_shapes``). A site without a s
 one; two different symbols on one target site are a ``_ShapeConflict``, which means "not carried",
 as a bond set that is not invariant does. The sources of the network are copied unchanged.
 
+Torsion statements (``bonds.torsions``) travel as bonds do: their four exact atoms go through the
+same map and are located in the target (``_mapped_torsions``), and the target normalizes them. A
+statement turns into its mirror image under every improper group element it is moved by, and under
+a change of description that changes the Cartesian handedness of the coordinates (``_flip``,
+``_handedness``). Statements of one target orbit that differ drop only the torsions and their
+source, when the target first normalizes them (logged as the drops below).
+
 Unit cells reuse the same algebra through a bridge: ``_cell_domain`` presents a unit cell as the
 P1 fundamental domain of its sites, whose normalized pairs are the unit cell's own. The bridge
 never expands that domain, so coincident sites never meet its coincidence check; a carry that
@@ -22,9 +29,11 @@ network instead. ``_expanded_network`` gives a fundamental domain's network on i
 Every drop is logged at debug level with the context ``bonds``.
 """
 
+import itertools
 import logging
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import replace
 from fractions import Fraction
 from functools import lru_cache
 
@@ -34,6 +43,7 @@ from httk.atomistic.models.structure.asu import (
     WyckoffSite,
     _affine,
     _apply,
+    _det,
     _group,
     _in_group,
     _inv,
@@ -43,8 +53,9 @@ from httk.atomistic.models.structure.asu import (
     _op,
     _Point,
     _reference,
+    _standard_elements,
 )
-from httk.atomistic.models.structure.network import BondNetwork, SiteBond
+from httk.atomistic.models.structure.network import BondNetwork, SiteBond, SiteTorsion, _four, _mirrored_torsion
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.symmetry._lattice import finite_translation_cosets
 from httk.atomistic.symmetry.affine_operation import AffineOperation
@@ -56,9 +67,13 @@ __all__: list[str] = []
 _logger = logging.getLogger(__name__)
 
 
-def _dropped(reason: str) -> None:
-    """Log at debug level that a carry dropped a bond network, and why."""
-    _logger.debug("bond network dropped: %s", reason, extra={"context": "bonds"})
+_IDENTITY = _op(AffineOperation.identity())
+_ORIGIN: _Point = (Fraction(0),) * 3
+
+
+def _dropped(reason: str, what: str = "bond network") -> None:
+    """Log at debug level that a carry dropped a bond network (or only ``what`` of it), and why."""
+    _logger.debug("%s dropped: %s", what, reason, extra={"context": "bonds"})
 
 
 # Per wrapped point, one ``(site, operation, unwrapped image, species)`` per site with an atom there:
@@ -168,9 +183,142 @@ class _ShapeConflict(ValueError):
     """Raise when sites with different assigned shapes land on one site of the target."""
 
 
-def _rebuilt(network: BondNetwork, pairs: tuple[SiteBond, ...], shapes: tuple[str | None, ...] | None) -> BondNetwork:
-    """Return ``network`` with carried pairs and shapes, its sources copied (the shapes' only with shapes)."""
-    return BondNetwork(pairs, shapes, network.source, None if shapes is None else network.shapes_source)
+def _rebuilt(
+    network: BondNetwork,
+    pairs: tuple[SiteBond, ...],
+    shapes: tuple[str | None, ...] | None,
+    torsions: tuple[SiteTorsion, ...] | None = None,
+) -> BondNetwork:
+    """Return ``network`` with carried pairs, shapes and torsions, its sources copied (each only with what it assigned)."""
+    return BondNetwork(
+        pairs,
+        shapes,
+        network.source,
+        None if shapes is None else network.shapes_source,
+        torsions or None,
+        network.torsions_source if torsions else None,
+    )
+
+
+def _handedness(structure: StructureAPI) -> int:
+    """Return the Cartesian handedness of a structure's stored-setting coordinates: ``1`` right, ``-1`` left.
+
+    On a fundamental domain ``sign(det M) * sign(det B)``, ``M`` the matrix of its setting
+    transform (stored to own coordinates) and ``B`` its cell basis (rows); on a unit cell
+    ``sign(det B)``.
+    """
+    sign: int = structure.cell.basis.det().sign()
+    if isinstance(structure, FundamentalDomainStructure) and structure.transform.determinant() < 0:
+        return -sign
+    return sign
+
+
+def _same(point: _Point) -> _Point:
+    return point
+
+
+def _sign_of(op: _Op) -> int:
+    """Return ``1`` for a proper map, ``-1`` for an improper one."""
+    return 1 if _det(op[0]) > 0 else -1
+
+
+def _flip(source: FundamentalDomainStructure, target: FundamentalDomainStructure, phi: _Op) -> int:
+    """Return ``-1`` when the map ``phi`` between stored settings changes the Cartesian handedness, else ``1``."""
+    return _sign_of(phi) * _handedness(source) * _handedness(target)
+
+
+def _row_points(structure: FundamentalDomainStructure, row: SiteTorsion) -> tuple[_Point, ...]:
+    """Return the four exact atoms of a torsion statement, in the stored setting."""
+    sites, group = structure.wyckoff_sites, structure.spacegroup
+    return tuple(_apply(_op(op), _reference(group, sites[s])) for s, op in zip(row.sites, row.operations, strict=True))
+
+
+def _signed_torsions(structure: StructureAPI, rows: Sequence[SiteTorsion]) -> list[float | None]:
+    """Return the signed torsion angle (IUPAC, degrees) of each statement from a structure's exact geometry.
+
+    The magnitude is computed as by :func:`httk.atomistic.symmetry.torsions._torsion` (the
+    group-averaged exact metric of the standard setting, one float conversion), without its cutoff
+    near straight; the sign is ``_handedness(structure) * sign(det[b1 b2 b3])`` of the exact
+    stored-setting bond vectors ``b1 = B - A``, ``b2 = C - B``, ``b3 = D - C``. A planar
+    statement has the angle 0 or 180.
+
+    :param structure: A fundamental domain, or a three-dimensional structure presented as a unit
+        cell (its statements read as on a unit cell).
+    :param rows: The statements, valid for the structure.
+    :return: Per statement its angle in [-180, 180] (never -180), or ``None`` where A-B-C or
+        B-C-D is straight (or a bond has zero length).
+    """
+    from httk.atomistic.symmetry.shapes import _averaged_metric
+    from httk.atomistic.symmetry.torsions import _dihedral
+
+    domain = structure if isinstance(structure, FundamentalDomainStructure) else _cell_domain(structure, network=False)
+    elements = _standard_elements(domain.spacegroup)
+    metric = _averaged_metric(domain, elements.tables)
+    linear = (elements.to_standard[0], (Fraction(0),) * 3)
+    hand = _handedness(domain)
+    angles: list[float | None] = []
+    for row in rows:
+        points = _row_points(domain, row)
+        b = [tuple(q - p for p, q in zip(u, v, strict=True)) for u, v in itertools.pairwise(points)]
+        b0, b1, b2 = (_apply(linear, v) for v in b)
+        magnitude = _dihedral(metric, b0, b1, b2, straight=None)
+        if magnitude is None:
+            angles.append(None)
+            continue
+        volume = _det(tuple(x for v in b for x in v))
+        angle = -magnitude if hand * ((volume > 0) - (volume < 0)) < 0 else magnitude
+        angles.append(180.0 if angle == -180 else angle + 0.0)
+    return angles
+
+
+def _mapped_torsions(
+    source: FundamentalDomainStructure,
+    target: FundamentalDomainStructure,
+    phi: _Op,
+    snap: Callable[[_Point], _Point] | None = None,
+) -> tuple[SiteTorsion, ...] | None:
+    """Carry the source's torsion statements onto the target, unnormalized.
+
+    Where ``phi`` carries the source's group into the target's, a source orbit lies in one target
+    orbit and one image of each normalized statement stands for it; otherwise every image under
+    the source's group, completed by each target-lattice coset, is carried. The atoms (``snap``-ped
+    first) are mapped and located in the target. An image under an improper element is the mirror
+    image, and so is every statement where ``phi`` changes the Cartesian handedness (``_flip``).
+
+    :param source: The structure whose torsions are carried.
+    :param target: The re-described structure.
+    :param phi: The exact map from the source's stored-setting coordinates to the target's.
+    :param snap: Moves a source atom onto its matched position (see :func:`_snap`), if given.
+    :return: The target's statements, or ``None`` when the source has none or an atom of a
+        statement cannot be told apart from a coincident one (only the torsions are dropped, and
+        logged).
+    """
+    network = source.bonds  # normalized: one statement per orbit, however many a carry handed the source
+    if network is None or network.torsions is None:
+        return None
+    if _contains(target.spacegroup, source.spacegroup, phi):
+        operations, cosets = [_IDENTITY], [_ORIGIN]
+    else:
+        operations, cosets = list(_group(source.spacegroup)[0]), _cosets(phi)
+    flip = _flip(source, target, phi)
+    index, tags = _orbit_index(target), _tags(source)
+    rows = []
+    for row in network.torsions:
+        points, names = _row_points(source, row), [tags[site] for site in row.sites]
+        for g in operations:
+            moved = [_apply(phi, (snap or _same)(_apply(g, point))) for point in points]
+            for c in cosets:
+                _checkpoint()
+                try:
+                    atoms = [_locate(index, _shifted(p, c), name) for p, name in zip(moved, names, strict=True)]
+                except _CoincidentAtoms as error:  # an atom no pair or shape met: only the torsions go
+                    _dropped(f"coincident atoms: {error}", "torsions")
+                    return None
+                located = replace(
+                    row, sites=_four(n for n, _e in atoms), operations=_four(_affine(e) for _n, e in atoms)
+                )
+                rows.append(_mirrored_torsion(located, flip * _sign_of(g)))
+    return tuple(rows)
 
 
 def _mapped_shapes(
@@ -291,13 +439,15 @@ def _carried[T: FundamentalDomainStructure](
     if same and [(x.wyckoff, x.free_params) for x in source.wyckoff_sites] == [
         (x.wyckoff, x.free_params) for x in target.wyckoff_sites
     ]:
+        if network.torsions is not None and _flip(source, target, phi) < 0:  # the same coordinates, other hand
+            network = replace(network, torsions=tuple(_mirrored_torsion(row) for row in network.torsions))
         return target._with_bonds(network)
     bonds: tuple[SiteBond, ...] | None
     if same or (
         _contains(target.spacegroup, source.spacegroup, phi)
         and _contains(source.spacegroup, target.spacegroup, _inv(phi))
     ):
-        # one group: one image of each bond names its orbit
+        # one group: one image of each bond (and torsion statement) names its orbit
         index = _orbit_index(target)
         bonds = tuple(_fold(index, _apply(phi, p), _apply(phi, q), tags) for p, q, tags in _bond_atoms(source))
     else:
@@ -310,17 +460,33 @@ def _carried[T: FundamentalDomainStructure](
     except _ShapeConflict as error:  # not carried, like a bond set that is not invariant
         _dropped(f"shape conflict: {error}")
         return target
-    return target._with_bonds(_rebuilt(network, bonds, shapes))
+    torsions = _mapped_torsions(source, target, phi)
+    return target._with_bonds(_rebuilt(network, bonds, shapes, torsions))
 
 
 def _bonds_key(structure: FundamentalDomainStructure) -> tuple[object, ...]:
-    """Order structures with equal sites by their normalized networks, then assigned shapes (empty without a network)."""
+    """Order structures with equal sites by their normalized networks, then shapes and torsions (empty without a network)."""
     network = structure.bonds
     if network is None:
         return ()
     key: tuple[object, ...] = tuple((bond.site, bond.partner, *_op(bond.operation)) for bond in network.pairs)
     # -1 sorts before every bond entry (sites are >= 0), so a string never meets a number
-    return key if network.shapes is None else (*key, (-1, tuple(symbol or "" for symbol in network.shapes)))
+    if network.shapes is not None:
+        key = (*key, (-1, tuple(symbol or "" for symbol in network.shapes)))
+    if network.torsions is not None:  # -2: after the shapes, apart from every other entry
+        rows = tuple(
+            (
+                row.sites,
+                *map(_op, row.operations),
+                row.symbol or "",
+                row.angle is not None,
+                row.angle or 0.0,
+                row.uncertainty or 0.0,
+            )
+            for row in network.torsions
+        )
+        key = (*key, (-2, rows))
+    return key
 
 
 def _pair_key(first: _Point, second: _Point, tags: tuple[str, str] = ("", "")) -> tuple[object, ...]:
@@ -359,8 +525,8 @@ def _matched(
 ) -> BondNetwork | None:
     """Carry the network of ``source`` onto a recognized ``target``, matching once.
 
-    As :func:`_matched_bonds`; the assigned shapes follow the same matched atoms, and the sources
-    are copied.
+    As :func:`_matched_bonds`; the assigned shapes and torsion statements follow the same matched
+    atoms, and the sources are copied.
 
     :param source: The structure (with a network) whose network is carried.
     :param target: The recognized structure.
@@ -378,7 +544,8 @@ def _matched(
     if bonds is None:
         return None
     shapes = _mapped_shapes(source, target, lambda point: _apply(phi, snap(point)), _cosets(phi))
-    return _rebuilt(network, bonds, shapes)
+    torsions = _mapped_torsions(source, target, phi, snap)
+    return _rebuilt(network, bonds, shapes, torsions)
 
 
 def _snap(
@@ -502,7 +669,8 @@ def _expanded_network(structure: FundamentalDomainStructure) -> BondNetwork | No
     """Return a fundamental domain's network on the unit-cell sites it presents (``sites``), or ``None``.
 
     Every bond orbit is expanded into explicit pairs (lattice translations of the presented
-    sites, in normal form) and every atom gets its site's assigned shape; the sources are copied.
+    sites, in normal form), every atom gets its site's assigned shape, and every torsion orbit
+    is expanded into its statements; the sources are copied.
     A molecular domain presents its retained representatives: when one is not an exact orbit
     point, the network is dropped (and logged).
 
@@ -525,6 +693,7 @@ def _expanded_network(structure: FundamentalDomainStructure) -> BondNetwork | No
     try:
         pairs = _network(structure, target, phi)
         shapes = _mapped_shapes(structure, target, lambda point: _apply(phi, point), _cosets(phi))
+        torsions = _mapped_torsions(structure, target, phi)
     except _CoincidentAtoms as error:
         _dropped(f"coincident atoms: {error}")
         return None
@@ -534,4 +703,6 @@ def _expanded_network(structure: FundamentalDomainStructure) -> BondNetwork | No
     if pairs is None:  # every bond orbit is a union of unit-cell bonds, so this is unexpected
         _dropped("the bond set is not invariant under the unit cell's lattice")
         return None
-    return _rebuilt(network, pairs, shapes)
+    rebuilt = _rebuilt(network, pairs, shapes, torsions)
+    # the P1 bridge's normal form is the unit cell's (its normalization drops conflicting torsions)
+    return rebuilt if torsions is None else target._with_bonds(rebuilt).bonds

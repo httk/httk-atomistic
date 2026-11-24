@@ -111,8 +111,11 @@ modern declaration is present as well, the deprecated tag is ignored silently.
 A `_geom_bond_` loop becomes the loaded structure's bond network, checked
 against the stated distances. Saving a structure that has a network
 (`httk.core.save(structure, "x.cif")`) writes the loop, and its bond shapes and
-sources as `_httk_` items of the httk CIF dictionary, which `load()` reads back. Both are described in {doc}`details/cif`,
-sections "Bond loops" and "Bond networks, shapes and sources in CIF".
+sources as `_httk_` items of the httk CIF dictionary, which `load()` reads back. A
+`_geom_torsion_` loop likewise becomes the network's torsion statements, each angle checked
+against the geometry, and is written when the network has them. All are described in
+{doc}`details/cif`, sections "Bond loops", "Torsion loops" and "Bond networks, shapes and
+sources in CIF".
 
 ## Lower-level API
 

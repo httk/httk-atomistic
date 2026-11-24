@@ -17,10 +17,14 @@ Behaviour changes of follow-up 7 (bond sources), each covered here or in ``test_
   result (``test_rocksalt_bonds_each_ion_to_six_counterions_only``,
   ``test_molecular_networks_equal_the_pair_cutoff_ones``). Shapes are content, so the content
   ids (and equality) of ``distance_bonds`` results change unless ``shapes=False`` is passed.
+- Phase 2B of torsions: it also assigns the baseline torsions of a three-dimensional structure
+  by default (molecular crystals get one statement per lettered bond); ``torsions=False`` leaves
+  them unassigned (``test_molecular_networks_equal_the_pair_cutoff_ones`` passes both flags).
 - Its network carries a ``source`` (software ``httk_basic``, the installed version, a sentence
   naming the rule and the tolerance); sources are outside equality and content ids.
 - With shapes, a fundamental-domain site at a special point of its own Wyckoff letter raises
-  ``ValueError`` (with a ``shapes=False`` hint) where the call used to succeed.
+  ``ValueError`` (with a ``shapes=False`` hint) where the call used to succeed; ``shapes=False``
+  then also skips the baseline torsions (logged at debug level).
 - Unit cells with non-periodic directions get bonds (atoms are not wrapped or repeated along
   those directions, binned without a modulus); before, recognition refused them.
 - Measured cells: on a cell whose metric keeps the group only approximately, the unit-cell
@@ -377,7 +381,7 @@ def test_molecular_networks_equal_the_pair_cutoff_ones(entry: str) -> None:
             for op in (tables.operations[g[0]],)
         ],
     )
-    assert distance_bonds(asu, shapes=False).bonds == reference.bonds
+    assert distance_bonds(asu, shapes=False, torsions=False).bonds == reference.bonds
 
 
 # per Wyckoff site, as "element count" in site order: the shared-ligand rule's reference results

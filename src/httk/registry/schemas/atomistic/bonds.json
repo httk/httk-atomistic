@@ -11,6 +11,51 @@
         "label": "bonds_chemistry"
     },
     "x-optimade-unit": "inapplicable",
+    "x-optimade-unit-definitions": [
+        {
+            "$id": "https://schemas.optimade.org/defs/v1.2/units/si/general/degree",
+            "title": "degree",
+            "symbol": "degree",
+            "display-symbol": "\u00b0",
+            "description": "A unit of plane and phase angle representing 1/360 of a full circle, equal to \u03c0/180 rad using the current, or one of the historical, definitions of the SI units.\n\nWith the current definition of raidan in the SI system, the degree is equal to 1/360 of a circle.\n\nThe degree unit appears in the International System of Units (SI), 1st ed. (1970) defined as \"1\u00b0 = (pi/180) rad\".\n\n- The International System of Units (SI), 1st ed. (1970) categorizes the unit as \"Units in use with the International System.\"\n- The International System of Units (SI), 7th ed. (1998) adds as a footnote: \"ISO 31 recommends that the degree be subdivided decimally rather than using the minute and second.\"\n- The International System of Units (SI), 8th ed. (2006) further adds to that footnote: \"For navigation and surveying, however, the minute has the advantage that one minute of latitude on the surface of the Earth corresponds (approximately) to one nautical mile.\"\n- The International System of Units (SI), 9th ed. (2019) replaces the footnote with: \"For some applications such as in astronomy, small angles are measured in arcseconds (i.e. seconds of plane angle), denoted as or \u2032\u2032, or milliarcseconds, microarcseconds and picoarcseconds, denoted mas, \u03bcas and pas, respectively, where arcsecond is an alternative name for second of plane angle.\"\n  The formulation \"denoted as or \u2033\" is reproduced here faithfully from the source and suggests an alternate symbol may have been omitted due to a typographical error.\n  It is not clear what alternate symbol was intended to be referenced.\n\nThis is a generalized definition taken to reference the current, or one of the historical, SI unit definitions.\nThis definition is intended for situations when it is not possible to be more precise, e.g., in contexts where data have been collected that uses different historical SI definitions.",
+            "compatibility": [
+                "https://schemas.optimade.org/defs/v1.2/units/si/1970/accepted/degree"
+            ],
+            "resources": [
+                {
+                    "relation": "Definition in the International System of Units (SI), 9th Edition",
+                    "resource-id": "https://www.bipm.org/en/publications/si-brochure"
+                },
+                {
+                    "relation": "Wikipedia article describing the unit",
+                    "resource-id": "https://en.wikipedia.org/wiki/Degree_(angle)"
+                }
+            ],
+            "defining-relation": {
+                "base-units": [
+                    {
+                        "symbol": "pi",
+                        "id": "https://schemas.optimade.org/defs/v1.2/constants/math/basic/pi"
+                    },
+                    {
+                        "symbol": "rad",
+                        "id": "https://schemas.optimade.org/defs/v1.2/units/si/general/radian"
+                    }
+                ],
+                "base-units-expression": "pi*rad",
+                "scale": {
+                    "denominator": 180
+                }
+            },
+            "x-optimade-definition": {
+                "label": "degree_si_general",
+                "kind": "unit",
+                "format": "1.2",
+                "version": "1.2.0",
+                "name": "degree"
+            }
+        }
+    ],
     "x-optimade-requirements": {
         "support": "may",
         "sortable": false,
@@ -29,7 +74,7 @@
         "object",
         "null"
     ],
-    "description": "The bond network of a structure and the coordination polyhedra of its sites: which atoms are bonded to which, and the shape of the bonds around the atoms of a site, which besides coordination polyhedra also covers linear, bent and planar arrangements; the default assignment of httk gives a shape to every site with two or more bonds.\nThe value also names who assigned the bonds and the shapes.\n\nThe network is stated in terms of the served sites of the structure and the served symmetry operations, so a client needs only `fractional_site_positions` (or `cartesian_site_positions` and `lattice_vectors`), `site_coordinate_span` and `space_group_symmetry_operations_xyz` of the same response.\nWhat counts as a bond is decided by whoever assigned the network, named in `source`.\n\n**Requirements/Conventions**:\n\n- The value MUST be `null` when no bond network is known, and when `site_coordinate_span` is not one of `unit_cell`, `molecular_unit_cell`, `fundamental_domain`, `molecular_fundamental_domain`, `asymmetric_unit` and `molecular_asymmetric_unit`.\n- Otherwise it MUST be a dictionary with the following keys:\n\n    - **pairs**: REQUIRED; List of Lists of 6 Integers.\n      The bonds, one row `[site, partner, op, t1, t2, t3]` per bond, or per bond orbit for a symmetric span; an empty list means the structure is known to have no bonds.\n      `site` and `partner` are 0-based indices into the sites of the structure (the order of `species_at_sites` and `fractional_site_positions`), `op` is a 0-based index into `space_group_symmetry_operations_xyz` of the same entry, and `t1`, `t2`, `t3` are integers.\n\n      - Reading rule: the atom at `fractional_site_positions[site]` is bonded to the atom at `g(fractional_site_positions[partner]) + (t1, t2, t3)`, where `g` is the operation `space_group_symmetry_operations_xyz[op]` applied to fractional coordinates, with no reduction modulo lattice translations.\n        The property can therefore only be read together with `space_group_symmetry_operations_xyz` of the same response, and a client SHOULD request both.\n        That list holds every operation of the space group for the served cell, centring translations included, as the OPTIMADE standard requires; every bond operation MUST be one of its entries followed by a lattice translation, and a network that cannot be stated this way MUST be served as `null`.\n      - When `space_group_symmetry_operations_xyz` is `null` (no symmetry is served, or the structure is not periodic), `op` MUST be 0 and means the identity `x,y,z`.\n      - For a `unit_cell` or `molecular_unit_cell` span, `op` MUST name the entry `x,y,z` of `space_group_symmetry_operations_xyz`, or be 0 when that list is `null`, and the bond's translation is `(t1, t2, t3)` (zero along non-periodic directions); the row stands for that bond and its translates by every lattice vector.\n      - For the four fundamental-domain and asymmetric-unit spans, the row stands for its orbit: for every operation `h` in `space_group_symmetry_operations_xyz` and every lattice translation `t`, the atom at `h(a) + t` is bonded to the atom at `h(b) + t`, where `a` and `b` are the two atoms the row names.\n      - Each bond, or bond orbit, SHOULD be listed once. An atom is never bonded to itself.\n      - Where served positions are stated to limited precision, the row locates the bonded atom to that precision.\n\n    - **shapes**: REQUIRED; Dictionary or `null`.\n      The assigned shapes, each the arrangement of the bonds around one atom of a site: a coordination polyhedron, or a linear, bent or planar arrangement.\n      A dictionary of aligned lists with one entry per assigned shape:\n\n      - **sites**: REQUIRED; List of Integers. The 0-based index of the centre site of each shape.\n      - **symbols**: REQUIRED; List of Strings. The symbol of each shape (see the `symbols` key below).\n      - **pair\\_rows**: OPTIONAL; List of entries that are a List of Integers or `null`, or `null`. The rows of `pairs` each shape covers.\n\n      The lists present MUST have the same length, and `sites` and `symbols` MUST NOT contain `null`.\n      A site that does not appear in `sites` has no assigned shape: always a site with fewer than two bonds, and otherwise a site the assignment gave none, in which case a client may determine one itself.\n      The value is `null` when no shapes are assigned.\n\n      - Coverage rule: a shape whose `pair_rows` entry is `null`, or whose `pair_rows` list is `null` or absent, covers every row of `pairs` that names its site in either column; for a symmetric span every bond of the orbit of such a row at an atom of the site. This is the normal case.\n      - A `pair_rows` entry that is a list of 0-based row indices into `pairs` limits the shape to those rows. Each listed row MUST name the site in one of its two columns. In a symmetric span a row brings in every bond of its orbit at that site.\n      - The number that ends a named symbol MUST equal the number of distinct atoms bonded to one atom of the site through the rows the shape covers. The irregular symbol `I` (three or more bonds whose arrangement matches no named shape) has no number: a reader gets its count from `pairs` in the same way, and `I` is valid only when the shape covers three or more bonded atoms. For a unit-cell span these atoms can be counted from the rows: a row `[i, j, op, t1, t2, t3]` with `i` different from `j` adds one atom at each end, and a row `[i, i, op, t1, t2, t3]` adds two atoms at `i`.\n      - A site MAY appear more than once in `sites` only when the `pair_rows` entries of all its shapes are lists that share no row.\n      - Illustration: a centre site 1 with six bonds forming an octahedron (row 0, a bond orbit of a symmetric span) and a second bond orbit (row 1) that is left out of the shape:\n\n        `\"pairs\": [[1, 2, 0, 0, 0, 0], [1, 1, 0, 1, 0, 0]], \"shapes\": {\"sites\": [1], \"symbols\": [\"OC6\"], \"pair_rows\": [[0]]}`\n\n    - **source**: REQUIRED; Dictionary or `null`.\n      Who assigned the bonds; `null` when unknown.\n\n    - **shapes\\_source**: REQUIRED; Dictionary or `null`.\n      Who assigned the shapes, in the form of `source`; `null` when `source` assigned them or no shapes are assigned.\n\n    - **dimensions**: REQUIRED; List of Integers or `null`.\n      The dimensions of the bonded pieces of the structure, derived from `pairs` alone.\n      The bonds of every atom of the crystal (all lattice translates and, for a symmetric span, every member of each bond orbit) split the atoms that have at least one bond into connected pieces; atoms without bonds belong to no piece and do not count.\n      The dimension of a piece is the rank, 0 to 3, of the lattice translations that map the piece onto itself: 0 for a finite piece (a molecule or cluster), 1 for a chain, 2 for a layer and 3 for a framework.\n      The value is the list of the distinct dimensions of the pieces in increasing order, `[]` when `pairs` is empty; no dimension exceeds the number of periodic directions.\n      It is exact: it depends on no coordinates or tolerance, and a network of a disordered structure is taken as given.\n      It MUST be `null` only when it cannot be derived from `pairs`.\n      Example: a molecular crystal has `[0]`, a layered structure `[2]`, and molecules held in a framework `[0, 3]`.\n\n- Filtering: only the key `dimensions` supports queries (`HAS`, `HAS ALL`, `HAS ANY`, `HAS ONLY`, `LENGTH` and `IS KNOWN`/`IS UNKNOWN`); the other keys are served only.\n  `LENGTH` is supported although `query-support-operators` does not list it: the OPTIMADE vocabulary of that field has no entry for `LENGTH`.\n  Examples: `_httk_bonds.dimensions HAS 2 AND NOT _httk_bonds.dimensions HAS 3` finds structures with layers and no framework, and `_httk_bonds.dimensions HAS ONLY 0` finds structures whose bonded atoms all belong to finite pieces, such as molecular crystals.\n- Relation to CIF: a row `[site, partner, op, t1, t2, t3]` of `pairs` is a CIF `_geom_bond_` row with `_geom_bond_atom_site_label_1` the label of `site`, `_geom_bond_site_symmetry_1` `.`, `_geom_bond_atom_site_label_2` the label of `partner` and `_geom_bond_site_symmetry_2` the code `n_klm`.\n  When the CIF `_space_group_symop_` loop lists the operations of `space_group_symmetry_operations_xyz` in the same order with the ids 1 to N, `n` is `op + 1`, and `k`, `l`, `m` are `5 + t1`, `5 + t2`, `5 + t3`, so only translations from -5 to +4 can be written.\n  In the other direction, a CIF row whose first atom also carries a symmetry code `A1` (an operation followed by its translation) and whose second atom carries `A2` is the bond from the atom at `site` to the atom at `partner` moved by the inverse of `A1` composed with `A2` (first `A2`, then the inverse of `A1`); that operation is then stated as an entry of `space_group_symmetry_operations_xyz` followed by a lattice translation.\n  The section \"Relation to CIF\" of the bonding-net labels in the *httk-atomistic* documentation (`docs/prototypes.md`) compares this layout with the CIF bond list.\n- Layout rule: each kind of bond is one matrix of integer rows, and no bond is a nested object.\n  Bonds of three or more atoms would get a field of their own (for example `triples`), and attributes of pair bonds would be lists aligned with the rows of `pairs`.\n- Not covered: polyhedra without a central atom (cages).\n  A shape over only some of the bonds of its centre is covered by `pair_rows`.",
+    "description": "The bond network of a structure and the coordination polyhedra of its sites: which atoms are bonded to which, and the shape of the bonds around the atoms of a site, which besides coordination polyhedra also covers linear, bent and planar arrangements; the default assignment of httk gives a shape to every site with two or more bonds.\nIt may also carry torsion statements on four atoms, modelled on the CIF `_geom_torsion_` loop, and names who assigned the bonds, the shapes and the torsions.\n\nThe network is stated in terms of the served sites of the structure and the served symmetry operations, so a client needs only `fractional_site_positions` (or `cartesian_site_positions` and `lattice_vectors`), `site_coordinate_span` and `space_group_symmetry_operations_xyz` of the same response.\nWhat counts as a bond is decided by whoever assigned the network, named in `source`.\n\n**Requirements/Conventions**:\n\n- The value MUST be `null` when no bond network is known, and when `site_coordinate_span` is not one of `unit_cell`, `molecular_unit_cell`, `fundamental_domain`, `molecular_fundamental_domain`, `asymmetric_unit` and `molecular_asymmetric_unit`.\n- Otherwise it MUST be a dictionary with the following keys:\n\n    - **pairs**: REQUIRED; List of Lists of 6 Integers.\n      The bonds, one row `[site, partner, op, t1, t2, t3]` per bond, or per bond orbit for a symmetric span; an empty list means the structure is known to have no bonds.\n      `site` and `partner` are 0-based indices into the sites of the structure (the order of `species_at_sites` and `fractional_site_positions`), `op` is a 0-based index into `space_group_symmetry_operations_xyz` of the same entry, and `t1`, `t2`, `t3` are integers.\n\n      - Reading rule: the atom at `fractional_site_positions[site]` is bonded to the atom at `g(fractional_site_positions[partner]) + (t1, t2, t3)`, where `g` is the operation `space_group_symmetry_operations_xyz[op]` applied to fractional coordinates, with no reduction modulo lattice translations.\n        The property can therefore only be read together with `space_group_symmetry_operations_xyz` of the same response, and a client SHOULD request both.\n        That list holds every operation of the space group for the served cell, centring translations included, as the OPTIMADE standard requires; every bond operation MUST be one of its entries followed by a lattice translation, and a network that cannot be stated this way MUST be served as `null`.\n      - When `space_group_symmetry_operations_xyz` is `null` (no symmetry is served, or the structure is not periodic), `op` MUST be 0 and means the identity `x,y,z`.\n      - For a `unit_cell` or `molecular_unit_cell` span, `op` MUST name the entry `x,y,z` of `space_group_symmetry_operations_xyz`, or be 0 when that list is `null`, and the bond's translation is `(t1, t2, t3)` (zero along non-periodic directions); the row stands for that bond and its translates by every lattice vector.\n      - For the four fundamental-domain and asymmetric-unit spans, the row stands for its orbit: for every operation `h` in `space_group_symmetry_operations_xyz` and every lattice translation `t`, the atom at `h(a) + t` is bonded to the atom at `h(b) + t`, where `a` and `b` are the two atoms the row names.\n      - Each bond, or bond orbit, SHOULD be listed once. An atom is never bonded to itself.\n      - Where served positions are stated to limited precision, the row locates the bonded atom to that precision.\n\n    - **shapes**: REQUIRED; Dictionary or `null`.\n      The assigned shapes, each the arrangement of the bonds around one atom of a site: a coordination polyhedron, or a linear, bent or planar arrangement.\n      A dictionary of aligned lists with one entry per assigned shape:\n\n      - **sites**: REQUIRED; List of Integers. The 0-based index of the centre site of each shape.\n      - **symbols**: REQUIRED; List of Strings. The symbol of each shape (see the `symbols` key below).\n      - **pair\\_rows**: OPTIONAL; List of entries that are a List of Integers or `null`, or `null`. The rows of `pairs` each shape covers.\n\n      The lists present MUST have the same length, and `sites` and `symbols` MUST NOT contain `null`.\n      A site that does not appear in `sites` has no assigned shape: always a site with fewer than two bonds, and otherwise a site the assignment gave none, in which case a client may determine one itself.\n      The value is `null` when no shapes are assigned.\n\n      - Coverage rule: a shape whose `pair_rows` entry is `null`, or whose `pair_rows` list is `null` or absent, covers every row of `pairs` that names its site in either column; for a symmetric span every bond of the orbit of such a row at an atom of the site. This is the normal case.\n      - A `pair_rows` entry that is a list of 0-based row indices into `pairs` limits the shape to those rows. Each listed row MUST name the site in one of its two columns. In a symmetric span a row brings in every bond of its orbit at that site.\n      - The number that ends a named symbol MUST equal the number of distinct atoms bonded to one atom of the site through the rows the shape covers. The irregular symbol `I` (three or more bonds whose arrangement matches no named shape) has no number: a reader gets its count from `pairs` in the same way, and `I` is valid only when the shape covers three or more bonded atoms. For a unit-cell span these atoms can be counted from the rows: a row `[i, j, op, t1, t2, t3]` with `i` different from `j` adds one atom at each end, and a row `[i, i, op, t1, t2, t3]` adds two atoms at `i`.\n      - A site MAY appear more than once in `sites` only when the `pair_rows` entries of all its shapes are lists that share no row.\n      - Illustration: a centre site 1 with six bonds forming an octahedron (row 0, a bond orbit of a symmetric span) and a second bond orbit (row 1) that is left out of the shape:\n\n        `\"pairs\": [[1, 2, 0, 0, 0, 0], [1, 1, 0, 1, 0, 0]], \"shapes\": {\"sites\": [1], \"symbols\": [\"OC6\"], \"pair_rows\": [[0]]}`\n\n    - **source**: REQUIRED; Dictionary or `null`.\n      Who assigned the bonds; `null` when unknown.\n\n    - **shapes\\_source**: REQUIRED; Dictionary or `null`.\n      Who assigned the shapes, in the form of `source`; `null` when `source` assigned them or no shapes are assigned.\n\n    - **dimensions**: REQUIRED; List of Integers or `null`.\n      The dimensions of the bonded pieces of the structure, derived from `pairs` alone.\n      The bonds of every atom of the crystal (all lattice translates and, for a symmetric span, every member of each bond orbit) split the atoms that have at least one bond into connected pieces; atoms without bonds belong to no piece and do not count.\n      The dimension of a piece is the rank, 0 to 3, of the lattice translations that map the piece onto itself: 0 for a finite piece (a molecule or cluster), 1 for a chain, 2 for a layer and 3 for a framework.\n      The value is the list of the distinct dimensions of the pieces in increasing order, `[]` when `pairs` is empty; no dimension exceeds the number of periodic directions.\n      It is exact: it depends on no coordinates or tolerance, and a network of a disordered structure is taken as given.\n      It MUST be `null` only when it cannot be derived from `pairs`.\n      Example: a molecular crystal has `[0]`, a layered structure `[2]`, and molecules held in a framework `[0, 3]`.\n\n    - **torsions**: REQUIRED; Dictionary or `null`.\n      Torsion statements, each on four atoms A, B, C and D (in this order, A-B-C-D); `null` when none are stated.\n      A dictionary of aligned lists with one entry per statement, each list `null` when no statement has a value in it:\n\n      - **atoms**: REQUIRED; List of Lists of 20 Integers. The four atoms of each statement, `[site, op, t1, t2, t3]` for A, B, C and D in turn.\n      - **symbols**: REQUIRED; List of entries that are a String or `null`, or `null`. The symbol of each statement (see `symbols` below).\n      - **angles**: REQUIRED; List of entries that are a Float or `null`, or `null`. The signed torsion angle of each statement, in degrees, from -180 to 180.\n      - **angle\\_uncertainties**: REQUIRED; List of entries that are a Float or `null`, or `null`. The standard uncertainty of each angle, in degrees: positive, and only for a statement with an angle.\n\n      - Reading rule: atom `k` is read as the bonded atom of a row of `pairs`, with its own operation and translation: it is the atom at `g(fractional_site_positions[site]) + (t1, t2, t3)`, where `g` is `space_group_symmetry_operations_xyz[op]` (the identity `x,y,z` when that list is `null`, and then `op` MUST be 0), with no reduction modulo lattice translations.\n        No atom is taken as the origin of the others: each carries its own `op` and translation.\n        For a `unit_cell` or `molecular_unit_cell` span every `op` MUST name the entry `x,y,z` (or be 0 when the list is `null`), the translations are zero along non-periodic directions, and the statement stands for itself and its translates by every lattice vector.\n        For the four fundamental-domain and asymmetric-unit spans the statement stands for its orbit: for every operation `h` in `space_group_symmetry_operations_xyz` and every lattice translation `t`, the same statement holds for the four atoms `h(A) + t`, ..., `h(D) + t`, with the opposite sign of the angle and of a signed symbol when `h` is improper (determinant -1).\n      - Consecutive atoms, A and C, and B and D MUST be different atoms. The bond B-C need not be a row of `pairs`.\n      - Every statement MUST have a symbol, an angle or both, and each statement or orbit SHOULD be listed once.\n      - Sign: the angle follows the IUPAC (Klyne-Prelog) convention. Viewed along B to C, it is positive when the bond A-B turns clockwise, by less than 180 degrees, to eclipse the bond C-D; it describes the Cartesian handedness of the four atoms as named (with `lattice_vectors`), so the reversed statement D-C-B-A has the same angle. -180 is written as 180.\n      - Symbols: `c`, `g` and `t` (cis, gauche and trans) are the torsion classes of httk, set by the shapes of the two sites of the bond B-C as in the torsion letters of the httk bonding-net labels; `sp`, `sc`, `ac` and `ap` are the Klyne-Prelog ranges synperiplanar, synclinal, anticlinal and antiperiplanar (0 to 30, 30 to 90, 90 to 150 and 150 to 180 degrees in magnitude), and `+sc`, `-sc`, `+ac`, `-ac` the signed ranges; `none` states that the bond between atoms B and C deliberately has no torsion class.\n        Only the sign of a signed symbol MUST agree with the angle (0 and 180 agree with both signs); its range is not checked against the angle.\n      - Example: one statement on the four sites 0, 1, 2 and 3 of a unit cell, D translated by one cell along `a`, gauche at -62.3(4) degrees:\n\n        `\"torsions\": {\"atoms\": [[0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 1, 0, 0]], \"symbols\": [\"g\"], \"angles\": [-62.3], \"angle_uncertainties\": [0.4]}`\n\n    - **torsions\\_source**: REQUIRED; Dictionary or `null`.\n      Who assigned the torsions, in the form of `source`; `null` when `source` assigned them or no torsions are stated.\n\n- Filtering: only the key `dimensions` supports queries (`HAS`, `HAS ALL`, `HAS ANY`, `HAS ONLY`, `LENGTH` and `IS KNOWN`/`IS UNKNOWN`); the other keys are served only.\n  `LENGTH` is supported although `query-support-operators` does not list it: the OPTIMADE vocabulary of that field has no entry for `LENGTH`.\n  Examples: `_httk_bonds.dimensions HAS 2 AND NOT _httk_bonds.dimensions HAS 3` finds structures with layers and no framework, and `_httk_bonds.dimensions HAS ONLY 0` finds structures whose bonded atoms all belong to finite pieces, such as molecular crystals.\n- Relation to CIF: a row `[site, partner, op, t1, t2, t3]` of `pairs` is a CIF `_geom_bond_` row with `_geom_bond_atom_site_label_1` the label of `site`, `_geom_bond_site_symmetry_1` `.`, `_geom_bond_atom_site_label_2` the label of `partner` and `_geom_bond_site_symmetry_2` the code `n_klm`.\n  When the CIF `_space_group_symop_` loop lists the operations of `space_group_symmetry_operations_xyz` in the same order with the ids 1 to N, `n` is `op + 1`, and `k`, `l`, `m` are `5 + t1`, `5 + t2`, `5 + t3`, so only translations from -5 to +4 can be written.\n  In the other direction, a CIF row whose first atom also carries a symmetry code `A1` (an operation followed by its translation) and whose second atom carries `A2` is the bond from the atom at `site` to the atom at `partner` moved by the inverse of `A1` composed with `A2` (first `A2`, then the inverse of `A1`); that operation is then stated as an entry of `space_group_symmetry_operations_xyz` followed by a lattice translation.\n  A statement of `torsions` is a CIF `_geom_torsion_` row, atom for atom: atom `k` (1 to 4) is `_geom_torsion_atom_site_label_k`, the label of its `site`, with `_geom_torsion_site_symmetry_k` the code `n_klm` of its `op` and translation as for `pairs` (`.` for the identity with no translation); `angles` is `_geom_torsion`, with `angle_uncertainties` as its standard uncertainty in parentheses; `symbols` is an httk extension, written in CIF as `_httk_geom_torsion_symbol`; `_geom_torsion_publ_flag` is not carried.\n  The section \"Relation to CIF\" of the bonding-net labels in the *httk-atomistic* documentation (`docs/prototypes.md`) compares this layout with the CIF bond list.\n- Layout rule: each kind of bond is one matrix of integer rows, and no bond is a nested object.\n  Bonds of three or more atoms would get a field of their own (for example `triples`), and attributes of pair bonds would be lists aligned with the rows of `pairs`.\n  Torsion statements follow the same layout: one matrix of integer rows in `atoms`, with their attributes in aligned lists.\n- Not covered: polyhedra without a central atom (cages).\n  A shape over only some of the bonds of its centre is covered by `pair_rows`.",
     "properties": {
         "pairs": {
             "x-optimade-type": "list",
@@ -324,6 +369,208 @@
                 "maximum": 3,
                 "description": "The dimension of some piece, from 0 (finite) to 3 (a framework)."
             }
+        },
+        "torsions": {
+            "x-optimade-type": "dictionary",
+            "x-optimade-unit": "inapplicable",
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "Torsion statements as aligned lists, one entry per statement; `null` when none are stated.",
+            "required": [
+                "atoms",
+                "symbols",
+                "angles",
+                "angle_uncertainties"
+            ],
+            "properties": {
+                "atoms": {
+                    "x-optimade-type": "list",
+                    "x-optimade-unit": "inapplicable",
+                    "x-optimade-dimensions": {
+                        "names": [
+                            "_httk_dim_torsions",
+                            "_httk_dim_torsion_row"
+                        ],
+                        "sizes": [
+                            null,
+                            20
+                        ]
+                    },
+                    "type": [
+                        "array"
+                    ],
+                    "description": "The four atoms of each statement, a row `[site, op, t1, t2, t3]` per atom for A, B, C and D in turn.",
+                    "items": {
+                        "x-optimade-type": "list",
+                        "x-optimade-unit": "inapplicable",
+                        "x-optimade-dimensions": {
+                            "names": [
+                                "_httk_dim_torsion_row"
+                            ],
+                            "sizes": [
+                                20
+                            ]
+                        },
+                        "type": [
+                            "array"
+                        ],
+                        "description": "One statement, or one statement orbit for a symmetric span.",
+                        "items": {
+                            "x-optimade-type": "integer",
+                            "x-optimade-unit": "inapplicable",
+                            "type": [
+                                "integer"
+                            ],
+                            "description": "Per atom in order, `site` (a 0-based index into the served sites, at least 0), `op` (a 0-based index into `space_group_symmetry_operations_xyz`, at least 0, and 0 when that list is `null`) and the lattice translation `t1`, `t2`, `t3` (any integers)."
+                        }
+                    }
+                },
+                "symbols": {
+                    "x-optimade-type": "list",
+                    "x-optimade-unit": "inapplicable",
+                    "x-optimade-dimensions": {
+                        "names": [
+                            "_httk_dim_torsions"
+                        ],
+                        "sizes": [
+                            null
+                        ]
+                    },
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "description": "The symbol of each statement: `c`, `g`, `t` (the torsion classes of httk), `sp`, `sc`, `ac`, `ap`, `+sc`, `-sc`, `+ac`, `-ac` (the Klyne-Prelog ranges, unsigned or signed) or `none` (the bond B-C deliberately has no torsion class); `null` for a statement without a symbol, and the whole list `null` when no statement has one.",
+                    "items": {
+                        "x-optimade-type": "string",
+                        "x-optimade-unit": "inapplicable",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "A torsion symbol.",
+                        "enum": [
+                            "c",
+                            "g",
+                            "t",
+                            "sp",
+                            "sc",
+                            "+sc",
+                            "-sc",
+                            "ac",
+                            "+ac",
+                            "-ac",
+                            "ap",
+                            "none",
+                            null
+                        ]
+                    }
+                },
+                "angles": {
+                    "x-optimade-type": "list",
+                    "x-optimade-unit": "inapplicable",
+                    "x-optimade-dimensions": {
+                        "names": [
+                            "_httk_dim_torsions"
+                        ],
+                        "sizes": [
+                            null
+                        ]
+                    },
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "description": "The signed torsion angle A-B-C-D of each statement (IUPAC, Klyne-Prelog), in degrees, from -180 to 180; `null` for a statement without an angle, and the whole list `null` when no statement has one.",
+                    "items": {
+                        "x-optimade-type": "float",
+                        "x-optimade-unit": "degree",
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": -180,
+                        "maximum": 180,
+                        "description": "A signed torsion angle in degrees."
+                    }
+                },
+                "angle_uncertainties": {
+                    "x-optimade-type": "list",
+                    "x-optimade-unit": "inapplicable",
+                    "x-optimade-dimensions": {
+                        "names": [
+                            "_httk_dim_torsions"
+                        ],
+                        "sizes": [
+                            null
+                        ]
+                    },
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "description": "The standard uncertainty of the angle of each statement, in degrees; `null` for a statement without one, and the whole list `null` when no statement has one.",
+                    "items": {
+                        "x-optimade-type": "float",
+                        "x-optimade-unit": "degree",
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "exclusiveMinimum": 0,
+                        "description": "A positive standard uncertainty in degrees."
+                    }
+                }
+            }
+        },
+        "torsions_source": {
+            "x-optimade-type": "dictionary",
+            "x-optimade-unit": "inapplicable",
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "Who assigned the torsions, with the keys of `source`; `null` when `source` assigned them or no torsions are stated.",
+            "properties": {
+                "description": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Free-text description of the assignment."
+                },
+                "software": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Identifier of the software or rule set that made the assignment."
+                },
+                "version": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Version of that software or rule set."
+                },
+                "uri": {
+                    "x-optimade-type": "string",
+                    "x-optimade-unit": "inapplicable",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "A URL documenting the assignment."
+                }
+            }
         }
     },
     "examples": [
@@ -418,6 +665,78 @@
             "dimensions": [
                 3
             ]
+        },
+        {
+            "pairs": [
+                [
+                    0,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                [
+                    1,
+                    2,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                [
+                    2,
+                    3,
+                    0,
+                    1,
+                    0,
+                    0
+                ]
+            ],
+            "source": {
+                "description": "Bonds listed in the CIF _geom_bond_ loop"
+            },
+            "dimensions": [
+                0
+            ],
+            "torsions": {
+                "atoms": [
+                    [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        2,
+                        0,
+                        0,
+                        0,
+                        0,
+                        3,
+                        0,
+                        1,
+                        0,
+                        0
+                    ]
+                ],
+                "symbols": [
+                    "-sc"
+                ],
+                "angles": [
+                    -62.3
+                ],
+                "angle_uncertainties": [
+                    0.4
+                ]
+            },
+            "torsions_source": {
+                "description": "Torsions measured on the refined structure"
+            }
         }
     ]
 }

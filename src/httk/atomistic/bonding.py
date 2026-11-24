@@ -16,8 +16,9 @@ electronegative than either (Pauling electronegativities as compiled by WebEleme
 oxo-salts do not bond to the oxo-anion centres.
 
 The network it returns names its rule as its ``source`` (software ``httk_basic``, the installed
-*httk-atomistic* version), and by default it also assigns the baseline shapes;
-:func:`assign_baseline_shapes` adds those to a network that has none.
+*httk-atomistic* version), and by default it also assigns the baseline shapes and, on a
+three-dimensional structure, the baseline torsions; :func:`assign_baseline_shapes` and
+:func:`assign_baseline_torsions` add those to a network that has none.
 
 :func:`distance_bonds` never recognises symmetry itself (an ``ASUStructureView`` input resolves
 its own recognition): a unit cell gets a unit-cell network and an asymmetric unit a network of
@@ -47,6 +48,7 @@ largest measured were 1522 on ICSD, a mixed O/Ti site of ICSD 162568, and 203 on
 
 import importlib.metadata
 import itertools
+import logging
 import math
 from collections.abc import Sequence
 from dataclasses import replace
@@ -70,14 +72,24 @@ from httk.atomistic.models.structure.asu import (
 from httk.atomistic.models.structure.asu_view import ASUStructureView
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.like import StructureLike
-from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond, _cell_pairs, _translation
+from httk.atomistic.models.structure.network import (
+    BondNetwork,
+    BondSource,
+    SiteBond,
+    SiteTorsion,
+    _cell_pairs,
+    _cell_torsions,
+    _translation,
+)
 from httk.atomistic.models.structure.record import RecordStructure
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.models.structure.view import StructureView
 from httk.atomistic.symmetry.shapes import _site_shapes
 
-__all__ = ["assign_baseline_shapes", "distance_bonds", "site_bonds_dimensions"]
+__all__ = ["assign_baseline_shapes", "assign_baseline_torsions", "distance_bonds", "site_bonds_dimensions"]
+
+_logger = logging.getLogger(__name__)
 
 _MIN_DISTANCE = 0.5  # Å: closer pairs are split or disordered positions, not bonds
 _HTTK_BASIC = "httk_basic"
@@ -124,6 +136,10 @@ _NON_METALS = frozenset(
 _BASELINE_DESCRIPTION = (
     "Baseline bond shapes: the ideal shape whose sorted bond angles fit best (IUPAC and SHAPE symbols), "
     "I (irregular) above 15 degrees RMS misfit, L2 from 165 degrees."
+)
+_BASELINE_TORSIONS_DESCRIPTION = (
+    "Baseline torsions: the protonet torsion letter (c, g or t) of every bond the letter rules qualify, "
+    "with the signed IUPAC torsion angle of the reference atoms A-B-C-D rounded to 0.01 degrees."
 )
 
 
@@ -209,7 +225,7 @@ def _site_radii(
 
 
 def distance_bonds(
-    structure: StructureLike, *, tolerance: float = 0.45, shapes: bool = True
+    structure: StructureLike, *, tolerance: float = 0.45, shapes: bool = True, torsions: bool = True
 ) -> FundamentalDomainStructure | UnitcellStructure:
     """Return a structure with the bond network found from interatomic distances, of the kind it was given.
 
@@ -273,7 +289,12 @@ def distance_bonds(
     The network's ``source`` names the rule: software ``httk_basic``, the installed
     *httk-atomistic* version and a one-sentence description with ``tolerance``. With ``shapes``
     (the default) every site of two or more bonds also gets its baseline shape (see
-    :func:`assign_baseline_shapes`), with ``shapes_source`` ``None`` (the same source).
+    :func:`assign_baseline_shapes`), with ``shapes_source`` ``None`` (the same source). With
+    ``torsions`` (the default) a three-dimensional structure also gets its baseline torsions, with
+    ``torsions_source`` naming the baseline as :func:`assign_baseline_torsions` does; they read
+    the shapes the network has, or with ``shapes=False`` baseline shapes that are not stored. A
+    structure that is not periodic in three directions gets no torsions, and neither does one
+    whose baseline shapes cannot be computed with ``shapes=False`` (logged at debug level).
 
     Example::
 
@@ -290,17 +311,18 @@ def distance_bonds(
     :param structure: Any structure.
     :param tolerance: Å added to the sum of the radii.
     :param shapes: Whether to assign the baseline shapes as well.
+    :param torsions: Whether to assign the baseline torsions as well.
     :return: The structure, of the kind described above, with its distance-based network.
     :raises ValueError: If a site holds an element without a radius (named in the message),
         ``tolerance`` is not a finite number, or (with ``shapes``) the baseline cannot assign a
         shape, as for a fundamental-domain site at a special point of its own Wyckoff letter; that
         message says to pass ``shapes=False``.
     """
-    return _distance_bonds(structure, tolerance, True, shapes)
+    return _distance_bonds(structure, tolerance, True, shapes, torsions)
 
 
 def _distance_bonds(
-    structure: StructureLike, tolerance: float, shared_ligand: bool, shapes: bool = False
+    structure: StructureLike, tolerance: float, shared_ligand: bool, shapes: bool = False, torsions: bool = False
 ) -> FundamentalDomainStructure | UnitcellStructure:
     """Return :func:`distance_bonds`, or with ``shared_ligand`` false its tentative network (no source)."""
     if isinstance(tolerance, bool) or not math.isfinite(tolerance):
@@ -337,13 +359,24 @@ def _distance_bonds(
     else:
         network = BondNetwork(_cell_pairs(bonds, len(references), target.cell.periodicity), source=source)
     result = target._with_bonds(network)
-    if not shapes:
+    if shapes:
+        try:
+            assigned = _site_shapes(result)
+        except ValueError as error:
+            raise ValueError(f"{error}; pass shapes=False to leave the shapes unassigned") from error
+        network = replace(network, shapes=assigned)
+        result = result._with_bonds(network)
+    if not (torsions and all(result.cell.periodicity)):
         return result
     try:
-        assigned = _site_shapes(result)
-    except ValueError as error:
-        raise ValueError(f"{error}; pass shapes=False to leave the shapes unassigned") from error
-    return result._with_bonds(replace(network, shapes=assigned))
+        transient = network.shapes or _site_shapes(result)
+    except ValueError as error:  # shapes=False was asked for: no torsions, rather than an error
+        _logger.debug("baseline torsions skipped: %s", error, extra={"context": "bonds"})
+        return result
+    rows = _baseline_rows(result, transient)
+    if rows is None:
+        return result
+    return result._with_bonds(replace(network, torsions=rows, torsions_source=_baseline_torsions_source()))
 
 
 def _found_bonds(
@@ -463,6 +496,69 @@ def assign_baseline_shapes(structure: StructureLike) -> FundamentalDomainStructu
         return result
     source = BondSource(_BASELINE_DESCRIPTION, _HTTK_BASIC, _distribution_version())
     return result._with_bonds(replace(network, shapes=assigned, shapes_source=source))
+
+
+def assign_baseline_torsions(structure: StructureLike) -> FundamentalDomainStructure | UnitcellStructure:
+    """Return a structure whose bond network has no torsions with its baseline torsions assigned.
+
+    The structure is taken as :func:`distance_bonds` takes it (a fundamental domain stays one,
+    anything else is presented as a unit cell, and symmetry is never recognised by the function
+    itself). Every bond orbit to which the protonet torsion-letter rules give a letter (see
+    :mod:`httk.atomistic.symmetry.torsions`) gets one :class:`~httk.atomistic.SiteTorsion`: the rules' reference atoms
+    A-B-C-D, the letter (``c``, ``g`` or ``t``) as ``symbol``, and the signed IUPAC torsion angle
+    from the exact geometry rounded to 0.01 degrees, never across the edge of its letter. The
+    rules read the network's shapes, or baseline shapes (see :func:`assign_baseline_shapes`) that
+    are not stored. ``torsions_source`` names the baseline (software ``httk_basic``, the installed
+    *httk-atomistic* version); the pairs, shapes and their sources are kept. When no bond gets a
+    letter the structure is returned with its network unchanged.
+
+    :param structure: A three-dimensional structure with a bond network and no torsions.
+    :return: The structure, of the kind :func:`distance_bonds` returns, with the torsions assigned.
+    :raises ValueError: If the structure has no network, its network already has torsions, the
+        structure is not periodic in three directions, or the baseline cannot assign a shape (a
+        fundamental-domain site at a special point of its own Wyckoff letter).
+    """
+    target = _presented(structure)
+    result = target.unview() if isinstance(target, UnitcellStructureView) else target
+    network = result.bonds
+    if network is None:
+        raise ValueError("a structure without a bond network has no torsions to assign")
+    if network.torsions is not None:
+        raise ValueError(
+            "the bond network already has torsions; baseline torsions are assigned only to a network without"
+        )
+    if not all(result.cell.periodicity):
+        raise ValueError("baseline torsions are assigned only to a structure periodic in three directions")
+    rows = _baseline_rows(result, _site_shapes(result))
+    if rows is None:
+        return result
+    return result._with_bonds(replace(network, torsions=rows, torsions_source=_baseline_torsions_source()))
+
+
+def _baseline_torsions_source() -> BondSource:
+    """Return the source that names the baseline torsions (software ``httk_basic``, the installed version)."""
+    return BondSource(_BASELINE_TORSIONS_DESCRIPTION, _HTTK_BASIC, _distribution_version())
+
+
+def _baseline_rows(
+    structure: FundamentalDomainStructure | UnitcellStructure, shapes: Sequence[str | None]
+) -> tuple[SiteTorsion, ...] | None:
+    """Return the baseline torsions of a three-dimensional structure's network, ``None`` when there are none.
+
+    A unit cell is judged as the P1 fundamental domain of its sites; its statements are put in the
+    unit cell's normal form.
+
+    :param structure: The structure, with a network.
+    :param shapes: Its shape per site (``_site_shapes``).
+    :return: The statements, or ``None``.
+    """
+    from httk.atomistic.models.structure.bonds import _cell_domain
+    from httk.atomistic.symmetry.torsions import _baseline_torsions
+
+    if isinstance(structure, FundamentalDomainStructure):
+        return _baseline_torsions(structure, shapes) or None
+    rows = _baseline_torsions(_cell_domain(structure), shapes)
+    return _cell_torsions(rows, len(structure.species_at_sites), structure.cell.periodicity)
 
 
 def site_bonds_dimensions(structure: StructureLike) -> tuple[int | None, ...]:
