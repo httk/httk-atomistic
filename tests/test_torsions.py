@@ -191,9 +191,6 @@ H1, H2, H3 = (2 * Q, F(3, 8), Q), (F(5, 8), 2 * Q, F(1, 8)), (2 * Q, 2 * Q, F(1,
         (_chain(), (None, "A2", "L2", "T4", "A2", None), "shape pair without a letter"),
         # A-B-C 2.94 degrees from straight (tan = 4 / 78): skipped at 3 degrees, not by the reference's 0.05 (2.87)
         (_chain(a=(F(51, 104), 2 * Q, F(1, 8))), SHAPES, "collinear"),
-        (_chain(species={A: Species("C0.5", ("C",), (F(1, 2),))}), SHAPES, "partial or mixed site"),
-        (_chain(species={D: Species("CN", ("C", "N"), (F(1, 2), F(1, 2)))}), SHAPES, "partial or mixed site"),
-        (_chain(species={C_: Species("Cv", ("C", "vacancy"), (F(3, 4), F(1, 4)))}), SHAPES, "partial or mixed site"),
     ],
 )
 def test_each_rule_alone_removes_the_symbol(structure: ASUStructure, shapes: Any, reason: str) -> None:
@@ -201,32 +198,44 @@ def test_each_rule_alone_removes_the_symbol(structure: ASUStructure, shapes: Any
     assert (B, C_) not in _site_pair_torsions(structure, tuple(shapes) + (None,) * 3)
 
 
+@pytest.mark.parametrize(
+    "species",
+    [
+        {A: Species("C0.5", ("C",), (F(1, 2),))},
+        {B: Species("HF", ("H", "F"), (F(1, 2), F(1, 2)))},
+        {C_: Species("Cv", ("C", "vacancy"), (F(3, 4), F(1, 4)))},
+        {D: Species("CN", ("C", "N"), (F(1, 2), F(1, 2)))},
+    ],
+)
+def test_a_partial_or_mixed_site_keeps_the_letter(species: dict[int, Species]) -> None:
+    # the letter never depends on the species: a partial, mixed or vacant B, C, A or D changes nothing
+    assert _results(_chain(species=species))[(B, C_)] == _results(_chain())[(B, C_)]
+    assert _site_pair_torsions(_chain(species=species), SHAPES) == {(B, C_): "g"}
+
+
 # P, P2, P3, P4: a second branch on B, P where the torsion P-B-C-D is 180 degrees (A-B-C-D is 90)
 P, P2, P3, P4 = 6, 7, 8, 9
 BRANCH = (H1, (F(5, 8), F(3, 8), Q), (F(5, 8), F(3, 8), F(1, 8)), (F(5, 8), Q, F(1, 8)))
-MIXED = Species("HF", ("H", "F"), (F(1, 2), F(1, 2)))
 BRANCHED = (None, "A2", "TPY3", "T4", "A2", None)  # B has three bonds: refined, as a T4 end is
 
 
-def _branched(depth: int, species: dict[int, Species] | None = None, *, longer_x: bool = False) -> ASUStructure:
+def _branched(depth: int, *, longer_x: bool = False) -> ASUStructure:
     """The chain with the branch B-P-P2-... of ``depth`` atoms; ``longer_x`` bonds one more atom to X."""
     bonds = ((B, P, (0, 0, 0)), *((P + k, P + k + 1, (0, 0, 0)) for k in range(depth - 1)))
     extra = BRANCH[:depth]
     if longer_x:
         extra, bonds = (*extra, (Q, 3 * Q, 2 * Q)), (*bonds, (X, P + depth, (0, 0, 0)))
-    return _chain(extra=extra, bonds=bonds, species=species)
+    return _chain(extra=extra, bonds=bonds)
 
 
-@pytest.mark.parametrize("species", [{}, {P: MIXED}])  # a mixed atom that is not A or D keeps the letter
-def test_a_unique_most_bonded_neighbour_is_the_reference(species: dict[int, Species]) -> None:
+def test_a_unique_most_bonded_neighbour_is_the_reference() -> None:
     # P has one bond, A two: A wins by count
-    assert _results(_branched(1, species=species), BRANCHED)[(B, C_)][:2] == ("g", 90.0)
+    assert _results(_branched(1), BRANCHED)[(B, C_)][:2] == ("g", 90.0)
 
 
-@pytest.mark.parametrize("species", [{}, {A: MIXED}])  # D1 applies to the chosen A only
-def test_a_tie_by_count_is_broken_at_the_first_shell(species: dict[int, Species]) -> None:
+def test_a_tie_by_count_is_broken_at_the_first_shell() -> None:
     # A and P have two bonds; S1 is (1,) for A (X) and (2,) for P (P2): P wins
-    assert _results(_branched(3, species=species), BRANCHED)[(B, C_)][:2] == ("t", 180.0)
+    assert _results(_branched(3), BRANCHED)[(B, C_)][:2] == ("t", 180.0)
 
 
 def test_a_tie_by_count_and_first_shell_is_broken_at_the_second_shell() -> None:

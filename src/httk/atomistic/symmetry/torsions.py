@@ -8,8 +8,7 @@ exact coordinates, never from element names):
 3. it is not in a ring;
 4. at each end at least one other bonded atom has more than one bond (not an end group);
 5. the sorted pair of the shapes of B and C, as used in the label, is a key of ``_TORSION_EDGES``;
-6. each end has a unique reference neighbour (A at B, D at C, below);
-7. (decision D1) B, C, A and D sit on fully occupied, unmixed sites.
+6. each end has a unique reference neighbour (A at B, D at C, below).
 
 The candidates at B are B's other bonded atoms. The one with the most bonds is A; when several
 share the most, the net breaks the tie: each tied candidate X has the signature (S1, S2, S3),
@@ -36,7 +35,6 @@ from typing import TYPE_CHECKING, Any
 from httk.atomistic.symmetry.shapes import _averaged_metric, _bond_counts, _stabilisers
 
 if TYPE_CHECKING:
-    from httk.atomistic.models.species.species import Species
     from httk.atomistic.models.structure.asu import FundamentalDomainStructure
     from httk.atomistic.symmetry.protonet import _Element, _GroupTables
 
@@ -62,12 +60,6 @@ def _edge(first: str | None, second: str | None) -> tuple[float, str] | None:
 def _atom(site: int, point: Sequence[Fraction]) -> _Atom:
     """Return the translation-quotient node of the atom of ``site`` at ``point``."""
     return site, tuple(c % 1 for c in point)
-
-
-def _whole(species: "Species") -> bool:
-    """Return whether a species is one fully occupied constituent (decision D1)."""
-    present = [c for s, c in zip(species.chemical_symbols, species.concentration, strict=True) if s != "vacancy"]
-    return present == [1]
 
 
 def _sign(x: Any) -> int:
@@ -99,7 +91,6 @@ def _bond_torsions(structure: "FundamentalDomainStructure", shapes: Sequence[str
     rows = [(bond.site, bond.partner, elements.element(_op(bond.operation))) for bond in structure.bonds.pairs]
     refs = [(p[0], p[1], p[2]) for p in (_apply(elements.to_standard, _reference(spacegroup, site)) for site in sites)]
     judge = _net_judge(tables, _stabilisers(spacegroup, sites), refs, rows, shapes)
-    species = {value.name: value for value in structure.species}
     metric: list[list[Any]] | None = None
     result: list[_Torsion] = []
     for a, b, g in rows:
@@ -107,10 +98,7 @@ def _bond_torsions(structure: "FundamentalDomainStructure", shapes: Sequence[str
         if isinstance(ends, str):
             result.append((None, None, ends))
             continue
-        site_a, A, B, C, site_d, D = ends
-        if not all(_whole(species[sites[s].species]) for s in (a, b, site_a, site_d)):
-            result.append((None, None, "partial or mixed site"))
-            continue
+        _, A, B, C, _, D = ends
         if metric is None:
             metric = _averaged_metric(structure, tables)
         tau = _torsion(metric, A, B, C, D)

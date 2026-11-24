@@ -174,8 +174,8 @@ def _checked_torsions(
     (rule 3), and each end has a unique reference neighbour (rule 6, a tie by bond count final at
     a planar end), judged by the same code as the structures' letters on atoms placed at each
     Wyckoff letter's generic probe point. Rule 2 (four or fewer bonds) follows from rule 5 once the shapes are
-    validated against the bond counts. Full occupancy and collinear ends are not checked here,
-    as they need the structure.
+    validated against the bond counts. Collinear ends are not checked here, as they need the
+    structure.
 
     :param spacegroup: The standard-setting space group.
     :param letters: The Wyckoff letter per site, in site order.
@@ -289,8 +289,7 @@ class Protonettype(ProtonettypeBackend):
         low letter, at most four bonds at each end, one bond orbit between its two sites, every
         row of which carries the same letter, a bond in a molecule and outside a ring, another
         neighbour with more than one bond at each end, and a unique reference neighbour at each
-        end. Whether its sites are fully occupied and whether an end is straight are not checked,
-        as they need the structure.
+        end. Whether an end is straight is not checked, as it needs the structure.
     :raises ValueError: If the input is malformed, a shape is missing, unknown or has the wrong
         bond count, a torsion letter is not allowed on its row, or the canonical net needs a
         translation outside -5..+4, which the notation cannot write (D4).

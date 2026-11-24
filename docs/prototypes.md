@@ -598,6 +598,8 @@ refused with a message to write `I`. Net version 10 adds
 [torsion letters](#torsion-letters) on the qualifying bonds of molecules; a label
 without such a bond did not change. Net version 11 makes a tie by bond count final
 at a planar (`TP3`) end, so labels only lose letters, on bonds with such an end.
+Net version 12 no longer withholds a letter when B, C, A or D sits on a partially
+occupied or mixed site, so labels only gain letters, on bonds with such a site.
 
 The Source column names where a symbol comes from, not its geometry. The shapes
 that predate net version 7 keep geometries of their own; three of them
@@ -691,8 +693,7 @@ decided from the net, the shapes and the coordinates, never from element names
    a methyl, a carboxylate or a hydroxyl gives no letter;
 5. the shapes of B and C, as used in the label, are a pair of the table (in
    either order);
-6. each end has a unique reference neighbour, A at B and D at C (below);
-7. B, C, A and D sit on fully occupied, unmixed sites.
+6. each end has a unique reference neighbour, A at B and D at C (below).
 
 | Shapes of B and C | Letter below the edge | From the edge | Edge |
 |---|---|---|---|
@@ -743,8 +744,8 @@ its two sites, every row of which carries the same letter, and rules 1, 3 and 6:
 a bond of a periodic piece, a ring bond and a bond with a tied end are each refused
 with their own message. The net decides these without coordinates, so the check
 runs the code that gives the letters on atoms placed at each Wyckoff letter's
-generic probe point. Full occupancy, collinear ends and the torsion itself are not
-checked from a label, as they need the structure.
+generic probe point. Collinear ends and the torsion itself are not checked from a
+label, as they need the structure.
 
 **Relation to CIF.** This is the CIF bond list in compressed form. CIF records
 a bond as two atom labels plus a symmetry code for each
