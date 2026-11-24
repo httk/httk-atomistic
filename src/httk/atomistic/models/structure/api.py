@@ -86,6 +86,23 @@ class StructureAPI(ABC):
         return None
 
     @property
+    def bonds_dimensions(self) -> tuple[int, ...] | None:
+        """Expose the sorted distinct dimensions of the pieces the bond network joins atoms into.
+
+        A piece is a connected set of bonded atoms over the whole crystal; its dimension is the
+        rank (0 to 3) of the lattice translations that map it onto itself (0 a molecule, 1 a chain,
+        2 a layer, 3 a framework). Atoms without bonds belong to no piece. See
+        :func:`~httk.atomistic.site_bonds_dimensions` for the value per site.
+
+        :return: The dimensions, ``()`` for a network without bonds, or ``None`` without a network
+            or when a structure that is not a fundamental domain has a network that cannot be
+            expressed on its unit cell; a fundamental domain's value comes from its group.
+        """
+        from httk.atomistic.bonding import _bonds_dimensions
+
+        return _bonds_dimensions(cast("StructureLike", self))
+
+    @property
     def site_moments(self) -> SiteMomentsBackend | None:
         """Expose optional per-site magnetic moments in ``sites`` order.
 

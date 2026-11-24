@@ -97,13 +97,14 @@ def _is_definition_iri(value: object) -> bool:
         return False
 
 
-_BOND_KEYS = frozenset({"pairs", "shapes", "source", "shapes_source"})
+_BOND_KEYS = frozenset({"pairs", "shapes", "source", "shapes_source", "dimensions"})
 
 
 def _decoded_bond_network(raw: object, nsites: int, operations: tuple[str, ...] | None) -> BondNetwork:
     """Decode the ``_httk_bonds`` dictionary of a unit-cell span into a network.
 
-    The rules the definition states in prose are checked here. Shapes that the network cannot
+    The rules the definition states in prose are checked here. ``dimensions`` is checked and
+    ignored: a structure derives it from the pairs. Shapes that the network cannot
     represent (one over only some of its site's rows, or several on one site) are dropped with a
     warning, and the bonds are kept.
 

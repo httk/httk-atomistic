@@ -318,6 +318,9 @@ def _domain_symmetry_value(record: Any, name: str) -> object:
 def _bonds_value(record: Any, backing: str) -> object:
     """Serve ``_httk_bonds``: a unit-cell record's straight from its rows, a domain's through its structure.
 
+    Both serve the stored dimensions, so the served value is the one the filters read: ``null``
+    for a row written before the dimensions were stored.
+
     A record whose stored network cannot be served (for example a shape symbol that is no longer
     valid for its site) is served as null with a warning.
     """
@@ -327,6 +330,7 @@ def _bonds_value(record: Any, backing: str) -> object:
         _IDENTITY_MATRIX,
         _bond_source,
         _domain_structure_from_record,
+        _mask_dimensions,
         _network_rows,
         _shapes_from_record,
     )
@@ -337,7 +341,11 @@ def _bonds_value(record: Any, backing: str) -> object:
         return None
     try:
         if backing != "unitcell":
-            return bond_properties(_domain_structure_from_record(record), entry=record.id)["_httk_bonds"]
+            value = bond_properties(_domain_structure_from_record(record), entry=record.id)["_httk_bonds"]
+            if value is not None:  # the stored dimensions, which the filters read
+                dimensions = _mask_dimensions(record.bonds_dimensions_mask)
+                value["dimensions"] = None if dimensions is None else list(dimensions)
+            return value
         network = record.bonds
         bonds = [
             SiteBond(int(row[0]), int(row[1]), AffineOperation(_IDENTITY_MATRIX, row[2:5]))
@@ -370,6 +378,7 @@ def _bonds_value(record: Any, backing: str) -> object:
         shapes,
         _bond_source(record.bonds_source),
         _bond_source(record.shapes_source),
+        _mask_dimensions(record.bonds_dimensions_mask),
     )
 
 
@@ -1190,6 +1199,70 @@ def _species_member_projection(
     return StoredPropertyProjection(response=response, query=query)
 
 
+_LENGTH_TESTS: dict[str, Callable[[int, int], bool]] = {
+    "=": int.__eq__,
+    "!=": int.__ne__,
+    "<": int.__lt__,
+    "<=": int.__le__,
+    ">": int.__gt__,
+    ">=": int.__ge__,
+}
+# the dimensions each stored ``bonds_dimensions_mask`` holds (bit d for dimension d)
+_MASK_DIMENSIONS = tuple(frozenset(d for d in range(4) if mask >> d & 1) for mask in range(16))
+
+
+def _bonds_dimensions_query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
+    """Filter ``_httk_bonds.dimensions`` over the stored ``bonds_dimensions_mask``: HAS, LENGTH and unknown.
+
+    A mask has only 16 values, so each test is an equality with one of the masks it accepts.
+    """
+    field = context.field("bonds_dimensions_mask")
+    if operator == "IS_KNOWN":
+        return context.not_(context.is_null(field))
+    if operator == "IS_UNKNOWN":
+        return context.is_null(field)
+    if operator.startswith("LENGTH "):
+        compare = _LENGTH_TESTS.get(operator.removeprefix("LENGTH "))
+        if compare is None or not isinstance(literal, int) or isinstance(literal, bool):
+            raise QueryLiteralError("_httk_bonds.dimensions LENGTH requires a comparison with an integer literal")
+        length = literal
+        values: frozenset[object] = frozenset()
+    else:
+        if operator not in {"HAS_ALL", "HAS_ANY", "HAS_ONLY"} or not isinstance(literal, tuple | list):
+            raise QueryLiteralError("_httk_bonds.dimensions supports HAS, LENGTH, and unknown operators")
+        if not all(isinstance(value, int) and not isinstance(value, bool) for value in literal):
+            raise QueryLiteralError("_httk_bonds.dimensions requires integer literals")
+        compare, length, values = None, 0, frozenset(literal)
+
+    def test(held: frozenset[int]) -> bool:
+        if compare is not None:
+            return compare(len(held), length)
+        if operator == "HAS_ALL":
+            return values <= held
+        if operator == "HAS_ANY":
+            return not values.isdisjoint(held)
+        return held <= values  # HAS_ONLY
+
+    accepted = [
+        context.equal(field, context.constant(mask)) for mask, held in enumerate(_MASK_DIMENSIONS) if test(held)
+    ]
+    predicate = context.or_(*accepted) if accepted else context.always_false()
+    return context.when_known(context.not_(context.is_null(field)), predicate)
+
+
+def _bonds_projection(backing: str) -> StoredPropertyProjection:
+    """Serve ``_httk_bonds`` and filter its member ``dimensions`` over the stored ``bonds_dimensions_mask``."""
+
+    def response(record: Any) -> list[int] | None:
+        from httk.atomistic.storage.records import _mask_dimensions
+
+        dimensions = _mask_dimensions(record.bonds_dimensions_mask)
+        return None if dimensions is None else list(dimensions)
+
+    dimensions = StoredPropertyProjection(response=response, query=_bonds_dimensions_query)
+    return StoredPropertyProjection(response=_response("_httk_bonds", backing), members={"dimensions": dimensions})
+
+
 def _species_query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
     """Filter the always-stored ``species`` list by presence and length only."""
     if operator == "IS_KNOWN":
@@ -1336,6 +1409,7 @@ def unitcell_structure_properties() -> Mapping[str, StoredPropertyProjection]:
         response=_response("space_group_it_number", "unitcell"),
         query=_symmetry_query(("symmetry", "space_group_it_number")),
     )
+    projections["_httk_bonds"] = _bonds_projection("unitcell")
     return projections
 
 
@@ -1363,6 +1437,7 @@ def _domain_structure_properties(*, asymmetric_unit: bool) -> Mapping[str, Store
     projections["space_group_it_number"] = StoredPropertyProjection(
         response=_response("space_group_it_number", backing), query=_symmetry_query(("spacegroup_it_number",))
     )
+    projections["_httk_bonds"] = _bonds_projection(backing)
     return projections
 
 
@@ -1452,6 +1527,15 @@ def _unknown_integer_query(property_name: str) -> Callable[[QueryContext, str, o
     return query
 
 
+def _unknown_query(context: QueryContext, operator: str, literal: object) -> QueryExpression:
+    """Answer a value the backing never stores: unknown under every operator and its negation."""
+    if operator == "IS_KNOWN":
+        return context.always_false()
+    if operator == "IS_UNKNOWN":
+        return context.always_true()
+    return context.when_known(context.always_false(), context.always_true())
+
+
 def numeric_unitcell_structure_properties() -> Mapping[str, StoredPropertyProjection]:
     """Build the stored-property declarations for all-float numeric unit-cell records.
 
@@ -1477,6 +1561,10 @@ def numeric_unitcell_structure_properties() -> Mapping[str, StoredPropertyProjec
     )
     projections["space_group_it_number"] = StoredPropertyProjection(
         response=_response("space_group_it_number", "numeric"), query=_unknown_integer_query("space_group_it_number")
+    )
+    projections["_httk_bonds"] = StoredPropertyProjection(  # a numeric structure has no bond network
+        response=_response("_httk_bonds", "numeric"),
+        members={"dimensions": StoredPropertyProjection(response=lambda _record: None, query=_unknown_query)},
     )
     return {name: _float_constants(projection) for name, projection in projections.items()}
 

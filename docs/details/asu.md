@@ -217,7 +217,12 @@ references on the structure record (`bonds_source`, `shapes_source`), outside th
 identity: a different source never changes a content id. A `shapes_source` equal to the
 `source` is the same provenance and is stored as none. Validation rejects a stored network
 that is not in its normal form, all-`""` shapes, a `bonds_source` without bonds, a
-`shapes_source` without shapes and a `shapes_source` equal to the `bonds_source`.
+`shapes_source` without shapes and a `shapes_source` equal to the `bonds_source`. Both kinds of
+record also store the derived `bonds_dimensions` (see
+[Dimensions of the network](#dimensions-of-the-network)) for searching, outside the content
+identity, as the integer `bonds_dimensions_mask` with bit `d` set when dimension `d` is
+present (0 for a network without bonds); validation rejects a mask that differs from the
+network's.
 
 Because sources are outside the content identity but kept, **re-saving equal content with a
 different source cannot be recorded**: `save`, `replace` and `bulk_ingest` raise
@@ -229,8 +234,13 @@ store, or save it as an alternative (`alternative_of`).
 
 Stores written by a development version before unit-cell networks were stored reopen with
 `upgrade=True`: the new tables and nullable references are added, and every stored row keeps
-its content id and network, with unknown sources. Stores written with *httk-store* storage
-protocol 2 (the *httk-store* releases up to 2.1.4) need a rebuild in any case.
+its content id and network, with unknown sources. The same holds for stores written before
+the dimensions were stored: the upgrade adds the nullable column, and rows written before it
+serve `dimensions` as `null` and match `IS UNKNOWN` until the store is rebuilt. Re-saving such
+a row cannot fill it: the value is outside the content identity, so, as with sources, a
+different value raises `EntryMetadataConflictError`. Stores
+written with *httk-store* storage protocol 2 (the *httk-store* releases up to 2.1.4) need a
+rebuild in any case.
 
 ### Default bonds from distances
 
@@ -372,6 +382,44 @@ shape is `I`. Distances are floats
 computed from the exact structure, so every exact re-description of one
 crystal gives the same network except where a distance lies within float noise of its
 cutoff or of its radius sum.
+
+### Dimensions of the network
+
+The bonds of every atom of the crystal (all lattice translates and, on a fundamental domain,
+every orbit member) join the bonded atoms into connected pieces. The dimension of a piece is the
+rank, 0 to 3, of the lattice translations that map it onto itself: 0 for a molecule or cluster,
+1 for a chain, 2 for a layer, 3 for a framework. Atoms without bonds belong to no piece and do
+not count. `structure.bonds_dimensions` is the sorted tuple of the distinct dimensions of the
+pieces: `()` for a network without bonds, and `None` without a network or when a unit-cell
+structure's network cannot be expressed on its unit cell (a fundamental domain's value comes
+from its space group, even where its unit-cell view drops the network). It is
+exact, derived from the pairs alone without coordinates or tolerance, and never exceeds the
+number of periodic directions. A disordered network is taken as given, so the partially
+occupied atoms `distance_bonds` bonds together (above) can join pieces that a single ordered
+configuration would keep apart.
+
+{py:func}`~httk.atomistic.site_bonds_dimensions` gives the dimension of the piece of each site,
+`None` for a site without bonds: one value per `wyckoff_sites` entry of a fundamental domain
+(all atoms of a Wyckoff site lie on pieces of the same dimension), one per `sites` entry
+otherwise. It raises `ValueError` for a structure without a network.
+
+```python
+from httk.atomistic import ASUStructure, Cell, Species, UnitcellStructureView, WyckoffSite
+from httk.atomistic import distance_bonds, site_bonds_dimensions
+
+nacl = distance_bonds(ASUStructure(
+    Cell([[5.64, 0, 0], [0, 5.64, 0], [0, 0, 5.64]]), 225,
+    [WyckoffSite("a", (), "Na"), WyckoffSite("b", (), "Cl")],
+    [Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,))],
+))
+assert nacl.bonds_dimensions == (3,)  # one framework
+assert site_bonds_dimensions(nacl) == (3, 3)  # per Wyckoff site
+assert site_bonds_dimensions(UnitcellStructureView(nacl)) == (3,) * 8  # per site of the unit cell
+```
+
+The storage records keep the value as `bonds_dimensions_mask` and the served `_httk_bonds` carries it
+as `dimensions`, which can be filtered (see
+[Serving bond networks](#serving-bond-networks)); the per-site values are not stored.
 
 ## Any setting, including untabulated ones
 
@@ -649,9 +697,17 @@ setting that in that case has no name.
 
 The bond network is served as `_httk_bonds`
 (`https://schemas.httk.org/defs/v0.1/properties/chemistry/bonds`, version 0.1.0): a
-dictionary of `pairs`, `shapes`, `source` and `shapes_source`, or `null` without a network. It
-is large, so it is not a default response field: ask for it with `response_fields`, together
-with `space_group_symmetry_operations_xyz`, which it indexes.
+dictionary of `pairs`, `shapes`, `source`, `shapes_source` and `dimensions`, or `null` without
+a network. It is large, so it is not a default response field: ask for it with
+`response_fields`, together with `space_group_symmetry_operations_xyz`, which it indexes.
+
+`dimensions` is the structure's `bonds_dimensions` as a list (see
+[Dimensions of the network](#dimensions-of-the-network)), and it is the one key that can be
+filtered, with `HAS`, `HAS ALL`, `HAS ANY`, `HAS ONLY`, `LENGTH` and `IS KNOWN`/`IS UNKNOWN`:
+`_httk_bonds.dimensions HAS 2 AND NOT _httk_bonds.dimensions HAS 3` finds layered structures
+without a framework, and `_httk_bonds.dimensions HAS ONLY 0` structures whose bonded atoms all
+lie on finite pieces, such as molecular crystals. A stored structure serves its stored value,
+the one the filters read.
 
 Each bond is a row of six integers `[site, partner, op, t1, t2, t3]`: the atom at the served
 position of `site` is bonded to the served position of `partner` moved by
@@ -684,7 +740,8 @@ an identity operation, aligned shape lists, rows that touch their site, a named 
 number equal to the atoms its shape covers, and at least three for `I`); a violation is an
 `IncompleteOptimadeResourceError`. Shapes it cannot represent, `pair_rows` over only some of a
 site's rows or several shapes on one site, are dropped with a warning and the bonds are kept.
-For the other spans it gives `None`.
+For the other spans it gives `None`. It checks that `dimensions` is `null` or distinct integers
+from 0 to 3 in increasing order and otherwise ignores it: the structure derives its own.
 
 ## The symmetry tables
 

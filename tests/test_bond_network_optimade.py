@@ -41,6 +41,7 @@ from httk.atomistic import (
     UnitcellStructureView,
     WyckoffSite,
     distance_bonds,
+    site_bonds_dimensions,
 )
 from httk.atomistic.entries import bonds as bonds_module
 from httk.atomistic.entries.bonds import (
@@ -258,7 +259,9 @@ def test_the_unit_cell_fast_path_equals_the_structure_path() -> None:
 
 def test_the_definition_lays_out_rows_and_sparse_shapes() -> None:
     definition = _schema()
-    assert set(definition["properties"]) == {"pairs", "shapes", "source", "shapes_source"}
+    assert set(definition["properties"]) == {"pairs", "shapes", "source", "shapes_source", "dimensions"}
+    assert definition["x-optimade-requirements"]["query-support"] == "partial"
+    assert definition["properties"]["dimensions"]["items"]["maximum"] == 3
     assert definition["x-optimade-definition"]["version"] == "0.1.0"
     assert "operation_xyz" not in json.dumps(definition["properties"])
     assert definition["properties"]["pairs"]["items"]["x-optimade-dimensions"]["sizes"] == [6]
@@ -647,6 +650,26 @@ def test_the_default_response_omits_bonds_and_response_fields_returns_them(clien
     assert info["data"]["properties"]["_httk_bonds"]["$id"] == BONDS_ID
 
 
+def test_the_dimensions_filter_through_the_served_api(client: Any) -> None:
+    http, names = client
+
+    def found(filter_string: str) -> set[str]:
+        response = http.get("/v1/structures", params={"filter": filter_string})
+        assert response.status_code == 200, response.text
+        return {item["id"] for item in response.json()["data"]}
+
+    assert found("_httk_bonds.dimensions HAS 3") == {names["cell"], names["domain"]}
+    assert found("_httk_bonds.dimensions HAS 2 AND NOT _httk_bonds.dimensions HAS 3") == set()
+    assert found("_httk_bonds.dimensions HAS ONLY 0") == set()
+    assert found("_httk_bonds.dimensions IS UNKNOWN") == {names["plain"]}
+    asked = http.get("/v1/structures", params={"response_fields": "_httk_bonds"}).json()
+    assert {item["id"]: (item["attributes"]["_httk_bonds"] or {}).get("dimensions") for item in asked["data"]} == {
+        names["cell"]: [3],
+        names["domain"]: [3],
+        names["plain"]: None,
+    }
+
+
 def test_a_served_unit_cell_reads_back_with_its_network_and_sources(client: Any) -> None:
     http, names = client
     expected = SERVED["a unit cell"]().bonds
@@ -713,6 +736,12 @@ def test_read_back_resolves_the_definition_id_and_validates() -> None:
         assert read == expected and read.pairs == expected.pairs and read.source == expected.source
     assert OptimadeStructure(_bonds_resource(None)).bonds is None
     assert OptimadeStructure(_bonds_resource(value, span="fundamental_domain")).bonds is None
+    symmetric = OptimadeStructure(_bonds_resource(value, span="fundamental_domain"))
+    assert symmetric.bonds_dimensions is None  # no network read, so nothing to derive
+    with pytest.raises(ValueError, match="no bond network"):
+        site_bonds_dimensions(symmetric)
+    # dimensions are checked and ignored: the structure derives its own
+    assert OptimadeStructure(_bonds_resource({**value, "dimensions": [0, 3]})).bonds == expected
     # without served operations, every row names operation 0, the identity
     plain = {**_pairs((1, 0, 0, 0, 0, 0), (0, 1, 0, -1, 0, 0)), "source": {"software": "x"}}
     assert OptimadeStructure(_bonds_resource(plain, operations=None)).bonds == expected
@@ -789,6 +818,10 @@ MALFORMED = {
     "missing pairs": {"shapes": None},
     "an unknown source key": {**_pairs((0, 1, 1, 0, 0, 0)), "source": {"author": "x"}},
     "a self bond": _pairs((0, 0, 1, 0, 0, 0)),
+    "unsorted dimensions": {**_pairs((0, 1, 1, 0, 0, 0)), "dimensions": [3, 0]},
+    "a dimension above 3": {**_pairs((0, 1, 1, 0, 0, 0)), "dimensions": [4]},
+    "a repeated dimension": {**_pairs((0, 1, 1, 0, 0, 0)), "dimensions": [0, 0]},
+    "a non-integer dimension": {**_pairs((0, 1, 1, 0, 0, 0)), "dimensions": ["3"]},
 }
 
 

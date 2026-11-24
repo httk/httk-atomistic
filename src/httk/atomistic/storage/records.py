@@ -1254,7 +1254,7 @@ def _normalize_common(record: Any, *, nsites: int) -> None:
 
 
 def _check_source_fields(record: Any, shapes: tuple[str, ...] | None) -> None:
-    """Check a structure record's bond sources: their type, and that each has what it assigned."""
+    """Check a structure record's bond sources and dimensions: their type, and that each has what it describes."""
     name = type(record).__name__
     for field_name in ("bonds_source", "shapes_source"):
         value = getattr(record, field_name)
@@ -1264,6 +1264,24 @@ def _check_source_fields(record: Any, shapes: tuple[str, ...] | None) -> None:
         raise ValueError(f"{name} bonds_source needs bonds")
     if record.shapes_source is not None and shapes is None:
         raise ValueError(f"{name} shapes_source needs shapes; without shapes there is nothing it assigned")
+    mask = record.bonds_dimensions_mask
+    if mask is not None:
+        if not isinstance(mask, int) or isinstance(mask, bool):
+            raise TypeError(f"{name} bonds_dimensions_mask must be an integer or None")
+        if not 0 <= mask <= 15:
+            raise ValueError(f"{name} bonds_dimensions_mask must be in 0..15, got {mask}")
+        if record.bonds is None:
+            raise ValueError(f"{name} bonds_dimensions_mask needs bonds")
+
+
+def _dimensions_mask(dimensions: tuple[int, ...] | None) -> int | None:
+    """Encode bond-network dimensions as the mask stored in ``bonds_dimensions_mask`` (bit d for dimension d)."""
+    return None if dimensions is None else sum(1 << dimension for dimension in dimensions)
+
+
+def _mask_dimensions(mask: int | None) -> tuple[int, ...] | None:
+    """Decode a stored ``bonds_dimensions_mask`` into the sorted dimensions it holds."""
+    return None if mask is None else tuple(dimension for dimension in range(4) if mask >> dimension & 1)
 
 
 def _project_sources(network: BondNetwork | None) -> dict[str, object]:
@@ -1362,6 +1380,11 @@ class UnitcellStructureRecord:
     :param optimization_type: The optimization provenance, if stated.
     :param bonds: The bond network's bonds and shapes, or ``None`` when no network is known;
         ``None`` leaves the content identity unchanged.
+    :param bonds_dimensions_mask: The structure's derived
+        :attr:`~httk.atomistic.models.structure.StructureAPI.bonds_dimensions`, stored for searching
+        as a mask with bit ``d`` set when dimension ``d`` is present (``0`` for a network without
+        bonds, ``None`` when not derived, at most 15); outside
+        the content identity, and it needs ``bonds``.
     :param bonds_source: Who assigned the bonds, if known; outside the content identity.
     :param shapes_source: Who assigned the shapes, if not ``bonds_source``; outside the content
         identity, and it needs network shapes.
@@ -1397,6 +1420,7 @@ class UnitcellStructureRecord:
     chemical_formula_hill: str | None = None
     optimization_type: str | None = None
     bonds: Annotated[UnitcellBondNetworkRecord | None, IdentitySkipWhenNone()] = None
+    bonds_dimensions_mask: Annotated[int | None, IdentitySkip()] = None
     bonds_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
     shapes_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
     source_file: Annotated[FileRecord | None, IdentitySkipWhenNone()] = None
@@ -1471,6 +1495,7 @@ class UnitcellStructureRecord:
                 "site_moments": None if structure.site_moments is None else _moment_components(structure.site_moments),
                 "site_moments_precision": None if structure.site_moments is None else structure.site_moments.precision,
                 "bonds": structure.bonds,
+                "bonds_dimensions_mask": _dimensions_mask(structure.bonds_dimensions),
                 **_project_sources(structure.bonds),
                 "source_file": None,
             }
@@ -1506,6 +1531,11 @@ class FundamentalDomainStructureRecord:
     :param shapes: The supplied bond shapes, one symbol per site with ``""`` for a site without
         one (the baseline decides), or ``None`` when none are supplied; needs ``bonds``, and
         ``None`` leaves the content identity unchanged.
+    :param bonds_dimensions_mask: The structure's derived
+        :attr:`~httk.atomistic.models.structure.StructureAPI.bonds_dimensions`, stored for searching
+        as a mask with bit ``d`` set when dimension ``d`` is present (``0`` for a network without
+        bonds, ``None`` when not derived, at most 15);
+        outside the content identity, and it needs ``bonds``.
     :param bonds_source: Who assigned the bonds, if known; outside the content identity, and it
         needs ``bonds``.
     :param shapes_source: Who assigned the shapes, if not ``bonds_source``; outside the content
@@ -1545,6 +1575,7 @@ class FundamentalDomainStructureRecord:
     optimization_type: str | None = None
     bonds: Annotated[tuple[SiteBondRecord, ...] | None, IdentitySkipWhenNone()] = None
     shapes: Annotated[tuple[str, ...] | None, IdentitySkipWhenNone()] = None
+    bonds_dimensions_mask: Annotated[int | None, IdentitySkip()] = None
     bonds_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
     shapes_source: Annotated[BondSourceRecord | None, IdentitySkip()] = field(default=None, compare=False)
     id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
@@ -1618,6 +1649,7 @@ class FundamentalDomainStructureRecord:
                 "coordinate_precision": structure.coordinate_precision,
                 "bonds": None if structure.bonds is None else structure.bonds.pairs,
                 "shapes": None if structure.bonds is None else _shapes_record(structure.bonds.shapes),
+                "bonds_dimensions_mask": _dimensions_mask(structure.bonds_dimensions),
                 **_project_sources(structure.bonds),
             }
         )
@@ -1843,7 +1875,8 @@ def validate_structure_record(
     :param record: The exact root structure record to validate.
     :return: ``None`` after successful validation.
     :raises TypeError: If ``record`` is not an exact supported root record.
-    :raises ValueError: If the record's normalized composition contradicts its native fields.
+    :raises ValueError: If the record's normalized composition contradicts its native fields, or
+        its bond fields are not those of its bond network.
     """
     if _effective_record_type(record) not in (
         UnitcellStructureRecord,
@@ -1856,25 +1889,25 @@ def validate_structure_record(
         return
     # the structure validates the bonds and shapes; stored ones must already be in their normal form
     name = type(record).__name__
+    structure = _structure_from_record(record)
+    network = structure.bonds
+    assert network is not None
     if isinstance(record, UnitcellStructureRecord):
-        network = _structure_from_record(record).bonds
-        assert network is not None
         stored = record.bonds
         if network.pairs != _cell_pairs_from_record(stored):
             raise ValueError(f"{name} bonds are not the normalized bond network")
         if _shapes_record(network.shapes) != stored.shapes:
             raise ValueError(f"{name} bond shapes are not in their normal form")
-    else:
-        network = _domain_structure_from_record(record).bonds
-        assert network is not None
-        if network.pairs != _site_bonds_from_record(record.bonds):
-            raise ValueError(f"{name} bonds are not the normalized bond network")
-        if _shapes_record(network.shapes) != record.shapes:
-            raise ValueError(f"{name} shapes are not in their normal form")
+    elif network.pairs != _site_bonds_from_record(record.bonds):
+        raise ValueError(f"{name} bonds are not the normalized bond network")
+    elif _shapes_record(network.shapes) != record.shapes:
+        raise ValueError(f"{name} shapes are not in their normal form")
     # record equality skips the sources, so compare them explicitly
     for field_name, source in (("bonds_source", network.source), ("shapes_source", network.shapes_source)):
         if _source_fields(_bond_source_record(source)) != _source_fields(getattr(record, field_name)):
             raise ValueError(f"{name} {field_name} is not in its normal form")
+    if record.bonds_dimensions_mask != _dimensions_mask(structure.bonds_dimensions):
+        raise ValueError(f"{name} bonds_dimensions_mask does not hold the dimensions of its bond network")
 
 
 def _assembly_record_from_assembly(assembly: Assembly) -> AssemblyRecord:

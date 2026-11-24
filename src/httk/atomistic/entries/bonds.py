@@ -12,7 +12,8 @@ stored reference atoms by a lattice translation, another orbit member, the setti
 per site before it is looked up in the served list. The served list holds every operation of the
 group for the served cell, so the lookup always succeeds; if it ever does not, the network is
 served as null with a warning. Shapes are served sparsely, as aligned lists of the sites with an
-assigned shape and their symbols.
+assigned shape and their symbols. ``dimensions`` is the structure's
+:attr:`~httk.atomistic.models.structure.StructureAPI.bonds_dimensions`, as a list.
 """
 
 import logging
@@ -23,6 +24,7 @@ from typing import Any
 
 from httk.core import PropertyDefinition
 
+from httk.atomistic.bonding import _bonds_dimensions
 from httk.atomistic.entries.definitions import load_httk_definitions
 from httk.atomistic.models.structure.asu import (
     FundamentalDomainStructure,
@@ -85,6 +87,7 @@ def bond_properties(structure: Any, *, entry: str | None = None) -> dict[str, An
             else structure.sites.reduced_coords.to_fractions()
         )
         codes = _bond_codes(structure, positions, None if served is None else [AffineOperation(xyz) for xyz in served])
+        dimensions = _bonds_dimensions(structure)
     except ValueError as error:
         _logger.warning(
             "the bond network of entry %s is served as null: %s",
@@ -98,6 +101,7 @@ def bond_properties(structure: Any, *, entry: str | None = None) -> dict[str, An
         network.shapes,
         network.source,
         network.shapes_source,
+        dimensions,
     )
     return values
 
@@ -118,8 +122,9 @@ def _network_payload(
     shapes: Sequence[str | None] | None,
     source: BondSource | None,
     shapes_source: BondSource | None,
+    dimensions: Sequence[int] | None,
 ) -> dict[str, Any]:
-    """Return the ``_httk_bonds`` dictionary of served pairs ``(site, partner, op, translation)`` and per-site shapes."""
+    """Return the ``_httk_bonds`` dictionary of served pairs ``(site, partner, op, translation)``, per-site shapes and dimensions."""
     assigned = [(site, symbol) for site, symbol in enumerate(shapes or ()) if symbol is not None]
     return {
         "pairs": [[site, partner, op, *t] for site, partner, op, t in pairs],
@@ -128,6 +133,7 @@ def _network_payload(
         else None,
         "source": _source_payload(source),
         "shapes_source": _source_payload(shapes_source),
+        "dimensions": None if dimensions is None else list(dimensions),
     }
 
 
@@ -225,7 +231,8 @@ def _check_bonds_value(
     Rows have six integers, name sites in range and an operation in range (0 when none are
     listed); the shape lists are aligned, name sites in range and known symbols
     (``_SHAPE_SYMBOLS``); each ``pair_rows`` row names its site; a repeated site has disjoint row
-    lists. For a unit-cell span (``cell``) every row also names the identity ``x,y,z``, and each
+    lists; ``dimensions``, when given, is null or distinct integers from 0 to 3 in increasing order.
+    For a unit-cell span (``cell``) every row also names the identity ``x,y,z``, and each
     named symbol's number equals the atoms its shape covers, at least 3 for ``I``: a row
     ``(i, j, t)`` adds one atom at each end, ``(i, i, t)`` two at ``i``.
 
@@ -252,6 +259,10 @@ def _check_bonds_value(
             raise ValueError(f"pairs[{number}] names operation {row[2]}, outside 0..{count - 1}")
         if cell and row[2] != identity:
             raise ValueError(f"pairs[{number}] names operation {row[2]}, which is not the identity of a unit cell")
+    if value.get("dimensions") is not None:
+        dimensions = _integers(value["dimensions"], "'dimensions'")
+        if dimensions != sorted(set(dimensions)) or not all(0 <= x <= 3 for x in dimensions):
+            raise ValueError("'dimensions' must list distinct integers from 0 to 3 in increasing order")
     shapes = value.get("shapes")
     if shapes is None:
         return

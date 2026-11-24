@@ -56,26 +56,28 @@ from functools import cache
 from httk.core import register_citation
 
 from httk.atomistic.models.species.species import Species
+from httk.atomistic.models.structure.api import StructureAPI
 from httk.atomistic.models.structure.asu import (
     FundamentalDomainStructure,
     _affine,
     _apply,
     _group,
     _Op,
+    _op,
     _Point,
     _reference,
 )
 from httk.atomistic.models.structure.asu_view import ASUStructureView
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.like import StructureLike
-from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond, _cell_pairs
+from httk.atomistic.models.structure.network import BondNetwork, BondSource, SiteBond, _cell_pairs, _translation
 from httk.atomistic.models.structure.record import RecordStructure
 from httk.atomistic.models.structure.unitcell import UnitcellStructure
 from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView
 from httk.atomistic.models.structure.view import StructureView
 from httk.atomistic.symmetry.shapes import _site_shapes
 
-__all__ = ["assign_baseline_shapes", "distance_bonds"]
+__all__ = ["assign_baseline_shapes", "distance_bonds", "site_bonds_dimensions"]
 
 _MIN_DISTANCE = 0.5  # Å: closer pairs are split or disordered positions, not bonds
 _HTTK_BASIC = "httk_basic"
@@ -461,6 +463,152 @@ def assign_baseline_shapes(structure: StructureLike) -> FundamentalDomainStructu
         return result
     source = BondSource(_BASELINE_DESCRIPTION, _HTTK_BASIC, _distribution_version())
     return result._with_bonds(replace(network, shapes=assigned, shapes_source=source))
+
+
+def site_bonds_dimensions(structure: StructureLike) -> tuple[int | None, ...]:
+    """Return the dimension of the bonded piece each site's atoms lie on, ``None`` for a site without bonds.
+
+    The bonds of every atom of the crystal (all lattice translates and, on a fundamental domain,
+    every orbit member) split the bonded atoms into connected pieces; a piece's dimension is the
+    rank (0 to 3) of the lattice translations that map it onto itself: 0 for a molecule, 1 for a
+    chain, 2 for a layer, 3 for a framework. Atoms without bonds belong to no piece. The values
+    are exact, derived from the network's pairs alone, and never exceed the number of periodic
+    directions. A disordered network is taken as given. All atoms of one Wyckoff site lie on
+    pieces of the same dimension.
+
+    The values follow the structure's ``bonds``: one per ``wyckoff_sites`` entry of a
+    :class:`~httk.atomistic.FundamentalDomainStructure` (or
+    :class:`~httk.atomistic.ASUStructure`), one per ``sites`` entry otherwise. Their distinct
+    values, sorted, are :attr:`~httk.atomistic.models.structure.StructureAPI.bonds_dimensions`.
+
+    :param structure: Any structure.
+    :return: One dimension or ``None`` per site.
+    :raises ValueError: If the structure has no bond network, or it is not a fundamental domain
+        and its network cannot be expressed on its unit cell.
+    """
+    dimensions = _site_bonds_dimensions(structure)
+    if dimensions is None:
+        raise ValueError("the structure has no bond network that can be expressed on its unit cell")
+    return dimensions
+
+
+def _bonds_dimensions(structure: StructureLike) -> tuple[int, ...] | None:
+    """Return :attr:`~httk.atomistic.models.structure.StructureAPI.bonds_dimensions` of any structure."""
+    dimensions = _site_bonds_dimensions(structure)
+    return None if dimensions is None else tuple(sorted({value for value in dimensions if value is not None}))
+
+
+def _site_bonds_dimensions(structure: StructureLike) -> tuple[int | None, ...] | None:
+    """Return :func:`site_bonds_dimensions`, or ``None`` where it raises."""
+    if isinstance(structure, StructureAPI) and structure.bonds is None:
+        return None
+    if isinstance(structure, FundamentalDomainStructure) and not structure.molecular:
+        domain = _domain_edges(structure)
+        if domain is not None:
+            nsites, edges, references = domain
+            dimensions = _piece_dimensions(nsites, edges)
+            return tuple(dimensions[node] for node in references)
+    cell = UnitcellStructureView(structure)
+    network = cell.bonds
+    if network is None:
+        return None
+    periodicity = cell.cell.periodicity
+    edges = [(bond.site, bond.partner, _translation(bond, periodicity)) for bond in network.pairs]
+    dimensions = _piece_dimensions(len(cell.species_at_sites), edges)
+    if not isinstance(structure, FundamentalDomainStructure):
+        return tuple(dimensions)
+    counts = (1,) * len(structure.wyckoff_sites) if structure.molecular else structure.multiplicities()
+    return tuple(dimensions[first] for first in list(itertools.accumulate(counts, initial=0))[:-1])
+
+
+def _domain_edges(
+    structure: FundamentalDomainStructure,
+) -> tuple[int, list[tuple[int, int, tuple[int, int, int]]], list[int]] | None:
+    """Return a fundamental domain's bonds between the atoms of its stored-setting cell, without expanding its network.
+
+    The atoms are the orbit points of the sites modulo the stored setting's lattice; every bond
+    orbit gives one edge per group element. The dimensions do not depend on which lattice of the
+    crystal the atoms are taken modulo, so this gives what the unit-cell expansion gives.
+
+    :param structure: A non-molecular fundamental domain with a network.
+    :return: The number of atoms, the edges ``(atom, atom, translation)`` and each site's
+        reference atom, or ``None`` where two sites of one species share a point (the expansion
+        decides those).
+    """
+    from httk.atomistic.models.structure.bonds import _mod1, _orbit_index
+
+    index = _orbit_index(structure)
+    if any(len({entry[3] for entry in entries}) < len(entries) for entries in index.values()):
+        return None
+    atoms = {
+        (entry[0], point): number
+        for number, (point, entry) in enumerate((point, entry) for point, entries in index.items() for entry in entries)
+    }
+    network = structure.bonds
+    assert network is not None
+    group, sites = structure.spacegroup, structure.wyckoff_sites
+    references = [_reference(group, site) for site in sites]
+    edges = []
+    for bond in network.pairs:
+        operation = _op(bond.operation)
+        for g in _group(group)[0]:
+            first = _apply(g, references[bond.site])
+            second = _apply(g, _apply(operation, references[bond.partner]))
+            a, b = (tuple(math.floor(x) for x in point) for point in (first, second))
+            translation = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+            edges.append((atoms[bond.site, _mod1(first)], atoms[bond.partner, _mod1(second)], translation))
+    return len(atoms), edges, [atoms[number, _mod1(point)] for number, point in enumerate(references)]
+
+
+def _piece_dimensions(nsites: int, edges: Sequence[tuple[int, int, tuple[int, int, int]]]) -> list[int | None]:
+    """Return per atom the dimension of its piece, ``None`` without bonds, from edges ``(i, j, n)``: ``i`` bonded to ``j + n``."""
+    neighbours: list[list[tuple[int, tuple[int, int, int]]]] = [[] for _ in range(nsites)]
+    for i, j, n in edges:
+        neighbours[i].append((j, n))
+        neighbours[j].append((i, (-n[0], -n[1], -n[2])))
+    # Walk each piece, giving every atom the translation of the copy reached first; an edge that
+    # reaches an atom at another translation closes a cycle, whose translation maps the piece onto itself.
+    offsets: list[tuple[int, int, int] | None] = [None] * nsites
+    dimensions: list[int | None] = [None] * nsites
+    for start in range(nsites):
+        if offsets[start] is not None or not neighbours[start]:
+            continue
+        offsets[start] = (0, 0, 0)
+        piece, stack, cycles = [start], [start], set()
+        while stack:
+            site = stack.pop()
+            here = offsets[site]
+            assert here is not None
+            for partner, n in neighbours[site]:
+                reached = (here[0] + n[0], here[1] + n[1], here[2] + n[2])
+                known = offsets[partner]
+                if known is None:
+                    offsets[partner] = reached
+                    piece.append(partner)
+                    stack.append(partner)
+                elif known != reached:
+                    cycles.add((reached[0] - known[0], reached[1] - known[1], reached[2] - known[2]))
+        rank = _rank(cycles)
+        for site in piece:
+            dimensions[site] = rank
+    return dimensions
+
+
+def _rank(vectors: set[tuple[int, int, int]]) -> int:
+    """Return the exact rank of integer 3-vectors by Gaussian elimination."""
+    basis: list[tuple[int, list[Fraction]]] = []  # (pivot column, row), each row zero at earlier pivots
+    for vector in vectors:
+        row = [Fraction(x) for x in vector]
+        for pivot, base in basis:
+            if row[pivot]:
+                factor = row[pivot] / base[pivot]
+                row = [x - factor * y for x, y in zip(row, base, strict=True)]
+        lead = next((column for column, x in enumerate(row) if x), None)
+        if lead is not None:
+            basis.append((lead, row))
+            if len(basis) == 3:
+                break
+    return len(basis)
 
 
 def _register_citations(shared_ligand: bool) -> None:

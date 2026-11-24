@@ -24,7 +24,9 @@ material-information matrix; {doc}`prototypes` lays out that matrix.
 Ordinary Wyckoff classification produces `BareProtostructure` or anonymous
 `BarePrototype`. A structure may also carry a covalent bond network (read from a
 CIF bond loop, supplied, or found by `distance_bonds`; see
-{doc}`details/asu`, section "Bond networks"). With one, classification can also
+{doc}`details/asu`, section "Bond networks"), and `structure.bonds_dimensions` then tells
+whether its bonded atoms form molecules, chains, layers or frameworks (searchable as
+`_httk_bonds.dimensions`; see "Dimensions of the network" there). With one, classification can also
 give the bonding-net levels `Protonetstructure` and anonymous `Protonettype`,
 whose labels add the net, bond shapes and torsion letters (see
 [bonding-net labels](prototypes.md#bonding-net-labels)). A `Protostructure` or `Prototype` additionally requires an

@@ -250,7 +250,7 @@ from httk.atomistic.symmetry.paths import (
 )
 from httk.atomistic.symmetry.wyckoff import WyckoffPosition, wyckoff_positions
 
-from .bonding import assign_baseline_shapes, distance_bonds
+from .bonding import assign_baseline_shapes, distance_bonds, site_bonds_dimensions
 from .cif_structures import asu_structure_from_cif, asu_structures_from_cif, cif_setting
 from .composition import Assembly, ChemicalComposition
 from .elements import atomic_number, symbol_of
@@ -537,6 +537,7 @@ __all__ = [
     "same_crystal",
     "save_vesta",
     "search_supergroups",
+    "site_bonds_dimensions",
     "structure_delta",
     "structure_tolerance",
     "subgroup_closure",
