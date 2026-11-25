@@ -415,9 +415,11 @@ in a `structure` field, set exactly when `status` is `"imported"`; build it with
 `ASUStructureRecord.from_structure`, `UnitcellStructureRecord.from_structure` or, for a CIF block,
 `CIFStructureRecord(**project_storage_record(CIFStructureRecord, block))`. The structure is part of
 the import's content identity. Saving the import stores the structure once, shared by imports of
-equal structures from different sources, with its own entry id, fetchable and searchable as a
-`structures` record. Only `bulk.save(..., promote=<the structure's record class>)`, or saving the
-structure itself, makes it a main `structures` entry rather than a dependency of the import record.
+equal structures from different sources, with its own entry id, fetchable, searchable and served in
+OPTIMADE `structures` listings as a `structures` record. `bulk.save(..., promote=<the structure's
+record class>)`, or saving the structure itself, only marks it a main entry rather than a dependency
+of the import record: in a SQL store a main row is a garbage-collection root of `store.fsck` and has
+a row in a multi-record family's entry dispatch. Searching, fetching and serving do not depend on it.
 `store.referring(...)` or a searcher join on `structure` finds the imports of a stored structure.
 
 ```python

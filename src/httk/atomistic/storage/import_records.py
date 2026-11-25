@@ -2,16 +2,19 @@
 
 Each class embeds the imported structure as a record-valued ``structure`` field. The structure is part
 of the import's content identity through its own content id. Saving an import record stores the
-structure once, deduplicated across imports, with its own entry id, fetchable and searchable as a
-``structures`` record. Only ``bulk.save(record, promote=ASUStructureRecord)`` (or saving the structure
-itself) makes it a main ``structures`` entry; otherwise it is a dependency row of the import record.
+structure once, deduplicated across imports, with its own entry id: fetchable, searchable and served
+in OPTIMADE ``structures`` listings whether or not it is promoted. ``bulk.save(record,
+promote=ASUStructureRecord)`` (or saving the structure itself) only marks it a main entry rather than a
+dependency of the import record, which in a SQL store makes it a garbage-collection root of
+``store.fsck`` and gives it a row in a multi-record family's entry dispatch; searching, fetching and serving are
+otherwise unchanged.
 """
 
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import Any, ClassVar, cast
 
 from httk.core import ImportRecord
-from httk.core.storage import StorageInfo
+from httk.core.storage import StorageInfo, stored_property_projections
 
 from httk.atomistic.storage.cif_record import CIFStructureRecord
 from httk.atomistic.storage.records import ASUStructureRecord, UnitcellStructureRecord
@@ -103,3 +106,9 @@ class CIFStructureImportRecord(ImportRecord):
     def __post_init__(self) -> None:
         super().__post_init__()
         _check_structure(self, self.structure, CIFStructureRecord)
+
+
+# Projections are read off the exact class, never inherited: serve the base's.
+for _cls in (ASUStructureImportRecord, UnitcellStructureImportRecord, CIFStructureImportRecord):
+    cast(Any, _cls).__httk_stored_properties__ = stored_property_projections(ImportRecord)
+del _cls
