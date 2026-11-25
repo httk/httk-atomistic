@@ -22,7 +22,7 @@ structure is first recognized as symmetric, never in expansion.
 import copy
 import datetime
 import fractions
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from functools import cache, cached_property, lru_cache
 from typing import Any, ClassVar, Self
@@ -346,6 +346,19 @@ def _normalized_torsions(
     """
     if torsions is None:
         return None
+    normal = _torsion_normalizer(spacegroup, sites)
+    return _merged_torsions([normal(row) for row in torsions])
+
+
+def _torsion_normalizer(
+    spacegroup: Spacegroup, sites: Sequence[WyckoffSite]
+) -> Callable[[SiteTorsion], tuple[_RowKey, SiteTorsion]]:
+    """Return a function giving one torsion statement's orbit key and normal form, as :func:`_normalized_torsions`.
+
+    The function shares the per-site tables of the setting across statements and remembers its
+    results, so normalizing many statements one at a time costs what normalizing them together
+    does. It raises ``ValueError`` as :func:`_normalized_torsions` does for a single statement.
+    """
     from httk.atomistic.symmetry.protonet import _key
 
     elements = _standard_elements(spacegroup)
@@ -370,8 +383,8 @@ def _normalized_torsions(
             least_elements[(site, point)] = min(((k, n[0], n[1], n[2]) for k, n in shifts), key=_key)
         return least_elements[(site, point)]
 
-    rows: list[tuple[_RowKey, SiteTorsion]] = []
-    for row in torsions:
+    @cache
+    def normal(row: SiteTorsion) -> tuple[_RowKey, SiteTorsion]:
         if not all(site < len(sites) for site in row.sites):
             raise ValueError(f"{row!r} refers to a site outside 0..{len(sites) - 1}")
         ops = [_op(operation) for operation in row.operations]
@@ -398,9 +411,10 @@ def _normalized_torsions(
         moved = candidates[0][2]
         key = (order, tuple(_key(e) for e in moved))
         operations = _four(_affine(elements.operation(e)) for e in moved)
-        normal = replace(row, sites=order, operations=operations)
-        rows.append((key, _unsigned_torsion(normal) if len(signs) == 2 else _mirrored_torsion(normal, signs.pop())))
-    return _merged_torsions(rows)
+        normalized = replace(row, sites=order, operations=operations)
+        return key, _unsigned_torsion(normalized) if len(signs) == 2 else _mirrored_torsion(normalized, signs.pop())
+
+    return normal
 
 
 def _checked_shapes(
@@ -644,12 +658,18 @@ class FundamentalDomainStructure(StructureSemanticsMixin, StructureBackend):
             network = replace(network, pairs=pairs, torsions=torsions)
         self._network = network
 
-    def _with_bonds(self, network: BondNetwork | None) -> Self:
-        """Return a copy holding ``network``, trusted to be valid for these sites (its pairs normalized on access)."""
+    def _with_bonds(self, network: BondNetwork | None, *, canonical: bool = False) -> Self:
+        """Return a copy holding ``network``, trusted to be valid for these sites (its pairs normalized on access).
+
+        With ``canonical``, the caller vouches that the pairs and torsions are already in the normal
+        form :attr:`bonds` exposes, and they are not normalized again.
+        """
         copied = copy.copy(self)
         for cached in ("_canonical_network", "_httk_cached_content_ids", "composition"):  # caches of the old value
             vars(copied).pop(cached, None)
         copied._network = network
+        if canonical and network is not None:
+            vars(copied)["_canonical_network"] = network
         return copied
 
     @classmethod

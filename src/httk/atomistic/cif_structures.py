@@ -40,11 +40,11 @@ from httk.atomistic.models.structure.asu import (
     _group,
     _inv,
     _mul,
-    _normalized_torsions,
     _Op,
     _op,
     _Point,
     _reference,
+    _torsion_normalizer,
     _ValidatedASUProof,
 )
 from httk.atomistic.models.structure.network import (
@@ -53,6 +53,7 @@ from httk.atomistic.models.structure.network import (
     SiteBond,
     SiteTorsion,
     _agreeing_torsions,
+    _merged_torsions,
 )
 from httk.atomistic.symmetry.setting_transform import SettingTransform
 from httk.atomistic.symmetry.shapes import _check_shape, _structure_bond_counts
@@ -1141,11 +1142,15 @@ def _atom_resolver(
     operations = dict(zip(names, map(_op, map(operation_from_xyz, data["symops_xyz"])), strict=False))
     references = [_reference(group, site) for site in sites]
     positions = data["positions_exact"]
+    row_elements: dict[int, _Op] = {}
 
     def end(label: str, code: str) -> tuple[int, _Op, int]:
         row = row_of(label)
         site = row_sites[row]
-        element = _row_element(group, references[site], [fractions.Fraction(x) for x in positions[row]], metric)
+        if row not in row_elements:
+            point = [fractions.Fraction(x) for x in positions[row]]
+            row_elements[row] = _row_element(group, references[site], point, metric)
+        element = row_elements[row]
         if code in (".", "?"):
             return site, element, row
         match = _SYMMETRY_CODE.fullmatch(code)
@@ -1197,6 +1202,7 @@ def _cif_torsions(structure: ASUStructure, data: Mapping[str, Any], row_sites: M
     count = len(columns["geom_torsion_atom_site_label_1"])
     group, sites = structure.spacegroup, structure.wyckoff_sites
     end = _atom_resolver(group, sites, data, row_sites, _float_metric(structure.cell))
+    normal = _torsion_normalizer(group, sites)  # remembers each statement's normal form
     statements: list[SiteTorsion | None] = []
     for row in zip(*(columns.get(name) or ["?"] * count for name in _TORSION_COLUMNS), strict=True):
         labels, codes, angle_token, symbol = row[:4], row[4:8], row[8], row[9].strip()
@@ -1210,7 +1216,7 @@ def _cif_torsions(structure: ASUStructure, data: Mapping[str, Any], row_sites: M
                 angle,
                 None if meta["esd"] is None else float(meta["esd"]),
             )
-            _normalized_torsions(group, sites, [statement])  # valid for the structure
+            normal(statement)  # valid for the structure
         except (ValueError, ArithmeticError):
             statement = None
         statements.append(statement)
@@ -1225,7 +1231,7 @@ def _cif_torsions(structure: ASUStructure, data: Mapping[str, Any], row_sites: M
         tolerance = max(3 * (statement.uncertainty or 0.0), 1.0)
         if geometry is None or abs((statement.angle - geometry + 180) % 360 - 180) > tolerance:
             statements[index] = None
-    torsions, dropped = _agreeing_torsions(statements, lambda rows: _normalized_torsions(group, sites, rows))
+    torsions, dropped = _agreeing_torsions(statements, lambda rows: _merged_torsions([normal(row) for row in rows]))
     if dropped:
         _cif_warning(
             f"CIF block {block!r}: dropped {dropped} of the {count} rows of its torsion loop: a label or "
@@ -1240,7 +1246,9 @@ def _cif_torsions(structure: ASUStructure, data: Mapping[str, Any], row_sites: M
         if any(name.startswith("httk_torsions_source_") for name in items)
         else _CIF_TORSION_SOURCE
     )
-    return structure._with_bonds(replace(network, torsions=torsions, torsions_source=source))
+    keys = {row: key for key, row in map(normal, filter(None, statements))}  # sorted as bonds exposes them
+    torsions = tuple(sorted(torsions, key=keys.__getitem__))
+    return structure._with_bonds(replace(network, torsions=torsions, torsions_source=source), canonical=True)
 
 
 def _label_resolver(data: Mapping[str, Any], row_sites: Mapping[int, int]) -> Callable[[str], int]:

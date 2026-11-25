@@ -329,8 +329,8 @@ class ASUStructureView(StructureView, ASUStructure):
         """Return the resolved standalone asymmetric-unit structure."""
         return self._effective_asu()
 
-    def _with_bonds(self, network: Any) -> Any:
-        return self._effective_asu()._with_bonds(network)
+    def _with_bonds(self, network: Any, *, canonical: bool = False) -> Any:
+        return self._effective_asu()._with_bonds(network, canonical=canonical)
 
     @property
     def sites(self) -> Any:
