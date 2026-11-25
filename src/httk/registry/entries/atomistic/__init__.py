@@ -102,6 +102,16 @@ register_entry_record(
     family="structures",
     record="httk.atomistic.storage.cif_record:CIFStructureRecord",
 )
+for _name, _record in (
+    ("asu-structure-import", "ASUStructureImportRecord"),
+    ("unitcell-structure-import", "UnitcellStructureImportRecord"),
+    ("cif-structure-import", "CIFStructureImportRecord"),
+):
+    register_entry_record(
+        name=f"atomistic-{_name}",
+        family="imports",
+        record=f"httk.atomistic.storage.import_records:{_record}",
+    )
 register_entry_record(
     name="atomistic-trajectory",
     record="httk.atomistic.storage.records:TrajectoryRecord",

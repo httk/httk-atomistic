@@ -85,6 +85,11 @@ from httk.atomistic.wavefunction import PlaneWaveFunctions, save_vesta, wavefunc
 from httk.atomistic.entries.structures import StructureEntry, StructureEntryProvider
 from httk.atomistic.entries.trajectories import TrajectoryEntry, TrajectoryEntryProvider
 from httk.atomistic.storage.cif_record import CIFStructureRecord
+from httk.atomistic.storage.import_records import (
+    ASUStructureImportRecord,
+    CIFStructureImportRecord,
+    UnitcellStructureImportRecord,
+)
 from httk.atomistic.storage.records import (
     ASUStructureRecord,
     BarePrototypeRecord,
@@ -351,6 +356,7 @@ __all__ = [
     "ASEAtoms",
     "ASEAtomsProtocol",
     "ASUStructure",
+    "ASUStructureImportRecord",
     "ASUStructureRecord",
     "ASUStructureView",
     "ASUTemplate",
@@ -376,6 +382,7 @@ __all__ = [
     "BondSource",
     "BondedProtonetstructure",
     "CIFStructure",
+    "CIFStructureImportRecord",
     "CIFStructureRecord",
     "CanonicalizationLimitError",
     "CartesianSiteMoments",
@@ -486,6 +493,7 @@ __all__ = [
     "TrajectoryRecord",
     "TrajectoryView",
     "UnitcellStructure",
+    "UnitcellStructureImportRecord",
     "UnitcellStructureRecord",
     "UnitcellStructureView",
     "VASPStructure",

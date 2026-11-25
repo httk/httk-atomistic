@@ -148,6 +148,10 @@ nitpick_ignore = [
     ("py:class", "httk.core.DecimalScalar"),
     ("py:class", "httk.core.DecimalVector"),
     ("py:class", "httk.core.DecimalGap"),
+    # ImportRecord is new in the sibling core workspace; it is the base of the
+    # structure import records until core is released.
+    ("py:class", "httk.core.ImportRecord"),
+    ("py:obj", "httk.core.ImportRecord"),
     # The protocol property ``type`` is indexed through both its defining
     # module and the package re-export; qualified member links stay available.
     ("py:obj", "type"),

@@ -8,7 +8,7 @@ import numbers
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, TypedDict, cast
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self, TypedDict, cast
 
 import httk.core.storage.markers
 from httk.core import (
@@ -25,6 +25,7 @@ from httk.core.storage import (
     StorageInfo,
     Unique,
     float_matrix,
+    resolve_storage_record,
     stored_property,
 )
 
@@ -1715,6 +1716,24 @@ class FundamentalDomainStructureRecord:
         :return: ``None`` after successful validation.
         """
         validate_structure_record(record)
+
+    @classmethod
+    def from_structure(cls, structure: FundamentalDomainStructure) -> Self:
+        """Build the complete record of a fundamental-domain structure.
+
+        The record class follows the structure's storage opt-in, so an
+        :class:`~httk.atomistic.ASUStructure` gives an :class:`ASUStructureRecord`.
+
+        :param structure: The fundamental-domain structure or view to record.
+        :return: The record, with every nested child record built.
+        :raises TypeError: If the structure is not stored as this record class, e.g. a plain
+            fundamental domain given to ``ASUStructureRecord.from_structure``.
+        """
+        if not isinstance(structure, FundamentalDomainStructure) or not issubclass(
+            resolve_storage_record(structure), cls
+        ):
+            raise TypeError(f"{cls.__name__} does not record a {type(structure).__name__}")
+        return cast(Self, _domain_structure_record_from_value(structure))
 
     @property
     def type(self) -> str:

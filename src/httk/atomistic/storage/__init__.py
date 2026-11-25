@@ -1,4 +1,5 @@
 from .cif_record import CIFStructureRecord
+from .import_records import ASUStructureImportRecord, CIFStructureImportRecord, UnitcellStructureImportRecord
 from .records import (
     AssemblyGroupRecord,
     AssemblyRecord,
@@ -42,6 +43,7 @@ from .records import (
 )
 
 __all__ = [
+    "ASUStructureImportRecord",
     "ASUStructureRecord",
     "AssemblyGroupRecord",
     "AssemblyRecord",
@@ -49,6 +51,7 @@ __all__ = [
     "BarePrototypeRecord",
     "BondSourceRecord",
     "BondTorsionsRecord",
+    "CIFStructureImportRecord",
     "CIFStructureRecord",
     "CellRecord",
     "ChemicalCompositionRecord",
@@ -78,6 +81,7 @@ __all__ = [
     "SymmetryRecord",
     "TrajectoryRecord",
     "UnitcellBondNetworkRecord",
+    "UnitcellStructureImportRecord",
     "UnitcellStructureRecord",
     "WyckoffOccupationRecord",
     "WyckoffSiteRecord",

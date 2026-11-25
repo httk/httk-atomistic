@@ -407,6 +407,46 @@ disordered numeric entry follow the rounded concentrations described above, so t
 the exact entry's formula, and a served formula can differ in its last digits from the one a
 live provider computes from the exact interface.
 
+### Import records of structures
+
+`ASUStructureImportRecord`, `UnitcellStructureImportRecord` and `CIFStructureImportRecord` are
+`httk.core.ImportRecord` subclasses (`imports` family) that embed the imported structure's record
+in a `structure` field, set exactly when `status` is `"imported"`; build it with
+`ASUStructureRecord.from_structure`, `UnitcellStructureRecord.from_structure` or, for a CIF block,
+`CIFStructureRecord(**project_storage_record(CIFStructureRecord, block))`. The structure is part of
+the import's content identity. Saving the import stores the structure once, shared by imports of
+equal structures from different sources, with its own entry id, fetchable and searchable as a
+`structures` record. Only `bulk.save(..., promote=<the structure's record class>)`, or saving the
+structure itself, makes it a main `structures` entry rather than a dependency of the import record.
+`store.referring(...)` or a searcher join on `structure` finds the imports of a stored structure.
+
+```python
+from httk.core import ImportEntry, ImportRecord, ImportReport
+
+from httk.atomistic import UnitcellStructureImportRecord
+
+with Backend.sqlite() as database:
+    store = SqlStore(
+        database,
+        entry_ids=EntryIdScheme("example", "1"),
+        entry_records={
+            StructureEntry: (UnitcellStructureRecord,),
+            ImportEntry: (ImportRecord, UnitcellStructureImportRecord),
+        },
+    )
+    with store.bulk_ingest() as bulk:
+        bulk.save(
+            UnitcellStructureImportRecord(
+                "poscars/nacl.vasp",
+                "my-importer 1.0",
+                "imported",
+                reports=(ImportReport("warning", "Guessed the species."),),
+                structure=UnitcellStructureRecord.from_structure(alloy),
+            ),
+            promote=UnitcellStructureRecord,
+        )
+```
+
 ## Loading a POSCAR
 
 `httk.core.load` returns a `UnitcellStructure` for POSCAR and CONTCAR files. It
