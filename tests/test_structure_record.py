@@ -7,7 +7,7 @@ from fractions import Fraction
 from pathlib import Path
 
 import pytest
-from httk.core import FileRecord, FracVector, ReferenceRecord, WeakLink, load
+from httk.core import FileRecord, FracVector, ReferenceRecord, WeakLink, load, standard_links
 from httk.core.storage import content_id, project_storage_record, storage_identity_name
 
 from httk.atomistic import (
@@ -917,6 +917,6 @@ def test_unitcell_record_view_keeps_unread_cursor_fields_lazy() -> None:
 @pytest.mark.parametrize(
     "record", [UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord, TrajectoryRecord]
 )
-def test_structure_records_declare_exposed_references_link(record: type) -> None:
-    links = record.__httk_storage__.links  # type: ignore[attr-defined]
-    assert WeakLink("references", ReferenceRecord, exposed_relationship=True) in links
+def test_structure_records_get_the_exposed_references_link_automatically(record: type) -> None:
+    assert not any(link.name == "references" for link in record.__httk_storage__.links)  # type: ignore[attr-defined]
+    assert WeakLink("references", ReferenceRecord, exposed_relationship=True) in standard_links(record)

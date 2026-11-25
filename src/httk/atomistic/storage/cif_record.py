@@ -11,8 +11,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Annotated, Any, ClassVar, cast
 
-from httk.core import DecimalGap, DecimalScalar, ReferenceRecord
-from httk.core.storage import IdentitySkip, Indexed, StorageInfo, Unique, WeakLink
+from httk.core import DecimalGap, DecimalScalar
+from httk.core.storage import IdentitySkip, Indexed, StorageInfo, Unique
 
 from httk.atomistic.io.cif.cif_items import (
     _MAX_NESTING,
@@ -212,7 +212,6 @@ class CIFStructureRecord:
         storage_name="atomistic_cif_structure",
         identity_name="atomistic_cif_structure",
         indexes=(("block_name",), ("last_modified",)),
-        links=(WeakLink("references", ReferenceRecord, exposed_relationship=True),),
     )
     __httk_canonical_source__: ClassVar = CIFStructure
 

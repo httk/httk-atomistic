@@ -9,7 +9,6 @@ import json
 from dataclasses import replace
 from fractions import Fraction as F
 from functools import cache
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -17,7 +16,6 @@ from httk.core import FracVector
 from httk.core.storage import content_id
 from test_bond_network_records import (
     RECORDS,
-    _a2db444,
     _cell,
     _record,
     _record_type,
@@ -263,11 +261,3 @@ def test_the_torsion_fields_are_an_additive_upgrade() -> None:
         "atomistic_unitcell_bond_network": ["torsions_sid"],
         "atomistic_unitcell_structure": ["torsions_source_sid"],
     }
-
-
-@pytest.mark.parametrize("backend", ["sqlite", "duckdb", "mongo"])
-def test_an_upgraded_protocol_3_store_takes_torsions(backend: str, tmp_path: Path) -> None:
-    with _a2db444(backend, tmp_path) as opened, opened(True) as upgraded:
-        for value in _variants().values():
-            back = _structure_from_record(upgraded.fetch(_record_type(value), upgraded.save(value), eager=True))
-            assert back == value and _torsions(back) == _torsions(value)

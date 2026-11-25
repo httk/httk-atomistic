@@ -339,27 +339,10 @@ def test_resaving_equal_content_with_another_source_raises(store: Any) -> None:
 
 
 # ---------------------------------------------------------------------------------------------
-# upgrading a develop-era (protocol-3) store
+# a develop-era (protocol-3) store predating the standard links cannot be upgraded
 # ---------------------------------------------------------------------------------------------
 # Built at httk-atomistic a2db444 (httk-core 6cbb302, httk-store d4ed802) by fixtures/stores/build_a2db444_store.py,
 # one fixture per backend with the same entries (see fixtures/stores/README.md).
-_A2DB444 = {
-    "asu_network": (ASUStructureRecord, 1, "4a61584d6a062827e197cd228b05c58786cf531473ec7fb8afb0e8121d101d3e", 11),
-    "asu_network_2": (ASUStructureRecord, 2, "eecfc84f8957d7fc909823a424ed9e49c7f2462870089929ed0c2f5f3b89f43a", 3),
-    "fd_network_shapes": (
-        FundamentalDomainStructureRecord,
-        1,
-        "41c05493ef875def99cf34de8f5218e0502f13f4df312a077fecec078c9219f2",
-        3,
-    ),
-    "asu_plain": (ASUStructureRecord, 3, "3b84530e7bb57778d85585aba1316711877628ddc01d05e212622830fc85bd9c", None),
-    "unitcell_plain": (
-        UnitcellStructureRecord,
-        1,
-        "010ca29aa0f7a136a4b784be449518accb5a1d1f61d444d73bc6a2bc0deea5e4",
-        None,
-    ),
-}
 
 
 @contextlib.contextmanager
@@ -425,25 +408,13 @@ def _a2db444(backend: str, tmp_path: Path) -> Iterator[Callable[[bool], contextl
 
 
 @pytest.mark.parametrize("backend", ["sqlite", "duckdb", "mongo"])
-def test_a_protocol_3_store_with_domain_networks_upgrades_additively(backend: str, tmp_path: Path) -> None:
+def test_an_old_store_without_the_standard_links_must_be_rebuilt(backend: str, tmp_path: Path) -> None:
     from httk.store.storage_layout import StorageLayoutUpgradeRequiredError
 
     with _a2db444(backend, tmp_path) as opened:
-        with pytest.raises(StorageLayoutUpgradeRequiredError, match="purely additive"), opened(False) as store:
-            store.fetch(ASUStructureRecord, 1)
-        with opened(True) as store:
-            for record_type, sid, expected, nbonds in _A2DB444.values():
-                for eager in (True, False):
-                    record = store.fetch(record_type, sid, eager=eager)
-                    structure = _structure_from_record(record)
-                    assert content_id(record) == content_id(structure) == expected
-                    assert (None if structure.bonds is None else len(structure.bonds.pairs)) == nbonds
-                    assert _sources(structure.bonds) == (None, None)
-            shaped = _structure_from_record(store.fetch(FundamentalDomainStructureRecord, 1, eager=True)).bonds
-            assert shaped is not None and shaped.shapes is not None and None in shaped.shapes
-            # the upgraded store takes unit-cell networks and sources
-            cell = _with(_cell(), None, SOURCE)
-            back = _structure_from_record(store.fetch(UnitcellStructureRecord, store.save(cell), eager=True))
-            assert back == cell and back.bonds is not None and back.bonds.source == SOURCE
-        with opened(False) as store:  # and reopens without another upgrade
-            store.fetch(ASUStructureRecord, 1)
+        for upgrade in (False, True):
+            with (
+                pytest.raises(StorageLayoutUpgradeRequiredError, match="not additive, rebuild the store"),
+                opened(upgrade) as store,
+            ):
+                store.fetch(ASUStructureRecord, 1)
