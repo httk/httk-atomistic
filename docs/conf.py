@@ -152,6 +152,9 @@ nitpick_ignore = [
     # structure import records until core is released.
     ("py:class", "httk.core.ImportRecord"),
     ("py:obj", "httk.core.ImportRecord"),
+    # ReferenceRecord is likewise new in the sibling core workspace; it is the
+    # result type of cif_references until core is released.
+    ("py:class", "httk.core.ReferenceRecord"),
     # The protocol property ``type`` is indexed through both its defining
     # module and the package re-export; qualified member links stay available.
     ("py:obj", "type"),

@@ -56,6 +56,7 @@ from httk.atomistic.models.structure.asu import ASUStructure, FundamentalDomainS
 from httk.atomistic.models.structure.asu_view import ASUStructureView
 from httk.atomistic.models.structure.backend import StructureBackend
 from httk.atomistic.models.structure.cif import CIFStructure, _coerce_cif_structure, read_cif_structures
+from httk.atomistic.io.cif.cif_references import cif_references
 from httk.atomistic.models.structure.comparison import same_crystal
 from httk.atomistic.models.structure.datastream import DatastreamStructure
 from httk.atomistic.models.structure.like import StructureLike
@@ -523,6 +524,7 @@ __all__ = [
     "canonicalize",
     "canonicalize_full",
     "canonicalize_legacy",
+    "cif_references",
     "cif_setting",
     "conventional_cell",
     "cubic_supercell",

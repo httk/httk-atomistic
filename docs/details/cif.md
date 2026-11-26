@@ -703,6 +703,57 @@ repository fixtures and the sampled COD and MAGNDATA files no loaded structure c
   closing `;` was read as a value. It now ends the loop, also in a loop that structure reading
   skips, so a structural item there (such as `_cell_length_a`) is kept.
 
+## Bibliographic references
+
+{py:func}`~httk.atomistic.cif_references` reads the references a lossless block (a
+`CIFBlock` or `CIFStructure`) states and returns them as {py:class}`httk.core.ReferenceRecord`
+objects, in order: the publication the block describes first, then one reference per row of the
+`citation` category (looped, or the single-row form without `loop_`). Exact duplicates are
+returned once; references are not merged by DOI, and the citation id is not stored, so it never
+makes otherwise identical references differ.
+
+| Reference field | Publication | Citation row |
+| --- | --- | --- |
+| `title` | `_publ_section_title` | `_citation_title` |
+| `authors` | `_publ_author_name` | `_citation_author_name` of the `_citation_author_citation_id` rows naming its `_citation_id` |
+| `editors` | | `_citation_editor_name`, matched the same way |
+| `journal` | `_journal_name_full`, else `_journal_name_abbrev` | `_citation_journal_full`, else `_citation_journal_abbrev` |
+| `volume` | `_journal_volume` | `_citation_journal_volume` |
+| `number` | `_journal_issue` | `_citation_journal_issue` |
+| `year` | `_journal_year` | `_citation_year` |
+| `pages` | `_journal_page_first`-`_journal_page_last`, or the one given | `_citation_page_first`-`_citation_page_last`, or the one given |
+| `doi` | `_journal_paper_doi` | `_citation_DOI` |
+| `booktitle` | | `_citation_book_title` |
+| `publisher` | | `_citation_book_publisher`, else `_citation_publisher` |
+| `address` | | `_citation_book_publisher_city` |
+| `note` | | `_citation_special_details` |
+
+`bib_type` is `"article"` when a journal name is present. Other items (CODEN, ISSN, ASTM and CSD
+codes, languages, abstracts, ordinals) have no field and are dropped; authors and editors keep
+their loop order. Authors or editors whose citation id has no citation row form a reference of
+their own; so do authors and editors without a citation id when more than one citation row has
+none (with exactly one, they belong to it).
+
+**Text.** Values are kept as written, with two exceptions. CIF 1.1 special-character codes are
+an encoding and are decoded to Unicode (NFC): the accents `\'` (acute), `` \` `` (grave), `\^`,
+`\"`, `\~`, `\,` (cedilla), `\;` (ogonek), `\>` (double acute), `\=` (macron), `\.` (overdot),
+`\<` (caron) and `\(` (breve) before an unaccented base letter (one without a combining mark in
+its decomposed form, and not followed by one), so `x\^2` and `caf\'é` stay as written; the
+letters `\%a` å, `\/o` ø, `\/l` ł, `\/d` đ (with their capitals), `\?i` ı and `\&s` ß; the Greek
+letters `\a` α … `\w` ω and their capitals; and `\%` not before a letter as the degree sign °.
+DOIs are not decoded. Sub- and superscripts (`~2~`, `^3^`), the other markup (`--`, `+-`,
+`\\db`, …) and undefined sequences such as `\%u` stay as written. Layout whitespace is
+normalized: leading and trailing whitespace is removed and every run of whitespace, line breaks
+of text fields included, becomes one space. Nothing else is changed. A person name with exactly
+one comma (`Surname, Given`) also fills `lastname` and `firstname`; a gap or empty name is
+skipped.
+
+**References that cannot be represented.** A reference whose data fits no field (COD's lone
+`_citation_journal_id_ASTM`, for example), or that cannot be built (a repeated item, a CIF2 list
+as a value), is not returned. Instead one note per reference, logged at INFO level with report
+context `"cif"`, lists the item names and values stated for it, so an application that collects
+reports at INFO keeps them without them drowning real warnings. Bad citation data never raises.
+
 ## `httk symmetry info`
 
 The command loads through the general structure-reader registry, so CIF, mCIF, POSCAR, and
@@ -745,6 +796,7 @@ The current sampled COD instances are recorded in the workspace's `DATA/cod_issu
 | `read_cif()` | Parse text into normalized raw blocks and a header |
 | `read_cif(..., lossless=True)` | Parse text into lossless `CIFBlock` objects |
 | `CIFStructure.from_cif()` / `read_cif_structures()` | Read lossless, structure-like blocks |
+| `cif_references()` | Extract the bibliographic references of a lossless block |
 | `read_cif_asus()` | Produce the neutral ordinary-CIF payload |
 | `read_mcif_asus()` | Produce the neutral magnetic-CIF payload |
 | `asu_structure_from_cif()` | Convert one neutral ordinary block into an `ASUStructure` |

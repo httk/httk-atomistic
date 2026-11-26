@@ -117,6 +117,32 @@ against the geometry, and is written when the network has them. All are describe
 {doc}`details/cif`, sections "Bond loops", "Torsion loops" and "Bond networks, shapes and
 sources in CIF".
 
+## Bibliographic references
+
+`cif_references(block)` returns the references a CIF data block states as
+{py:class}`httk.core.ReferenceRecord` objects: first the publication the block describes
+(`_publ_section_title`, `_publ_author_name` and the `_journal_*` items), then one reference per
+row of the `_citation_*` category, with its authors and editors. It takes a lossless block such
+as a `CIFStructure`. Text is kept as written, except that CIF 1.1 special-character codes
+(`\'e` → é, `\a` → α, `\/o` → ø, …) are decoded and layout whitespace is collapsed. A reference
+that would be empty is not returned; an INFO note on the report channel lists its data instead:
+
+```python
+from httk.atomistic import CIFStructure, cif_references
+from httk.core.report import collect_reports
+
+with collect_reports("info") as reports:
+    references = cif_references(CIFStructure.from_cif("example.cif"))
+for reference in references:
+    print(reference.title, reference.journal, reference.year, reference.doi)
+    print([person.lastname or person.name for person in reference.authors or ()])
+for record in reports.records:  # references that could not be represented, with their data
+    print(record.getMessage())
+```
+
+The field mapping and the exact text rules are in {doc}`details/cif`, section "Bibliographic
+references".
+
 ## Lower-level API
 
 The runnable {doc}`/examples/parse_cif` walks the lower-level `read_cif`,
