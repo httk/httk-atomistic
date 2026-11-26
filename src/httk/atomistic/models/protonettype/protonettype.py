@@ -327,10 +327,15 @@ class Protonettype(ProtonettypeBackend):
         net: Sequence[Sequence[int]],
         shapes: Sequence[str | None] | None,
         torsions: Sequence[str | None] | None = None,
+        *,
+        writable: bool = True,
     ) -> Self:
-        """Build from a trusted canonical net, its shapes and torsion letters: validate only, no canonicalization."""
+        """Build from a trusted canonical net, its shapes and torsion letters: validate only, no canonicalization.
+
+        ``writable=False`` takes any translation, as the constructor does: a description the canonicalisers search.
+        """
         instance = object.__new__(cls)
-        instance._assign(spacegroup, occupations, net, shapes, torsions, writable=True)
+        instance._assign(spacegroup, occupations, net, shapes, torsions, writable=writable)
         return instance
 
     def _assign(

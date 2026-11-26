@@ -61,9 +61,13 @@ class BondedProtonetstructure(ProtonetstructureBackend):
 
     @cached_property
     def _value(self) -> Protonetstructure:
+        return Protonetstructure.from_asu(self._asu())
+
+    def _asu(self) -> FundamentalDomainStructure:
+        """Return the fundamental domain the value is read from, with its bond network."""
         source = self._source
         if isinstance(source, FundamentalDomainStructure):
-            return Protonetstructure.from_asu(source)
+            return source
         from httk.atomistic.models.structure.asu_view import ASUStructureView
 
         asu = ASUStructureView(source).resolve()
@@ -72,7 +76,7 @@ class BondedProtonetstructure(ProtonetstructureBackend):
                 f"Protonetstructure: the bond network of the {type(source).__name__} is not invariant under its "
                 f"recognized symmetry IT {asu.spacegroup.it_number}"
             )
-        return Protonetstructure.from_asu(asu)
+        return asu
 
     def resolve(self) -> Protonetstructure:
         """Return the protonetstructure of the structure and its network."""

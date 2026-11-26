@@ -339,3 +339,70 @@ def default_shapes(it_number: int, letters: Sequence[str], rows: Sequence[Sequen
 
     counts = _net_counts(Spacegroup.standard(it_number), letters, rows, "default_shapes")
     return [None if count < 2 else _DEFAULTS.get(count, "I") for count in counts]
+
+
+def random_leafy_net(
+    tables: Any, rng: random.Random, max_leaves: int = 8
+) -> tuple[list[Site], list[Row], list[str | None], list[str | None]]:
+    """A random molecular-fragment net: one to three bonded heavy sites, each carrying up to four leaves.
+
+    Leaves sit mostly in the general position (a "CH2"/"CH3" fragment: twins), else on a special
+    position; they share one class or (sometimes) form one-site classes, which tie into one block.
+    The heavy sites get chain rows, sometimes a second orbit to the same partner or a self-loop.
+    The leaves of one site mostly share their shape and torsion letter (any symbols), else may differ. Returns ``(sites, rows,
+    shapes, torsion letter per row)``; letters are carried by unordered site pair.
+    """
+    wy = tables.spacegroup.wyckoff
+    general = max(wy, key=lambda w: (w.free_count, w.multiplicity)).letter
+    special = [w.letter for w in wy if w.letter != general]
+    fixed = {w.letter for w in wy if w.free_count == 0}
+    used: set[str] = set()
+
+    def letter(special_odds: float) -> str:
+        options = [x for x in special if x not in used]
+        if not options or rng.random() >= special_odds:
+            return general
+        chosen = rng.choice(options)
+        if chosen in fixed:
+            used.add(chosen)
+        return chosen
+
+    def row(i: int, j: int) -> Row:
+        g = (rng.randrange(tables.nops), rng.randint(-1, 1), rng.randint(-1, 1), rng.randint(-1, 1))
+        H = [letter_field(tables, sites[s][1], "H") for s in (i, j)]
+        return (i, j, tables.canon(H[0], H[1], g, i == j))
+
+    sites: list[Site] = [(rng.choice("CN"), letter(0.3)) for _ in range(rng.randint(1, 3))]
+    heavy = len(sites)
+    rows = {row(i - 1, i) for i in range(1, heavy)}
+    for _ in range(rng.randint(0, 2)):  # a second orbit to a partner, or a self-loop
+        i, j = sorted((rng.randrange(heavy), rng.randrange(heavy)))
+        extra = row(i, j)
+        if extra[0] != extra[1] or extra[2] != (0, 0, 0, 0):
+            rows.add(extra)
+    own_classes = rng.random() < 0.2
+    tags: dict[int, tuple[str | None, str | None]] = {}  # leaf -> (shape, torsion letter of its row)
+
+    def tag() -> tuple[str | None, str | None]:
+        return ("L1" if rng.random() < 0.2 else None, rng.choice("tcg") if rng.random() < 0.3 else None)
+
+    for centre in range(heavy):
+        special_odds = 0.0 if rng.random() < 0.6 else 0.5
+        shared = tag() if rng.random() < 0.7 else None  # else the twins may differ
+        for _ in range(rng.randint(0, 4)):
+            if len(sites) - heavy == max_leaves:
+                break
+            sites.append((f"H{len(sites)}" if own_classes else "H", letter(special_odds)))
+            rows.add(row(centre, len(sites) - 1))
+            tags[len(sites) - 1] = shared or tag()
+    ordered = sorted(rows)
+    shapes = random_shapes(tables, sites, ordered, rng)
+    letters: dict[tuple[int, int], str | None] = {}
+    for i, j, _ in ordered:
+        letters.setdefault((i, j), rng.choice("tcg") if rng.random() < 0.2 else None)
+    for leaf, (shape, letter_of_row) in tags.items():  # any shape symbol is carried
+        shapes[leaf] = shape
+        for pair in letters:
+            if pair[1] == leaf:
+                letters[pair] = letter_of_row
+    return sites, ordered, shapes, [letters[(i, j)] for i, j, _ in ordered]

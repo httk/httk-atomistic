@@ -77,10 +77,15 @@ class Protonetstructure(ProtonetstructureBackend):
         net: Sequence[Sequence[int]],
         shapes: Sequence[str | None] | None,
         torsions: Sequence[str | None] | None = None,
+        *,
+        writable: bool = True,
     ) -> Self:
-        """Build from a trusted canonical net, its shapes and torsion letters: validate only, no canonicalization."""
+        """Build from a trusted canonical net, its shapes and torsion letters: validate only, no canonicalization.
+
+        ``writable=False`` takes any translation, as the constructor does: a description the canonicalisers search.
+        """
         instance = object.__new__(cls)
-        instance._assign(spacegroup, occupations, net, shapes, torsions, writable=True)
+        instance._assign(spacegroup, occupations, net, shapes, torsions, writable=writable)
         return instance
 
     def _assign(
@@ -167,102 +172,13 @@ class Protonetstructure(ProtonetstructureBackend):
         :raises CanonicalizationLimitError: With ``on_limit="raise"``, if the net search runs out of
             its budget.
         """
-        from httk.atomistic.models.prototype.notation import class_order_key
-        from httk.atomistic.models.structure.asu import _affine, _checked_shapes, _op, _standard_elements
-        from httk.atomistic.models.structure.network import BondNetwork, SiteBond
-        from httk.atomistic.symmetry.canonical_protostructure import _left_handed, _sohncke
-        from httk.atomistic.symmetry.limits import CanonicalizationLimitError, _active, _budget_scope, _check_on_limit
-        from httk.atomistic.symmetry.protonet import _tables
-        from httk.atomistic.symmetry.shapes import _site_shapes, _stabilisers
-        from httk.atomistic.symmetry.torsions import _site_pair_torsions
-
-        _check_on_limit(on_limit)
-        for index, site in enumerate(asu.wyckoff_sites, 1):
-            try:
-                _stabilisers(asu.spacegroup, [site])
-            except ValueError:
-                raise ValueError(
-                    f"Protonetstructure.from_asu: site {index} ({site.species} on Wyckoff letter {site.wyckoff!r}) "
-                    "lies at a special point of its letter, so its bond count and shape are undefined, with or "
-                    "without supplied shapes; give it the special letter"
-                ) from None
-        if bonds is None:
-            if shapes is not None:
-                raise ValueError(
-                    "Protonetstructure.from_asu: shapes= needs bonds given as index tuples; a structure's own "
-                    "network carries its own shapes"
-                )
-            if asu.bonds is None:
-                raise ValueError("Protonetstructure.from_asu: the structure has no bond network; pass bonds")
-            structure = _protonet_asu(asu)
-            elements = None
-        else:
-            spacegroup = asu.spacegroup
-            if not spacegroup.is_standard_setting:
-                raise ValueError(
-                    "Protonetstructure.from_asu requires the space group's standard setting for bonds given "
-                    "as index tuples; give the structure its bond network to label it in any setting"
-                )
-            if any(site.representative is not None for site in asu.wyckoff_sites):
-                raise ValueError(
-                    "Protonetstructure.from_asu cannot use a retained WyckoffSite representative; drop it first"
-                )
-            tables = _tables(spacegroup.it_number)
-            elements = [_index_bond(tables, asu, bond) for bond in bonds]
-            # the bonds as the structure's network, with the supplied shapes (its own are ignored)
-            standard = _standard_elements(spacegroup)
-            network = tuple(SiteBond(i, j, _affine(standard.operation(e))) for i, j, e in elements)
-            checked = _checked_shapes(spacegroup, asu.wyckoff_sites, network, shapes)
-            structure = asu._with_bonds(BondNetwork(network, checked))
-            if (_sohncke(spacegroup) and _left_handed(asu)) or _merges_classes(asu):
-                # re-described in a right-handed cell or the class symmetry: the network and shapes are carried
-                structure = _protonet_asu(structure)
-                elements = None
-        spacegroup = structure.spacegroup
-        sites = structure.wyckoff_sites
-        tables = _tables(spacegroup.it_number)
-        if elements is None:
-            if structure.bonds is None:  # a carry dropped it (a non-invariant set or merged shapes)
-                raise ValueError(
-                    "Protonetstructure.from_asu: the bond network could not be carried to the description "
-                    "the label is read from"
-                )
-            standard = _standard_elements(spacegroup)
-            elements = [
-                (bond.site, bond.partner, standard.element(_op(bond.operation))) for bond in structure.bonds.pairs
-            ]
-        species = {value.name: value for value in structure.species}
-        class_of = {site.species: _species_class(species[site.species]).name for site in sites}
-        letters: dict[str, list[str]] = {}
-        for site in sites:
-            letters.setdefault(class_of[site.species], []).append(site.wyckoff)
-
-        def class_key(name: str) -> tuple[int, tuple[str, ...], str]:
-            group = tuple(sorted(letters[name]))
-            return class_order_key(group, sum(spacegroup.wyckoff_position(x).multiplicity for x in group), name)
-
-        rank = {name: index for index, name in enumerate(sorted(letters, key=class_key))}
-        order = sorted(range(len(sites)), key=lambda s: (rank[class_of[sites[s].species]], sites[s].wyckoff))
-        site_shapes = _site_shapes(structure)
-        number = {old: new for new, old in enumerate(order)}
-        torsion_of = {
-            (min(number[i], number[j]), max(number[i], number[j])): letter
-            for (i, j), letter in _site_pair_torsions(structure, site_shapes).items()
-        }
-        rows = set()
-        for i, j, g in elements:
-            a, b = number[i], number[j]
-            if a > b:
-                a, b, g = b, a, tables.inv(g)
-            H = [tables.letter(sites[order[s]].wyckoff).H for s in (a, b)]
-            g = tables.canon(H[0], H[1], g, same_site=a == b)
-            rows.add((a + 1, b + 1, g[0] + 1, g[1], g[2], g[3]))
-        torsions = [torsion_of.get((min(i, j) - 1, max(i, j) - 1)) for i, j, *_ in sorted(rows)]
         from httk.atomistic.models.bareprotostructure.bareprotostructure import BareProtostructure
         from httk.atomistic.models.prototype.notation import _with_net_marker
         from httk.atomistic.symmetry.canonical_classification import _canonical_bare, _wyckoff_undetermined
+        from httk.atomistic.symmetry.limits import CanonicalizationLimitError, _active, _budget_scope, _check_on_limit
 
-        occupations = [(sites[s].wyckoff, species[sites[s].species]) for s in order]
+        _check_on_limit(on_limit)
+        spacegroup, occupations, rows, site_shapes, torsions = _asu_parts(asu, bonds, shapes)
         description = BareProtostructure(spacegroup, occupations)
         bare = None
         # an undetermined net bins by the canonical bare part (U4); under an enclosing budget that part
@@ -272,9 +188,7 @@ class Protonetstructure(ProtonetstructureBackend):
             with _budget_scope(None if enclosed else 120.0):
                 if enclosed and on_limit == "undetermined":
                     bare = _canonical_bare(description, prototype=False, preserve_chirality=True)
-                return Protonetstructure(
-                    spacegroup, occupations, sorted(rows), [site_shapes[s] for s in order], torsions
-                )
+                return Protonetstructure(spacegroup, occupations, rows, site_shapes, torsions)
         except CanonicalizationLimitError:
             if on_limit == "raise":
                 raise
@@ -368,6 +282,109 @@ class Protonetstructure(ProtonetstructureBackend):
             return f"Protonetstructure.undetermined({self._undetermined!r})"
         pairs = tuple((o.wyckoff, o.species) for o in self.occupations)
         return f"Protonetstructure({self.spacegroup.it_number}, {pairs!r}, {self.net!r}, {self.shapes!r}, {self.torsions!r})"
+
+
+def _asu_parts(
+    asu: "FundamentalDomainStructure",
+    bonds: Iterable[tuple[int, int, int, int, int, int]] | None,
+    shapes: Sequence[str | None] | None,
+) -> tuple[
+    Spacegroup, list[tuple[str, Species]], list[tuple[int, int, int, int, int, int]], list[str | None], list[str | None]
+]:
+    """Validate a structure and its bonds and return the constructor arguments ``Protonetstructure.from_asu`` passes.
+
+    The arguments describe the net as read from the structure; the constructor canonicalizes them.
+    See :meth:`Protonetstructure.from_asu` for the parameters and the errors.
+    """
+    from httk.atomistic.models.prototype.notation import class_order_key
+    from httk.atomistic.models.structure.asu import _affine, _checked_shapes, _op, _standard_elements
+    from httk.atomistic.models.structure.network import BondNetwork, SiteBond
+    from httk.atomistic.symmetry.canonical_protostructure import _left_handed, _sohncke
+    from httk.atomistic.symmetry.protonet import _tables
+    from httk.atomistic.symmetry.shapes import _site_shapes, _stabilisers
+    from httk.atomistic.symmetry.torsions import _site_pair_torsions
+
+    for index, site in enumerate(asu.wyckoff_sites, 1):
+        try:
+            _stabilisers(asu.spacegroup, [site])
+        except ValueError:
+            raise ValueError(
+                f"Protonetstructure.from_asu: site {index} ({site.species} on Wyckoff letter {site.wyckoff!r}) "
+                "lies at a special point of its letter, so its bond count and shape are undefined, with or "
+                "without supplied shapes; give it the special letter"
+            ) from None
+    if bonds is None:
+        if shapes is not None:
+            raise ValueError(
+                "Protonetstructure.from_asu: shapes= needs bonds given as index tuples; a structure's own "
+                "network carries its own shapes"
+            )
+        if asu.bonds is None:
+            raise ValueError("Protonetstructure.from_asu: the structure has no bond network; pass bonds")
+        structure = _protonet_asu(asu)
+        elements = None
+    else:
+        spacegroup = asu.spacegroup
+        if not spacegroup.is_standard_setting:
+            raise ValueError(
+                "Protonetstructure.from_asu requires the space group's standard setting for bonds given "
+                "as index tuples; give the structure its bond network to label it in any setting"
+            )
+        if any(site.representative is not None for site in asu.wyckoff_sites):
+            raise ValueError(
+                "Protonetstructure.from_asu cannot use a retained WyckoffSite representative; drop it first"
+            )
+        tables = _tables(spacegroup.it_number)
+        elements = [_index_bond(tables, asu, bond) for bond in bonds]
+        # the bonds as the structure's network, with the supplied shapes (its own are ignored)
+        standard = _standard_elements(spacegroup)
+        network = tuple(SiteBond(i, j, _affine(standard.operation(e))) for i, j, e in elements)
+        checked = _checked_shapes(spacegroup, asu.wyckoff_sites, network, shapes)
+        structure = asu._with_bonds(BondNetwork(network, checked))
+        if (_sohncke(spacegroup) and _left_handed(asu)) or _merges_classes(asu):
+            # re-described in a right-handed cell or the class symmetry: the network and shapes are carried
+            structure = _protonet_asu(structure)
+            elements = None
+    spacegroup = structure.spacegroup
+    sites = structure.wyckoff_sites
+    tables = _tables(spacegroup.it_number)
+    if elements is None:
+        if structure.bonds is None:  # a carry dropped it (a non-invariant set or merged shapes)
+            raise ValueError(
+                "Protonetstructure.from_asu: the bond network could not be carried to the description "
+                "the label is read from"
+            )
+        standard = _standard_elements(spacegroup)
+        elements = [(bond.site, bond.partner, standard.element(_op(bond.operation))) for bond in structure.bonds.pairs]
+    species = {value.name: value for value in structure.species}
+    class_of = {site.species: _species_class(species[site.species]).name for site in sites}
+    letters: dict[str, list[str]] = {}
+    for site in sites:
+        letters.setdefault(class_of[site.species], []).append(site.wyckoff)
+
+    def class_key(name: str) -> tuple[int, tuple[str, ...], str]:
+        group = tuple(sorted(letters[name]))
+        return class_order_key(group, sum(spacegroup.wyckoff_position(x).multiplicity for x in group), name)
+
+    rank = {name: index for index, name in enumerate(sorted(letters, key=class_key))}
+    order = sorted(range(len(sites)), key=lambda s: (rank[class_of[sites[s].species]], sites[s].wyckoff))
+    site_shapes = _site_shapes(structure)
+    number = {old: new for new, old in enumerate(order)}
+    torsion_of = {
+        (min(number[i], number[j]), max(number[i], number[j])): letter
+        for (i, j), letter in _site_pair_torsions(structure, site_shapes).items()
+    }
+    rows = set()
+    for i, j, g in elements:
+        a, b = number[i], number[j]
+        if a > b:
+            a, b, g = b, a, tables.inv(g)
+        H = [tables.letter(sites[order[s]].wyckoff).H for s in (a, b)]
+        g = tables.canon(H[0], H[1], g, same_site=a == b)
+        rows.add((a + 1, b + 1, g[0] + 1, g[1], g[2], g[3]))
+    torsions = [torsion_of.get((min(i, j) - 1, max(i, j) - 1)) for i, j, *_ in sorted(rows)]
+    occupations = [(sites[s].wyckoff, species[sites[s].species]) for s in order]
+    return spacegroup, occupations, sorted(rows), [site_shapes[s] for s in order], torsions
 
 
 def _index_bond(

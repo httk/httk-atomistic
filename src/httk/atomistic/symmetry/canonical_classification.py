@@ -9,7 +9,7 @@ separate bare canonicalization pass.
 from collections import deque
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from functools import cache
-from itertools import product
+from itertools import groupby, product
 from typing import TYPE_CHECKING, Any, Literal
 
 from httk.core import FracVector
@@ -22,9 +22,11 @@ from httk.atomistic.models.bareprototype.bareprototype import BarePrototype
 from httk.atomistic.models.bareprototype.like import BarePrototypeLike
 from httk.atomistic.models.bareprototype.view import BarePrototypeView
 from httk.atomistic.models.formula.notation import anonymous_symbol
+from httk.atomistic.models.protonetstructure.bonded import BondedProtonetstructure
 from httk.atomistic.models.protonetstructure.like import ProtonetstructureLike
-from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
+from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure, _asu_parts
 from httk.atomistic.models.protonetstructure.view import ProtonetstructureView
+from httk.atomistic.models.protonettype.derived import DerivedProtonettype
 from httk.atomistic.models.protonettype.like import ProtonettypeLike
 from httk.atomistic.models.protonettype.protonettype import Protonettype
 from httk.atomistic.models.protonettype.view import ProtonettypeView
@@ -524,14 +526,27 @@ def _protonetstructure_net(value: Protonetstructure, *, preserve_chirality: bool
 
 
 def _protonet_input(view: Callable[[Any], Any], family: Any, obj: Any) -> Any:
-    """Convert a protonet input; a label string becomes its own description, without a search.
+    """Convert a protonet input; a label string or a structure becomes its own description, without a search.
 
     Parsing a label through its view would run the constructor's net search first, before the
     bare part; here the label's own bare description and rows are taken as written (``_of``),
     and :func:`_require_canonical_label` checks the text against the result afterwards.
     """
     if not isinstance(obj, str) or "__" not in obj or (":" in obj) != (family is Protonetstructure):
-        return view(obj).unview()  # not a label of this level: the view decides
+        presented = view(obj)  # not a label of this level: the view decides
+        source = presented._backend
+        if isinstance(source, DerivedProtonettype):
+            source = source._source
+        if not isinstance(source, BondedProtonetstructure):
+            return presented.unview()
+        # a structure: its net as read, validated as ``from_asu`` does; the constructor's search over its
+        # own bare key would only re-describe what the canonical search runs on anyway
+        value = Protonetstructure._of(*_asu_parts(source._asu(), None, None), writable=False)
+        if family is Protonetstructure:
+            return value
+        runs = groupby(value.occupations, key=lambda o: o.species.name)  # the erasure of DerivedProtonettype
+        labels = [(o.wyckoff, anonymous_symbol(index)) for index, (_, run) in enumerate(runs) for o in run]
+        return Protonettype._of(value.spacegroup, labels, value.net, value.shapes, value.torsions, writable=False)
     if _marks_undetermined(obj):
         return family.undetermined(obj)
     if family is Protonettype:

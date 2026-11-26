@@ -13,7 +13,7 @@ only while the per-space-group tables are built.
 
 import math
 from collections import Counter
-from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Collection, Hashable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import cache, cached_property, lru_cache
@@ -40,6 +40,7 @@ type _Element = tuple[int, int, int, int]
 type _Point = tuple[Fraction, Fraction, Fraction]
 type _IntMatrix = tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]
 type _Row = tuple[int, int, _Element]
+type _Pattern = tuple[tuple[int, int], ...]  # sorted 0-based site-number pairs
 type _Sym = tuple[int, tuple[int, ...], tuple[tuple[int, ...], ...]]  # (k, c, M): translation c + M v
 type _Assign = tuple[_Sym | None, ...]
 type _State = tuple[_Assign, int, frozenset[int]]  # reference atoms, unknown count, rows used
@@ -620,14 +621,142 @@ def _moved(tables: _GroupTables, coset: _Coset, sites: Sequence[tuple[Hashable, 
 # numbering of sites: smallest list of (i, j) pairs
 # ---------------------------------------------------------------------------------------------
 def _minimal_numberings(
-    blocks: Sequence[Sequence[int]], rows: Sequence[tuple[int, int]]
-) -> tuple[tuple[tuple[int, int], ...], list[dict[int, int]]]:
-    """Return the smallest sorted pair list and every 1-based numbering that realises it.
+    blocks: Sequence[Sequence[int]],
+    rows: Sequence[tuple[int, int]],
+    *,
+    bound: _Pattern | None = None,
+    collapse: Collection[int] = frozenset(),
+) -> tuple[_Pattern | None, Iterator[dict[int, int]]]:
+    """Return the smallest sorted pair list and, one at a time, every 1-based numbering that realises it.
+
+    Twins (sites of one block with equal neighbours) are swapped by an automorphism of the pairs:
+    every permutation of a twin class is returned, except for a class that lies entirely in
+    ``collapse``, which keeps only its numbering in block order.  A first block of leaves is
+    numbered by :func:`_leaf_first`, with the same pattern and numberings.
 
     :param blocks: Interchangeable sites in label order.
     :param rows: The bonded site pairs.
-    :return: ``(pattern, numberings)``.
+    :param bound: An incumbent pattern of full length: only numberings that tie or beat it are wanted.
+    :param collapse: Sites whose twin classes are not permuted.
+    :return: ``(pattern, numberings)``; ``(None, no numberings)`` when no numbering ties or beats ``bound``.
     """
+    reduced = _leaf_first(blocks, rows, bound, collapse)
+    return reduced if reduced is not None else _unreduced_numberings(blocks, rows, bound, collapse)
+
+
+def _leaf_first(
+    blocks: Sequence[Sequence[int]],
+    rows: Sequence[tuple[int, int]],
+    bound: _Pattern | None,
+    collapse: Collection[int],
+) -> tuple[_Pattern | None, Iterator[dict[int, int]]] | None:
+    """Number a first block of leaves after the rest, exactly; ``None`` for any other first block.
+
+    When every site of the first block has at most one row, of multiplicity one, to a site outside
+    it, those rows come first in every pattern, and they are smallest exactly when every other block
+    numbers its sites by descending leaf count.  So the other blocks are split into sub-blocks by
+    leaf count, the rows between their sites are numbered by :func:`_minimal_numberings`, the
+    leaves follow their neighbours' numbers (each neighbour's leaves a twin class) and the unbonded
+    sites of the first block come last.  A site whose rows all go to leaves is unbonded in the
+    inner search, which numbers it last in its sub-block in one order; here it takes every order.
+    The bound is split the same way: its leaf rows against the forced ones, the rest for the inner search.
+    """
+    if not blocks:
+        return None
+    inside = set(blocks[0])
+    host: dict[int, int] = {}  # leaf of the first block -> its neighbour
+    for a, b in rows:
+        if a in inside and b in inside:
+            return None  # a row inside the first block
+        for leaf, other in ((a, b), (b, a)):
+            if leaf in inside:
+                if leaf in host:
+                    return None  # a second row, or the same pair twice
+                host[leaf] = other
+    leaves: dict[int, list[int]] = {}  # neighbour -> its leaves in block order
+    for s in blocks[0]:
+        if s in host:
+            leaves.setdefault(host[s], []).append(s)
+    sub = [
+        [s for s in block if len(leaves.get(s, ())) == count]
+        for block in blocks[1:]
+        for count in sorted({len(leaves.get(s, ())) for s in block}, reverse=True)
+    ]
+    n0 = len(blocks[0])
+    targets: list[int] = []  # the forced leaf rows: the sites of a sub-block with c leaves, each c times
+    number = n0
+    for part in sub:
+        for _ in part:
+            targets.extend([number] * len(leaves.get(part[0], ())))
+            number += 1
+    prefix = tuple(enumerate(targets))
+    inner_bound = None
+    if bound is not None:
+        if bound[: len(prefix)] < prefix:
+            return None, iter(())
+        if bound[: len(prefix)] == prefix:
+            inner_bound = tuple((a - n0, b - n0) for a, b in bound[len(prefix) :])
+    rest = [(a, b) for a, b in rows if a not in inside and b not in inside]
+    # a site with leaves is never a full-graph twin of another site (its leaves are its own), so an
+    # inner twin class with leaves (holders, say) is always permuted: only sites without leaves collapse
+    pattern, inner = _minimal_numberings(sub, rest, bound=inner_bound, collapse=set(collapse).difference(leaves))
+    if pattern is None:
+        return None, iter(())
+    linked = {s for pair in rest for s in pair}
+    spare = [c for c in ([s for s in part if s in leaves and s not in linked] for part in sub) if len(c) > 1]
+    twins = [c for c in leaves.values() if len(c) > 1 and not all(s in collapse for s in c)]
+    unbonded = [s for s in blocks[0] if s not in host]
+
+    def numberings() -> Iterator[dict[int, int]]:
+        for found in inner:
+            for number in _permuted({s: n + n0 for s, n in found.items()}, spare):
+                order = [leaf for j in sorted(leaves, key=number.__getitem__) for leaf in leaves[j]] + unbonded
+                yield from _permuted({**number, **{s: x for x, s in enumerate(order, 1)}}, twins)
+
+    return prefix + tuple((a + n0, b + n0) for a, b in pattern), numberings()
+
+
+def _permuted(number: dict[int, int], classes: Sequence[Sequence[int]]) -> Iterator[dict[int, int]]:
+    """Yield ``number`` with the numbers of each class permuted among its members, one at a time."""
+    if not classes:
+        yield number
+        return
+    first = classes[0]
+    for values in permutations(sorted(number[s] for s in first)):
+        _checkpoint()
+        yield from _permuted({**number, **dict(zip(first, values, strict=True))}, classes[1:])
+
+
+def _orders(group: Sequence[int], twin_of: Mapping[int, int]) -> Iterator[tuple[int, ...]]:
+    """Yield the orders of ``group`` that keep the members of each twin class in their given order."""
+    heads: dict[int, int] = {}
+    for s in group:
+        heads.setdefault(twin_of[s], s)
+    if not heads:
+        yield ()
+    for s in heads.values():
+        rest = [t for t in group if t != s]
+        for tail in _orders(rest, twin_of):
+            yield (s, *tail)
+
+
+def _choices(groups: Sequence[Sequence[int]], twin_of: Mapping[int, int]) -> Iterator[tuple[tuple[int, ...], ...]]:
+    """Yield every combination of one order (:func:`_orders`) per group, one at a time."""
+    if not groups:
+        yield ()
+        return
+    for order in _orders(groups[0], twin_of):
+        for rest in _choices(groups[1:], twin_of):
+            yield (order, *rest)
+
+
+def _unreduced_numberings(
+    blocks: Sequence[Sequence[int]],
+    rows: Sequence[tuple[int, int]],
+    bound: _Pattern | None,
+    collapse: Collection[int],
+) -> tuple[_Pattern | None, Iterator[dict[int, int]]]:
+    """Search the numberings site by site: :func:`_minimal_numberings` without the leaf-first reduction."""
     nsites = sum(len(b) for b in blocks)
     block_of: dict[int, int] = {}
     first = []
@@ -653,11 +782,14 @@ def _minimal_numberings(
             if site not in isolated:
                 twins.setdefault((index, frozenset(neighbours[site].items())), []).append(site)
     before = {s: c[x - 1] for c in twins.values() for x, s in enumerate(c) if x}  # site -> previous twin
+    twin_of = {s: x for x, c in enumerate(twins.values()) for s in c}
+    rank = {s: x for block in blocks for x, s in enumerate(block)}
     total = len(rows)
-    best_pattern: tuple[tuple[int, int], ...] | None = None
+    # an incumbent bound prunes from the start and is replaced by the first pattern that beats it
+    best_pattern: _Pattern | None = bound
     best_numberings: list[dict[int, int]] = []
 
-    def descend(m: int, number: dict[int, int], free: list[int], pattern: tuple[tuple[int, int], ...]) -> None:
+    def descend(m: int, number: dict[int, int], free: list[int], pattern: _Pattern) -> None:
         nonlocal best_pattern, best_numberings
         _checkpoint()
         if m == nsites:
@@ -683,8 +815,9 @@ def _minimal_numberings(
             for other in neighbours[site]:
                 if other not in number2:
                     pending.setdefault(block_of[other], []).append(other)
-            twinned = [(before[o], o) for group in pending.values() for o in group if o in before] if before else ()
-            starts.append((site, number2, free2, pending.values(), twinned))
+            # twins share their neighbours, so pending twins are pending together: only the orders
+            # that keep each twin class in block order are generated
+            starts.append((site, number2, free2, [sorted(group, key=rank.__getitem__) for group in pending.values()]))
             choices = 1
             for group in pending.values():
                 if len(group) > 1:
@@ -694,8 +827,8 @@ def _minimal_numberings(
         # many (a factorial of pending neighbours): visit lazily, in memory linear in the depth
         ordered, lazy = 1 < count <= _SORTED_CHILDREN, count > _SORTED_CHILDREN
         children = []
-        for site, number2, free2, groups, twinned in starts:
-            for choice in product(*(permutations(group) for group in groups)):
+        for site, number2, free2, groups in starts:
+            for choice in _choices(groups, twin_of):
                 if lazy:
                     _checkpoint()
                 number3, free3 = dict(number2), list(free2)
@@ -703,8 +836,6 @@ def _minimal_numberings(
                     for other in chosen:  # next free numbers of that block
                         number3[other] = free3[block_of[other]]
                         free3[block_of[other]] += 1
-                if twinned and any(number3[u] > number3[o] for u, o in twinned):
-                    continue
                 group_rows = sorted(
                     (m, number3[other])
                     for other, mult in neighbours[site].items()
@@ -723,17 +854,13 @@ def _minimal_numberings(
             descend(m + 1, number3, free3, pattern3)
 
     descend(0, {}, list(first), ())
+    if not best_numberings:
+        return None, iter(())  # nothing ties or beats the bound
     assert best_pattern is not None
-    classes = [c for c in twins.values() if len(c) > 1]
-    numberings = []
-    for numbering in best_numberings:
-        for choice in product(*(permutations(sorted(numbering[s] for s in c)) for c in classes)):
-            _checkpoint()
-            moved = dict(numbering)
-            for c, values in zip(classes, choice, strict=True):
-                moved.update(zip(c, values, strict=True))
-            numberings.append({s: n + 1 for s, n in moved.items()})
-    return best_pattern, numberings
+    classes = [c for c in twins.values() if len(c) > 1 and not all(s in collapse for s in c)]
+    return best_pattern, (
+        {s: n + 1 for s, n in moved.items()} for found in best_numberings for moved in _permuted(found, classes)
+    )
 
 
 # ---------------------------------------------------------------------------------------------
@@ -1065,7 +1192,10 @@ class _CanonicalNet:
     :param realisations: The descriptions giving this net, de-duplicated by ``(classes, letters,
         number)``; a coset repeating an earlier coset's letters and bond orbits is skipped.  Other
         ``(cell, coset, gauge)`` triples of an equal realisation are therefore not kept, which
-        matters only for a future geometric round trip (D9).  Their order, and so which one is
+        matters only for a future geometric round trip (D9).  Twin leaves (one class and letter, one
+        row to one common site, a general position, equal bond count, shape and torsion letter) are
+        numbered in one order only: the realisations that differ by a permutation of such twins,
+        which changes no part of the net or of a label, are not listed.  Their order, and so which one is
         first, is a search detail that may change between versions: a caller may take the first
         only for what every realisation shares, and otherwise picks by an order-free rule (D3).
     :param shapes: The shape per site number, ``None`` for a site with fewer than two bonds.
@@ -1188,6 +1318,12 @@ def _search(
     sites_of: dict[Hashable, list[int]] = {}
     for s, (cls, _) in enumerate(sites):
         sites_of.setdefault(cls, []).append(s)
+    touching: dict[int, list[tuple[int, int]]] = {}
+    for a, b, _ in ordered:
+        for s in {a, b}:
+            touching.setdefault(s, []).append((min(a, b), max(a, b)))
+    # leaf -> its one row (a site pair counts once per row; a self-loop is no leaf)
+    leaf_rows = {s: pair for s, (pair, *more) in touching.items() if not more and pair[0] != pair[1]}
     best: _Candidate | None = None
     result: tuple[tuple[tuple[int, int], ...], list[_Element], list[tuple[str, ...]]] | None = None
     realisations: dict[tuple[object, ...], _Realisation] = {}
@@ -1247,6 +1383,20 @@ def _search(
             if len(group) > 1 and all(len(group_of[c]) == 1 for c in group)
             for cls in group
         }
+        # twins (one block, one neighbour) that no candidate part can tell apart are numbered in block
+        # order only: leaves in a general position, whose row code is the identity whatever their
+        # number (their reference atom ranges over the whole group), with equal bond count, shape and
+        # torsion letter of their row; never in a tie block of one-site classes
+        leaf_twins: dict[tuple[int, Hashable, str], list[int]] = {}
+        for s, (a, b) in leaf_rows.items():
+            if sites[s][0] not in single and tables.letter(letters[s]).general:
+                leaf_twins.setdefault((a + b - s, sites[s][0], letters[s]), []).append(s)
+        collapse = {
+            s
+            for twins in leaf_twins.values()
+            if len({(counts[t], shapes[t], torsion_of.get(leaf_rows[t], "")) for t in twins}) == 1
+            for s in twins
+        }
         parts = [
             [tuple(sorted(tied[key], key=str))] if tied[key][0] in single else _arrangements(tied[key], connected)
             for key in sorted(tied)
@@ -1263,8 +1413,12 @@ def _search(
                         for cls in part
                         for letter in sorted(set(group_of[cls]))
                     )
-            pattern, numberings = _minimal_numberings(blocks, [(a, b) for a, b, _ in moved])
-            if best is not None and (bare_key, pattern) > (best[0], best[1]):
+            # every description searched here has the bare key ``least``, so the best pattern so far
+            # bounds the numbering search: a larger pattern would lose to it below
+            pattern, numberings = _minimal_numberings(
+                blocks, [(a, b) for a, b, _ in moved], bound=None if best is None else best[1], collapse=collapse
+            )
+            if pattern is None:
                 continue
             for number in numberings:
                 _checkpoint()  # memo hits in _exact_codes reach no other checkpoint

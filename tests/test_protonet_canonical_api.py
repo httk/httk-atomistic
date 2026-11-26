@@ -16,16 +16,20 @@ from _protonet_support import (
     lattice_from_parameters,
     load_structure,
     raw_rows,
+    scramble,
     scramble_shaped,
 )
 from httk.core import FracVector
 from test_protonet_canonical import QUARTZ, QUARTZ_CELL, SI_O, _enantiomorph
+from test_protonet_cells import _kinds, _move, _random_cell
 
 import httk.atomistic.symmetry.protonet as protonet_module
 from httk.atomistic import ASUStructure, Cell, Species, WyckoffSite
+from httk.atomistic.models.formula.notation import anonymous_symbol
 from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
 from httk.atomistic.models.protonettype.protonettype import Protonettype
 from httk.atomistic.models.prototype.notation import (
+    class_order_key,
     parse_protonetstructure_label,
     parse_protonettype_label,
     render_protonet,
@@ -439,6 +443,131 @@ def test_tiny_timeout_gives_undetermined_labels() -> None:
     assert str(canonical_protonettype(_value("k2agsbs4-frame"), timeout=1e-9).label) == "A4B2CD_oP32_34_X__X"
     value = canonical_protonetstructure(_value("k2agsbs4-frame"), timeout=1e-9)
     assert str(value.label) == "A4B2CD_oP32_34_X__X:S-K-Ag-Sb" and not value.determined
+
+
+# ---------------------------------------------------------------------------------------------
+# a structure is searched once: its net is taken as read, not first canonicalized over its own bare key
+# ---------------------------------------------------------------------------------------------
+def _bonded(name: str) -> ASUStructure:
+    """The structure of a case carrying its index bonds as its own network."""
+    from httk.atomistic.models.structure.asu import _affine, _standard_elements
+    from httk.atomistic.models.structure.network import BondNetwork, SiteBond
+
+    asu, bonds, _, _ = _case(name)
+    standard = _standard_elements(asu.spacegroup)
+    network = [SiteBond(i - 1, j - 1, _affine(standard.operation((k - 1, *n)))) for i, j, k, *n in bonds]
+    return asu._with_bonds(BondNetwork(tuple(network)))
+
+
+@pytest.mark.parametrize("chirality", [True, False])
+def test_a_structure_is_searched_once(chirality: bool, monkeypatch: pytest.MonkeyPatch) -> None:
+    structure, real, calls = _bonded("k2agsbs4-frame"), _search, []
+
+    def counted(*args: Any) -> Any:
+        calls.append(args)
+        return real(*args)
+
+    monkeypatch.setattr(protonet_module, "_search", counted)
+    for canonical in (canonical_protonetstructure, canonical_protonettype):
+        _search.cache_clear()
+        calls.clear()
+        canonical(structure, preserve_chirality=chirality)
+        assert len(calls) == 1, canonical.__name__
+        assert calls[0][-1] is False  # the search over every bare key, not the constructor's own
+
+
+@pytest.mark.parametrize("chirality", [True, False])
+@pytest.mark.parametrize("name", list(CASES))
+def test_a_structure_gets_the_label_of_its_constructed_value(name: str, chirality: bool) -> None:
+    # the former path: the public constructor (its own-bare-key search), then the canonical search
+    structure = _bonded(name)
+    value = Protonetstructure.from_asu(structure)
+    assert canonical_protonetstructure(structure, preserve_chirality=chirality) == canonical_protonetstructure(
+        value, preserve_chirality=chirality
+    )
+    assert canonical_protonettype(structure, preserve_chirality=chirality) == canonical_protonettype(
+        value.protonettype, preserve_chirality=chirality
+    )
+
+
+def test_a_structure_keeps_its_errors_and_budget_labels() -> None:
+    structure = _bonded("k2agsbs4-frame")
+    plain = ASUStructure(structure.cell, structure.spacegroup, structure.wyckoff_sites, structure.species)
+    for canonical in (canonical_protonetstructure, canonical_protonettype):
+        with pytest.raises(TypeError):  # no network: no protonet view adopts it
+            canonical(plain)
+        with pytest.raises(CanonicalizationLimitError):
+            canonical(structure, timeout=1e-9, on_limit="raise")
+    assert str(canonical_protonettype(structure, timeout=1e-9).label) == "A4B2CD_oP32_34_X__X"
+    value = canonical_protonetstructure(structure, timeout=1e-9)
+    assert str(value.label) == "A4B2CD_oP32_34_X__X:S-K-Ag-Sb" and not value.determined
+
+
+def _unsearched(it: int, sites: list[Any], rows: list[Any], *, anonymous: bool) -> Any:
+    """One spelling of a 0-based net as the canonicalisers' unsearched input (``_of(..., writable=False)``).
+
+    The sites are put into class runs (classes by the order they first appear, so tied classes and
+    sites keep the spelling's random order) and the rows renumbered; class ``X``, ``Y``, ``Z`` is
+    species C, N, O, or the class run's anonymous symbol.
+    """
+    group = Spacegroup.standard(it)
+    letters: dict[Any, list[str]] = {}
+    for cls, letter in sites:
+        letters.setdefault(cls, []).append(letter)
+    first = {cls: index for index, cls in enumerate(letters)}
+
+    def run(cls: Any) -> tuple[Any, ...]:
+        found = tuple(sorted(letters[cls]))
+        return class_order_key(found, sum(group.wyckoff_position(x).multiplicity for x in found))[:2]
+
+    order = sorted(range(len(sites)), key=lambda s: (run(sites[s][0]), first[sites[s][0]], sites[s][1]))
+    new = {old: index for index, old in enumerate(order)}
+    net = [(new[a] + 1, new[b] + 1, g[0] + 1, g[1], g[2], g[3]) for a, b, g in rows]
+    ordered = [sites[s] for s in order]
+    shapes = default_shapes(it, [letter for _, letter in ordered], net)
+    if anonymous:
+        runs = list(dict.fromkeys(cls for cls, _ in ordered))
+        labels = [(letter, anonymous_symbol(runs.index(cls))) for cls, letter in ordered]
+        return Protonettype._of(it, labels, net, shapes, writable=False)
+    species = {"X": _species("C"), "Y": _species("N"), "Z": _species("O")}
+    return Protonetstructure._of(it, [(letter, species[cls]) for cls, letter in ordered], net, shapes, writable=False)
+
+
+@pytest.mark.parametrize("it", [2, 4, 10, 14, 15, 62])
+def test_unsearched_spellings_of_one_net_get_its_constructed_label(it: int) -> None:
+    # the single search now starts from any spelling, not from the constructor's own-bare-key form:
+    # random cosets (letters and rows), reference atoms, site numbering and row direction, and in the
+    # monoclinic groups random cell changes; molecules, chains, layers and 3-periodic nets (P-1: chains
+    # along a or b, in a kept cell, D7). Every spelling gets the former two-search path's value.
+    tables, rng = _tables(it), random.Random(f"unsearched-{it}")
+    general = max(tables.spacegroup.wyckoff, key=lambda w: (w.free_count, w.multiplicity)).letter
+    sites = [("X", general), ("Y", general), ("Z", general)]
+    sohncke = all(operation.determinant() > 0 for operation in tables.spacegroup.symmetry_operations)
+    spellings = 0
+    for make in _kinds(it, rng).values():
+        rows = make()
+        for chirality in (True, False):
+            value = _unsearched(it, sites, rows, anonymous=False)
+            built = Protonetstructure(value.spacegroup, value.occupations, value.net, value.shapes)
+            expected = canonical_protonetstructure(built, preserve_chirality=chirality)
+            expected_type = canonical_protonettype(built.protonettype, preserve_chirality=chirality)
+            for _ in range(4):
+                moved = (sites, rows)
+                if 3 <= it <= 15:
+                    while True:  # a kept hand in a Sohncke group: a proper cell change
+                        (a, b), (c, d) = X = _random_cell(it, rng)
+                        if not (chirality and sohncke) or a * d - b * c == 1:
+                            break
+                    moved = _move(it, sites, rows, X)
+                spelled = scramble(tables, *moved, rng, keep_hand=chirality)
+                for anonymous, canonical, want in (
+                    (False, canonical_protonetstructure, expected),
+                    (True, canonical_protonettype, expected_type),
+                ):
+                    raw = _unsearched(it, *spelled, anonymous=anonymous)
+                    assert canonical(raw, preserve_chirality=chirality, timeout=None) == want, (it, spelled)
+                spellings += 1
+    assert spellings >= 40
 
 
 # ---------------------------------------------------------------------------------------------
