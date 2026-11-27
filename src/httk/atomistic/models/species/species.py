@@ -365,7 +365,7 @@ class Species(SpeciesBackend):
         if isinstance(obj, int):
             obj = symbol_of(obj)
         if isinstance(obj, str):
-            return cls(name=obj, chemical_symbols=(obj,), concentration=(1.0,))
+            return cls(name=obj, chemical_symbols=(obj,), concentration=(1,))
         attached = obj.get("attached")
         nattached = obj.get("nattached")
         mass = obj.get("mass")

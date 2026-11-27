@@ -86,6 +86,7 @@ from typing import Any
 from httk.core import SurdScalar, SurdVector, combined_precision, exactmath
 
 from httk.atomistic._atomic_projection import require_bare_atomic_projection
+from httk.atomistic._composition_values import bounded_fraction
 from httk.atomistic._loading import _cartesian_precision_factor, _cell_with_precision_override
 from httk.atomistic._writing import _poscar_token
 from httk.atomistic.elements import SYMBOLS, atomic_number
@@ -115,11 +116,12 @@ def _number(token: str) -> fractions.Fraction:
 
     :param token: A decimal literal such as ``"1.5"``, ``"-2e3"`` or ``"1.0d-3"``.
     :return: The exact value.
-    :raises ValueError: If ``token`` is not a decimal literal.
+    :raises ValueError: If ``token`` is not a decimal literal, or its digit count plus exponent
+        magnitude exceeds 4300.
     """
     if not isinstance(token, str) or not _NUMBER.fullmatch(token.strip()):
         raise ValueError(f"expected a decimal number, got {token!r}")
-    return fractions.Fraction(_normalized(token))
+    return bounded_fraction(_normalized(token))
 
 
 def _normalized(token: str) -> str:

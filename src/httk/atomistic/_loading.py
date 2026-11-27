@@ -99,7 +99,7 @@ def _structure_from_poscar(data: Mapping[str, Any]) -> UnitcellStructure:
         group_numbers[symbol] = group_numbers.get(symbol, 0) + 1
         name = symbol if group_totals[symbol] == 1 else f"{symbol}{group_numbers[symbol]}"
         species_at_sites.extend([name] * count)
-        species.append(Species(name=name, chemical_symbols=(symbol,), concentration=(1.0,)))
+        species.append(Species(name=name, chemical_symbols=(symbol,), concentration=(1,)))
 
     return UnitcellStructure(cell, sites, species, species_at_sites)
 

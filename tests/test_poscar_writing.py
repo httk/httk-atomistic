@@ -14,7 +14,7 @@ def _structure() -> UnitcellStructure:
     return UnitcellStructure(
         CELL,
         [[0, 0, 0], [Fraction(1, 3), Fraction(1, 2), 0], [Fraction(2, 3), 0, 0]],
-        [Species("Si", ("Si",), (1.0,)), Species("O", ("O",), (1.0,))],
+        [Species("Si", ("Si",), (1,)), Species("O", ("O",), (1,))],
         ["Si", "O", "Si"],
     )
 
@@ -64,9 +64,9 @@ def test_poscar_keeps_distinct_same_symbol_species_groups() -> None:
         CELL,
         [[0, 0, 0], [Fraction(1, 4), 0, 0], [Fraction(1, 2), 0, 0], [Fraction(3, 4), 0, 0]],
         [
-            Species("Fe1", ("Fe",), (1.0,)),
-            Species("Fe2", ("Fe",), (1.0,)),
-            Species("O", ("O",), (1.0,)),
+            Species("Fe1", ("Fe",), (1,)),
+            Species("Fe2", ("Fe",), (1,)),
+            Species("O", ("O",), (1,)),
         ],
         ["Fe1", "O", "Fe2", "O"],
     )
@@ -125,7 +125,7 @@ def test_poscar_comment_contains_formula_and_id() -> None:
 def test_poscar_expands_asymmetric_unit() -> None:
     from httk.atomistic import ASUStructure, WyckoffSite
 
-    sodium = Species("Na", ("Na",), (1.0,))
+    sodium = Species("Na", ("Na",), (1,))
     structure = ASUStructure(
         CELL,
         225,
@@ -147,7 +147,7 @@ def test_poscar_save_load_roundtrip_and_suffixes(tmp_path) -> None:
     original = UnitcellStructure(
         CELL,
         [[0, 0, 0], [Fraction(1, 4), Fraction(1, 2), 0], [Fraction(5, 8), 0, 0]],
-        [Species("Si", ("Si",), (1.0,)), Species("O", ("O",), (1.0,))],
+        [Species("Si", ("Si",), (1,)), Species("O", ("O",), (1,))],
         ["Si", "O", "Si"],
     )
     for destination in (tmp_path / "POSCAR", tmp_path / "structure.vasp", tmp_path / "POSCAR.bz2"):
@@ -166,9 +166,9 @@ def test_poscar_repeated_symbol_groups_survive_save_load(tmp_path) -> None:
         CELL,
         [[0, 0, 0], [Fraction(1, 4), 0, 0], [Fraction(1, 2), 0, 0], [Fraction(3, 4), 0, 0]],
         [
-            Species("Fe1", ("Fe",), (1.0,)),
-            Species("Fe2", ("Fe",), (1.0,)),
-            Species("O", ("O",), (1.0,)),
+            Species("Fe1", ("Fe",), (1,)),
+            Species("Fe2", ("Fe",), (1,)),
+            Species("O", ("O",), (1,)),
         ],
         ["Fe1", "O", "Fe2", "O"],
     )

@@ -1,7 +1,30 @@
 """Shared JSON-compatible OPTIMADE payload projections."""
 
+import numbers
 from collections.abc import Iterable
 from typing import Any
+
+
+def concentration_payload(species_like: Any) -> list[int | float]:
+    """Render species concentrations as JSON numbers, keeping an exact integer exact.
+
+    An exact integral concentration (0 or 1) with no measured precision is written as the
+    JSON integer, which reads back exact; a float ``1.0`` would read back as a measured value
+    good to 1/10. Everything else is written as a float.
+
+    :param species_like: A species object exposing ``concentration`` and, optionally,
+        ``concentration_precision``.
+    :return: One JSON number per constituent.
+    """
+    precisions = getattr(species_like, "concentration_precision", None) or ()
+    return [
+        int(value.numerator)
+        if isinstance(value, numbers.Rational)
+        and value.denominator == 1
+        and (index >= len(precisions) or precisions[index] is None)
+        else float(value)
+        for index, value in enumerate(species_like.concentration)
+    ]
 
 
 def species_payload(species_like: Any) -> dict[str, object]:
@@ -13,7 +36,7 @@ def species_payload(species_like: Any) -> dict[str, object]:
     payload: dict[str, object] = {
         "name": species_like.name,
         "chemical_symbols": list(species_like.chemical_symbols),
-        "concentration": [float(value) for value in species_like.concentration],
+        "concentration": concentration_payload(species_like),
     }
     if species_like.mass is not None:
         payload["mass"] = list(species_like.mass)

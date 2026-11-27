@@ -160,9 +160,18 @@ The normalized operation set is compared exactly with the tabulated space-group 
 A declared Hall symbol, International Tables number, or recognized Hermann–Mauguin symbol is
 a claim checked against those operations; it does not override them silently.
 
+A Hall symbol may carry Hall's change-of-basis suffix, either an `x,y,z` operator
+(`P 2yb (z,x,y)`) or an origin shift in twelfths (`P 61 2 (0 0 5)`). As in sgtbx, the suffix
+`V` maps the base symbol's coordinates to the actual ones, so the declared operations are the
+base setting's operations `V W V⁻¹`, which must equal a tabulated setting's; that setting is
+the one declared. Only unimodular integer suffixes (the cell is unchanged) are supported. A
+suffix that is malformed, changes the cell, or leads to no tabulated setting is treated like an
+unknown Hall symbol, in line with the no-normalizer-search limit below.
+
 In strict mode, httk does not invent operations when the loop is absent. With `repair=True`,
 a valid Hall symbol is the one safe exception: it uniquely identifies the axes, origin, and
-setting, so httk generates that setting's tabulated operations and warns. An IT number or
+setting, so httk generates that setting's tabulated operations (including a setting named
+through a supported change-of-basis suffix) and warns. An IT number or
 Hermann–Mauguin symbol alone is not used for this repair because it can leave several settings
 or origins possible. Likewise, if an operation set matches no tabulated setting, httk does not
 search the infinitely many possible affine normalizer transforms. The caller must correct the

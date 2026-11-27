@@ -35,13 +35,14 @@ Direct
 _SILICON_ATTRIBUTES: dict[str, object] = {
     "lattice_vectors": [[0.0, 2.5, 2.5], [2.5, 0.0, 2.5], [2.5, 2.5, 0.0]],
     "fractional_site_positions": [[0, 0, 0], [0.25, 0.25, 0.25]],
-    "species": [{"name": "Si", "chemical_symbols": ["Si"], "concentration": [1.0]}],
+    "species": [{"name": "Si", "chemical_symbols": ["Si"], "concentration": [1]}],
     "species_at_sites": ["Si", "Si"],
     "dimension_types": [1, 1, 1],
     "nperiodic_dimensions": 3,
 }
 # 2026-09-27: the POSCAR-derived pin; an OPTIMADE twin stating no symmetry must equal it.
-_SILICON_CONTENT_ID = "c19e62e8e7eaa3dffcd7b06004863fc5f290f96e707ddd33676fa7c5de0cea7f"
+# 2026-11-27: re-pinned when POSCAR species became an exact concentration 1 (no "1.0" claim).
+_SILICON_CONTENT_ID = "c81dde5d515845385de74fc7690e84a46caab461f62a133687ce8b8592c576f6"
 
 
 def _definition_ids() -> dict[str, str]:
@@ -178,3 +179,37 @@ def test_served_entry_reads_served_silicon_back_to_its_poscar_twin(tmp_path: pat
     assert isinstance(entry, UnitcellStructureView)
     assert entry.symmetry is None
     assert content_id(entry) == content_id(source) == _SILICON_CONTENT_ID
+
+
+_P1_CIF = """data_x
+_cell_length_a 5.4307
+_cell_length_b 5.4307
+_cell_length_c 5.4307
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+loop_
+_symmetry_equiv_pos_as_xyz
+x,y,z
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+Si1 Si 0 0 0 1
+O1 O 0.25 0.25 0.25 1.0
+"""
+
+
+def test_served_cif_structure_keeps_its_exact_full_occupancy(tmp_path: pathlib.Path) -> None:
+    path = tmp_path / "x.cif"
+    path.write_text(_P1_CIF)
+    source = UnitcellStructureView(httk.core.load(str(path)))
+    ids = _definition_ids()
+    served = {name: value for name, value in _served(source).items() if name in ids}
+    # An exact 1 is served as the JSON integer; a float 1.0 would read back as good to 1/10.
+    assert [species["concentration"] for species in served["species"]] == [[1], [1]]
+    assert content_id(served_entry("structures", served)) == content_id(source)
+    assert content_id(UnitcellStructureView(OptimadeStructure(_resource(served)))) == content_id(source)

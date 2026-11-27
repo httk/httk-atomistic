@@ -111,4 +111,5 @@ def test_observable_summary_order_does_not_change_content_id() -> None:
 
 def test_trajectory_record_content_id_pin() -> None:
     # A changed value means a deliberate storage-identity break: update this pin only with migration intent.
-    assert content_id(_record(_trajectory([1]))) == "5974ac56bcb370de5ca3e131b0dca28af753a0661151b45060f92f9e8986902c"
+    # 2026-11-27: re-pinned when species built from a bare symbol became exact concentration 1.
+    assert content_id(_record(_trajectory([1]))) == "40c113e247fa64e0642b132ee216b2a9472c8091d141cca17c12ff61fa9ce687"

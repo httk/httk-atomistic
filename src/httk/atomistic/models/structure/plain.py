@@ -101,7 +101,7 @@ class PlainStructure(StructureBackend):
                     seen.add(z)
                     distinct.append(z)
             self._species_cache = tuple(
-                Species(name=symbol_of(z), chemical_symbols=(symbol_of(z),), concentration=(1.0,)) for z in distinct
+                Species(name=symbol_of(z), chemical_symbols=(symbol_of(z),), concentration=(1,)) for z in distinct
             )
         return self._species_cache
 

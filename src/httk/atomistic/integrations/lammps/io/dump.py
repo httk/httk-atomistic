@@ -8,6 +8,8 @@ from pathlib import Path
 
 from httk.core import TextstreamFileView
 
+from httk.atomistic._composition_values import bounded_fraction
+
 __all__ = ["LammpsDumpFile", "LammpsDumpFrame", "read_lammps_dump"]
 
 _COORDINATES = {
@@ -226,7 +228,7 @@ def _line(lines: Iterator[str]) -> str:
 
 def _number(token: str) -> Fraction:
     try:
-        return Fraction(token)
+        return bounded_fraction(token)
     except (ValueError, ZeroDivisionError) as exc:
         raise ValueError(f"invalid finite numeric token {token!r}") from exc
 

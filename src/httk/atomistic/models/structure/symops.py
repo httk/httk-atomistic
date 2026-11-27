@@ -10,6 +10,7 @@ from typing import Any, ClassVar
 
 from httk.core import FracVector, SurdScalar, SurdVector
 
+from httk.atomistic._composition_values import bounded_fraction
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.like import CellLike
 from httk.atomistic.models.moments.backend import SiteMomentsBackend
@@ -211,7 +212,7 @@ def _moment_symmform_basis(value: str | None) -> tuple[tuple[fractions.Fraction,
     columns: dict[str, list[fractions.Fraction]] = {}
     for component, expression in enumerate(parts):
         try:
-            if fractions.Fraction(expression) == 0:
+            if bounded_fraction(expression) == 0:
                 continue
         except (ValueError, ZeroDivisionError):
             pass

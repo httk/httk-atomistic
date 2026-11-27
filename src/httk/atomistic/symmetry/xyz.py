@@ -2,8 +2,9 @@
 
 import re
 from collections.abc import Sequence
-from decimal import Decimal
 from fractions import Fraction
+
+from httk.atomistic._composition_values import bounded_fraction
 
 from .affine_operation import AffineOperation
 
@@ -11,10 +12,6 @@ __all__ = ["operation_from_xyz", "operation_from_xyzt", "parse_linear_expression
 
 _NUMBER = r"(?:\d+/\d+|\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
 _SUPERSPACE_VARS = ("x1", "x2", "x3", "x4", "x5", "x6")
-
-
-def _fraction(text: str) -> Fraction:
-    return Fraction(text) if "/" in text else Fraction(Decimal(text))
 
 
 def _parse_linear_expression(
@@ -38,9 +35,9 @@ def _parse_linear_expression(
         sign = 1 if match.group(1) == "+" else -1
         variable = match.group("variable")
         if variable is None:
-            constant += sign * _fraction(match.group("constant"))
+            constant += sign * bounded_fraction(match.group("constant"))
             continue
-        coefficient = _fraction(match.group("coefficient")) if match.group("coefficient") else Fraction(1)
+        coefficient = bounded_fraction(match.group("coefficient")) if match.group("coefficient") else Fraction(1)
         if integer_coefficients and coefficient.denominator != 1:
             raise ValueError(f"Non-integer coefficient on {variable} in {expression!r}")
         coefficients[variable] += sign * coefficient
@@ -61,8 +58,8 @@ def parse_linear_expression(
     :param expression: The linear expression to parse.
     :param allowed_vars: The variable names accepted in ``expression``.
     :return: The integer coefficients in ``allowed_vars`` and the exact translation.
-    :raises ValueError: If the expression is empty, malformed, or has a non-integer
-        variable coefficient.
+    :raises ValueError: If the expression is empty, malformed, has a non-integer
+        variable coefficient, or has a number beyond 4300 digits of exact value.
     """
     coefficients, constant = _parse_linear_expression(expression, allowed_vars, integer_coefficients=True)
     return tuple(coefficient.numerator for coefficient in coefficients), constant
@@ -86,7 +83,7 @@ def operation_from_xyz(operation: str) -> AffineOperation:
     :param operation: The comma-separated ``x,y,z`` operation string.
     :return: The exact affine operation.
     :raises ValueError: If the operation does not contain three valid coordinate
-        expressions.
+        expressions (a number beyond 4300 digits of exact value is not valid).
     """
     parts = tuple(part.strip() for part in operation.split(","))
     if len(parts) != 3:
@@ -102,8 +99,8 @@ def operation_from_xyzt(operation: str) -> tuple[AffineOperation, int]:
 
     :param operation: The comma-separated ``x,y,z,time-reversal`` operation string.
     :return: The affine operation and its time-reversal sign.
-    :raises ValueError: If the operation does not contain three coordinate expressions and
-        a valid time-reversal flag.
+    :raises ValueError: If the operation does not contain three valid coordinate expressions
+        (a number beyond 4300 digits of exact value is not valid) and a valid time-reversal flag.
     """
     parts = tuple(part.strip() for part in operation.split(","))
     if len(parts) != 4:

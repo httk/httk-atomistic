@@ -7,6 +7,8 @@ from fractions import Fraction
 from itertools import pairwise
 from typing import TextIO
 
+from httk.atomistic._composition_values import bounded_fraction
+
 from ._text import source_lines
 
 __all__ = ["DOSCAR", "DOSChannel", "read_doscar"]
@@ -17,7 +19,7 @@ _NUMBER = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][+-]?\d+)?\Z")
 def _fraction(token: str, line: int) -> Fraction:
     if _NUMBER.fullmatch(token) is None:
         raise ValueError(f"line {line}: invalid finite DOSCAR number {token!r}")
-    return Fraction(token.replace("D", "E").replace("d", "e"))
+    return bounded_fraction(token.replace("D", "E").replace("d", "e"))
 
 
 @dataclass(frozen=True, slots=True)

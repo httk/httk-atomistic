@@ -32,6 +32,7 @@ from httk.core.storage import (
     ZipLiteral,
 )
 
+from httk.atomistic._composition_values import bounded_fraction
 from httk.atomistic.elements import SYMBOLS
 from httk.atomistic.entries._payloads import assemblies_payload, species_payload
 from httk.atomistic.entries.counts import COUNT_PROPERTY_KEYS, formula_unit_counts, is_ordered
@@ -603,15 +604,14 @@ def _fraction_literal(literal: object, *, property_name: str) -> Fraction:
         return literal
     if isinstance(literal, int):
         return Fraction(literal)
-    if isinstance(literal, float):
-        if not math.isfinite(literal):
-            raise QueryLiteralError(f"{property_name} requires a finite rational literal")
-        return Fraction(str(literal))
-    if isinstance(literal, str):
+    if isinstance(literal, float) and not math.isfinite(literal):
+        raise QueryLiteralError(f"{property_name} requires a finite rational literal")
+    if isinstance(literal, float | str):
+        # A filter float's str() is its original lexeme, so "1e-99999999" arrives as text.
         try:
-            return Fraction(literal)
+            return bounded_fraction(str(literal))
         except (ValueError, ZeroDivisionError) as error:
-            raise QueryLiteralError(f"{property_name} requires a rational literal") from error
+            raise QueryLiteralError(f"{property_name} requires a rational literal: {error}") from error
     raise QueryLiteralError(f"{property_name} requires a rational literal")
 
 

@@ -1,6 +1,7 @@
 """Cross-package SQL execution for atomistic stored-property declarations."""
 
 import datetime
+import time
 from fractions import Fraction
 from typing import Any
 
@@ -253,6 +254,32 @@ def test_complete_and_incomplete_composition_filters_preserve_sql_unknown(struct
     )
     rendered = str(statement.compile(dialect=plan.store._database.engine.dialect))
     assert "ratio_exact" in rendered
+
+
+@pytest.mark.parametrize(
+    "filter_string",
+    (
+        "elements_ratios HAS 1e-99999999",
+        "species.concentration HAS 1e-99999999",
+        'elements:elements_ratios HAS "Na":1e-99999999',
+        "elements_ratios HAS 0." + "1" * 4400,
+    ),
+)
+def test_oversized_exact_literals_are_prompt_filter_value_errors(structure_plan, filter_string):
+    plan, _sources = structure_plan
+    start = time.perf_counter()
+    with pytest.raises(FilterTranslationError) as caught:
+        plan.filter_searchers(filter_string)
+    assert caught.value.category == "invalid-value"
+    assert time.perf_counter() - start < 2
+
+
+def test_stored_serving_keeps_an_exact_full_occupancy_an_integer(response_plan):
+    plan, _source = response_plan
+    (row,) = plan.records()
+    # Exact 1 serves as the JSON integer 1; a float 1.0 would read back as good to 1/10.
+    assert [species["concentration"] for species in row["species"]] == [[1], [1]]
+    assert all(type(value) is int for species in row["species"] for value in species["concentration"])
 
 
 def test_timestamp_filtering_and_sorting_use_utc_instants(structure_plan):

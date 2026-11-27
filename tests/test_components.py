@@ -230,16 +230,17 @@ def test_species_construction_and_dispatch() -> None:
 def test_species_bare_symbol_and_atomic_number_inputs() -> None:
     for value in ("Fe", "X", "vacancy", 1, 118):
         symbol = value if isinstance(value, str) else ("H" if value == 1 else "Og")
-        expected = Species(name=symbol, chemical_symbols=(symbol,), concentration=(1.0,))
+        expected = Species(name=symbol, chemical_symbols=(symbol,), concentration=(1,))
         assert Species.from_object(value) == expected
         view = SpeciesView(value)
         assert view.name == symbol
         assert view.chemical_symbols == (symbol,)
-        assert view.concentration == (1.0,)
+        assert view.concentration == (1,)
+        assert view.concentration_precision == (None,)
 
 
 def test_species_equality_and_hash_are_subclass_tolerant() -> None:
-    plain = Species("Fe", ("Fe",), (1.0,))
+    plain = Species("Fe", ("Fe",), (1,))
     view = SpeciesView("Fe")
 
     assert view == plain

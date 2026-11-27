@@ -336,6 +336,8 @@ def test_reading_keeps_exact_decimals(tmp_path: Path) -> None:
         (Fraction(3567, 2000), Fraction(3567, 2000), 0),
     )
     assert structure.sites.reduced_coords.fractions == ((0, 0, 0), (Fraction(1, 4),) * 3)
+    # An exact full occupancy, as CIF and the code readers give, not a measured "1.0".
+    assert [(s.concentration, s.concentration_precision) for s in structure.species] == [((1,), (None,))]
 
 
 def test_reading_keeps_full_precision_tokens(tmp_path: Path) -> None:

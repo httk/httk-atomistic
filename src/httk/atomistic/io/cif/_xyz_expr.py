@@ -5,16 +5,17 @@ operation model, and mCIF needs matrices for moment arithmetic rather than affin
 """
 
 import re
-from decimal import Decimal
 from fractions import Fraction
 from typing import Any
+
+from httk.atomistic._composition_values import bounded_fraction
 
 _NUMBER = r"(?:\d+/\d+|\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
 
 
 def _number(text: str, use_fractions: bool) -> Fraction | float:
     if use_fractions:
-        return Fraction(text) if "/" in text else Fraction(Decimal(text))
+        return bounded_fraction(text)
     return float(Fraction(text)) if "/" in text else float(text)
 
 
@@ -58,10 +59,8 @@ def _parse(
         coefficient_text = match.group("coefficient")
         if coefficient_text is None:
             coefficient = Fraction(1)
-        elif "/" in coefficient_text:
-            coefficient = Fraction(coefficient_text)
         else:
-            coefficient = Fraction(Decimal(coefficient_text))
+            coefficient = bounded_fraction(coefficient_text)
         if integer_coefficients and coefficient.denominator != 1:
             raise ValueError(f"Non-integer coefficient on {variable} in {expr!r}")
         rows[variable] += sign * coefficient

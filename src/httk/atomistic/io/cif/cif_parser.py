@@ -25,7 +25,12 @@ from decimal import Decimal
 from fractions import Fraction
 from typing import Any, Literal, NamedTuple, TypedDict, cast, overload
 
-from httk.core import combined_precision, decimal_precision
+from httk.core import FracVector, combined_precision, decimal_precision
+
+from httk.atomistic._composition_values import bounded_fraction, check_numeric_text
+from httk.atomistic.symmetry.affine_operation import AffineOperation
+from httk.atomistic.symmetry.symop_key import symop_key_v1
+from httk.atomistic.symmetry.xyz import operation_from_xyz
 
 from .cif_reader import read_cif
 from .cif_tags import CIF_TAGS
@@ -108,7 +113,8 @@ def parse_cif_float(
     :param meta: Include the value's claimed precision and standard uncertainty.
     :param pragmatic: Salvage selected non-standard numeric spellings instead of rejecting them.
     :return: The parsed value, optionally paired with its precision metadata.
-    :raises ValueError: If the token is missing or cannot be interpreted as a CIF number.
+    :raises ValueError: If the token is missing, cannot be interpreted as a CIF number, or its
+        digit count plus exponent magnitude exceeds 4300.
     """
     if token is None:
         raise ValueError("Cannot parse None as a CIF float")
@@ -129,6 +135,7 @@ def parse_cif_float(
         else:
             raise ValueError("CIF contains a non-ASCII minus sign: " + str(t))
 
+    check_numeric_text(t)
     m = _CIF_NUM_RE.match(t)
 
     if not m:
@@ -198,11 +205,13 @@ def parse_cif_fraction(token: str) -> Fraction | None:
 
     :param token: Numeric text whose exact central value should be preserved.
     :return: The exact value, or ``None`` for an unknown CIF value.
-    :raises ValueError: If the token does not contain a valid exact numeric value.
+    :raises ValueError: If the token does not contain a valid exact numeric value, or its
+        digit count plus exponent magnitude exceeds 4300.
     """
     exact = cif_exact_token(token)
     if exact is None:
         return None
+    check_numeric_text(exact)
     try:
         return Fraction(exact)
     except (ValueError, ZeroDivisionError) as error:
@@ -220,13 +229,15 @@ def parse_cif_int(token: str, *, strict: bool = True, allow_round: bool = False)
     :param strict: Require the central value to be integral.
     :param allow_round: Permit half-even rounding when ``strict`` is false.
     :return: The converted integer.
-    :raises ValueError: If the token is missing or its central value cannot be converted under the selected rules.
+    :raises ValueError: If the token is missing, its digit count plus exponent magnitude exceeds 4300, or its
+        central value cannot be converted under the selected rules.
     :raises decimal.InvalidOperation: If an unmatched token has malformed decimal syntax.
     """
     t = token.strip()
     if t in ('.', '?', ''):
         raise ValueError("Missing CIF value cannot be converted to int")
 
+    check_numeric_text(t)
     m = _CIF_NUM_RE.match(t)
     if not m:
         # Fall back for plain integers without (esd)/exponent; will raise if not int-like
@@ -539,7 +550,7 @@ def _parse_uc_with_precision(block: Mapping[str, Any]) -> tuple[tuple[float | No
         if index < 3:  # lengths only
             token = cif_exact_token(block[tag])
             try:
-                exact_integer = token is not None and Fraction(token).denominator == 1
+                exact_integer = token is not None and bounded_fraction(token).denominator == 1
             except (ValueError, ZeroDivisionError):
                 exact_integer = False
             if not exact_integer:
@@ -731,6 +742,63 @@ def _first_tag(cifblock: Mapping[str, Any], *names: str) -> Any | None:
     return None
 
 
+_HALL_SUFFIX_RE = re.compile(r'(?P<base>[^()]*?)\s*\((?P<suffix>[^()]*)\)\s*')
+_HALL_SHIFT_RE = re.compile(r'\s*([+-]?\d+)\s+([+-]?\d+)\s+([+-]?\d+)\s*')
+
+
+def hall_setting(written: str) -> Mapping[str, Any]:
+    """Return the tabulated setting a Hall symbol names, optionally through a change-of-basis suffix.
+
+    A symbol tabulated as written (including the six tabulated ones with a suffix, such as
+    ``P 31 2 (0 0 4)``) names that setting. Otherwise a trailing parenthesized suffix is
+    Hall's change-of-basis operator ``V`` from the base symbol's setting to the actual one,
+    in sgtbx's convention: either an ``x,y,z`` operator or three integers, an origin shift in
+    twelfths (``(0 0 1)`` is ``x,y,z+1/12``). The base setting's operations conjugated as
+    ``V W V^-1`` must then equal a tabulated setting's, modulo lattice translations.
+
+    :param written: The Hall symbol as written in the file.
+    :return: The tabulated setting record the symbol names.
+    :raises KeyError: If the (base) symbol is not tabulated, or the suffix leads to no tabulated setting.
+    :raises ValueError: If the suffix is malformed or not a unimodular integer change of basis.
+    """
+    from httk.atomistic import data
+
+    # Files write ``-C 2yc``; the tables key it as ``-c_2yc`` (exact for all 527 settings).
+    try:
+        return data.spacegroup_setting(hall_entry='_'.join(written.lower().split()))
+    except KeyError:
+        match = _HALL_SUFFIX_RE.fullmatch(written)
+        if match is None:
+            raise
+    base = data.spacegroup_setting(hall_entry='_'.join(match['base'].lower().split()))
+    shift = _HALL_SHIFT_RE.fullmatch(match['suffix'])
+    try:
+        if shift is not None:
+            change = AffineOperation(FracVector.eye((3, 3)), [Fraction(int(value), 12) for value in shift.groups()])
+        else:
+            change = operation_from_xyz(match['suffix'])
+    except ValueError:
+        change = None
+    # ponytail: unimodular integer V only (the cell is unchanged, so the wrapped conjugates are
+    # the whole group); a cell-changing V needs the closure under the new lattice translations.
+    if (
+        change is None
+        or abs(change.determinant()) != 1
+        or any(value.denominator != 1 for row in change.matrix.to_fractions() for value in row)
+    ):
+        raise ValueError(
+            f"Hall change-of-basis suffix {match['suffix']!r} is neither an origin shift in twelfths "
+            f"('(0 0 1)') nor a unimodular integer x,y,z operator ('(z,x,y)')"
+        )
+    operations = frozenset(
+        AffineOperation.from_record(entry).conjugated_by(change).wrapped() for entry in base['symops']
+    )
+    record = data.spacegroup_setting_by_symop_key(symop_key_v1(operations))
+    if frozenset(AffineOperation.from_record(entry).wrapped() for entry in record['symops']) != operations:
+        raise RuntimeError(f"symop-key index internal inconsistency for Hall symbol {written!r}")
+    return record
+
+
 def cifblock_to_asu(
     cifblock: Mapping[str, Any], *, repair: bool = False, block_name: str | None = None
 ) -> dict[str, Any]:
@@ -775,12 +843,10 @@ def cifblock_to_asu(
     if symops_xyz is None:
         if not repair or not space_group_name_hall:
             raise ValueError("CIF block has no symmetry operations")
-        from httk.atomistic import data
-
         written_hall = str(space_group_name_hall).strip()
         try:
-            setting = data.spacegroup_setting(hall_entry=written_hall.lower().replace(' ', '_'))
-        except KeyError:
+            setting = hall_setting(written_hall)
+        except (KeyError, ValueError):
             raise ValueError("CIF block has no symmetry operations") from None
         symops_xyz = tuple(operation['affine_transformation']['xyz'] for operation in setting['symops'])
         logging.getLogger(__name__).warning(

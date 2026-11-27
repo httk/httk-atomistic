@@ -6,6 +6,7 @@ from typing import Any, Self
 
 from httk.core import unwrap
 
+from httk.atomistic.entries._payloads import concentration_payload
 from httk.atomistic.models.species.backend import SpeciesBackend
 from httk.atomistic.models.species.like import SpeciesLike
 from httk.atomistic.models.species.view_base import SpeciesViewBase
@@ -33,7 +34,7 @@ class PlainSpeciesView(SpeciesViewBase, dict):
         payload: dict[str, Any] = {
             "name": backend.name,
             "chemical_symbols": list(backend.chemical_symbols),
-            "concentration": [float(value) for value in backend.concentration],
+            "concentration": concentration_payload(backend),
         }
         if backend.mass is not None:
             payload["mass"] = list(backend.mass)

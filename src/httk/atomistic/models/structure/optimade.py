@@ -40,7 +40,7 @@ from httk.core.optimade import (
 from httk.core.register import optimade_entry_binding
 from httk.core.storage import stored_property
 
-from httk.atomistic._composition_values import normalization
+from httk.atomistic._composition_values import bounded_fraction, normalization
 from httk.atomistic.composition import Assembly, project_composition, validate_assemblies
 from httk.atomistic.entries.bonds import _check_bonds_value, bond_definitions
 from httk.atomistic.entries.precision import precision_definitions
@@ -432,7 +432,7 @@ class OptimadeStructure(StructureBackend):
             raise IncompleteOptimadeResourceError(
                 f"OPTIMADE semantic property {property_name!r} must contain only JSON numbers"
             )
-        return Fraction(value)
+        return bounded_fraction(str(value))
 
     @classmethod
     def _numeric_matrix(
@@ -1230,7 +1230,7 @@ class OptimadeStructure(StructureBackend):
         """
         value = self._precision("_httk_coordinate_precision", component="sites")
         if value is not _MISSING:
-            return Fraction(cast(Decimal | int, value))
+            return bounded_fraction(str(value))
         fractional = self._raw_optional("fractional_site_positions")
         return None if fractional is _MISSING else self._decimal_precision(fractional)
 
@@ -1242,7 +1242,7 @@ class OptimadeStructure(StructureBackend):
         """
         value = self._precision("_httk_basis_precision", component="cell")
         if value is not _MISSING:
-            return Fraction(cast(Decimal | int, value))
+            return bounded_fraction(str(value))
         lattice = self._raw_optional("lattice_vectors")
         return None if lattice is _MISSING else self._decimal_precision(lattice)
 

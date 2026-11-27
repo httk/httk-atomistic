@@ -26,6 +26,7 @@ from typing import Any, NamedTuple
 from httk.core import FracVector, decimal_precision
 
 from httk.atomistic.elements import SYMBOLS
+from httk.atomistic.io.cif.cif_parser import hall_setting
 from httk.atomistic.io.cif.cif_reader import _BOND_COLUMNS, _TORSION_COLUMNS
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import CellParams
@@ -62,7 +63,7 @@ from httk.atomistic.symmetry.symop_key import symop_key_v1
 from httk.atomistic.symmetry.xyz import operation_from_xyz
 
 from . import data as symmetry_data
-from ._composition_values import as_fraction, normalization
+from ._composition_values import as_fraction, bounded_fraction, normalization
 from .composition import Assembly
 
 __all__ = ["asu_structure_from_cif", "asu_structures_from_cif", "cif_setting"]
@@ -610,7 +611,7 @@ def asu_structure_from_cif(
 
         if any(value is None for value in exact_position):
             raise ValueError(f"CIF coordinates are missing for site {labels[index]!r}")
-        coordinate = FracVector([fractions.Fraction(value) for value in exact_position])
+        coordinate = FracVector([bounded_fraction(value) for value in exact_position])
 
         standard_point = coordinate.normalize()
         uncertainty = _site_uncertainty(data, index, uncertainty_metric) if derived_tolerance else None
@@ -2120,13 +2121,16 @@ def _declared_settings(data: Mapping[str, Any]) -> tuple[list[Mapping[str, Any]]
     ``(None, None)`` when the file declares nothing, in which case every tabulated setting is
     a candidate. Hall and IT declarations that cannot name a real setting raise here; an
     unrecognized H-M spelling is ignored for operations-only compatibility.
+
+    A Hall symbol with a change-of-basis suffix (``P 2yb (z,x,y)``) names the tabulated setting
+    its transformed operations equal; one that leads to no tabulated setting names none.
     """
     hall = data.get("space_group_name_hall")
     if hall:
         written = str(hall).strip()
         try:
-            record = symmetry_data.spacegroup_setting(hall_entry=_normalized_hall(written))
-        except KeyError:
+            record = hall_setting(written)
+        except (KeyError, ValueError):
             raise ValueError(
                 f"this CIF declares the Hall symbol {written!r}, which names no known space-group "
                 f"setting. Pass trust_declared_symmetry=False to ignore the declaration and identify "
@@ -2164,17 +2168,6 @@ def _declared_settings(data: Mapping[str, Any]) -> tuple[list[Mapping[str, Any]]
     return None, None
 
 
-def _normalized_hall(symbol: str) -> str:
-    """A Hall symbol in the spelling the tables index it under.
-
-    A CIF writes Hall symbols conventionally — ``-C 2yc`` — while the tables key them as
-    ``-c_2yc``. Lower-casing and turning spaces into underscores reproduces the tabulated
-    spelling for all 527 settings, which ``tests/test_symmetry_data.py`` checks. Without this
-    step every correctly declared Hall symbol looks unknown.
-    """
-    return symbol.lower().replace(" ", "_")
-
-
 _HM_IT_NUMBERS: dict[str, int] | None = None
 
 
@@ -2201,7 +2194,7 @@ def _cell_from_cif(data: Mapping[str, Any]) -> Cell:
     if exact is not None and all(value is not None for value in exact):
         # The text the file wrote, so 5.6402 becomes 56402/10000 rather than the binary
         # value of float("5.6402").
-        return CellView(CellParams([fractions.Fraction(value) for value in exact], precision=precision))
+        return CellView(CellParams([bounded_fraction(value) for value in exact], precision=precision))
     raise ValueError("CIF payload has no complete exact cell-parameter channel")
 
 
@@ -2214,7 +2207,7 @@ def _exact_positions(data: Mapping[str, Any]) -> list[FracVector]:
     """
     exact = data.get("positions_exact")
     if exact is not None:
-        return [FracVector([fractions.Fraction(value) for value in row]) for row in exact]
+        return [FracVector([bounded_fraction(value) for value in row]) for row in exact]
     raise ValueError("CIF payload has no exact fractional-coordinate channel")
 
 

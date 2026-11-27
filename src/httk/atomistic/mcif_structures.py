@@ -7,6 +7,7 @@ from typing import Any
 
 from httk.core import FracVector, SurdVector
 
+from httk.atomistic._composition_values import bounded_fraction
 from httk.atomistic.models.cell.cell import Cell
 from httk.atomistic.models.cell.params import _params_to_basis
 from httk.atomistic.models.moments.cartesian import CartesianSiteMoments
@@ -202,14 +203,16 @@ def _moments(data: Mapping[str, Any], cell: Cell) -> Any:
     rows = data.get("magmoms_exact")
     if rows is None:
         raise ValueError("mCIF declares a moment basis but has no exact magnetic moments")
-    exact_rows = tuple(tuple(Fraction(value) for value in row) for row in rows)
+    exact_rows = tuple(tuple(bounded_fraction(value) for value in row) for row in rows)
     precision = data.get("magmom_precision")
     if basis == "crystalaxis":
         return CrystalAxisSiteMoments(exact_rows, cell, precision=precision)
     if basis == "cartesian":
         # mCIF's Cartesian frame is the standard one (a along x, b in the xy-plane), which is the
         # cell's own frame except for an approximated rhombohedral-axes cell: rotate into that.
-        standard = _params_to_basis(tuple(Fraction(value) for value in data["cell_parameters_exact"]), standard=True)
+        standard = _params_to_basis(
+            tuple(bounded_fraction(value) for value in data["cell_parameters_exact"]), standard=True
+        )
         if standard != cell.basis:
             return CartesianSiteMoments(SurdVector(exact_rows) * standard.inv() * cell.basis, precision=precision)
         return CartesianSiteMoments(exact_rows, precision=precision)
