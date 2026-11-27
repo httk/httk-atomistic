@@ -757,8 +757,11 @@ def test_record_construction_defers_normalized_composition_validation() -> None:
     pytest.importorskip("httk.store")
     from httk.store import Backend, EntryIdScheme, SqlStore
 
-    with Backend.sqlite() as database, pytest.raises(ValueError, match="normalized_composition contradicts"):
-        SqlStore(database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={}).save(record)
+    with Backend.sqlite() as database:
+        store = SqlStore(database, entry_ids=EntryIdScheme("httk.test", "1"), entry_records={})
+        with pytest.raises(ValueError, match="normalized_composition contradicts"):
+            store.save(record, validate=True)
+        assert store.save(record) > 0  # a default store trusts what it is given
 
 
 def test_record_structure_serves_stored_normalized_composition() -> None:

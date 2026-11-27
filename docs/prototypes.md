@@ -1281,11 +1281,13 @@ protonet records store the full shape of every site, defaults included, as
 value), and the torsion letter of every net row as `torsions` (`""` for a row
 without one, `()` for an undetermined value); the stored `label` carries the letters. Saving requires the family's current version, and turning a record of
 another version back into a value raises `ValueError` naming the family: its
-canonical form changed, so rebuild the database. Saving a protonet record also checks that its net
-is the canonical one for its bare description; a non-canonical net is rejected,
-never rewritten. Constructing a protonet value, parsing its label and saving its
-record (`__httk_validate__`) each run the net search; loading a value from a
-record does not.
+canonical form changed, so rebuild the database. A protonet record's
+`__httk_validate__` checks that its net is the canonical one for its bare
+description; a non-canonical net is rejected, never rewritten. It runs only
+when a store is asked to validate (`validate_records=True` or `validate=True`)
+or when called directly (`httk.core.storage.validate_storage_record`).
+Constructing a protonet value, parsing its label and validating its record each
+run the net search; loading a value from a record does not.
 
 ## Deferred features
 

@@ -257,8 +257,9 @@ class SpeciesConstituentRecord:
 class SpeciesRecord:
     """Represent a frozen storable snapshot of an atomistic species.
 
-    Hand-built records are shape-checked on construction and semantically validated at the
-    storage boundary or explicitly through the validation hook.
+    Hand-built records are shape-checked on construction; semantic validation runs only when a
+    store is asked to validate (``validate_records=True`` or ``validate=True``) or when called
+    directly (``httk.core.storage.validate_storage_record``).
 
     :param name: The species name.
     :param constituents: The aligned constituent records.
@@ -580,8 +581,9 @@ class WyckoffSiteRecord:
 class SettingTransformRecord:
     """Represent an exact stored-setting-to-own transform.
 
-    Hand-built records are shape-checked on construction and semantically validated at the
-    storage boundary or explicitly through the validation hook.
+    Hand-built records are shape-checked on construction; semantic validation runs only when a
+    store is asked to validate (``validate_records=True`` or ``validate=True``) or when called
+    directly (``httk.core.storage.validate_storage_record``).
 
     :param matrix: The stored-setting-to-own fractional coordinate matrix.
     :param vector: The stored-setting-to-own fractional origin shift.
@@ -935,8 +937,9 @@ _IDENTITY_MATRIX = FracVector.eye((3, 3))
 class SymmetryRecord:
     """Represent optional symmetry metadata for a unit-cell structure.
 
-    Hand-built records are shape-checked on construction and semantically validated at the
-    storage boundary or explicitly through the validation hook.
+    Hand-built records are shape-checked on construction; semantic validation runs only when a
+    store is asked to validate (``validate_records=True`` or ``validate=True``) or when called
+    directly (``httk.core.storage.validate_storage_record``).
 
     :param space_group_it_number: The International Tables space-group number, if known.
     :param space_group_symbol_hall: The Hall symbol, if known.
@@ -1223,8 +1226,9 @@ class NormalizedCompositionAmountRecord:
 class CellRecord:
     """Represent an exact durable cell basis, precision, and periodicity.
 
-    Hand-built records are shape-checked on construction and semantically validated at the
-    storage boundary.
+    Hand-built records are shape-checked on construction; semantic validation runs only when a
+    store is asked to validate (``validate_records=True`` or ``validate=True``) or when called
+    directly (``httk.core.storage.validate_storage_record``).
 
     :param basis: The row-major exact cell basis values.
     :param precision: The absolute basis precision, if stated.
@@ -1473,9 +1477,11 @@ def _common_constructor_values(record: Any) -> _CommonConstructorValues:
 class UnitcellStructureRecord:
     """Represent the native durable backing for an explicit unit-cell structure.
 
-    Hand-built records are shape-checked on construction and semantically validated at the
-    storage boundary or explicitly through the validation hook. The record's content identity
-    is independent of its storage layout.
+    Hand-built records are shape-checked on construction; semantic validation runs only when a
+    store is asked to validate (``validate_records=True`` or ``validate=True``) or when called
+    directly (:func:`~httk.atomistic.validate_structure_record`,
+    ``httk.core.storage.validate_storage_record``). The record's content identity is
+    independent of its storage layout.
 
     :param cell: The durable cell record.
     :param sites: The durable site-coordinate record.
@@ -1628,9 +1634,11 @@ class UnitcellStructureRecord:
 class FundamentalDomainStructureRecord:
     """Represent the native durable backing for a symmetry fundamental domain.
 
-    Hand-built records are shape-checked on construction and semantically validated at the
-    storage boundary or explicitly through the validation hook. The record's content identity
-    is independent of its storage layout.
+    Hand-built records are shape-checked on construction; semantic validation runs only when a
+    store is asked to validate (``validate_records=True`` or ``validate=True``) or when called
+    directly (:func:`~httk.atomistic.validate_structure_record`,
+    ``httk.core.storage.validate_storage_record``). The record's content identity is
+    independent of its storage layout.
 
     :param cell: The durable cell record.
     :param domain_sites: The symmetry-distinct durable site records.
@@ -2025,6 +2033,9 @@ def validate_structure_record(
 ) -> None:
     """Validate a hand-built root record against native structure semantics.
 
+    Stores call this (through the record's ``__httk_validate__``) only when asked to validate
+    (``validate_records=True`` or ``validate=True``); call it directly to check a record.
+
     :param record: The exact root structure record to validate.
     :return: ``None`` after successful validation.
     :raises TypeError: If ``record`` is not an exact supported root record.
@@ -2388,7 +2399,9 @@ class NumericUnitcellStructureRecord:
 
     The storage form of :class:`~httk.atomistic.NumericUnitcellStructure`: every number is a
     plain float, with no exact companion text. Hand-built records are shape-checked on
-    construction and semantically validated at the storage boundary.
+    construction; semantic validation runs only when a store is asked to validate
+    (``validate_records=True`` or ``validate=True``) or when called directly
+    (``httk.core.storage.validate_storage_record``).
 
     :param cell: The float cell record.
     :param sites: The float site-coordinate record.
@@ -2658,8 +2671,9 @@ class TrajectoryRecord:
     """Represent bounded trajectory identity and reference-frame summary.
 
     Frame data is never stored in this record. Hand-built records are shape-checked on
-    construction and semantically validated at the storage boundary or explicitly through
-    the validation hook.
+    construction; semantic validation runs only when a store is asked to validate
+    (``validate_records=True`` or ``validate=True``) or when called directly
+    (``httk.core.storage.validate_storage_record``).
 
     :param nframes: The total number of trajectory frames.
     :param species: The distinct durable species records.
