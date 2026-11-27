@@ -244,7 +244,10 @@ def distance_bonds(
     unit, recognise first: ``distance_bonds(ASUStructureView(structure, tolerance=...))``. On a
     measured cell whose metric keeps the group only approximately the two routes can label one
     crystal differently: the unit-cell route assigns each atom its own shape and keeps contacts
-    at their measured distances, the asymmetric-unit route idealises first.
+    at their measured distances, the asymmetric-unit route idealises first. For the protonet
+    labels, which classify the structure of species classes, recognise that structure:
+    ``distance_bonds(protonet_class_structure(asu))`` (see
+    :func:`~httk.atomistic.protonet_class_structure`).
 
     Two atoms *a* and *b* are bonded iff ``0.5 <= d(a, b) <= r(a) + r(b) + tolerance`` (Å), with
     *r* the covalent radii of Cordero et al. (2008). A mixed-occupancy site takes the largest

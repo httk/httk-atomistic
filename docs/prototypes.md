@@ -917,6 +917,11 @@ class structure is recognized and every bond pair is matched to its nearest atom
 there; the bonds are kept if the bond set is invariant under the recognized group,
 and otherwise `from_asu` raises `ValueError` naming that group. It raises too when
 two sites with different supplied shapes merge there.
+{py:func}`~httk.atomistic.protonet_class_structure` returns the structure the labels
+classify: that recognized class structure (class species, no network), or the structure
+itself. A network found by a rule, such as {py:func}`~httk.atomistic.distance_bonds`, is
+invariant there when it is found on it, so recognise the class structure first:
+`canonical_protonetstructure(distance_bonds(protonet_class_structure(asu)))`.
 
 ### Canonical protonet labels
 

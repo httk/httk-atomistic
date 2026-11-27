@@ -408,6 +408,76 @@ def _index_bond(
     return i - 1, j - 1, g
 
 
+def _oriented(structure: Any) -> Any:
+    """Re-describe a structure in a right-handed basis of its space group's standard setting."""
+    from httk.atomistic.symmetry.canonical_protostructure import _left_handed, _right_handed, _sohncke
+    from httk.atomistic.symmetry.subgroups import _standard_input
+
+    if not structure.spacegroup.is_standard_setting:
+        structure = _standard_input(structure)
+    return _right_handed(structure) if _sohncke(structure.spacegroup) and _left_handed(structure) else structure
+
+
+def _classified(asu: "FundamentalDomainStructure") -> tuple[Any, Any]:
+    """Return the oriented structure and its recognized class structure, or ``None`` when that has no higher symmetry.
+
+    The class structure has higher symmetry when two species share a class and it has another
+    space group or conventional cell than the structure.
+    """
+    from httk.atomistic.models.species.classes import _class_structure
+    from httk.atomistic.symmetry.recognition import recognize_asu
+
+    structure = _oriented(asu)
+    if not _merges_classes(structure):
+        return structure, None
+    recognized = recognize_asu(_class_structure(structure))
+    declared = sum(structure.spacegroup.wyckoff_position(site.wyckoff).multiplicity for site in structure.wyckoff_sites)
+    found = sum(recognized.spacegroup.wyckoff_position(site.wyckoff).multiplicity for site in recognized.wyckoff_sites)
+    if recognized.spacegroup.it_number == structure.spacegroup.it_number and declared == found:
+        return structure, None
+    return structure, recognized
+
+
+def protonet_class_structure(
+    asu: "FundamentalDomainStructure", *, timeout: float | None = None
+) -> "FundamentalDomainStructure":
+    """Return the structure whose bond network the protonet labels classify.
+
+    ``asu`` is an asymmetric-unit structure (an :class:`~httk.atomistic.ASUStructure` or other
+    :class:`~httk.atomistic.FundamentalDomainStructure`). When two of its species share a class
+    whose structure has higher symmetry than declared (another space group or conventional cell),
+    the result is the recognized class structure, with the class species and without a bond
+    network; :meth:`Protonetstructure.from_asu` matches a structure's own network onto it and
+    raises when the bond set is not invariant there. Otherwise it is ``asu`` itself, with its
+    network, re-described in a right-handed basis of the standard setting. A network found by a
+    rule, such as :func:`~httk.atomistic.distance_bonds`, is therefore invariant under the labels'
+    symmetry when it is found on this structure:
+    ``canonical_protonetstructure(distance_bonds(protonet_class_structure(asu)))``.
+
+    The deadline is cooperative, as for the canonicalizers: recognition itself cannot be
+    interrupted, so a deadline that passes during it is noticed when it returns.
+
+    :param asu: The asymmetric-unit structure.
+    :param timeout: Cooperative seconds for the call, within any enclosing budget; ``None``
+        sets no deadline of its own.
+    :return: The structure the protonet labels classify.
+    :raises TypeError: If ``asu`` is not a fundamental-domain structure.
+    :raises ValueError: If ``timeout`` is not a positive finite number or ``None``; if two
+        species share a class and a used species has no class (a vacancy-only species); or if
+        the class structure cannot be recognized (see :func:`~httk.atomistic.recognize_asu`).
+    :raises CanonicalizationLimitError: If the budget runs out.
+    """
+    from httk.atomistic.models.structure.asu import FundamentalDomainStructure
+    from httk.atomistic.symmetry.limits import _budget_scope, _checkpoint
+
+    if not isinstance(asu, FundamentalDomainStructure):
+        raise TypeError(f"protonet_class_structure takes an asymmetric-unit structure, not {type(asu).__name__}")
+    with _budget_scope(timeout):
+        structure, recognized = _classified(asu)
+        _checkpoint()
+    return structure if recognized is None else _oriented(recognized)
+
+
 def _protonet_asu(asu: "FundamentalDomainStructure") -> "FundamentalDomainStructure":
     """Re-describe a structure with a bond network for the protonet labels.
 
@@ -420,24 +490,10 @@ def _protonet_asu(asu: "FundamentalDomainStructure") -> "FundamentalDomainStruct
     :raises ValueError: If the bond set is not invariant under the recognized class symmetry, or
         sites with different supplied shapes merge under it.
     """
-    from httk.atomistic.models.species.classes import _class_structure
     from httk.atomistic.models.structure.bonds import _matched, _ShapeConflict
-    from httk.atomistic.symmetry.canonical_protostructure import _left_handed, _right_handed, _sohncke
-    from httk.atomistic.symmetry.recognition import recognize_asu
-    from httk.atomistic.symmetry.subgroups import _standard_input
 
-    def oriented(structure: Any) -> Any:
-        if not structure.spacegroup.is_standard_setting:
-            structure = _standard_input(structure)
-        return _right_handed(structure) if _sohncke(structure.spacegroup) and _left_handed(structure) else structure
-
-    structure = oriented(asu)
-    if not _merges_classes(structure):
-        return structure
-    recognized = recognize_asu(_class_structure(structure))
-    declared = sum(structure.spacegroup.wyckoff_position(site.wyckoff).multiplicity for site in structure.wyckoff_sites)
-    found = sum(recognized.spacegroup.wyckoff_position(site.wyckoff).multiplicity for site in recognized.wyckoff_sites)
-    if recognized.spacegroup.it_number == structure.spacegroup.it_number and declared == found:
+    structure, recognized = _classified(asu)
+    if recognized is None:
         return structure
     try:
         network = _matched(
@@ -454,4 +510,4 @@ def _protonet_asu(asu: "FundamentalDomainStructure") -> "FundamentalDomainStruct
             f"(IT {recognized.spacegroup.it_number}, not {structure.spacegroup.it_number}), and the bond set is not "
             f"invariant under the recognized symmetry IT {recognized.spacegroup.it_number}"
         )
-    return oriented(recognized._with_bonds(network))
+    return _oriented(recognized._with_bonds(network))

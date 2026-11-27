@@ -192,7 +192,7 @@ from httk.atomistic.models.protonetstructure.bonded import BondedProtonetstructu
 from httk.atomistic.models.protonetstructure.label import ProtonetstructureLabel
 from httk.atomistic.models.protonetstructure.label_string import ProtonetstructureLabelString
 from httk.atomistic.models.protonetstructure.like import ProtonetstructureLike
-from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure
+from httk.atomistic.models.protonetstructure.protonetstructure import Protonetstructure, protonet_class_structure
 from httk.atomistic.models.protonetstructure.view import ProtonetstructureView
 from httk.atomistic.models.protonetstructure.view_base import ProtonetstructureViewBase
 from httk.atomistic.models.protonettype.api import ProtonettypeAPI
@@ -542,6 +542,7 @@ __all__ = [
     "normalize_chirality",
     "orthogonal_supercell",
     "primitive_cell",
+    "protonet_class_structure",
     "read_cif_structures",
     "recognize_asu",
     "represent_like",

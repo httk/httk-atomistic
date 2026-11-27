@@ -17,6 +17,7 @@ from httk.atomistic import (
     ASUStructure,
     ASUStructureRecord,
     BondNetwork,
+    CanonicalizationLimitError,
     FundamentalDomainStructure,
     FundamentalDomainStructureRecord,
     Protonetstructure,
@@ -35,6 +36,7 @@ from httk.atomistic import (
     canonicalize,
     conventional_cell,
     distance_bonds,
+    protonet_class_structure,
 )
 from httk.atomistic.entries.structures import StructureEntry
 from httk.atomistic.storage.records import (
@@ -623,6 +625,49 @@ def test_cod_3000362_is_labelled_in_the_symmetry_of_its_classes() -> None:
     )
     with pytest.raises(ValueError, match="not invariant under the recognized symmetry IT 14"):
         Protonetstructure.from_asu(broken)
+
+
+def _li_th_f(li2: Species) -> ASUStructure:
+    """A Li-Th fluoride as COD 1000073 refines it in Ccca: Li1 and Li2 are one class whose structure is P4/ncc."""
+    li1 = Species("Li1", ("Li", "vacancy"), (F(3, 4), F(1, 4)))
+    sites = [
+        WyckoffSite("e", (F(196, 625),), "F"),
+        WyckoffSite("f", (F(653, 10000),), "F"),
+        WyckoffSite("h", (F(1859, 5000),), "F"),
+        WyckoffSite("i", (F(1, 16), F(251, 2500), F(1447, 2500)), "F"),
+        WyckoffSite("i", (F(301, 2000), F(467, 2500), F(193, 2500)), "F"),
+        WyckoffSite("i", (F(8, 125), F(13, 125), F(431, 1000)), "Li1"),
+        WyckoffSite("i", (F(151, 1000), F(183, 1000), F(919, 1000)), li2.name),
+        WyckoffSite("h", (F(1889, 10000),), "Th"),
+    ]
+    cell = [[F("8.7685"), 0, 0], [0, F("8.7885"), 0], [0, 0, F("12.958")]]
+    species = [Species("F", ("F",), (1,)), li1, li2, Species("Th", ("Th",), (1,))]
+    # the refinement's coordinate precision sets the tolerance under which the classes have P4/ncc
+    return ASUStructure(cell, 68, sites, species, coordinate_precision=F(1, 100))
+
+
+def test_protonet_class_structure_is_where_a_distance_network_is_invariant() -> None:
+    structure = _li_th_f(Species("Li2", ("Li", "vacancy"), (F(3, 4), F(1, 4))))
+    # found in Ccca, Li2 has a sixth F at 2.29 A (Li1's is at 2.44 A): not invariant under P4/ncc
+    with pytest.raises(ValueError, match="not invariant under the recognized symmetry IT 130"):
+        canonical_protonetstructure(distance_bonds(structure))
+    classes = protonet_class_structure(structure)
+    assert classes.spacegroup.it_number == 130 and classes.bonds is None
+    assert [s.species for s in classes.wyckoff_sites].count("Li0.75") == 1
+    label = canonical_protonetstructure(distance_bonds(classes)).label
+    assert str(label) == "A7B4C_tP48_130_cfg_g_c__5~1.3.2_4~1.3@3.3@6.3@11.3@15@455:F-Li0.75-Th"
+    # two classes: the structure itself
+    other = _li_th_f(Species("Li2", ("Li", "vacancy"), (F(7, 10), F(3, 10))))
+    assert protonet_class_structure(other) is other
+    # AgO: Ag+1 and Ag+3 are one class that keeps P2_1/c and the cell, so the structure itself
+    ago = distance_bonds(httk.core.load(str(FIXTURES / "cod" / "1509688.cif")))
+    assert protonet_class_structure(ago) is ago
+    with pytest.raises(CanonicalizationLimitError):
+        protonet_class_structure(structure, timeout=1e-9)
+    with pytest.raises(ValueError, match="timeout"):
+        protonet_class_structure(structure, timeout=0)
+    with pytest.raises(TypeError, match="asymmetric-unit structure"):
+        protonet_class_structure(UnitcellStructureView(structure).unview())  # type: ignore[arg-type]
 
 
 def test_shapes_are_measured_on_the_group_averaged_geometry() -> None:
