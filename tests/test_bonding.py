@@ -396,7 +396,7 @@ SHARED_LIGAND = {
     "structreading/168": "Al4 Al4 P4 P4 O2 O2 O2 O2 O2 O2 O2 O2",
     "structreading/28": "Hg1 Te3 O1 O2",
     "structreading/76": "B3 B4 O2 O2 O2 O3 Tl1 Tl1",
-    "structreading/103": "Se3 Se3 V6 V6 V6 O2 O2 O2 O2 O2 O2 O2 O2",
+    "structreading/103": "Ta8 Te3",  # TaTe4: TaTe8 antiprisms, Te bonded to 2 Ta and its Te2 partner
     "structreading/145": "B4 B4 O3 O3 O3 O3 Bi5 F1",
     "structreading/122": "Si4 O2",
     "structreading/92": "Te4 O2",

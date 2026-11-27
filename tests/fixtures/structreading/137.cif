@@ -1,97 +1,77 @@
-# CIF file
-# This is a cif file prepared for use with the openmaterialsdb.se
+#------------------------------------------------------------------------------
+#$Date: 2016-02-13 21:28:24 +0200 (Sat, 13 Feb 2016) $
+#$Revision: 176429 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/52/57/1525706.cif $
+#------------------------------------------------------------------------------
 #
-# The cif file was imported from the Crystallography Open Database (COD)
+# This file is available in the Crystallography Open Database (COD),
 # http://www.crystallography.net/
-# based on data placed in the public domain by the contributors.
 #
-# The original file in cod had 
-#COD-MD5: 312a931fdec8e98c55532f42c1828341
+# All data on this site have been placed in the public domain by the
+# contributors.
 #
-# It was then processed with the FINDSYM tool by
-# Harold T. Stokes, Branton J. Campbell, Dorian M. Hatch
-# Brigham Young University, Provo, Utah, USA
-# which was used to update the structure information.
-#
-# The original header in COD and relevant COD data follows:
-#------------------------------------------------------------------------------
-#$Date: 2013-05-09 13:53:25 +0000 (Thu, 09 May 2013) $
-#$Revision: 86000 $
-#$URL: file:///home/coder/svn-repositories/cod/cif/9/01/44/9014462.cif $
-#------------------------------------------------------------------------------
-data_9014462
+data_1525706
 loop_
 _publ_author_name
-'Schwarzenbach, D.'
-'Birkedal, H.'
-'Hostettler, M.'
-'Fischer, P.'
+'Bouvier, P.'
+'Djurado, E.'
+'Lucazeau, G.'
+'Le Bihan, T.'
 _publ_section_title
 ;
- Neutron diffraction investigation of the temperature dependence of
- crystal structure and thermal motions of red HgI2
- Note: T = 30 K, powder neutron data
+ High-pressure structural evolution of undoped tetragonal nanocrystalline
+ zirconia
 ;
-_journal_name_full               'Acta Crystallographica, Section B'
-_journal_page_first              828
-_journal_page_last               835
-_journal_volume                  63
-_journal_year                    2007
-_chemical_compound_source        'synthetic, Fluka 83379'
-_chemical_name_mineral           Coccinite
-_database_code_amcsd             0019548
-_exptl_crystal_density_diffrn    6.457
-_[local]_cod_cif_authors_sg_H-M  'P 42/n m c'
-_cod_database_code               9014462
-
-#
-# Data extracted using the FINDSYM utility follows
-#
- 
-_audit_creation_method FINDSYM
- 
-_symmetry_space_group_name_H-M "P 42/n 21/m 2/c (origin choice 2)"
-_symmetry_space_group_name_Hall '-P 4ac 2a'
-_[local]_omdb_cod_original_Hall '-P 4ac 2a'
-_symmetry_Int_Tables_number 137
- 
-_cell_length_a    4.35800
-_cell_length_b    4.35800
-_cell_length_c    12.30600
-_cell_angle_alpha 90.00000
-_cell_angle_beta  90.00000
-_cell_angle_gamma 90.00000
- 
+_journal_name_full
+'Physical Review, Serie 3. B - Condensed Matter (18,1978-)'
+_journal_page_first              8731
+_journal_page_last               8737
+_journal_volume                  62
+_journal_year                    2000
+_chemical_formula_sum            'O2 Zr'
+_chemical_name_systematic        'Zr O2'
+_space_group_IT_number           137
+_symmetry_space_group_name_Hall  '-P 4ac 2a'
+_symmetry_space_group_name_H-M   'P 42/n m c :2'
+_cell_angle_alpha                90
+_cell_angle_beta                 90
+_cell_angle_gamma                90
+_cell_formula_units_Z            2
+_cell_length_a                   3.5948
+_cell_length_b                   3.5948
+_cell_length_c                   5.1824
+_cell_volume                     66.970
+_citation_journal_id_ASTM        PRBMDO
+_cod_data_source_file            Bouvier_PRBMDO_2000_497.cif
+_cod_data_source_block           O2Zr1
+_cod_original_cell_volume        66.97002
+_cod_original_formula_sum        'O2 Zr1'
+_cod_database_code               1525706
 loop_
-_space_group_symop_id
-_space_group_symop_operation_xyz
-1 x,y,z
-2 x+1/2,-y,-z
-3 -x,y+1/2,-z
-4 -x+1/2,-y+1/2,z
-5 -y,-x,-z+1/2
-6 -y+1/2,x,z+1/2
-7 y,-x+1/2,z+1/2
-8 y+1/2,x+1/2,-z+1/2
-9 -x,-y,-z
-10 -x+1/2,y,z
-11 x,-y+1/2,z
-12 x+1/2,y+1/2,-z
-13 y,x,z+1/2
-14 y+1/2,-x,-z+1/2
-15 -y,x+1/2,-z+1/2
-16 -y+1/2,-x+1/2,z+1/2
- 
+_symmetry_equiv_pos_as_xyz
+x,y,z
+-y+1/2,x,z+1/2
+-x+1/2,-y+1/2,z
+y,-x+1/2,z+1/2
+x+1/2,-y,-z
+y+1/2,x+1/2,-z+1/2
+-x,y+1/2,-z
+-y,-x,-z+1/2
+-x,-y,-z
+y-1/2,-x,-z-1/2
+x-1/2,y-1/2,-z
+-y,x-1/2,-z-1/2
+-x-1/2,y,z
+-y-1/2,-x-1/2,z-1/2
+x,-y-1/2,z
+y,x,z-1/2
 loop_
 _atom_site_label
 _atom_site_type_symbol
-_atom_site_symmetry_multiplicity
-_atom_site_Wyckoff_label
 _atom_site_fract_x
 _atom_site_fract_y
 _atom_site_fract_z
 _atom_site_occupancy
-Hg1 Hg 2 a 0.75000 0.25000 0.75000 1.0
-I1 I 4 d 0.25000 0.25000 0.10860 1.0
- 
-
+_atom_site_U_iso_or_equiv
+Zr1 Zr+4 0.25 0.75 0.25 1 0.0
+O1 O-2 0.25 0.25 0.057 1 0.0

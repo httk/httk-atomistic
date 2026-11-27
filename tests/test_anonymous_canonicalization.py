@@ -274,9 +274,11 @@ def test_mirror_pair_records_the_source_precision(number: int) -> None:
     assert values[0] == values[1]
     representative = values[0].representative
     assert representative is not None
-    expected = F(1, 100000000) if number == 149 else F(1, 100000)
-    assert hand.cell.precision == hand.coordinate_precision == expected
-    assert representative.cell.precision == representative.coordinate_precision == expected
+    # (cell, coordinate) precision as written; 151 (COD 1538356) gives its cell in 0.01 Å and its
+    # coordinates to four decimals
+    expected = {149: (F(1, 100000000),) * 2, 151: (F(1, 100), F(1, 10000))}.get(number, (F(1, 100000),) * 2)
+    assert (hand.cell.precision, hand.coordinate_precision) == expected
+    assert (representative.cell.precision, representative.coordinate_precision) == expected
 
 
 def _rowsum(rows: tuple[tuple[int, ...], ...]) -> int:

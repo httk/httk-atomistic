@@ -1,84 +1,240 @@
-# CIF file
-# This is a cif file prepared for use with the openmaterialsdb.se
+#------------------------------------------------------------------------------
+#$Date: 2016-03-21 17:59:44 +0200 (Mon, 21 Mar 2016) $
+#$Revision: 178798 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/4/10/52/4105296.cif $
+#------------------------------------------------------------------------------
 #
-# The cif file was imported from the Crystallography Open Database (COD)
+# This file is available in the Crystallography Open Database (COD),
 # http://www.crystallography.net/
-# based on data placed in the public domain by the contributors.
 #
-# The original file in cod had 
-#COD-MD5: 5316ffc52e3da83fb67fa6f2b81b91ae
+# All data on this site have been placed in the public domain by the
+# contributors.
 #
-# It was then processed with the FINDSYM tool by
-# Harold T. Stokes, Branton J. Campbell, Dorian M. Hatch
-# Brigham Young University, Provo, Utah, USA
-# which was used to update the structure information.
-#
-# The original header in COD and relevant COD data follows:
-#------------------------------------------------------------------------------
-#$Date: 2013-05-05 14:21:46 +0000 (Sun, 05 May 2013) $
-#$Revision: 85285 $
-#$URL: file:///home/coder/svn-repositories/cod/cif/9/01/13/9011303.cif $
-#------------------------------------------------------------------------------
-data_9011303
+data_4105296
 loop_
 _publ_author_name
-'Milman, V.'
+'Alfred J. Wooten'
+'Donald J. Werder'
+'Darrick J. Williams'
+'Joanna L. Casson'
+'Jennifer A. Hollingsworth'
 _publ_section_title
 ;
- Klockmannite, CuSe: structure, properties and phase stability from ab initio
- modeling
- Locality: hypothetical structure calculated using DFT
+ Solution-Liquid-Solid Growth of Ternary Cu-In-Se Semiconductor Nanowires
+ from Multiple- and Single-Source Precursors
 ;
-_journal_name_full               'Acta Crystallographica, Section B'
-_journal_page_first              437
-_journal_page_last               447
-_journal_volume                  58
-_journal_year                    2002
-_chemical_name_mineral           Umangite
-_exptl_crystal_density_diffrn    6.688
-_cod_database_code               9011303
+_journal_name_full               'Journal of the American Chemical Society'
+_journal_page_first              16177
+_journal_page_last               16188
+_journal_paper_doi               10.1021/ja905730n
+_journal_volume                  131
+_journal_year                    2009
+_chemical_formula_sum            'Cu3 Se2'
+_chemical_formula_weight         348.56
+_space_group_IT_number           113
+_symmetry_cell_setting           tetragonal
+_symmetry_space_group_name_Hall  'P -4 2ab'
+_symmetry_space_group_name_H-M   'P -4 21 m'
+_audit_author_name               'Alfred Wooten'
+_audit_creation_date             2009-01-23T10:35
+_audit_creation_method           'from EXP file using GSAS2CIF'
+_cell_angle_alpha                90.0
+_cell_angle_beta                 90.0
+_cell_angle_gamma                90.0
+_cell_formula_units_Z            2
+_cell_length_a                   6.469(7)
+_cell_length_b                   6.469
+_cell_length_c                   4.203(5)
+_cell_volume                     175.9(3)
+_computing_structure_refinement  GSAS
+_diffrn_radiation_polarisn_ratio 0.5
+_diffrn_radiation_probe          x-ray
+_exptl_absorpt_correction_T_max  1.00000
+_exptl_absorpt_correction_T_min  1.00000
+_exptl_absorpt_process_details
+;   GSAS Absorption/surface roughness correction: function number 0
+ No correction is applied.
+;
+_pd_block_id
+2009-01-23T10:35|CUINSE2MSP30031_phase2|Alfred_Wooten||
+_pd_calc_method                  'Rietveld Refinement'
+_pd_phase_block_id
+2009-01-23T10:35|CUINSE2MSP30031_phase2|Alfred_Wooten||
+_pd_phase_name                   'from E:/Powder/Compounds/CU3SE2.cel'
+_pd_proc_info_datetime           2009-01-23T10:35:18
+_pd_proc_ls_background_function
+;   GSAS Background function number 6 with  8 terms.
+ Power series in Q**2n/n! and n!/Q**2n
+      1:    1394.56     2:    106.215     3:   -1437.67     4:   -26.9527    
+      5:    713.852     6:    3.05524     7:   -67.4451     8:  -0.152336    
+;
+_pd_proc_ls_peak_cutoff          0.01000
+_pd_proc_ls_profile_function
+;
+ CW Profile function number 2 with  18 terms
+ Profile coefficients for Simpson's rule integration of pseudovoigt function
+ C.J. Howard (1982). J. Appl. Cryst.,15,615-620.
+ P. Thompson, D.E. Cox & J.B. Hastings (1987). J. Appl. Cryst.,20,79-83.
+ Peak tails are ignored  where the intensity is below 0.0100 times the peak
+   Aniso. broadening axis   0.0   0.0   1.0
+;
+_pd_proc_ls_prof_R_factor        0.0488
+_pd_proc_ls_prof_wR_expected     0.0268
+_pd_proc_ls_prof_wR_factor       0.0675
+_refine_ls_goodness_of_fit_all   6.35
+_refine_ls_matrix_type           full
+_refine_ls_number_parameters     17
+_refine_ls_number_restraints     0
+_refine_ls_R_Fsqd_factor         0.21824
+_refine_ls_shift/su_max          0.02
+_refine_ls_shift/su_mean         0.01
+_reflns_d_resolution_high        1.102
+_reflns_d_resolution_low         5.179
+_reflns_limit_h_max              6
+_reflns_limit_h_min              0
+_reflns_limit_k_max              4
+_reflns_limit_k_min              0
+_reflns_limit_l_max              10
+_reflns_limit_l_min              0
+_reflns_number_total             222
+_cod_data_source_file            ja905730n_si_007_2.cif
+_cod_data_source_block           CUINSE2MSP30031_phase_2
+_cod_depositor_comments
+;
+The following automatic conversions were performed:
 
-#
-# Data extracted using the FINDSYM utility follows
-#
- 
-_audit_creation_method FINDSYM
- 
-_symmetry_space_group_name_H-M "P -4 21 m"
-_symmetry_space_group_name_Hall 'P -4 2ab'
-_[local]_omdb_cod_original_Hall 'P -4 2ab'
-_symmetry_Int_Tables_number 113
- 
-_cell_length_a    6.30800
-_cell_length_b    6.30800
-_cell_length_c    4.35000
-_cell_angle_alpha 90.00000
-_cell_angle_beta  90.00000
-_cell_angle_gamma 90.00000
- 
+'_geom_bond_publ_flag' value 'N' changed to 'n' according to the
+built-in table from CIF Core dictionary named 'cif_core.dic' version
+2.4.1 from 2010-06-29 (21 time).
+
+'_geom_angle_publ_flag' value 'N'
+changed to 'n' according to the built-in table from CIF Core
+dictionary named 'cif_core.dic' version 2.4.1 from 2010-06-29 (27
+times).
+
+Automatic conversion script
+Id: cif_fix_values 1715 2011-07-08 13:25:40Z adriana 
+;
+_cod_original_cell_volume        175.9(4)
+_cod_database_code               4105296
+#BEGIN Tags that were not found in dictionaries:
+_gsas_exptl_extinct_corr_t_min   1.00000
+_gsas_exptl_extinct_corr_t_max   1.00000
+#END Tags that were not found in dictionaries
 loop_
-_space_group_symop_id
-_space_group_symop_operation_xyz
-1 x,y,z
-2 x+1/2,-y+1/2,-z
-3 -x+1/2,y+1/2,-z
-4 -x,-y,z
-5 y+1/2,x+1/2,z
-6 y,-x,-z
-7 -y,x,-z
-8 -y+1/2,-x+1/2,z
- 
+_symmetry_equiv_pos_site_id
+_symmetry_equiv_pos_as_xyz
+1 +x,+y,+z
+2 +y,-x,-z
+3 -x,-y,+z
+4 -y,+x,-z
+5 -x+1/2,+y+1/2,-z
+6 +y+1/2,+x+1/2,+z
+7 +x+1/2,-y+1/2,-z
+8 -y+1/2,-x+1/2,+z
 loop_
-_atom_site_label
 _atom_site_type_symbol
-_atom_site_symmetry_multiplicity
-_atom_site_Wyckoff_label
+_atom_site_label
 _atom_site_fract_x
 _atom_site_fract_y
 _atom_site_fract_z
 _atom_site_occupancy
-Cu1 Cu 2 a 0.00000 0.00000 0.00000 1.0
-Cu2 Cu 4 e 0.64300 0.14300 0.75250 1.0
-Se1 Se 4 e 0.76550 0.26550 0.25860 1.0
- 
-
+_atom_site_thermal_displace_type
+_atom_site_U_iso_or_equiv
+_atom_site_symmetry_multiplicity
+Cu Cu1 0.0 0.0 0.0 1.0 Uiso 0.025 2
+Cu Cu2 0.353 0.853 0.25 1.0 Uiso 0.025 4
+Se Se 0.225 0.725 0.75 1.0 Uiso 0.025 4
+loop_
+_atom_type_symbol
+_atom_type_scat_dispersion_real
+_atom_type_scat_dispersion_imag
+_atom_type_scat_Cromer_Mann_a1
+_atom_type_scat_Cromer_Mann_a2
+_atom_type_scat_Cromer_Mann_a3
+_atom_type_scat_Cromer_Mann_a4
+_atom_type_scat_Cromer_Mann_b1
+_atom_type_scat_Cromer_Mann_b2
+_atom_type_scat_Cromer_Mann_b3
+_atom_type_scat_Cromer_Mann_b4
+_atom_type_scat_Cromer_Mann_c
+_atom_type_scat_source
+_atom_type_number_in_cell
+Cu 0.000 0.000 13.3380 3.58280 7.16760 0.24700 5.61580 11.3966 1.67350 64.8126
+1.19100 International_Tables_Vol_C 6.0
+In 0.000 0.000 19.1624 0.54760 18.5596 6.37760 4.29480 25.8499 2.03960 92.8029
+4.93910 International_Tables_Vol_C 0
+Se 0.000 0.000 17.0006 2.40980 5.81960 0.27260 3.97310 15.2372 4.35430 43.8163
+2.84090 International_Tables_Vol_C 4.0
+loop_
+_diffrn_radiation_wavelength
+_diffrn_radiation_wavelength_wt
+_diffrn_radiation_type
+_diffrn_radiation_wavelength_id
+1.540510 1.000 K\a~1~ 1
+1.544330 0.500 K\a~2~ 2
+loop_
+_geom_angle_atom_site_label_1
+_geom_angle_atom_site_label_2
+_geom_angle_atom_site_label_3
+_geom_angle
+_geom_angle_site_symmetry_1
+_geom_angle_site_symmetry_3
+_geom_angle_publ_flag
+Se Cu1 Se 99.952(27) 1_544 2_456 n
+Se Cu1 Se 130.87(7) 1_544 3_564 n
+Se Cu1 Se 99.952(27) 1_544 4_656 n
+Se Cu1 Se 99.952(27) 2_456 3_564 n
+Se Cu1 Se 130.87(7) 2_456 4_656 n
+Se Cu1 Se 99.952(27) 3_564 4_656 n
+Se Cu2 Se 121.74(8) 1_554 1_555 n
+Se Cu2 Se 105.441(20) 1_554 2_566 n
+Se Cu2 Se 105.441(20) 1_554 4_666 n
+Se Cu2 Se 105.441(20) 1_555 2_566 n
+Se Cu2 Se 105.441(20) 1_555 4_666 n
+Se Cu2 Se 113.6842 2_566 4_666 n
+Cu1 Se Cu1 129.64(7) 1_566 5_556 n
+Cu1 Se Cu2 108.61(4) 1_566 1_555 n
+Cu1 Se Cu2 65.97(4) 1_566 1_556 n
+Cu1 Se Cu2 65.215(7) 1_566 2_466 n
+Cu1 Se Cu2 124.802(11) 1_566 4_656 n
+Cu1 Se Cu2 108.61(4) 5_556 1_555 n
+Cu1 Se Cu2 65.97(4) 5_556 1_556 n
+Cu1 Se Cu2 124.802(11) 5_556 2_466 n
+Cu1 Se Cu2 65.215(7) 5_556 4_656 n
+Cu2 Se Cu2 121.74(8) 1_555 1_556 n
+Cu2 Se Cu2 114.049(32) 1_555 2_466 n
+Cu2 Se Cu2 114.049(32) 1_555 4_656 n
+Cu2 Se Cu2 114.049(32) 1_556 2_466 n
+Cu2 Se Cu2 114.049(32) 1_556 4_656 n
+Cu2 Se Cu2 66.3158 2_466 4_656 n
+loop_
+_geom_bond_atom_site_label_1
+_geom_bond_atom_site_label_2
+_geom_bond_distance
+_geom_bond_site_symmetry_2
+_geom_bond_publ_flag
+Cu1 Cu2 2.6875(25) 1_545 n
+Cu1 Cu2 2.6875(25) 2_455 n
+Cu1 Cu2 2.6875(25) 3_565 n
+Cu1 Cu2 2.6875(25) 4_655 n
+Cu1 Se 2.5273(23) 1_544 n
+Cu1 Se 2.5273(23) 2_456 n
+Cu1 Se 2.5273(23) 3_564 n
+Cu1 Se 2.5273(23) 4_656 n
+Cu2 Cu1 2.6875(25) 1_565 n
+Cu2 Cu1 2.6875(25) 5_555 n
+Cu2 Cu2 2.6896(29) 3_675 n
+Cu2 Se 2.4055(24) 1_554 n
+Cu2 Se 2.4055(24) 1_555 n
+Cu2 Se 2.4588(26) 2_566 n
+Cu2 Se 2.4588(26) 4_666 n
+Se Cu1 2.5273(23) 1_566 n
+Se Cu1 2.5273(23) 5_556 n
+Se Cu2 2.4055(24) 1_555 n
+Se Cu2 2.4055(24) 1_556 n
+Se Cu2 2.4588(26) 2_466 n
+Se Cu2 2.4588(26) 4_656 n
+loop_
+_pd_block_diffractogram_id
+2009-01-23T10:35|CUINSE2MSP30031_H_01|Alfred_Wooten|Ultima_III

@@ -1,84 +1,72 @@
-# CIF file
-# This is a cif file prepared for use with the openmaterialsdb.se
+#------------------------------------------------------------------------------
+#$Date: 2018-09-27 07:13:35 +0300 (Thu, 27 Sep 2018) $
+#$Revision: 211196 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/7/22/15/7221526.cif $
+#------------------------------------------------------------------------------
 #
-# The cif file was imported from the Crystallography Open Database (COD)
+# This file is available in the Crystallography Open Database (COD),
 # http://www.crystallography.net/
-# based on data placed in the public domain by the contributors.
 #
-# The original file in cod had 
-#COD-MD5: 50720c9685f68fa59ee7fca075100fa1
+# All data on this site have been placed in the public domain by the
+# contributors.
 #
-# It was then processed with the FINDSYM tool by
-# Harold T. Stokes, Branton J. Campbell, Dorian M. Hatch
-# Brigham Young University, Provo, Utah, USA
-# which was used to update the structure information.
-#
-# The original header in COD and relevant COD data follows:
-#------------------------------------------------------------------------------
-#$Date: 2014-07-12 08:06:43 +0000 (Sat, 12 Jul 2014) $
-#$Revision: 120115 $
-#$URL: file:///home/coder/svn-repositories/cod/cif/9/01/10/9011057.cif $
-#------------------------------------------------------------------------------
-data_9011057
+data_7221526
 loop_
 _publ_author_name
-'Kasper, J. S.'
-'Richards, S. M.'
+'Wosylus, A.'
+'Prots', Yu.'
+'Hanfland, M.'
+'Schnelle, W.'
+'Schwarz, U.'
 _publ_section_title
 ;
- The crystal structures of new forms of silicon and germanium
- Locality: synthetic
+ Crystal structure refinement of Ge(tP12), physical properties and
+ pressure-induced phase transformation Ge(tP12)<-->Ge(tI4)
 ;
-_journal_name_full               'Acta Crystallographica'
-_journal_page_first              752
-_journal_page_last               755
-_journal_volume                  17
-_journal_year                    1964
-_chemical_name_mineral           Germanium
-_exptl_crystal_density_diffrn    5.895
-_cod_database_code               9011057
-_journal_paper_doi 10.1107/S0365110X64001840
-
-#
-# Data extracted using the FINDSYM utility follows
-#
- 
-_audit_creation_method FINDSYM
- 
-_symmetry_space_group_name_H-M "P 43 21 2"
-_symmetry_space_group_name_Hall 'P 4nw 2abw'
-_[local]_omdb_cod_original_Hall 'P 4nw 2abw'
-_symmetry_Int_Tables_number 96
- 
-_cell_length_a    5.93000
-_cell_length_b    5.93000
-_cell_length_c    6.98000
-_cell_angle_alpha 90.00000
-_cell_angle_beta  90.00000
-_cell_angle_gamma 90.00000
- 
+_journal_name_full
+;
+Zeitschrift fuer Naturforschung, Teil B. Anorganische Chemie, Organische 
+Chemie (42,1987-)
+;
+_journal_page_first              608
+_journal_page_last               614
+_journal_volume                  63
+_journal_year                    2008
+_chemical_formula_sum            Ge
+_space_group_IT_number           96
+_symmetry_space_group_name_Hall  'P 4nw 2abw'
+_symmetry_space_group_name_H-M   'P 43 21 2'
+_cell_angle_alpha                90
+_cell_angle_beta                 90
+_cell_angle_gamma                90
+_cell_formula_units_Z            12
+_cell_length_a                   5.9164
+_cell_length_b                   5.9164
+_cell_length_c                   6.9555
+_cell_volume                     243.469
+_citation_journal_id_ASTM        ZNBSEN
+_cod_data_source_file            Wosylus_ZNBSEN_2008_1516.cif
+_cod_data_source_block           Ge1
+_cod_original_cell_volume        243.4689
+_cod_original_formula_sum        Ge1
+_cod_database_code               7221526
 loop_
-_space_group_symop_id
-_space_group_symop_operation_xyz
-1 x,y,z
-2 x+1/2,-y+1/2,-z+1/4
-3 -x+1/2,y+1/2,-z+3/4
-4 -x,-y,z+1/2
-5 -y,-x,-z+1/2
-6 -y+1/2,x+1/2,z+3/4
-7 y+1/2,-x+1/2,z+1/4
-8 y,x,-z
- 
+_symmetry_equiv_pos_as_xyz
+x,y,z
+-y+1/2,x+1/2,z+3/4
+-x,-y,z+1/2
+y+1/2,-x+1/2,z+1/4
+x+1/2,-y+1/2,-z+1/4
+y,x,-z
+-x+1/2,y+1/2,-z+3/4
+-y,-x,-z+1/2
 loop_
 _atom_site_label
 _atom_site_type_symbol
-_atom_site_symmetry_multiplicity
-_atom_site_Wyckoff_label
 _atom_site_fract_x
 _atom_site_fract_y
 _atom_site_fract_z
 _atom_site_occupancy
-Ge1 Ge 4 a 0.59120 0.59120 0.00000 1.0
-Ge2 Ge 8 b 0.67300 0.87840 0.24860 1.0
- 
-
+_atom_site_U_iso_or_equiv
+Ge2 Ge 0.175 0.369 0.258 1 0.0
+Ge1 Ge 0.09 0.09 0 1 0.0

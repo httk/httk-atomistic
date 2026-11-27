@@ -1,124 +1,121 @@
-# CIF file
-# This is a cif file prepared for use with the openmaterialsdb.se
+#------------------------------------------------------------------------------
+#$Date: 2017-10-13 02:32:00 +0300 (Fri, 13 Oct 2017) $
+#$Revision: 201954 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/00/90/1009013.cif $
+#------------------------------------------------------------------------------
 #
-# The cif file was imported from the Crystallography Open Database (COD)
+# This file is available in the Crystallography Open Database (COD),
 # http://www.crystallography.net/
-# based on data placed in the public domain by the contributors.
 #
-# The original file in cod had 
-#COD-MD5: 48a511c239285b039258b330210c5447
+# All data on this site have been placed in the public domain by the
+# contributors.
 #
-# It was then processed with the FINDSYM tool by
-# Harold T. Stokes, Branton J. Campbell, Dorian M. Hatch
-# Brigham Young University, Provo, Utah, USA
-# which was used to update the structure information.
-#
-# The original header in COD and relevant COD data follows:
-#------------------------------------------------------------------------------
-#$Date: 2014-07-12 08:06:43 +0000 (Sat, 12 Jul 2014) $
-#$Revision: 120115 $
-#$URL: file:///home/coder/svn-repositories/cod/cif/9/01/10/9011056.cif $
-#------------------------------------------------------------------------------
-data_9011056
+data_1009013
 loop_
 _publ_author_name
-'Kasper, J. S.'
-'Richards, S. M.'
+'Baldinozzi, G.'
+'Berar, J.-F.'
+'Calvarin, G.'
 _publ_section_title
 ;
- The crystal structures of new forms of silicon and germanium
- Locality: synthetic
+ Rietveld refinement of two-phase Zr-doped Y~2~O~3~
 ;
-_journal_name_full               'Acta Crystallographica'
-_journal_page_first              752
-_journal_page_last               755
-_journal_volume                  17
-_journal_year                    1964
-_chemical_name_mineral           Silicon
-_exptl_crystal_density_diffrn    2.553
-_[local]_cod_cif_authors_sg_H-M  'I a 3'
-_cod_database_code               9011056
-_journal_paper_doi 10.1107/S0365110X64001840
-
-#
-# Data extracted using the FINDSYM utility follows
-#
- 
-_audit_creation_method FINDSYM
- 
-_symmetry_space_group_name_H-M "I 21/a -3"
-_symmetry_space_group_name_Hall '-I 2b 2c 3'
-_[local]_omdb_cod_original_Hall '-I 2b 2c 3'
-_symmetry_Int_Tables_number 206
- 
-_cell_length_a    6.63600
-_cell_length_b    6.63600
-_cell_length_c    6.63600
-_cell_angle_alpha 90.00000
-_cell_angle_beta  90.00000
-_cell_angle_gamma 90.00000
- 
+_journal_coden_ASTM              MSFOEP
+_journal_name_full               'Materials Science Forum'
+_journal_page_first              680
+_journal_page_last               685
+_journal_paper_doi               10.4028/www.scientific.net/MSF.278-281.680
+_journal_volume                  278-281
+_journal_year                    1998
+_chemical_formula_structural     'Y2 O3'
+_chemical_formula_sum            'O3 Y2'
+_chemical_name_systematic        'Yttrium oxide'
+_space_group_IT_number           206
+_symmetry_cell_setting           cubic
+_symmetry_Int_Tables_number      206
+_symmetry_space_group_name_Hall  '-I 2b 2c 3'
+_symmetry_space_group_name_H-M   'I a -3'
+_cell_angle_alpha                90
+_cell_angle_beta                 90
+_cell_angle_gamma                90
+_cell_formula_units_Z            16
+_cell_length_a                   10.6056(3)
+_cell_length_b                   10.6056(3)
+_cell_length_c                   10.6056(3)
+_cell_volume                     1192.9
+_refine_ls_R_factor_all          0.011
+_cod_database_code               1009013
 loop_
-_space_group_symop_id
-_space_group_symop_operation_xyz
-1 x,y,z
-2 x,-y,-z+1/2
-3 -x+1/2,y,-z
-4 -x,-y+1/2,z
-5 y,z,x
-6 y,-z,-x+1/2
-7 -y+1/2,z,-x
-8 -y,-z+1/2,x
-9 z,x,y
-10 z,-x,-y+1/2
-11 -z+1/2,x,-y
-12 -z,-x+1/2,y
-13 -x,-y,-z
-14 -x,y,z+1/2
-15 x+1/2,-y,z
-16 x,y+1/2,-z
-17 -y,-z,-x
-18 -y,z,x+1/2
-19 y+1/2,-z,x
-20 y,z+1/2,-x
-21 -z,-x,-y
-22 -z,x,y+1/2
-23 z+1/2,-x,y
-24 z,x+1/2,-y
-25 x+1/2,y+1/2,z+1/2
-26 x+1/2,-y+1/2,-z
-27 -x,y+1/2,-z+1/2
-28 -x+1/2,-y,z+1/2
-29 y+1/2,z+1/2,x+1/2
-30 y+1/2,-z+1/2,-x
-31 -y,z+1/2,-x+1/2
-32 -y+1/2,-z,x+1/2
-33 z+1/2,x+1/2,y+1/2
-34 z+1/2,-x+1/2,-y
-35 -z,x+1/2,-y+1/2
-36 -z+1/2,-x,y+1/2
-37 -x+1/2,-y+1/2,-z+1/2
-38 -x+1/2,y+1/2,z
-39 x,-y+1/2,z+1/2
-40 x+1/2,y,-z+1/2
-41 -y+1/2,-z+1/2,-x+1/2
-42 -y+1/2,z+1/2,x
-43 y,-z+1/2,x+1/2
-44 y+1/2,z,-x+1/2
-45 -z+1/2,-x+1/2,-y+1/2
-46 -z+1/2,x+1/2,y
-47 z,-x+1/2,y+1/2
-48 z+1/2,x,-y+1/2
- 
+_symmetry_equiv_pos_as_xyz
+x,y,z
+x,-y,1/2-z
+1/2-x,y,-z
+-x,1/2-y,z
+y,z,x
+-y,1/2-z,x
+y,-z,1/2-x
+1/2-y,z,-x
+z,x,y
+1/2-z,x,-y
+-z,1/2-x,y
+z,-x,1/2-y
+-x,-y,-z
+-x,y,1/2+z
+1/2+x,-y,z
+x,1/2+y,-z
+-y,-z,-x
+y,1/2+z,-x
+-y,z,1/2+x
+1/2+y,-z,x
+-z,-x,-y
+1/2+z,-x,y
+z,1/2+x,-y
+-z,x,1/2+y
+1/2+x,1/2+y,1/2+z
+1/2+x,1/2-y,-z
+-x,1/2+y,1/2-z
+1/2-x,-y,1/2+z
+1/2+y,1/2+z,1/2+x
+1/2-y,-z,1/2+x
+1/2+y,1/2-z,-x
+-y,1/2+z,1/2-x
+1/2+z,1/2+x,1/2+y
+-z,1/2+x,1/2-y
+1/2-z,-x,1/2+y
+1/2+z,1/2-x,-y
+1/2-x,1/2-y,1/2-z
+1/2-x,1/2+y,z
+x,1/2-y,1/2+z
+1/2+x,y,1/2-z
+1/2-y,1/2-z,1/2-x
+1/2+y,z,1/2-x
+1/2-y,1/2+z,x
+y,1/2-z,1/2+x
+1/2-z,1/2-x,1/2-y
+z,1/2-x,1/2+y
+1/2+z,x,1/2-y
+1/2-z,1/2+x,y
 loop_
 _atom_site_label
 _atom_site_type_symbol
 _atom_site_symmetry_multiplicity
-_atom_site_Wyckoff_label
+_atom_site_Wyckoff_symbol
 _atom_site_fract_x
 _atom_site_fract_y
 _atom_site_fract_z
 _atom_site_occupancy
-Si1 Si 16 c 0.10030 0.10030 0.10030 1.0
- 
-
+_atom_site_attached_hydrogens
+_atom_site_calc_flag
+Y1 Y3+ 24 d 0.96742(5) 0. 0.25 1. 0 d
+Y2 Y3+ 8 b 0.25 0.25 0.25 1. 0 d
+O1 O2- 48 e 0.39072(7) 0.15190(7) 0.38016(6) 1. 0 d
+loop_
+_atom_type_symbol
+_atom_type_oxidation_number
+Y3+ 3.000
+O2- -2.000
+loop_
+_cod_related_entry_id
+_cod_related_entry_database
+_cod_related_entry_code
+1 ChemSpider 140159

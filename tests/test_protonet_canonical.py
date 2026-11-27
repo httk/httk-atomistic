@@ -576,7 +576,7 @@ def _mirror(it: int, sites: Any, rows: Any) -> tuple[int, Any, Any]:
 
 # every Sohncke fixture that load_structure reads, P1 left out (its nets are cell-relative, D7)
 SOHNCKE_NET_FIXTURES = (
-    *(f"structreading/{n}.cif" for n in SOHNCKE if n not in (151, 153, 180)),
+    *(f"structreading/{n}.cif" for n in SOHNCKE if n not in (153, 180)),
     "cod/4326344.cif",
     "cod/7219102.cif",
 )
