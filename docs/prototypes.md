@@ -138,8 +138,8 @@ conversion is otherwise valid.
 | Conversion boundary | Rejected | Deliberately erased |
 | --- | --- | --- |
 | Structure → `Structuretype`/`FundamentalDomainTemplate` | disorder or partial occupancy; duplicate- or multi-element species; a species whose symbol is `"X"` or `"vacancy"`; assemblies; `chemical_composition`; site moments | species identities become dummy labels; charge, spin, mass, formula metadata, `optimization_type`, `immutable_id`, `last_modified`, and molecular metadata |
-| Structure → `BareProtostructure` | assemblies; molecular structures; `chemical_composition`; site moments; a species containing `"X"` (including attached `"X"`); a site occupied only by `"vacancy"` | species become their [species classes](#species-classes): names, original names, labels, charges, spins, masses and concentration precision; formula metadata, `optimization_type`, `immutable_id`, `last_modified`, and molecular metadata |
-| Structure → `Formulatype` | a site occupied only by `"vacancy"` (it has no species class) | species identities beyond their [classes](#species-classes); disorder and partial occupancy (each site counts once) |
+| Structure → `BareProtostructure` | assemblies; molecular structures; `chemical_composition`; site moments; a species containing `"X"` (including attached `"X"`); a species with attached atoms but no constituent other than `"vacancy"` | species become their [species classes](#species-classes): names, original names, labels, charges, spins, masses and concentration precision; formula metadata, `optimization_type`, `immutable_id`, `last_modified`, and molecular metadata |
+| Structure → `Formulatype` | a species without a [class](#species-classes) | species identities beyond their [classes](#species-classes); disorder and partial occupancy (each site counts once) |
 
 `BareProtostructure` is different here: its species classes retain disorder and
 partial occupancy, with their real chemical symbols, exact concentrations and
@@ -304,7 +304,10 @@ from it:
   and constituents that round to 0 omitted (`Bi0.5Na0.5`, `Li0.76`,
   `Ag0.317Ga0.561`, `Li0.333`);
 - attached atoms follow as symbol and count, the count always written and the
-  symbols in alphabetical order (`OH2`, `NH4`, `OH1`, `K0.5Na0.5C1H3`).
+  symbols in alphabetical order (`OH2`, `NH4`, `OH1`, `K0.5Na0.5C1H3`);
+- `X0` for the vacancy class: a site occupied only by `vacancy`, or whose other
+  constituents all round to 0, and without attached atoms. Its class species is
+  `Species("X0", ["vacancy"], [1])`.
 
 A class name uses only letters, digits and `.`, so it never contains the `/`
 unusable in URLs and file names, the `-` that separates names, the `:` that
@@ -350,8 +353,15 @@ sites, in the recognized symmetry; it raises when the bond set is not invariant
 under that symmetry.
 `canonical_asu` and `canonicalize` are structure canonicalizers: they keep the
 source species and the symmetry those have (`P m -3 m` here).
-A structure with a site occupied only by `vacancy` has no classes, so its
-`Formulatype` and labels raise.
+A site occupied only by `vacancy` (a refined occupancy of 0) is a class of its
+own, `X0`, counted with its multiplicity like any class, so the prototype of a
+structure with an empty site is that of the fully occupied one: CsCl with the
+chlorine site empty is `AB_cP2_221_a_b:Cs-X0`, with the bare prototype
+`AB_cP2_221_a_b` of CsCl. `X0` is no element: formulas and compositions leave it
+out (that value's chemical formula is `Cs`). The distance bonds give an empty site
+no bonds, so it is an isolated site of the protonet. The name `X0` is reserved: a
+species containing `X` named `X0` is refused. A vacancy-only
+species with attached atoms has no class (nothing to attach them to).
 
 A structure's canonicalization preserves chirality by default: the canonical
 functions, the constructors, `from_asu` and the command line all default to
@@ -1132,8 +1142,8 @@ Every other failure raises, as before (U1):
 2. Unsupported content: a species containing the unknown symbol `X`, assemblies,
    `molecular=True` at the assigned levels, a stated `chemical_composition`, site
    moments, or a cell that is not periodic in all three directions.
-3. Species without a class: a vacancy-only species, or a species whose
-   constituents of one symbol sum to more than one site.
+3. Species without a class: a vacancy-only species with attached atoms, or a
+   species whose constituents of one symbol sum to more than one site.
 4. Disorder at levels that refuse it: a refined `Prototype` of a disordered
    structure, and `Structuretype`.
 5. A retained imprecise `WyckoffSite` representative of a refined value.

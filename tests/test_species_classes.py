@@ -18,6 +18,7 @@ from httk.atomistic import (
     Species,
     UnitcellStructure,
     WyckoffSite,
+    distance_bonds,
 )
 from httk.atomistic._loading import _structure_from_payload
 from httk.atomistic.cif_structures import _read_cif_for_atomistic
@@ -106,6 +107,9 @@ DISORDERED = [name for name in ALL if not all(_ordered(species) for species in _
         ),  # 1.0004 is rounding noise
         (Species("x", ("Fe", "Ni"), (F(9996, 10000), F(1, 100))), "Fe1.0Ni0.01"),
         (Species("x", ("Na", "K"), (F(4995, 10000), F(5005, 10000))), "K0.501Na0.5"),  # sum over 1: no vacancy
+        (Species("empty", ("vacancy",), (1,)), "X0"),  # the vacancy class
+        (Species("Li1", ("Li",), (0,)), "X0"),  # occupancy 0
+        (Species("trace", ("Li", "vacancy"), (F(4, 10000), F(9996, 10000))), "X0"),  # rounds to 0
     ],
 )
 def test_class_names_and_round_trip(species: Species, name: str) -> None:
@@ -148,6 +152,10 @@ def test_class_names_and_round_trip(species: Species, name: str) -> None:
         "Li0.3333",
         "Na0.5000",
         "Na0.0004",
+        "X00",
+        "X0.0",
+        "X0H1",
+        "X1",
         "Fe1.0",
         "Fe0.0005",
     ],
@@ -160,14 +168,16 @@ def test_class_name_parser_rejects_non_canonical_names(name: str) -> None:
 def test_unknown_and_vacancy_only_species() -> None:
     dummy = Species("A", ("X",), (1,), labels=("A",))
     assert _species_class(dummy) == dummy  # a dummy or unknown species is its own class
-    with pytest.raises(ValueError, match="no constituent other than vacancy"):
-        _species_class(Species("empty", ("vacancy",), (1,)))
+    with pytest.raises(ValueError, match="X0 is reserved for the vacancy class"):
+        _species_class(Species("X0", ("X",), (1,)))  # a dummy may not take the vacancy class name
+    vacancy = _species_class(Species("empty", ("vacancy",), (1,)))
+    assert vacancy == Species("X0", ("vacancy",), (1,)) and vacancy.concentration == (1,)
+    with pytest.raises(ValueError, match="attached atoms but no constituent other than vacancy"):
+        _species_class(Species("empty", ("vacancy",), (1,), attached=("H",), nattached=(2,)))
     with pytest.raises(ValueError, match="summing to 3/2"):
         _species_class(Species("Fe", ("Fe", "Fe"), (F(3, 4), F(3, 4)), charges=(2, 3)))
     with pytest.raises(ValueError, match="summing to 1001/1000"):
         _species_class(Species("Fe", ("Fe", "Fe"), (F(5003, 10000), F(5003, 10000)), charges=(2, 3)))
-    with pytest.raises(ValueError, match="no constituent other than vacancy"):
-        _species_class(Species("trace", ("Li", "vacancy"), (F(4, 10000), F(9996, 10000))))
     # each constituent at most one, their sum not limited
     assert _species_from_class_name("K0.6Na0.6").concentration == (F(3, 5), F(3, 5))
     rounded = _species_class(Species("x", ("Na", "K"), (F(4995, 10000), F(5005, 10000))))
@@ -436,10 +446,49 @@ def test_a_declared_asu_whose_species_share_a_class_is_classified_as_the_class_s
     assert str(canonical_bare_protostructure(p1).label) == "AB_aP2_1_a_a:Cl-Cs"
 
 
-def test_structure_canonicalization_keeps_a_vacancy_only_species() -> None:
-    # vacancy-only: no class, so the labels raise, but the structure canonicalizer works as before
-    caesium, empty = Species("Cs", ("Cs",), (1,)), Species("V", ("vacancy",), (1,))
-    structure = _cscl(caesium, empty)
+@pytest.mark.parametrize(
+    "empty",
+    [
+        Species("V", ("vacancy",), (1,)),
+        Species("Li1", ("Li",), (0,)),  # occupancy 0
+        Species("trace", ("Li", "vacancy"), (F(4, 10000), F(9996, 10000))),  # rounds to 0
+    ],
+    ids=["vacancy", "occupancy-0", "rounds-to-0"],
+)
+def test_a_vacancy_only_site_is_the_vacancy_class(empty: Species) -> None:
+    # an empty site is its own class X0, so the prototype is that of the fully occupied structure
+    caesium = Species("Cs", ("Cs",), (1,))
+    structure, filled = _cscl(caesium, empty), _cscl(caesium, Species("Cl", ("Cl",), (1,)))
     assert canonical_asu(structure).spacegroup.it_number == 221
-    with pytest.raises(ValueError, match="no constituent other than vacancy"):
-        canonical_bare_protostructure(structure)
+    assert str(FormulatypeView(structure)) == str(FormulatypeView(filled)) == "AB"
+    label = "AB_cP2_221_a_b:Cs-X0"
+    for value in (
+        BareProtostructureView(structure),
+        canonical_bare_protostructure(structure),
+        structure.canonical_bare_protostructure(),
+        Protostructure(representative=canonical_asu(structure)),
+    ):
+        assert str(value.label) == label
+    assert str(parse_bare_protostructure_label(label).label) == label
+    assert str(canonical_bare_prototype(structure).label) == str(canonical_bare_prototype(filled).label)
+    assert str(BarePrototypeView(structure).label) == "AB_cP2_221_a_b"
+
+
+def test_a_vacancy_site_is_an_isolated_site_of_the_protonet() -> None:
+    # rock salt with its tetrahedral holes (8c) as an empty site: distance bonds only join Na and Cl
+    def asu(hole: Species) -> ASUStructure:
+        return ASUStructure(
+            [[F(564, 100), 0, 0], [0, F(564, 100), 0], [0, 0, F(564, 100)]],
+            225,
+            (WyckoffSite("a", (), "Na"), WyckoffSite("b", (), "Cl"), WyckoffSite("c", (), hole.name)),
+            (Species("Na", ("Na",), (1,)), Species("Cl", ("Cl",), (1,)), hole),
+        )
+
+    empty, filled = asu(Species("V", ("vacancy",), (1,))), asu(Species("F", ("F",), (1,)))
+    bonded = distance_bonds(empty, shapes=False)
+    assert bonded.bonds is not None and {(bond.site, bond.partner) for bond in bonded.bonds.pairs} == {(0, 1)}
+    value = Protonetstructure.from_asu(bonded)
+    assert str(value.label) == "A2BC_cF16_225_c_a_b__2~3:X0-Cl-Na"
+    assert parse_protonetstructure_label(str(value.label)) == value
+    assert str(canonical_protonetstructure(value).label) == str(value.label)
+    assert str(canonical_bare_prototype(empty).label) == str(canonical_bare_prototype(filled).label)

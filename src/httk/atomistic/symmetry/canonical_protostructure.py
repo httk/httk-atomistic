@@ -1176,7 +1176,7 @@ def _canonical_protostructure_assignments_asu(
 
 
 def _class_name_or_own(species: Species) -> str:
-    """Return a species' class name, or its own name when it has no class (only ``vacancy``)."""
+    """Return a species' class name, or its own name when it has no class."""
     try:
         return _species_class(species).name
     except ValueError:

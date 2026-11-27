@@ -4,19 +4,22 @@ Two species are in the same class when they have the same key: the concentration
 constituent symbol other than ``vacancy``, summed exactly and rounded to three decimals half up
 (a symbol that rounds to 0 is dropped; the vacancy is the remainder), and the count of each
 attached symbol. Name, original name, labels, charges, spins, mass and concentration precision
-are not part of the key. The class name is derived from the key alone and parses back to it::
+are not part of the key. A species with no constituent other than ``vacancy`` that rounds above 0,
+and no attached atoms, is in the vacancy class, key ``((), ())``. The class name is derived from the
+key alone and parses back to it::
 
-    name   = head { attach }
+    name   = "X0"                     the vacancy class
+           | head { attach }
     head   = SYM                      one constituent at rounded concentration 1
            | SYM frac { SYM frac }    otherwise; symbols alphabetical, vacancy omitted
     frac   = shortest decimal of the rounded value, always with ".", at most three places
     attach = SYM count                count >= 1, always written; symbols alphabetical
 
-for example ``Ti``, ``Bi0.5Na0.5``, ``Li0.76``, ``Li0.333``, ``OH2``, ``K0.5Na0.5C1H3``. A name
+for example ``Ti``, ``Bi0.5Na0.5``, ``Li0.76``, ``Li0.333``, ``OH2``, ``K0.5Na0.5C1H3``, ``X0``. A name
 never contains ``/``. The rounded constituents may sum to slightly more than 1 (0.4995 and 0.5005
 round to 0.5 and 0.501); such a class has no vacancy, and :class:`~httk.atomistic.Species` accepts it. A species
 containing the unknown symbol ``X`` (a dummy template species or an unknown site) is not reduced:
-its class is its own name.
+its class is its own name, except that the name ``X0`` is reserved for the vacancy class.
 """
 
 import math
@@ -39,9 +42,10 @@ def _class_key(species: Species) -> _ClassKey:
     """Return the class key of a species without ``X``.
 
     :param species: The species to classify.
-    :return: The sorted rounded constituent concentrations and attached counts.
-    :raises ValueError: If the species has no constituent other than ``vacancy`` that rounds above
-        0, or the constituents of one symbol round to more than one.
+    :return: The sorted rounded constituent concentrations and attached counts; ``((), ())``, the
+        vacancy class, when no constituent other than ``vacancy`` rounds above 0.
+    :raises ValueError: If the species has attached atoms but no constituent other than
+        ``vacancy`` that rounds above 0, or the constituents of one symbol round to more than one.
     """
     amounts: dict[str, Fraction] = {}
     for symbol, value in zip(species.chemical_symbols, species.concentration, strict=True):
@@ -53,8 +57,10 @@ def _class_key(species: Species) -> _ClassKey:
             attached[symbol] = attached.get(symbol, 0) + count
     rounded = {symbol: Fraction(math.floor(value * 1000 + Fraction(1, 2)), 1000) for symbol, value in amounts.items()}
     amounts = {symbol: value for symbol, value in rounded.items() if value}
-    if not amounts:
-        raise ValueError(f"species {species.name!r} has no constituent other than vacancy, so it has no class")
+    if not amounts and attached:
+        raise ValueError(
+            f"species {species.name!r} has attached atoms but no constituent other than vacancy, so it has no class"
+        )
     for symbol, value in amounts.items():
         if value > 1:
             raise ValueError(
@@ -77,6 +83,8 @@ def _class_name(key: _ClassKey) -> str:
     :return: The class name.
     """
     amounts, attached = key
+    if not amounts and not attached:
+        return "X0"
     if len(amounts) == 1 and amounts[0][1] == 1:
         head = amounts[0][0]
     else:
@@ -110,9 +118,12 @@ def _species_class(species: Species) -> Species:
 
     :param species: The species to reduce.
     :return: The class species.
-    :raises ValueError: If the species has no constituent other than ``vacancy``.
+    :raises ValueError: If the species has attached atoms but no constituent other than ``vacancy``,
+        or contains ``X`` and is named ``X0``, the reserved name of the vacancy class.
     """
     if "X" in species.chemical_symbols or "X" in (species.attached or ()):
+        if species.name == "X0":
+            raise ValueError("species 'X0' contains 'X': the class name X0 is reserved for the vacancy class")
         return species
     return _key_species(_class_key(species))
 
@@ -124,6 +135,8 @@ def _species_from_class_name(name: str) -> Species:
     :return: The class species.
     :raises ValueError: If ``name`` is not the canonical name of a class.
     """
+    if name == "X0":
+        return _key_species(((), ()))
     tokens: list[tuple[str, str | None]] = []
     position = 0
     while position < len(name):
@@ -169,7 +182,7 @@ def _class_sites(structure: "FundamentalDomainStructure") -> tuple[tuple["Wyckof
 
     :param structure: The fundamental-domain structure.
     :return: The renamed sites and the used class species.
-    :raises ValueError: If a used species has no constituent other than ``vacancy``.
+    :raises ValueError: If a used species has no class.
     """
     from httk.atomistic.models.structure.asu import WyckoffSite
 
@@ -201,7 +214,7 @@ def _merges_classes(structure: Any) -> bool:
     for name in used:
         try:
             classes.add(_species_class(by_name[name]))
-        except (KeyError, ValueError):  # unknown or vacancy-only: reported where the structure is read
+        except (KeyError, ValueError):  # unknown or classless: reported where the structure is read
             classes.add(name)
     return len(classes) < len(used)
 
@@ -218,7 +231,7 @@ def _class_structure(structure: Any, *, drop_molecular: bool = False) -> Any:
     :param structure: A structure-like source.
     :param drop_molecular: Whether to drop molecular metadata, for the anonymous levels.
     :return: The structure in terms of species classes.
-    :raises ValueError: If a used species has no constituent other than ``vacancy``.
+    :raises ValueError: If a used species has no class.
     """
     from httk.atomistic.models.structure.unitcell import UnitcellStructure
     from httk.atomistic.models.structure.unitcell_view import UnitcellStructureView

@@ -463,7 +463,7 @@ def protonet_class_structure(
     :return: The structure the protonet labels classify.
     :raises TypeError: If ``asu`` is not a fundamental-domain structure.
     :raises ValueError: If ``timeout`` is not a positive finite number or ``None``; if two
-        species share a class and a used species has no class (a vacancy-only species); or if
+        species share a class and a used species has no class; or if
         the class structure cannot be recognized (see :func:`~httk.atomistic.recognize_asu`).
     :raises CanonicalizationLimitError: If the budget runs out.
     """

@@ -41,6 +41,7 @@ from httk.atomistic import (
 from httk.atomistic.models.cell.numeric import NumericCell
 from httk.atomistic.models.sites.numeric import NumericSites
 from httk.atomistic.models.structure.backend import StructureBackend
+from httk.atomistic.storage.records import _bare_protostructure_from_record, _bare_protostructure_record_from_value
 
 CELL = [[5, 0, 0], [0, 5, 0], [0, 0, 5]]
 EMPTY = FracVector(())
@@ -261,16 +262,23 @@ def test_equal_chemistry_is_one_class_and_unknown_symbols_are_rejected() -> None
         WyckoffOccupation("a", Species("attached", ("Na",), (1,), attached=("X",), nattached=(1,)))
 
 
-def test_disorder_projects_with_tabulated_multiplicity_and_vacancy_only_is_rejected() -> None:
+def test_disorder_projects_with_tabulated_multiplicity_and_vacancy_only_is_its_own_class() -> None:
     mixed = Species("mixed", ("Fe", "Ni"), (Fraction(1, 2), Fraction(1, 2)))
     value = BareProtostructure(221, [("a", mixed)])
     assert CompositionView(value).amounts == (("Fe", Fraction(1, 2)), ("Ni", Fraction(1, 2)))
     assert ChemicalFormulaView(value) == "FeNi"
     assert FormulatypeView(value) == "A"
     assert str(value.label) == "A_cP1_221_a:Fe0.5Ni0.5"
-    # vacancy-only: an orbit occupied only by vacancy has no species class
-    with pytest.raises(ValueError, match="no constituent other than vacancy"):
-        BareProtostructure(221, [("a", mixed), ("b", Species("vacancy", ("vacancy",), (1,)))])
+    # vacancy-only: an orbit occupied only by vacancy is the vacancy class X0, which is no element
+    empty = BareProtostructure(221, [("a", mixed), ("b", Species("vacancy", ("vacancy",), (1,)))])
+    assert str(empty.label) == "AB_cP2_221_a_b:Fe0.5Ni0.5-X0"
+    assert empty.occupations[1].species == Species("X0", ("vacancy",), (1,))
+    assert ChemicalFormulaView(empty) == "FeNi" and FormulatypeView(empty) == "AB"
+    record = _bare_protostructure_record_from_value(empty)
+    BareProtostructureRecord.__httk_validate__(record)
+    assert record.label == str(empty.label) and _bare_protostructure_from_record(record) == empty
+    with pytest.raises(ValueError, match="attached atoms but no constituent other than vacancy"):
+        BareProtostructure(221, [("a", Species("v", ("vacancy",), (1,), attached=("H",), nattached=(1,)))])
 
 
 def test_exact_paths_preserve_species_and_match_structure_formula() -> None:

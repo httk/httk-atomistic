@@ -18,7 +18,7 @@ class WyckoffOccupation:
 
     :param wyckoff: The Wyckoff letter in the standard setting.
     :param species: The real species occupying the orbit.
-    :raises ValueError: If the species contains the unknown symbol ``X`` or only ``vacancy``.
+    :raises ValueError: If the species contains the unknown symbol ``X`` or has no species class.
     """
 
     wyckoff: str
