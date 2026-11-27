@@ -122,7 +122,8 @@ sources in CIF".
 `cif_references(block)` returns the references a CIF data block states as
 {py:class}`httk.core.ReferenceRecord` objects: first the publication the block describes
 (`_publ_section_title`, `_publ_author_name` and the `_journal_*` items), then one reference per
-row of the `_citation_*` category, with its authors and editors. It takes a lossless block such
+row of the `_citation_*` category, with its authors and editors (single `_citation_*` items
+complete the only, or the `primary`, looped row, as in ICSD files). It takes a lossless block such
 as a `CIFStructure`. Text is kept as written, except that CIF 1.1 special-character codes
 (`\'e` → é, `\a` → α, `\/o` → ø, …) are decoded and layout whitespace is collapsed. A reference
 that would be empty is not returned; an INFO note on the report channel lists its data instead:

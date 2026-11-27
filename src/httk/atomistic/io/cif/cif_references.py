@@ -123,25 +123,43 @@ def _text(value: CIFValue, *, markup: bool = True) -> str | None:
     return (_MARKUP.sub(_decode, text) if markup else text) or None
 
 
-def _rows(block: CIFBlock, prefixes: tuple[str, ...], exclude: tuple[str, ...] = ()) -> list[_Pairs]:
+def _rows(
+    block: CIFBlock, prefixes: tuple[str, ...], exclude: tuple[str, ...] = (), *, attach: bool = False
+) -> list[_Pairs]:
     """Return the items with a name prefix: the top-level data items as one row, then the rows of loops.
 
-    Names are caseless; gaps and empty rows are left out.
+    Names are caseless; gaps and empty rows are left out. With ``attach``, the top-level items instead
+    join the one loop row they unambiguously belong to (the only loop row, else the only one whose
+    ``_citation_id`` is ``primary``) when that row's loop has none of their names as a column.
     """
 
     def belongs(name: str) -> bool:
         return name.casefold().startswith(prefixes) and not name.casefold().startswith(exclude)
 
-    rows: list[_Pairs] = [[]]
+    def stated(pairs: _Pairs) -> _Pairs:
+        return [(name, value) for name, value in pairs if not isinstance(value, DecimalGap)]
+
+    loose: _Pairs = []
+    loops: list[tuple[set[str], list[_Pairs]]] = []
     for item in block.items:
         if isinstance(item, CIFDataItem) and belongs(item.name):
-            rows[0].append((item.name, item.value))
+            loose.append((item.name, item.value))
         elif isinstance(item, CIFLoop):
             columns = [index for index, name in enumerate(item.names) if belongs(name)]
             if columns:
-                rows.extend([(item.names[index], row[index]) for index in columns] for row in item.rows)
-    rows = [[(name, value) for name, value in row if not isinstance(value, DecimalGap)] for row in rows]
-    return [row for row in rows if row]
+                rows = [stated([(item.names[index], row[index]) for index in columns]) for row in item.rows]
+                loops.append(({item.names[index].casefold() for index in columns}, [row for row in rows if row]))
+    loose = stated(loose)
+    if attach and loose:
+        candidates = [(names, row) for names, rows in loops for row in rows]
+        if len(candidates) > 1:
+            candidates = [
+                (names, row) for names, row in candidates if (_key(row, "_citation_id") or "").casefold() == "primary"
+            ]
+        if len(candidates) == 1 and not any(name.casefold() in candidates[0][0] for name, _ in loose):
+            candidates[0][1].extend(loose)
+            loose = []
+    return [row for row in [loose, *(row for _, rows in loops for row in rows)] if row]
 
 
 def _values(pairs: _Pairs, name: str) -> list[CIFValue]:
@@ -200,7 +218,8 @@ def cif_references(block: CIFBlock) -> tuple[ReferenceRecord, ...]:
 
     The publication the block describes (``_publ_section_title``, ``_publ_author_name`` and the
     ``_journal_*`` items) comes first, then one reference per row of the ``citation`` category
-    (``_citation_*``, looped or single), with the names of the ``_citation_author_*`` and
+    (``_citation_*``, looped or single; single items join the only looped row, else the only
+    ``primary`` one, when its loop does not also state them), with the names of the ``_citation_author_*`` and
     ``_citation_editor_*`` rows that state its ``_citation_id`` (id-less rows go with the only
     id-less citation; other unmatched people form a reference of their own). Exact duplicates are returned
     once. Values are kept as written, except that CIF 1.1 special-character codes (accents,
@@ -217,7 +236,7 @@ def cif_references(block: CIFBlock) -> tuple[ReferenceRecord, ...]:
     sources: list[tuple[_Pairs, Mapping[str, tuple[str, ...]], list[CIFValue], list[CIFValue], _Pairs]] = [
         (publication, _PUBLICATION, _values(publication, "_publ_author_name"), [], publication)
     ]
-    citations = _rows(block, ("_citation_",), ("_citation_author_", "_citation_editor_"))
+    citations = _rows(block, ("_citation_",), ("_citation_author_", "_citation_editor_"), attach=True)
     keys: list[object] = [_key(row, "_citation_id") for row in citations]
     if keys.count(None) > 1:  # id-less people then belong to none of them
         keys = [object() if key is None else key for key in keys]

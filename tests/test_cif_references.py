@@ -388,3 +388,66 @@ _citation_author_name 'Nobody, N.'
         ReferenceRecord(title="Second"),
         ReferenceRecord(authors=(_person("Nobody, N."),)),
     )
+
+
+LOOSE_TITLE = """data_x
+_citation_title 'Loose title'
+loop_
+_citation_id
+_citation_journal_full
+_citation_year
+_citation_journal_volume
+_citation_page_first
+_citation_page_last
+_citation_journal_id_ASTM
+"""
+
+
+def test_loose_citation_items_join_the_only_loop_row():
+    # The layout ICSD uses: the title single, the rest of the citation in a one-row loop.
+    (ref,) = _refs(
+        LOOSE_TITLE
+        + """primary 'Journal of Tests' 1976 18 63 68 JTSTAB
+loop_
+_citation_author_citation_id
+_citation_author_name
+primary 'Alpha, A.'
+primary 'Beta, B.'
+"""
+    )
+    assert ref == ReferenceRecord(
+        title="Loose title",
+        journal="Journal of Tests",
+        year="1976",
+        volume="18",
+        pages="63-68",
+        bib_type="article",
+        authors=(_person("Alpha, A."), _person("Beta, B.")),
+    )
+
+
+def test_loose_citation_items_join_the_primary_row():
+    assert _refs(LOOSE_TITLE + "secondary 'J B' 1980 1 2 3 X\n' PRIMARY ' 'J A' 1976 18 63 68 Y\n") == (
+        ReferenceRecord(journal="J B", year="1980", volume="1", pages="2-3", bib_type="article"),
+        ReferenceRecord(
+            title="Loose title", journal="J A", year="1976", volume="18", pages="63-68", bib_type="article"
+        ),
+    )
+
+
+def test_loose_citation_items_stay_apart_when_ambiguous_or_restated():
+    no_primary = LOOSE_TITLE + "1 'J A' 1976 18 63 68 Y\n2 'J B' 1980 1 2 3 X\n"
+    assert _refs(no_primary) == (
+        ReferenceRecord(title="Loose title"),
+        ReferenceRecord(journal="J A", year="1976", volume="18", pages="63-68", bib_type="article"),
+        ReferenceRecord(journal="J B", year="1980", volume="1", pages="2-3", bib_type="article"),
+    )
+    # A loose item that the loop also states keeps the whole loose set apart.
+    restated = (
+        "data_x\n_citation_title 'Loose'\n_citation_year 1999\nloop_\n_citation_id\n_citation_year\nprimary 1976\n"
+    )
+    assert _refs(restated) == (ReferenceRecord(title="Loose", year="1999"), ReferenceRecord(year="1976"))
+    # Without a citation loop the loose items are one citation, as before.
+    assert _refs("data_x\n_citation_title 'Loose'\n_citation_year 1999\n") == (
+        ReferenceRecord(title="Loose", year="1999"),
+    )

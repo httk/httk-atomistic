@@ -708,9 +708,13 @@ repository fixtures and the sampled COD and MAGNDATA files no loaded structure c
 {py:func}`~httk.atomistic.cif_references` reads the references a lossless block (a
 `CIFBlock` or `CIFStructure`) states and returns them as {py:class}`httk.core.ReferenceRecord`
 objects, in order: the publication the block describes first, then one reference per row of the
-`citation` category (looped, or the single-row form without `loop_`). Exact duplicates are
-returned once; references are not merged by DOI, and the citation id is not stored, so it never
-makes otherwise identical references differ.
+`citation` category (looped, or the single-row form without `loop_`). When a block has both,
+the single `_citation_*` items complete one loop row instead of forming a row of their own, as in
+ICSD files (a single `_citation_title` beside the looped journal data): the only row of the
+citation loops, else the only row whose `_citation_id` is `primary` (in any case). If no row is
+singled out, or that row's loop also has a column for one of the single items, they stay a
+separate row. Exact duplicates are returned once; references are not merged by DOI, and the
+citation id is not stored, so it never makes otherwise identical references differ.
 
 | Reference field | Publication | Citation row |
 | --- | --- | --- |
