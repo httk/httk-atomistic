@@ -10,6 +10,8 @@ The entries whose source was published in an IUCr journal were replaced by unmod
 byte-for-byte COD entries of the same space group with explicit partial occupancy, from
 non-IUCr journals and carrying only COD's public-domain header; they keep the space-group
 file name, and `../SOURCES.md` lists their COD IDs (81, 100 and 177).
+`168.cif` is instead a synthetic file written by the httk authors from the published
+structure parameters of COD 2019502; it carries no journal text.
 
 Regenerate the disorder golden after an intentional reading-semantics change:
 
