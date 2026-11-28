@@ -1,0 +1,229 @@
+httk.atomistic.models.structure.network
+=======================================
+
+.. py:module:: httk.atomistic.models.structure.network
+
+.. autoapi-nested-parse::
+
+   The bond network a structure carries: its bonds, the shapes of its sites, torsions and who assigned them.
+
+   Every structure exposes ``bonds``: a :class:`BondNetwork`, or ``None`` when no network is known.
+   On a fundamental domain (:class:`~httk.atomistic.FundamentalDomainStructure`,
+   :class:`~httk.atomistic.ASUStructure`) the pairs, shapes and torsions index ``wyckoff_sites``, and
+   each :class:`SiteBond` and :class:`SiteTorsion` stands for its orbit; on every other structure they
+   index ``sites`` and each operation is a pure lattice translation.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.network.SiteBond
+   httk.atomistic.models.structure.network.SiteTorsion
+   httk.atomistic.models.structure.network.BondSource
+   httk.atomistic.models.structure.network.BondNetwork
+
+
+Module Contents
+---------------
+
+.. py:class:: SiteBond
+
+   Represent one bond of a structure's bond network.
+
+   On a fundamental domain the bond is a bond orbit: the reference atom of
+   ``wyckoff_sites[site]`` is bonded to ``operation`` applied to the reference atom of
+   ``wyckoff_sites[partner]``. A reference atom is the first-listed coordinate of the site's
+   Wyckoff position in the structure's stored setting at its free parameters, not reduced modulo
+   one. ``operation`` is an element of the stored setting's space group, lattice translation
+   included. The bond stands for its whole orbit under the group, so any member of the orbit
+   names the same bond.
+
+   On a unit-cell structure ``site`` and ``partner`` index ``sites``, and the atom at
+   ``sites[site]`` (as stored, not wrapped) is bonded to the atom at ``sites[partner]`` moved by
+   ``operation``, a pure lattice translation; the bond stands for itself and its lattice
+   translates.
+
+   :param site: The 0-based index of the first site.
+   :param partner: The 0-based index of the second site.
+   :param operation: The exact operation applied to the partner's atom.
+
+
+   .. py:attribute:: site
+      :type:  int
+
+
+   .. py:attribute:: partner
+      :type:  int
+
+
+   .. py:attribute:: operation
+      :type:  httk.atomistic.symmetry.affine_operation.AffineOperation
+
+
+.. py:class:: SiteTorsion
+
+   Represent one torsion statement of a structure's bond network: the torsion of four atoms A-B-C-D.
+
+   Atom ``k`` (A, B, C, D for ``k`` = 0 to 3) is read as the partner of a :class:`SiteBond`. On a
+   fundamental domain it is ``operations[k]`` applied to the reference atom of
+   ``wyckoff_sites[sites[k]]`` (see :class:`SiteBond`), and the statement stands for its whole
+   orbit under the group; its images under improper operations (determinant -1) have the opposite
+   sign. On a unit-cell structure it is the atom at ``sites[sites[k]]`` (as stored, not wrapped)
+   moved by the lattice translation ``operations[k]``, and the statement stands for itself and its
+   lattice translates. The structure checks that consecutive atoms, A and C, and B and D are
+   different atoms; B-C need not be a bond of the network.
+
+   The angle is signed by the IUPAC (Klyne-Prelog) convention: viewed along B to C, it is positive
+   when the bond A-B turns clockwise, by less than 180 degrees, to eclipse the bond C-D. It
+   describes the Cartesian handedness of the four atoms as named; reversing them (D-C-B-A) keeps
+   it. The range is [-180, 180], with -180 read as 180 and -0 as 0.
+
+   The symbols: ``c`` (cis), ``g`` (gauche) and ``t`` (trans) are the protonet torsion letters;
+   ``sp`` (synperiplanar), ``sc`` (synclinal), ``ac`` (anticlinal) and ``ap`` (antiperiplanar)
+   are the Klyne-Prelog ranges (0 to 30, 30 to 90, 90 to 150 and 150 to 180 degrees in magnitude),
+   and ``+sc``, ``-sc``, ``+ac``, ``-ac`` the signed ranges; ``none`` states that the bond B-C
+   deliberately has no torsion class. Only the sign of a signed symbol is checked against the
+   angle (0 and 180 agree with both signs), not its range.
+
+   :param sites: The four 0-based site indices of A, B, C and D.
+   :param operations: The four exact operations, as described above.
+   :param symbol: The torsion symbol, or ``None``.
+   :param angle: The signed torsion angle in degrees, or ``None``.
+   :param uncertainty: The standard uncertainty of the angle in degrees (positive), or ``None``.
+   :raises TypeError: If a value has the wrong type.
+   :raises ValueError: If there are not four sites and operations, a site index is negative, the
+       symbol is unknown, the angle is not finite or outside [-180, 180], an uncertainty is given
+       without an angle or is not positive, neither symbol nor angle is given, or a signed symbol
+       and the angle disagree in sign.
+
+
+   .. py:attribute:: sites
+      :type:  tuple[int, int, int, int]
+
+
+   .. py:attribute:: operations
+      :type:  tuple[httk.atomistic.symmetry.affine_operation.AffineOperation, httk.atomistic.symmetry.affine_operation.AffineOperation, httk.atomistic.symmetry.affine_operation.AffineOperation, httk.atomistic.symmetry.affine_operation.AffineOperation]
+
+
+   .. py:attribute:: symbol
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: angle
+      :type:  float | None
+      :value: None
+
+
+
+   .. py:attribute:: uncertainty
+      :type:  float | None
+      :value: None
+
+
+
+.. py:class:: BondSource
+
+   Name who assigned a bond network or its shapes; every field is optional.
+
+   A source is provenance: it never enters equality of a :class:`BondNetwork` or the content
+   identity of a structure. An unknown field is ``None``, never ``""`` or only whitespace.
+
+   :param description: Free text, for example the rule used.
+   :param software: An identifier of the software or rule set.
+   :param version: Its version.
+   :param uri: A URL documenting the assignment.
+
+
+   .. py:attribute:: description
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: software
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: version
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: uri
+      :type:  str | None
+      :value: None
+
+
+
+.. py:class:: BondNetwork
+
+   Represent the bond network of a structure: its bonds, optional shapes and torsions, and their sources.
+
+   ``pairs``, ``shapes`` and ``torsions`` are content: they take part in equality, hashing and the
+   structure's content identity. ``source``, ``shapes_source`` and ``torsions_source`` are
+   provenance and take part in neither. A network on its own is not put in a normal form; the
+   structure holding it is (see
+   :attr:`~httk.atomistic.FundamentalDomainStructure.bonds` and
+   :attr:`~httk.atomistic.UnitcellStructure.bonds`).
+
+   :param pairs: The bonds, any sequence of :class:`SiteBond`; empty means the structure is known
+       to have no bonds.
+   :param shapes: One shape symbol or ``None`` (not assigned) per site, or ``None`` when no shapes
+       are assigned; all ``None`` is the same as ``None``. See :mod:`httk.atomistic.symmetry.shapes`
+       for the symbols.
+   :param source: Who assigned the bonds, as a :class:`BondSource` or a mapping of its fields; all
+       fields ``None`` is the same as ``None``.
+   :param shapes_source: Who assigned the shapes, in the form of ``source``, or ``None`` when
+       ``source`` assigned them (a ``shapes_source`` equal to ``source`` becomes ``None``); it
+       needs ``shapes``.
+   :param torsions: Torsion statements, any sequence of :class:`SiteTorsion`, or ``None`` when
+       none are stated; empty is the same as ``None``.
+   :param torsions_source: Who assigned the torsions, in the form and with the rules of
+       ``shapes_source``; it needs ``torsions``.
+   :raises TypeError: If a value has the wrong type.
+   :raises ValueError: If a source mapping has an unknown key, or ``shapes_source`` or
+       ``torsions_source`` is given without what it assigned.
+
+
+   .. py:attribute:: pairs
+      :type:  tuple[SiteBond, ...]
+
+
+   .. py:attribute:: shapes
+      :type:  tuple[str | None, ...] | None
+      :value: None
+
+
+
+   .. py:attribute:: source
+      :type:  BondSource | None
+      :value: None
+
+
+
+   .. py:attribute:: shapes_source
+      :type:  BondSource | None
+      :value: None
+
+
+
+   .. py:attribute:: torsions
+      :type:  tuple[SiteTorsion, ...] | None
+      :value: None
+
+
+
+   .. py:attribute:: torsions_source
+      :type:  BondSource | None
+      :value: None
+
+
+

@@ -1,0 +1,1045 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
+
+    <!-- Generated with Sphinx 9.1.1 and Furo 2025.12.19 -->
+        <title>httk.atomistic.io.httk_structure - httk-atomistic dev:develop documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx_autodoc_typehints.css?v=057ac668" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/selector.css?v=626bada3" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     Development documentation (dev:develop) — built from the GitHub develop branch; content may differ from any release. 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../../index.html"><div class="brand">httk-atomistic dev:develop documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
+  
+  <span class="sidebar-brand-text">httk-atomistic dev:develop documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../structures.html">Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../composition.html">Composition and formula families</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prototypes.html">Material-information levels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../cif.html">Reading and writing CIF files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../poscar.html">Reading VASP POSCAR / CONTCAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../vasp_outputs.html">Reading VASP output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../doscar.html">VASP total density of states</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../wavecar.html">Reading and writing VASP WAVECAR files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../wavefunctions.html">Plane-wave wavefunctions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../httk_structure.html">Exact structure files (<code class="docutils literal notranslate"><span class="pre">.httkstruct</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../trajectory_jsonl.html">Trajectory JSON Lines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../lammps.html">Reading LAMMPS dumps and data files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../qe.html">Quantum ESPRESSO pw.x files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../abinit.html">ABINIT input and output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../cp2k.html">CP2K input and restart files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../asu.html">Asymmetric units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../canonicalization.html">Canonicalization algorithms and reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../subgroups.html">Subgroups and pathfinding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../moments.html">Site moments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../integrations.html">Integrations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../precision.html">Data precision</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../periodicity.html">Periodicity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../lattice-reduction.html">Lattice reduction (Niggli)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../primitive-cells.html">Primitive cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../band-paths.html">Band-structure paths</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../notebooks/examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../notebooks/disorder.html">Disorder, vacancies, and attached species</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Details</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../details/structures.html">Structures in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../details/structural_classes.html">Naming of <em>httk₂</em> structural classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../details/asu.html">Asymmetric units in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../details/cif.html">CIF and mCIF reading in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../details/precision.html">Data precision in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../details/periodicity.html">Periodicity in detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/autoapi/index.html">API Reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for httk.atomistic.io.httk_structure</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""The lossless ``httk-structure`` JSON file format for one exact unit-cell structure.</span>
+
+<span class="sd">A ``.httkstruct`` file holds the complete exact state of a</span>
+<span class="sd">:class:`~httk.atomistic.UnitcellStructure`, so ``load(save(s)) == s`` and the reloaded</span>
+<span class="sd">structure has the same content id. It is *httk*-specific: use it to keep a structure</span>
+<span class="sd">exactly (for example as the recorded input of a calculation), and CIF or POSCAR to</span>
+<span class="sd">exchange it with other software. Reading never evaluates or imports anything; the reader</span>
+<span class="sd">is a strict validating parser.</span>
+
+<span class="sd">The document is one JSON object with exactly these members (all required; ``null`` marks</span>
+<span class="sd">an unstated value)::</span>
+
+<span class="sd">    format, version (1), cell, sites, species, species_at_sites, site_moments, charge,</span>
+<span class="sd">    molecular, assemblies, symmetry, chemical_composition, chemical_formula_descriptive,</span>
+<span class="sd">    chemical_formula_hill, optimization_type, immutable_id, last_modified</span>
+
+<span class="sd">* ``cell``: ``unscaled_basis`` (3x3 surds), ``scale`` (surd), ``precision`` (rational),</span>
+<span class="sd">  ``periodicity`` (three booleans).</span>
+<span class="sd">* ``sites``: ``reduced_coords`` (Nx3 rationals), ``precision`` (rational).</span>
+<span class="sd">* ``species``: objects with ``name``, ``chemical_symbols``, ``concentration``,</span>
+<span class="sd">  ``concentration_precision``, ``mass`` (JSON floats), ``original_name``, ``attached``,</span>
+<span class="sd">  ``nattached``, ``charges``, ``spins`` and ``labels``.</span>
+<span class="sd">* ``site_moments``: ``kind`` (``collinear``, ``cartesian`` or ``crystalaxis``),</span>
+<span class="sd">  ``moments`` (N surds for collinear, otherwise Nx3) and ``precision``.</span>
+<span class="sd">* ``assemblies``: objects with ``sites_in_groups``, ``group_probabilities`` and</span>
+<span class="sd">  ``group_probabilities_precision``.</span>
+<span class="sd">* ``symmetry``: the six :class:`~httk.atomistic.models.structure.semantics.StructureSymmetry`</span>
+<span class="sd">  fields; ``chemical_composition``: ``mode`` and ``amounts`` (objects with ``element``,</span>
+<span class="sd">  ``amount``, ``precision``); ``last_modified``: ISO 8601 text with a UTC offset.</span>
+
+<span class="sd">Exact numbers are strings in one canonical spelling, so the same structure state gives</span>
+<span class="sd">identical bytes. A *rational* is ``-?N`` or ``-?N/D`` in lowest terms with ``D &gt; 1``</span>
+<span class="sd">(``"0"``, ``"-3"``, ``"173/97"``). A *surd* is a rational, or a sum of at most four terms</span>
+<span class="sd">ordered by increasing radicand, each ``R`` (the rational part, first) or ``R*sqrt(K)`` with</span>
+<span class="sd">a squarefree ``1 &lt; K &lt;= 1000``, joined by their signs (``"1/2*sqrt(3)"``,</span>
+<span class="sd">``"1-3/2*sqrt(3)"``).</span>
+
+<span class="sd">The reader is a trust boundary, so its limits keep every accepted document cheap to build:</span>
+<span class="sd">a number string has at most 1024 characters (256 in ``cell``), another string at most 1024,</span>
+<span class="sd">a symmetry operation at most 64 and there are at most 192 of them, and a cell whose scale</span>
+<span class="sd">or basis determinant cancels to within ``2**-128`` of its own terms (an exact sign decision</span>
+<span class="sd">then takes time growing with the cancellation depth) is refused. The writer refuses the same.</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fractions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fraction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">IO</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">FracVector</span><span class="p">,</span> <span class="n">SurdScalar</span><span class="p">,</span> <span class="n">SurdVector</span><span class="p">,</span> <span class="n">TextstreamFileView</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.composition</span><span class="w"> </span><span class="kn">import</span> <span class="n">Assembly</span><span class="p">,</span> <span class="n">ChemicalComposition</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.cell.cell</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cell</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.sites.sites</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sites</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.species.species</span><span class="w"> </span><span class="kn">import</span> <span class="n">Species</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.backend</span><span class="w"> </span><span class="kn">import</span> <span class="n">StructureBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.semantics</span><span class="w"> </span><span class="kn">import</span> <span class="n">StructureSymmetry</span><span class="p">,</span> <span class="n">_stated_symmetry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.unitcell</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnitcellStructure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.unitcell_view</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnitcellStructureView</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.models.structure.view</span><span class="w"> </span><span class="kn">import</span> <span class="n">StructureView</span>
+
+<div class="viewcode-block" id="FORMAT">
+<a class="viewcode-back" href="../../../../reference/autoapi/httk/atomistic/io/httk_structure/index.html#httk.atomistic.io.httk_structure.FORMAT">[docs]</a>
+<span class="n">FORMAT</span> <span class="o">=</span> <span class="s2">"httk-structure"</span></div>
+
+<div class="viewcode-block" id="VERSION">
+<a class="viewcode-back" href="../../../../reference/autoapi/httk/atomistic/io/httk_structure/index.html#httk.atomistic.io.httk_structure.VERSION">[docs]</a>
+<span class="n">VERSION</span> <span class="o">=</span> <span class="mi">1</span></div>
+
+
+<span class="n">_MAX_NUMBER_LENGTH</span> <span class="o">=</span> <span class="mi">1024</span>
+<span class="n">_MAX_CELL_NUMBER_LENGTH</span> <span class="o">=</span> <span class="mi">256</span>
+<span class="n">_MAX_STRING_LENGTH</span> <span class="o">=</span> <span class="mi">1024</span>
+<span class="c1"># Surd arithmetic factors radicand products by trial division (Cell computes a determinant),</span>
+<span class="c1"># so these two bounds keep the worst cell cheap: realistic cells carry sqrt(2), sqrt(3), sqrt(6).</span>
+<span class="n">_MAX_RADICAND</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="n">_MAX_SURD_TERMS</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="c1"># The largest space-group operation count (modulo lattice translations) in the vendored settings.</span>
+<span class="n">_MAX_OPERATIONS</span> <span class="o">=</span> <span class="mi">192</span>
+<span class="n">_MAX_OPERATION_LENGTH</span> <span class="o">=</span> <span class="mi">64</span>
+<span class="n">_SEPARATION_BITS</span> <span class="o">=</span> <span class="mi">128</span>
+<span class="c1"># ponytail: whole-document cap, read into memory at once; stream-parse if structures this large appear.</span>
+<span class="n">_MAX_DOCUMENT_CHARACTERS</span> <span class="o">=</span> <span class="mi">64</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>
+
+<span class="n">_RATIONAL</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"-?(?:0|[1-9][0-9]*)(?:/[1-9][0-9]*)?"</span><span class="p">)</span>
+<span class="n">_SURD_TERM</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"([+-]?)((?:0|[1-9][0-9]*)(?:/[1-9][0-9]*)?)(?:\*sqrt\(([1-9][0-9]{0,3})\))?"</span><span class="p">)</span>
+
+<span class="n">_TOP_KEYS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">"format"</span><span class="p">,</span>
+        <span class="s2">"version"</span><span class="p">,</span>
+        <span class="s2">"cell"</span><span class="p">,</span>
+        <span class="s2">"sites"</span><span class="p">,</span>
+        <span class="s2">"species"</span><span class="p">,</span>
+        <span class="s2">"species_at_sites"</span><span class="p">,</span>
+        <span class="s2">"site_moments"</span><span class="p">,</span>
+        <span class="s2">"charge"</span><span class="p">,</span>
+        <span class="s2">"molecular"</span><span class="p">,</span>
+        <span class="s2">"assemblies"</span><span class="p">,</span>
+        <span class="s2">"symmetry"</span><span class="p">,</span>
+        <span class="s2">"chemical_composition"</span><span class="p">,</span>
+        <span class="s2">"chemical_formula_descriptive"</span><span class="p">,</span>
+        <span class="s2">"chemical_formula_hill"</span><span class="p">,</span>
+        <span class="s2">"optimization_type"</span><span class="p">,</span>
+        <span class="s2">"immutable_id"</span><span class="p">,</span>
+        <span class="s2">"last_modified"</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+<span class="n">_SPECIES_KEYS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">"name"</span><span class="p">,</span>
+        <span class="s2">"chemical_symbols"</span><span class="p">,</span>
+        <span class="s2">"concentration"</span><span class="p">,</span>
+        <span class="s2">"concentration_precision"</span><span class="p">,</span>
+        <span class="s2">"mass"</span><span class="p">,</span>
+        <span class="s2">"original_name"</span><span class="p">,</span>
+        <span class="s2">"attached"</span><span class="p">,</span>
+        <span class="s2">"nattached"</span><span class="p">,</span>
+        <span class="s2">"charges"</span><span class="p">,</span>
+        <span class="s2">"spins"</span><span class="p">,</span>
+        <span class="s2">"labels"</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+<span class="n">_SYMMETRY_KEYS</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">"space_group_it_number"</span><span class="p">,</span>
+    <span class="s2">"space_group_symbol_hall"</span><span class="p">,</span>
+    <span class="s2">"space_group_symbol_hermann_mauguin"</span><span class="p">,</span>
+    <span class="s2">"space_group_symbol_hermann_mauguin_extended"</span><span class="p">,</span>
+    <span class="s2">"space_group_symmetry_operations_xyz"</span><span class="p">,</span>
+    <span class="s2">"wyckoff_positions"</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">_MOMENT_KINDS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"collinear"</span><span class="p">,</span> <span class="s2">"cartesian"</span><span class="p">,</span> <span class="s2">"crystalaxis"</span><span class="p">})</span>
+
+
+<span class="c1"># --------------------------------------------------------------------------- numbers</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_rational_text</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Fraction</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">_MAX_NUMBER_LENGTH</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> has more than </span><span class="si">{</span><span class="n">_MAX_NUMBER_LENGTH</span><span class="si">}</span><span class="s2"> characters"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">text</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_surd_text</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">SurdScalar</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_MAX_NUMBER_LENGTH</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">radicands</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">_MAX_SURD_TERMS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> has more than </span><span class="si">{</span><span class="n">_MAX_SURD_TERMS</span><span class="si">}</span><span class="s2"> surd terms"</span><span class="p">)</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="k">for</span> <span class="n">radicand</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">radicands</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">radicand</span> <span class="o">&gt;</span> <span class="n">_MAX_RADICAND</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> has a radicand above </span><span class="si">{</span><span class="n">_MAX_RADICAND</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">coefficient</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">coefficient</span><span class="p">(</span><span class="n">radicand</span><span class="p">)</span><span class="o">.</span><span class="n">to_fraction</span><span class="p">()</span>
+        <span class="n">sign</span> <span class="o">=</span> <span class="s2">"-"</span> <span class="k">if</span> <span class="n">coefficient</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="s2">"+"</span> <span class="k">if</span> <span class="n">text</span> <span class="k">else</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="n">term</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">coefficient</span><span class="p">))</span> <span class="k">if</span> <span class="n">radicand</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">coefficient</span><span class="p">)</span><span class="si">}</span><span class="s2">*sqrt(</span><span class="si">{</span><span class="n">radicand</span><span class="si">}</span><span class="s2">)"</span>
+        <span class="n">text</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">+</span> <span class="n">term</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span> <span class="ow">or</span> <span class="s2">"0"</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">limit</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> has more than </span><span class="si">{</span><span class="n">limit</span><span class="si">}</span><span class="s2"> characters"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">text</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_number_string</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_MAX_NUMBER_LENGTH</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must be an exact number string, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">limit</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> has more than </span><span class="si">{</span><span class="n">limit</span><span class="si">}</span><span class="s2"> characters"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_rational</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Fraction</span><span class="p">:</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">_number_string</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_RATIONAL</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> is not an exact rational: </span><span class="si">{</span><span class="n">text</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">Fraction</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">!=</span> <span class="n">text</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> is not in canonical lowest terms: </span><span class="si">{</span><span class="n">text</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_surd</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_MAX_NUMBER_LENGTH</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SurdScalar</span><span class="p">:</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">_number_string</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">limit</span><span class="p">)</span>
+    <span class="n">terms</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Fraction</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">position</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">position</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="n">_SURD_TERM</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">position</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="n">position</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> is not an exact surd: </span><span class="si">{</span><span class="n">text</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">terms</span><span class="p">)</span> <span class="o">==</span> <span class="n">_MAX_SURD_TERMS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> has more than </span><span class="si">{</span><span class="n">_MAX_SURD_TERMS</span><span class="si">}</span><span class="s2"> surd terms"</span><span class="p">)</span>
+        <span class="n">radicand</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">radicand</span> <span class="o">&gt;</span> <span class="n">_MAX_RADICAND</span> <span class="ow">or</span> <span class="n">radicand</span> <span class="ow">in</span> <span class="n">terms</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> is not a canonical exact surd: </span><span class="si">{</span><span class="n">text</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">terms</span><span class="p">[</span><span class="n">radicand</span><span class="p">]</span> <span class="o">=</span> <span class="n">Fraction</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"-"</span> <span class="k">else</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">position</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">SurdScalar</span><span class="p">,</span> <span class="n">SurdVector</span><span class="o">.</span><span class="n">from_radicand_map</span><span class="p">(</span><span class="n">terms</span><span class="p">))</span>
+    <span class="c1"># Canonical spelling only: one text per value (sorted squarefree radicands, nonzero</span>
+    <span class="c1"># lowest-terms coefficients), so a re-rendering must reproduce the input exactly.</span>
+    <span class="k">if</span> <span class="n">_surd_text</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">limit</span><span class="p">)</span> <span class="o">!=</span> <span class="n">text</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> is not a canonical exact surd: </span><span class="si">{</span><span class="n">text</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="c1"># --------------------------------------------------------------------------- shape checks</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_object</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">keys</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must be a JSON object"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">keys</span><span class="p">):</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+        <span class="n">unknown</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">keys</span><span class="p">))</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> has missing members </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2"> or unknown members </span><span class="si">{</span><span class="n">unknown</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_list</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must be a JSON array"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="n">length</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must have </span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2"> entries"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">limit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">limit</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> has more than </span><span class="si">{</span><span class="n">limit</span><span class="si">}</span><span class="s2"> entries"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_string</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must be a string"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">_MAX_STRING_LENGTH</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> has more than </span><span class="si">{</span><span class="n">_MAX_STRING_LENGTH</span><span class="si">}</span><span class="s2"> characters"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_symbol</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_string</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must be a non-empty string"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_operation</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_symbol</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span> <span class="o">&gt;</span> <span class="n">_MAX_OPERATION_LENGTH</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must be a symmetry operation of at most </span><span class="si">{</span><span class="n">_MAX_OPERATION_LENGTH</span><span class="si">}</span><span class="s2"> characters"</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cell_surd</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SurdScalar</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">_surd</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">_MAX_CELL_NUMBER_LENGTH</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_integer</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must be an integer"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_boolean</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must be a boolean"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_float</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must be a finite JSON floating-point number"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_optional</span><span class="p">[</span><span class="n">T</span><span class="p">](</span><span class="n">parse</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">object</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">T</span><span class="p">],</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">parse</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_items</span><span class="p">[</span><span class="n">T</span><span class="p">](</span><span class="n">parse</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">object</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">T</span><span class="p">],</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">T</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">parse</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2">]"</span><span class="p">)</span> <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">_list</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">length</span><span class="p">)))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_optional_items</span><span class="p">[</span><span class="n">T</span><span class="p">](</span>
+    <span class="n">parse</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">object</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">T</span><span class="p">],</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">T</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">_list</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="n">limit</span><span class="p">)</span>  <span class="c1"># reject an oversized array before parsing any entry</span>
+    <span class="k">return</span> <span class="n">_items</span><span class="p">(</span><span class="n">parse</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_items_or_null</span><span class="p">[</span><span class="n">T</span><span class="p">](</span><span class="n">parse</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">object</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">T</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">object</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="k">lambda</span> <span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="n">_optional</span><span class="p">(</span><span class="n">parse</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+
+
+<span class="c1"># --------------------------------------------------------------------------- decoding</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_decode_arguments</span><span class="p">(</span><span class="n">document</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Validate a document and decode it into exact constructor arguments.</span>
+
+<span class="sd">    This checks every member's presence, type, shape and number spelling, but constructs no</span>
+<span class="sd">    domain objects: semantic consistency (which can be costly, e.g. space-group closure) is</span>
+<span class="sd">    left to the constructors called by :func:`_structure_from_document`.</span>
+<span class="sd">    """</span>
+    <span class="n">top</span> <span class="o">=</span> <span class="n">_object</span><span class="p">(</span><span class="n">document</span><span class="p">,</span> <span class="n">_TOP_KEYS</span><span class="p">,</span> <span class="s2">"document"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">top</span><span class="p">[</span><span class="s2">"format"</span><span class="p">]</span> <span class="o">!=</span> <span class="n">FORMAT</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure document format must be </span><span class="si">{</span><span class="n">FORMAT</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">top</span><span class="p">[</span><span class="s2">"version"</span><span class="p">],</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">top</span><span class="p">[</span><span class="s2">"version"</span><span class="p">],</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="n">top</span><span class="p">[</span><span class="s2">"version"</span><span class="p">]</span> <span class="o">!=</span> <span class="n">VERSION</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"unsupported httk-structure version; this reader supports version </span><span class="si">{</span><span class="n">VERSION</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">_object</span><span class="p">(</span><span class="n">top</span><span class="p">[</span><span class="s2">"cell"</span><span class="p">],</span> <span class="p">(</span><span class="s2">"unscaled_basis"</span><span class="p">,</span> <span class="s2">"scale"</span><span class="p">,</span> <span class="s2">"precision"</span><span class="p">,</span> <span class="s2">"periodicity"</span><span class="p">),</span> <span class="s2">"cell"</span><span class="p">)</span>
+    <span class="n">sites</span> <span class="o">=</span> <span class="n">_object</span><span class="p">(</span><span class="n">top</span><span class="p">[</span><span class="s2">"sites"</span><span class="p">],</span> <span class="p">(</span><span class="s2">"reduced_coords"</span><span class="p">,</span> <span class="s2">"precision"</span><span class="p">),</span> <span class="s2">"sites"</span><span class="p">)</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="n">_items</span><span class="p">(</span><span class="k">lambda</span> <span class="n">row</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="n">_items</span><span class="p">(</span><span class="n">_rational</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">sites</span><span class="p">[</span><span class="s2">"reduced_coords"</span><span class="p">],</span> <span class="s2">"sites.reduced_coords"</span><span class="p">)</span>
+    <span class="n">arguments</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"unscaled_basis"</span><span class="p">:</span> <span class="n">_items</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">row</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="n">_items</span><span class="p">(</span><span class="n">_cell_surd</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">cell</span><span class="p">[</span><span class="s2">"unscaled_basis"</span><span class="p">],</span> <span class="s2">"cell.unscaled_basis"</span><span class="p">,</span> <span class="mi">3</span>
+        <span class="p">),</span>
+        <span class="s2">"scale"</span><span class="p">:</span> <span class="n">_cell_surd</span><span class="p">(</span><span class="n">cell</span><span class="p">[</span><span class="s2">"scale"</span><span class="p">],</span> <span class="s2">"cell.scale"</span><span class="p">),</span>
+        <span class="s2">"cell_precision"</span><span class="p">:</span> <span class="n">_optional</span><span class="p">(</span><span class="n">_rational</span><span class="p">,</span> <span class="n">cell</span><span class="p">[</span><span class="s2">"precision"</span><span class="p">],</span> <span class="s2">"cell.precision"</span><span class="p">),</span>
+        <span class="s2">"periodicity"</span><span class="p">:</span> <span class="n">_items</span><span class="p">(</span><span class="n">_boolean</span><span class="p">,</span> <span class="n">cell</span><span class="p">[</span><span class="s2">"periodicity"</span><span class="p">],</span> <span class="s2">"cell.periodicity"</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="s2">"reduced_coords"</span><span class="p">:</span> <span class="n">rows</span><span class="p">,</span>
+        <span class="s2">"sites_precision"</span><span class="p">:</span> <span class="n">_optional</span><span class="p">(</span><span class="n">_rational</span><span class="p">,</span> <span class="n">sites</span><span class="p">[</span><span class="s2">"precision"</span><span class="p">],</span> <span class="s2">"sites.precision"</span><span class="p">),</span>
+        <span class="s2">"species"</span><span class="p">:</span> <span class="n">_items</span><span class="p">(</span><span class="n">_decode_species</span><span class="p">,</span> <span class="n">top</span><span class="p">[</span><span class="s2">"species"</span><span class="p">],</span> <span class="s2">"species"</span><span class="p">),</span>
+        <span class="s2">"species_at_sites"</span><span class="p">:</span> <span class="n">_items</span><span class="p">(</span><span class="n">_string</span><span class="p">,</span> <span class="n">top</span><span class="p">[</span><span class="s2">"species_at_sites"</span><span class="p">],</span> <span class="s2">"species_at_sites"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">)),</span>
+        <span class="s2">"site_moments"</span><span class="p">:</span> <span class="n">_optional</span><span class="p">(</span><span class="n">_decode_moments</span><span class="p">,</span> <span class="n">top</span><span class="p">[</span><span class="s2">"site_moments"</span><span class="p">],</span> <span class="s2">"site_moments"</span><span class="p">),</span>
+        <span class="s2">"charge"</span><span class="p">:</span> <span class="n">_optional</span><span class="p">(</span><span class="n">_rational</span><span class="p">,</span> <span class="n">top</span><span class="p">[</span><span class="s2">"charge"</span><span class="p">],</span> <span class="s2">"charge"</span><span class="p">),</span>
+        <span class="s2">"molecular"</span><span class="p">:</span> <span class="n">_boolean</span><span class="p">(</span><span class="n">top</span><span class="p">[</span><span class="s2">"molecular"</span><span class="p">],</span> <span class="s2">"molecular"</span><span class="p">),</span>
+        <span class="s2">"assemblies"</span><span class="p">:</span> <span class="n">_optional_items</span><span class="p">(</span><span class="n">_decode_assembly</span><span class="p">,</span> <span class="n">top</span><span class="p">[</span><span class="s2">"assemblies"</span><span class="p">],</span> <span class="s2">"assemblies"</span><span class="p">),</span>
+        <span class="s2">"symmetry"</span><span class="p">:</span> <span class="n">_optional</span><span class="p">(</span><span class="n">_decode_symmetry</span><span class="p">,</span> <span class="n">top</span><span class="p">[</span><span class="s2">"symmetry"</span><span class="p">],</span> <span class="s2">"symmetry"</span><span class="p">),</span>
+        <span class="s2">"chemical_composition"</span><span class="p">:</span> <span class="n">_optional</span><span class="p">(</span><span class="n">_decode_composition</span><span class="p">,</span> <span class="n">top</span><span class="p">[</span><span class="s2">"chemical_composition"</span><span class="p">],</span> <span class="s2">"chemical_composition"</span><span class="p">),</span>
+        <span class="s2">"last_modified"</span><span class="p">:</span> <span class="n">_optional</span><span class="p">(</span><span class="n">_decode_timestamp</span><span class="p">,</span> <span class="n">top</span><span class="p">[</span><span class="s2">"last_modified"</span><span class="p">],</span> <span class="s2">"last_modified"</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"chemical_formula_descriptive"</span><span class="p">,</span> <span class="s2">"chemical_formula_hill"</span><span class="p">,</span> <span class="s2">"optimization_type"</span><span class="p">,</span> <span class="s2">"immutable_id"</span><span class="p">):</span>
+        <span class="n">arguments</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_optional</span><span class="p">(</span><span class="n">_string</span><span class="p">,</span> <span class="n">top</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">name</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">arguments</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_decode_species</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="n">species</span> <span class="o">=</span> <span class="n">_object</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">_SPECIES_KEYS</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="n">_string</span><span class="p">(</span><span class="n">species</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.name"</span><span class="p">),</span>
+        <span class="s2">"chemical_symbols"</span><span class="p">:</span> <span class="n">_items</span><span class="p">(</span><span class="n">_string</span><span class="p">,</span> <span class="n">species</span><span class="p">[</span><span class="s2">"chemical_symbols"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.chemical_symbols"</span><span class="p">),</span>
+        <span class="s2">"concentration"</span><span class="p">:</span> <span class="n">_items</span><span class="p">(</span><span class="n">_rational</span><span class="p">,</span> <span class="n">species</span><span class="p">[</span><span class="s2">"concentration"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.concentration"</span><span class="p">),</span>
+        <span class="s2">"concentration_precision"</span><span class="p">:</span> <span class="n">_optional_items</span><span class="p">(</span>
+            <span class="n">_items_or_null</span><span class="p">(</span><span class="n">_rational</span><span class="p">),</span> <span class="n">species</span><span class="p">[</span><span class="s2">"concentration_precision"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.concentration_precision"</span>
+        <span class="p">),</span>
+        <span class="s2">"mass"</span><span class="p">:</span> <span class="n">_optional_items</span><span class="p">(</span><span class="n">_float</span><span class="p">,</span> <span class="n">species</span><span class="p">[</span><span class="s2">"mass"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.mass"</span><span class="p">),</span>
+        <span class="s2">"original_name"</span><span class="p">:</span> <span class="n">_optional</span><span class="p">(</span><span class="n">_string</span><span class="p">,</span> <span class="n">species</span><span class="p">[</span><span class="s2">"original_name"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.original_name"</span><span class="p">),</span>
+        <span class="s2">"attached"</span><span class="p">:</span> <span class="n">_optional_items</span><span class="p">(</span><span class="n">_string</span><span class="p">,</span> <span class="n">species</span><span class="p">[</span><span class="s2">"attached"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.attached"</span><span class="p">),</span>
+        <span class="s2">"nattached"</span><span class="p">:</span> <span class="n">_optional_items</span><span class="p">(</span><span class="n">_integer</span><span class="p">,</span> <span class="n">species</span><span class="p">[</span><span class="s2">"nattached"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.nattached"</span><span class="p">),</span>
+        <span class="s2">"charges"</span><span class="p">:</span> <span class="n">_optional_items</span><span class="p">(</span><span class="n">_items_or_null</span><span class="p">(</span><span class="n">_rational</span><span class="p">),</span> <span class="n">species</span><span class="p">[</span><span class="s2">"charges"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.charges"</span><span class="p">),</span>
+        <span class="s2">"spins"</span><span class="p">:</span> <span class="n">_optional_items</span><span class="p">(</span><span class="n">_items_or_null</span><span class="p">(</span><span class="n">_rational</span><span class="p">),</span> <span class="n">species</span><span class="p">[</span><span class="s2">"spins"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.spins"</span><span class="p">),</span>
+        <span class="s2">"labels"</span><span class="p">:</span> <span class="n">_optional_items</span><span class="p">(</span><span class="n">_items_or_null</span><span class="p">(</span><span class="n">_string</span><span class="p">),</span> <span class="n">species</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.labels"</span><span class="p">),</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_decode_moments</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">SurdScalar</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Fraction</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+    <span class="n">moments</span> <span class="o">=</span> <span class="n">_object</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="s2">"kind"</span><span class="p">,</span> <span class="s2">"moments"</span><span class="p">,</span> <span class="s2">"precision"</span><span class="p">),</span> <span class="n">field</span><span class="p">)</span>
+    <span class="n">kind</span> <span class="o">=</span> <span class="n">_string</span><span class="p">(</span><span class="n">moments</span><span class="p">[</span><span class="s2">"kind"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.kind"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_MOMENT_KINDS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.kind must be one of </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_MOMENT_KINDS</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"collinear"</span><span class="p">:</span>
+        <span class="n">components</span> <span class="o">=</span> <span class="n">_items</span><span class="p">(</span><span class="n">_surd</span><span class="p">,</span> <span class="n">moments</span><span class="p">[</span><span class="s2">"moments"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.moments"</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">_items</span><span class="p">(</span><span class="k">lambda</span> <span class="n">row</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">_items</span><span class="p">(</span><span class="n">_surd</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">moments</span><span class="p">[</span><span class="s2">"moments"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.moments"</span><span class="p">)</span>
+        <span class="n">components</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">component</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span> <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="n">row</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">kind</span><span class="p">,</span> <span class="n">components</span><span class="p">,</span> <span class="n">_optional</span><span class="p">(</span><span class="n">_rational</span><span class="p">,</span> <span class="n">moments</span><span class="p">[</span><span class="s2">"precision"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.precision"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_decode_assembly</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+    <span class="n">assembly</span> <span class="o">=</span> <span class="n">_object</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="s2">"sites_in_groups"</span><span class="p">,</span> <span class="s2">"group_probabilities"</span><span class="p">,</span> <span class="s2">"group_probabilities_precision"</span><span class="p">),</span> <span class="n">field</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">_items</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">group</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">_items</span><span class="p">(</span><span class="n">_integer</span><span class="p">,</span> <span class="n">group</span><span class="p">,</span> <span class="n">item</span><span class="p">),</span> <span class="n">assembly</span><span class="p">[</span><span class="s2">"sites_in_groups"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.sites_in_groups"</span>
+        <span class="p">),</span>
+        <span class="n">_items</span><span class="p">(</span><span class="n">_rational</span><span class="p">,</span> <span class="n">assembly</span><span class="p">[</span><span class="s2">"group_probabilities"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.group_probabilities"</span><span class="p">),</span>
+        <span class="n">_optional_items</span><span class="p">(</span>
+            <span class="n">_items_or_null</span><span class="p">(</span><span class="n">_rational</span><span class="p">),</span>
+            <span class="n">assembly</span><span class="p">[</span><span class="s2">"group_probabilities_precision"</span><span class="p">],</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.group_probabilities_precision"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_decode_symmetry</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+    <span class="n">symmetry</span> <span class="o">=</span> <span class="n">_object</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">_SYMMETRY_KEYS</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">_optional</span><span class="p">(</span><span class="n">_integer</span><span class="p">,</span> <span class="n">symmetry</span><span class="p">[</span><span class="s2">"space_group_it_number"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.space_group_it_number"</span><span class="p">),</span>
+        <span class="n">_optional</span><span class="p">(</span><span class="n">_symbol</span><span class="p">,</span> <span class="n">symmetry</span><span class="p">[</span><span class="s2">"space_group_symbol_hall"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.space_group_symbol_hall"</span><span class="p">),</span>
+        <span class="n">_optional</span><span class="p">(</span>
+            <span class="n">_symbol</span><span class="p">,</span> <span class="n">symmetry</span><span class="p">[</span><span class="s2">"space_group_symbol_hermann_mauguin"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.space_group_symbol_hermann_mauguin"</span>
+        <span class="p">),</span>
+        <span class="n">_optional</span><span class="p">(</span>
+            <span class="n">_symbol</span><span class="p">,</span>
+            <span class="n">symmetry</span><span class="p">[</span><span class="s2">"space_group_symbol_hermann_mauguin_extended"</span><span class="p">],</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.space_group_symbol_hermann_mauguin_extended"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">_optional_items</span><span class="p">(</span>
+            <span class="n">_operation</span><span class="p">,</span>
+            <span class="n">symmetry</span><span class="p">[</span><span class="s2">"space_group_symmetry_operations_xyz"</span><span class="p">],</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.space_group_symmetry_operations_xyz"</span><span class="p">,</span>
+            <span class="n">_MAX_OPERATIONS</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">_optional_items</span><span class="p">(</span><span class="n">_symbol</span><span class="p">,</span> <span class="n">symmetry</span><span class="p">[</span><span class="s2">"wyckoff_positions"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.wyckoff_positions"</span><span class="p">),</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_decode_composition</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+    <span class="n">composition</span> <span class="o">=</span> <span class="n">_object</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="s2">"mode"</span><span class="p">,</span> <span class="s2">"amounts"</span><span class="p">),</span> <span class="n">field</span><span class="p">)</span>
+    <span class="n">amounts</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">_object</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="p">(</span><span class="s2">"element"</span><span class="p">,</span> <span class="s2">"amount"</span><span class="p">,</span> <span class="s2">"precision"</span><span class="p">),</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.amounts[</span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2">]"</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">_list</span><span class="p">(</span><span class="n">composition</span><span class="p">[</span><span class="s2">"amounts"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.amounts"</span><span class="p">))</span>
+    <span class="p">]</span>
+    <span class="n">elements</span> <span class="o">=</span> <span class="p">[</span><span class="n">_string</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"element"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.amounts.element"</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">amounts</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">elements</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.amounts repeats an element"</span><span class="p">)</span>
+    <span class="n">precisions</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">element</span><span class="p">:</span> <span class="n">_rational</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"precision"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.amounts.precision"</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">element</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">amounts</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">item</span><span class="p">[</span><span class="s2">"precision"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="p">}</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="n">_string</span><span class="p">(</span><span class="n">composition</span><span class="p">[</span><span class="s2">"mode"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.mode"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"implicit"</span><span class="p">,</span> <span class="s2">"full"</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.mode must be 'implicit' or 'full'"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="p">{</span><span class="n">element</span><span class="p">:</span> <span class="n">_rational</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"amount"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">.amounts.amount"</span><span class="p">)</span> <span class="k">for</span> <span class="n">element</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">amounts</span><span class="p">)},</span>
+        <span class="n">mode</span><span class="p">,</span>
+        <span class="n">precisions</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_decode_timestamp</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">:</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">_string</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> is not an ISO 8601 timestamp: </span><span class="si">{</span><span class="n">text</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">utcoffset</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">result</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span> <span class="o">!=</span> <span class="n">text</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must be a canonical ISO 8601 timestamp with a UTC offset"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_separated_from_zero</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">SurdScalar</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Refuse a value whose terms cancel to within ``2**-128`` of the largest term.</span>
+
+<span class="sd">    ``SurdScalar.sign`` refines one decimal digit per step until the value's interval</span>
+<span class="sd">    excludes zero, so its cost grows with the cancellation depth (a Pell pair ``p - q*sqrt(2)``</span>
+<span class="sd">    of 500 digits takes seconds). Each term is approximated here as an integer scaled so the</span>
+<span class="sd">    largest term has about ``2**192``; each approximation is off by less than one unit, so a</span>
+<span class="sd">    sum of at least ``2**64`` proves the value is no closer to zero than ``2**-128`` of its</span>
+<span class="sd">    largest term, which bounds the exact sign decision to a few dozen steps.</span>
+<span class="sd">    """</span>
+    <span class="n">terms</span> <span class="o">=</span> <span class="p">[(</span><span class="n">value</span><span class="o">.</span><span class="n">coefficient</span><span class="p">(</span><span class="n">radicand</span><span class="p">)</span><span class="o">.</span><span class="n">to_fraction</span><span class="p">(),</span> <span class="n">radicand</span><span class="p">)</span> <span class="k">for</span> <span class="n">radicand</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">radicands</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">terms</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># zero, or one term: the sign is immediate</span>
+        <span class="k">return</span>
+    <span class="n">exponent</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+        <span class="nb">abs</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">numerator</span><span class="p">)</span><span class="o">.</span><span class="n">bit_length</span><span class="p">()</span> <span class="o">-</span> <span class="n">q</span><span class="o">.</span><span class="n">denominator</span><span class="o">.</span><span class="n">bit_length</span><span class="p">()</span> <span class="o">+</span> <span class="n">radicand</span><span class="o">.</span><span class="n">bit_length</span><span class="p">()</span> <span class="o">//</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">q</span><span class="p">,</span> <span class="n">radicand</span> <span class="ow">in</span> <span class="n">terms</span>
+    <span class="p">)</span>
+    <span class="n">shift</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">_SEPARATION_BITS</span> <span class="o">+</span> <span class="mi">64</span> <span class="o">-</span> <span class="n">exponent</span><span class="p">)</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">q</span><span class="p">,</span> <span class="n">radicand</span> <span class="ow">in</span> <span class="n">terms</span><span class="p">:</span>
+        <span class="n">numerator</span><span class="p">,</span> <span class="n">denominator</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">numerator</span> <span class="o">*</span> <span class="n">q</span><span class="o">.</span><span class="n">numerator</span> <span class="o">*</span> <span class="n">radicand</span><span class="p">,</span> <span class="n">q</span><span class="o">.</span><span class="n">denominator</span> <span class="o">*</span> <span class="n">q</span><span class="o">.</span><span class="n">denominator</span>
+        <span class="k">if</span> <span class="n">shift</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">numerator</span> <span class="o">&lt;&lt;=</span> <span class="n">shift</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">denominator</span> <span class="o">&lt;&lt;=</span> <span class="o">-</span><span class="n">shift</span>
+        <span class="n">approximation</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">isqrt</span><span class="p">(</span><span class="n">numerator</span> <span class="o">//</span> <span class="n">denominator</span><span class="p">)</span>
+        <span class="n">total</span> <span class="o">+=</span> <span class="n">approximation</span> <span class="k">if</span> <span class="n">q</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="o">-</span><span class="n">approximation</span>
+    <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">total</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="o">**</span><span class="mi">64</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> cancels too closely to zero to be decided exactly"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_unscaled_basis</span><span class="p">(</span><span class="n">arguments</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">SurdVector</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Build the unscaled basis, refusing a scale or determinant that nearly cancels."""</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.storage.records</span><span class="w"> </span><span class="kn">import</span> <span class="n">_basis_vector</span>
+
+    <span class="n">basis</span> <span class="o">=</span> <span class="n">_basis_vector</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">value</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">[</span><span class="s2">"unscaled_basis"</span><span class="p">]</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">row</span><span class="p">))</span>
+    <span class="n">_check_separated_from_zero</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"scale"</span><span class="p">],</span> <span class="s2">"cell.scale"</span><span class="p">)</span>
+    <span class="n">_check_separated_from_zero</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">SurdScalar</span><span class="p">,</span> <span class="n">basis</span><span class="o">.</span><span class="n">det</span><span class="p">()),</span> <span class="s2">"cell.unscaled_basis determinant"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">basis</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_structure_from_document</span><span class="p">(</span><span class="n">document</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UnitcellStructure</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Build the exact structure a document describes.</span>
+
+<span class="sd">    :param document: The decoded JSON document.</span>
+<span class="sd">    :return: The described unit-cell structure.</span>
+<span class="sd">    :raises ValueError: If the document is malformed or describes an inconsistent structure.</span>
+<span class="sd">    """</span>
+    <span class="n">arguments</span> <span class="o">=</span> <span class="n">_decode_arguments</span><span class="p">(</span><span class="n">document</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_build_structure</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ArithmeticError</span><span class="p">)</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure document describes an invalid structure: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_structure</span><span class="p">(</span><span class="n">arguments</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">UnitcellStructure</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.storage.records</span><span class="w"> </span><span class="kn">import</span> <span class="n">_moment_from_record</span>
+
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">Cell</span><span class="p">(</span>
+        <span class="n">_unscaled_basis</span><span class="p">(</span><span class="n">arguments</span><span class="p">),</span>
+        <span class="n">scale</span><span class="o">=</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"scale"</span><span class="p">],</span>
+        <span class="n">precision</span><span class="o">=</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"cell_precision"</span><span class="p">],</span>
+        <span class="n">periodicity</span><span class="o">=</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"periodicity"</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">moments</span><span class="p">,</span> <span class="n">assemblies</span> <span class="o">=</span> <span class="n">arguments</span><span class="p">[</span><span class="s2">"site_moments"</span><span class="p">],</span> <span class="n">arguments</span><span class="p">[</span><span class="s2">"assemblies"</span><span class="p">]</span>
+    <span class="n">symmetry</span><span class="p">,</span> <span class="n">composition</span> <span class="o">=</span> <span class="n">arguments</span><span class="p">[</span><span class="s2">"symmetry"</span><span class="p">],</span> <span class="n">arguments</span><span class="p">[</span><span class="s2">"chemical_composition"</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">UnitcellStructure</span><span class="p">(</span>
+        <span class="n">cell</span><span class="p">,</span>
+        <span class="n">Sites</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"reduced_coords"</span><span class="p">],</span> <span class="n">precision</span><span class="o">=</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"sites_precision"</span><span class="p">]),</span>
+        <span class="nb">tuple</span><span class="p">(</span><span class="n">Species</span><span class="p">(</span><span class="o">**</span><span class="n">species</span><span class="p">)</span> <span class="k">for</span> <span class="n">species</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">[</span><span class="s2">"species"</span><span class="p">]),</span>
+        <span class="n">arguments</span><span class="p">[</span><span class="s2">"species_at_sites"</span><span class="p">],</span>
+        <span class="n">site_moments</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">moments</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_moment_from_record</span><span class="p">(</span><span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">moments</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">moments</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">cell</span><span class="p">),</span>
+        <span class="n">molecular</span><span class="o">=</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"molecular"</span><span class="p">],</span>
+        <span class="n">assemblies</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">assemblies</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">Assembly</span><span class="p">(</span><span class="o">*</span><span class="n">assembly</span><span class="p">)</span> <span class="k">for</span> <span class="n">assembly</span> <span class="ow">in</span> <span class="n">assemblies</span><span class="p">),</span>
+        <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">symmetry</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">StructureSymmetry</span><span class="p">(</span><span class="o">*</span><span class="n">symmetry</span><span class="p">),</span>
+        <span class="n">chemical_composition</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">composition</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">ChemicalComposition</span><span class="p">(</span><span class="o">*</span><span class="n">composition</span><span class="p">),</span>
+        <span class="n">chemical_formula_descriptive</span><span class="o">=</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"chemical_formula_descriptive"</span><span class="p">],</span>
+        <span class="n">chemical_formula_hill</span><span class="o">=</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"chemical_formula_hill"</span><span class="p">],</span>
+        <span class="n">optimization_type</span><span class="o">=</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"optimization_type"</span><span class="p">],</span>
+        <span class="n">immutable_id</span><span class="o">=</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"immutable_id"</span><span class="p">],</span>
+        <span class="n">last_modified</span><span class="o">=</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"last_modified"</span><span class="p">],</span>
+        <span class="n">charge</span><span class="o">=</span><span class="n">arguments</span><span class="p">[</span><span class="s2">"charge"</span><span class="p">],</span>
+    <span class="p">)</span>
+
+
+<span class="c1"># --------------------------------------------------------------------------- encoding</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_json_value</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_optional_rationals</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">values</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="p">[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_rational_text</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">values</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_structure_document</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Serialize an httk structure to its exact ``httk-structure`` document.</span>
+
+<span class="sd">    :param obj: A unit-cell structure, or any httk structure that ``UnitcellStructureView`` presents.</span>
+<span class="sd">    :return: The JSON-compatible document.</span>
+<span class="sd">    :raises ValueError: If ``obj`` is not an httk structure, or holds a value outside the format's bounds.</span>
+<span class="sd">    """</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.atomistic.storage.records</span><span class="w"> </span><span class="kn">import</span> <span class="n">_extract_surd_scalar</span><span class="p">,</span> <span class="n">_moment_components</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">UnitcellStructure</span><span class="p">):</span>
+        <span class="n">structure</span> <span class="o">=</span> <span class="n">obj</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">StructureBackend</span> <span class="o">|</span> <span class="n">StructureView</span><span class="p">):</span>
+        <span class="n">structure</span> <span class="o">=</span> <span class="n">UnitcellStructureView</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"httk-structure saves httk structures only, not </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">; convert other values "</span>
+            <span class="s2">"explicitly with UnitcellStructureView(value) first"</span>
+        <span class="p">)</span>
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">cell</span>
+    <span class="n">basis</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">unscaled_basis</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">scale</span><span class="p">,</span> <span class="n">structure</span><span class="o">.</span><span class="n">sites</span><span class="o">.</span><span class="n">reduced_coords</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">SurdVector</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">SurdScalar</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">FracVector</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"httk-structure can only save a structure whose cell and sites are exact"</span><span class="p">)</span>
+    <span class="n">moments</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">site_moments</span>
+    <span class="n">moment_values</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">moments</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">components</span> <span class="o">=</span> <span class="p">[</span><span class="n">_surd_text</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">"site moment"</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">_moment_components</span><span class="p">(</span><span class="n">moments</span><span class="p">)]</span>
+        <span class="n">kind</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">moments</span><span class="p">)</span><span class="o">.</span><span class="n">kind</span>
+        <span class="n">moment_values</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"kind"</span><span class="p">:</span> <span class="n">kind</span><span class="p">,</span>
+            <span class="s2">"moments"</span><span class="p">:</span> <span class="n">components</span>
+            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"collinear"</span>
+            <span class="k">else</span> <span class="p">[</span><span class="n">components</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">offset</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">components</span><span class="p">),</span> <span class="mi">3</span><span class="p">)],</span>
+            <span class="s2">"precision"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">moments</span><span class="o">.</span><span class="n">precision</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_rational_text</span><span class="p">(</span><span class="n">moments</span><span class="o">.</span><span class="n">precision</span><span class="p">,</span> <span class="s2">"moment precision"</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="n">symmetry</span> <span class="o">=</span> <span class="n">_stated_symmetry</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">symmetry</span><span class="p">)</span>
+    <span class="n">composition</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">chemical_composition</span>
+    <span class="n">last_modified</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">last_modified</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"format"</span><span class="p">:</span> <span class="n">FORMAT</span><span class="p">,</span>
+        <span class="s2">"version"</span><span class="p">:</span> <span class="n">VERSION</span><span class="p">,</span>
+        <span class="s2">"cell"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"unscaled_basis"</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">[</span><span class="n">_surd_text</span><span class="p">(</span><span class="n">_extract_surd_scalar</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">column</span><span class="p">)),</span> <span class="s2">"cell basis"</span><span class="p">)</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+                <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+            <span class="p">],</span>
+            <span class="s2">"scale"</span><span class="p">:</span> <span class="n">_surd_text</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="s2">"cell scale"</span><span class="p">),</span>
+            <span class="s2">"precision"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">cell</span><span class="o">.</span><span class="n">precision</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_rational_text</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">precision</span><span class="p">,</span> <span class="s2">"cell precision"</span><span class="p">),</span>
+            <span class="s2">"periodicity"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">periodicity</span><span class="p">),</span>
+        <span class="p">},</span>
+        <span class="s2">"sites"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"reduced_coords"</span><span class="p">:</span> <span class="p">[[</span><span class="n">_rational_text</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">"coordinate"</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">row</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">coords</span><span class="o">.</span><span class="n">to_fractions</span><span class="p">()],</span>
+            <span class="s2">"precision"</span><span class="p">:</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">structure</span><span class="o">.</span><span class="n">sites</span><span class="o">.</span><span class="n">precision</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="n">_rational_text</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">sites</span><span class="o">.</span><span class="n">precision</span><span class="p">,</span> <span class="s2">"site precision"</span><span class="p">),</span>
+        <span class="p">},</span>
+        <span class="s2">"species"</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">"name"</span><span class="p">:</span> <span class="n">species</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="s2">"chemical_symbols"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">species</span><span class="o">.</span><span class="n">chemical_symbols</span><span class="p">),</span>
+                <span class="s2">"concentration"</span><span class="p">:</span> <span class="p">[</span><span class="n">_rational_text</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">"concentration"</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">species</span><span class="o">.</span><span class="n">concentration</span><span class="p">],</span>
+                <span class="s2">"concentration_precision"</span><span class="p">:</span> <span class="n">_optional_rationals</span><span class="p">(</span>
+                    <span class="n">species</span><span class="o">.</span><span class="n">concentration_precision</span><span class="p">,</span> <span class="s2">"concentration precision"</span>
+                <span class="p">),</span>
+                <span class="s2">"mass"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">species</span><span class="o">.</span><span class="n">mass</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">species</span><span class="o">.</span><span class="n">mass</span><span class="p">),</span>
+                <span class="s2">"original_name"</span><span class="p">:</span> <span class="n">species</span><span class="o">.</span><span class="n">original_name</span><span class="p">,</span>
+                <span class="s2">"attached"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">species</span><span class="o">.</span><span class="n">attached</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">species</span><span class="o">.</span><span class="n">attached</span><span class="p">),</span>
+                <span class="s2">"nattached"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">species</span><span class="o">.</span><span class="n">nattached</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">species</span><span class="o">.</span><span class="n">nattached</span><span class="p">),</span>
+                <span class="s2">"charges"</span><span class="p">:</span> <span class="n">_optional_rationals</span><span class="p">(</span><span class="n">species</span><span class="o">.</span><span class="n">charges</span><span class="p">,</span> <span class="s2">"species charge"</span><span class="p">),</span>
+                <span class="s2">"spins"</span><span class="p">:</span> <span class="n">_optional_rationals</span><span class="p">(</span><span class="n">species</span><span class="o">.</span><span class="n">spins</span><span class="p">,</span> <span class="s2">"species spin"</span><span class="p">),</span>
+                <span class="s2">"labels"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">species</span><span class="o">.</span><span class="n">labels</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">species</span><span class="o">.</span><span class="n">labels</span><span class="p">),</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">species</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">species</span>
+        <span class="p">],</span>
+        <span class="s2">"species_at_sites"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">species_at_sites</span><span class="p">),</span>
+        <span class="s2">"site_moments"</span><span class="p">:</span> <span class="n">moment_values</span><span class="p">,</span>
+        <span class="s2">"charge"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">structure</span><span class="o">.</span><span class="n">charge</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_rational_text</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span> <span class="s2">"charge"</span><span class="p">),</span>
+        <span class="s2">"molecular"</span><span class="p">:</span> <span class="n">structure</span><span class="o">.</span><span class="n">molecular</span><span class="p">,</span>
+        <span class="s2">"assemblies"</span><span class="p">:</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">structure</span><span class="o">.</span><span class="n">assemblies</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">"sites_in_groups"</span><span class="p">:</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">group</span><span class="p">)</span> <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">assembly</span><span class="o">.</span><span class="n">sites_in_groups</span><span class="p">],</span>
+                <span class="s2">"group_probabilities"</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="n">_rational_text</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">"group probability"</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">assembly</span><span class="o">.</span><span class="n">group_probabilities</span>
+                <span class="p">],</span>
+                <span class="s2">"group_probabilities_precision"</span><span class="p">:</span> <span class="n">_optional_rationals</span><span class="p">(</span>
+                    <span class="n">assembly</span><span class="o">.</span><span class="n">group_probabilities_precision</span><span class="p">,</span> <span class="s2">"group probability precision"</span>
+                <span class="p">),</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">assembly</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">assemblies</span>
+        <span class="p">],</span>
+        <span class="s2">"symmetry"</span><span class="p">:</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">symmetry</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">_json_value</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">symmetry</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_SYMMETRY_KEYS</span><span class="p">},</span>
+        <span class="s2">"chemical_composition"</span><span class="p">:</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">composition</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="p">{</span>
+            <span class="s2">"mode"</span><span class="p">:</span> <span class="n">composition</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+            <span class="s2">"amounts"</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span>
+                    <span class="s2">"element"</span><span class="p">:</span> <span class="n">element</span><span class="p">,</span>
+                    <span class="s2">"amount"</span><span class="p">:</span> <span class="n">_rational_text</span><span class="p">(</span><span class="n">amount</span><span class="p">,</span> <span class="s2">"composition amount"</span><span class="p">),</span>
+                    <span class="s2">"precision"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">precision</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_rational_text</span><span class="p">(</span><span class="n">precision</span><span class="p">,</span> <span class="s2">"composition precision"</span><span class="p">),</span>
+                <span class="p">}</span>
+                <span class="k">for</span> <span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">amount</span><span class="p">),</span> <span class="p">(</span><span class="n">_element</span><span class="p">,</span> <span class="n">precision</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">composition</span><span class="o">.</span><span class="n">amounts</span><span class="p">,</span> <span class="n">composition</span><span class="o">.</span><span class="n">amounts_precision</span><span class="p">)</span>
+            <span class="p">],</span>
+        <span class="p">},</span>
+        <span class="s2">"chemical_formula_descriptive"</span><span class="p">:</span> <span class="n">structure</span><span class="o">.</span><span class="n">chemical_formula_descriptive</span><span class="p">,</span>
+        <span class="s2">"chemical_formula_hill"</span><span class="p">:</span> <span class="n">structure</span><span class="o">.</span><span class="n">chemical_formula_hill</span><span class="p">,</span>
+        <span class="s2">"optimization_type"</span><span class="p">:</span> <span class="n">structure</span><span class="o">.</span><span class="n">optimization_type</span><span class="p">,</span>
+        <span class="s2">"immutable_id"</span><span class="p">:</span> <span class="n">structure</span><span class="o">.</span><span class="n">immutable_id</span><span class="p">,</span>
+        <span class="s2">"last_modified"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">last_modified</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">last_modified</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+    <span class="p">}</span>
+
+
+<span class="c1"># --------------------------------------------------------------------------- file layer</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_reject_duplicate_members</span><span class="p">(</span><span class="n">pairs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pairs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"httk-structure document repeats a JSON object member"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_reject_constant</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure document contains the non-JSON constant </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+
+<span class="n">_OVERSIZED</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"httk-structure document exceeds </span><span class="si">{</span><span class="n">_MAX_DOCUMENT_CHARACTERS</span><span class="si">}</span><span class="s2"> characters"</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_text</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">IO</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">IO</span><span class="p">[</span><span class="nb">bytes</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Read at most the document cap, counted in characters after strict UTF-8 decoding."""</span>
+    <span class="n">limit</span> <span class="o">=</span> <span class="n">_MAX_DOCUMENT_CHARACTERS</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">TextstreamFileView</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">fspath</span><span class="p">(</span><span class="n">source</span><span class="p">))</span> <span class="k">as</span> <span class="n">stream</span><span class="p">:</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">limit</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">limit</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="c1"># A UTF-8 character takes at most four bytes, so 4 * limit bytes exceed the cap.</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">limit</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">_OVERSIZED</span><span class="p">)</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="n">content</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">_MAX_DOCUMENT_CHARACTERS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">_OVERSIZED</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">text</span>
+
+
+<div class="viewcode-block" id="read_httk_structure">
+<a class="viewcode-back" href="../../../../reference/autoapi/httk/atomistic/io/httk_structure/index.html#httk.atomistic.io.httk_structure.read_httk_structure">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_httk_structure</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">IO</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">IO</span><span class="p">[</span><span class="nb">bytes</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Read and validate an ``httk-structure`` file into its JSON document.</span>
+
+<span class="sd">    The document is checked completely (members, types, shapes and exact-number spellings)</span>
+<span class="sd">    before it is returned; ``httk.core.load`` then builds the</span>
+<span class="sd">    :class:`~httk.atomistic.UnitcellStructure`, whose constructors check the remaining</span>
+<span class="sd">    semantic consistency.</span>
+
+<span class="sd">    :param source: A filename, optionally compressed, or an open text or binary (UTF-8) stream.</span>
+<span class="sd">    :return: The validated document, a mapping whose ``format`` is ``"httk-structure"``.</span>
+<span class="sd">    :raises ValueError: If the text is not a valid ``httk-structure`` version-1 document.</span>
+<span class="sd">    """</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">_read_text</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">document</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">object_pairs_hook</span><span class="o">=</span><span class="n">_reject_duplicate_members</span><span class="p">,</span> <span class="n">parse_constant</span><span class="o">=</span><span class="n">_reject_constant</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk-structure document is not valid JSON: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+    <span class="k">except</span> <span class="ne">RecursionError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"httk-structure document is nested too deeply"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+    <span class="n">_decode_arguments</span><span class="p">(</span><span class="n">document</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">document</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_write_httk_structure</span><span class="p">(</span><span class="n">destination</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOBase</span><span class="p">,</span> <span class="n">document</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Write a validated ``httk-structure`` document as deterministic JSON text."""</span>
+    <span class="n">_unscaled_basis</span><span class="p">(</span><span class="n">_decode_arguments</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">document</span><span class="p">)))</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">document</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">allow_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">destination</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">):</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">destination</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"ascii"</span><span class="p">,</span> <span class="n">newline</span><span class="o">=</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+            <span class="n">handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">destination</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"FORMAT"</span><span class="p">,</span> <span class="s2">"VERSION"</span><span class="p">,</span> <span class="s2">"read_httk_structure"</span><span class="p">]</span>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, The httk-atomistic AUTHORS
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../../_static/documentation_options.js?v=952df46a"></script>
+    <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../_static/copybutton.js?v=fd10adb8"></script>
+    <script src="../../../../_static/selector.js?v=d8e9b3ce"></script>
+    <script>window.HTTK_DOCS_VERSIONING = {"channel":"dev","version":"dev:develop","versionPathDepth":2};</script>
+    </body>
+</html>

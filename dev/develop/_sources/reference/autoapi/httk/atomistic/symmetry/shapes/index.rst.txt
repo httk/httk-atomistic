@@ -1,0 +1,108 @@
+httk.atomistic.symmetry.shapes
+==============================
+
+.. py:module:: httk.atomistic.symmetry.shapes
+
+.. autoapi-nested-parse::
+
+   Baseline shape detector for the bonds around one atom (private; protonet follow-up 5, part B).
+
+   A site's *shape* is the arrangement of the bonds of one of its atoms: the directions from the atom
+   to every atom it is bonded to.  The baseline detector looks at directions only, not bond lengths:
+
+   1. take the angle between every pair of bond directions and sort the angles;
+   2. for every ideal shape with the same number of bonds, the misfit is the root mean square
+      difference between the sorted angles and the ideal shape's sorted angles (degrees), rounded
+      to 1e-6;
+   3. the shape with the smallest misfit wins (ties: table order); a misfit above
+      ``_IRREGULAR_ABOVE`` gives ``I``;
+   4. two bonds: ``L2`` if the angle is at least ``_LINEAR_FROM``, else ``A2``;
+   5. a bond count without ideal shapes gives ``I``; fewer than two bonds give no shape.
+
+   This is a port of the workspace reference ``docs/protonet_followup/shape_reference.py`` and must
+   reproduce it exactly (floats: geometry presentation only).  Some ideal shapes lie closer to each
+   other than the irregular limit in this measure (``COC12``/``ACOC12`` 9.38, ``COC12``/``IC12``
+   11.70, ``TP3``/``TPY3`` 13.00, ``CU8``/``HBPY8`` 14.49 degrees RMS); the closest shape still
+   wins deterministically.
+
+   Symbols are IUPAC polyhedral symbols without the hyphen where IUPAC defines one [IUPAC]_, the
+   SHAPE program's labels otherwise [SHAPE]_, and ``I`` (irregular) of our own:
+
+   ========  ==========================================  =============================
+   Symbol    Name                                        Source
+   ========  ==========================================  =============================
+   L2        linear                                      IUPAC L-2
+   A2        angular                                     IUPAC A-2
+   TP3       trigonal plane                              IUPAC TP-3
+   TPY3      trigonal pyramid                            IUPAC TPY-3
+   TS3       T-shape                                     IUPAC TS-3
+   T4        tetrahedron                                 IUPAC T-4
+   SP4       square plane                                IUPAC SP-4
+   SS4       see-saw                                     IUPAC SS-4
+   TBPY5     trigonal bipyramid                          IUPAC TBPY-5
+   SPY5      square pyramid                              IUPAC SPY-5
+   OC6       octahedron                                  IUPAC OC-6
+   TPR6      trigonal prism                              IUPAC TPR-6
+   PPY6      pentagonal pyramid                          SHAPE PPY-6
+   PBPY7     pentagonal bipyramid                        IUPAC PBPY-7
+   TPRS7     trigonal prism, square-face monocapped      IUPAC TPRS-7 (SHAPE: CTPR-7)
+   CU8       cube                                        IUPAC CU-8
+   DD8       dodecahedron                                IUPAC DD-8 (SHAPE: TDD-8)
+   HBPY8     hexagonal bipyramid                         IUPAC HBPY-8
+   TPRT8     trigonal prism, triangular-face bicapped    IUPAC TPRT-8 (SHAPE: ETBPY-8)
+   TPRS9     trigonal prism, square-face tricapped       IUPAC TPRS-9 (SHAPE: TCTPR-9)
+   HBPY9     heptagonal bipyramid                        IUPAC HBPY-9 (SHAPE: HBPY-9)
+   COC12     cuboctahedron                               SHAPE COC-12
+   ACOC12    anticuboctahedron (triangular               SHAPE ACOC-12
+             orthobicupola, J27)
+   IC12      icosahedron                                 SHAPE IC-12
+   I         irregular, three or more bonds              httk
+   ========  ==========================================  =============================
+
+   The shapes that predate follow-up 7 keep the reference's own geometries (for example the
+   trigonal pyramid at 107 degrees between bonds).  Three of them deliberately differ from SHAPE's
+   reference coordinates [cosymlib]_: ``SPY5`` (square pyramid at 100 degrees between apex and
+   base) is 5.04 degrees from SHAPE ``SPY-5``; ``TPRS9`` (prism at 45 degrees from the axis) is 3.28
+   degrees from ``TCTPR-9``; and ``PPY6`` (an icosahedron vertex with its five neighbours and one
+   outward bond) is not SHAPE's ``PPY-6``, whose coordinates are detected as ``TPR6`` (14.56).
+   ``TPRS7`` is SHAPE's reference geometry ``CTPR-7``, taken about the central atom from the
+   program's coordinates [cosymlib]_ (see also [Casanova2003]_); ``TPRT8`` and ``HBPY9`` are the
+   undistorted constructions, which equal SHAPE's ``ETBPY-8`` and ``HBPY-9``.
+
+   The table is what httk *recommends* and what the detector assigns.  Some IUPAC shapes are left out
+   of it: this measure barely tells each from a shape of the table, which its ideal geometry is detected
+   as and which is its *class*.  ``SPY4`` (four-bond square pyramid, 11.6 degrees away) is detected as
+   ``SP4``; ``OCF7`` (face-monocapped octahedron, SHAPE ``COC-7``, 8.72) as ``TPRS7``; ``SAPR8``
+   (square antiprism, 9.65) and ``TPRS8`` (square-face bicapped trigonal prism, 9.12) as ``DD8``;
+   ``OCT8`` (trans-bicapped octahedron, 3.45) as ``HBPY8``.  ``TPRS7`` is therefore the class of the
+   capped seven-bond arrangements, and ``DD8`` the class of the non-cubic eight-bond arrangements other
+   than the bipyramid ``HBPY8`` and the triangular-face bicapped prism ``TPRT8``.
+
+   A person or another program can tell such shapes apart, so a supplied symbol may be any of
+   ``_NAMED_SYMBOLS`` (protonet follow-up 8): every IUPAC polyhedral symbol and the SHAPE labels of
+   the table, or ``I`` on a site with three or more bonds.  A symbol from the baseline (software
+   ``httk_basic``) names a class, while a supplied symbol names the shape itself; the network's
+   ``source`` and ``shapes_source`` tell the two apart.  ``I`` is never valid on two bonds (they are
+   ``L2`` or ``A2``).  ``I`` carries no bond count, which follows from the network (protonet
+   follow-up 9): ``_SHAPE_SYMBOLS`` is the one list of symbols, in the code, labels, records and the
+   exchange formats (OPTIMADE, CIF) alike, and a former ``I<n>`` is refused with a message to write
+   ``I``.
+   The defaults (``_DEFAULTS``) for five, seven and eight bonds are the most frequent shapes on an
+   ICSD sample (protonet follow-up 7): ``SPY5``, ``TPRS7`` and ``DD8``.
+
+   .. [IUPAC] N. G. Connelly, T. Damhus, R. M. Hartshorn, A. T. Hutton (eds.), *Nomenclature of
+      Inorganic Chemistry: IUPAC Recommendations 2005*, RSC Publishing, Cambridge, 2005,
+      section IR-9.3.2.1 and Table IR-9.2 (p. 176).
+   .. [SHAPE] M. Llunell, D. Casanova, J. Cirera, P. Alemany, S. Alvarez, *SHAPE: Program for the
+      Stereochemical Analysis of Molecular Fragments by Means of Continuous Shape Measures and
+      Associated Tools*, User's Manual, Version 2.1, Universitat de Barcelona, March 2013,
+      "List of reference shapes" (pp. 7-9).
+   .. [Casanova2003] D. Casanova, P. Alemany, J. M. Bofill, S. Alvarez, "Shape and symmetry of
+      heptacoordinate transition-metal complexes: structural trends", *Chem. Eur. J.* 9, 1281-1295
+      (2003).
+   .. [cosymlib] Grup d'Estructura Electrònica i Simetria, cosymlib (MIT licence), file
+      ``cosymlib/shape/ideal_structures_center.yaml``, commit ``90533c88``,
+      https://github.com/GrupEstructuraElectronicaSimetria/cosymlib.
+
+
+

@@ -1,0 +1,59 @@
+httk.atomistic.models.sites.numeric
+===================================
+
+.. py:module:: httk.atomistic.models.sites.numeric
+
+.. autoapi-nested-parse::
+
+   The NumericSites value: reduced site coordinates owned as plain floats.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.sites.numeric.NumericSites
+
+
+Module Contents
+---------------
+
+.. py:class:: NumericSites(reduced_coords, *, precision = None)
+
+   Reduced site coordinates owned as plain floats, an immutable value.
+
+   Where a :class:`~httk.atomistic.Sites` holds its reduced coordinates exactly, a
+   ``NumericSites`` holds the N x 3 coordinates as Python floats and returns read-only ``float64``
+   numpy arrays. It is len/iter/indexable over its rows, each a read-only ``(3,)`` array.
+   Constructing one from a ``Sites`` (or any sites backend) is the explicit lossy step.
+
+   Values are canonical: ``-0.0`` becomes ``0.0`` and non-finite numbers are rejected.
+   Construction **requires numpy** (the ``httk-atomistic[numpy]`` extra) and raises
+   :class:`ImportError` eagerly when it is unavailable.
+
+   :param reduced_coords: The reduced coordinates as an N x 3 real array-like, or sites to convert.
+   :param precision: The fractional coordinate precision, if known (default taken from converted
+       sites).
+   :raises ValueError: If the coordinates are not N x 3 or hold a non-finite value.
+
+
+   .. py:property:: precision
+      :type: float | None
+
+
+      The fractional coordinate precision, or ``None`` if unknown.
+
+      :return: The precision as a floating-point value.
+
+
+   .. py:property:: reduced_coords
+      :type: httk.core.NumericVector
+
+
+      The N x 3 reduced site coordinates.
+
+      :return: The coordinates as a read-only float array.
+
+

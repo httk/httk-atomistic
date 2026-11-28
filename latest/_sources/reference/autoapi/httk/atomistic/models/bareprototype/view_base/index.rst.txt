@@ -1,0 +1,30 @@
+httk.atomistic.models.bareprototype.view_base
+=============================================
+
+.. py:module:: httk.atomistic.models.bareprototype.view_base
+
+.. autoapi-nested-parse::
+
+   The abstract prototype view base.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprototype.view_base.BarePrototypeViewBase
+
+
+Module Contents
+---------------
+
+.. py:class:: BarePrototypeViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.bareprototype.backend.BarePrototypeBackend`\ ]
+
+
+   Base class for views presenting prototype backends.
+
+

@@ -1,0 +1,295 @@
+httk.atomistic.models.structure.numeric
+=======================================
+
+.. py:module:: httk.atomistic.models.structure.numeric
+
+.. autoapi-nested-parse::
+
+   The NumericUnitcellStructure value and the backend adapter that gives it the exact interface.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.numeric.NumericUnitcellStructure
+
+
+Module Contents
+---------------
+
+.. py:class:: NumericUnitcellStructure(cell, sites = None, species = None, species_at_sites = None, *, site_moments = None, charge = None, molecular = False, chemical_formula_descriptive = None, chemical_formula_hill = None, optimization_type = None, immutable_id = None, last_modified = None)
+
+   A unit-cell crystal structure that owns its geometry as plain floats, an immutable value.
+
+   The float counterpart of :class:`~httk.atomistic.UnitcellStructure`: its :attr:`cell` is a
+   :class:`~httk.atomistic.models.cell.numeric.NumericCell` and its :attr:`sites` a
+   :class:`~httk.atomistic.models.sites.numeric.NumericSites`. Species follow the
+   ``UnitcellStructure`` rules (inferred from ``species_at_sites`` when ``species`` is omitted)
+   and are rounded through float at construction: every concentration, concentration precision,
+   charge and spin becomes the shortest decimal of its float (``1/3`` becomes
+   ``0.3333333333333333``), so a float round trip of the value is the identity. ``-0.0`` is
+   normalised to ``0.0`` and non-finite numbers are rejected.
+
+   Construction from a single structure-like argument (anything
+   :class:`~httk.atomistic.UnitcellStructureView` accepts) is the explicit lossy conversion. A
+   source's site moments become :class:`~httk.atomistic.models.moments.numeric.NumericSiteMoments`
+   (crystal-axis moments become Cartesian). A numeric structure carries no assemblies, symmetry
+   metadata or chemical composition, so converting a structure that has any of them raises
+   :class:`ValueError`. The source's ``immutable_id`` and ``last_modified`` describe the source
+   and are not carried.
+
+   ``UnitcellStructureView(numeric)`` presents the exact interface, with the floats embedded
+   exactly as written. The composition properties come from that view, built lazily.
+   Construction requires numpy (raising :class:`ImportError` otherwise).
+
+   :param cell: The cell (anything ``NumericCell`` accepts), or a structure to convert.
+   :param sites: The reduced coordinates (anything ``NumericSites`` accepts); omit when
+       converting a structure.
+   :param species: The distinct species definitions. Omit this to infer them from
+       ``species_at_sites``.
+   :param species_at_sites: The species name occupying each site; required unless converting.
+   :param site_moments: Optional per-site magnetic moments in site order (anything
+       ``NumericSiteMoments`` accepts).
+   :param charge: An explicitly assigned charge for the cell content.
+   :param molecular: Whether the structure describes a molecular unit cell.
+   :param chemical_formula_descriptive: Optional descriptive chemical formula.
+   :param chemical_formula_hill: Optional Hill chemical formula.
+   :param optimization_type: Optional optimization provenance.
+   :param immutable_id: Optional immutable source identifier.
+   :param last_modified: Optional source modification timestamp.
+   :raises ValueError: If a value is invalid, or a converted structure has content a numeric
+       structure cannot carry.
+   :raises TypeError: If ``species_at_sites`` is missing, a value has the wrong type, or content
+       keywords are given alongside a structure to convert.
+
+
+   .. py:property:: cell
+      :type: httk.atomistic.models.cell.numeric.NumericCell
+
+
+      The cell geometry as floats.
+
+      :return: The float-owning cell.
+
+
+   .. py:property:: sites
+      :type: httk.atomistic.models.sites.numeric.NumericSites
+
+
+      The reduced site coordinates as floats.
+
+      :return: The float-owning sites.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      The distinct species, rounded through float.
+
+      :return: The species referenced by the structure.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      The species name occupying each site.
+
+      :return: Site species names in site order.
+
+
+   .. py:property:: site_moments
+      :type: httk.atomistic.models.moments.numeric.NumericSiteMoments | None
+
+
+      The per-site magnetic moments as floats.
+
+      :return: The moments, or ``None`` when they are unstated.
+
+
+   .. py:property:: charge
+      :type: float | None
+
+
+      The explicitly assigned charge of the cell.
+
+      :return: The assigned charge, or ``None`` when it is unstated.
+
+
+   .. py:property:: bonds
+      :type: None
+
+
+      Expose no bond network, since a float-owning value has none; converting a structure drops it.
+
+      :return: ``None``.
+
+
+   .. py:property:: molecular
+      :type: bool
+
+
+      Whether this structure describes a molecular unit cell.
+
+      :return: Whether molecular semantics are enabled.
+
+
+   .. py:property:: chemical_formula_descriptive
+      :type: str | None
+
+
+      The descriptive chemical formula.
+
+      :return: The formula, or ``None`` when it is unstated.
+
+
+   .. py:property:: chemical_formula_hill
+      :type: str | None
+
+
+      The Hill chemical formula.
+
+      :return: The formula, or ``None`` when it is unstated.
+
+
+   .. py:property:: optimization_type
+      :type: str | None
+
+
+      The optimization provenance.
+
+      :return: The optimization type, or ``None`` when it is unstated.
+
+
+   .. py:property:: immutable_id
+      :type: str | None
+
+
+      The immutable source identifier.
+
+      :return: The identifier, or ``None`` when it is unstated.
+
+
+   .. py:property:: last_modified
+      :type: datetime.datetime | None
+
+
+      The source modification timestamp.
+
+      :return: The timestamp, or ``None`` when it is unstated.
+
+
+   .. py:property:: type
+      :type: str
+
+
+      Expose the logical OPTIMADE entry family.
+
+      :return: ``"structures"``.
+
+
+   .. py:property:: id
+      :type: str
+
+
+      The content identity of this numeric structure.
+
+      Numeric and exact copies of a structure are different content with different ids.
+
+      :return: The content identifier.
+
+
+   .. py:property:: nsites
+      :type: int
+
+
+      The number of sites.
+
+      :return: The site count.
+
+
+   .. py:property:: elements
+      :type: tuple[str, ...]
+
+
+      The composition's element symbols.
+
+      :return: Element symbols in composition order.
+
+
+   .. py:property:: nelements
+      :type: int
+
+
+      The number of composition elements.
+
+      :return: The number of distinct elements.
+
+
+   .. py:property:: elements_ratios
+      :type: tuple[fractions.Fraction, ...]
+
+
+      The normalized composition element ratios.
+
+      :return: Element ratios in :attr:`elements` order.
+
+
+   .. py:property:: chemical_formula_reduced
+      :type: str | None
+
+
+      The reduced composition formula.
+
+      :return: The reduced formula, or ``None`` when unavailable.
+
+
+   .. py:property:: chemical_formula_anonymous
+      :type: str | None
+
+
+      The anonymous composition formula.
+
+      :return: The anonymous formula, or ``None`` when unavailable.
+
+
+   .. py:property:: structure_features
+      :type: tuple[str, ...]
+
+
+      The derived OPTIMADE structure-feature flags.
+
+      :return: Feature flags in canonical order.
+
+
+   .. py:property:: lattice_vectors
+      :type: list[list[float]]
+
+
+      The cell vectors as float rows.
+
+      :return: The three lattice vectors.
+
+
+   .. py:property:: fractional_site_positions
+      :type: list[list[float]]
+
+
+      The reduced site positions as float rows.
+
+      :return: Fractional positions in site order.
+
+
+   .. py:property:: cartesian_site_positions
+      :type: list[list[float]]
+
+
+      The Cartesian site positions as float rows.
+
+      :return: Cartesian positions in site order.
+
+

@@ -1,0 +1,33 @@
+httk.atomistic.symmetry.limits
+==============================
+
+.. py:module:: httk.atomistic.symmetry.limits
+
+.. autoapi-nested-parse::
+
+   Cooperative resource limits for explicit canonicalization and symmetry searches.
+
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.limits.CanonicalizationLimitError
+
+
+Module Contents
+---------------
+
+.. py:exception:: CanonicalizationLimitError
+
+   Bases: :py:obj:`RuntimeError`
+
+
+   Canonicalization could not finish within its requested resource limit.
+
+   No partially selected canonical representative is returned. Deadlines are
+   cooperative: a native call or a single arithmetic operation is not preempted.
+
+

@@ -1,0 +1,49 @@
+httk.atomistic.symmetry.comparison_cache
+========================================
+
+.. py:module:: httk.atomistic.symmetry.comparison_cache
+
+.. autoapi-nested-parse::
+
+   Bounded, identity-based preparation caches for approximate comparisons.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.comparison_cache.StructureComparisonCache
+
+
+Module Contents
+---------------
+
+.. py:class:: StructureComparisonCache(*, max_structures = 256, max_geometries = 1024, max_geometry_bytes = 16 * 1024 * 1024)
+
+   Cache reusable approximate-comparison preparation for one caller scope.
+
+   Entries are keyed by object identity and retain strong references to their source
+   objects.  This avoids relying on the unhashable exact structure models and prevents
+   object-id reuse while an entry is live.  The cache stores derived structures,
+   normalizer-image tuples and prepared NumPy orbit arrays. Cell-pair metrics remain
+   per-comparison data. Normalizer images have a separate capacity so preparing them
+   does not evict cached canonical structures.
+
+   :param max_structures: Maximum number of structure/template conversion and
+       canonicalization entries retained together, and independently the maximum
+       number of normalizer-image tuples retained.
+   :param max_geometries: Maximum number of NumPy Cartesian-orbit entries retained.
+   :param max_geometry_bytes: Maximum combined array payload in the geometry cache,
+       excluding Python objects and exact source structures. An oversized geometry
+       is used without caching or evicting other entries.
+   :raises ValueError: If any limit is not a positive integer.
+
+
+   .. py:method:: clear()
+
+      Discard all cached derived structures and geometry arrays.
+
+
+

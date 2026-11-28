@@ -1,0 +1,48 @@
+httk.atomistic.io.cif.cif_references
+====================================
+
+.. py:module:: httk.atomistic.io.cif.cif_references
+
+.. autoapi-nested-parse::
+
+   Extract the bibliographic references a CIF data block states as reference records.
+
+   The publication the block describes (the ``_journal_*``/``_publ_*`` items) and every row of the
+   ``citation`` category become :class:`httk.core.ReferenceRecord` objects. Text is kept as written,
+   except that CIF 1.1 special-character codes are decoded to Unicode and layout whitespace is
+   collapsed.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.io.cif.cif_references.cif_references
+
+
+Module Contents
+---------------
+
+.. py:function:: cif_references(block)
+
+   Return the bibliographic references a CIF data block states.
+
+   The publication the block describes (``_publ_section_title``, ``_publ_author_name`` and the
+   ``_journal_*`` items) comes first, then one reference per row of the ``citation`` category
+   (``_citation_*``, looped or single; single items join the only looped row, else the only
+   ``primary`` one, when its loop does not also state them), with the names of the ``_citation_author_*`` and
+   ``_citation_editor_*`` rows that state its ``_citation_id`` (id-less rows go with the only
+   id-less citation; other unmatched people form a reference of their own). Exact duplicates are returned
+   once. Values are kept as written, except that CIF 1.1 special-character codes (accents,
+   special letters, Greek letters, the degree sign; not in DOIs) are decoded to Unicode and runs of whitespace
+   become one space. A person name with exactly one comma also gives ``lastname, firstname``.
+   Items without a fitting field are dropped. A reference that would be empty or cannot be
+   represented is not returned; instead an INFO note (report context ``"cif"``) lists the data
+   stated for it.
+
+   :param block: The data block, for example a :class:`~httk.atomistic.CIFStructure`.
+   :return: The references, in order.
+
+

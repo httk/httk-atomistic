@@ -1,0 +1,115 @@
+httk.atomistic.models.trajectory.plain
+======================================
+
+.. py:module:: httk.atomistic.models.trajectory.plain
+
+.. autoapi-nested-parse::
+
+   Map OPTIMADE trajectory properties to a backend.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.trajectory.plain.PlainTrajectory
+
+
+Module Contents
+---------------
+
+.. py:class:: PlainTrajectory(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.trajectory.backend.TrajectoryBackend`
+
+
+   Represent a mapping whose structure properties have a frame axis.
+
+   A compact constant property is represented by a one-element leading axis,
+   e.g. ``nelements=[2]`` for any number of frames. Only properties declaring
+   ``constant`` on that axis accept this compact form.
+
+   :param obj: A trajectory property mapping.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:attribute:: kind
+      :type:  ClassVar[str]
+      :value: 'plain'
+
+
+
+   .. py:method:: frame(i)
+
+      Return one frame from the property mapping.
+
+      :param i: Frame index; negative indexes count from the end.
+      :return: The requested unit-cell structure.
+      :raises IndexError: If the frame index is out of range.
+      :raises KeyError: If a required trajectory property is absent.
+      :raises TypeError: If the frame index is not an integer.
+      :raises ValueError: If the frame cannot be represented as a structure.
+
+
+
+   .. py:method:: frames()
+
+      Iterate over all frames in source order.
+
+      :return: An iterator of unit-cell structures.
+
+
+
+   .. py:property:: nframes
+      :type: int
+
+
+      Return the number of frames.
+
+
+   .. py:property:: reference_frames
+      :type: tuple[int, ...] | None
+
+
+      Return normalized reference-frame indexes, or ``None``.
+
+
+   .. py:property:: species
+      :type: tuple[httk.atomistic.models.species.species.Species, ...]
+
+
+      Return the constant distinct species from the first frame.
+
+
+   .. py:property:: species_at_sites
+      :type: tuple[str, ...]
+
+
+      Return the constant species name at each site.
+
+
+   .. py:property:: observable_names
+      :type: tuple[str, ...]
+
+
+      Return names outside the recognized trajectory and structure properties.
+
+
+   .. py:method:: observable(name)
+
+      Return one mapped observable's values in frame order.
+
+      :param name: Observable property name.
+      :return: The observable values.
+      :raises KeyError: If the property is not an observable.
+
+
+
+   .. py:method:: unwrap()
+
+      Return the original property mapping.
+
+
+

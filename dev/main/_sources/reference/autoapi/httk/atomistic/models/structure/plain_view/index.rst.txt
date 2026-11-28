@@ -1,0 +1,54 @@
+httk.atomistic.models.structure.plain_view
+==========================================
+
+.. py:module:: httk.atomistic.models.structure.plain_view
+
+.. autoapi-nested-parse::
+
+   A view presenting any structure backend as an spglib-like (lattice, positions, numbers) triple.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.structure.plain_view.PlainStructureView
+
+
+Module Contents
+---------------
+
+.. py:class:: PlainStructureView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.structure.view.StructureView`, :py:obj:`tuple`
+
+
+   A view presenting an underlying structure backend as a primitive triple.
+
+   This view is a genuine ``(lattice, positions, numbers)`` tuple, built eagerly
+   and immutable. Because the primitive representation carries only bare atomic
+   numbers, every site's species must be a single, unattached chemical element
+   (see ``Species.is_single_element``); otherwise a TypeError is raised.
+
+   :param obj: The structure backend or source to present.
+   :param \*\*hints: Backend-selection hints passed to structure coercion.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw value wrapped by the backend.
+
+      :return: The original source value.
+
+
+
+   .. py:method:: unview()
+
+      Return this presentation as an ordinary primitive triple.
+
+      :return: The lattice, positions, and atomic numbers.
+
+
+

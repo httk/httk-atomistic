@@ -1,0 +1,59 @@
+httk.atomistic.models.bareprototype.derived
+===========================================
+
+.. py:module:: httk.atomistic.models.bareprototype.derived
+
+.. autoapi-nested-parse::
+
+   Anonymous projection of assigned bare classifications.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.bareprototype.derived.DerivedBarePrototype
+
+
+Module Contents
+---------------
+
+.. py:class:: DerivedBarePrototype(obj)
+
+   Bases: :py:obj:`httk.atomistic.models.bareprototype.backend.BarePrototypeBackend`
+
+
+   Retain an assigned source while exposing anonymous occupations.
+
+   :param obj: Assigned classification source.
+
+
+   .. py:attribute:: kind
+      :value: 'bare_prototype'
+
+
+
+   .. py:method:: resolve()
+
+      Return the standalone anonymous classification.
+
+
+
+   .. py:property:: spacegroup
+
+      Return the standard-setting space group.
+
+
+   .. py:property:: occupations
+
+      Return canonical anonymous occupations.
+
+
+   .. py:method:: unwrap()
+
+      Return the retained assigned source.
+
+
+

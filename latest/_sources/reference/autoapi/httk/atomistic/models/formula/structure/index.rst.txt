@@ -1,0 +1,88 @@
+httk.atomistic.models.formula.structure
+=======================================
+
+.. py:module:: httk.atomistic.models.formula.structure
+
+.. autoapi-nested-parse::
+
+   Backend projecting a structure into its elemental composition.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.formula.structure.StructureComposition
+
+
+Module Contents
+---------------
+
+.. py:class:: StructureComposition(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.formula.backend.ChemicalFormulaBackend`
+
+
+   Project a structure only when composition data is accessed.
+
+   :param obj: The structure to adapt.
+   :param \*\*hints: Backend-selection hints.
+
+
+   .. py:property:: amounts
+      :type: tuple[tuple[str, fractions.Fraction], ...]
+
+
+      Return the projected elemental amounts.
+
+
+   .. py:property:: uncertainties
+      :type: tuple[tuple[str, fractions.Fraction | None], ...]
+
+
+      Return the projected amount precisions.
+
+
+   .. py:property:: complete
+      :type: bool
+
+
+      Return whether all represented elemental material is known.
+
+
+   .. py:property:: exact
+      :type: bool
+
+
+      Return whether the projected amounts are exact.
+
+
+   .. py:property:: normalized
+      :type: bool
+
+
+      Return whether the projected composition is normalized.
+
+
+   .. py:property:: normalization_status
+      :type: str
+
+
+      Return the projected composition's normalization status.
+
+
+   .. py:property:: diagnostics
+      :type: tuple[httk.atomistic.models.formula.diagnostics.CompositionDiagnostic, ...]
+
+
+      Return diagnostics produced during projection.
+
+
+   .. py:method:: unwrap()
+
+      Return the original structure.
+
+
+

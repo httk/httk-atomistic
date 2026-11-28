@@ -1,0 +1,30 @@
+httk.atomistic.models.moments.view_base
+=======================================
+
+.. py:module:: httk.atomistic.models.moments.view_base
+
+.. autoapi-nested-parse::
+
+   The abstract base class for all site-moments views.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.moments.view_base.SiteMomentsViewBase
+
+
+Module Contents
+---------------
+
+.. py:class:: SiteMomentsViewBase
+
+   Bases: :py:obj:`httk.core.View`\ [\ :py:obj:`httk.atomistic.models.moments.backend.SiteMomentsBackend`\ ]
+
+
+   Abstract base class for all views of site-moments data.
+
+

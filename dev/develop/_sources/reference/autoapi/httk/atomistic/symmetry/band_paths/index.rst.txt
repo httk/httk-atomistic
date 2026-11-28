@@ -1,0 +1,115 @@
+httk.atomistic.symmetry.band_paths
+==================================
+
+.. py:module:: httk.atomistic.symmetry.band_paths
+
+.. autoapi-nested-parse::
+
+   Exact band-structure k-paths in the HPKOT convention.
+
+   The convention is that of Hinuma, Pizzi, Kumagai, Oba and Tanaka, "Band structure diagram
+   paths based on crystallography", Comput. Mater. Sci. 128, 140 (2017), as implemented by
+   SeeK-path 2.2.2, whose tables are vendored in ``_band_path_data``. The path is chosen
+   from the IT standard conventional cell after the lattice choices that the ITA symbol leaves
+   free (orthorhombic axis order, the monoclinic reduced cell, the triclinic reduced reciprocal
+   cell), and every selection rule and k-point coordinate is evaluated exactly from the rational
+   metric tensor.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.band_paths.BandPathResult
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.symmetry.band_paths.band_path
+
+
+Module Contents
+---------------
+
+.. py:class:: BandPathResult
+
+   Store a recommended band-structure path in the HPKOT convention.
+
+   ``points`` are fractional coordinates in the reciprocal basis of ``structure`` (the
+   HPKOT primitive cell), keyed by SeeK-path's ASCII labels (``GAMMA``, ``X_1``, primes as
+   ``X'``) in table order. ``path`` lists the segments in order. ``transform`` is the integer
+   row-convention matrix with ``basis(structure) = transform * basis(primitive)``, where
+   ``primitive`` is :func:`~httk.atomistic.primitive_cell` of the input; its determinant is +1,
+   or -1 when the conventional basis was left-handed (the result basis is always right-handed).
+
+   :param structure: The HPKOT primitive cell the coordinates refer to.
+   :param spacegroup: The IT standard setting of the crystal's space group.
+   :param bravais_lattice: The Bravais lattice symbol, such as ``"cF"``.
+   :param bravais_lattice_extended: The extended HPKOT symbol, such as ``"cF2"``.
+   :param points: A read-only mapping from label to exact fractional reciprocal coordinates.
+   :param path: The ordered ``(start, end)`` label segments.
+   :param transform: The integer row-convention basis change from the primitive cell.
+
+
+   .. py:attribute:: structure
+      :type:  httk.atomistic.models.structure.unitcell.UnitcellStructure
+
+
+   .. py:attribute:: spacegroup
+      :type:  httk.atomistic.symmetry.spacegroup.Spacegroup
+
+
+   .. py:attribute:: bravais_lattice
+      :type:  str
+
+
+   .. py:attribute:: bravais_lattice_extended
+      :type:  str
+
+
+   .. py:attribute:: points
+      :type:  collections.abc.Mapping[str, httk.core.FracVector]
+
+
+   .. py:attribute:: path
+      :type:  tuple[tuple[str, str], ...]
+
+
+   .. py:attribute:: transform
+      :type:  httk.core.FracVector
+
+
+.. py:function:: band_path(structure, *, time_reversal = True, tolerance = None, limit_denominator = None)
+
+   Return the HPKOT band-structure path of a crystal, with exact k-point coordinates.
+
+   The space group is the one the structure holds: the declared group of an existing ASU
+   (used as stored, without spglib), or the recognized group of a raw structure. The input is
+   brought to its IT standard conventional cell by :func:`~httk.atomistic.primitive_cell`; the
+   lattice choices the setting leaves free are then made as SeeK-path does (orthorhombic axes
+   ordered by length among symmetry-allowed permutations, the monoclinic Parthé–Gelato reduced
+   cell, the triclinic Niggli-reduced reciprocal cell), and the extended Bravais symbol,
+   parameters and points are evaluated exactly from the rational metric. Exact extended-symbol
+   ties are resolved as SeeK-path resolves them; equal-length axis-order ties and near ties within
+   spglib's tolerance may give an equivalent, differently oriented cell.
+
+   With ``time_reversal=False`` and a group without inversion, every non-``GAMMA`` point
+   ``X`` gains a partner ``X'`` at ``-X`` and the path is repeated with primed endpoints.
+
+   :param structure: The fully periodic crystal.
+   :param time_reversal: Whether time-reversal symmetry relates ``k`` and ``-k``.
+   :param tolerance: The Cartesian recognition tolerance, or ``None`` to derive it.
+   :param limit_denominator: The maximum denominator for idealised free parameters, or
+       ``None`` to retain their exact stated values.
+   :return: The HPKOT primitive cell, symbols, points and path.
+   :raises ImportError: If recognition is needed and the optional spglib dependency is
+       unavailable.
+   :raises ValueError: If the structure has site moments, its conventional metric is not
+       rational, or :func:`~httk.atomistic.primitive_cell` refuses it.
+
+

@@ -1,0 +1,73 @@
+httk.atomistic.entries.counts
+=============================
+
+.. py:module:: httk.atomistic.entries.counts
+
+.. autoapi-nested-parse::
+
+   Serving the atom and formula-unit reference counts of an ordered structure.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.counts.COUNT_PROPERTY_KEYS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.atomistic.entries.counts.count_definitions
+   httk.atomistic.entries.counts.is_ordered
+   httk.atomistic.entries.counts.formula_unit_counts
+   httk.atomistic.entries.counts.count_properties
+
+
+Module Contents
+---------------
+
+.. py:data:: COUNT_PROPERTY_KEYS
+   :type:  dict[str, str]
+
+.. py:function:: count_definitions()
+
+   Load the core atom and formula-unit count definitions.
+
+   :return: The definitions keyed by their served names.
+
+
+.. py:function:: is_ordered(structure_features, species)
+
+   Decide whether every site holds exactly one fully occupied chemical species.
+
+   Attached atoms count as unordered: they are atoms without a site of their own. Unknown
+   features or species (a remote document omitting them) do not establish order.
+
+   :param structure_features: The structure's OPTIMADE feature flags, or ``None`` if unknown.
+   :param species: The structure's species; without ``implicit_atoms`` all of them are used.
+   :return: Whether the structure is ordered.
+
+
+.. py:function:: formula_unit_counts(natoms, chemical_formula_reduced)
+
+   Relate a full-cell atom count to one formula unit of the reduced formula.
+
+   :param natoms: The full-cell atom count, or ``None`` when it is unavailable.
+   :param chemical_formula_reduced: The served reduced formula, or ``None``.
+   :return: ``_httk_natoms`` and ``_httk_nformula_units``; the latter is ``None`` when the
+       count does not divide exactly (a declared composition that contradicts the sites).
+
+
+.. py:function:: count_properties(structure)
+
+   Project the reference counts of a structure.
+
+   :param structure: The structure to project, or ``None`` for an empty entry.
+   :return: ``_httk_natoms`` and ``_httk_nformula_units``, null unless the structure is ordered.
+
+

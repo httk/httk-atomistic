@@ -1,0 +1,52 @@
+httk.atomistic.models.cell.plain_view
+=====================================
+
+.. py:module:: httk.atomistic.models.cell.plain_view
+
+.. autoapi-nested-parse::
+
+   A view presenting any cell backend as a raw 3-row tuple of cell vectors.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.atomistic.models.cell.plain_view.PlainCellView
+
+
+Module Contents
+---------------
+
+.. py:class:: PlainCellView(obj, **hints)
+
+   Bases: :py:obj:`httk.atomistic.models.cell.view_base.CellViewBase`, :py:obj:`tuple`
+
+
+   A view presenting an underlying cell backend as the raw 3x3 basis matrix of floats.
+
+   This view is a genuine tuple of three cell-vector rows (the scaled lattice vectors rendered to
+   floats from the exact ``basis``), built eagerly and immutable.
+
+   :param obj: The cell-like object to present.
+   :param \**hints: Backend-selection hints.
+
+
+   .. py:method:: unwrap()
+
+      Return the raw object behind the backend.
+
+      :return: The unwrapped source object.
+
+
+
+   .. py:method:: unview()
+
+      Return the presented basis as a plain tuple.
+
+      :return: The three cell-vector rows.
+
+
+
